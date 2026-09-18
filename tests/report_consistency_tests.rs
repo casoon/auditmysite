@@ -119,6 +119,7 @@ fn make_html_conform() -> auditmysite::html_conform::HtmlConformAnalysis {
         error_count: 0,
         warning_count: 1,
         info_count: 0,
+        distinct_defect_count: 1,
         findings: vec![],
         raw_html: None,
     }
@@ -656,17 +657,17 @@ fn test_module_weights_correct() {
         let expected_weight = match m.name.as_str() {
             "Accessibility" => 40,
             "Performance" => 20,
-            "SEO" => 20,
+            // SEO gave up 5 points to HTML Conformance when that module
+            // rejoined the overall score (2026-09-16): the two answer the same
+            // question, whether a crawler can parse the document reliably.
+            "SEO" => 15,
+            "HTML Conformance" => 5,
             "Security" => 10,
             "Mobile" => 10,
             // Indicator modules do not contribute to the overall score, so their
-            // displayed weight is 0 (#447). HTML Conformance joined this list
-            // (not scored) because html-conform's vendored schema currently
-            // flags standard Open-Graph `<meta property="og:...">` tags as
-            // errors, a false positive that would otherwise tank the score
-            // for nearly every real site — paused until fixed upstream.
+            // displayed weight is 0 (#447).
             "UX" | "Journey" | "Best Practices" | "Dark Mode" | "AI Visibility"
-            | "Source Quality" | "Tech Stack" | "HTML Conformance" => 0,
+            | "Source Quality" | "Tech Stack" => 0,
             _ => panic!("Unknown module: {}", m.name),
         };
         assert_eq!(
@@ -1300,8 +1301,15 @@ fn test_contributes_to_overall_flags_correct() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    let core = ["Accessibility", "Performance", "SEO", "Security", "Mobile"];
-    let supplemental = ["UX", "Journey", "HTML Conformance"];
+    let core = [
+        "Accessibility",
+        "Performance",
+        "SEO",
+        "Security",
+        "Mobile",
+        "HTML Conformance",
+    ];
+    let supplemental = ["UX", "Journey"];
 
     for m in &normalized.normalized.module_scores {
         if core.contains(&m.name.as_str()) {
@@ -1318,12 +1326,11 @@ fn test_contributes_to_overall_flags_correct() {
             );
         }
         match m.name.as_str() {
-            // HTML Conformance is score-neutral (contributes_to_overall=false,
-            // see above) due to a known upstream false-positive gap; its
-            // measurement_type must not claim "measured" (the same taxonomy
-            // value as hard compliance numbers) while being paused from the
-            // score for being unreliable (2026-09-01, report-quality review).
-            "UX" | "Journey" | "HTML Conformance" => {
+            // HTML Conformance reports "measured", not "heuristic": schema
+            // conformance is a checkable property of the document, and the
+            // upstream false-positive gap that had it paused from the score
+            // was closed in html-conform 0.2.1 (2026-09-16).
+            "UX" | "Journey" => {
                 assert_eq!(m.measurement_type, "heuristic")
             }
             _ => assert_eq!(m.measurement_type, "measured"),

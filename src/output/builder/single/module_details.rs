@@ -122,7 +122,9 @@ fn build_performance_details(
             ));
         }
 
-        // Resource/DOM metrics with an established best-practice threshold —
+        // Resource/DOM metrics with an established best-practice threshold.
+        // Labelled "guideline/Richtwert", never "target": these are widely
+        // cited heuristics, not a standard the page is measured against —
         // rated the same way the Core Web Vitals are ("good"/"needs-
         // improvement"/"poor"), instead of sitting as plain, unrated text
         // indistinguishable from benign values. Thresholds: DOM node count
@@ -136,9 +138,9 @@ fn build_performance_details(
                 localized_integer(nodes, en),
                 rate_threshold(nodes as f64, 800.0, 1500.0).to_string(),
                 if en {
-                    "Target: max. 800"
+                    "Guideline: max. 800"
                 } else {
-                    "Ziel: max. 800"
+                    "Richtwert: max. 800"
                 }
                 .to_string(),
             ));
@@ -149,9 +151,9 @@ fn build_performance_details(
                 format!("{} s", localized_decimal(load / 1000.0, 1, en)),
                 rate_threshold(load, 3000.0, 6000.0).to_string(),
                 if en {
-                    "Target: max. 3.0 s"
+                    "Guideline: max. 3.0 s"
                 } else {
-                    "Ziel: max. 3,0 s"
+                    "Richtwert: max. 3,0 s"
                 }
                 .to_string(),
             ));
@@ -167,9 +169,9 @@ fn build_performance_details(
                 format!("{} s", localized_decimal(dcl / 1000.0, 1, en)),
                 rate_threshold(dcl, 1800.0, 3600.0).to_string(),
                 if en {
-                    "Target: max. 1.8 s"
+                    "Guideline: max. 1.8 s"
                 } else {
-                    "Ziel: max. 1,8 s"
+                    "Richtwert: max. 1,8 s"
                 }
                 .to_string(),
             ));
@@ -1596,14 +1598,10 @@ fn build_security_details(
                         i.header,
                         security_issue_kind_label(locale, &i.issue_type)
                     );
-                    let message = crate::security::coop_corp_verification_text(
-                        &i.header,
-                        &i.issue_type,
-                        locale == "en",
-                    )
-                    .map(str::to_string)
-                    .unwrap_or_else(|| i.message.clone());
-                    (title, i.severity, message)
+                    // The stored message is canonical English (#406); the
+                    // wording for this report's language is re-derived from
+                    // the finding's kind and raw values.
+                    (title, i.severity, i.localized_message(locale == "en"))
                 })
                 .collect(),
             recommendations: derive_security_recommendations(i18n, sec),
@@ -1692,6 +1690,26 @@ fn build_html_conform_details(
             "warning" => i18n.t("severity-warning"),
             _ => i18n.t("severity-info"),
         };
+        let rows = distinct_html_conform_rows(&hc.findings, &severity_label);
+        let error_label = i18n.t("severity-error");
+        let warning_label = i18n.t("severity-warning");
+        let severity_rank = |label: &str| -> u8 {
+            if label == error_label {
+                0
+            } else if label == warning_label {
+                1
+            } else {
+                2
+            }
+        };
+        let mut ranked: Vec<&(String, String, String, String, u32)> = rows.iter().collect();
+        ranked.sort_by(|a, b| {
+            severity_rank(&a.1)
+                .cmp(&severity_rank(&b.1))
+                .then(b.4.cmp(&a.4))
+        });
+        let recommendations = ranked.into_iter().take(4).map(|r| r.2.clone()).collect();
+
         HtmlConformPresentation {
             score,
             checked: hc.checked,
@@ -1700,7 +1718,8 @@ fn build_html_conform_details(
             warning_count: hc.warning_count,
             info_count: hc.info_count,
             distinct_defect_count: hc.distinct_defect_count,
-            findings: distinct_html_conform_rows(&hc.findings, &severity_label),
+            findings: rows,
+            recommendations,
         }
     })
 }
@@ -1965,7 +1984,15 @@ fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<Mo
             issues: m
                 .issues
                 .iter()
-                .map(|i| (i.category.clone(), i.severity, i.message.clone()))
+                // The stored message is canonical English (#406); the wording
+                // for this report's language is re-derived from kind + values.
+                .map(|i| {
+                    (
+                        i.category.clone(),
+                        i.severity,
+                        i.localized_message(locale == "en"),
+                    )
+                })
                 .collect(),
         }
     })
@@ -2439,4 +2466,120 @@ pub(super) fn normalized_module_grade(
         .iter()
         .find(|m| m.name == module_name)
         .map(|m| m.grade.clone())
+}
+
+#[cfg(test)]
+mod html_conform_recommendations_tests {
+    use super::*;
+    use crate::cli::WcagLevel;
+    use crate::html_conform::{HtmlConformAnalysis, HtmlConformFinding};
+    use crate::wcag::WcagResults;
+
+    fn finding(rule_id: &str, severity: &str, message: &str) -> HtmlConformFinding {
+        HtmlConformFinding {
+            rule_id: rule_id.to_string(),
+            severity: severity.to_string(),
+            message: message.to_string(),
+            location: None,
+            byte_offset: None,
+        }
+    }
+
+    #[test]
+    fn recommendations_rank_errors_before_warnings_and_by_occurrence() {
+        // plan/31-html-conform-missing-fix-guidance.md: the HTML Conformance
+        // module must get a "Verbesserungsvorschläge" list like every other
+        // risk-driver module — built from its own distinct-defect messages,
+        // errors first, then by occurrence count, capped at 4.
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.html_conform = Some(HtmlConformAnalysis {
+            score: 64,
+            checked: true,
+            error_count: 3,
+            warning_count: 1,
+            info_count: 0,
+            distinct_defect_count: 3,
+            findings: vec![
+                finding(
+                    "assertion.headings.no-top-level",
+                    "warning",
+                    "This document has heading elements but none of them has a computed heading level",
+                ),
+                finding(
+                    "assertion.elements.script-module-defer",
+                    "error",
+                    "A script element with type module must not have a defer attribute",
+                ),
+                finding(
+                    "assertion.elements.script-module-defer",
+                    "error",
+                    "A script element with type module must not have a defer attribute",
+                ),
+                finding(
+                    "assertion.elements.link-as-missing-rel",
+                    "error",
+                    "A link element with an as attribute must have a rel attribute",
+                ),
+            ],
+            raw_html: None,
+        });
+
+        let ctx = crate::audit::normalized::normalize(&report);
+        let i18n = crate::i18n::I18n::new("de").unwrap();
+        let presentation = build_html_conform_details(&ctx, &i18n)
+            .expect("html_conform data must produce a presentation");
+
+        assert_eq!(
+            presentation.recommendations[0],
+            "A script element with type module must not have a defer attribute",
+            "the error with the most occurrences must rank first"
+        );
+        assert!(
+            presentation.recommendations.contains(
+                &"A link element with an as attribute must have a rel attribute".to_string()
+            ),
+            "the other distinct error must be included"
+        );
+        let warning_pos = presentation
+            .recommendations
+            .iter()
+            .position(|r| r.contains("computed heading level"))
+            .expect("the warning must still be included when under the cap of 4");
+        assert!(
+            warning_pos > 0,
+            "the warning must rank after the errors, got position {warning_pos}"
+        );
+    }
+
+    #[test]
+    fn recommendations_empty_when_no_findings() {
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.html_conform = Some(HtmlConformAnalysis {
+            score: 100,
+            checked: true,
+            error_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 0,
+            findings: vec![],
+            raw_html: None,
+        });
+
+        let ctx = crate::audit::normalized::normalize(&report);
+        let i18n = crate::i18n::I18n::new("de").unwrap();
+        let presentation = build_html_conform_details(&ctx, &i18n)
+            .expect("html_conform data must produce a presentation");
+
+        assert!(presentation.recommendations.is_empty());
+    }
 }

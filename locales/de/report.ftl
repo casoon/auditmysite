@@ -77,7 +77,7 @@ scope-box-audit-notes = Audit-Hinweise
 
 # Cover & narrative
 narrative-cover-eyebrow = Automatisierter Audit-Report
-narrative-cover-kicker = Technischer Website-Check mit Fokus auf Accessibility, SEO und Performance
+narrative-cover-kicker = Technischer Website-Check
 narrative-status-title = Status der Website
 narrative-metrics-title = Executive Snapshot
 narrative-key-points-title = Kernaussagen
@@ -101,10 +101,10 @@ narrative-findings-intro-solid = Tragfähige Basis — die folgenden Punkte sind
 narrative-findings-intro-default = Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt.
 
 # Verdict (single audit)
-verdict-tier-excellent = { $url } erreicht { $score }/100 im Accessibility-Audit. Die verbleibenden Findings sind letzte Optimierungshebel — kein strukturelles Problem, sondern Feinschliff.
-verdict-tier-solid = { $url } erreicht { $score }/100 im Accessibility-Audit. Die Grundlage ist stabil — klarer Verbesserungshebel mit überschaubarem Aufwand.
-verdict-tier-deficient = { $url } erreicht { $score }/100 im Accessibility-Audit. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
-verdict-tier-critical = { $url } erreicht nur { $score }/100 im Accessibility-Audit. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
+verdict-tier-excellent = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang — kein strukturelles Problem. Verbleibende Befunde sind Feinschliff; eine manuelle Prüfung ersetzt dieser Wert nicht.
+verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil — klarer Verbesserungshebel mit überschaubarem Aufwand.
+verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
+verdict-tier-critical = { $url } erreicht nur { $score }/100 im automatisierten Accessibility-Prüfumfang. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen.
 score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Verstöße gefunden. Kontextabhängige WCAG-Kriterien benötigen weiterhin manuelle Prüfung.
 
@@ -314,7 +314,7 @@ label-optional-feature = Optionales Merkmal
 perf-score-card = Performance Score
 perf-technical-indicators = Begleitende Messwerte
 perf-lab-data-note = Lab-Daten
-perf-lab-data-body = Die zentralen Core Web Vitals (LCP, CLS, TBT) werden lokal in Headless-Chrome unter einer realen Slow-4G-Drosselung gemessen (CDP: 1,6 Mbps, 150 ms Latenz, vierfache CPU-Drosselung). Diese Werte können von Google PageSpeed / Lighthouse abweichen: PageSpeed misst ungedrosselt und simuliert die Drosselung rechnerisch (Lantern-Modell), während wir real drosseln — die reale Messung fällt häufig optimistischer aus, besonders beim LCP. Maßgeblich für die tatsächliche Nutzererfahrung sind allein Felddaten (CrUX/Real-User-Monitoring); die Tabelle „Performance unter gedrosselten Bedingungen" weiter unten zeigt die Bandbreite über mehrere Netzprofile. Mit „Lab-Schätzung" markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
+perf-lab-data-body = LCP, CLS und TBT werden lokal in Headless-Chrome unter einer realen Slow-4G-Drosselung gemessen (CDP: 1,6 Mbps, 150 ms Latenz, vierfache CPU-Drosselung). Diese Werte können von Google PageSpeed / Lighthouse abweichen: PageSpeed misst ungedrosselt und simuliert die Drosselung rechnerisch (Lantern-Modell), während wir real drosseln — die reale Messung fällt häufig optimistischer aus, besonders beim LCP. Maßgeblich für die tatsächliche Nutzererfahrung sind allein Felddaten (CrUX/Real-User-Monitoring); die Tabelle „Performance unter gedrosselten Bedingungen" weiter unten zeigt die Bandbreite über mehrere Netzprofile. Von diesen Kennzahlen sind LCP und CLS Core Web Vitals; TBT ist eine reine Lab-Metrik und dient hier als Näherung für Interaktivitätsprobleme, weil das dritte Core Web Vital (INP) ohne Nutzereingaben nicht messbar ist. Mit „Lab-Schätzung" markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
 perf-render-blocking-analysis = Render-Blocking Analyse
 perf-measurement-warnings-title = Messtechnische Einschränkungen
 perf-warning-lcp-missing = LCP nicht erfasst: Der PerformanceObserver hat keinen LCP-Eintrag geliefert (typisch bei starker Netzwerkdrosselung) — LCP-Score fehlt in der Bewertung.

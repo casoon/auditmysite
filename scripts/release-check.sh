@@ -65,4 +65,34 @@ if ! rg -q -- '--url-file' README.md; then
   exit 1
 fi
 
+# plan/26-documentation-consistency.md: the crate/CLI-level product
+# description used to flatly say "WCAG 2.1 Accessibility Checker" (no AA/2.2
+# qualifier) in several places while README.md already individually tags
+# specific WCAG 2.2 rules (2.4.11/2.4.12, 3.3.7, 2.5.8) — catches any of
+# those spots regressing back to the unqualified phrase.
+if rg -n -P --glob 'src/**/*.rs' --glob 'Cargo.toml' --glob 'CLAUDE.md' \
+     'WCAG 2\.1 (Accessibility Checker|accessibility checker)(?! AA)' \
+     >/tmp/auditmysite-release-check-wcag-baseline.txt; then
+  echo "Found an unqualified \"WCAG 2.1 Accessibility Checker\" claim (missing the AA/2.2 qualifier):"
+  cat /tmp/auditmysite-release-check-wcag-baseline.txt
+  exit 1
+fi
+
+# The HTML5-conformance module contributes to the overall score
+# (`contributes_to_overall: true`, `weight_pct: 5` in
+# `audit::normalized::build_module_scores`) since the per-distinct-defect
+# scoring fix (2026-09-16) — README must not still call it score-neutral.
+if rg -n 'HTML5 conformance' README.md | rg -q 'score-neutral'; then
+  echo "README still calls HTML5 conformance score-neutral, but it contributes to the overall score"
+  exit 1
+fi
+
+# src/lib.rs's module overview must list the real output formatters, not a
+# never-shipped HTML export.
+if rg -n 'Report formatters.*HTML\b' src/lib.rs >/tmp/auditmysite-release-check-html-format.txt; then
+  echo "src/lib.rs still lists HTML as an output formatter — no HTML export exists"
+  cat /tmp/auditmysite-release-check-html-format.txt
+  exit 1
+fi
+
 echo "release-check: complete"

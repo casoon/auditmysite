@@ -51,6 +51,55 @@ fn test_readme_documents_curl_installer() {
 }
 
 #[test]
+fn test_release_build_requires_quality_gates_to_pass_first() {
+    // plan/25-release-workflow-quality-gate.md: a `v*` tag must not be able
+    // to produce release binaries without the same commit having passed
+    // fmt/clippy/tests/dependency-audit first. Text-based, not a real YAML
+    // parse (matches this file's existing style) — but specific enough that
+    // reverting the `build` job's `needs:` back to `verify-version` alone,
+    // or removing the `quality-gates` job/its `uses:` of `ci.yml`, fails
+    // this test rather than silently reopening the gap.
+    let release_yml = read_repo_file(".github/workflows/release.yml");
+    let ci_yml = read_repo_file(".github/workflows/ci.yml");
+
+    assert!(
+        release_yml.contains("uses: ./.github/workflows/ci.yml"),
+        "release workflow must call the full CI workflow as its quality gate"
+    );
+    assert!(
+        ci_yml.contains("workflow_call:"),
+        "ci.yml must declare workflow_call so release.yml can call it"
+    );
+
+    let build_job = release_yml
+        .split("\n  build:")
+        .nth(1)
+        .expect("release workflow must have a top-level `build:` job");
+    // Only inspect this job's own body, not everything after it in the file.
+    let build_job_body = build_job.split("\n  release:").next().unwrap_or(build_job);
+    assert!(
+        build_job_body.contains("needs:") && build_job_body.contains("quality-gates"),
+        "the `build` job must depend on `quality-gates`, not just `verify-version`"
+    );
+}
+
+#[test]
+fn test_release_build_uses_locked_lockfile() {
+    // plan/25-release-workflow-quality-gate.md: release binaries must be
+    // built from the exact checked-in Cargo.lock, not a silently
+    // re-resolved one.
+    let release_yml = read_repo_file(".github/workflows/release.yml");
+    assert!(
+        release_yml.contains("cargo build --release --locked"),
+        "native release build must use --locked"
+    );
+    assert!(
+        release_yml.contains("cross build --release --locked"),
+        "cross-compiled release build must use --locked"
+    );
+}
+
+#[test]
 fn test_release_and_pre_push_use_shared_version_check() {
     let pre_push = read_repo_file("scripts/pre-push-check.sh");
     let release_yml = read_repo_file(".github/workflows/release.yml");

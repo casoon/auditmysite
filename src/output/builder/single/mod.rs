@@ -221,6 +221,22 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     let nodes_analyzed = normalized.normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
     let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
+    // Confirmed / warning / manual-check tally. Scores are derived from
+    // `confirmed_violations` alone (unchanged); the other two classes exist so
+    // no sentence in the report can claim "no findings" while other modules
+    // render findings a few pages later.
+    let evidence = crate::output::report_model::EvidenceClasses {
+        confirmed_violations: total_violations,
+        warnings: warning_count
+            + normalized.normalized.interactive_findings.len() as u32
+            + normalized
+                .normalized
+                .screen_reader
+                .as_ref()
+                .map(|sr| sr.issues.len() as u32)
+                .unwrap_or(0),
+        manual_checks: not_testable_count,
+    };
 
     let actions = build_actions_block(&i18n, &action_plan, score as f32, &audit_summary.site_state);
 
@@ -366,19 +382,19 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                     },
                 ]
                 .into_iter()
-                .chain(if warning_count > 0 {
+                .chain(if evidence.warnings > 0 {
                     Some(MetricItem {
                         title: label_warnings,
-                        value: warning_count.to_string(),
+                        value: evidence.warnings.to_string(),
                         accent_color: Some("#f97316".into()),
                     })
                 } else {
                     None
                 })
-                .chain(if not_testable_count > 0 {
+                .chain(if evidence.manual_checks > 0 {
                     Some(MetricItem {
                         title: label_not_testable,
-                        value: not_testable_count.to_string(),
+                        value: evidence.manual_checks.to_string(),
                         accent_color: Some("#6b7280".into()),
                     })
                 } else {
@@ -418,6 +434,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             let by_tier = build_criticality_groups(&config.locale, &sorted_groups);
             FindingsBlock {
                 summary: finding_summary,
+                evidence,
                 clusters,
                 top_findings,
                 by_severity,

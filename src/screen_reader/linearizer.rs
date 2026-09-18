@@ -6,8 +6,9 @@ use super::types::{IgnoredReadingNode, ReadingItem};
 
 /// Build the default screen reader reading order from an AXTree.
 ///
-/// Ignored nodes are traversed for their visible descendants, but are not
-/// emitted as reading items.
+/// Ignored nodes and layout-only nodes (see [`is_layout_only_role`]) are
+/// traversed for their visible descendants, but are not emitted as reading
+/// items.
 pub fn linearize(tree: &AXTree) -> Vec<ReadingItem> {
     linearize_with_ignored(tree).items
 }
@@ -48,6 +49,9 @@ fn visit_node(
     let child_depth = if node.ignored {
         order.ignored.push(ignored_node(node, depth));
         depth
+    } else if is_layout_only_role(node.role.as_deref()) {
+        // Layout-only node: traversed for descendants, never emitted.
+        depth
     } else {
         order
             .items
@@ -58,6 +62,22 @@ fn visit_node(
     for child_id in &node.child_ids {
         visit_node(tree, child_id, child_depth, visited, order);
     }
+}
+
+/// Blink layout artifacts that Chrome exposes in the AXTree but never hands to
+/// an assistive technology. `InlineTextBox` nodes are the per-line fragments a
+/// `StaticText` is broken into by line wrapping — the same text a second (and
+/// third, and fourth) time, once per rendered line. They exist so the AX API can
+/// answer character-level bounds queries (caret, text selection), not so anything
+/// announces them.
+///
+/// Emitting them inflated every count derived from the reading order. Confirmed
+/// live on www.sachsen-anhalt.de (2026-09-17): 67 of 237 reading items were
+/// `InlineTextBox`, and all four "long section without a landmark, heading or
+/// focus target" findings on that page were produced purely by line wrapping —
+/// the worst segment reported 23 entries where a screen reader announces 4.
+fn is_layout_only_role(role: Option<&str>) -> bool {
+    matches!(role, Some("InlineTextBox"))
 }
 
 fn reading_item(node: &AXNode, seq: usize, depth: usize) -> ReadingItem {
@@ -214,6 +234,49 @@ mod tests {
         assert_eq!(order.ignored[0].node_id, "2");
         assert_eq!(order.ignored[0].depth, 1);
         assert_eq!(order.ignored[0].reasons, vec!["presentational=true"]);
+    }
+
+    #[test]
+    fn linearize_drops_inline_text_boxes_but_keeps_their_static_text() {
+        // Chrome splits a wrapped `StaticText` into one `InlineTextBox` per
+        // rendered line. Those are layout artifacts, never announcements, and
+        // emitting them inflated every count derived from the reading order.
+        let tree = AXTree::from_nodes(vec![
+            node("1", "WebArea", None, vec!["2"]),
+            node(
+                "2",
+                "StaticText",
+                Some("Ein langer Satz uber zwei Zeilen"),
+                vec!["3", "4"],
+            ),
+            node("3", "InlineTextBox", Some("Ein langer Satz"), vec![]),
+            node("4", "InlineTextBox", Some("uber zwei Zeilen"), vec![]),
+        ]);
+
+        let items = linearize(&tree);
+
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[1].role.as_deref(), Some("StaticText"));
+        assert!(items
+            .iter()
+            .all(|item| item.role.as_deref() != Some("InlineTextBox")));
+    }
+
+    #[test]
+    fn linearize_still_traverses_descendants_of_a_layout_node() {
+        // A layout node is skipped, not pruned -- anything below it must still
+        // reach the reading order, at the depth the layout node would have had.
+        let tree = AXTree::from_nodes(vec![
+            node("1", "WebArea", None, vec!["2"]),
+            node("2", "InlineTextBox", Some("Zeile"), vec!["3"]),
+            node("3", "link", Some("Weiterlesen"), vec![]),
+        ]);
+
+        let items = linearize(&tree);
+
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[1].node_id, "3");
+        assert_eq!(items[1].depth, 1);
     }
 
     #[test]

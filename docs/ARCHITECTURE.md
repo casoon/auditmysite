@@ -4,7 +4,7 @@ This document describes the current implementation. For older browser-design exp
 
 ## Overview
 
-auditmysite is a WCAG 2.1 accessibility checker written in Rust. It uses Chrome DevTools Protocol (CDP) to extract the browser's native Accessibility Tree and analyze it for violations.
+auditmysite is a WCAG 2.1 AA (plus select 2.2 criteria) accessibility checker written in Rust. It uses Chrome DevTools Protocol (CDP) to extract the browser's native Accessibility Tree and analyze it for violations.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

@@ -208,55 +208,6 @@ pub enum HeaderTier {
     NotAssessable,
 }
 
-/// Localized presentation text for the COOP/CORP context-verification
-/// messages introduced in #578 (#406 kind-enum pattern: `SecurityIssue.message`
-/// stays canonical English for JSON; the PDF layer derives the run-locale
-/// text via this function instead of rendering `.message` directly — those
-/// two messages became long explanatory paragraphs in #578, so leaving them
-/// unlocalized would leak substantial English prose into German reports).
-/// Returns `None` for any other `(header, issue_type)` pair — callers should
-/// fall back to `SecurityIssue.message` for those, matching this codebase's
-/// existing (documented, out-of-scope-to-fully-fix-here) behavior for the
-/// rest of the security issue catalog.
-pub fn coop_corp_verification_text(
-    header: &str,
-    issue_type: &str,
-    en: bool,
-) -> Option<&'static str> {
-    if issue_type != "missing_header" {
-        return None;
-    }
-    match header {
-        "Cross-Origin-Opener-Policy" => Some(if en {
-            "Cross-Origin-Opener-Policy is not set. This header only matters if the page uses \
-             SharedArrayBuffer, high-resolution timers, or needs to isolate itself from \
-             cross-origin popups — if none of that applies, no action is needed here. If it \
-             does apply, set it to same-origin and verify popup/window interactions still work \
-             as expected."
-        } else {
-            "Cross-Origin-Opener-Policy ist nicht gesetzt. Dieser Header ist nur relevant, wenn \
-             die Seite SharedArrayBuffer, hochauflösende Timer verwendet oder sich von \
-             Cross-Origin-Popups isolieren muss — trifft das nicht zu, ist hier keine Maßnahme \
-             nötig. Trifft es zu: auf same-origin setzen und prüfen, ob Popup-/Fenster-\
-             Interaktionen weiterhin wie erwartet funktionieren."
-        }),
-        "Cross-Origin-Resource-Policy" => Some(if en {
-            "Cross-Origin-Resource-Policy is not set. This header only matters if the page \
-             serves fonts, scripts, or media that other origins should be prevented from \
-             loading — if the site's resources are intentionally public, no action is needed \
-             here. If cross-origin loading should be restricted, set it to same-origin or \
-             same-site."
-        } else {
-            "Cross-Origin-Resource-Policy ist nicht gesetzt. Dieser Header ist nur relevant, \
-             wenn die Seite Schriften, Skripte oder Medien ausliefert, die andere Origins nicht \
-             laden können sollen — sind die Ressourcen bewusst öffentlich zugänglich, ist hier \
-             keine Maßnahme nötig. Soll das Laden von anderen Origins eingeschränkt werden: auf \
-             same-origin oder same-site setzen."
-        }),
-        _ => None,
-    }
-}
-
 /// Classifies a security header by how universally applicable it is (#578).
 /// Falls back to `Baseline` for anything outside the fixed table, which
 /// covers confirmed misconfigurations (e.g. CSP quality issues, public
@@ -285,12 +236,417 @@ pub fn header_tier(header: &str) -> HeaderTier {
 pub struct SecurityIssue {
     pub header: String,
     pub issue_type: String,
+    /// Canonical English, produced by [`security_issue_text`] (#406). The PDF
+    /// re-derives the localized wording from `kind()` plus `values`; this field
+    /// keeps the stored JSON language-neutral.
     pub message: String,
     pub severity: Severity,
     /// Classification tier for the underlying header (#578) — lets report
     /// consumers distinguish baseline hygiene from context-dependent
     /// findings without re-deriving it from `header`.
     pub tier: HeaderTier,
+    /// Raw values interpolated into the message, so the presentation layer can
+    /// rebuild the sentence in another language instead of parsing `message`.
+    #[serde(default, skip_serializing_if = "SecurityIssueValues::is_empty")]
+    pub values: SecurityIssueValues,
+}
+
+/// The canonical identity of a security finding — the single key
+/// [`security_issue_text`] renders from.
+///
+/// Derived from the already-stored `header`/`issue_type` pair rather than
+/// stored as a fourth field, so reports written by older builds (and cached
+/// artifacts) keep working unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityIssueKind {
+    MissingHttps,
+    MissingCsp,
+    MissingXContentTypeOptions,
+    MissingXFrameOptions,
+    MissingHsts,
+    MissingReferrerPolicy,
+    MissingPermissionsPolicy,
+    MissingCoop,
+    MissingCorp,
+    CorsWildcardCredentials,
+    HstsPreloadIneligible,
+    PermissionsPolicyPermissive,
+    PublicSourceMap,
+    CspUnsafeInlineScript,
+    CspUnsafeEvalScript,
+    CspWildcardScriptSource,
+    CspUnsafeInlineStyle,
+    CspWildcardSource,
+    /// `object-src`, `base-uri`, `frame-ancestors` — the directive name lives
+    /// in [`SecurityIssueValues::csp_directive`].
+    CspMissingDirective,
+}
+
+/// The CSP directives [`SecurityIssueKind::CspMissingDirective`] is raised for.
+pub const CSP_REQUIRED_DIRECTIVES: [&str; 3] = ["object-src", "base-uri", "frame-ancestors"];
+
+impl SecurityIssueKind {
+    /// Every kind this build can emit. Add new variants here — the
+    /// localization guard and the check inventory both iterate it.
+    pub const ALL: [SecurityIssueKind; 19] = [
+        SecurityIssueKind::MissingHttps,
+        SecurityIssueKind::MissingCsp,
+        SecurityIssueKind::MissingXContentTypeOptions,
+        SecurityIssueKind::MissingXFrameOptions,
+        SecurityIssueKind::MissingHsts,
+        SecurityIssueKind::MissingReferrerPolicy,
+        SecurityIssueKind::MissingPermissionsPolicy,
+        SecurityIssueKind::MissingCoop,
+        SecurityIssueKind::MissingCorp,
+        SecurityIssueKind::CorsWildcardCredentials,
+        SecurityIssueKind::HstsPreloadIneligible,
+        SecurityIssueKind::PermissionsPolicyPermissive,
+        SecurityIssueKind::PublicSourceMap,
+        SecurityIssueKind::CspUnsafeInlineScript,
+        SecurityIssueKind::CspUnsafeEvalScript,
+        SecurityIssueKind::CspWildcardScriptSource,
+        SecurityIssueKind::CspUnsafeInlineStyle,
+        SecurityIssueKind::CspWildcardSource,
+        SecurityIssueKind::CspMissingDirective,
+    ];
+
+    /// The response header a kind is reported against.
+    pub fn header(self) -> &'static str {
+        use SecurityIssueKind::*;
+        match self {
+            MissingHttps => "HTTPS",
+            MissingCsp
+            | CspUnsafeInlineScript
+            | CspUnsafeEvalScript
+            | CspWildcardScriptSource
+            | CspUnsafeInlineStyle
+            | CspWildcardSource
+            | CspMissingDirective => "Content-Security-Policy",
+            MissingXContentTypeOptions => "X-Content-Type-Options",
+            MissingXFrameOptions => "X-Frame-Options",
+            MissingHsts | HstsPreloadIneligible => "Strict-Transport-Security",
+            MissingReferrerPolicy => "Referrer-Policy",
+            MissingPermissionsPolicy | PermissionsPolicyPermissive => "Permissions-Policy",
+            MissingCoop => "Cross-Origin-Opener-Policy",
+            MissingCorp => "Cross-Origin-Resource-Policy",
+            CorsWildcardCredentials => "Access-Control-Allow-Origin",
+            PublicSourceMap => "Source Map",
+        }
+    }
+}
+
+/// Every `"{header}:{issue_type}"` id this build can emit — the canonical
+/// inventory the non-WCAG detection corpus is checked against (#558).
+///
+/// Derived from [`SecurityIssueKind::ALL`], so it cannot drift from the code
+/// the way the previous string-literal scan of this file could.
+pub fn all_security_check_ids() -> Vec<String> {
+    let mut ids = Vec::new();
+    for kind in SecurityIssueKind::ALL {
+        if kind == SecurityIssueKind::CspMissingDirective {
+            for directive in CSP_REQUIRED_DIRECTIVES {
+                let values = SecurityIssueValues {
+                    csp_directive: Some(directive.to_string()),
+                    ..Default::default()
+                };
+                ids.push(format!(
+                    "{}:{}",
+                    kind.header(),
+                    issue_type_for(kind, &values)
+                ));
+            }
+        } else {
+            ids.push(format!(
+                "{}:{}",
+                kind.header(),
+                issue_type_for(kind, &SecurityIssueValues::default())
+            ));
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+/// Values interpolated into a security message. Empty for the many findings
+/// whose sentence carries no numbers.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecurityIssueValues {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hsts_max_age: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hsts_include_subdomains: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_map_count: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_map_example: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csp_directive: Option<String>,
+}
+
+impl SecurityIssueValues {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+impl SecurityIssue {
+    /// `None` for an `(header, issue_type)` pair this build does not know —
+    /// callers then fall back to the stored canonical-English `message`.
+    pub fn kind(&self) -> Option<SecurityIssueKind> {
+        use SecurityIssueKind::*;
+        let kind = match self.issue_type.as_str() {
+            "missing_https" => MissingHttps,
+            "missing_header" => match self.header.as_str() {
+                "Content-Security-Policy" => MissingCsp,
+                "X-Content-Type-Options" => MissingXContentTypeOptions,
+                "X-Frame-Options" => MissingXFrameOptions,
+                "Strict-Transport-Security" => MissingHsts,
+                "Referrer-Policy" => MissingReferrerPolicy,
+                "Permissions-Policy" => MissingPermissionsPolicy,
+                "Cross-Origin-Opener-Policy" => MissingCoop,
+                "Cross-Origin-Resource-Policy" => MissingCorp,
+                _ => return None,
+            },
+            "cors_wildcard_credentials" => CorsWildcardCredentials,
+            "hsts_preload_ineligible" => HstsPreloadIneligible,
+            "permissions_policy_permissive" => PermissionsPolicyPermissive,
+            "public_source_map" => PublicSourceMap,
+            "unsafe_inline_script" => CspUnsafeInlineScript,
+            "unsafe_eval_script" => CspUnsafeEvalScript,
+            "wildcard_script_source" => CspWildcardScriptSource,
+            "unsafe_inline_style" => CspUnsafeInlineStyle,
+            "wildcard_source" => CspWildcardSource,
+            other if other.starts_with("missing_") => CspMissingDirective,
+            _ => return None,
+        };
+        Some(kind)
+    }
+
+    /// The finding's message in `locale`'s language. Falls back to the stored
+    /// canonical English for kinds this build does not recognize.
+    pub fn localized_message(&self, en: bool) -> String {
+        match self.kind() {
+            Some(kind) => security_issue_text(kind, &self.values, en),
+            None => self.message.clone(),
+        }
+    }
+}
+
+/// The only source of security-finding wording (#406). The analysis layer calls
+/// it with `en = true` to bake canonical English into the stored struct; the
+/// PDF calls it with the run language.
+pub fn security_issue_text(
+    kind: SecurityIssueKind,
+    values: &SecurityIssueValues,
+    en: bool,
+) -> String {
+    use SecurityIssueKind::*;
+    match kind {
+        MissingHttps => if en {
+            "Site is not served over HTTPS"
+        } else {
+            "Seite wird nicht über HTTPS ausgeliefert"
+        }
+        .to_string(),
+        MissingCsp => if en {
+            "Missing Content-Security-Policy header"
+        } else {
+            "Content-Security-Policy-Header fehlt"
+        }
+        .to_string(),
+        MissingXContentTypeOptions => if en {
+            "Missing X-Content-Type-Options header"
+        } else {
+            "X-Content-Type-Options-Header fehlt"
+        }
+        .to_string(),
+        MissingXFrameOptions => if en {
+            "Missing X-Frame-Options header (clickjacking protection)"
+        } else {
+            "X-Frame-Options-Header fehlt (Clickjacking-Schutz)"
+        }
+        .to_string(),
+        MissingHsts => if en {
+            "Missing HSTS header"
+        } else {
+            "HSTS-Header fehlt"
+        }
+        .to_string(),
+        MissingReferrerPolicy => if en {
+            "Missing Referrer-Policy header"
+        } else {
+            "Referrer-Policy-Header fehlt"
+        }
+        .to_string(),
+        MissingPermissionsPolicy => if en {
+            "Missing Permissions-Policy header"
+        } else {
+            "Permissions-Policy-Header fehlt"
+        }
+        .to_string(),
+        MissingCoop => if en {
+            "Cross-Origin-Opener-Policy is not set. This header only matters if the page uses \
+             SharedArrayBuffer, high-resolution timers, or needs to isolate itself from \
+             cross-origin popups — if none of that applies, no action is needed here. If it \
+             does apply, set it to same-origin and verify popup/window interactions still work \
+             as expected."
+        } else {
+            "Cross-Origin-Opener-Policy ist nicht gesetzt. Dieser Header ist nur relevant, wenn \
+             die Seite SharedArrayBuffer, hochauflösende Timer verwendet oder sich von \
+             Cross-Origin-Popups isolieren muss — trifft das nicht zu, ist hier keine Maßnahme \
+             nötig. Trifft es zu: auf same-origin setzen und prüfen, ob Popup-/Fenster-\
+             Interaktionen weiterhin wie erwartet funktionieren."
+        }
+        .to_string(),
+        MissingCorp => if en {
+            "Cross-Origin-Resource-Policy is not set. This header only matters if the page \
+             serves fonts, scripts, or media that other origins should be prevented from \
+             loading — if the site's resources are intentionally public, no action is needed \
+             here. If cross-origin loading should be restricted, set it to same-origin or \
+             same-site."
+        } else {
+            "Cross-Origin-Resource-Policy ist nicht gesetzt. Dieser Header ist nur relevant, \
+             wenn die Seite Schriften, Skripte oder Medien ausliefert, die andere Origins nicht \
+             laden können sollen — sind die Ressourcen bewusst öffentlich, ist hier keine \
+             Maßnahme nötig. Soll Cross-Origin-Laden eingeschränkt werden: auf same-origin oder \
+             same-site setzen."
+        }
+        .to_string(),
+        CorsWildcardCredentials => if en {
+            "CORS allows any origin while also allowing credentials"
+        } else {
+            "CORS erlaubt jede Origin und gleichzeitig Credentials"
+        }
+        .to_string(),
+        HstsPreloadIneligible => {
+            let max_age = values.hsts_max_age.as_deref().unwrap_or("unset");
+            let subdomains = values.hsts_include_subdomains.unwrap_or(false);
+            if en {
+                format!(
+                    "HSTS preload directive is set but requirements aren't met (max-age={max_age}, includeSubDomains={subdomains}) — the site won't qualify for the HSTS preload list"
+                )
+            } else {
+                format!(
+                    "HSTS-preload-Direktive ist gesetzt, die Voraussetzungen sind aber nicht erfüllt (max-age={max_age}, includeSubDomains={subdomains}) — die Seite wird nicht in die HSTS-Preload-Liste aufgenommen"
+                )
+            }
+        }
+        PermissionsPolicyPermissive => if en {
+            "Permissions-Policy header is present but doesn't restrict any feature (empty or wildcard-only)"
+        } else {
+            "Permissions-Policy-Header ist vorhanden, schränkt aber kein Feature ein (leer oder nur Wildcards)"
+        }
+        .to_string(),
+        PublicSourceMap => {
+            let count = values.source_map_count.unwrap_or(1);
+            let example = values
+                .source_map_example
+                .as_deref()
+                .map(|url| format!(" (e.g. {url})"))
+                .unwrap_or_default();
+            if en {
+                format!(
+                    "{count} publicly reachable source map{} found{example} — exposes original source, comments, and internal file paths",
+                    if count == 1 { "" } else { "s" }
+                )
+            } else {
+                let example = example.replace(" (e.g. ", " (z. B. ");
+                format!(
+                    "{count} öffentlich erreichbare Source-Map{} gefunden{example} — legt Originalquellcode, Kommentare und interne Dateipfade offen",
+                    if count == 1 { "" } else { "s" }
+                )
+            }
+        }
+        CspUnsafeInlineScript => if en {
+            "CSP allows unsafe-inline scripts without nonce/hash protection"
+        } else {
+            "CSP erlaubt unsafe-inline-Skripte ohne Nonce-/Hash-Absicherung"
+        }
+        .to_string(),
+        CspUnsafeEvalScript => if en {
+            "CSP allows unsafe-eval in script sources"
+        } else {
+            "CSP erlaubt unsafe-eval in den Skript-Quellen"
+        }
+        .to_string(),
+        CspWildcardScriptSource => if en {
+            "CSP allows wildcard script sources"
+        } else {
+            "CSP erlaubt Wildcard-Skriptquellen"
+        }
+        .to_string(),
+        CspUnsafeInlineStyle => if en {
+            "CSP allows unsafe-inline styles without nonce/hash protection"
+        } else {
+            "CSP erlaubt unsafe-inline-Styles ohne Nonce-/Hash-Absicherung"
+        }
+        .to_string(),
+        CspWildcardSource => if en {
+            "CSP contains wildcard source expressions"
+        } else {
+            "CSP enthält Wildcard-Quellausdrücke"
+        }
+        .to_string(),
+        CspMissingDirective => {
+            let directive = values.csp_directive.as_deref().unwrap_or("object-src");
+            if en {
+                format!("CSP missing {directive} directive")
+            } else {
+                format!("CSP fehlt die {directive}-Direktive")
+            }
+        }
+    }
+}
+
+/// The stored `issue_type` string for a kind. Kept as an explicit mapping so
+/// the JSON contract stays byte-identical to what earlier builds wrote — see
+/// `security_issue_types_match_the_stored_contract`.
+fn issue_type_for(kind: SecurityIssueKind, values: &SecurityIssueValues) -> String {
+    use SecurityIssueKind::*;
+    match kind {
+        MissingHttps => "missing_https".to_string(),
+        MissingCsp
+        | MissingXContentTypeOptions
+        | MissingXFrameOptions
+        | MissingHsts
+        | MissingReferrerPolicy
+        | MissingPermissionsPolicy
+        | MissingCoop
+        | MissingCorp => "missing_header".to_string(),
+        CorsWildcardCredentials => "cors_wildcard_credentials".to_string(),
+        HstsPreloadIneligible => "hsts_preload_ineligible".to_string(),
+        PermissionsPolicyPermissive => "permissions_policy_permissive".to_string(),
+        PublicSourceMap => "public_source_map".to_string(),
+        CspUnsafeInlineScript => "unsafe_inline_script".to_string(),
+        CspUnsafeEvalScript => "unsafe_eval_script".to_string(),
+        CspWildcardScriptSource => "wildcard_script_source".to_string(),
+        CspUnsafeInlineStyle => "unsafe_inline_style".to_string(),
+        CspWildcardSource => "wildcard_source".to_string(),
+        CspMissingDirective => format!(
+            "missing_{}",
+            values.csp_directive.as_deref().unwrap_or("object-src")
+        ),
+    }
+}
+
+/// Build a finding with its canonical-English message derived from `kind` —
+/// the message is never written by hand at a call site (#406).
+fn security_issue(
+    header: &str,
+    kind: SecurityIssueKind,
+    values: SecurityIssueValues,
+    severity: Severity,
+    tier: HeaderTier,
+) -> SecurityIssue {
+    SecurityIssue {
+        header: header.to_string(),
+        issue_type: issue_type_for(kind, &values),
+        message: security_issue_text(kind, &values, true),
+        severity,
+        tier,
+        values,
+    }
 }
 
 /// Analyze security headers of a URL
@@ -333,45 +689,46 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
 
     // HSTS preload eligibility + Permissions-Policy quality (#535)
     if hsts_preload_ineligible(&ssl) {
-        issues.push(SecurityIssue {
-            header: "Strict-Transport-Security".to_string(),
-            issue_type: "hsts_preload_ineligible".to_string(),
-            message: format!(
-                "HSTS preload directive is set but requirements aren't met (max-age={}, includeSubDomains={}) — the site won't qualify for the HSTS preload list",
-                ssl.hsts_max_age
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|| "unset".to_string()),
-                ssl.hsts_include_subdomains
-            ),
-            severity: Severity::Low,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "Strict-Transport-Security",
+            SecurityIssueKind::HstsPreloadIneligible,
+            SecurityIssueValues {
+                hsts_max_age: Some(
+                    ssl.hsts_max_age
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "unset".to_string()),
+                ),
+                hsts_include_subdomains: Some(ssl.hsts_include_subdomains),
+                ..Default::default()
+            },
+            Severity::Low,
+            HeaderTier::Baseline,
+        ));
     }
     if permissions_policy_is_permissive(&headers) {
-        issues.push(SecurityIssue {
-            header: "Permissions-Policy".to_string(),
-            issue_type: "permissions_policy_permissive".to_string(),
-            message: "Permissions-Policy header is present but doesn't restrict any feature (empty or wildcard-only)".to_string(),
-            severity: Severity::Low,
-            tier: HeaderTier::ArchitectureDependent,
-        });
+        issues.push(security_issue(
+            "Permissions-Policy",
+            SecurityIssueKind::PermissionsPolicyPermissive,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ArchitectureDependent,
+        ));
     }
 
     // Public source-map leak check (#538)
     let sourcemap_leaks = audit_source_maps(url).await;
     if !sourcemap_leaks.leaks.is_empty() {
-        issues.push(SecurityIssue {
-            header: "Source Map".to_string(),
-            issue_type: "public_source_map".to_string(),
-            message: format!(
-                "{} publicly reachable source map{} found (e.g. {}) — exposes original source, comments, and internal file paths",
-                sourcemap_leaks.leaks.len(),
-                if sourcemap_leaks.leaks.len() == 1 { "" } else { "s" },
-                sourcemap_leaks.leaks[0].map_url
-            ),
-            severity: Severity::High,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "Source Map",
+            SecurityIssueKind::PublicSourceMap,
+            SecurityIssueValues {
+                source_map_count: Some(sourcemap_leaks.leaks.len()),
+                source_map_example: Some(sourcemap_leaks.leaks[0].map_url.clone()),
+                ..Default::default()
+            },
+            Severity::High,
+            HeaderTier::Baseline,
+        ));
     }
 
     // Generate recommendations
@@ -558,75 +915,75 @@ pub(crate) fn generate_security_issues(
     let mut issues = Vec::new();
 
     if !https {
-        issues.push(SecurityIssue {
-            header: "HTTPS".to_string(),
-            issue_type: "missing_https".to_string(),
-            message: "Site is not served over HTTPS".to_string(),
-            severity: Severity::Critical,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "HTTPS",
+            SecurityIssueKind::MissingHttps,
+            SecurityIssueValues::default(),
+            Severity::Critical,
+            HeaderTier::Baseline,
+        ));
     }
 
     if headers.content_security_policy.is_none() {
-        issues.push(SecurityIssue {
-            header: "Content-Security-Policy".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing Content-Security-Policy header".to_string(),
-            severity: Severity::High,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "Content-Security-Policy",
+            SecurityIssueKind::MissingCsp,
+            SecurityIssueValues::default(),
+            Severity::High,
+            HeaderTier::Baseline,
+        ));
     } else if let Some(ref csp) = headers.content_security_policy {
         issues.extend(collect_csp_quality_issues(csp));
     }
 
     if headers.x_content_type_options.is_none() {
-        issues.push(SecurityIssue {
-            header: "X-Content-Type-Options".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing X-Content-Type-Options header".to_string(),
-            severity: Severity::Medium,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "X-Content-Type-Options",
+            SecurityIssueKind::MissingXContentTypeOptions,
+            SecurityIssueValues::default(),
+            Severity::Medium,
+            HeaderTier::Baseline,
+        ));
     }
 
     if headers.x_frame_options.is_none() {
-        issues.push(SecurityIssue {
-            header: "X-Frame-Options".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing X-Frame-Options header (clickjacking protection)".to_string(),
-            severity: Severity::Medium,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "X-Frame-Options",
+            SecurityIssueKind::MissingXFrameOptions,
+            SecurityIssueValues::default(),
+            Severity::Medium,
+            HeaderTier::Baseline,
+        ));
     }
 
     if https && headers.strict_transport_security.is_none() {
-        issues.push(SecurityIssue {
-            header: "Strict-Transport-Security".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing HSTS header".to_string(),
-            severity: Severity::High,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "Strict-Transport-Security",
+            SecurityIssueKind::MissingHsts,
+            SecurityIssueValues::default(),
+            Severity::High,
+            HeaderTier::Baseline,
+        ));
     }
 
     if headers.referrer_policy.is_none() {
-        issues.push(SecurityIssue {
-            header: "Referrer-Policy".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing Referrer-Policy header".to_string(),
-            severity: Severity::Low,
-            tier: HeaderTier::ArchitectureDependent,
-        });
+        issues.push(security_issue(
+            "Referrer-Policy",
+            SecurityIssueKind::MissingReferrerPolicy,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ArchitectureDependent,
+        ));
     }
 
     if headers.permissions_policy.is_none() {
-        issues.push(SecurityIssue {
-            header: "Permissions-Policy".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Missing Permissions-Policy header".to_string(),
-            severity: Severity::Low,
-            tier: HeaderTier::ArchitectureDependent,
-        });
+        issues.push(security_issue(
+            "Permissions-Policy",
+            SecurityIssueKind::MissingPermissionsPolicy,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ArchitectureDependent,
+        ));
     }
 
     // COOP/CORP relevance depends on deployment context this tool cannot
@@ -637,43 +994,33 @@ pub(crate) fn generate_security_issues(
     // verification question instead of asserting either "add this" or
     // "ignore this" (#578).
     if headers.cross_origin_opener_policy.is_none() {
-        issues.push(SecurityIssue {
-            header: "Cross-Origin-Opener-Policy".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Cross-Origin-Opener-Policy is not set. This header only matters if the \
-                page uses SharedArrayBuffer, high-resolution timers, or needs to isolate itself \
-                from cross-origin popups — if none of that applies, no action is needed here. If \
-                it does apply, set it to same-origin and verify popup/window interactions still \
-                work as expected."
-                .to_string(),
-            severity: Severity::Low,
-            tier: HeaderTier::ContextDependent,
-        });
+        issues.push(security_issue(
+            "Cross-Origin-Opener-Policy",
+            SecurityIssueKind::MissingCoop,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ContextDependent,
+        ));
     }
 
     if headers.cross_origin_resource_policy.is_none() {
-        issues.push(SecurityIssue {
-            header: "Cross-Origin-Resource-Policy".to_string(),
-            issue_type: "missing_header".to_string(),
-            message: "Cross-Origin-Resource-Policy is not set. This header only matters if the \
-                page serves fonts, scripts, or media that other origins should be prevented from \
-                loading — if the site's resources are intentionally public, no action is needed \
-                here. If cross-origin loading should be restricted, set it to same-origin or \
-                same-site."
-                .to_string(),
-            severity: Severity::Low,
-            tier: HeaderTier::ContextDependent,
-        });
+        issues.push(security_issue(
+            "Cross-Origin-Resource-Policy",
+            SecurityIssueKind::MissingCorp,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ContextDependent,
+        ));
     }
 
     if cors_allows_wildcard_credentials(headers) {
-        issues.push(SecurityIssue {
-            header: "Access-Control-Allow-Origin".to_string(),
-            issue_type: "cors_wildcard_credentials".to_string(),
-            message: "CORS allows any origin while also allowing credentials".to_string(),
-            severity: Severity::High,
-            tier: HeaderTier::Baseline,
-        });
+        issues.push(security_issue(
+            "Access-Control-Allow-Origin",
+            SecurityIssueKind::CorsWildcardCredentials,
+            SecurityIssueValues::default(),
+            Severity::High,
+            HeaderTier::Baseline,
+        ));
     }
 
     issues
@@ -728,22 +1075,22 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
         .unwrap_or_default();
     if effective_script.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_script) {
         issues.push(csp_issue(
-            "unsafe_inline_script",
-            "CSP allows unsafe-inline scripts without nonce/hash protection",
+            SecurityIssueKind::CspUnsafeInlineScript,
+            SecurityIssueValues::default(),
             Severity::High,
         ));
     }
     if effective_script.contains(&"'unsafe-eval'") {
         issues.push(csp_issue(
-            "unsafe_eval_script",
-            "CSP allows unsafe-eval in script sources",
+            SecurityIssueKind::CspUnsafeEvalScript,
+            SecurityIssueValues::default(),
             Severity::High,
         ));
     }
     if has_wildcard_source(effective_script) {
         issues.push(csp_issue(
-            "wildcard_script_source",
-            "CSP allows wildcard script sources",
+            SecurityIssueKind::CspWildcardScriptSource,
+            SecurityIssueValues::default(),
             Severity::High,
         ));
     }
@@ -753,8 +1100,8 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
         .unwrap_or_default();
     if effective_style.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_style) {
         issues.push(csp_issue(
-            "unsafe_inline_style",
-            "CSP allows unsafe-inline styles without nonce/hash protection",
+            SecurityIssueKind::CspUnsafeInlineStyle,
+            SecurityIssueValues::default(),
             Severity::Medium,
         ));
     }
@@ -768,21 +1115,21 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
             .as_slice(),
     ) {
         issues.push(csp_issue(
-            "wildcard_source",
-            "CSP contains wildcard source expressions",
+            SecurityIssueKind::CspWildcardSource,
+            SecurityIssueValues::default(),
             Severity::Medium,
         ));
     }
 
-    for (directive, severity) in [
-        ("object-src", Severity::Medium),
-        ("base-uri", Severity::Medium),
-        ("frame-ancestors", Severity::Medium),
-    ] {
+    for directive in CSP_REQUIRED_DIRECTIVES {
+        let severity = Severity::Medium;
         if !directives.contains_key(directive) {
             issues.push(csp_issue(
-                &format!("missing_{directive}"),
-                &format!("CSP missing {directive} directive"),
+                SecurityIssueKind::CspMissingDirective,
+                SecurityIssueValues {
+                    csp_directive: Some(directive.to_string()),
+                    ..Default::default()
+                },
                 severity,
             ));
         }
@@ -827,14 +1174,18 @@ fn generate_csp_recommendations(policy: &str) -> Vec<String> {
     recommendations
 }
 
-fn csp_issue(issue_type: &str, message: &str, severity: Severity) -> SecurityIssue {
-    SecurityIssue {
-        header: "Content-Security-Policy".to_string(),
-        issue_type: issue_type.to_string(),
-        message: message.to_string(),
+fn csp_issue(
+    kind: SecurityIssueKind,
+    values: SecurityIssueValues,
+    severity: Severity,
+) -> SecurityIssue {
+    security_issue(
+        "Content-Security-Policy",
+        kind,
+        values,
         severity,
-        tier: HeaderTier::Baseline,
-    }
+        HeaderTier::Baseline,
+    )
 }
 
 fn parse_csp_directives(policy: &str) -> BTreeMap<String, Vec<&str>> {
@@ -1093,28 +1444,94 @@ fn calculate_grade(score: u32) -> String {
 mod tests {
     use super::*;
 
+    /// Every kind this build knows must render differently in the two
+    /// languages, and the English side must stay free of German characters —
+    /// the #406 guard every localized module carries.
     #[test]
-    fn coop_corp_verification_text_is_localized_and_distinct_from_english() {
-        for header in ["Cross-Origin-Opener-Policy", "Cross-Origin-Resource-Policy"] {
-            let en = coop_corp_verification_text(header, "missing_header", true)
-                .expect("expected English text");
-            let de = coop_corp_verification_text(header, "missing_header", false)
-                .expect("expected German text");
-            assert_ne!(en, de, "{header}: DE text must differ from EN");
-            let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
-            assert!(!has_umlaut(en), "{header} EN text leaks German: {en}");
+    fn every_security_message_is_localized_and_english_stays_english() {
+        let values = SecurityIssueValues {
+            hsts_max_age: Some("100".to_string()),
+            hsts_include_subdomains: Some(false),
+            source_map_count: Some(3),
+            source_map_example: Some("https://example.com/app.js.map".to_string()),
+            csp_directive: Some("object-src".to_string()),
+        };
+        for kind in SecurityIssueKind::ALL {
+            let en = security_issue_text(kind, &values, true);
+            let de = security_issue_text(kind, &values, false);
+            assert!(!en.is_empty(), "{kind:?}: empty English text");
+            assert_ne!(en, de, "{kind:?}: German text must differ from English");
+            assert!(
+                !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "{kind:?} English text leaks German: {en}"
+            );
         }
     }
 
+    /// The generated `issue_type` strings are part of the JSON contract and
+    /// must not drift when the kind enum is refactored.
     #[test]
-    fn coop_corp_verification_text_none_for_other_issue_types() {
-        assert!(coop_corp_verification_text(
+    fn security_issue_types_match_the_stored_contract() {
+        use SecurityIssueKind::*;
+        let empty = SecurityIssueValues::default();
+        for (kind, expected) in [
+            (MissingHttps, "missing_https"),
+            (MissingCsp, "missing_header"),
+            (MissingCoop, "missing_header"),
+            (CorsWildcardCredentials, "cors_wildcard_credentials"),
+            (HstsPreloadIneligible, "hsts_preload_ineligible"),
+            (PermissionsPolicyPermissive, "permissions_policy_permissive"),
+            (PublicSourceMap, "public_source_map"),
+            (CspUnsafeInlineScript, "unsafe_inline_script"),
+            (CspUnsafeEvalScript, "unsafe_eval_script"),
+            (CspWildcardScriptSource, "wildcard_script_source"),
+            (CspUnsafeInlineStyle, "unsafe_inline_style"),
+            (CspWildcardSource, "wildcard_source"),
+        ] {
+            assert_eq!(issue_type_for(kind, &empty), expected, "{kind:?}");
+        }
+        assert_eq!(
+            issue_type_for(
+                CspMissingDirective,
+                &SecurityIssueValues {
+                    csp_directive: Some("frame-ancestors".to_string()),
+                    ..Default::default()
+                }
+            ),
+            "missing_frame-ancestors"
+        );
+    }
+
+    /// `kind()` is derived from the stored `header`/`issue_type` pair, so a
+    /// report written by an older build still localizes.
+    #[test]
+    fn kind_round_trips_through_the_stored_fields() {
+        let issue = security_issue(
             "Cross-Origin-Opener-Policy",
-            "some_other_issue_type",
-            true
-        )
-        .is_none());
-        assert!(coop_corp_verification_text("X-Frame-Options", "missing_header", true).is_none());
+            SecurityIssueKind::MissingCoop,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ContextDependent,
+        );
+        assert_eq!(issue.kind(), Some(SecurityIssueKind::MissingCoop));
+        assert_eq!(issue.message, issue.localized_message(true));
+        assert_ne!(issue.message, issue.localized_message(false));
+    }
+
+    /// An issue_type this build does not know falls back to the stored
+    /// canonical-English message instead of inventing a sentence.
+    #[test]
+    fn unknown_issue_type_falls_back_to_the_stored_message() {
+        let issue = SecurityIssue {
+            header: "X-Frame-Options".to_string(),
+            issue_type: "something_this_build_does_not_know".to_string(),
+            message: "stored message".to_string(),
+            severity: Severity::Low,
+            tier: HeaderTier::Baseline,
+            values: SecurityIssueValues::default(),
+        };
+        assert_eq!(issue.kind(), None);
+        assert_eq!(issue.localized_message(false), "stored message");
     }
 
     #[test]
@@ -1269,6 +1686,7 @@ mod tests {
             message: "Missing Content-Security-Policy header".into(),
             severity: Severity::High,
             tier: HeaderTier::Baseline,
+            values: Default::default(),
         }];
         let permissive_csp: Vec<SecurityIssue> = [
             "unsafe_inline_script",
@@ -1284,6 +1702,7 @@ mod tests {
             message: "csp quality".into(),
             severity: Severity::High,
             tier: HeaderTier::Baseline,
+            values: Default::default(),
         })
         .collect();
         let s_missing = calculate_security_score(&SecurityHeaders::default(), &ssl, &missing_csp);

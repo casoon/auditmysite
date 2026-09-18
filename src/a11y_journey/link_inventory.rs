@@ -36,39 +36,68 @@ fn stopwords_for_locale(locale: &str) -> Vec<String> {
     raw.split(',').map(|s| s.trim().to_string()).collect()
 }
 
-/// All known locales whose stopwords are always checked, regardless of report
-/// language. Sites frequently mix languages; merging keeps current behaviour.
-const SUPPORTED_LOCALES: &[&str] = &["de", "en"];
-
 /// Landmark roles that should appear exactly once without a label when there
 /// is only one instance, or with distinct labels when there are multiple.
 const UNIQUE_LANDMARKS: &[&str] = &["main", "banner", "contentinfo"];
 
-/// Returns `true` if the name matches any word in the stopword list.
-fn is_generic(name: &str, stopwords: &[String]) -> bool {
-    let lower = name.trim().to_lowercase();
-    stopwords
-        .iter()
-        .any(|g| lower == g.as_str() || lower.contains(g.as_str()))
+/// Normalize a link name for stopword comparison: lowercase, and strip
+/// surrounding whitespace plus decorative leading/trailing characters
+/// (arrows, ellipses, punctuation) so `"Mehr erfahren »"` still matches
+/// `"mehr erfahren"`.
+fn normalize_link_name(name: &str) -> String {
+    name.to_lowercase()
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_string()
 }
 
-/// Build merged stopword list from all supported locales.
-fn load_stopwords() -> Vec<String> {
-    let mut words: Vec<String> = SUPPORTED_LOCALES
+/// Returns `true` when the link name *as a whole* is a generic phrase.
+///
+/// Deliberately an exact match on the normalized name, not a substring test:
+/// a substring test flags every descriptive link that happens to contain a
+/// stopword somewhere ("Der Verlauf kostet **mehr** als jede Konfiguration",
+/// "w**here** to start"), which produced WCAG 2.4.4 claims for link texts that
+/// are in fact perfectly descriptive.
+fn is_generic(name: &str, stopwords: &[String]) -> bool {
+    let normalized = normalize_link_name(name);
+    if normalized.is_empty() {
+        return false;
+    }
+    stopwords
         .iter()
-        .flat_map(|loc| stopwords_for_locale(loc))
-        .collect();
-    words.sort_unstable();
-    words.dedup();
-    words
+        .any(|stopword| normalized == normalize_link_name(stopword))
 }
+
+/// Stopwords for the *page's* own language (detection language), falling back
+/// to `fallback_locale` — the run language — when the page declares no
+/// language or one this build has no list for. Detection language and message
+/// language are separate concerns (#406); messages here stay canonical English.
+fn stopwords_for_page(page_locale: &str, fallback_locale: &str) -> Vec<String> {
+    let primary = page_locale
+        .split(['-', '_'])
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_lowercase();
+    if STOPWORD_LOCALES.contains(&primary.as_str()) {
+        stopwords_for_locale(&primary)
+    } else {
+        stopwords_for_locale(fallback_locale)
+    }
+}
+
+/// Locales this build ships an own stopword list for. `I18n::new` silently
+/// serves the German bundle for every unknown locale, so membership has to be
+/// checked explicitly — otherwise a French page would be scanned with German
+/// stopwords instead of falling back to the run language.
+const STOPWORD_LOCALES: &[&str] = &["de", "en"];
 
 /// Analyse link texts, heading outline, and landmark inventory from an AXTree.
 ///
-/// `_locale` is reserved for future per-locale filtering; currently all
-/// supported locales are always merged so bilingual sites are covered.
-pub fn analyse(tree: &AXTree, _locale: &str) -> Vec<InteractiveFinding> {
-    let stopwords = load_stopwords();
+/// `page_locale` is the audited page's own `<html lang>` and decides which
+/// generic-link-text stopwords apply; `fallback_locale` (the run language) is
+/// used only when the page declares no usable language.
+pub fn analyse(tree: &AXTree, page_locale: &str, fallback_locale: &str) -> Vec<InteractiveFinding> {
+    let stopwords = stopwords_for_page(page_locale, fallback_locale);
     let mut findings = Vec::new();
 
     findings.extend(check_link_texts(tree, &stopwords));
@@ -373,7 +402,7 @@ mod tests {
 
     #[test]
     fn generic_link_text_is_flagged() {
-        let stopwords = load_stopwords();
+        let stopwords = stopwords_for_page("de", "de");
         let tree = tree_from(vec![
             make_link("mehr erfahren"),
             make_link("mehr erfahren"),
@@ -385,13 +414,56 @@ mod tests {
 
     #[test]
     fn clean_link_texts_produce_no_findings() {
-        let stopwords = load_stopwords();
+        let stopwords = stopwords_for_page("de", "de");
         let tree = tree_from(vec![
             make_link("Produkt A kaufen"),
             make_link("Barrierefreiheit verbessern"),
         ]);
         let findings = check_link_texts(&tree, &stopwords);
         assert!(findings.is_empty(), "{findings:#?}");
+    }
+
+    /// Regression: the substring matcher flagged every descriptive link that
+    /// merely contained a stopword, and then claimed WCAG 2.4.4 was not met.
+    /// All three names below are from a real casoon.de report.
+    #[test]
+    fn descriptive_link_containing_a_stopword_is_not_flagged() {
+        let stopwords = stopwords_for_page("de", "de");
+        let tree = tree_from(vec![
+            make_link("Claude-Code-Kontingent: Der Verlauf kostet mehr als jede Konfiguration"),
+            make_link("Mehr über Jörn Seidel"),
+            make_link("Mehr Sichtbarkeit bei Google & KI"),
+        ]);
+        let findings = check_link_texts(&tree, &stopwords);
+        assert!(findings.is_empty(), "{findings:#?}");
+    }
+
+    #[test]
+    fn decorated_generic_link_text_is_still_flagged() {
+        let stopwords = stopwords_for_page("de", "de");
+        let tree = tree_from(vec![
+            make_link("Mehr erfahren »"),
+            make_link("Hier klicken!"),
+        ]);
+        let findings = check_link_texts(&tree, &stopwords);
+        assert_eq!(
+            findings.iter().filter(|f| f.category == "LinkText").count(),
+            1,
+            "{findings:#?}"
+        );
+    }
+
+    #[test]
+    fn page_language_selects_the_stopword_list() {
+        let english = stopwords_for_page("en-US", "de");
+        assert!(english.iter().any(|w| w == "read more"));
+        assert!(!english.iter().any(|w| w == "mehr erfahren"));
+    }
+
+    #[test]
+    fn page_language_without_own_list_falls_back_to_run_language() {
+        let words = stopwords_for_page("fr", "en");
+        assert!(words.iter().any(|w| w == "read more"));
     }
 
     #[test]

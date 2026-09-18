@@ -64,7 +64,13 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
             vital_rating_label(rating, en).to_string(),
         ]);
     }
-    Some(table)
+    // Titled so TBT/TTI/Speed Index are not read as a continuation of the
+    // strip above — none of them is a Core Web Vital.
+    Some(table.with_title(if en {
+        "Further lab metrics"
+    } else {
+        "Weitere Lab-Metriken"
+    }))
 }
 
 fn localized_decimal(value: f64, en: bool) -> String {
@@ -307,8 +313,16 @@ pub(in crate::output::pdf) fn render_performance(
 
             // Desktop vitals
             if !desktop.vitals.is_empty() {
-                builder =
-                    builder.add_component(Section::new("Desktop — Core Web Vitals").with_level(4));
+                // Not headed "Core Web Vitals": the strip holds LCP and CLS
+                // (which are) next to FCP and TTFB (which are not).
+                builder = builder.add_component(
+                    Section::new(if is_english(i18n) {
+                        "Desktop — lab metrics"
+                    } else {
+                        "Desktop — Kennzahlen (Labormessung)"
+                    })
+                    .with_level(4),
+                );
                 let strip = desktop
                     .vitals
                     .iter()
@@ -327,8 +341,14 @@ pub(in crate::output::pdf) fn render_performance(
 
             // Mobile vitals
             if !mobile.vitals.is_empty() {
-                builder =
-                    builder.add_component(Section::new("Mobile — Core Web Vitals").with_level(4));
+                builder = builder.add_component(
+                    Section::new(if is_english(i18n) {
+                        "Mobile — lab metrics"
+                    } else {
+                        "Mobile — Kennzahlen (Labormessung)"
+                    })
+                    .with_level(4),
+                );
                 let strip = mobile
                     .vitals
                     .iter()

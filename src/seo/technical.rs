@@ -1385,17 +1385,10 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIss
         });
     }
 
-    if pwa.service_worker_supported && pwa.service_worker_registrations == 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "pwa_missing_service_worker".to_string(),
-            message: if en {
-                "No service worker registration detected".to_string()
-            } else {
-                "Keine Service-Worker-Registrierung erkannt".to_string()
-            },
-            severity: Severity::Low,
-        });
-    }
+    // Deliberately no "missing service worker" issue: a web app manifest is
+    // routinely shipped for icons and theme color alone, so its presence does
+    // not establish that the site intends to be an installable, offline-capable
+    // PWA. `PwaAnalysis.service_worker_*` stays in the JSON as information.
 }
 
 fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
@@ -1654,18 +1647,11 @@ fn collect_pagination_issues(
         return;
     }
 
+    // Deliberately no "missing rel=prev/next" issue: Google dropped the pair
+    // as an indexing signal in 2019, so reporting its absence as an SEO problem
+    // is misleading. The checks below stay — they only fire when rel links are
+    // actually present and wrong, which is broken markup either way.
     if prev.is_none() && next.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "pagination_missing_rel_links".to_string(),
-            message: if en {
-                "Paginated page detected without rel=\"prev\" or rel=\"next\" link markup"
-                    .to_string()
-            } else {
-                "Paginierte Seite erkannt ohne rel=\"prev\"- oder rel=\"next\"-Link-Markup"
-                    .to_string()
-            },
-            severity: Severity::Low,
-        });
         return;
     }
 
@@ -2029,7 +2015,7 @@ mod tests {
     }
 
     #[test]
-    fn test_collect_pwa_issues_invalid_manifest_and_no_service_worker() {
+    fn test_collect_pwa_issues_invalid_manifest() {
         let pwa = PwaAnalysis {
             manifest_url: Some("https://example.com/manifest.webmanifest".to_string()),
             manifest_valid: false,
@@ -2043,9 +2029,24 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.issue_type == "pwa_invalid_manifest"));
-        assert!(issues
-            .iter()
-            .any(|issue| issue.issue_type == "pwa_missing_service_worker"));
+    }
+
+    /// A manifest without a service worker is not reported: shipping a
+    /// manifest for icons/theme color is ordinary, and does not make a site a
+    /// PWA that owes anyone offline support.
+    #[test]
+    fn test_manifest_without_service_worker_is_not_an_issue() {
+        let pwa = PwaAnalysis {
+            manifest_url: Some("https://example.com/manifest.webmanifest".to_string()),
+            manifest_valid: true,
+            service_worker_supported: true,
+            service_worker_registrations: 0,
+            ..PwaAnalysis::default()
+        };
+        let mut issues = Vec::new();
+        collect_pwa_issues(&pwa, true, &mut issues);
+
+        assert!(issues.is_empty(), "{issues:#?}");
     }
 
     #[test]
@@ -2120,8 +2121,10 @@ mod tests {
         assert!(!detect_pagination("https://example.com/blog?page=1", 0, 0));
     }
 
+    /// Absent rel=prev/next is not reported: Google stopped using the pair for
+    /// indexing in 2019, so its absence is no longer an SEO defect.
     #[test]
-    fn test_collect_pagination_issues_missing_rel_links() {
+    fn test_missing_pagination_rel_links_is_not_an_issue() {
         let mut issues = Vec::new();
         collect_pagination_issues(
             true,
@@ -2132,9 +2135,7 @@ mod tests {
             &mut issues,
         );
 
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].issue_type, "pagination_missing_rel_links");
-        assert_eq!(issues[0].severity, Severity::Low);
+        assert!(issues.is_empty(), "{issues:#?}");
     }
 
     #[test]

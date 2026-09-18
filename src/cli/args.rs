@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// AuditMySite - Resource-efficient WCAG 2.1 Accessibility Checker
+/// AuditMySite - Resource-efficient WCAG 2.1 AA (+ select 2.2 criteria) Accessibility Checker
 ///
 /// Analyzes web pages for WCAG accessibility violations using
 /// Chrome DevTools Protocol and the Accessibility Tree.
@@ -15,8 +15,8 @@ use std::path::PathBuf;
     name = "auditmysite",
     version,
     author,
-    about = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust",
-    long_about = "AuditMySite analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
+    about = "Resource-efficient WCAG 2.1 AA (+ select 2.2 criteria) Accessibility Checker in Rust",
+    long_about = "AuditMySite analyzes web pages for WCAG 2.1 AA accessibility violations, plus select WCAG 2.2 criteria.\n\n\
 It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
 - Missing alt text on images (1.1.1)\n\
 - Heading hierarchy issues (2.4.6)\n\

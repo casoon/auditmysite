@@ -17,12 +17,12 @@ use super::design;
 use super::appendix::build_cli_snapshot_table;
 use super::bik_guide::render_bik_guide_annex;
 use super::detail_modules::{
-    render_a11y_journey_findings, render_ai_transparency, render_ai_visibility,
-    render_best_practices, render_budget_violations, render_commerce, render_content_visibility,
-    render_dark_mode, render_design_quality, render_html_conform, render_journey, render_mobile,
-    render_network_dns, render_performance, render_screen_reader_section, render_search_experience,
-    render_security, render_seo, render_source_quality, render_tech_stack, render_ux,
-    score_band_label,
+    mobile_category_label, render_a11y_journey_findings, render_ai_transparency,
+    render_ai_visibility, render_best_practices, render_budget_violations, render_commerce,
+    render_content_visibility, render_dark_mode, render_design_quality, render_html_conform,
+    render_journey, render_mobile, render_network_dns, render_performance,
+    render_screen_reader_section, render_search_experience, render_security, render_seo,
+    render_source_quality, render_tech_stack, render_ux, score_band_label,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
@@ -299,6 +299,9 @@ fn compute_dimension_rows(
     });
 
     // 2. Compliance / Rechtliches
+    // Scoped to technical criteria, never stated as a compliance verdict:
+    // whether a service falls under the BFSG and meets every legal
+    // requirement is not something this audit can establish.
     let legal_desc = if cover_critical_issues > 0 {
         if en {
             "BFSG-relevant violations found (WCAG Level A/AA) — resolution recommended."
@@ -307,9 +310,9 @@ fn compute_dimension_rows(
         }
     } else {
         if en {
-            "Low compliance risk."
+            "No BFSG-relevant violations detected within the automated scope."
         } else {
-            "Geringes Compliance-Risiko."
+            "Im automatisierten Prüfumfang keine BFSG-relevanten Verstöße erkannt."
         }
     };
     // Two-tier text ("violations found" vs. "low risk") now maps to two
@@ -321,9 +324,9 @@ fn compute_dimension_rows(
     };
     rows.push(DimensionRow {
         label: if en {
-            "Legal Conformance"
+            "BFSG-relevant technical criteria"
         } else {
-            "Rechtliche Konformität (BFSG)"
+            "BFSG-relevante technische Kriterien"
         }
         .to_string(),
         description: legal_desc.to_string(),
@@ -463,27 +466,23 @@ pub(super) fn render_risks_and_strengths(
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
 
-    let seo_score = vm
-        .modules
-        .dashboard
-        .iter()
-        .find(|m| m.name.contains("SEO"))
-        .map(|m| m.score)
-        .unwrap_or(100);
-    let perf_score = vm
-        .modules
-        .dashboard
-        .iter()
-        .find(|m| m.name.contains("Performance") || m.name.contains("Ladezeit"))
-        .map(|m| m.score)
-        .unwrap_or(100);
-    let mobile_score = vm
-        .modules
-        .dashboard
-        .iter()
-        .find(|m| m.name.contains("Mobile") || m.name.contains("Mobilfreundlichkeit"))
-        .map(|m| m.score)
-        .unwrap_or(100);
+    // Looked up from `module_scores` (stable, English internal names set once
+    // in `audit::normalized::build_module_scores`), not `dashboard` — whose
+    // cards are reshaped/relabeled for narrative presentation (e.g. SEO's
+    // card became "Sichtbarkeit & Nutzerverständnis" for #406/wording-style)
+    // and so can no longer be found by matching a display-label substring
+    // (plan/29-pdf-dashboard-module-lookup-by-name.md).
+    let module_score = |name: &str| -> u32 {
+        vm.modules
+            .module_scores
+            .iter()
+            .find(|m| m.name == name)
+            .map(|m| m.score)
+            .unwrap_or(100)
+    };
+    let seo_score = module_score("SEO");
+    let perf_score = module_score("Performance");
+    let mobile_score = module_score("Mobile");
 
     let dimensions = compute_dimension_rows(
         vm.severity.critical,
@@ -551,6 +550,178 @@ pub(super) fn render_risks_and_strengths(
     builder
 }
 
+/// One entry of the management-summary measures list.
+///
+/// `module` is the localized module label, `title` the thing to fix and
+/// `detail` the specific recommendation. Title and detail stay separate so
+/// several findings that resolve into the same action — three CSP
+/// misconfigurations are one "fix the CSP" — can be collapsed into one entry.
+struct TopMeasure {
+    module: String,
+    title: String,
+    detail: String,
+}
+
+impl TopMeasure {
+    fn render(&self, index: usize, extra: usize, en: bool) -> String {
+        let more = match (extra, en) {
+            (0, _) => String::new(),
+            (n, true) => format!(" (+{n} more of the same kind)"),
+            (n, false) => format!(" (+{n} weitere gleicher Art)"),
+        };
+        if self.title.is_empty() {
+            format!("{}. {} — {}{more}", index, self.module, self.detail)
+        } else {
+            format!(
+                "{}. {} — {}: {}{more}",
+                index, self.module, self.title, self.detail
+            )
+        }
+    }
+}
+
+/// Measures from every module that is not accessibility, ordered by severity
+/// first and by how many overall points the module currently costs second.
+/// Each entry carries the number of further findings collapsed into it.
+///
+/// Without this the list was fed exclusively from WCAG finding groups, so a
+/// page with no WCAG violations printed "no urgent actions required" although
+/// the very same report documented performance, SEO and security work
+/// further down. Everything here is already-localized view-model data; no new
+/// analysis is derived at render time.
+fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure, usize)> {
+    use crate::wcag::Severity;
+
+    let details = &vm.module_details;
+    let module_label = |key: &str| -> String {
+        let translated = i18n.t(&format!("module-{key}"));
+        if translated == format!("module-{key}") {
+            key.to_string()
+        } else {
+            translated
+        }
+    };
+
+    // Points this module currently costs the overall score — the tie-breaker
+    // between modules whose issues share a severity.
+    let cost_of = |name: &str| -> u32 {
+        vm.modules
+            .module_scores
+            .iter()
+            .find(|m| m.name.eq_ignore_ascii_case(name) && m.contributes_to_overall)
+            .map(|m| (100u32.saturating_sub(m.score)) * m.weight_pct)
+            .unwrap_or(0)
+    };
+
+    let severity_rank = |s: Severity| match s {
+        Severity::Critical => 0u8,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+    };
+
+    // (severity, module cost, measure)
+    let mut ranked: Vec<(u8, u32, TopMeasure)> = Vec::new();
+
+    if let Some(sec) = details.security.as_ref() {
+        let cost = cost_of("Security");
+        for (title, severity, message) in &sec.issues {
+            ranked.push((
+                severity_rank(*severity),
+                cost,
+                TopMeasure {
+                    module: module_label("security"),
+                    title: title.clone(),
+                    detail: message.clone(),
+                },
+            ));
+        }
+    }
+    if let Some(mobile) = details.mobile.as_ref() {
+        let cost = cost_of("Mobile");
+        for (category, severity, message) in &mobile.issues {
+            ranked.push((
+                severity_rank(*severity),
+                cost,
+                TopMeasure {
+                    module: module_label("mobile"),
+                    // Same localization the mobile module section uses — the
+                    // raw snake_case category must not reach the report.
+                    title: mobile_category_label(category, i18n),
+                    detail: message.clone(),
+                },
+            ));
+        }
+    }
+    if let Some(seo) = details.seo.as_ref() {
+        let cost = cost_of("SEO");
+        for (title, severity, message) in &seo.meta_issues {
+            ranked.push((
+                severity_rank(*severity),
+                cost,
+                TopMeasure {
+                    module: module_label("seo"),
+                    title: title.clone(),
+                    detail: message.clone(),
+                },
+            ));
+        }
+        // Technical SEO issues carry a localized severity *label* rather than a
+        // typed severity, so they rank below the typed ones as Medium.
+        for (_issue_type, message, _severity_label) in &seo.technical_issues {
+            ranked.push((
+                severity_rank(Severity::Medium),
+                cost,
+                TopMeasure {
+                    module: module_label("seo"),
+                    title: String::new(),
+                    detail: message.clone(),
+                },
+            ));
+        }
+    }
+    // Performance recommendations are already prioritized by their own module
+    // and carry no per-item severity; they rank as Medium.
+    if let Some(perf) = details.performance.as_ref() {
+        let cost = cost_of("Performance");
+        for recommendation in &perf.recommendations {
+            ranked.push((
+                severity_rank(Severity::Medium),
+                cost,
+                TopMeasure {
+                    module: module_label("performance"),
+                    title: String::new(),
+                    detail: recommendation.clone(),
+                },
+            ));
+        }
+    }
+
+    ranked.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
+
+    // Collapse findings that resolve into the same action. Three separate CSP
+    // misconfigurations are three findings but one measure — listing them
+    // individually filled a five-slot management list with one topic.
+    let mut collapsed: Vec<(TopMeasure, usize)> = Vec::new();
+    for (_, _, measure) in ranked {
+        let duplicate = !measure.title.is_empty()
+            && collapsed
+                .iter()
+                .any(|(kept, _)| kept.module == measure.module && kept.title == measure.title);
+        if duplicate {
+            if let Some(entry) = collapsed
+                .iter_mut()
+                .find(|(kept, _)| kept.module == measure.module && kept.title == measure.title)
+            {
+                entry.1 += 1;
+            }
+        } else {
+            collapsed.push((measure, 0));
+        }
+    }
+    collapsed
+}
+
 pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
     let en = i18n.locale() == "en";
     let list_title = if en {
@@ -560,21 +731,69 @@ pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List
     };
     let mut list = List::new().with_title(list_title);
 
-    for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
-        let text = format!("{}. {}: {}", idx + 1, group.title, group.recommendation);
-        list = list.add_item(&text);
+    let accessibility = module_label_accessibility(i18n);
+    let mut measures: Vec<(TopMeasure, usize)> = vm
+        .findings
+        .top_findings
+        .iter()
+        .take(5)
+        .map(|group| {
+            (
+                TopMeasure {
+                    module: accessibility.clone(),
+                    title: group.title.clone(),
+                    detail: group.recommendation.clone(),
+                },
+                0,
+            )
+        })
+        .collect();
+
+    if measures.len() < 5 {
+        let missing = 5 - measures.len();
+        measures.extend(cross_module_measures(vm, i18n).into_iter().take(missing));
     }
 
-    if vm.findings.top_findings.is_empty() {
+    if measures.is_empty() {
         let no_measures = if en {
             "No urgent actions required."
         } else {
             "Keine dringenden Maßnahmen erforderlich."
         };
         list = list.add_item(no_measures);
+        return list;
+    }
+
+    for (idx, (measure, extra)) in measures.iter().enumerate() {
+        list = list.add_item(measure.render(idx + 1, *extra, en));
     }
 
     list
+}
+
+fn module_label_accessibility(i18n: &I18n) -> String {
+    let translated = i18n.t("module-accessibility");
+    if translated == "module-accessibility" {
+        "Accessibility".to_string()
+    } else {
+        translated
+    }
+}
+
+/// Scope line (#575): this report only ever covers exactly one audited URL,
+/// checked with both desktop and mobile viewports (the pipeline always runs
+/// both — see `pipeline.rs`'s unconditional dual-viewport pass), and never
+/// crawls the rest of the site.
+///
+/// Shown on the cover *and* at the top of the management summary, from this
+/// one source: a reader who only ever sees the cover would otherwise read
+/// "Barrierefreiheit 100" as a statement about the whole site.
+pub(super) fn audit_scope_line(en: bool) -> String {
+    if en {
+        "Audited: 1 URL · Desktop and Mobile · no website crawl".to_string()
+    } else {
+        "Geprüft: 1 URL · Desktop und Mobile · kein Website-Crawl".to_string()
+    }
 }
 
 pub(super) fn render_management_page(
@@ -604,19 +823,8 @@ pub(super) fn render_management_page(
             .with_level(1),
     );
 
-    // Scope line (#575): this report only ever covers exactly one audited
-    // URL, checked with both desktop and mobile viewports (the pipeline
-    // always runs both — see `pipeline.rs`'s unconditional dual-viewport
-    // pass), and never crawls the rest of the site. Stated explicitly and
-    // prominently up front so findings/recommendations phrased around
-    // "the audited page" further down aren't misread as domain-wide claims.
-    let scope_line = if en {
-        "Audited: 1 URL · Desktop and Mobile · no website crawl".to_string()
-    } else {
-        "Geprüft: 1 URL · Desktop und Mobile · kein Website-Crawl".to_string()
-    };
     builder = builder.add_component(
-        Label::new(scope_line)
+        Label::new(audit_scope_line(en))
             .with_size("10.5pt")
             .bold()
             .with_color(design::tokens::NEUTRAL),
@@ -637,6 +845,28 @@ pub(super) fn render_management_page(
         .with_size("8.5pt")
         .with_color(design::tokens::MUTED),
     );
+
+    // The strip counts confirmed WCAG occurrences only. Without this line a
+    // reader took "0" for "nothing found" while the journey, screen-reader and
+    // manual-check sections listed findings further in.
+    let evidence = &vm.findings.evidence;
+    if evidence.warnings > 0 || evidence.manual_checks > 0 {
+        builder = builder.add_component(
+            Label::new(if en {
+                format!(
+                    "Counted here are confirmed WCAG violations only. In addition: {} heuristic accessibility warning(s) and {} criterion/criteria requiring manual review — documented, but not scored.",
+                    evidence.warnings, evidence.manual_checks
+                )
+            } else {
+                format!(
+                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Hinzu kommen {} heuristische Barrierefreiheits-Warnung(en) und {} manuell zu prüfende(s) Kriterium/Kriterien — dokumentiert, aber nicht in den Score eingerechnet.",
+                    evidence.warnings, evidence.manual_checks
+                )
+            })
+            .with_size("8.5pt")
+            .with_color(design::tokens::MUTED),
+        );
+    }
 
     // 2. Overall verdict (the single core sentence)
     builder = builder.add_component(Callout::info(&vm.summary.verdict).with_title(if en {
@@ -2653,12 +2883,34 @@ pub(super) fn render_root_cause_analysis(
     let findings = mandatory_root_causes(vm);
 
     if findings.is_empty() {
-        let msg = if en {
-            "No accessibility findings were detected, so no root cause analysis is necessary."
+        // "No accessibility findings were detected" was false whenever the
+        // journey or screen-reader modules had produced findings — they are
+        // just not confirmed WCAG violations and therefore out of scope here.
+        // Name the other two evidence classes instead of denying them.
+        let evidence = &vm.findings.evidence;
+        let msg = if evidence.is_empty() {
+            if en {
+                "No accessibility findings were detected, so no root cause analysis is necessary."
+                    .to_string()
+            } else {
+                "Es wurden keine Barrierefreiheits-Befunde erkannt, daher ist keine Ursachenanalyse erforderlich.".to_string()
+            }
+        } else if en {
+            format!(
+                "No confirmed WCAG violations, so no root cause analysis is necessary. {} accessibility warning(s) and {} manual check(s) remain — they are documented in their own sections and are not scored.",
+                evidence.warnings, evidence.manual_checks
+            )
         } else {
-            "Es wurden keine Barrierefreiheits-Befunde erkannt, daher ist keine Ursachenanalyse erforderlich."
+            format!(
+                "Keine bestätigten WCAG-Verstöße, daher ist keine Ursachenanalyse erforderlich. Es bleiben {} Barrierefreiheits-Warnung(en) und {} manuelle(r) Prüfhinweis(e) — sie stehen in den eigenen Abschnitten und fließen nicht in den Score ein.",
+                evidence.warnings, evidence.manual_checks
+            )
         };
-        builder = builder.add_component(Callout::success(msg));
+        builder = builder.add_component(if evidence.is_empty() {
+            Callout::success(&msg)
+        } else {
+            Callout::info(&msg)
+        });
         return builder;
     }
 
@@ -2810,10 +3062,25 @@ pub(super) fn render_timeframe_roadmap(
 
     let columns = &vm.actions.roadmap_columns;
     if columns.is_empty() {
-        let empty_msg = if en {
-            "No prioritized actions — no findings require remediation."
+        // The roadmap is built from WCAG/finding groups only. Saying "no
+        // findings require remediation" here contradicted the report whenever
+        // other modules had documented work, so name where that work is
+        // instead of claiming there is none.
+        let module_measure_count = cross_module_measures(vm, i18n).len();
+        let empty_msg = if module_measure_count > 0 {
+            if en {
+                format!(
+                    "No prioritized accessibility actions. {module_measure_count} recommendation(s) from other modules (performance, SEO, security, mobile) are listed in their module sections and in the key measures above."
+                )
+            } else {
+                format!(
+                    "Keine priorisierten Barrierefreiheits-Maßnahmen. {module_measure_count} Empfehlung(en) aus anderen Modulen (Performance, SEO, Sicherheit, Mobile) stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben."
+                )
+            }
+        } else if en {
+            "No prioritized actions — no findings require remediation.".to_string()
         } else {
-            "Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf."
+            "Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.".to_string()
         };
         builder = builder.add_component(Label::new(empty_msg).with_color(design::tokens::NEUTRAL));
         return builder;
@@ -2871,6 +3138,47 @@ pub(super) fn render_timeframe_roadmap(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod top_measure_tests {
+    use super::*;
+
+    fn measure(module: &str, title: &str, detail: &str) -> TopMeasure {
+        TopMeasure {
+            module: module.to_string(),
+            title: title.to_string(),
+            detail: detail.to_string(),
+        }
+    }
+
+    #[test]
+    fn collapsed_measure_reports_how_many_it_stands_for() {
+        let rendered =
+            measure("Sicherheit", "Content-Security-Policy", "unsafe-inline").render(1, 2, false);
+        assert_eq!(
+            rendered,
+            "1. Sicherheit — Content-Security-Policy: unsafe-inline (+2 weitere gleicher Art)"
+        );
+    }
+
+    #[test]
+    fn single_measure_has_no_collapse_suffix() {
+        let rendered =
+            measure("Security", "Content-Security-Policy", "unsafe-inline").render(3, 0, true);
+        assert_eq!(
+            rendered,
+            "3. Security — Content-Security-Policy: unsafe-inline"
+        );
+    }
+
+    /// Performance and technical-SEO measures carry no separate title; the
+    /// recommendation is the whole text and must not gain a stray colon.
+    #[test]
+    fn titleless_measure_renders_without_separator() {
+        let rendered = measure("Performance", "", "DOM-Struktur verschlanken.").render(2, 0, false);
+        assert_eq!(rendered, "2. Performance — DOM-Struktur verschlanken.");
+    }
 }
 
 #[cfg(test)]
@@ -2966,9 +3274,9 @@ mod risk_and_strength_tests {
 
         let statuses: Vec<&str> = risks.iter().map(|d| d.status).collect();
         assert_eq!(statuses, vec!["bad", "bad", "warn", "warn"]);
-        // Stable within the "bad" group: Legal Conformance came before SEO
-        // in the fixed dimension order, so it stays first among bads.
-        assert_eq!(risks[0].label, "Legal Conformance");
+        // Stable within the "bad" group: the BFSG row came before SEO in the
+        // fixed dimension order, so it stays first among bads.
+        assert_eq!(risks[0].label, "BFSG-relevant technical criteria");
         assert_eq!(risks[1].label, "SEO & AI Visibility");
     }
 
@@ -2998,6 +3306,46 @@ mod risk_and_strength_tests {
         let normalized = crate::audit::normalized::normalize(&report);
         let config = ReportConfig::default();
         crate::output::builder::build_view_model(&normalized, &config)
+    }
+
+    #[test]
+    fn appendix_table_does_not_duplicate_interpretation_when_card_context_matches() {
+        // plan/32-appendix-duplicated-interpretation-sentence.md: Search
+        // Experience's dashboard card falls back to `card_context ==
+        // interpretation` when it has no distinct short blurb (no derived
+        // warning) — the appendix row must then print the sentence once,
+        // not as "score / 100 — sentence. sentence".
+        let mut vm = test_report_view_model();
+        vm.modules.dashboard = vec![crate::output::report_model::ModuleScore {
+            name: "Sichtbarkeit & Nutzerverständnis".into(),
+            score: 56,
+            measurement_type: "composite".into(),
+            interpretation:
+                "Eingeschränkte Search Experience: Die Seite ist nicht ausreichend verständlich."
+                    .into(),
+            card_context:
+                "Eingeschränkte Search Experience: Die Seite ist nicht ausreichend verständlich."
+                    .into(),
+            score_context: String::new(),
+            key_lever: String::new(),
+            good_threshold: 75,
+            warn_threshold: 50,
+        }];
+        let i18n = I18n::new("de").unwrap();
+
+        let table = build_cli_snapshot_table(&vm, &i18n);
+        let row = table
+            .rows
+            .iter()
+            .find(|r| r.get(1).and_then(|v| v.as_str()) == Some("Sichtbarkeit & Nutzerverständnis"))
+            .expect("search experience row must be present");
+        let value = row[2].as_str().unwrap();
+
+        assert_eq!(
+            value.matches("Eingeschränkte Search Experience").count(),
+            1,
+            "interpretation sentence must appear exactly once, got: {value}"
+        );
     }
 
     #[test]

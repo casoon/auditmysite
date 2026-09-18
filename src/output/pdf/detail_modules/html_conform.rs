@@ -84,5 +84,13 @@ pub(in crate::output::pdf) fn render_html_conform(
         builder = builder.add_component(table);
     }
 
+    if !hc.recommendations.is_empty() {
+        let mut rec_list = List::new().with_title(i18n.t("label-improvement-suggestions"));
+        for rec in &hc.recommendations {
+            rec_list = rec_list.add_item(rec);
+        }
+        builder = builder.add_component(rec_list);
+    }
+
     builder
 }

@@ -44,7 +44,7 @@ pub(super) use indicators::{
 pub(super) use network_dns::render_network_dns;
 pub(super) use overview::{render_budget_violations, render_search_experience};
 pub(super) use performance::render_performance;
-pub(super) use platform::{render_mobile, render_security};
+pub(super) use platform::{mobile_category_label, render_mobile, render_security};
 pub(super) use seo::render_seo;
 
 /// A neutral per-section line shown when a module produced no findings, so a

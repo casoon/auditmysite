@@ -1531,15 +1531,18 @@ pub fn interactive_finding_text(
             if en {
                 format!(
                     "{count} {} carry generic or non-descriptive text \
-                     ({examples}). Without surrounding context they are indistinguishable for \
-                     screen reader users and do not satisfy WCAG 2.4.4.",
+                     ({examples}). Without surrounding context they are hard to tell apart for \
+                     screen reader users. Heuristic warning on WCAG 2.4.4 — whether the link \
+                     purpose is clear from its context needs a human check.",
                     if count == 1 { "link" } else { "links" }
                 )
             } else {
                 format!(
                     "{count} {} tragen generischen oder wenig aussagekräftigen Text \
                      ({examples}). Ohne den umgebenden Kontext sind sie für \
-                     Screenreader-Nutzer nicht unterscheidbar und erfüllen WCAG 2.4.4 nicht.",
+                     Screenreader-Nutzer schwer unterscheidbar. Heuristische Warnung zu \
+                     WCAG 2.4.4 — ob der Linkzweck aus dem Kontext hervorgeht, muss manuell \
+                     geprüft werden.",
                     if count == 1 { "Link" } else { "Links" }
                 )
             },

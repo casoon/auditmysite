@@ -316,27 +316,32 @@ impl SchemaType {
             )
     }
 
+    /// The schema type behind a possible search feature — the bare type name,
+    /// never a promise about the result it might produce. Detecting `FAQPage`
+    /// says the markup is present, not that Google renders an FAQ rich result
+    /// for it, so the label no longer carries "Rich Snippet". Language-neutral;
+    /// stored in the JSON report verbatim.
     pub fn rich_snippet_type(&self) -> Option<&'static str> {
         match self {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle => {
-                Some("Article Rich Snippet")
+                Some("Article")
             }
-            SchemaType::Product => Some("Product Rich Snippet"),
-            SchemaType::Recipe => Some("Recipe Rich Snippet"),
-            SchemaType::Event => Some("Event Rich Snippet"),
-            SchemaType::FAQPage => Some("FAQ Rich Snippet"),
+            SchemaType::Product => Some("Product"),
+            SchemaType::Recipe => Some("Recipe"),
+            SchemaType::Event => Some("Event"),
+            SchemaType::FAQPage => Some("FAQPage"),
             // Google removed HowTo rich results; keep the schema in the
             // inventory without presenting it as a current search feature.
             SchemaType::HowTo => None,
-            SchemaType::Review | SchemaType::AggregateRating => Some("Review Rich Snippet"),
-            SchemaType::BreadcrumbList => Some("Breadcrumb Rich Snippet"),
-            SchemaType::VideoObject => Some("Video Rich Snippet"),
-            SchemaType::ProfilePage => Some("Profile Page Rich Snippet"),
-            SchemaType::JobPosting => Some("Job Posting Rich Snippet"),
+            SchemaType::Review | SchemaType::AggregateRating => Some("Review"),
+            SchemaType::BreadcrumbList => Some("BreadcrumbList"),
+            SchemaType::VideoObject => Some("VideoObject"),
+            SchemaType::ProfilePage => Some("ProfilePage"),
+            SchemaType::JobPosting => Some("JobPosting"),
             SchemaType::SoftwareApplication
             | SchemaType::WebApplication
-            | SchemaType::MobileApplication => Some("Software App Rich Snippet"),
-            SchemaType::LocalBusiness => Some("Local Business Rich Snippet"),
+            | SchemaType::MobileApplication => Some("SoftwareApplication"),
+            SchemaType::LocalBusiness => Some("LocalBusiness"),
             _ => None,
         }
     }
@@ -777,14 +782,8 @@ mod tests {
 
     #[test]
     fn test_rich_snippet_type() {
-        assert_eq!(
-            SchemaType::Article.rich_snippet_type(),
-            Some("Article Rich Snippet")
-        );
-        assert_eq!(
-            SchemaType::Product.rich_snippet_type(),
-            Some("Product Rich Snippet")
-        );
+        assert_eq!(SchemaType::Article.rich_snippet_type(), Some("Article"));
+        assert_eq!(SchemaType::Product.rich_snippet_type(), Some("Product"));
         assert_eq!(SchemaType::Organization.rich_snippet_type(), None);
         assert_eq!(SchemaType::HowTo.rich_snippet_type(), None);
     }
