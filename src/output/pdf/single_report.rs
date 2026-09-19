@@ -252,207 +252,6 @@ struct DimensionRow {
     status: &'static str,
 }
 
-/// Evaluates the five fixed dimensions against their thresholds. Same
-/// thresholds/wording as before #576 — only the presentation (which bucket
-/// each row lands in, how 0..5 rows render) changed, not the scoring model.
-#[allow(clippy::too_many_arguments)]
-fn compute_dimension_rows(
-    severity_critical: u32,
-    severity_high: u32,
-    cover_critical_issues: u32,
-    summary_score: u32,
-    seo_score: u32,
-    perf_score: u32,
-    mobile_score: u32,
-    en: bool,
-) -> Vec<DimensionRow> {
-    let mut rows = Vec::with_capacity(5);
-
-    // 1. Usability / Nutzbarkeit
-    let user_desc = if severity_critical > 0 || severity_high > 0 {
-        if en {
-            "Screen reader and keyboard navigation blocked at critical points."
-        } else {
-            "Screenreader und Tastaturnavigation an kritischen Stellen blockiert oder beeinträchtigt."
-        }
-    } else {
-        if en {
-            "No major usability limitations detected."
-        } else {
-            "Keine wesentlichen Einschränkungen der Nutzbarkeit erkannt."
-        }
-    };
-    // Status now completes the tier the description text already implies
-    // ("no major limitations" is a positive result, not a warning) — the
-    // numeric thresholds (critical/high counts) are unchanged (#576).
-    let user_status = if severity_critical > 0 {
-        "bad"
-    } else if severity_high > 0 {
-        "warn"
-    } else {
-        "good"
-    };
-    rows.push(DimensionRow {
-        label: if en { "Usability" } else { "Nutzbarkeit" }.to_string(),
-        description: user_desc.to_string(),
-        status: user_status,
-    });
-
-    // 2. Compliance / Rechtliches
-    // Scoped to technical criteria, never stated as a compliance verdict:
-    // whether a service falls under the BFSG and meets every legal
-    // requirement is not something this audit can establish.
-    let legal_desc = if cover_critical_issues > 0 {
-        if en {
-            "BFSG-relevant violations found (WCAG Level A/AA) — resolution recommended."
-        } else {
-            "BFSG-relevante Verstöße (WCAG Level A/AA) gefunden — Behebung empfohlen."
-        }
-    } else {
-        if en {
-            "No BFSG-relevant violations detected within the automated scope."
-        } else {
-            "Im automatisierten Prüfumfang keine BFSG-relevanten Verstöße erkannt."
-        }
-    };
-    // Two-tier text ("violations found" vs. "low risk") now maps to two
-    // statuses instead of collapsing "low risk" into "warn" (#576).
-    let legal_status = if cover_critical_issues > 0 {
-        "bad"
-    } else {
-        "good"
-    };
-    rows.push(DimensionRow {
-        label: if en {
-            "BFSG-relevant technical criteria"
-        } else {
-            "BFSG-relevante technische Kriterien"
-        }
-        .to_string(),
-        description: legal_desc.to_string(),
-        status: legal_status,
-    });
-
-    // 3. Conversion / Business-Risiko
-    let business_desc = if summary_score < 60 {
-        if en {
-            "High risk of process abandonment and conversion loss."
-        } else {
-            "Hohes Risiko von Prozessabbrüchen und Conversion-Verlusten."
-        }
-    } else if summary_score < 80 {
-        if en {
-            "Usability hurdles may reduce conversion rate."
-        } else {
-            "Nutzungshürden können Conversion-Rate reduzieren."
-        }
-    } else {
-        if en {
-            "Low business risk, minor optimizations recommended."
-        } else {
-            "Geringes geschäftliches Risiko, kleine Optimierungen empfohlen."
-        }
-    };
-    // Three-tier text (high risk / hurdles / low risk) now maps to three
-    // statuses instead of collapsing "low risk, minor optimizations" into
-    // "warn" (#576).
-    let business_status = if summary_score < 60 {
-        "bad"
-    } else if summary_score < 80 {
-        "warn"
-    } else {
-        "good"
-    };
-    rows.push(DimensionRow {
-        label: if en {
-            "Conversion & Business Risk"
-        } else {
-            "Conversion & Business-Risiko"
-        }
-        .to_string(),
-        description: business_desc.to_string(),
-        status: business_status,
-    });
-
-    // 4. SEO & AI Visibility
-    let seo_desc = if seo_score < 70 {
-        if en {
-            "Missing metadata or structured schemas reduce search engine and AI crawlability."
-        } else {
-            "Fehlende Metadaten oder strukturierte Daten behindern Google- und KI-Crawler."
-        }
-    } else if seo_score < 90 {
-        if en {
-            "Some optimization potential for search engines and AI agents."
-        } else {
-            "Optimierungspotenzial für Suchmaschinen und KI-Agenten vorhanden."
-        }
-    } else {
-        if en {
-            "Excellent discoverability and schema definition."
-        } else {
-            "Sehr gute Auffindbarkeit und strukturierte Schema-Daten."
-        }
-    };
-    let seo_status = if seo_score < 70 {
-        "bad"
-    } else if seo_score < 90 {
-        "warn"
-    } else {
-        "good"
-    };
-    rows.push(DimensionRow {
-        label: if en {
-            "SEO & AI Visibility"
-        } else {
-            "SEO & KI-Sichtbarkeit"
-        }
-        .to_string(),
-        description: seo_desc.to_string(),
-        status: seo_status,
-    });
-
-    // 5. Loading & Mobile experience
-    let speed_desc = if perf_score < 60 || mobile_score < 60 {
-        if en {
-            "High loading latency or touch target layout issues frustrate mobile visitors."
-        } else {
-            "Hohe Ladezeiten oder Touch-Target-Mängel frustrieren mobile Besucher."
-        }
-    } else if perf_score < 85 || mobile_score < 85 {
-        if en {
-            "Moderate performance bottlenecks on mobile networks."
-        } else {
-            "Mäßige Performance-Verzögerungen im Mobilfunknetz."
-        }
-    } else {
-        if en {
-            "Fast load speed and optimal responsive viewport."
-        } else {
-            "Schnelle Ladezeit und optimale responsive Darstellung."
-        }
-    };
-    let speed_status = if perf_score < 60 || mobile_score < 60 {
-        "bad"
-    } else if perf_score < 85 || mobile_score < 85 {
-        "warn"
-    } else {
-        "good"
-    };
-    rows.push(DimensionRow {
-        label: if en {
-            "Performance & Mobile"
-        } else {
-            "Ladezeit & Mobilfreundlichkeit"
-        }
-        .to_string(),
-        description: speed_desc.to_string(),
-        status: speed_status,
-    });
-
-    rows
-}
-
 /// Renders the risks block (only "bad"/"warn" dimensions, 0..5 rows,
 /// zero-risk empty state when all dimensions are "good") and, directly
 /// below it, a separate strengths block for the "good" dimensions (#576).
@@ -466,34 +265,31 @@ pub(super) fn render_risks_and_strengths(
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
 
-    // Looked up from `module_scores` (stable, English internal names set once
-    // in `audit::normalized::build_module_scores`), not `dashboard` — whose
-    // cards are reshaped/relabeled for narrative presentation (e.g. SEO's
-    // card became "Sichtbarkeit & Nutzerverständnis" for #406/wording-style)
-    // and so can no longer be found by matching a display-label substring
-    // (plan/29-pdf-dashboard-module-lookup-by-name.md).
-    let module_score = |name: &str| -> u32 {
-        vm.modules
-            .module_scores
-            .iter()
-            .find(|m| m.name == name)
-            .map(|m| m.score)
-            .unwrap_or(100)
-    };
-    let seo_score = module_score("SEO");
-    let perf_score = module_score("Performance");
-    let mobile_score = module_score("Mobile");
-
-    let dimensions = compute_dimension_rows(
-        vm.severity.critical,
-        vm.severity.high,
-        vm.cover.critical_issues,
-        vm.summary.score,
-        seo_score,
-        perf_score,
-        mobile_score,
-        en,
-    );
+    // The dimensions come from `audit::management_risk`, the same derivation
+    // the JSON publishes as `summary.management_risks`. This used to be a
+    // second heuristic (`compute_dimension_rows`) over severity counts and
+    // three module scores: it carried different dimensions, graded them
+    // differently, and the JSON's evidence-bearing rationales never reached
+    // the PDF reader at all (plan 35). On inros-lackner-de the JSON held four
+    // `high` risks while the panel showed three "bad" and two "warn", and two
+    // `high` dimensions were missing entirely.
+    //
+    // The text is re-derived here in the run language from the same kind, so
+    // the German PDF never shows the canonical English stored in the JSON
+    // (#406).
+    let dimensions: Vec<DimensionRow> = vm
+        .management_risks
+        .iter()
+        // A module that was not run is neither a risk nor a strength, so it
+        // belongs in neither panel. Without this an unrun module would be
+        // partitioned into the risks bucket purely for not being "good".
+        .filter(|kind| kind.tier() != crate::audit::management_risk::RiskTier::Unknown)
+        .map(|kind| DimensionRow {
+            label: kind.dimension(en),
+            description: kind.rationale(en),
+            status: kind.tier().status(),
+        })
+        .collect();
 
     let (mut risks, strengths): (Vec<DimensionRow>, Vec<DimensionRow>) =
         dimensions.into_iter().partition(|d| d.status != "good");
@@ -3185,99 +2981,144 @@ mod top_measure_tests {
 mod risk_and_strength_tests {
     use super::*;
 
-    /// #576 acceptance scenario 1: a "critical, mixed" report — some
-    /// dimensions bad/critical, some genuinely good (SEO here mirrors the
-    /// exact cited bug: "Sehr gute Auffindbarkeit..." must never land in the
-    /// risks bucket). Usability/Legal/Business are bad (critical findings,
-    /// BFSG violations, low score); SEO and Performance/Mobile are good.
+    use crate::audit::management_risk::ManagementRiskKind;
+
+    fn rows(kinds: &[ManagementRiskKind], en: bool) -> Vec<DimensionRow> {
+        kinds
+            .iter()
+            .map(|kind| DimensionRow {
+                label: kind.dimension(en),
+                description: kind.rationale(en),
+                status: kind.tier().status(),
+            })
+            .collect()
+    }
+
+    /// #576 acceptance scenario 1, carried over to the shared risk
+    /// dimensions (plan 35): a mixed report must keep genuinely good
+    /// dimensions out of the risks bucket. The cited bug was a positive SEO
+    /// line ("Sehr gute Auffindbarkeit …") rendered under "Wichtigste Risiken".
     #[test]
     fn mixed_report_buckets_bad_dimensions_as_risks_and_good_ones_as_strengths() {
-        let dimensions = compute_dimension_rows(
-            /* severity_critical */ 2, /* severity_high */ 1,
-            /* cover_critical_issues */ 2, /* summary_score */ 45,
-            /* seo_score */ 95, /* perf_score */ 95, /* mobile_score */ 95,
-            /* en */ false,
-        );
-        assert_eq!(dimensions.len(), 5);
+        let kinds = [
+            ManagementRiskKind::Legal {
+                legal_flags: 2,
+                critical: 2,
+                high: 1,
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::Conversion {
+                accessibility: 45,
+                performance: Some(95),
+                mobile: Some(95),
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::Seo { score: Some(95) },
+            ManagementRiskKind::PerformanceMobile {
+                performance: Some(95),
+                mobile: Some(95),
+            },
+        ];
+        let dimensions = rows(&kinds, false);
 
         let risks: Vec<&DimensionRow> = dimensions.iter().filter(|d| d.status != "good").collect();
         let strengths: Vec<&DimensionRow> =
             dimensions.iter().filter(|d| d.status == "good").collect();
 
-        assert_eq!(
-            risks.len(),
-            3,
-            "usability, legal and business should be risks"
-        );
-        assert!(risks.iter().all(|d| d.status == "bad"));
+        assert_eq!(risks.len(), 2, "legal and conversion should be risks");
         assert!(
-            risks.iter().all(|d| d.label != "SEO & KI-Sichtbarkeit"),
-            "SEO must never appear in the risks bucket when its status is good"
+            risks
+                .iter()
+                .all(|d| d.label != ManagementRiskKind::Seo { score: Some(95) }.dimension(false)),
+            "a good SEO score must never appear in the risks bucket",
         );
-
         assert_eq!(
             strengths.len(),
             2,
-            "SEO and performance/mobile should be strengths"
-        );
-        let seo_strength = strengths
-            .iter()
-            .find(|d| d.label == "SEO & KI-Sichtbarkeit")
-            .expect("SEO dimension should be a strength");
-        assert!(
-            seo_strength
-                .description
-                .contains("Sehr gute Auffindbarkeit"),
-            "the exact bug cited in #576: positive SEO text must land in strengths, not risks"
+            "SEO and performance/mobile should be strengths",
         );
     }
 
-    /// #576 acceptance scenario 2: a report where genuinely nothing is a
-    /// risk — all 5 dimensions clear their "good" threshold. This must be
-    /// achievable (i.e. every dimension's status derivation must have a
-    /// reachable "good" branch), otherwise the zero-risk empty state could
-    /// never render in practice.
+    /// #576 acceptance scenario 2: a report where nothing is a risk must be
+    /// reachable — every dimension needs a reachable "good" branch, otherwise
+    /// the zero-risk empty state could never render.
     #[test]
-    fn clean_report_puts_all_five_dimensions_in_strengths() {
-        let dimensions = compute_dimension_rows(
-            /* severity_critical */ 0, /* severity_high */ 0,
-            /* cover_critical_issues */ 0, /* summary_score */ 95,
-            /* seo_score */ 95, /* perf_score */ 95, /* mobile_score */ 95,
-            /* en */ false,
-        );
-        assert_eq!(dimensions.len(), 5);
+    fn clean_report_puts_every_dimension_in_strengths() {
+        let kinds = [
+            ManagementRiskKind::Legal {
+                legal_flags: 0,
+                critical: 0,
+                high: 0,
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::AssistiveTechnology {
+                critical: 0,
+                high: 0,
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::Conversion {
+                accessibility: 95,
+                performance: Some(95),
+                mobile: Some(95),
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::Seo { score: Some(95) },
+            ManagementRiskKind::PerformanceMobile {
+                performance: Some(95),
+                mobile: Some(95),
+            },
+            ManagementRiskKind::Trust {
+                accessibility: 95,
+                critical: 0,
+                high: 0,
+            },
+            ManagementRiskKind::Project {
+                count: 0,
+                pages: None,
+            },
+        ];
+        let dimensions = rows(&kinds, false);
         assert!(
             dimensions.iter().all(|d| d.status == "good"),
             "all dimensions should be good, got: {:?}",
             dimensions
                 .iter()
                 .map(|d| (&d.label, d.status))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
     }
 
-    /// Ordering: within the risks bucket, "bad" entries sort before "warn"
-    /// entries, but relative order within each status is preserved (stable
-    /// sort) rather than reshuffled.
+    /// Ordering: "bad" sorts before "warn", stably within each group.
     #[test]
     fn risks_partition_sorts_bad_before_warn_stably() {
-        let dimensions = compute_dimension_rows(
-            /* severity_critical */ 0, /* severity_high */ 1, // usability -> warn
-            /* cover_critical_issues */ 1, // legal -> bad
-            /* summary_score */ 70, // business -> warn
-            /* seo_score */ 50, // seo -> bad
-            /* perf_score */ 95, /* mobile_score */ 95, /* en */ true,
-        );
-        let (mut risks, _strengths): (Vec<DimensionRow>, Vec<DimensionRow>) =
-            dimensions.into_iter().partition(|d| d.status != "good");
+        let kinds = [
+            ManagementRiskKind::Legal {
+                legal_flags: 1,
+                critical: 0,
+                high: 0,
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::AssistiveTechnology {
+                critical: 0,
+                high: 1,
+                blocking_issues: 0,
+            },
+            ManagementRiskKind::Seo { score: Some(50) },
+            ManagementRiskKind::PerformanceMobile {
+                performance: Some(70),
+                mobile: Some(95),
+            },
+        ];
+        let (mut risks, _strengths): (Vec<DimensionRow>, Vec<DimensionRow>) = rows(&kinds, true)
+            .into_iter()
+            .partition(|d| d.status != "good");
         risks.sort_by_key(|d| if d.status == "bad" { 0u8 } else { 1u8 });
 
         let statuses: Vec<&str> = risks.iter().map(|d| d.status).collect();
         assert_eq!(statuses, vec!["bad", "bad", "warn", "warn"]);
-        // Stable within the "bad" group: the BFSG row came before SEO in the
-        // fixed dimension order, so it stays first among bads.
-        assert_eq!(risks[0].label, "BFSG-relevant technical criteria");
-        assert_eq!(risks[1].label, "SEO & AI Visibility");
+        // Stable within "bad": Legal came before SEO in the input order.
+        assert_eq!(risks[0].label, "Legal / BFSG-EAA");
+        assert_eq!(risks[1].label, "SEO / visibility");
     }
 
     fn test_report_view_model() -> ReportViewModel {

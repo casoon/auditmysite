@@ -464,13 +464,6 @@ effect-user-default-medium = Merkliche Verbesserung für betroffene Nutzergruppe
 effect-user-default-structural = Nachhaltig inklusivere Nutzererfahrung für alle
 
 # Conversion Effects
-effect-conversion-links = Klarere Navigation → weniger Absprünge
-effect-conversion-contrast = Bessere Lesbarkeit → höhere Verweildauer
-effect-conversion-heading = Strukturklarheit → schnellere Orientierung
-effect-conversion-language = Korrekte Sprachausgabe → keine Abbrüche durch Vorlesefehler
-effect-conversion-default-quick = Schnell wirksam — gut messbarer Effekt
-effect-conversion-default-medium = Messbare UX-Verbesserung bei mittlerem Aufwand
-effect-conversion-default-structural = Stabile technische Basis für weiteres Wachstum
 
 # Narrative Arc Formatters
 narrative-diagnose-multiple = { $count }× festgestellt: { $desc }

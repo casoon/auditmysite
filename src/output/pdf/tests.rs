@@ -1983,16 +1983,25 @@ mod tests {
     #[test]
     fn test_management_summary_risks_and_strengths_split_for_mixed_report() {
         // #576: the management summary must no longer render a fixed
-        // "Die 5 wichtigsten Risiken" block with all 5 dimensions — only
-        // the ones that are actually a risk. `pdf_fixture_report_rich` has
-        // no performance/SEO/mobile module data, so those three dimensions
-        // default to "good" (score 100) while usability/legal/business are
-        // driven into "bad" by the critical/high WCAG violations.
+        // "Die 5 wichtigsten Risiken" block with every dimension — only the
+        // ones that are actually a risk, with the good ones in their own
+        // strengths panel.
+        //
+        // The SEO score is set explicitly here. `pdf_fixture_report_rich` has
+        // no SEO module, and the panel used to invent one: it looked the score
+        // up with `unwrap_or(100)` and rendered "Sehr gute Auffindbarkeit" as
+        // a strength for a module that never ran (plan/29, plan 35). An unrun
+        // module is now excluded from both panels, so a test about a *good*
+        // SEO score has to supply one.
         let Some(pdftotext) = find_executable("pdftotext") else {
             return;
         };
 
-        let report = pdf_fixture_report_rich();
+        let mut report = pdf_fixture_report_rich();
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
+            score: 95,
+            ..Default::default()
+        });
         let config = ReportConfig {
             level: ReportLevel::Standard,
             ..ReportConfig::default()
@@ -2022,10 +2031,32 @@ mod tests {
             text.contains("Stärken im geprüften Umfang"),
             "expected a separate strengths panel for the good dimensions"
         );
-        assert!(
-            text.contains("Sehr gute Auffindbarkeit"),
-            "the positive SEO text must still be present, but only under the strengths panel"
+        assert_eq!(
+            panel_of(&text, "SEO & Sichtbarkeit"),
+            "strengths",
+            "a good SEO score must be rendered as a strength, not a risk",
         );
+    }
+
+    /// Which of the two management-summary panels a dimension label was
+    /// rendered under. The risks panel is rendered first, the strengths panel
+    /// directly below it, so position in the extracted text settles it — the
+    /// row text itself is now the same in both (plan 35 replaced the old
+    /// status-specific prose with the rationale that names the numbers).
+    fn panel_of(text: &str, label: &str) -> &'static str {
+        let risks = text.find("Wichtigste Risiken").expect("risks panel title");
+        let strengths = text
+            .find("Stärken im geprüften Umfang")
+            .expect("strengths panel title");
+        let at = text
+            .find(label)
+            .unwrap_or_else(|| panic!("{label} not in PDF text"));
+        assert!(at > risks, "{label} rendered above the risks panel");
+        if at < strengths {
+            "risks"
+        } else {
+            "strengths"
+        }
     }
 
     #[test]
@@ -2063,15 +2094,14 @@ mod tests {
             .expect("pdftotext should run");
         let text = std::fs::read_to_string(&txt_path).expect("read text");
 
-        assert!(
-            !text.contains("Sehr gute Auffindbarkeit"),
-            "an SEO score of 20 must not be described as excellent discoverability"
+        assert_eq!(
+            panel_of(&text, "SEO & Sichtbarkeit"),
+            "risks",
+            "an SEO score of 20 must be rendered as a risk, not a strength",
         );
         assert!(
-            // pdftotext drops the soft hyphen in "KI-Crawler", so match around it
-            // rather than the exact rendered string.
-            text.contains("Fehlende Metadaten oder strukturierte Daten behindern Google"),
-            "an SEO score of 20 must render the low-SEO risk description, expected under 'Wichtigste Risiken'"
+            text.contains("SEO-Score 20/100"),
+            "the risk row must name the score that set it: {text}",
         );
     }
 

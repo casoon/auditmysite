@@ -318,29 +318,6 @@ pub(super) fn derive_user_effect_from_action(i18n: &I18n, action: &str, effort: 
     }
 }
 
-pub(super) fn derive_conversion_effect_from_action(
-    i18n: &I18n,
-    action: &str,
-    effort: Effort,
-) -> String {
-    let a = action.to_lowercase();
-    if a.contains("link") || a.contains("navigation") {
-        i18n.t("effect-conversion-links")
-    } else if a.contains("kontrast") || a.contains("contrast") {
-        i18n.t("effect-conversion-contrast")
-    } else if a.contains("heading") || a.contains("h1") || a.contains("überschrift") {
-        i18n.t("effect-conversion-heading")
-    } else if a.contains("lang") || a.contains("language") {
-        i18n.t("effect-conversion-language")
-    } else {
-        match effort {
-            Effort::Quick => i18n.t("effect-conversion-default-quick"),
-            Effort::Medium => i18n.t("effect-conversion-default-medium"),
-            Effort::Structural => i18n.t("effect-conversion-default-structural"),
-        }
-    }
-}
-
 // ─── Narrative Arc ──────────────────────────────────────────────────────────
 
 /// Build a four-stage narrative arc (Diagnose → Ursache → Wirkung → Umsetzung)

@@ -147,6 +147,11 @@ pub struct ReportViewModel {
     /// Recognized structural patterns (positive signals). Rendered as a
     /// green "what's working well" section in the PDF.
     pub positive_signals: Vec<PositiveSignal>,
+    /// Management risk dimensions, as the analysis layer derived them. Carried
+    /// as `ManagementRiskKind` rather than as finished text so the PDF renders
+    /// them in the run language while the JSON keeps canonical English
+    /// (#406, plan 35).
+    pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
 }
 
 pub struct PositiveSignal {
@@ -669,8 +674,6 @@ pub struct RoadmapItemData {
     pub user_effect: String,
     /// Risk reduction effect (e.g. "Reduziert WCAG-Verstoßrisiko")
     pub risk_effect: String,
-    /// Conversion/UX effect (e.g. "Verbessert Orientierung und Klickrate")
-    pub conversion_effect: String,
     /// Occurrence count of the underlying `FindingGroup` (see `ActionItem`).
     pub occurrence_count: usize,
     /// Rule ID of the underlying `FindingGroup` (see `ActionItem`).

@@ -11,6 +11,7 @@ pub mod catalog;
 mod crawl;
 pub mod duplicate;
 pub mod interpretation;
+pub mod management_risk;
 pub mod module;
 pub mod normalized;
 pub mod occurrence_analysis;

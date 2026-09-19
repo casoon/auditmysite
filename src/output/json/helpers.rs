@@ -397,126 +397,21 @@ pub(crate) fn score_area_for_finding(
     )
 }
 
+/// JSON view of the shared risk dimensions.
+///
+/// The derivation itself lives in `audit::management_risk` so the PDF renders
+/// the same dimensions instead of a second heuristic of its own (plan 35).
+/// Canonical English is baked in here (#406); the PDF re-derives the text in
+/// the run language from the same `ManagementRiskKind`.
 pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<ManagementRisk> {
-    let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
-    let critical: usize = reports.iter().map(|r| r.severity_counts.critical).sum();
-    let high: usize = reports.iter().map(|r| r.severity_counts.high).sum();
-    // Buttons/forms without an accessible name (WCAG 4.1.2) -- these can be
-    // "medium" severity (so they don't count toward `legal_flags`, which
-    // requires High/Critical) while still making a control fully inoperable
-    // for keyboard/screen-reader users. Thresholds (>=1 -> at least medium,
-    // >=5 -> high) mirror `compute_risk_assessment`'s canonical risk-level
-    // gating so this dimension can't silently disagree with the report's own
-    // top-level risk_level/certificate. Regression (satower-mosterei.de,
-    // 2026-08-31): overall risk_level "medium", certificate "EINGESCHRÄNKT",
-    // verdict "fail", 4 blocking issues -- yet every management_risks
-    // dimension previously read "low" because this field was never consulted.
-    let blocking_issues: usize = reports.iter().map(|r| r.risk.blocking_issues).sum();
-    let avg = average_accessibility_score(reports);
-    let seo = average_module_score_from_reports(reports, "SEO");
-    let perf = average_module_score_from_reports(reports, "Performance");
-    let mobile = average_module_score_from_reports(reports, "Mobile");
-    let component_findings = reports
-        .iter()
-        .flat_map(|r| r.findings.iter())
-        .filter(|f| f.occurrence_count >= 10 || f.complexity == "high")
-        .count();
-
-    vec![
-        ManagementRisk {
-            dimension: "Legal / BFSG-EAA".to_string(),
-            level: if legal_flags > 0 || critical > 0 || blocking_issues >= 5 {
-                "high"
-            } else if high > 0 || blocking_issues > 0 {
-                "medium"
-            } else {
-                "low"
-            }
-            .to_string(),
-            rationale: if blocking_issues > 0 {
-                format!(
-                    "{legal_flags} legal flags, {critical} critical and {high} high WCAG findings detected automatically; {blocking_issues} blocking interaction {} (missing accessible name/role) also affect BFSG/EAA operability requirements.",
-                    if blocking_issues == 1 { "issue" } else { "issues" }
-                )
-            } else {
-                format!(
-                    "{legal_flags} legal flags, {critical} critical and {high} high WCAG findings detected automatically."
-                )
-            },
-        },
-        ManagementRisk {
-            dimension: "Conversion / usability".to_string(),
-            level: if avg < 60
-                || critical > 0
-                || perf.is_some_and(|s| s < 50)
-                || blocking_issues >= 5
-            {
-                "high"
-            } else if avg < 80 || high > 0 || mobile.is_some_and(|s| s < 75) || blocking_issues > 0
-            {
-                "medium"
-            } else {
-                "low"
-            }
-            .to_string(),
-            rationale: format!(
-                "Average accessibility score is {avg}/100; performance {}, mobile {}.{}",
-                perf.map(|score| format!("{score}/100"))
-                    .unwrap_or_else(|| "not measured".to_string()),
-                mobile
-                    .map(|score| format!("{score}/100"))
-                    .unwrap_or_else(|| "not measured".to_string()),
-                if blocking_issues > 0 {
-                    format!(
-                        " {blocking_issues} interactive element{} block{} completion of key actions.",
-                        if blocking_issues == 1 { "" } else { "s" },
-                        if blocking_issues == 1 { "s" } else { "" }
-                    )
-                } else {
-                    String::new()
-                }
-            ),
-        },
-        ManagementRisk {
-            dimension: "SEO / visibility".to_string(),
-            level: risk_level_from_optional_score(seo),
-            rationale: seo
-                .map(|score| format!("Average SEO score is {score}/100."))
-                .unwrap_or_else(|| "SEO module was not run.".to_string()),
-        },
-        ManagementRisk {
-            dimension: "Trust / brand".to_string(),
-            level: if critical > 0 || avg < 50 {
-                "high"
-            } else if high > 0 || avg < 75 {
-                "medium"
-            } else {
-                "low"
-            }
-            .to_string(),
-            rationale: "Accessibility barriers can reduce perceived reliability and inclusiveness."
-                .to_string(),
-        },
-        ManagementRisk {
-            dimension: "Project risk".to_string(),
-            level: if component_findings >= 3 {
-                "high"
-            } else if component_findings > 0 {
-                "medium"
-            } else {
-                "low"
-            }
-            .to_string(),
-            rationale: format!(
-                "{component_findings} likely component or template {} coordinated remediation.",
-                if component_findings == 1 {
-                    "issue needs"
-                } else {
-                    "issues need"
-                }
-            ),
-        },
-    ]
+    crate::audit::management_risk::build_management_risk_kinds(reports)
+        .into_iter()
+        .map(|kind| ManagementRisk {
+            dimension: kind.dimension(true),
+            level: kind.tier().as_str().to_string(),
+            rationale: kind.rationale(true),
+        })
+        .collect()
 }
 
 pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
@@ -648,33 +543,6 @@ pub(super) fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
     } else {
         reports.iter().map(|r| r.score).sum::<u32>() / reports.len() as u32
     }
-}
-
-pub(super) fn average_module_score_from_reports(
-    reports: &[NormalizedReport],
-    module_name: &str,
-) -> Option<u32> {
-    let scores: Vec<u32> = reports
-        .iter()
-        .filter_map(|report| {
-            report
-                .module_scores
-                .iter()
-                .find(|module| module.name == module_name)
-                .map(|module| module.score)
-        })
-        .collect();
-    (!scores.is_empty()).then(|| scores.iter().sum::<u32>() / scores.len() as u32)
-}
-
-pub(super) fn risk_level_from_optional_score(score: Option<u32>) -> String {
-    match score {
-        Some(score) if score < 60 => "high",
-        Some(score) if score < 80 => "medium",
-        Some(_) => "low",
-        None => "unknown",
-    }
-    .to_string()
 }
 
 /// Number of distinct violated WCAG rules.
@@ -950,6 +818,77 @@ mod tests {
         assert_eq!(apportion(&[3.0, 1.0], 4.0, 0), [0, 0]);
         // A single loaded area takes the whole loss.
         assert_eq!(apportion(&[0.0, 9.0], 9.0, 80), [0, 80]);
+    }
+
+    /// Plan 40: a single-URL run cannot know whether a template or component
+    /// is behind a repeated finding — it has seen one DOM. The claim is only
+    /// made where recurrence across pages was actually observed.
+    #[test]
+    fn project_risk_claims_a_template_cause_only_across_pages() {
+        let mut widespread = make_finding("a11y.landmark_unique.invalid", "");
+        widespread.occurrence_count = 31;
+
+        let single =
+            build_management_risks(std::slice::from_ref(&make_report(vec![widespread.clone()])));
+        let project = single
+            .iter()
+            .find(|r| r.dimension == "Project risk")
+            .expect("project risk dimension");
+        assert!(
+            !project.rationale.contains("component or template"),
+            "single-page run infers a template cause: {}",
+            project.rationale,
+        );
+        assert!(
+            project.rationale.contains("audit further pages"),
+            "single-page run should say what would confirm it: {}",
+            project.rationale,
+        );
+
+        let batch = build_management_risks(&[
+            make_report(vec![widespread.clone()]),
+            make_report(vec![widespread]),
+        ]);
+        let project = batch
+            .iter()
+            .find(|r| r.dimension == "Project risk")
+            .expect("project risk dimension");
+        assert!(
+            project.rationale.contains("component or template"),
+            "recurrence across pages should support the claim: {}",
+            project.rationale,
+        );
+    }
+
+    /// Plan 40: "Trust / brand" was a fixed sentence citing no measurement,
+    /// while its level came from the accessibility score.
+    #[test]
+    fn trust_risk_names_the_data_that_set_it() {
+        let mut finding = make_finding("a11y.interactive_name.missing", "");
+        finding.occurrence_count = 15;
+        let risks = build_management_risks(std::slice::from_ref(&make_report(vec![finding])));
+        let trust = risks
+            .iter()
+            .find(|r| r.dimension == "Trust / brand")
+            .expect("trust dimension");
+
+        assert!(
+            trust.rationale.contains("/100"),
+            "rationale cites no score: {}",
+            trust.rationale,
+        );
+        assert!(
+            trust
+                .rationale
+                .contains("No trust or brand signal is measured"),
+            "rationale does not disclose that nothing brand-related is measured: {}",
+            trust.rationale,
+        );
+        assert_ne!(
+            trust.rationale,
+            "Accessibility barriers can reduce perceived reliability and inclusiveness.",
+            "the constant sentence is back",
+        );
     }
 
     /// Plan 38: the areas come from the taxonomy mapping now, so the whole

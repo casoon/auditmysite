@@ -464,13 +464,6 @@ effect-user-default-medium = Noticeable improvement for affected user groups
 effect-user-default-structural = Sustainably more inclusive experience for everyone
 
 # Conversion Effects
-effect-conversion-links = Clearer navigation → fewer drop-offs
-effect-conversion-contrast = Better readability → higher dwell time
-effect-conversion-heading = Structural clarity → faster orientation
-effect-conversion-language = Correct speech output → no drop-offs from misreadings
-effect-conversion-default-quick = Quick to take effect — clearly measurable impact
-effect-conversion-default-medium = Measurable UX improvement with medium effort
-effect-conversion-default-structural = Solid technical baseline for future growth
 
 # Narrative Arc Formatters
 narrative-diagnose-multiple = Detected { $count } times: { $desc }

@@ -5,7 +5,7 @@ use crate::output::report_model::{
     RoadmapItemData, TaskSummary,
 };
 
-use super::super::actions::{derive_conversion_effect_from_action, derive_user_effect_from_action};
+use super::super::actions::derive_user_effect_from_action;
 
 /// plan/6-remediation-leverage-metric.md: a plain-language "is this fix
 /// worth doing first" verdict combining reach (`occurrence_count`), cost
@@ -120,8 +120,6 @@ pub(super) fn build_actions_block(
                     (Priority::Low, true) => "Improves WCAG conformance in detail".to_string(),
                     (Priority::Low, false) => "Verbessert WCAG-Konformität im Detail".to_string(),
                 };
-                let conversion_effect =
-                    derive_conversion_effect_from_action(i18n, &i.action, i.effort);
                 RoadmapItemData {
                     action: i.action.clone(),
                     role: i.role.label(en).to_string(),
@@ -131,7 +129,6 @@ pub(super) fn build_actions_block(
                     benefit: i.benefit.clone(),
                     user_effect,
                     risk_effect,
-                    conversion_effect,
                     occurrence_count: i.occurrence_count,
                     rule_id: i.rule_id.clone(),
                     leverage: remediation_leverage(i.occurrence_count, i.effort, i.priority, en)

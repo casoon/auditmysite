@@ -249,6 +249,10 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         &top_findings,
     );
 
+    let management_risks = crate::audit::management_risk::build_management_risk_kinds(
+        std::slice::from_ref(&normalized.normalized),
+    );
+
     ReportViewModel {
         meta: MetaBlock {
             title: report_title.clone(),
@@ -447,6 +451,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         actions,
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&config.locale, normalized),
+        management_risks,
     }
 }
 
