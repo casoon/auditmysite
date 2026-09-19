@@ -7,7 +7,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const MOTION_ACTUATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.4",
@@ -61,7 +61,7 @@ pub async fn check_motion_actuation_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(MOTION_ACTUATION_RULE.axe_id)
     .with_help_url(MOTION_ACTUATION_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(MOTION_ACTUATION_JS).await {
         Ok(r) => r,

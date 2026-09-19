@@ -23,5 +23,5 @@ pub use engine::{
 };
 pub use types::{
     technical_failure_reason, technical_rule_failure, technical_rule_failure_for, Evidence,
-    FindingKind, RuleMetadata, RuleOutcome, RuleOutcomeStatus, Severity, Violation, WcagResults,
+    Outcome, RuleMetadata, RuleOutcome, RuleOutcomeStatus, Severity, Violation, WcagResults,
 };

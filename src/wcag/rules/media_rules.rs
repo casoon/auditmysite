@@ -11,7 +11,7 @@ use url::Url;
 
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for media accessibility (1.2.x)
 pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
@@ -206,7 +206,7 @@ return { videos: videos, embeds: embeds };
 
 /// 1.2.2 Captions (Prerecorded) — DOM + network deepening (#video-caption-checks).
 ///
-/// Emits a confirmed pass (`FindingKind::Positive`) only when every native
+/// Emits a confirmed pass (`Outcome::Pass`) only when every native
 /// `<video>` element on the page has a `<track kind="captions"|"subtitles">`
 /// whose `src` actually resolves same-origin as a real caption file.
 /// Anything short of that (no track, an unresolving track, or only
@@ -381,7 +381,7 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
     )
     .with_help_url(RULE_META_CAPTIONS.help_url)
     .with_rule_id(RULE_META_CAPTIONS.axe_id)
-    .with_kind(FindingKind::NotTestable)]
+    .with_kind(Outcome::Untested)]
 }
 
 /// DOM check for iframe accessible names. Iframes are not always represented
@@ -623,7 +623,7 @@ pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
                  Ensure the iframe source provides an accessible experience for screen reader users.",
             )
             .with_help_url(RULE_META_FRAME_TESTED.help_url)
-            .with_kind(FindingKind::NotTestable);
+            .with_kind(Outcome::Untested);
 
             if let Some(snippet) = frame.get("snippet").and_then(|v| v.as_str()) {
                 violation = violation.with_html_snippet(snippet);

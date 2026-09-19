@@ -7,7 +7,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const LANGUAGE_OF_PARTS_RULE: RuleMetadata = RuleMetadata {
     id: "3.1.2",
@@ -93,7 +93,7 @@ pub async fn check_language_of_parts_with_page(page: &Page) -> Vec<Violation> {
                 )
                 .with_selector(selector)
                 .with_rule_id(LANGUAGE_OF_PARTS_RULE.axe_id)
-                .with_kind(FindingKind::Warning)
+                .with_kind(Outcome::Review)
                 .with_fix(format!(
                     "Confirm the passage language and add lang=\"{detected}\" when it differs from the surrounding content"
                 ))

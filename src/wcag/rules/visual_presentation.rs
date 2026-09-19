@@ -7,7 +7,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const VISUAL_PRESENTATION_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.8",
@@ -68,7 +68,7 @@ pub async fn check_visual_presentation_with_page(page: &Page) -> Vec<Violation> 
     )
     .with_rule_id(VISUAL_PRESENTATION_RULE.axe_id)
     .with_help_url(VISUAL_PRESENTATION_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(VISUAL_PRESENTATION_JS).await {
         Ok(r) => r,

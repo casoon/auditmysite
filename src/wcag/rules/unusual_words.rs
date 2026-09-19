@@ -7,7 +7,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 pub const UNUSUAL_WORDS_RULE: RuleMetadata = RuleMetadata {
     id: "3.1.3",
@@ -40,7 +40,7 @@ pub fn check_unusual_words(_tree: &AXTree) -> WcagResults {
         )
         .with_rule_id(UNUSUAL_WORDS_RULE.axe_id)
         .with_help_url(UNUSUAL_WORDS_RULE.help_url)
-        .with_kind(FindingKind::NotTestable),
+        .with_kind(Outcome::Untested),
     );
 
     results

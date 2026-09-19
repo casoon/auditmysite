@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.1
 pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
@@ -64,7 +64,7 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
                 )
                 .with_help_url(BYPASS_BLOCKS_RULE.help_url)
                 .with_rule_id(BYPASS_BLOCKS_RULE.axe_id)
-                .with_kind(FindingKind::Positive),
+                .with_kind(Outcome::Pass),
             );
         }
         if has_main_landmark {
@@ -79,7 +79,7 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
                 )
                 .with_help_url(BYPASS_BLOCKS_RULE.help_url)
             .with_rule_id(BYPASS_BLOCKS_RULE.axe_id)
-                .with_kind(FindingKind::Positive),
+                .with_kind(Outcome::Pass),
             );
         }
     }

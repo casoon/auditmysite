@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.1.1
 pub const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
@@ -162,7 +162,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
         )
         .with_help_url(NO_KEYBOARD_TRAP_RULE.help_url)
             .with_rule_id(NO_KEYBOARD_TRAP_RULE.axe_id)
-        .with_kind(FindingKind::NotTestable),
+        .with_kind(Outcome::Untested),
     );
 
     results
@@ -338,7 +338,7 @@ mod tests {
                     .contains("Focusable element without interactive role")
             })
             .expect("expected a warning-kind finding");
-        assert_eq!(finding.kind, FindingKind::Warning);
+        assert_eq!(finding.kind, Outcome::Review);
         // Regression for #571: this finding must carry the distinct
         // "focusable-no-role" rule_id, not the shared "keyboard" id, so
         // `output::explanations::get_explanation` resolves the role-specific
@@ -371,7 +371,7 @@ mod tests {
             .iter()
             .find(|v| v.rule == NO_KEYBOARD_TRAP_RULE.id && v.node_id == "1")
             .expect("expected a warning-kind finding for the modal dialog");
-        assert_eq!(finding.kind, FindingKind::Warning);
+        assert_eq!(finding.kind, Outcome::Review);
         assert_eq!(finding.severity, Severity::High);
         assert!(!results
             .violations

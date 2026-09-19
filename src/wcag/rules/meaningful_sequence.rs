@@ -45,7 +45,7 @@
 //!
 //! Because "does the order actually affect meaning" requires human judgment
 //! that a static check cannot make, findings are reported as
-//! [`crate::wcag::types::FindingKind::Warning`] (heuristic, manual-review
+//! [`crate::wcag::types::Outcome::Review`] (heuristic, manual-review
 //! candidate), not a confirmed violation — same treatment as
 //! `redundant_entry` and the image-background contrast heuristic.
 

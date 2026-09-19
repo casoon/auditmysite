@@ -11,26 +11,23 @@ use crate::cli::WcagLevel;
 // Re-export Severity from taxonomy module (single source of truth)
 pub use crate::taxonomy::Severity;
 
-/// Confidence level of a WCAG finding.
+/// Wie sicher die Aussage über einen Befund ist.
 ///
-/// Distinguishes between definitive violations detected by the accessibility
-/// tree and heuristic suspicions that require human verification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum FindingKind {
-    /// Automated check detected a concrete problem.
-    #[default]
-    Violation,
-    /// Heuristic suspicion — automated tool cannot definitively confirm without
-    /// behavioral testing (e.g. interactive-role without `focusable` attribute).
-    Warning,
-    /// Good accessibility pattern actively detected (skip link, main landmark,
-    /// semantic structure). Surfaced for transparency, not as a problem.
-    Positive,
-    /// WCAG criterion exists but cannot be evaluated without human interaction
-    /// (e.g. cognitive load, timed content, screen-reader behavior).
-    NotTestable,
-}
+/// Kommt aus dem geteilten `a11y-report`-Crate. Die vormals lokale
+/// `FindingKind` entsprach Variante für Variante:
+///
+/// | vorher | jetzt | Bedeutung |
+/// |---|---|---|
+/// | `Violation` | [`Outcome::Fail`] | automatisch belegtes Problem |
+/// | `Warning` | [`Outcome::Review`] | heuristischer Verdacht, braucht Bestätigung |
+/// | `Positive` | [`Outcome::Pass`] | aktiv erkanntes gutes Muster |
+/// | `NotTestable` | [`Outcome::Untested`] | automatisiert nicht beurteilbar |
+///
+/// Die JSON-Darstellung ändert sich damit von `"violation"`/`"warning"`/
+/// `"positive"`/`"not_testable"` auf `"fail"`/`"review"`/`"pass"`/
+/// `"untested"` — gewollt, denn genau diese Vokabel teilen sich die drei
+/// Oberflächen.
+pub use a11y_report::Outcome;
 
 /// Machine-readable provenance for a single WCAG finding (issue #52).
 ///
@@ -84,7 +81,7 @@ pub struct Violation {
     /// Confidence level: whether this is a definitive violation, a heuristic
     /// warning, a positive signal, or an untestable criterion (issue #36).
     #[serde(default)]
-    pub kind: FindingKind,
+    pub kind: Outcome,
     /// Machine-readable provenance for this finding (issue #52).
     /// Populated incrementally — not all violations carry evidence yet.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -128,7 +125,7 @@ impl Violation {
             impact,
             html_snippet: None,
             suggested_code: None,
-            kind: FindingKind::Violation,
+            kind: Outcome::Fail,
             evidence: Vec::new(),
             evidence_screenshot: None,
             evidence_viewport: None,
@@ -205,7 +202,7 @@ impl Violation {
     }
 
     /// Override the default finding kind (defaults to `Violation`).
-    pub fn with_kind(mut self, kind: FindingKind) -> Self {
+    pub fn with_kind(mut self, kind: Outcome) -> Self {
         self.kind = kind;
         self
     }
@@ -217,12 +214,12 @@ impl Violation {
     }
 
     pub fn as_warning(self) -> Self {
-        self.with_kind(FindingKind::Warning)
+        self.with_kind(Outcome::Review)
     }
 
     /// Convenience: mark as a positive signal (good pattern detected).
     pub fn as_positive(self) -> Self {
-        self.with_kind(FindingKind::Positive)
+        self.with_kind(Outcome::Pass)
     }
 }
 
@@ -243,7 +240,7 @@ pub fn technical_rule_failure(rule: &RuleMetadata, reason_code: &str) -> Violati
         "audit-execution-failed".to_string(),
         format!("reason:{reason_code}"),
     ])
-    .with_kind(FindingKind::NotTestable)
+    .with_kind(Outcome::Untested)
 }
 
 /// Variant for composite DOM checks whose table entry, rather than one
@@ -262,7 +259,7 @@ pub fn technical_rule_failure_for(rule_id: &str, level: WcagLevel, reason_code: 
         "audit-execution-failed".to_string(),
         format!("reason:{reason_code}"),
     ])
-    .with_kind(FindingKind::NotTestable)
+    .with_kind(Outcome::Untested)
 }
 
 /// Outcome of evaluating a rule's JS on the page, before it's turned into
@@ -438,10 +435,10 @@ impl WcagResults {
     /// Add a finding. Routes to the appropriate list based on `finding.kind`.
     pub fn add_violation(&mut self, finding: Violation) {
         match finding.kind {
-            FindingKind::Warning => self.warnings.push(finding),
-            FindingKind::Positive => self.positives.push(finding),
-            FindingKind::NotTestable => self.not_testables.push(finding),
-            FindingKind::Violation => self.violations.push(finding),
+            Outcome::Review => self.warnings.push(finding),
+            Outcome::Pass => self.positives.push(finding),
+            Outcome::Untested => self.not_testables.push(finding),
+            Outcome::Fail => self.violations.push(finding),
         }
     }
 
@@ -454,19 +451,19 @@ impl WcagResults {
 
     /// Add a heuristic warning directly (without `as_warning()` call on the finding).
     pub fn add_warning(&mut self, mut finding: Violation) {
-        finding.kind = FindingKind::Warning;
+        finding.kind = Outcome::Review;
         self.warnings.push(finding);
     }
 
     /// Add a positive signal directly.
     pub fn add_positive(&mut self, mut finding: Violation) {
-        finding.kind = FindingKind::Positive;
+        finding.kind = Outcome::Pass;
         self.positives.push(finding);
     }
 
     /// Add a not-testable note directly.
     pub fn add_not_testable(&mut self, mut finding: Violation) {
-        finding.kind = FindingKind::NotTestable;
+        finding.kind = Outcome::Untested;
         self.not_testables.push(finding);
     }
 
@@ -562,6 +559,51 @@ mod tests {
         assert!(Severity::Critical > Severity::High);
         assert!(Severity::High > Severity::Medium);
         assert!(Severity::Medium > Severity::Low);
+    }
+
+    /// Pinnt die geteilte Outcome-Vokabel in der JSON-Ausgabe.
+    ///
+    /// Die Werte haben sich mit dem Umstieg auf `a11y_report::Outcome`
+    /// bewusst geändert (`"violation"` -> `"fail"` usw.). Kein Fixture und
+    /// kein Snapshot beobachtete das Feld, die Umstellung waere also
+    /// unbemerkt geblieben -- deshalb dieser Test.
+    #[test]
+    fn violation_kind_serialisiert_die_geteilte_outcome_vokabel() {
+        let basis = || {
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Image missing alt text",
+                "node-123",
+            )
+        };
+
+        for (outcome, erwartet) in [
+            (Outcome::Fail, "fail"),
+            (Outcome::Review, "review"),
+            (Outcome::Pass, "pass"),
+            (Outcome::Untested, "untested"),
+        ] {
+            let json = serde_json::to_value(basis().with_kind(outcome)).unwrap();
+            assert_eq!(json["kind"], erwartet, "Outcome::{outcome:?}");
+        }
+    }
+
+    /// Ein frisch gebauter Befund ist ein belegtes Problem, kein Vorgabewert
+    /// aus dem `Default` des geteilten Enums.
+    #[test]
+    fn violation_new_ist_ein_fail() {
+        let v = Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Image missing alt text",
+            "node-123",
+        );
+        assert_eq!(v.kind, Outcome::Fail);
     }
 
     #[test]

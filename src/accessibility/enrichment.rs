@@ -67,7 +67,7 @@ pub async fn enrich_violations_with_page(
                 // (#562: this was the actual root cause of a violation→
                 // warning downgrade affecting many unrelated rule files).
                 if !is_page_level_placeholder_node_id(&violation.node_id) {
-                    violation.kind = crate::wcag::types::FindingKind::Warning;
+                    violation.kind = crate::wcag::types::Outcome::Review;
                 }
                 continue;
             }
@@ -99,7 +99,7 @@ pub async fn enrich_violations_with_page(
                     backend_id, violation.rule
                 );
                 // Element not locatable in live DOM — cannot be confirmed.
-                violation.kind = crate::wcag::types::FindingKind::Warning;
+                violation.kind = crate::wcag::types::Outcome::Review;
             }
         }
 
@@ -117,7 +117,7 @@ pub async fn enrich_violations_with_page(
             if violation.rule == "1.1.1"
                 && (is_lazyload_image_placeholder(&raw_html) || is_decorative_svg_icon(&raw_html))
             {
-                violation.kind = crate::wcag::types::FindingKind::Warning;
+                violation.kind = crate::wcag::types::Outcome::Review;
             }
             let snippet = truncate_html(raw_html);
             let suggested = generate_suggested_code(

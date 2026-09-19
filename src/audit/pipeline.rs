@@ -966,7 +966,7 @@ pub async fn audit_page(
     enrich_violations_with_page(page, &mut pattern_violations, &primary_snap.ax_tree).await;
     let (kept_patterns, demoted_patterns): (Vec<_>, Vec<_>) = pattern_violations
         .into_iter()
-        .partition(|v| v.kind == crate::wcag::types::FindingKind::Violation);
+        .partition(|v| v.kind == crate::wcag::types::Outcome::Fail);
     merged_wcag.violations.extend(kept_patterns);
     merged_wcag.warnings.extend(demoted_patterns);
 
@@ -1549,7 +1549,7 @@ fn page_rule_outcome(
 
     let violation_count = visible_findings
         .iter()
-        .filter(|finding| finding.kind == crate::wcag::FindingKind::Violation)
+        .filter(|finding| finding.kind == crate::wcag::Outcome::Fail)
         .count();
     let status = if technical_failure.is_some() {
         crate::wcag::RuleOutcomeStatus::Failed
@@ -1557,12 +1557,12 @@ fn page_rule_outcome(
         crate::wcag::RuleOutcomeStatus::ViolationsFound
     } else if visible_findings
         .iter()
-        .any(|finding| finding.kind == crate::wcag::FindingKind::Warning)
+        .any(|finding| finding.kind == crate::wcag::Outcome::Review)
     {
         crate::wcag::RuleOutcomeStatus::Warning
     } else if visible_findings
         .iter()
-        .any(|finding| finding.kind == crate::wcag::FindingKind::NotTestable)
+        .any(|finding| finding.kind == crate::wcag::Outcome::Untested)
     {
         crate::wcag::RuleOutcomeStatus::ManualReviewRequired
     } else {
@@ -1671,7 +1671,7 @@ fn move_demoted_violations_to_warnings(results: &mut WcagResults) {
     let (kept, demoted): (Vec<_>, Vec<_>) = results
         .violations
         .drain(..)
-        .partition(|v| v.kind == crate::wcag::types::FindingKind::Violation);
+        .partition(|v| v.kind == crate::wcag::types::Outcome::Fail);
     results.violations = kept;
     results.warnings.extend(demoted);
 }

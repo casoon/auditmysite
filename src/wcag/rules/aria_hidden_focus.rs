@@ -167,7 +167,7 @@ pub async fn check_aria_hidden_focus(page: &Page) -> Vec<Violation> {
         )
         .with_rule_id(ARIA_HIDDEN_FOCUS_RULE.axe_id)
         .with_help_url(ARIA_HIDDEN_FOCUS_RULE.help_url);
-        note.kind = crate::wcag::types::FindingKind::Warning;
+        note.kind = crate::wcag::types::Outcome::Review;
         violations.push(note);
     }
 
