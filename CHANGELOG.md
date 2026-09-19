@@ -140,6 +140,24 @@ short current-state summary. Newest entries first (unchanged order from before t
   browserfreien Testbinaries bestanden, 0 fehlgeschlagen. Die browsergestützten Korpus-Tests
   (`detection_corpus_test`) brauchen Chrome und liefen dabei nicht.
 
+- **a11y-core 0.4.0, 2026-09-19 — was noch nicht ablösbar ist:** Mit 0.4.0 lesen die geteilten
+  Struktur­regeln auch `role`-Attribute (`role="list"`, `role="columnheader"`, `role="table"`), und
+  `positive-tabindex` steht wieder auf `High`. Drei naheliegende Ablösungen bleiben trotzdem aus —
+  sie wären ein Fähigkeitsverlust, nicht ein Tausch:
+
+  - **Listen:** `lists/invalid-structure` und `lists/empty` decken zwei der drei Prüfungen aus
+    `rules/list_structure.rs` ab. Es fehlt, ob ein `<dt>` eine zugehörige Definition hat.
+  - **Tabellen:** `tables/header-missing` deckt nur die Kopfzellen ab. `rules/table_rules.rs` prüft
+    zusätzlich Caption bzw. Accessible Name und ob präsentationale Tabellen fälschlich Kopfzellen
+    führen.
+  - **Viewport:** `zoom/viewport-locked` prüft `maximum-scale < 2.0` und entspricht damit
+    `rules/resize_text.rs` (1.4.4, 200 %) — **nicht** `rules/meta_viewport_large.rs`, das dieselbe
+    Auszeichnung bei der strengeren 500-%-Schwelle prüft. Eine Ablösung von `meta_viewport_large`
+    wäre die falsche Zuordnung gewesen.
+
+  *Verifiziert:* Bau und 1.442 browserfreie Tests gegen 0.4.0, clippy `-D warnings` sauber. Die
+  drei Lücken gehören in die nächste a11y-core-Runde, nicht in eine lokale Sonderlocke.
+
 - **1.5.0, 2026-09-19 — Lizenzwechsel auf MIT:** auditmysite steht ab dieser Version unter der
   MIT-Lizenz. Frühere Releases bleiben unter der Lizenz, die zum jeweiligen Zeitpunkt galt — bis
   0.25.x AGPL-3.0-or-later, 0.26.0 bis 1.4.0 Business Source License 1.1; das ist in `NOTICE`
