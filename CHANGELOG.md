@@ -140,6 +140,29 @@ short current-state summary. Newest entries first (unchanged order from before t
   browserfreien Testbinaries bestanden, 0 fehlgeschlagen. Die browsergestützten Korpus-Tests
   (`detection_corpus_test`) brauchen Chrome und liefen dabei nicht.
 
+- **a11y-core 0.6.0, 2026-09-19 — drei Regeln abgelöst:** `list_structure`, `table_rules` und
+  `meta_viewport_large` sind gelöscht; ihre Prüfungen kommen jetzt aus dem geteilten Bestand.
+  `SHARED_RULES` führt damit 12 statt 4 Kennungen.
+
+  Möglich wurde das erst, nachdem a11y-core die Lücken geschlossen hat, an denen die Ablösung
+  vorher gescheitert wäre: Begriff ohne Definition, präsentationale Tabelle mit Kopfzellen,
+  Tabellenname, die Trennung von Zoom-Verstoß und Zoom-Begrenzung — und beim Abräumen fiel ein
+  vierter auf, der verwaiste Listeneintrag (`<li>` ohne Liste darüber). Die alte Regel lief über
+  den AX-Tree und sah ihn; die geteilte lief über Listen und hätte ihn nie besucht. Ohne
+  `lists/item-outside-list` in 0.6.0 hätte die Ablösung eine Prüfung verloren statt sie zu teilen.
+
+  **Eine bewusste Abweichung:** Die fehlende Tabellenbenennung ist im geteilten Bestand
+  `needs_review`, nicht `violation` — ob eine Tabelle einen Namen braucht, hängt vom Kontext ab,
+  und ein Verstoß wäre eine Behauptung, die die Regel nicht decken kann. Das Korpus hält das fest.
+
+  `meta_viewport_large` verschwindet aus `PAGE_RULES` (47 → 46); die dort liegenden Viewport-Helfer
+  sind nach `resize_text.rs` gewandert, das als einzige Nutzerin bleibt und über die
+  200-%-Schwelle hinaus die Textvergrößerung selbst prüft.
+
+  *Verifiziert:* 1.430 browserfreie Tests, 27 Testbinaries, clippy `-D warnings` und `fmt` sauber,
+  Browser-Korpus mit echtem Chrome (217 s). Der Vollständigkeitstest des Korpus war der Wächter,
+  der die drei verbliebenen Fixture-Verweise auf die alten Kennungen gefunden hat.
+
 - **a11y-core 0.4.0, 2026-09-19 — was noch nicht ablösbar ist:** Mit 0.4.0 lesen die geteilten
   Struktur­regeln auch `role`-Attribute (`role="list"`, `role="columnheader"`, `role="table"`), und
   `positive-tabindex` steht wieder auf `High`. Drei naheliegende Ablösungen bleiben trotzdem aus —

@@ -37,8 +37,8 @@ use super::{
     check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
-    check_meta_viewport_large_with_page, check_modern_attributes_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_modern_attributes_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
     check_orientation_with_page, check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
@@ -300,12 +300,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_resize_text_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "1.4.4/meta-viewport-large",
-        name: "viewport large-scale zoom",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_meta_viewport_large_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "1.3.4/orientation",
         name: "orientation",
         min_level: WcagLevel::AA,
@@ -503,7 +497,11 @@ mod tests {
         //   too since AA >= A) = 49.
         // - parsing und positive-tabindex, beide Level A, in den geteilten
         //   Bestand abgegeben = 47.
-        assert_eq!(count, 47);
+        // - meta-viewport-large (1.4.4): a11y-rules 0.5.0 trennt den Verstoß
+        //   unter 200 % von der Begrenzung zwischen 200 und 500 %, womit die
+        //   Regel als zoom/viewport-scale-limited in den geteilten Bestand
+        //   wandert = 46.
+        assert_eq!(count, 46);
     }
 
     #[test]

@@ -1,8 +1,17 @@
 {
   "case": "landmarks_and_lists",
   "expectations": [
-    { "rule_id": "landmark-contentinfo-is-top-level", "verdict": "violation" },
-    { "rule_id": "list", "verdict": "violation" },
-    { "rule_id": "definition-list", "verdict": "violation" }
+    {
+      "rule_id": "landmark-contentinfo-is-top-level",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "lists/item-outside-list",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "definition-list",
+      "verdict": "violation"
+    }
   ]
 }

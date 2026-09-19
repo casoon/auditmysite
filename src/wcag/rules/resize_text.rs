@@ -13,9 +13,46 @@
 
 use chromiumoxide::Page;
 
-use super::meta_viewport_large::{is_viewport_restricted, read_viewport_content};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+
+/// Liest das `content`-Attribut des Viewport-Meta-Tags.
+///
+/// Lag bis a11y-core 0.5.0 in `meta_viewport_large.rs`. Diese Regel ist die
+/// letzte Nutzerin -- die 500-%-Prüfung bedient jetzt
+/// `zoom/viewport-scale-limited` aus dem geteilten Bestand.
+const VIEWPORT_CONTENT_JS: &str =
+    "document.querySelector('meta[name=\"viewport\"]')?.getAttribute('content') || null";
+
+async fn read_viewport_content(page: &Page) -> Option<String> {
+    page.evaluate(VIEWPORT_CONTENT_JS)
+        .await
+        .ok()
+        .and_then(|r| r.value().and_then(|v| v.as_str().map(str::to_owned)))
+}
+
+/// Ob der Viewport die Vergrößerung unter `threshold` begrenzt.
+fn is_viewport_restricted(content: &str, threshold: f64) -> bool {
+    let content = content.to_lowercase();
+
+    // user-scalable=no bzw. =0 begrenzt immer, unabhängig von der Schwelle.
+    if content.contains("user-scalable=no") || content.contains("user-scalable=0") {
+        return true;
+    }
+
+    if let Some(pos) = content.find("maximum-scale=") {
+        let after = &content[pos + "maximum-scale=".len()..];
+        let value_str: String = after
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        if let Ok(val) = value_str.parse::<f64>() {
+            return val < threshold;
+        }
+    }
+
+    false
+}
 
 pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.4",

@@ -11,8 +11,8 @@ use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
     check_aria_required_parent, check_aria_roles, check_focus_order, check_headings,
-    check_info_relationships, check_label_title_only, check_link_purpose, check_list_structure,
-    check_page_titled, check_text_alternatives, Color, ContrastRule,
+    check_info_relationships, check_label_title_only, check_link_purpose, check_page_titled,
+    check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -651,67 +651,6 @@ fn test_131_table_with_only_headers_no_violation() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// 1.3.1 Info and Relationships — check_list_structure
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_131_listitem_inside_list_passes() {
-    let list = node_with_children("list", "list", None, vec!["i1", "i2"]);
-    let mut i1 = node("i1", "listitem", Some("First"));
-    i1.parent_id = Some("list".to_string());
-    let mut i2 = node("i2", "listitem", Some("Second"));
-    i2.parent_id = Some("list".to_string());
-    let tree = AXTree::from_nodes(vec![list, i1, i2]);
-    let results = check_list_structure(&tree);
-    let orphan_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.message.contains("List item is not contained"))
-        .collect();
-    assert!(
-        orphan_violations.is_empty(),
-        "List items inside a list should not be flagged"
-    );
-}
-
-#[test]
-fn test_131_listitem_without_list_parent_flagged() {
-    // listitem with no parent_id → no list ancestor
-    let item = node("i1", "listitem", Some("Orphan item"));
-    let tree = AXTree::from_nodes(vec![item]);
-    let results = check_list_structure(&tree);
-    assert!(
-        results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("List item is not contained")),
-        "Listitem without a list parent should be flagged"
-    );
-}
-
-#[test]
-fn test_131_empty_list_flagged() {
-    // A list with no visible children
-    let list = node("list", "list", None); // no child_ids
-    let tree = AXTree::from_nodes(vec![list]);
-    let results = check_list_structure(&tree);
-    assert!(
-        results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("no list items")),
-        "Empty list should be flagged"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// 2.4.3 Focus Order — check_focus_order
-//
-// Positive-tabindex detection moved to focus_order.rs's own DOM-based
-// check_positive_tabindex_with_page (#QA-030 — tabindex is not an AX
-// property) and is covered by that module's own tests, which don't need a
-// live Page for the pure `hidden`+`focusable` tree logic tested here.
 // ---------------------------------------------------------------------------
 
 #[test]

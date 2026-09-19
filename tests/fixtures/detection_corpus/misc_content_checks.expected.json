@@ -1,13 +1,37 @@
 {
   "case": "misc_content_checks",
   "expectations": [
-    { "rule_id": "area-alt", "verdict": "violation" },
-    { "rule_id": "input-image-alt", "verdict": "violation" },
-    { "rule_id": "presentation-semantic-children", "verdict": "violation" },
-    { "rule_id": "abbreviations", "verdict": "violation" },
-    { "rule_id": "modern-attribute-misuse", "verdict": "violation" },
-    { "rule_id": "link-in-text-block", "verdict": "violation" },
-    { "rule_id": "html-xml-lang-mismatch", "verdict": "violation" },
-    { "rule_id": "meta-viewport-large", "verdict": "violation" }
+    {
+      "rule_id": "area-alt",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "input-image-alt",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "presentation-semantic-children",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "abbreviations",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "modern-attribute-misuse",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "link-in-text-block",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "html-xml-lang-mismatch",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "zoom/viewport-scale-limited",
+      "verdict": "violation"
+    }
   ]
 }
