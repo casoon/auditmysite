@@ -72,9 +72,23 @@ short current-state summary. Newest entries first (unchanged order from before t
     zu **stärken** statt auditmysite zu schwächen — das gehört aber in einen eigenen Pull Request
     in a11y-core und muss dort veröffentlicht sein, bevor auditmysite es nutzen kann.
 
-  *Verifiziert:* `cargo clippy --all-targets` ohne Befund; `cargo test --lib` 1403 Tests und
-  `cargo test --tests` alle browserfreien Binaries grün. Die browsergestützten Korpus-Tests
-  (`detection_corpus_test --ignored`) liefen diesmal **mit** Chrome — siehe unten.
+  - **Die drei Lücken sind in a11y-core behoben, aber noch nicht veröffentlicht:** Ein eigener
+    Pull Request dort (Branch `feat/staerkere-strukturregeln`, vorgesehen als 0.4.0) schreibt den
+    `content`-Wert des Viewports vor dem Vergleich klein, lässt `role="list"`/`role="listitem"`
+    und `role="columnheader"`/`role="rowheader"`/`role="table"` gleichberechtigt neben den Tags
+    gelten und ergänzt die Kennung `lists/empty`. Solange das nicht auf crates.io steht, kann
+    auditmysite es nicht nutzen — die drei Regeln bleiben bis dahin auditmysite-eigen.
+
+  *Verifiziert:* `cargo clippy --all-targets` ohne Befund; `cargo test --lib` 1404 Tests und
+  `cargo test --tests` alle browserfreien Binaries grün. Diesmal **mit** Chrome gelaufen, was der
+  erste Abschnitt schuldig blieb: `cargo test --test detection_corpus_test -- --ignored` grün
+  (218 s) — dort zeigt sich, dass beide Kennungsänderungen wirklich tragen, und genau dort fiel
+  die Fixture-Lücke bei `patterns_disclosure` auf. `cargo test --test integration_test --
+  --ignored` liefert 22 bestanden, 1 fehlgeschlagen — **derselbe Stand wie auf `main`**, gegen den
+  eigens gegengeprüft wurde: `test_concurrent_wait_for_stable_stays_within_its_timeout_budget`
+  fällt auch ohne diese Änderungen durch, sobald die volle Suite nebenläufig läuft. Es ist ein
+  lastabhängiger Zeitbudget-Test, kein Regressionsbefund — aber ein eigener, bisher nicht
+  vermerkter.
 
 - **Umstellung auf die geteilten a11y-core-Crates, erster Abschnitt, 2026-09-19:** auditmysite
   bezieht Befundmodell und einen ersten Teil des Regelbestands aus
