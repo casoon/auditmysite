@@ -196,7 +196,7 @@ pub const REGISTRY: &[MetricSpec] = &[
         reference_urls: &[],
         reviewed_at: REVIEWED_AT,
         pdf_component: None,
-        meaning: "Accessibility area score (0-100, higher is better), its contribution weight in percent, and estimated_lost_points relative to 100.",
+        meaning: "Per area: score is that area run through the accessibility scorer on its own (0-100, higher is better) and does not average back to accessibility_score; estimated_lost_points is the area's share of the points the score actually lost and sums to exactly 100 minus accessibility_score; weight_pct is that same share in percent.",
         meaning_batch_override: None,
     },
     MetricSpec {

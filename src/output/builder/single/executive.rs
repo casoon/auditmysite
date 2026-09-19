@@ -224,9 +224,10 @@ fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> Strin
             crate::wcag::Severity::Medium => 8,
             crate::wcag::Severity::Low => 4,
         };
-        *drivers
-            .entry(score_area_for_key_point(finding))
-            .or_default() += severity_weight * finding.occurrence_count as u32;
+        let Some(area) = score_area_for_key_point(finding) else {
+            continue;
+        };
+        *drivers.entry(area).or_default() += severity_weight * finding.occurrence_count as u32;
     }
     let mut drivers: Vec<_> = drivers.into_iter().filter(|(_, loss)| *loss > 0).collect();
     drivers.sort_by_key(|(_, loss)| std::cmp::Reverse(*loss));
@@ -252,52 +253,18 @@ fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> Strin
     }
 }
 
-fn score_area_for_key_point(finding: &crate::audit::normalized::NormalizedFinding) -> &'static str {
-    use crate::output::json::helpers::{key_has_word_starting_with, strip_css_selector_spans};
-
-    // Use the German subcategory label and German taxonomy title so the mixed
-    // DE/EN token matching below keeps the exact behavior it had before the
-    // stored JSON title became canonical English (#406).
-    let title_de = crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
-        .map(|r| r.title)
-        .unwrap_or(finding.title.as_str());
-    // Word-boundary matching (not bare `contains`) plus CSS-selector
-    // stripping and a navigation/subcategory carve-out — same fix as
-    // `score_area_for_finding` (see score-area-substring-misclassification,
-    // score-area-form-conformance-word-boundary-misclassification and
-    // score-area-navigation-subcategory-misclassification in the regression
-    // corpus); this function had drifted into an unfixed, duplicated copy of
-    // the same classification logic.
-    let description = strip_css_selector_spans(&finding.description.to_ascii_lowercase());
-    let specific = format!(
-        "{} {} {}",
-        finding.rule_id.to_ascii_lowercase(),
-        title_de.to_ascii_lowercase(),
-        description
-    );
-    let key = format!(
-        "{specific} {}",
-        finding.subcategory_kind.label(false).to_ascii_lowercase()
-    );
-    let has = |word: &str| key_has_word_starting_with(&key, word);
-    let has_navigation = key_has_word_starting_with(&specific, "navigation");
-    if (has("form") && !has("format")) || has("label") || has("input") {
-        "Forms"
-    } else if has("keyboard") || has("tastatur") {
-        "Keyboard"
-    } else if has("focus") || has("fokus") {
-        "Focus management"
-    } else if has("alt") || has("image") || has("bild") {
-        "Images / alternative text"
-    } else if has("aria") || has("role") {
-        "ARIA"
-    } else if has("heading") || has("überschrift") || has("h1") {
-        "Heading structure"
-    } else if has("landmark") || has("main") || has_navigation {
-        "Landmarks / page structure"
-    } else {
-        "Semantics"
-    }
+/// Which score-breakdown area a finding belongs to, for the executive
+/// summary's driver note.
+///
+/// Shares `score_area_for_finding`'s taxonomy mapping. This used to be a
+/// near-verbatim copy of the same keyword matching — its own comment recorded
+/// that it "had drifted into an unfixed, duplicated copy" — so every
+/// misclassification fixed in the JSON breakdown had to be fixed here a second
+/// time, or silently was not (plan 38).
+fn score_area_for_key_point(
+    finding: &crate::audit::normalized::NormalizedFinding,
+) -> Option<&'static str> {
+    crate::output::json::helpers::score_area_for_finding(finding)
 }
 
 #[cfg(test)]
@@ -357,18 +324,37 @@ mod tests {
         }
     }
 
+    /// Plan 38: the executive driver note and the JSON breakdown must agree.
+    /// They used to be two copies of the same keyword matching, so a
+    /// misclassification fixed in one could silently persist in the other.
     #[test]
-    fn score_area_for_key_point_does_not_classify_orientation_lock_as_forms() {
-        // Regression: the real "a11y.orientation.restricted" rule's German
-        // title/description contains "Querformat", which must not trip the
-        // "form" substring match and get bucketed into "Forms".
-        let finding = make_finding("a11y.orientation.restricted");
-        assert_ne!(score_area_for_key_point(&finding), "Forms");
+    fn score_area_for_key_point_matches_the_json_breakdown() {
+        for rule_id in [
+            "a11y.orientation.restricted",
+            "a11y.form_labels.missing",
+            "a11y.target_size_minimum.small",
+            "a11y.landmark_region.missing",
+            "a11y.contrast.weak",
+        ] {
+            let finding = make_finding(rule_id);
+            assert_eq!(
+                score_area_for_key_point(&finding),
+                crate::output::json::helpers::score_area_for_finding(&finding),
+                "{rule_id}",
+            );
+        }
     }
 
     #[test]
     fn score_area_for_key_point_still_classifies_real_forms_findings() {
         let finding = make_finding("a11y.form_labels.missing");
-        assert_eq!(score_area_for_key_point(&finding), "Forms");
+        assert_eq!(score_area_for_key_point(&finding), Some("Forms"));
+    }
+
+    /// "Querformat" in the German rule text used to match `form`.
+    #[test]
+    fn score_area_for_key_point_does_not_classify_orientation_lock_as_forms() {
+        let finding = make_finding("a11y.orientation.restricted");
+        assert_ne!(score_area_for_key_point(&finding), Some("Forms"));
     }
 }

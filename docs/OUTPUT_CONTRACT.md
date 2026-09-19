@@ -158,8 +158,22 @@ Lighthouse performance scores are lab results, not field/RUM data.
 <a id="accessibility-score-breakdown"></a>
 ### accessibility_score_breakdown — `summary.accessibility_score_breakdown[]`
 
-Accessibility area score (0-100, higher is better), its contribution weight
-in percent, and `estimated_lost_points` relative to 100.
+Two different statements per area, deliberately kept apart:
+
+- `score` (0-100, higher is better) is that area run through the accessibility
+  scorer *on its own* — what the page would score if this area were its only
+  problem. Area scores do not add up to `summary.accessibility_score`, and no
+  weighting of them reproduces it: the scorer's diversity factor, compression
+  curve, soft floor and severity cap are all non-linear and depend on the
+  finding set as a whole.
+- `estimated_lost_points` is the area's share of the points the score actually
+  lost. Across all areas it sums to exactly
+  `100 - summary.accessibility_score`. `weight_pct` is the same share expressed
+  in percent (summing to 100 whenever anything was lost).
+
+So a low `score` with few `estimated_lost_points` is meaningful, not a
+contradiction: the area is bad in isolation but accounts for little of this
+page's total loss.
 
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`

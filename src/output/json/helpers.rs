@@ -219,157 +219,182 @@ pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary 
     }
 }
 
+/// Break the accessibility score down by area, using the scorer's own
+/// per-rule penalties as the single source of truth.
+///
+/// The previous implementation was a second, independent scoring model: flat
+/// severity weights (20/14/8/4) that existed nowhere else, a per-area cap at
+/// 90, and fixed "importance" weights (15/15/15/10/15/15/8/7) that the scorer
+/// knows nothing about. On a real report the two disagreed by a factor of ~3 —
+/// inros-lackner-de 2026-09-19 broke a reported accessibility score of 20 into
+/// areas whose weighted average was 57 (plan 37).
+///
+/// The scorer's global steps — `diversity_factor`, the square-root compression
+/// above `COMPRESSION_KNEE`, `apply_soft_floor` and the critical/high score cap
+/// — are all non-linear and depend on the finding set as a whole, so no fixed
+/// weighting of per-area sub-scores can reproduce the headline number. Rather
+/// than invent a decomposition that cannot exist, this distributes the loss the
+/// score *actually* took (`100 - accessibility_score`) across the areas in
+/// proportion to each area's share of the raw per-rule penalty.
+///
+/// That makes one identity exact and checkable, which `lint` enforces:
+///
+/// ```text
+/// sum(estimated_lost_points) == 100 - accessibility_score
+/// ```
+///
+/// `weight_pct` is consequently each area's share of that loss (summing to 100
+/// whenever anything was lost), not an invented importance weight.
 pub(super) fn build_accessibility_score_breakdown(
     reports: &[NormalizedReport],
+    accessibility_score: u32,
 ) -> Vec<AccessibilityScoreComponent> {
-    const AREAS: [(&str, u32); 8] = [
-        ("Semantics", 15),
-        ("Forms", 15),
-        ("Keyboard", 15),
-        ("Focus management", 10),
-        ("Images / alternative text", 15),
-        ("ARIA", 15),
-        ("Heading structure", 8),
-        ("Landmarks / page structure", 7),
+    const AREAS: [&str; 8] = [
+        "Semantics",
+        "Forms",
+        "Keyboard",
+        "Focus management",
+        "Images / alternative text",
+        "ARIA",
+        "Heading structure",
+        "Landmarks / page structure",
     ];
+
+    // Raw penalty per area, from the same `ScoreImpact` the scorer applies.
+    // `NormalizedFinding` carries the taxonomy rule id, so it resolves via
+    // `by_id` where the scorer (which sees legacy WCAG ids on `Violation`)
+    // uses `by_legacy_wcag_id` — same registry, same numbers.
+    let mut raw_penalty = [0f64; AREAS.len()];
+    let mut drivers: [Option<(&str, usize)>; AREAS.len()] = Default::default();
+    let mut criteria: [std::collections::HashSet<&str>; AREAS.len()] = Default::default();
+    let mut critical_occ = [0usize; AREAS.len()];
+    let mut urgent_occ = [0usize; AREAS.len()];
+
+    for finding in reports.iter().flat_map(|report| report.findings.iter()) {
+        let Some(area) = score_area_for_finding(finding) else {
+            continue;
+        };
+        let Some(idx) = AREAS.iter().position(|a| *a == area) else {
+            continue;
+        };
+
+        let impact = crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
+            .map(|r| r.score_impact)
+            .unwrap_or_else(|| crate::audit::default_impact(finding.severity));
+        raw_penalty[idx] += impact.calculate_penalty(finding.occurrence_count.max(1)) as f64;
+        criteria[idx].insert(finding.wcag_criterion.as_str());
+
+        let occ = finding.occurrence_count.max(1);
+        match finding.severity {
+            crate::taxonomy::Severity::Critical => {
+                critical_occ[idx] += occ;
+                urgent_occ[idx] += occ;
+            }
+            crate::taxonomy::Severity::High => urgent_occ[idx] += occ,
+            _ => {}
+        }
+
+        if drivers[idx]
+            .map(|(_, count)| finding.occurrence_count > count)
+            .unwrap_or(true)
+        {
+            drivers[idx] = Some((&finding.title, finding.occurrence_count));
+        }
+    }
+
+    let total_raw: f64 = raw_penalty.iter().sum();
+    let total_loss = 100u32.saturating_sub(accessibility_score);
+
+    // Largest-remainder apportionment, so the parts sum to `total_loss`
+    // exactly instead of drifting by a point or two through rounding.
+    let lost_points = apportion(&raw_penalty, total_raw, total_loss);
+    let share_pct = apportion(
+        &raw_penalty,
+        total_raw,
+        if total_raw > 0.0 { 100 } else { 0 },
+    );
 
     AREAS
         .iter()
-        .map(|(area, weight_pct)| {
-            // Logarithmic occurrence penalty with a soft floor (#485). The old
-            // linear `severity_weight * occurrence_count` saturated at 100 after a
-            // handful of findings, collapsing whole areas to 0 on large, mostly
-            // compliant pages (e.g. gov.uk Forms). Each additional occurrence now
-            // contributes progressively less, and the per-area loss is capped below
-            // 100 so areas stay diagnostic — 1 vs. 100 violations remain
-            // distinguishable instead of all flatlining at 0.
-            let mut penalty = 0f64;
-            let mut driver: Option<(&str, usize)> = None;
-
-            for finding in reports.iter().flat_map(|report| report.findings.iter()) {
-                if score_area_for_finding(finding) != *area {
-                    continue;
-                }
-                let severity_weight = match finding.severity {
-                    crate::taxonomy::Severity::Critical => 20.0,
-                    crate::taxonomy::Severity::High => 14.0,
-                    crate::taxonomy::Severity::Medium => 8.0,
-                    crate::taxonomy::Severity::Low => 4.0,
-                };
-                let occ = finding.occurrence_count.max(1) as f64;
-                penalty += severity_weight * (1.0 + occ.ln());
-                if driver
-                    .map(|(_, count)| finding.occurrence_count > count)
-                    .unwrap_or(true)
-                {
-                    driver = Some((&finding.title, finding.occurrence_count));
-                }
-            }
-
-            // Soft cap at 90: the worst areas floor at a score of 10 rather than 0.
-            let estimated_lost_points = (penalty.round() as u32).min(90);
-            AccessibilityScoreComponent {
-                area: (*area).to_string(),
-                score: 100u32.saturating_sub(estimated_lost_points),
-                weight_pct: *weight_pct,
-                estimated_lost_points,
-                main_driver: driver
-                    .map(|(title, count)| format!("{title} ({count} occurrences)"))
-                    .unwrap_or_else(|| "No detected driver".to_string()),
-            }
+        .enumerate()
+        .map(|(idx, area)| AccessibilityScoreComponent {
+            area: (*area).to_string(),
+            // The area scored on its own terms, through the scorer's real
+            // pipeline — "what would this page score if this area were its
+            // only problem". Deliberately NOT `100 - estimated_lost_points`:
+            // that would make the field a restatement of the apportionment
+            // rather than a statement about the area.
+            score: crate::audit::score_from_penalties(
+                raw_penalty[idx] as f32,
+                criteria[idx].len(),
+                critical_occ[idx],
+                urgent_occ[idx],
+            )
+            .round() as u32,
+            weight_pct: share_pct[idx],
+            estimated_lost_points: lost_points[idx],
+            main_driver: drivers[idx]
+                .map(|(title, count)| format!("{title} ({count} occurrences)"))
+                .unwrap_or_else(|| "No detected driver".to_string()),
         })
         .collect()
 }
 
-/// Whether `key` contains `prefix` as the start of a "word" (a run of
-/// alphanumeric characters delimited by any non-alphanumeric character, or
-/// by the string boundary) rather than merely as a substring anywhere.
-/// Prevents e.g. "conformance" (contains "form" mid-word) or "querformat"
-/// (contains "form" mid-word) from being misread as a forms-related match,
-/// while still matching legitimate plurals/compounds like "forms",
-/// "landmarks", "inputs" that genuinely start with the needle (see
-/// score-area-substring-misclassification in the regression corpus).
-pub(crate) fn key_has_word_starting_with(key: &str, prefix: &str) -> bool {
-    key.split(|c: char| !c.is_alphanumeric())
-        .any(|word| word.starts_with(prefix))
-}
-
-/// Removes CSS-selector-shaped spans (a `.class`/`#id` chain glued directly
-/// onto a preceding word, e.g. "div.alt-service-hero-card" or
-/// "a.button.success") from `text`. Several WCAG rules embed the raw
-/// `affected_selectors` CSS selector directly into their finding message
-/// (e.g. `text_spacing.rs`'s "Content is clipped by '{selector}' ..."), and
-/// a selector's class/id name commonly starts with an unrelated area
-/// keyword by coincidence (a class named "alt-service-hero-card" has
-/// nothing to do with image alt text). English prose never glues a `.`/`#`
-/// directly onto a following letter without a space, so this pattern
-/// reliably identifies CSS selector syntax rather than legitimate word
-/// content -- see score-area-substring-misclassification in the regression
-/// corpus. Scoped to `finding.description` only (the one field that embeds
-/// live, page-controlled selector text); rule_id/title are fixed, curated
-/// strings that never contain a real CSS selector.
-pub(crate) fn strip_css_selector_spans(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    let mut chars = text.char_indices().peekable();
-    while let Some((_, c)) = chars.next() {
-        if (c == '.' || c == '#') && chars.peek().is_some_and(|(_, next)| next.is_alphabetic()) {
-            while chars
-                .peek()
-                .is_some_and(|(_, next)| next.is_alphanumeric() || *next == '-' || *next == '_')
-            {
-                chars.next();
-            }
-            result.push(' ');
-        } else {
-            result.push(c);
-        }
+/// Distribute `total` over `parts` in proportion to each part's share of
+/// `sum`, using largest-remainder so the result sums to exactly `total`.
+fn apportion<const N: usize>(parts: &[f64; N], sum: f64, total: u32) -> [u32; N] {
+    let mut out = [0u32; N];
+    if total == 0 || sum <= 0.0 {
+        return out;
     }
-    result
+
+    let mut remainders: Vec<(usize, f64)> = Vec::with_capacity(N);
+    let mut assigned = 0u32;
+    for (idx, part) in parts.iter().enumerate() {
+        let exact = part / sum * total as f64;
+        let floor = exact.floor();
+        out[idx] = floor as u32;
+        assigned += floor as u32;
+        remainders.push((idx, exact - floor));
+    }
+
+    // Hand the rounding residue to the largest remainders first.
+    remainders.sort_by(|a, b| b.1.total_cmp(&a.1));
+    for (idx, _) in remainders.into_iter().take((total - assigned) as usize) {
+        out[idx] += 1;
+    }
+    out
 }
 
-pub(super) fn score_area_for_finding(
+/// Which score-breakdown area a finding belongs to, or `None` when it does
+/// not belong in the accessibility breakdown at all.
+///
+/// Reads the answer from the taxonomy (`taxonomy::score_area`) instead of
+/// searching the finding's prose for keywords. The old text matching kept
+/// mis-filing findings in shipped reports — a landmark rule whose description
+/// mentioned `'image'` was published under "Images / alternative text", and an
+/// SEO multiple-H1 finding drove the "Heading structure" area of the
+/// *accessibility* breakdown (plan 38).
+///
+/// Non-WCAG findings return `None`: `accessibility_score` is computed from
+/// WCAG violations only, so letting an SEO finding into its breakdown made the
+/// breakdown describe a different population than the score it explains.
+pub(crate) fn score_area_for_finding(
     finding: &crate::audit::normalized::NormalizedFinding,
-) -> &'static str {
-    // rule_id/title/description are specific to this one finding; subcategory
-    // is a coarse, shared label covering many unrelated rules (see below).
-    let description = strip_css_selector_spans(&finding.description.to_ascii_lowercase());
-    let specific = format!(
-        "{} {} {}",
-        finding.rule_id.to_ascii_lowercase(),
-        finding.title.to_ascii_lowercase(),
-        description
-    );
-    let key = format!("{specific} {}", finding.subcategory.to_ascii_lowercase());
-    let has = |word: &str| key_has_word_starting_with(&key, word);
-    // "navigation" is checked against `specific` only, deliberately excluding
-    // `subcategory`: the shared `NavigationInteraction` subcategory label
-    // ("Navigation & Operation") covers ~26 unrelated rules (keyboard focus,
-    // timing, click target size, pointer gestures, ...), so matching it
-    // against subcategory text misrouted all of them into "Landmarks / page
-    // structure" (e.g. a11y.target_size_minimum.small, confirmed live in the
-    // 2026-08-31 corpus). "landmark" and "main" don't have this problem --
-    // no subcategory label contains either word -- so they still match
-    // against the full `key`, including the genuinely landmark-related
-    // a11y.bypass_blocks.missing ("Missing bypass navigation" in its own
-    // title) and a11y.landmark_main.missing ("landmark" in its own rule_id).
-    let has_navigation = key_has_word_starting_with(&specific, "navigation");
-    if (has("form") && !has("format")) || has("label") || has("input") {
-        "Forms"
-    } else if has("keyboard") || has("tastatur") {
-        "Keyboard"
-    } else if has("focus") || has("fokus") {
-        "Focus management"
-    } else if has("alt") || has("image") || has("bild") {
-        "Images / alternative text"
-    } else if has("aria") || has("role") {
-        "ARIA"
-    } else if has("heading") || has("überschrift") || has("h1") {
-        "Heading structure"
-    } else if has("landmark") || has("main") || has_navigation {
-        "Landmarks / page structure"
-    } else {
-        "Semantics"
+) -> Option<&'static str> {
+    if finding.category != "wcag" {
+        return None;
     }
+    Some(
+        crate::taxonomy::score_area_for_rule(&finding.rule_id)
+            // Only reachable for findings whose rule_id is not in the rule
+            // register at all; `every_accessibility_rule_has_a_score_area`
+            // keeps registered rules off this path.
+            .unwrap_or_else(|| {
+                crate::taxonomy::score_area_for_subcategory(finding.subcategory_kind)
+            })
+            .label(),
+    )
 }
 
 pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<ManagementRisk> {
@@ -847,139 +872,167 @@ mod tests {
         }
     }
 
-    fn make_finding_with_subcategory(
-        rule_id: &str,
-        subcategory: &str,
-        subcategory_kind: crate::taxonomy::Subcategory,
-        title: &str,
-        description: &str,
-    ) -> NormalizedFinding {
-        let mut finding = make_finding(rule_id, description);
-        finding.subcategory = subcategory.into();
-        finding.subcategory_kind = subcategory_kind;
-        finding.title = title.into();
-        finding
+    fn make_report(findings: Vec<NormalizedFinding>) -> crate::audit::normalized::NormalizedReport {
+        let mut report = crate::audit::normalized::normalize(&crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            crate::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            100,
+        ))
+        .normalized;
+        report.findings = findings;
+        report
     }
 
+    /// Plan 37: the breakdown must account for exactly the points the score
+    /// lost. The old model produced a weighted average of 57 next to a
+    /// reported score of 20.
     #[test]
-    fn score_area_for_finding_does_not_classify_orientation_lock_as_forms() {
-        // Regression: the German description "... (Hoch- oder Querformat)"
-        // must not be misclassified as "Forms" via a bare "form" substring
-        // match against "Querformat".
-        let finding = make_finding(
-            "a11y.orientation.restricted",
-            "Die Seite erzwingt eine bestimmte Bildschirmausrichtung (Hoch- oder Querformat).",
-        );
-        assert_ne!(score_area_for_finding(&finding), "Forms");
+    fn breakdown_lost_points_sum_to_the_actual_score_loss() {
+        let mut forms = make_finding("a11y.form_labels.missing", "Field without a label.");
+        forms.occurrence_count = 7;
+        let mut landmarks = make_finding("a11y.landmark_main.missing", "No main landmark.");
+        landmarks.occurrence_count = 31;
+        let mut keyboard = make_finding("a11y.focus_order.weak", "Illogical focus order.");
+        keyboard.occurrence_count = 1;
+
+        let report = make_report(vec![forms, landmarks, keyboard]);
+
+        for score in [0u32, 20, 45, 73, 99, 100] {
+            let breakdown =
+                build_accessibility_score_breakdown(std::slice::from_ref(&report), score);
+            let lost: u32 = breakdown.iter().map(|a| a.estimated_lost_points).sum();
+            assert_eq!(
+                lost,
+                100 - score,
+                "score {score}: lost points must sum to the actual loss",
+            );
+            // `score` is the area on its own terms and is explicitly NOT
+            // `100 - estimated_lost_points`; only its range is guaranteed.
+            for area in &breakdown {
+                assert!(area.score <= 100, "{}: score out of range", area.area);
+            }
+        }
     }
 
+    /// The share is of the *loss*, so with nothing lost there is nothing to
+    /// share out — and no area may be blamed for points that were never lost.
     #[test]
-    fn score_area_for_finding_still_classifies_real_forms_findings() {
-        let finding = make_finding(
-            "a11y.form_labels.missing",
-            "Ein Formularfeld hat kein zugeordnetes Label.",
-        );
-        assert_eq!(score_area_for_finding(&finding), "Forms");
+    fn breakdown_is_all_clean_when_there_are_no_findings() {
+        let report = make_report(vec![]);
+        let breakdown = build_accessibility_score_breakdown(std::slice::from_ref(&report), 100);
+
+        assert_eq!(breakdown.len(), 8);
+        for area in &breakdown {
+            assert_eq!(area.score, 100, "{}", area.area);
+            assert_eq!(area.weight_pct, 0, "{}", area.area);
+            assert_eq!(area.estimated_lost_points, 0, "{}", area.area);
+            assert_eq!(area.weight_pct, 0, "{}", area.area);
+            assert_eq!(area.main_driver, "No detected driver", "{}", area.area);
+        }
     }
 
+    /// Largest-remainder apportionment: the parts must always sum to the
+    /// total, including the awkward cases that plain rounding drifts on.
     #[test]
-    fn score_area_for_finding_does_not_classify_target_size_as_landmarks() {
-        // Regression (sauerstoffzentrum-nordost.de / shop.satower-mosterei.de,
-        // 2026-08-31): a11y.target_size_minimum.small carries the shared
-        // NavigationInteraction subcategory ("Navigation & Operation"), whose
-        // label alone used to satisfy the `contains("navigation")` check and
-        // misattribute click-target-size findings to "Landmarks / page
-        // structure" -- a click target has nothing to do with landmarks.
-        let finding = make_finding_with_subcategory(
-            "a11y.target_size_minimum.small",
-            "Navigation & Operation",
-            crate::taxonomy::Subcategory::NavigationInteraction,
-            "Insufficient click target size",
-            "Interactive elements such as buttons, links, or icons have a clickable area \
-             smaller than 24x24 CSS pixels.",
-        );
-        assert_ne!(
-            score_area_for_finding(&finding),
-            "Landmarks / page structure"
-        );
-    }
-
-    #[test]
-    fn score_area_for_finding_still_classifies_bypass_navigation_as_landmarks() {
-        // The skip-link rule's own title says "navigation" -- unlike the
-        // target-size case above, this must still classify as Landmarks
-        // because the match comes from the finding's own title, not merely
-        // from the shared subcategory label.
-        let finding = make_finding_with_subcategory(
-            "a11y.bypass_blocks.missing",
-            "Navigation & Operation",
-            crate::taxonomy::Subcategory::NavigationInteraction,
-            "Missing bypass navigation",
-            "No skip link or mechanism to bypass repeated blocks.",
+    fn apportion_always_sums_to_the_total() {
+        assert_eq!(
+            apportion(&[1.0, 1.0, 1.0], 3.0, 100).iter().sum::<u32>(),
+            100
         );
         assert_eq!(
-            score_area_for_finding(&finding),
-            "Landmarks / page structure"
+            apportion(&[1.0, 2.0, 7.0], 10.0, 80).iter().sum::<u32>(),
+            80
         );
+        assert_eq!(apportion(&[0.0, 0.0, 5.0], 5.0, 37).iter().sum::<u32>(), 37);
+        // Degenerate inputs must not panic or invent points.
+        assert_eq!(apportion(&[0.0, 0.0], 0.0, 40), [0, 0]);
+        assert_eq!(apportion(&[3.0, 1.0], 4.0, 0), [0, 0]);
+        // A single loaded area takes the whole loss.
+        assert_eq!(apportion(&[0.0, 9.0], 9.0, 80), [0, 80]);
     }
 
+    /// Plan 38: the areas come from the taxonomy mapping now, so the whole
+    /// class of prose-matching misfires is structurally gone. These cases are
+    /// kept as the record of what used to break — each one is a real report
+    /// that shipped with the wrong area.
     #[test]
-    fn score_area_for_finding_still_classifies_landmark_main_as_landmarks() {
-        let finding = make_finding_with_subcategory(
-            "a11y.landmark_main.missing",
-            "Navigation & Operation",
-            crate::taxonomy::Subcategory::NavigationInteraction,
-            "Missing main landmark",
-            "The page has no distinct main-content region marked up in the accessibility tree.",
-        );
+    fn score_area_is_taken_from_the_taxonomy_not_from_prose() {
+        // "Querformat" used to match `form`.
         assert_eq!(
-            score_area_for_finding(&finding),
-            "Landmarks / page structure"
+            score_area_for_finding(&make_finding("a11y.orientation.restricted", "")),
+            Some("Semantics"),
         );
-    }
-
-    #[test]
-    fn score_area_for_finding_does_not_classify_contrast_conformance_note_as_forms() {
-        // Regression (satower-mosterei.de / xn--sfte-loa-com, 2026-08-31): the
-        // contrast rule's evidence text ends with "... (supplementary, not a
-        // conformance gate)". A naive `contains("form")` check misreads
-        // "conformance" as forms-related and misattributes the accessibility
-        // score breakdown's "Forms" area driver to a contrast finding.
-        let finding = make_finding(
-            "a11y.contrast.weak",
-            "Insufficient color contrast ratio: 2.10:1 (text, requires 4.5:1). \
-             APCA Lc 12.3 (supplementary, not a conformance gate).",
-        );
-        assert_ne!(score_area_for_finding(&finding), "Forms");
-    }
-
-    #[test]
-    fn score_area_for_finding_does_not_classify_selector_embedded_alt_as_images() {
-        // Regression (score-area-substring-misclassification corpus entry):
-        // text_spacing.rs embeds the raw CSS selector into its message
-        // ("Content is clipped by '{selector}' ..."). A class name like
-        // "alt-service-hero-card" starts with "alt" purely by coincidence
-        // and has nothing to do with image alternative text.
-        let finding = make_finding(
-            "a11y.text_spacing.clipped",
-            "Content is clipped by 'div.alt-service-hero-card' when WCAG-minimum text \
-             spacing is applied.",
-        );
-        assert_ne!(
-            score_area_for_finding(&finding),
-            "Images / alternative text"
-        );
-    }
-
-    #[test]
-    fn score_area_for_finding_still_classifies_real_alt_text_findings() {
-        let finding = make_finding(
-            "a11y.alt_text.missing",
-            "Image is missing alternative text.",
-        );
+        // "conformance" (in the contrast rule's evidence text) used to match `form`.
         assert_eq!(
-            score_area_for_finding(&finding),
-            "Images / alternative text"
+            score_area_for_finding(&make_finding("a11y.contrast.weak", "")),
+            Some("Semantics"),
         );
+        // "div.alt-service-hero-card" used to match `alt`.
+        assert_eq!(
+            score_area_for_finding(&make_finding("a11y.text_spacing.clipped", "")),
+            Some("Semantics"),
+        );
+        // The shared "Navigation & Operation" subcategory label used to route
+        // click-target-size findings into Landmarks.
+        assert_eq!(
+            score_area_for_finding(&make_finding("a11y.target_size_minimum.small", "")),
+            Some("Keyboard"),
+        );
+        // A landmark rule whose description mentions role 'image' shipped under
+        // "Images / alternative text" (inros-lackner-de, 2026-09-19).
+        assert_eq!(
+            score_area_for_finding(&make_finding(
+                "a11y.landmark_region.missing",
+                "Element with role 'image' is not contained within a landmark region",
+            )),
+            Some("Landmarks / page structure"),
+        );
+    }
+
+    /// The genuinely-correct classifications must survive the rewrite.
+    #[test]
+    fn score_area_still_classifies_real_findings() {
+        for (rule_id, expected) in [
+            ("a11y.form_labels.missing", "Forms"),
+            ("a11y.alt_text.missing", "Images / alternative text"),
+            ("a11y.bypass_blocks.missing", "Landmarks / page structure"),
+            ("a11y.landmark_main.missing", "Landmarks / page structure"),
+            ("a11y.headings.missing", "Heading structure"),
+            ("a11y.keyboard.missing", "Keyboard"),
+            ("a11y.focus_visible.missing", "Focus management"),
+            ("a11y.aria_roles.invalid", "ARIA"),
+        ] {
+            assert_eq!(
+                score_area_for_finding(&make_finding(rule_id, "")),
+                Some(expected),
+                "{rule_id}",
+            );
+        }
+    }
+
+    /// Plan 38: `accessibility_score` counts WCAG violations only, so an SEO
+    /// finding must not appear in its breakdown. `seo.headings.multiple_h1`
+    /// was the `main_driver` of the "Heading structure" area in a shipped
+    /// report (inros-lackner-de, 2026-09-19).
+    #[test]
+    fn score_area_excludes_non_wcag_findings() {
+        let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");
+        seo.category = "seo".into();
+        assert_eq!(score_area_for_finding(&seo), None);
+    }
+
+    #[test]
+    fn seo_findings_do_not_reach_the_accessibility_breakdown() {
+        let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");
+        seo.category = "seo".into();
+        seo.occurrence_count = 40;
+        let report = make_report(vec![seo]);
+
+        let breakdown = build_accessibility_score_breakdown(std::slice::from_ref(&report), 100);
+        for area in &breakdown {
+            assert_eq!(area.estimated_lost_points, 0, "{}", area.area);
+            assert_eq!(area.main_driver, "No detected driver", "{}", area.area);
+        }
     }
 }

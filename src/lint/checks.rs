@@ -15,6 +15,64 @@ pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_metric_context_matches_registry(report, findings);
     check_registry_docs_urls_well_formed(findings);
     check_source_quality_signals_match_findings(report, findings);
+    check_accessibility_breakdown_reconciles(report, findings);
+}
+
+// ─── Accessibility breakdown ──────────────────────────────────────────────
+
+const CHECK_BREAKDOWN_RECONCILES: &str = "accessibility_breakdown_reconciles_with_score";
+
+/// The per-area breakdown must account for exactly the points the
+/// accessibility score actually lost.
+///
+/// Guards the plan-37 regression: the breakdown used to be a second,
+/// independent scoring model, so on inros-lackner-de (2026-09-19) it described
+/// a reported score of 20 with areas whose weighted average was 57. Nothing in
+/// the formal checks noticed, because every individual number was
+/// self-consistent.
+///
+/// Tolerance is +/-2 points to absorb rounding in the apportionment.
+fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<LintFinding>) {
+    let Some(summary) = report.get("summary") else {
+        return;
+    };
+    let Some(areas) = summary
+        .get("accessibility_score_breakdown")
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+    if areas.is_empty() {
+        return;
+    }
+    let Some(score) = summary.get("accessibility_score").and_then(Value::as_u64) else {
+        return;
+    };
+
+    let lost: u64 = areas
+        .iter()
+        .filter_map(|a| a.get("estimated_lost_points").and_then(Value::as_u64))
+        .sum();
+    let expected_loss = 100u64.saturating_sub(score);
+
+    if lost.abs_diff(expected_loss) > 2 {
+        findings.push(LintFinding {
+            check_id: CHECK_BREAKDOWN_RECONCILES,
+            evidence_path: "summary.accessibility_score_breakdown[].estimated_lost_points"
+                .to_string(),
+            expected: format!(
+                "lost points to sum to {expected_loss} (100 - accessibility_score {score})"
+            ),
+            actual: format!("they sum to {lost}"),
+            severity: Severity::High,
+        });
+    }
+
+    // Deliberately NOT checked: that `score` and `estimated_lost_points`
+    // complement to 100. They answer different questions — `score` is the area
+    // run through the scorer on its own, `estimated_lost_points` is its share
+    // of the loss the whole page took. Asserting a relation between them would
+    // re-introduce exactly the false arithmetic this check exists to prevent.
 }
 
 // ─── Score consistency ────────────────────────────────────────────────────

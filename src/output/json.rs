@@ -1031,7 +1031,10 @@ impl UnifiedReport {
                 .first()
                 .map(build_wcag_coverage_summary)
                 .unwrap_or_else(|| build_wcag_coverage_for_level("mixed")),
-            accessibility_score_breakdown: build_accessibility_score_breakdown(&normalized_reports),
+            accessibility_score_breakdown: build_accessibility_score_breakdown(
+                &normalized_reports,
+                accessibility_score,
+            ),
             management_risks: build_management_risks(&normalized_reports),
             top_actions: build_decision_actions(&normalized_reports),
             duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
@@ -1225,6 +1228,7 @@ impl UnifiedReport {
             wcag_coverage: build_wcag_coverage_summary(&ctx.normalized),
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(&ctx.normalized),
+                page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
@@ -1321,6 +1325,7 @@ impl UnifiedReport {
             wcag_coverage: build_wcag_coverage_summary(normalized),
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(normalized),
+                page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(normalized)),

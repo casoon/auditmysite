@@ -50,6 +50,7 @@ pub use report::{
     ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult,
     ViewportAuditData, ViewportDefinition, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
+pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use template_dedup::{detect_template_clusters, TemplateCluster};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

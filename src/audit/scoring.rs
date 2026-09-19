@@ -50,8 +50,12 @@ fn apply_soft_floor(raw_score: f32) -> f32 {
     }
 }
 
-/// Default penalty for rules not found in the taxonomy registry
-fn default_impact(severity: Severity) -> ScoreImpact {
+/// Default penalty for rules not found in the taxonomy registry.
+///
+/// `pub(crate)` so the JSON score breakdown attributes penalties with the
+/// exact same per-rule cost the scorer uses, instead of a second severity
+/// weighting of its own (plan 37).
+pub(crate) fn default_impact(severity: Severity) -> ScoreImpact {
     match severity {
         Severity::Critical => ScoreImpact {
             base_penalty: 5.0,
@@ -74,6 +78,58 @@ fn default_impact(severity: Severity) -> ScoreImpact {
             occurrence_scaling: Scaling::Fixed,
         },
     }
+}
+
+/// The global half of the accessibility score: everything applied *after*
+/// the per-rule penalties are summed.
+///
+/// Extracted so the JSON score breakdown can score a single area with the
+/// exact same pipeline instead of inventing a second model (plan 37). Every
+/// step here is non-linear and depends on the finding set as a whole, which is
+/// why per-area scores produced by this function do not add up to the score of
+/// the whole set — that reconciliation is carried by
+/// `estimated_lost_points`, not by the per-area scores.
+pub(crate) fn score_from_penalties(
+    raw_penalty: f32,
+    unique_criteria: usize,
+    critical_occurrences: usize,
+    urgent_occurrences: usize,
+) -> f32 {
+    if raw_penalty <= 0.0 {
+        return 100.0;
+    }
+
+    // Diversity factor: failing many distinct WCAG criteria is a broader,
+    // more systemic problem than failing one criterion repeatedly.
+    let total_penalty = raw_penalty * diversity_factor(unique_criteria);
+
+    // Compression for high penalties: scores with total_penalty ≤ 70 (i.e.
+    // ≥30) pass through unchanged. Above the knee a square-root curve grows
+    // the effective penalty — slower than linear (so a few thousand
+    // violations don't all hit absolute zero) but far faster than the
+    // previous logarithmic curve, which crushed every large site into a
+    // 4–9 cluster. A site failing 30 distinct critical criteria now scores
+    // visibly lower than one failing 8, instead of being indistinguishable.
+    let effective_penalty = if total_penalty > COMPRESSION_KNEE {
+        COMPRESSION_KNEE + (total_penalty - COMPRESSION_KNEE).sqrt() * 2.0
+    } else {
+        total_penalty
+    };
+    // Soft floor instead of a hard clamp(0): keeps the 1–15 band usable
+    // for distinguishing degrees of catastrophic failure.
+    let raw_score = apply_soft_floor(100.0 - effective_penalty).min(100.0);
+
+    // Semantic score cap: a site with open critical/high issues cannot be
+    // reported as near-perfect even if penalties are individually small.
+    let score_cap: f32 = if critical_occurrences >= 1 {
+        49.0
+    } else if urgent_occurrences >= 5 {
+        92.0
+    } else {
+        100.0
+    };
+
+    raw_score.min(score_cap)
 }
 
 impl AccessibilityScorer {
@@ -109,32 +165,11 @@ impl AccessibilityScorer {
             total_penalty += impact.calculate_penalty(*count);
         }
 
-        // Diversity factor: failing many distinct WCAG criteria is a broader,
-        // more systemic problem than failing one criterion repeatedly.
         let unique_criteria: HashSet<String> = rule_counts
             .keys()
             .map(|rule_id| criterion_for_rule(rule_id).unwrap_or_else(|| (*rule_id).to_string()))
             .collect();
-        total_penalty *= diversity_factor(unique_criteria.len());
 
-        // Compression for high penalties: scores with total_penalty ≤ 70 (i.e.
-        // ≥30) pass through unchanged. Above the knee a square-root curve grows
-        // the effective penalty — slower than linear (so a few thousand
-        // violations don't all hit absolute zero) but far faster than the
-        // previous logarithmic curve, which crushed every large site into a
-        // 4–9 cluster. A site failing 30 distinct critical criteria now scores
-        // visibly lower than one failing 8, instead of being indistinguishable.
-        let effective_penalty = if total_penalty > COMPRESSION_KNEE {
-            COMPRESSION_KNEE + (total_penalty - COMPRESSION_KNEE).sqrt() * 2.0
-        } else {
-            total_penalty
-        };
-        // Soft floor instead of a hard clamp(0): keeps the 1–15 band usable
-        // for distinguishing degrees of catastrophic failure.
-        let raw_score = apply_soft_floor(100.0 - effective_penalty).min(100.0);
-
-        // Semantic score cap: a site with open critical/high issues cannot be
-        // reported as near-perfect even if penalties are individually small.
         let critical_count = violations
             .iter()
             .filter(|v| matches!(v.severity, Severity::Critical))
@@ -145,15 +180,12 @@ impl AccessibilityScorer {
                 .filter(|v| matches!(v.severity, Severity::High))
                 .count();
 
-        let score_cap: f32 = if critical_count >= 1 {
-            49.0
-        } else if urgent_count >= 5 {
-            92.0
-        } else {
-            100.0
-        };
-
-        raw_score.min(score_cap)
+        score_from_penalties(
+            total_penalty,
+            unique_criteria.len(),
+            critical_count,
+            urgent_count,
+        )
     }
 
     /// Calculate letter grade (A-F) based on score
