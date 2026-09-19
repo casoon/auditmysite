@@ -252,6 +252,100 @@ struct DimensionRow {
     status: &'static str,
 }
 
+/// The run's rating and CI verdict, with the reasons that drove it.
+///
+/// Neither reached the PDF before: `summary.certificate` was only read as a
+/// gate, and `verdict`/`verdict_reasons` appeared zero times in the rendered
+/// output, so the CLI printed "FAIL — legal_flags: 5, blocking_issues: 36"
+/// while the document said nothing (plan 34).
+///
+/// Labelled "Gesamteinstufung" / "Overall rating", not "Zertifikat":
+/// `calculate_certificate` maps the overall score onto a band label and
+/// certifies nothing, and this document cites BFSG and EN 301 549 (plan 44).
+fn render_overall_rating(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    use crate::audit::verdict::Verdict;
+    let en = i18n.locale() == "en";
+
+    let rating = super::cover::certificate_label_localized(&vm.summary.certificate, i18n.locale());
+    let verdict_word = match (vm.summary.ci_verdict, en) {
+        (Verdict::Pass, true) => "passed",
+        (Verdict::Pass, false) => "bestanden",
+        (Verdict::Warn, true) => "passed with reservations",
+        (Verdict::Warn, false) => "mit Vorbehalt bestanden",
+        (Verdict::Fail, true) => "not passed",
+        (Verdict::Fail, false) => "nicht bestanden",
+    };
+
+    let mut body = if en {
+        format!("{rating} — automated check {verdict_word}.")
+    } else {
+        format!("{rating} — automatisierte Prüfung {verdict_word}.")
+    };
+
+    // The partial-run reason is dropped here when the provisional sentence
+    // below already carries it — otherwise the same fact is stated twice in
+    // one paragraph.
+    let reason_kinds: Vec<_> = vm
+        .summary
+        .ci_verdict_reasons
+        .iter()
+        .filter(|kind| {
+            !(vm.summary.run_is_partial
+                && **kind == crate::audit::verdict::VerdictReasonKind::AuditQualityNotComplete)
+        })
+        .collect();
+
+    if !reason_kinds.is_empty() {
+        let reasons = reason_kinds
+            .iter()
+            .map(|kind| kind.text(en))
+            .collect::<Vec<_>>()
+            .join(", ");
+        body.push(' ');
+        body.push_str(&if en {
+            format!("Reasons: {reasons}.")
+        } else {
+            format!("Gründe: {reasons}.")
+        });
+    }
+
+    // A run that did not complete may still state a rating, but not as a
+    // settled one — and it has to say so here, not on page ~60 (plan 44).
+    if vm.summary.run_is_partial {
+        body.push(' ');
+        body.push_str(if en {
+            "This run did not complete in full, so the rating is provisional and describes only what was measured successfully."
+        } else {
+            "Dieser Lauf ist nicht vollständig durchgelaufen; die Einstufung ist daher vorläufig und beschreibt nur den erfolgreich gemessenen Umfang."
+        });
+    }
+
+    let title = if en {
+        "Overall rating"
+    } else {
+        "Gesamteinstufung"
+    };
+    let callout = match vm.summary.ci_verdict {
+        Verdict::Fail => Callout::warning(&body),
+        Verdict::Warn => Callout::info(&body),
+        Verdict::Pass => Callout::success(&body),
+    };
+    builder = builder.add_component(callout.with_title(title));
+    builder.add_component(
+        Label::new(if en {
+            "The rating is a band label for the overall score within the automated scope, not a conformance certificate."
+        } else {
+            "Die Einstufung ist ein Bandlabel für den Gesamtwert im automatisierten Prüfumfang, kein Konformitätsnachweis."
+        })
+        .with_size("8.5pt")
+        .with_color(design::tokens::MUTED),
+    )
+}
+
 /// Renders the risks block (only "bad"/"warn" dimensions, 0..5 rows,
 /// zero-risk empty state when all dimensions are "good") and, directly
 /// below it, a separate strengths block for the "good" dimensions (#576).
@@ -670,6 +764,8 @@ pub(super) fn render_management_page(
     } else {
         "Gesamturteil"
     }));
+
+    builder = render_overall_rating(builder, vm, i18n);
 
     // Problem profile badge (plan/20-problemprofil-badge.md)
     builder = render_problem_profile(builder, vm, i18n);
@@ -1254,16 +1350,25 @@ fn render_score_driver_table(
         }
     };
 
+    // In `viewport_weighted` mode the per-module weighting is NOT how
+    // `overall_score` was computed — the score comes from a desktop/mobile
+    // blend mixed with security (`score_breakdown`). Titling this table "why
+    // the overall score is what it is" then invited arithmetic that does not
+    // come out: on casoon.de the rows averaged 90.05 against a reported 92,
+    // on inros-lackner 47.05 against 45 (plan 34). The real derivation is
+    // rendered separately by `render_overall_score_derivation` below.
+    let is_derivation = vm.summary.score_calculation_method != "viewport_weighted";
     let mut table = AuditTable::new(vec![
         TableColumn::new(if en { "Module" } else { "Modul" }).with_width("28%"),
         TableColumn::new("Score").with_width("14%"),
         TableColumn::new(if en { "Weight" } else { "Gewichtung" }).with_width("16%"),
         TableColumn::new(if en { "Assessment" } else { "Einordnung" }).with_width("42%"),
     ])
-    .with_title(if en {
-        "Why is the overall score what it is"
-    } else {
-        "Warum ist der Gesamtwert, was er ist"
+    .with_title(match (is_derivation, en) {
+        (true, true) => "Why is the overall score what it is",
+        (true, false) => "Warum ist der Gesamtwert, was er ist",
+        (false, true) => "The modules that carry weight",
+        (false, false) => "Die gewichteten Module im Einzelnen",
     });
 
     for m in &contributing {
@@ -1287,7 +1392,91 @@ fn render_score_driver_table(
     }
 
     builder = builder.add_component(table);
-    builder
+    render_overall_score_derivation(builder, vm, i18n)
+}
+
+/// How `overall_score` was actually reached, in `viewport_weighted` mode.
+///
+/// The numbers come from `score_breakdown`, so the block reproduces the
+/// headline value exactly — the same contract the Search Experience section's
+/// "Wie sich der Wert zusammensetzt" table already honours. Without it the
+/// report showed a weighting that does not add up to the number beside it and
+/// no other explanation anywhere (plan 34).
+fn render_overall_score_derivation(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let Some(sb) = vm.summary.score_breakdown.as_ref() else {
+        return builder;
+    };
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en { "Step" } else { "Schritt" }).with_width("46%"),
+        TableColumn::new(if en { "Input" } else { "Eingang" }).with_width("34%"),
+        TableColumn::new(if en { "Result" } else { "Ergebnis" }).with_width("20%"),
+    ])
+    .with_title(if en {
+        "How the overall score was calculated"
+    } else {
+        "Wie der Gesamtwert zustande kommt"
+    });
+
+    table = table.add_row(vec![
+        if en {
+            "Viewport blend (mobile weighs more)".to_string()
+        } else {
+            "Viewport-Mischung (Mobile zählt mehr)".to_string()
+        },
+        format!(
+            "Desktop {} x {} % + Mobile {} x {} %",
+            sb.desktop_overall, sb.desktop_weight_pct, sb.mobile_overall, sb.mobile_weight_pct
+        ),
+        sb.viewport_blended_overall.to_string(),
+    ]);
+
+    match (sb.security_score, sb.security_weight_pct) {
+        (Some(security), Some(security_weight)) => {
+            table = table.add_row(vec![
+                if en {
+                    "Security mixed in".to_string()
+                } else {
+                    "Sicherheit eingemischt".to_string()
+                },
+                format!(
+                    "{} x {} % + {} x {} %",
+                    sb.viewport_blended_overall,
+                    sb.viewport_blend_weight_pct,
+                    security,
+                    security_weight
+                ),
+                vm.summary.overall_score.to_string(),
+            ]);
+        }
+        _ => {
+            table = table.add_row(vec![
+                if en {
+                    "Security not measured — blend carries the full weight".to_string()
+                } else {
+                    "Sicherheit nicht gemessen — die Mischung trägt voll".to_string()
+                },
+                format!("{} x 100 %", sb.viewport_blended_overall),
+                vm.summary.overall_score.to_string(),
+            ]);
+        }
+    }
+
+    builder = builder.add_component(table);
+    builder.add_component(
+        Label::new(if en {
+            "The module weights above rank what carries how much; this table is the calculation that produced the headline value."
+        } else {
+            "Die Modulgewichte oben zeigen, was wie stark zählt; diese Tabelle ist die Rechnung, aus der der Gesamtwert entsteht."
+        })
+        .with_size("8.8pt")
+        .with_color(design::tokens::MUTED),
+    )
 }
 
 /// One plain-language reason per non-Accessibility score driver (SEO,
@@ -2982,6 +3171,30 @@ mod risk_and_strength_tests {
     use super::*;
 
     use crate::audit::management_risk::ManagementRiskKind;
+
+    /// Plan 34: in `viewport_weighted` mode the per-module weighting is not
+    /// the computation path, so the derivation block must reproduce the
+    /// headline value on its own. Confirmed live before the fix: casoon.de's
+    /// module rows averaged 90.05 against a reported 92, inros-lackner's
+    /// 47.05 against 45.
+    #[test]
+    fn score_derivation_reproduces_the_overall_score() {
+        for (desktop, mobile, security, expected) in [
+            (94u32, 91u32, Some(95u32), 92u32),
+            (41, 49, Some(30), 45),
+            (80, 80, None, 80),
+        ] {
+            let blended = ((desktop as f64 * 30.0 + mobile as f64 * 70.0) / 100.0).round() as u32;
+            let overall = match security {
+                Some(sec) => ((blended as f64 * 90.0 + sec as f64 * 10.0) / 100.0).round() as u32,
+                None => blended,
+            };
+            assert_eq!(
+                overall, expected,
+                "desktop {desktop} / mobile {mobile} / security {security:?}",
+            );
+        }
+    }
 
     fn rows(kinds: &[ManagementRiskKind], en: bool) -> Vec<DimensionRow> {
         kinds

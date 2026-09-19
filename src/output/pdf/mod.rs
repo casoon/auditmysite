@@ -111,7 +111,12 @@ fn build_single_report(
     // ── Cover Page (single composed component) ───────────────────────
     let en = i18n.locale() == "en";
     let overall_score = vm.summary.overall_score;
-    let band_phrase = self::cover::cover_band_phrase(overall_score, en);
+    let band_phrase = self::cover::cover_band_phrase(
+        overall_score,
+        vm.summary.ci_verdict,
+        vm.summary.run_is_partial,
+        en,
+    );
     let domain = extract_domain(&vm.cover.domain);
     let module_gauges: Vec<CoverModuleGauge> = vm
         .modules
@@ -175,7 +180,7 @@ fn build_single_report(
         .with_brand(&vm.cover.brand)
         .with_subtitle(&cover_subtitle)
         .with_date(&vm.cover.date)
-        .with_band_phrase(band_phrase)
+        .with_band_phrase(&band_phrase)
         .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
         .with_module_gauges(module_gauges)
         .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit);

@@ -149,7 +149,7 @@ consequence-stable = No urgent pressure to act. Regular checks preserve the leve
 consequence-default = Without correction the site stays below the achievable standard — improvement potential is left on the table.
 
 # Cover score row
-cover-card-certificate = Certificate
+cover-card-certificate = Overall rating
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = critical/high

@@ -225,6 +225,22 @@ pub struct SummaryBlock {
     pub audit_quality_severe: bool,
     pub verdict: String,
     pub score_note: Option<String>,
+    /// CI verdict for this run (pass/warn/fail) and the reasons that drove it
+    /// away from pass. Rendered as the "Gesamteinstufung" block; the narrative
+    /// `verdict` field above is a prose sentence, not this (plan 34).
+    pub ci_verdict: crate::audit::verdict::Verdict,
+    pub ci_verdict_reasons: Vec<crate::audit::verdict::VerdictReasonKind>,
+    /// True when the run did not complete in full. The rating is then marked
+    /// provisional at the front of the report instead of only in the
+    /// methodology appendix (plan 44).
+    pub run_is_partial: bool,
+    /// How `overall_score` was actually computed. In `viewport_weighted` mode
+    /// the per-module weighting is NOT the computation path, so the score
+    /// driver table must not present itself as the derivation (plan 34).
+    pub score_calculation_method: String,
+    /// The viewport/security blend that produced `overall_score`, present only
+    /// in `viewport_weighted` mode.
+    pub score_breakdown: Option<crate::audit::normalized::ScoreBreakdown>,
     pub metrics: Vec<MetricItem>,
     pub top_actions: Vec<String>,
     pub positive_aspects: Vec<String>,

@@ -11,10 +11,42 @@ use crate::i18n::I18n;
 
 use super::design::tokens;
 
-/// One-line "technical condition" phrase for the dominant cover score, aligned
-/// with the grade bands (Sehr gut ≥ 90 … Kritisch < 40). Localized de/en.
-pub(super) fn cover_band_phrase(score: u32, en: bool) -> &'static str {
-    crate::registry::COVER_PHRASE.label(score as f32, en)
+/// One-line "technical condition" phrase for the cover.
+///
+/// Derived from the score alone this contradicted the run's own verdict: on
+/// inros-lackner-de (verdict `fail`, 5 legal flags, rating NICHT BESTANDEN)
+/// the cover read "Ausbaufähiger technischer Zustand" (plan 34). A failing
+/// run now says so on the cover, and a partial run says that it is
+/// provisional (plan 44).
+pub(super) fn cover_band_phrase(
+    score: u32,
+    verdict: crate::audit::verdict::Verdict,
+    partial: bool,
+    en: bool,
+) -> String {
+    use crate::audit::verdict::Verdict;
+    let base = match verdict {
+        Verdict::Fail => {
+            if en {
+                "Not passed — action required"
+            } else {
+                "Nicht bestanden — Handlungsbedarf"
+            }
+        }
+        // Warn and Pass keep the score-derived phrase: the score band is the
+        // more informative statement when nothing blocks.
+        Verdict::Warn | Verdict::Pass => crate::registry::COVER_PHRASE.label(score as f32, en),
+    };
+    if partial {
+        let suffix = if en {
+            " · provisional"
+        } else {
+            " · vorläufig"
+        };
+        format!("{base}{suffix}")
+    } else {
+        base.to_string()
+    }
 }
 
 pub(super) fn build_batch_cover_score_row(

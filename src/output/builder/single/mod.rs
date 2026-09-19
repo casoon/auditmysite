@@ -249,6 +249,13 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         &top_findings,
     );
 
+    // The same verdict the CLI prints and the JSON publishes — the PDF must
+    // not tell a different story than `report-lint` and CI (plan 34).
+    let verdict_result = crate::audit::compute_verdict(
+        &normalized.normalized,
+        &crate::cli::config::VerdictConfig::default(),
+    );
+
     let management_risks = crate::audit::management_risk::build_management_risk_kinds(
         std::slice::from_ref(&normalized.normalized),
     );
@@ -343,6 +350,12 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 score as f32,
                 &normalized.normalized,
             ),
+            ci_verdict: verdict_result.verdict,
+            ci_verdict_reasons: verdict_result.reason_kinds,
+            run_is_partial: normalized.normalized.execution.quality.status
+                != crate::audit::AuditQualityStatus::Complete,
+            score_calculation_method: normalized.normalized.score_calculation_method.clone(),
+            score_breakdown: normalized.normalized.score_breakdown.clone(),
             score_note: build_score_note(&i18n, &normalized.normalized),
             metrics: {
                 let label_violations_total = i18n.t("metric-violations-total");

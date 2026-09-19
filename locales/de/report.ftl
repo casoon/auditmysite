@@ -149,7 +149,7 @@ consequence-stable = Kein akuter Handlungsdruck. Regelmäßige Checks sichern da
 consequence-default = Ohne Korrektur bleibt die Seite hinter erreichbarem Standard — Verbesserungspotenzial wird nicht genutzt.
 
 # Cover score row
-cover-card-certificate = Auditstatus
+cover-card-certificate = Gesamteinstufung
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = kritisch/hoch
