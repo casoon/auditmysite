@@ -5,6 +5,56 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Umstellung auf die geteilten a11y-core-Crates, erster Abschnitt, 2026-09-19:** auditmysite
+  bezieht Befundmodell und einen ersten Teil des Regelbestands aus
+  [a11y-core](https://github.com/casoon/a11y-core) (alle Crates 0.2.0), damit derselbe Befund in
+  astro-post-audit, auditmysite und liveaudit dieselbe Kennung trägt. Bewusst schrittweise: Dieser
+  Stand stellt das Modell und **eine** Regel um, nicht den ganzen Bestand.
+
+  - **Doppelte Typdefinitionen entfernt:** `Severity` und `ViolationEvidence` waren strukturell
+    identisch zu `a11y_report::Severity` bzw. `a11y_report::Evidence` — gleiche Varianten, gleiche
+    Reihenfolge, gleiche serde-Darstellung. Beide sind durch die geteilten Typen ersetzt; die
+    auditmysite-eigenen Zusätze an `Severity` (deutsche Labels, Umsetzer aus den Alt-Systemen)
+    hängen als `SeverityExt` daran, weil an einem fremden Typ keine inhärenten Methoden ergänzt
+    werden können. Das frühere `Display for Severity` fällt der Orphan-Regel zum Opfer; die eine
+    Fundstelle nutzt `as_str()`, das exakt dieselben Strings liefert. **JSON unverändert.**
+  - **`FindingKind` durch `a11y_report::Outcome` ersetzt:** Variante für Variante dasselbe Enum
+    unter anderem Namen. **JSON ändert sich:** Das Feld `kind` schreibt jetzt
+    `"fail"`/`"review"`/`"pass"`/`"untested"` statt
+    `"violation"`/`"warning"`/`"positive"`/`"not_testable"`. Kein Fixture und kein Snapshot
+    beobachtete das Feld — die Änderung wäre unbemerkt geblieben, deshalb pinnt ein neuer Test die
+    Vokabel jetzt ausdrücklich.
+  - **CDP-DOM als `a11y-dom`-Dokument (`accessibility::dom_document`):** Die geteilten Regeln sind
+    generisch über ein bewusst **DOM-förmiges** Trait, weil die Mehrzahl von ihnen über Tags und
+    Attribute entscheidet (`lang`, `tabindex`, `id`, `alt`). Der AXTree gibt die gar nicht her.
+    Neu wird der DOM einmal per `DOM.getDocument` geholt und in eine Arena materialisiert;
+    `Semantics` wird über Chromes **nativen** Accessibility-Tree erfüllt, nicht über `accname` —
+    das ist der Ersatz für Hosts ohne nativen Tree. Beide Bäume finden über die Backend-Node-ID
+    zueinander. Wurzel ist `<html>` (die Regeln prüfen `doc.root()`), Shadow-Root-Kinder hängen
+    unter ihrem Host, iframe-Inhalte werden nicht betreten (eigenes `lang`/`title`).
+  - **3.1.1 läuft als geteilte Regel, die eigene ist gelöscht:** auditmysite prüfte 3.1.1 zweimal
+    und beide Male schlecht. `rules::language::check_language` las die AX-Eigenschaft `language`,
+    die Chrome aber aus Locale und Kontext synthetisiert, auch wenn der Autor nie ein `lang`
+    gesetzt hat — für den häufigsten Verstoß also blind. Ausgeglichen wurde das durch
+    `pipeline::apply_lang_attribute_check`, eine zweite, per JavaScript nachgeschobene Prüfung, die
+    den Befund der ersten zurücknahm oder nachtrug. Ungültige Sprachcodes kannte keine von beiden.
+    Beide sind gelöscht; 3.1.1 läuft jetzt als `document/lang-missing` / `document/lang-invalid`
+    direkt gegen das DOM-Attribut. **JSON ändert sich:** `rule_id` ist für diesen Befund
+    `document/lang-missing` statt `html-has-lang`. `html-has-lang` bleibt bestehen, wird aber nur
+    noch von `iframe_rules` erzeugt — für das Dokument *im* iframe, ein anderer Befund.
+  - **„Nicht gelaufen" ist nicht „bestanden":** Die geteilten Kennungen, die auditmysite noch nicht
+    führt, werden je Kennung als `shared_rule_not_yet_adopted` vermerkt statt stillschweigend
+    verworfen. Fällt der DOM-Abruf aus, werden sie als `Failed` vermerkt, nicht als bestanden.
+  - **Noch offen:** `Violation` ist weiterhin auditmysites eigener Typ und nicht
+    `a11y_report::Finding` (es fehlen dort Felder, die auditmysite pro Befund mitführt:
+    `rule_name`, `role`, `name`, `evidence_screenshot`, `evidence_viewport`); `RuleOutcome` ist
+    nicht auf `RuleRun` umgestellt; von 24 geteilten Kennungen ist eine Regel mit 2 Kennungen
+    übernommen.
+
+  *Verifiziert:* `cargo clippy --all-features --all-targets` ohne Befund; 1667 Tests in 18
+  browserfreien Testbinaries bestanden, 0 fehlgeschlagen. Die browsergestützten Korpus-Tests
+  (`detection_corpus_test`) brauchen Chrome und liefen dabei nicht.
+
 - **1.5.0, 2026-09-19 — Lizenzwechsel auf MIT:** auditmysite steht ab dieser Version unter der
   MIT-Lizenz. Frühere Releases bleiben unter der Lizenz, die zum jeweiligen Zeitpunkt galt — bis
   0.25.x AGPL-3.0-or-later, 0.26.0 bis 1.4.0 Business Source License 1.1; das ist in `NOTICE`
