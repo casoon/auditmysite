@@ -43,7 +43,7 @@ use crate::performance::{prepare_coverage_collection, prepare_vitals_collection}
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
-use crate::wcag::{self, Severity, Violation, WcagResults};
+use crate::wcag::{self, Violation, WcagResults};
 
 // ── Viewport helpers ──────────────────────────────────────────────────────────
 
@@ -1423,9 +1423,38 @@ async fn run_rules(
     for outcome in &mut wcag_results.rule_outcomes {
         outcome.viewport = Some(viewport_label.to_string());
     }
-    let mut lang_outcome = apply_lang_attribute_check(page, &mut wcag_results).await;
-    lang_outcome.viewport = Some(viewport_label.to_string());
-    wcag_results.rule_outcomes.push(lang_outcome);
+    // Der geteilte Regelbestand aus `a11y-rules`, gegen den per CDP geholten
+    // DOM. Ersetzt unter anderem die frueheren 3.1.1-Pruefungen: Die
+    // AX-Eigenschaft `language` synthetisiert Chrome aus Locale und Kontext,
+    // auch wenn der Autor nie ein `lang` gesetzt hat -- die AX-basierte
+    // Pruefung war fuer den haeufigsten Fall also blind, was auditmysite mit
+    // einer zweiten, per JavaScript nachgeschobenen Pruefung ausgeglichen hat
+    // (`apply_lang_attribute_check`). Die geteilte Regel liest das Attribut
+    // direkt aus dem DOM und braucht beide nicht mehr.
+    match crate::accessibility::fetch_dom_document(page, &snapshot.ax_tree).await {
+        Ok(doc) => {
+            let mut shared = wcag::shared::run_shared_rules(&doc);
+            for outcome in &mut shared.rule_outcomes {
+                outcome.viewport = Some(viewport_label.to_string());
+            }
+            wcag_results.merge(shared);
+        }
+        Err(e) => {
+            // Kein stilles Bestehen: Ohne DOM konnte keine der geteilten
+            // Regeln laufen, und genau das kommt in den Bericht.
+            warn!("DOM fuer die geteilten Regeln nicht verfuegbar: {e}");
+            for rule in wcag::shared::SHARED_RULES {
+                wcag_results.rule_outcomes.push(crate::wcag::RuleOutcome {
+                    rule_id: rule.id.to_string(),
+                    status: crate::wcag::RuleOutcomeStatus::Failed,
+                    wcag_criterion: Some(rule.criterion.to_string()),
+                    viewport: Some(viewport_label.to_string()),
+                    reason_code: Some("shared_dom_unavailable".to_string()),
+                    finding_count: 0,
+                });
+            }
+        }
+    }
 
     // Contrast carries extra args (ax tree, level, screenshot) and stays inline.
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA)
@@ -1580,88 +1609,6 @@ fn page_rule_outcome(
         },
         visible_findings,
     )
-}
-
-/// 3.1.1 verifying-subtraction: the AX tree does not expose `html[lang]`,
-/// so if check_all emitted a 3.1.1 violation, query the DOM and remove it
-/// when a valid lang attribute is present.
-async fn apply_lang_attribute_check(
-    page: &Page,
-    results: &mut WcagResults,
-) -> crate::wcag::RuleOutcome {
-    // The AX-tree-based check_language (language.rs) reads the AX `language`
-    // property, which Chrome can synthesize from locale/context even when the
-    // author never set a `lang` attribute — making the tree-based check blind
-    // to the most common 3.1.1 violation (#QA-001). The DOM `lang`/`xml:lang`
-    // attribute is authoritative, so it can both clear a false-positive AND
-    // add a violation the tree-based check missed.
-    let evaluated = page
-        .evaluate(
-            "document.documentElement.getAttribute('lang') || \
-             document.documentElement.getAttribute('xml:lang') || ''",
-        )
-        .await;
-    let has_lang = evaluated
-        .as_ref()
-        .ok()
-        .and_then(|r| r.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .map(|lang| {
-            let l = lang.trim().to_lowercase();
-            l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
-        })
-        .unwrap_or(false);
-
-    let has_violation = results.violations.iter().any(|v| v.rule == "3.1.1");
-
-    if evaluated.is_err() {
-        return crate::wcag::RuleOutcome {
-            rule_id: crate::wcag::rules::LANGUAGE_RULE.axe_id.to_string(),
-            status: crate::wcag::RuleOutcomeStatus::Failed,
-            wcag_criterion: Some("3.1.1".to_string()),
-            viewport: None,
-            reason_code: Some("page_evaluation_failed".to_string()),
-            finding_count: usize::from(has_violation),
-        };
-    }
-
-    if has_lang {
-        if has_violation {
-            results.violations.retain(|v| v.rule != "3.1.1");
-            results.passes += 1;
-        }
-    } else if !has_violation {
-        results.violations.push(
-            Violation::new(
-                crate::wcag::rules::LANGUAGE_RULE.id,
-                crate::wcag::rules::LANGUAGE_RULE.name,
-                crate::wcag::rules::LANGUAGE_RULE.level,
-                Severity::High,
-                "Page is missing a valid lang attribute on the html element",
-                "document",
-            )
-            .with_fix("Add a valid lang attribute to the <html> element, e.g., <html lang=\"en\">")
-            .with_rule_id(crate::wcag::rules::LANGUAGE_RULE.axe_id)
-            // "document" isn't a real AX node id, so enrich_violations_with_page
-            // can't resolve a backend_dom_node_id for it — without an explicit
-            // selector it demotes the violation to a Warning (ghost element),
-            // silently dropping it from findings[] despite this fix (#QA-001).
-            .with_selector("html")
-            .with_help_url(crate::wcag::rules::LANGUAGE_RULE.help_url),
-        );
-    }
-
-    crate::wcag::RuleOutcome {
-        rule_id: crate::wcag::rules::LANGUAGE_RULE.axe_id.to_string(),
-        status: if results.violations.iter().any(|v| v.rule == "3.1.1") {
-            crate::wcag::RuleOutcomeStatus::ViolationsFound
-        } else {
-            crate::wcag::RuleOutcomeStatus::NoViolationDetected
-        },
-        wcag_criterion: Some("3.1.1".to_string()),
-        viewport: None,
-        reason_code: None,
-        finding_count: usize::from(results.violations.iter().any(|v| v.rule == "3.1.1")),
-    }
 }
 
 /// After enrichment, violations whose kind was demoted to Warning (e.g.
@@ -2319,6 +2266,9 @@ pub(crate) fn persist_artifacts(
 mod tests {
     use super::*;
     use clap::Parser;
+    // Nur noch im Test gebraucht: Der Produktivpfad setzt seit der Umstellung
+    // auf die geteilten Regeln keine Schwere mehr selbst.
+    use crate::wcag::Severity;
 
     #[test]
     fn reconcile_image_alt_count_overwrites_page_health_with_canonical_wcag_count() {
@@ -2726,8 +2676,6 @@ journey_budget_ms = 1234
 
     #[test]
     fn test_merge_wcag_violations_dedup() {
-        use crate::wcag::Severity;
-
         fn make_v(rule: &str, selector: &str) -> Violation {
             let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
             v.selector = Some(selector.to_string());
@@ -2791,8 +2739,6 @@ journey_budget_ms = 1234
 
     #[test]
     fn test_merge_wcag_violations_empty_desktop() {
-        use crate::wcag::Severity;
-
         fn make_v(rule: &str, selector: &str) -> Violation {
             let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
             v.selector = Some(selector.to_string());
@@ -2832,8 +2778,6 @@ journey_budget_ms = 1234
 
     #[test]
     fn test_merge_wcag_violations_empty_mobile() {
-        use crate::wcag::Severity;
-
         fn make_v(rule: &str, selector: &str) -> Violation {
             let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
             v.selector = Some(selector.to_string());

@@ -11,8 +11,8 @@ use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
     check_aria_required_parent, check_aria_roles, check_focus_order, check_headings,
-    check_info_relationships, check_label_title_only, check_language, check_link_purpose,
-    check_list_structure, check_page_titled, check_text_alternatives, Color, ContrastRule,
+    check_info_relationships, check_label_title_only, check_link_purpose, check_list_structure,
+    check_page_titled, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -54,17 +54,6 @@ fn heading(id: &str, level: u8, name: Option<&str>) -> AXNode {
         name: "level".to_string(),
         value: AXValue::Int(level as i64),
     });
-    n
-}
-
-fn doc_with_lang(id: &str, lang: Option<&str>) -> AXNode {
-    let mut n = node(id, "RootWebArea", Some("Test Page"));
-    if let Some(l) = lang {
-        n.properties.push(AXProperty {
-            name: "lang".to_string(),
-            value: AXValue::String(l.to_string()),
-        });
-    }
     n
 }
 
@@ -322,45 +311,14 @@ fn test_246_multiple_h1_flagged() {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1.1 Language of Page — check_language
+// 3.1.1 Language of Page
 // ---------------------------------------------------------------------------
-
-#[test]
-fn test_311_page_with_valid_lang_passes() {
-    let tree = AXTree::from_nodes(vec![doc_with_lang("1", Some("en"))]);
-    let results = check_language(&tree);
-    assert!(results.violations.is_empty());
-    assert_eq!(results.passes, 1);
-}
-
-#[test]
-fn test_311_page_with_lang_de_passes() {
-    let tree = AXTree::from_nodes(vec![doc_with_lang("1", Some("de"))]);
-    let results = check_language(&tree);
-    assert!(results.violations.is_empty());
-}
-
-#[test]
-fn test_311_page_with_region_subtag_passes() {
-    let tree = AXTree::from_nodes(vec![doc_with_lang("1", Some("en-US"))]);
-    let results = check_language(&tree);
-    assert!(results.violations.is_empty());
-}
-
-#[test]
-fn test_311_page_without_lang_flagged() {
-    let tree = AXTree::from_nodes(vec![doc_with_lang("1", None)]);
-    let results = check_language(&tree);
-    assert!(!results.violations.is_empty());
-    assert_eq!(results.violations[0].rule, "3.1.1");
-}
-
-#[test]
-fn test_311_page_with_empty_lang_flagged() {
-    let tree = AXTree::from_nodes(vec![doc_with_lang("1", Some(""))]);
-    let results = check_language(&tree);
-    assert!(!results.violations.is_empty());
-}
+// Laeuft seit der Umstellung als geteilte Regel gegen den DOM
+// (`document/lang-missing`, `document/lang-invalid`). Die Tests dazu stehen in
+// `wcag::shared` und pruefen den authoritativen Weg: Die frueheren Tests hier
+// stellten AX-Knoten mit einer `lang`-Eigenschaft her, die Chrome in der
+// Praxis auch ohne Autoren-`lang` synthetisiert -- sie konnten den haeufigsten
+// Verstoss also gar nicht abbilden.
 
 // ---------------------------------------------------------------------------
 // 4.1.2 ARIA Role Validity — check_aria_roles
@@ -608,17 +566,6 @@ fn test_engine_clean_tree_has_zero_image_alt_violations() {
     assert!(
         alt_violations.is_empty(),
         "Clean tree should have no 1.1.1 violations"
-    );
-}
-
-#[test]
-fn test_engine_missing_lang_detected_at_level_a() {
-    // No lang property on the document node
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", Some("Page Title"))]);
-    let results = check_all(&tree, WcagLevel::A);
-    assert!(
-        results.violations.iter().any(|v| v.rule == "3.1.1"),
-        "Missing lang should produce a 3.1.1 violation"
     );
 }
 
@@ -1049,22 +996,12 @@ fn scenario_missing_alt_fires_only_111() {
     );
 }
 
-/// Page with an `<html>` element that carries no lang attribute.
-/// Exactly rule 3.1.1 must fire — the baseline otherwise passes.
-#[test]
-fn scenario_no_lang_fires_only_311() {
-    // Build clean tree, then remove the lang property from root
-    let mut tree = clean_page_tree();
-    let root = tree.nodes.get_mut("root").expect("root node");
-    root.properties.retain(|p| p.name != "lang");
-
-    let rules = fired_rules(&tree, WcagLevel::AA);
-    assert_eq!(
-        rules,
-        vec!["3.1.1"],
-        "Missing lang should fire exactly 3.1.1; got: {rules:?}"
-    );
-}
+// Das Gegenstueck zu den uebrigen Szenarien -- eine Seite ohne
+// lang-Attribut -- steht nicht mehr hier: 3.1.1 laeuft seit der Umstellung
+// als geteilte Regel gegen den DOM (`document/lang-missing`). Ein
+// AX-Baum-Szenario koennte es gar nicht mehr ausloesen, denn die
+// AX-Eigenschaft `language` synthetisiert Chrome auch ohne Autoren-`lang`.
+// Die Faelle stehen als DOM-Szenarien in `wcag::shared`.
 
 /// Heading hierarchy that jumps from h1 directly to h3 (skips h2).
 /// Rule 1.3.1 must fire (the hierarchy violation is classified under Info and

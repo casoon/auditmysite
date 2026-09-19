@@ -45,6 +45,9 @@ const TEXT_NODE: i64 = 3;
 /// Was der native Accessibility-Tree über einen Knoten weiß.
 #[derive(Debug, Clone, Default)]
 struct AxFacts {
+    /// Kennung des Knotens im AXTree — der Schluessel, den
+    /// `enrichment`/`element_capture` erwarten.
+    ax_node_id: String,
     role: Option<String>,
     name: Option<String>,
     name_source: Option<SharedNameSource>,
@@ -84,6 +87,19 @@ impl CdpDocument {
 
     pub fn is_empty(&self) -> bool {
         self.arena.is_empty()
+    }
+
+    /// Der Knoten zu einer [`a11y_dom::NodeId`] — der Rueckweg von einem
+    /// Befund (der nur den Arena-Index kennt) auf das Element.
+    pub fn node_at(&self, id: a11y_dom::NodeId) -> Option<ArenaNode<'_>> {
+        self.arena.get(id)
+    }
+
+    /// Die AXTree-Knotenkennung zu einem Knoten, sofern er im
+    /// Accessibility-Tree ueberhaupt vorkommt. Ignorierte und rein
+    /// praesentationale Elemente haben dort kein Gegenstueck.
+    pub fn ax_node_id(&self, node: ArenaNode<'_>) -> Option<&str> {
+        Some(self.facts(node)?.ax_node_id.as_str())
     }
 
     fn facts(&self, node: ArenaNode<'_>) -> Option<&AxFacts> {
@@ -151,6 +167,7 @@ fn index_ax_tree(ax_tree: &AXTree) -> HashMap<i64, AxFacts> {
         map.insert(
             backend,
             AxFacts {
+                ax_node_id: node.node_id.clone(),
                 role: node.role.clone(),
                 name: node.name.clone(),
                 name_source: node.name_source.and_then(map_name_source),
@@ -197,7 +214,7 @@ impl Walk {
         self.record(Some(*node.backend_node_id.inner()));
 
         if let Some(attrs) = &node.attributes {
-            for pair in attrs.chunks_exact(2) {
+            for pair in attrs.as_chunks::<2>().0 {
                 let (k, v) = (pair[0].to_ascii_lowercase(), pair[1].clone());
                 self.with(move |b| b.attr(&k, &v));
             }

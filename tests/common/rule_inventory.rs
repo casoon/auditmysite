@@ -18,6 +18,10 @@
 //! - `src/patterns/*.rs` (accordion, modal dialog, tab list, disclosure
 //!   menu): structural pattern-detection modules that build `Violation`s
 //!   with a literal `rule_id` directly, no `RuleMetadata` at all.
+//! - `src/wcag/shared.rs`: the `SHARED_RULES` table, whose ids come from the
+//!   shared `a11y-rules` bestand and are therefore *not* axe-core ids but the
+//!   cross-surface ones (`document/lang-missing`, ...). A rule that moves to
+//!   the shared bestand leaves the axe_id namespace and enters this one.
 //!
 //! This scans the actual rule/pattern source files for all three shapes
 //! rather than trusting any existing table. It is the ground truth the
@@ -37,6 +41,17 @@ fn wcag_rules_dir() -> PathBuf {
         .join("src")
         .join("wcag")
         .join("rules")
+}
+
+/// `src/wcag/shared.rs` -- the bridge that runs the shared `a11y-rules`
+/// bestand. Its `SHARED_RULES` table is the fourth registration shape: the
+/// ids there are *not* axe-core ids but the cross-surface ids shared with
+/// astro-post-audit and LiveAudit (`document/lang-missing`, ...).
+fn shared_rules_file() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("wcag")
+        .join("shared.rs")
 }
 
 fn patterns_dir() -> PathBuf {
@@ -74,12 +89,12 @@ fn extract_field_str(block: &str, field_name: &str) -> Option<String> {
     Some(after_quote[..quote_end].to_string())
 }
 
-/// Extract every `axe_id: "..."` value from each `RuleMetadata { ... }`
-/// literal in `source`, via brace-depth matching. `RuleMetadata`'s fields
-/// are all flat literals/slices (no nested `{}`), so depth counting is exact.
-fn extract_rule_metadata_axe_ids(source: &str) -> Vec<String> {
+/// Extract every `<field>: "..."` value from each `<marker> { ... }` literal
+/// in `source`, via brace-depth matching. Both struct literals scanned this
+/// way (`RuleMetadata`, `SharedRule`) have only flat literals/slices as
+/// fields (no nested `{}`), so depth counting is exact.
+fn extract_struct_field_ids(source: &str, marker: &str, field: &str) -> Vec<String> {
     let mut ids = Vec::new();
-    let marker = "RuleMetadata {";
     let mut search_from = 0;
     while let Some(rel_start) = source[search_from..].find(marker) {
         let block_start = search_from + rel_start + marker.len();
@@ -99,7 +114,7 @@ fn extract_rule_metadata_axe_ids(source: &str) -> Vec<String> {
             }
         }
         let block = &source[block_start..end];
-        if let Some(id) = extract_field_str(block, "axe_id") {
+        if let Some(id) = extract_field_str(block, field) {
             ids.push(id);
         }
         search_from = (end + 1).min(source.len());
@@ -159,12 +174,19 @@ pub fn canonical_rule_ids() -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
 
     for (_file, source) in read_rs_files(&wcag_rules_dir()) {
-        ids.extend(extract_rule_metadata_axe_ids(&source));
+        ids.extend(extract_struct_field_ids(
+            &source,
+            "RuleMetadata {",
+            "axe_id",
+        ));
         ids.extend(extract_bare_axe_id_consts(&source));
     }
     for (_file, source) in read_rs_files(&patterns_dir()) {
         ids.extend(extract_literal_with_rule_id_calls(&source));
     }
+
+    let shared = std::fs::read_to_string(shared_rules_file()).expect("cannot read shared.rs");
+    ids.extend(extract_struct_field_ids(&shared, "SharedRule {", "id"));
 
     ids
 }
