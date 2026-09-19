@@ -1136,6 +1136,8 @@ fn test_collection_errors_serialized_when_present() {
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_for_level("AA"),
+            overall_score_weight_basis: 100,
+            overall_score_weight_basis_uniform: None,
             accessibility_score_breakdown: vec![],
             management_risks: vec![],
             top_actions: vec![],

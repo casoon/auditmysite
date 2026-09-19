@@ -30,7 +30,8 @@ use helpers::{
     aggregate_occurrences, aggregate_severity, avg_module_score, batch_report_timestamp,
     build_accessibility_score_breakdown, build_decision_actions, build_en301549_batch_rollup,
     build_internal_comparison, build_management_risks, build_wcag_coverage_for_level,
-    build_wcag_coverage_summary, normalized_module_score,
+    build_wcag_coverage_summary, normalized_module_score, overall_score_weight_basis,
+    weight_basis_is_uniform,
 };
 
 #[cfg(test)]
@@ -238,6 +239,17 @@ pub struct UnifiedSummary {
     pub lh_mobile_score: Option<u32>,
     /// Automated WCAG coverage scope shown near the executive summary.
     pub wcag_coverage: WcagCoverageSummary,
+    /// Sum of the module weights that actually fed `overall_score`, out of
+    /// 100. Below 100 the score was renormalised over the modules that ran and
+    /// measured successfully, so it is not comparable with a run over a
+    /// different module set (plan 41).
+    pub overall_score_weight_basis: u32,
+    /// Batch only. `false` when the audited pages did not all contribute the
+    /// same weight basis — their `overall_score` values were then averaged
+    /// across different module sets and are not directly comparable
+    /// (plan 41).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_score_weight_basis_uniform: Option<bool>,
     /// Accessibility score explanation by weighted topic.
     pub accessibility_score_breakdown: Vec<AccessibilityScoreComponent>,
     /// Management-oriented risk view derived from findings and module scores.
@@ -1031,6 +1043,8 @@ impl UnifiedReport {
                 .first()
                 .map(build_wcag_coverage_summary)
                 .unwrap_or_else(|| build_wcag_coverage_for_level("mixed")),
+            overall_score_weight_basis: overall_score_weight_basis(&normalized_reports),
+            overall_score_weight_basis_uniform: Some(weight_basis_is_uniform(&normalized_reports)),
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 &normalized_reports,
                 accessibility_score,
@@ -1226,6 +1240,10 @@ impl UnifiedReport {
                 .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
                 .map(|t| t.score),
             wcag_coverage: build_wcag_coverage_summary(&ctx.normalized),
+            overall_score_weight_basis: overall_score_weight_basis(std::slice::from_ref(
+                &ctx.normalized,
+            )),
+            overall_score_weight_basis_uniform: None,
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(&ctx.normalized),
                 page.accessibility_score,
@@ -1323,6 +1341,10 @@ impl UnifiedReport {
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_summary(normalized),
+            overall_score_weight_basis: overall_score_weight_basis(std::slice::from_ref(
+                normalized,
+            )),
+            overall_score_weight_basis_uniform: None,
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(normalized),
                 page.accessibility_score,

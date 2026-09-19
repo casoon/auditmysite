@@ -2,7 +2,6 @@
 //!
 //! Definiert Score-Impact-Modell, Gewichtung und Labels.
 
-use super::Dimension;
 use serde::{Deserialize, Serialize};
 
 /// Wie skaliert der Score-Abzug bei Mehrfachvorkommen einer Regel?
@@ -65,22 +64,39 @@ impl ScoreImpact {
     }
 }
 
-/// Gewichtung der Module für den Gesamtscore
-pub const MODULE_WEIGHTS: &[(Dimension, f32)] = &[
-    (Dimension::Accessibility, 35.0),
-    (Dimension::Performance, 20.0),
-    (Dimension::Seo, 20.0),
-    (Dimension::Security, 15.0),
-    (Dimension::Mobile, 10.0),
+/// Gewichtung der Module für den Gesamtscore, in Prozent.
+///
+/// Einzige Quelle: `audit::normalized::build_module_scores` liest hier nach,
+/// statt die Zahlen erneut hinzuschreiben. Vorher gab es zwei Tabellen für
+/// denselben Begriff — diese hier (Accessibility 35, Performance 20, SEO 20,
+/// Security 15, Mobile 10, ohne HTML Conformance) hatte keinen einzigen
+/// Aufrufer und widersprach den tatsächlich verwendeten Gewichten. Der
+/// zugehörige Test prüfte grün, dass sich ein Modell auf 100 summiert, das
+/// nie lief (Plan 41).
+///
+/// Die Schlüssel sind die kanonischen, englischen Modulnamen aus
+/// `ModuleScoreEntry::name` — dieselbe Namensmenge, die auch der
+/// Score-Treiber-Tabelle und dem JSON zugrunde liegt.
+pub const MODULE_WEIGHTS: &[(&str, u32)] = &[
+    ("Accessibility", 40),
+    ("Performance", 20),
+    // 15, nicht 20: 5 Punkte sind zu HTML Conformance gewandert, dem Modul,
+    // das SEOs eigenem Anliegen am nächsten liegt (ein Dokument, das ein
+    // Crawler zuverlässig parsen kann).
+    ("SEO", 15),
+    ("Security", 10),
+    ("Mobile", 10),
+    ("HTML Conformance", 5),
 ];
 
-/// Gewicht für eine Dimension nachschlagen
-pub fn weight_for(dimension: Dimension) -> f32 {
+/// Gewicht eines Moduls nachschlagen. `0` für ein Modul, das nicht in den
+/// Gesamtscore eingeht.
+pub fn module_weight(name: &str) -> u32 {
     MODULE_WEIGHTS
         .iter()
-        .find(|(d, _)| *d == dimension)
-        .map(|(_, w)| *w)
-        .unwrap_or(0.0)
+        .find(|(module, _)| *module == name)
+        .map(|(_, weight)| *weight)
+        .unwrap_or(0)
 }
 
 /// Score-Label (deutsch) für Endnutzer
@@ -200,8 +216,42 @@ mod tests {
     }
 
     #[test]
-    fn test_module_weights_sum() {
-        let total: f32 = MODULE_WEIGHTS.iter().map(|(_, w)| w).sum();
-        assert_eq!(total, 100.0);
+    fn module_weights_sum_to_100() {
+        let total: u32 = MODULE_WEIGHTS.iter().map(|(_, w)| w).sum();
+        assert_eq!(total, 100, "{MODULE_WEIGHTS:?}");
+    }
+
+    /// Plan 41: the whole point of moving the weights here is that there is
+    /// one table. If `build_module_scores` ever writes a literal again, the
+    /// two drift apart silently — as they had, with a dead table claiming
+    /// Accessibility 35 while the live one used 40.
+    #[test]
+    fn build_module_scores_reads_its_weights_from_this_table() {
+        let normalized = crate::audit::normalized::normalize(&crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            crate::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            100,
+        ))
+        .normalized;
+
+        for entry in &normalized.module_scores {
+            assert_eq!(
+                entry.weight_pct,
+                module_weight(&entry.name),
+                "{} carries a weight this table does not know",
+                entry.name,
+            );
+        }
+    }
+
+    #[test]
+    fn module_weight_is_zero_for_modules_outside_the_overall_score() {
+        assert_eq!(module_weight("Accessibility"), 40);
+        assert_eq!(module_weight("HTML Conformance"), 5);
+        // Indicator modules carry no weight.
+        assert_eq!(module_weight("UX"), 0);
+        assert_eq!(module_weight("Journey"), 0);
+        assert_eq!(module_weight("No such module"), 0);
     }
 }

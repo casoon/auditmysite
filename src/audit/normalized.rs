@@ -2324,7 +2324,7 @@ fn build_module_scores(
         name: "Accessibility".to_string(),
         score,
         grade: accessibility_grade,
-        weight_pct: 40,
+        weight_pct: crate::taxonomy::module_weight("Accessibility"),
         contributes_to_overall: true,
         measurement_type: "measured".to_string(),
     });
@@ -2338,7 +2338,7 @@ fn build_module_scores(
             name: "Performance".to_string(),
             score: perf.score.overall,
             grade: AccessibilityScorer::calculate_grade(perf.score.overall as f32).to_string(),
-            weight_pct: 20,
+            weight_pct: crate::taxonomy::module_weight("Performance"),
             contributes_to_overall: measured,
             measurement_type: if measured { "measured" } else { "not_measured" }.to_string(),
         });
@@ -2348,9 +2348,7 @@ fn build_module_scores(
             name: "SEO".to_string(),
             score: seo.score,
             grade: AccessibilityScorer::calculate_grade(seo.score as f32).to_string(),
-            // 15, not 20: 5 points moved to HTML Conformance, the module closest to
-            // SEO's own concern (a document a crawler can parse reliably).
-            weight_pct: 15,
+            weight_pct: crate::taxonomy::module_weight("SEO"),
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
         });
@@ -2361,7 +2359,7 @@ fn build_module_scores(
             name: "Security".to_string(),
             score: adjusted,
             grade: AccessibilityScorer::calculate_grade(adjusted as f32).to_string(),
-            weight_pct: 10,
+            weight_pct: crate::taxonomy::module_weight("Security"),
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
         });
@@ -2371,7 +2369,7 @@ fn build_module_scores(
             name: "Mobile".to_string(),
             score: mob.score,
             grade: AccessibilityScorer::calculate_grade(mob.score as f32).to_string(),
-            weight_pct: 10,
+            weight_pct: crate::taxonomy::module_weight("Mobile"),
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
         });
@@ -2398,7 +2396,7 @@ fn build_module_scores(
             name: "HTML Conformance".to_string(),
             score: hc.score,
             grade: AccessibilityScorer::calculate_grade(hc.score as f32).to_string(),
-            weight_pct: 5,
+            weight_pct: crate::taxonomy::module_weight("HTML Conformance"),
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
         });

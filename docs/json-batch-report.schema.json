@@ -3,125 +3,340 @@
   "$id": "https://github.com/casoon/auditmysite/docs/json-batch-report.schema.json",
   "title": "auditmysite unified report (batch)",
   "type": "object",
-  "required": ["schema_version", "report_type", "metadata", "metric_context", "summary", "pages"],
+  "required": [
+    "schema_version",
+    "report_type",
+    "metadata",
+    "metric_context",
+    "summary",
+    "pages"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "string", "const": "2.0" },
-    "report_type": { "type": "string", "const": "batch" },
-    "tool_version": { "type": "string" },
-    "build_id": { "type": "string", "description": "Build-time git short-SHA of the binary that produced this report; \"unknown\" when built without a .git directory." },
-    "metadata": { "$ref": "#/$defs/metadata" },
-    "audit_scope": { "type": "object" },
-    "execution_environment": { "type": "object" },
-    "audit_quality": { "$ref": "#/$defs/auditQuality" },
-    "metric_context": { "$ref": "#/$defs/metricContext" },
-    "summary": { "$ref": "#/$defs/summary" },
-    "sample": { "$ref": "#/$defs/sample" },
+    "schema_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "report_type": {
+      "type": "string",
+      "const": "batch"
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "build_id": {
+      "type": "string",
+      "description": "Build-time git short-SHA of the binary that produced this report; \"unknown\" when built without a .git directory."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "audit_scope": {
+      "type": "object"
+    },
+    "execution_environment": {
+      "type": "object"
+    },
+    "audit_quality": {
+      "$ref": "#/$defs/auditQuality"
+    },
+    "metric_context": {
+      "$ref": "#/$defs/metricContext"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "sample": {
+      "$ref": "#/$defs/sample"
+    },
     "pages": {
       "type": "array",
-      "items": { "$ref": "#/$defs/pageEntry" }
+      "items": {
+        "$ref": "#/$defs/pageEntry"
+      }
     },
-    "url_matrix": { "type": "array" },
-    "internal_comparison": { "$ref": "#/$defs/internalComparison" },
-    "crawl_diagnostics": { "type": ["object", "null"] },
-    "sitemap_diagnostics": { "type": ["object", "null"] },
-    "site_analysis": { "type": "object" },
-    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
-    "errors": { "type": "array" },
+    "url_matrix": {
+      "type": "array"
+    },
+    "internal_comparison": {
+      "$ref": "#/$defs/internalComparison"
+    },
+    "crawl_diagnostics": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "sitemap_diagnostics": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "site_analysis": {
+      "type": "object"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "errors": {
+      "type": "array"
+    },
     "collection_errors": {
       "description": "Errors raised while serializing the report. Audit and measurement failures are represented separately in module_runs, rule_outcomes, and audit_quality.",
       "type": "array",
-      "items": { "$ref": "#/$defs/reportError" }
+      "items": {
+        "$ref": "#/$defs/reportError"
+      }
     },
-    "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
-    "verdict_reasons": { "type": "array", "items": { "type": "string" } }
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    },
+    "verdict_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "$defs": {
     "artifact": {
       "type": "object",
-      "required": ["kind", "media_type", "delivery", "path_template", "status"],
+      "required": [
+        "kind",
+        "media_type",
+        "delivery",
+        "path_template",
+        "status"
+      ],
       "additionalProperties": false,
       "properties": {
-        "kind": { "type": "string" },
-        "media_type": { "type": "string" },
-        "delivery": { "type": "string", "enum": ["sidecar"] },
-        "path_template": { "type": "string" },
-        "status": { "type": "string", "enum": ["completed", "partial", "failed", "skipped", "not_applicable", "not_requested"] }
+        "kind": {
+          "type": "string"
+        },
+        "media_type": {
+          "type": "string"
+        },
+        "delivery": {
+          "type": "string",
+          "enum": [
+            "sidecar"
+          ]
+        },
+        "path_template": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "skipped",
+            "not_applicable",
+            "not_requested"
+          ]
+        }
       }
     },
     "reportError": {
       "type": "object",
-      "required": ["module", "error_type", "reason"],
+      "required": [
+        "module",
+        "error_type",
+        "reason"
+      ],
       "additionalProperties": false,
       "properties": {
-        "module": { "type": "string" },
-        "error_type": { "type": "string" },
-        "reason": { "type": "string" }
+        "module": {
+          "type": "string"
+        },
+        "error_type": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
       }
     },
     "auditQuality": {
       "type": "object",
-      "required": ["status", "qualified_results", "failed_rule_checks", "partial_or_failed_modules"],
+      "required": [
+        "status",
+        "qualified_results",
+        "failed_rule_checks",
+        "partial_or_failed_modules"
+      ],
       "additionalProperties": false,
       "properties": {
-        "status": { "type": "string", "enum": ["complete", "partial", "insufficient"] },
-        "qualified_results": { "type": "boolean" },
-        "failed_rule_checks": { "type": "integer", "minimum": 0 },
-        "partial_or_failed_modules": { "type": "integer", "minimum": 0 },
-        "reasons": { "type": "array", "items": { "type": "string" } }
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "insufficient"
+          ]
+        },
+        "qualified_results": {
+          "type": "boolean"
+        },
+        "failed_rule_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_or_failed_modules": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "metricContext": {
       "type": "object",
-      "required": ["score_scale", "score_definitions", "count_definitions"],
+      "required": [
+        "score_scale",
+        "score_definitions",
+        "count_definitions"
+      ],
       "additionalProperties": false,
       "properties": {
         "score_scale": {
           "type": "object",
-          "required": ["minimum", "maximum", "higher_is_better"],
+          "required": [
+            "minimum",
+            "maximum",
+            "higher_is_better"
+          ],
           "additionalProperties": false,
           "properties": {
-            "minimum": { "type": "integer", "const": 0 },
-            "maximum": { "type": "integer", "const": 100 },
-            "higher_is_better": { "type": "boolean", "const": true }
+            "minimum": {
+              "type": "integer",
+              "const": 0
+            },
+            "maximum": {
+              "type": "integer",
+              "const": 100
+            },
+            "higher_is_better": {
+              "type": "boolean",
+              "const": true
+            }
           }
         },
-        "score_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } },
-        "count_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } }
+        "score_definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricDefinition"
+          }
+        },
+        "count_definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricDefinition"
+          }
+        }
       }
     },
     "metricDefinition": {
       "type": "object",
-      "required": ["field", "unit", "meaning"],
+      "required": [
+        "field",
+        "unit",
+        "meaning"
+      ],
       "additionalProperties": false,
       "properties": {
-        "field": { "type": "string" },
-        "unit": { "type": "string" },
-        "meaning": { "type": "string" }
+        "field": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "meaning": {
+          "type": "string"
+        }
       }
     },
     "sample": {
       "type": "object",
-      "required": ["source", "total_discovered", "audited", "selection", "is_sample"],
+      "required": [
+        "source",
+        "total_discovered",
+        "audited",
+        "selection",
+        "is_sample"
+      ],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "enum": ["sitemap", "crawl", "url_file"] },
-        "total_discovered": { "type": "integer", "minimum": 0 },
-        "audited": { "type": "integer", "minimum": 0 },
-        "sample_limit": { "type": "integer", "minimum": 0 },
-        "selection": { "type": "string", "enum": ["first_n", "all"] },
-        "is_sample": { "type": "boolean" }
+        "source": {
+          "type": "string",
+          "enum": [
+            "sitemap",
+            "crawl",
+            "url_file"
+          ]
+        },
+        "total_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audited": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sample_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selection": {
+          "type": "string",
+          "enum": [
+            "first_n",
+            "all"
+          ]
+        },
+        "is_sample": {
+          "type": "boolean"
+        }
       }
     },
     "metadata": {
       "type": "object",
-      "required": ["tool", "timestamp", "wcag_level", "execution_time_ms"],
+      "required": [
+        "tool",
+        "timestamp",
+        "wcag_level",
+        "execution_time_ms"
+      ],
       "additionalProperties": false,
       "properties": {
-        "tool": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "wcag_level": { "type": "string" },
-        "execution_time_ms": { "type": "integer", "minimum": 0 }
+        "tool": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "wcag_level": {
+          "type": "string"
+        },
+        "execution_time_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "summary": {
@@ -142,69 +357,198 @@
         "passed_url_count",
         "failed_url_count",
         "wcag_coverage",
+        "overall_score_weight_basis",
         "accessibility_score_breakdown",
         "management_risks",
         "top_actions"
       ],
       "additionalProperties": false,
       "properties": {
-        "url_count": { "type": "integer", "minimum": 0 },
-        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "grade": { "type": "string" },
-        "certificate": { "type": "string" },
-        "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
-        "violation_count": { "type": "integer", "minimum": 0 },
-        "finding_count": { "type": "integer", "minimum": 0 },
-        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
-        "severity_counts": { "$ref": "#/$defs/severityCounts" },
-        "severity_counts_scope": { "type": "string", "const": "wcag_only" },
-        "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
-        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
-        "passed_url_count": { "type": "integer", "minimum": 0 },
-        "failed_url_count": { "type": "integer", "minimum": 0 },
-        "violated_rule_count": { "type": "integer", "minimum": 0 },
-        "top_recurring_rules": { "type": "array" },
-        "performance_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "seo_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "security_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "mobile_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "performance_throttled_avg_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "wcag_coverage": { "$ref": "#/$defs/wcagCoverageSummary" },
+        "url_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accessibility_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "overall_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string"
+        },
+        "certificate": {
+          "type": "string"
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "severity_counts": {
+          "$ref": "#/$defs/severityCounts"
+        },
+        "severity_counts_scope": {
+          "type": "string",
+          "const": "wcag_only"
+        },
+        "occurrence_counts": {
+          "$ref": "#/$defs/severityCounts"
+        },
+        "occurrence_counts_scope": {
+          "type": "string",
+          "const": "wcag_only"
+        },
+        "passed_url_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_url_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "violated_rule_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top_recurring_rules": {
+          "type": "array"
+        },
+        "performance_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "seo_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "security_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "mobile_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "performance_throttled_avg_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "wcag_coverage": {
+          "$ref": "#/$defs/wcagCoverageSummary"
+        },
+        "overall_score_weight_basis": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "overall_score_weight_basis_uniform": {
+          "type": "boolean"
+        },
         "accessibility_score_breakdown": {
           "type": "array",
-          "items": { "$ref": "#/$defs/accessibilityScoreComponent" }
+          "items": {
+            "$ref": "#/$defs/accessibilityScoreComponent"
+          }
         },
         "management_risks": {
           "type": "array",
-          "items": { "$ref": "#/$defs/managementRisk" }
+          "items": {
+            "$ref": "#/$defs/managementRisk"
+          }
         },
         "top_actions": {
           "type": "array",
-          "items": { "$ref": "#/$defs/decisionAction" }
+          "items": {
+            "$ref": "#/$defs/decisionAction"
+          }
         },
-        "commerce": { "type": ["object", "null"] },
+        "commerce": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "en301549_rollup": {
           "type": "array",
-          "items": { "$ref": "#/$defs/en301549BatchClauseRollup" }
+          "items": {
+            "$ref": "#/$defs/en301549BatchClauseRollup"
+          }
         }
       }
     },
     "en301549BatchClauseRollup": {
       "type": "object",
-      "required": ["en_clause", "wcag", "level", "title", "status", "affected_pages"],
+      "required": [
+        "en_clause",
+        "wcag",
+        "level",
+        "title",
+        "status",
+        "affected_pages"
+      ],
       "additionalProperties": false,
       "properties": {
-        "en_clause": { "type": "string" },
-        "wcag": { "type": "string" },
-        "level": { "type": "string", "enum": ["A", "AA"] },
-        "title": { "type": "string" },
+        "en_clause": {
+          "type": "string"
+        },
+        "wcag": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "A",
+            "AA"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
         "status": {
           "type": "string",
-          "enum": ["violations_found", "no_violations_automated", "manual_review_required", "partial_automated_evaluation", "not_evaluated"]
+          "enum": [
+            "violations_found",
+            "no_violations_automated",
+            "manual_review_required",
+            "partial_automated_evaluation",
+            "not_evaluated"
+          ]
         },
-        "affected_pages": { "type": "integer", "minimum": 0 }
+        "affected_pages": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "pageEntry": {
@@ -230,192 +574,527 @@
       ],
       "additionalProperties": true,
       "properties": {
-        "url": { "type": "string" },
-        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "grade": { "type": "string" },
-        "certificate": { "type": "string" },
-        "violation_count": { "type": "integer", "minimum": 0 },
-        "finding_count": { "type": "integer", "minimum": 0 },
-        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
-        "severity_counts": { "$ref": "#/$defs/severityCounts" },
-        "severity_counts_scope": { "type": "string", "const": "wcag_only" },
-        "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
-        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
-        "nodes_analyzed": { "type": "integer", "minimum": 0 },
-        "duration_ms": { "type": "integer", "minimum": 0 },
+        "url": {
+          "type": "string"
+        },
+        "accessibility_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "overall_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string"
+        },
+        "certificate": {
+          "type": "string"
+        },
+        "violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "severity_counts": {
+          "$ref": "#/$defs/severityCounts"
+        },
+        "severity_counts_scope": {
+          "type": "string",
+          "const": "wcag_only"
+        },
+        "occurrence_counts": {
+          "$ref": "#/$defs/severityCounts"
+        },
+        "occurrence_counts_scope": {
+          "type": "string",
+          "const": "wcag_only"
+        },
+        "nodes_analyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
         "module_scores": {
           "type": "array",
-          "items": { "$ref": "#/$defs/moduleScore" }
+          "items": {
+            "$ref": "#/$defs/moduleScore"
+          }
         },
-        "risk": { "$ref": "#/$defs/riskAssessment" },
-        "principle_coverage": { "$ref": "#/$defs/principleCoverage" },
-        "findings": { "type": "array" },
-        "audit_flags": { "type": "array" },
-        "audit_quality": { "$ref": "#/$defs/auditQuality" },
-        "module_runs": { "type": "array" },
-        "rule_outcomes": { "type": "array" },
-        "accessibility_assessments": { "type": "array" },
-        "navigation": { "type": "object" },
-        "consent": { "type": "object" },
-        "content_profile": { "type": "object" }
+        "risk": {
+          "$ref": "#/$defs/riskAssessment"
+        },
+        "principle_coverage": {
+          "$ref": "#/$defs/principleCoverage"
+        },
+        "findings": {
+          "type": "array"
+        },
+        "audit_flags": {
+          "type": "array"
+        },
+        "audit_quality": {
+          "$ref": "#/$defs/auditQuality"
+        },
+        "module_runs": {
+          "type": "array"
+        },
+        "rule_outcomes": {
+          "type": "array"
+        },
+        "accessibility_assessments": {
+          "type": "array"
+        },
+        "navigation": {
+          "type": "object"
+        },
+        "consent": {
+          "type": "object"
+        },
+        "content_profile": {
+          "type": "object"
+        }
       }
     },
     "principleCoverage": {
       "type": "object",
-      "required": ["perceivable", "operable", "understandable", "robust"],
+      "required": [
+        "perceivable",
+        "operable",
+        "understandable",
+        "robust"
+      ],
       "additionalProperties": false,
       "properties": {
-        "perceivable": { "$ref": "#/$defs/coverageRatio" },
-        "operable": { "$ref": "#/$defs/coverageRatio" },
-        "understandable": { "$ref": "#/$defs/coverageRatio" },
-        "robust": { "$ref": "#/$defs/coverageRatio" }
+        "perceivable": {
+          "$ref": "#/$defs/coverageRatio"
+        },
+        "operable": {
+          "$ref": "#/$defs/coverageRatio"
+        },
+        "understandable": {
+          "$ref": "#/$defs/coverageRatio"
+        },
+        "robust": {
+          "$ref": "#/$defs/coverageRatio"
+        }
       }
     },
     "coverageRatio": {
       "type": "object",
-      "required": ["passed", "total", "ratio"],
+      "required": [
+        "passed",
+        "total",
+        "ratio"
+      ],
       "additionalProperties": false,
       "properties": {
-        "passed": { "type": "integer", "minimum": 0 },
-        "total": { "type": "integer", "minimum": 0 },
-        "ratio": { "type": "number", "minimum": 0, "maximum": 1 }
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "severityCounts": {
       "type": "object",
-      "required": ["critical", "high", "medium", "low", "total"],
+      "required": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "total"
+      ],
       "additionalProperties": false,
       "properties": {
-        "critical": { "type": "integer", "minimum": 0 },
-        "high": { "type": "integer", "minimum": 0 },
-        "medium": { "type": "integer", "minimum": 0 },
-        "low": { "type": "integer", "minimum": 0 },
-        "total": { "type": "integer", "minimum": 0 }
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall", "measurement_type"],
+      "required": [
+        "name",
+        "score",
+        "grade",
+        "weight_pct",
+        "contributes_to_overall",
+        "measurement_type"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "grade": { "type": "string" },
-        "weight_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "contributes_to_overall": { "type": "boolean" },
-        "measurement_type": { "type": "string", "enum": ["measured", "heuristic", "optional"] }
+        "name": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string"
+        },
+        "weight_pct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "contributes_to_overall": {
+          "type": "boolean"
+        },
+        "measurement_type": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "heuristic",
+            "optional"
+          ]
+        }
       }
     },
     "riskAssessment": {
       "type": "object",
-      "required": ["level", "score", "threshold", "driven_by", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "interactive_critical_issues", "interactive_high_issues", "summary"],
+      "required": [
+        "level",
+        "score",
+        "threshold",
+        "driven_by",
+        "critical_issues",
+        "high_issues",
+        "legal_flags",
+        "blocking_issues",
+        "interactive_critical_issues",
+        "interactive_high_issues",
+        "summary"
+      ],
       "additionalProperties": false,
       "properties": {
-        "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "threshold": { "type": "integer", "minimum": 0 },
-        "driven_by": { "type": "string" },
-        "critical_issues": { "type": "integer", "minimum": 0 },
-        "high_issues": { "type": "integer", "minimum": 0 },
-        "legal_flags": { "type": "integer", "minimum": 0 },
-        "blocking_issues": { "type": "integer", "minimum": 0 },
-        "interactive_critical_issues": { "type": "integer", "minimum": 0 },
-        "interactive_high_issues": { "type": "integer", "minimum": 0 },
-        "summary": { "type": "string" }
+        "level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "driven_by": {
+          "type": "string"
+        },
+        "critical_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legal_flags": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interactive_critical_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interactive_high_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "string"
+        }
       }
     },
     "wcagCoverageSummary": {
       "type": "object",
-      "required": ["level", "automated_criteria", "manual_review_criteria", "total_wcag_aa_criteria", "note"],
+      "required": [
+        "level",
+        "automated_criteria",
+        "manual_review_criteria",
+        "total_wcag_aa_criteria",
+        "note"
+      ],
       "additionalProperties": false,
       "properties": {
-        "level": { "type": "string" },
-        "automated_criteria": { "type": "integer", "minimum": 0 },
-        "manual_review_criteria": { "type": "integer", "minimum": 0 },
-        "total_wcag_aa_criteria": { "type": "integer", "minimum": 0 },
-        "note": { "type": "string" }
+        "level": {
+          "type": "string"
+        },
+        "automated_criteria": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "manual_review_criteria": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_wcag_aa_criteria": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
       }
     },
     "accessibilityScoreComponent": {
       "type": "object",
-      "required": ["area", "score", "weight_pct", "estimated_lost_points", "main_driver"],
+      "required": [
+        "area",
+        "score",
+        "weight_pct",
+        "estimated_lost_points",
+        "main_driver"
+      ],
       "additionalProperties": false,
       "properties": {
-        "area": { "type": "string" },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "weight_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "estimated_lost_points": { "type": "integer", "minimum": 0 },
-        "main_driver": { "type": "string" }
+        "area": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "weight_pct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "estimated_lost_points": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "main_driver": {
+          "type": "string"
+        }
       }
     },
     "managementRisk": {
       "type": "object",
-      "required": ["dimension", "level", "rationale"],
+      "required": [
+        "dimension",
+        "level",
+        "rationale"
+      ],
       "additionalProperties": false,
       "properties": {
-        "dimension": { "type": "string" },
-        "level": { "type": "string" },
-        "rationale": { "type": "string" }
+        "dimension": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        }
       }
     },
     "decisionAction": {
       "type": "object",
-      "required": ["title", "risk", "priority", "complexity", "occurrence_count", "root_cause", "expected_impact"],
+      "required": [
+        "title",
+        "risk",
+        "priority",
+        "complexity",
+        "occurrence_count",
+        "root_cause",
+        "expected_impact"
+      ],
       "additionalProperties": false,
       "properties": {
-        "title": { "type": "string" },
-        "risk": { "type": "string" },
-        "priority": { "type": "string" },
-        "complexity": { "type": "string" },
-        "occurrence_count": { "type": "integer", "minimum": 0 },
-        "root_cause": { "type": "string" },
-        "expected_impact": { "type": "string" }
+        "title": {
+          "type": "string"
+        },
+        "risk": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string"
+        },
+        "complexity": {
+          "type": "string"
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "root_cause": {
+          "type": "string"
+        },
+        "expected_impact": {
+          "type": "string"
+        }
       }
     },
     "internalComparison": {
       "type": "object",
-      "required": ["module_extremes", "outlier_urls", "root_causes"],
+      "required": [
+        "module_extremes",
+        "outlier_urls",
+        "root_causes"
+      ],
       "additionalProperties": false,
       "properties": {
-        "module_extremes": { "type": "array", "items": { "$ref": "#/$defs/moduleExtreme" } },
-        "outlier_urls": { "type": "array", "items": { "$ref": "#/$defs/urlOutlier" } },
-        "root_causes": { "type": "array", "items": { "$ref": "#/$defs/rootCauseSummary" } }
+        "module_extremes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moduleExtreme"
+          }
+        },
+        "outlier_urls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/urlOutlier"
+          }
+        },
+        "root_causes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rootCauseSummary"
+          }
+        }
       }
     },
     "moduleExtreme": {
       "type": "object",
-      "required": ["module", "best_url", "best_score", "worst_url", "worst_score"],
+      "required": [
+        "module",
+        "best_url",
+        "best_score",
+        "worst_url",
+        "worst_score"
+      ],
       "additionalProperties": false,
       "properties": {
-        "module": { "type": "string" },
-        "best_url": { "type": "string" },
-        "best_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "worst_url": { "type": "string" },
-        "worst_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        "module": {
+          "type": "string"
+        },
+        "best_url": {
+          "type": "string"
+        },
+        "best_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "worst_url": {
+          "type": "string"
+        },
+        "worst_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
       }
     },
     "urlOutlier": {
       "type": "object",
-      "required": ["url", "accessibility_score", "batch_average", "delta_points", "reason"],
+      "required": [
+        "url",
+        "accessibility_score",
+        "batch_average",
+        "delta_points",
+        "reason"
+      ],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string" },
-        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "batch_average": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "delta_points": { "type": "integer" },
-        "reason": { "type": "string" }
+        "url": {
+          "type": "string"
+        },
+        "accessibility_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "batch_average": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "delta_points": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        }
       }
     },
     "rootCauseSummary": {
       "type": "object",
-      "required": ["title", "occurrence_count", "affected_urls", "classification"],
+      "required": [
+        "title",
+        "occurrence_count",
+        "affected_urls",
+        "classification"
+      ],
       "additionalProperties": false,
       "properties": {
-        "title": { "type": "string" },
-        "occurrence_count": { "type": "integer", "minimum": 0 },
-        "affected_urls": { "type": "integer", "minimum": 0 },
-        "classification": { "type": "string" }
+        "title": {
+          "type": "string"
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "affected_urls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classification": {
+          "type": "string"
+        }
       }
     }
   }

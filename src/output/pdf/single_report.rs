@@ -1392,7 +1392,82 @@ fn render_score_driver_table(
     }
 
     builder = builder.add_component(table);
+    builder = render_weight_basis_note(builder, vm, i18n);
     render_overall_score_derivation(builder, vm, i18n)
+}
+
+/// States the weight basis when the overall score was renormalised.
+///
+/// The score is divided by the weight of the *contributing* modules, so a
+/// module that did not run, or that ran without being able to measure,
+/// silently changes the denominator rather than the result. That is deliberate
+/// for Performance (#QA-023) but was never communicated: two runs over
+/// different module sets carry the same label, grade and rating and are not
+/// comparable (plan 41).
+fn render_weight_basis_note(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let basis: u32 = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall)
+        .map(|m| m.weight_pct)
+        .sum();
+    if basis >= 100 {
+        return builder;
+    }
+
+    // Derived from the weight table, not from the entry list: a module that
+    // was skipped outright has no entry at all, so filtering the entries alone
+    // named nothing in exactly the case a reader most needs it
+    // (`--skip-performance`).
+    let contributing: std::collections::HashSet<&str> = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall)
+        .map(|m| m.name.as_str())
+        .collect();
+    let missing: Vec<String> = crate::taxonomy::MODULE_WEIGHTS
+        .iter()
+        .filter(|(name, _)| !contributing.contains(name))
+        .map(|(name, weight)| format!("{name} ({weight} %)"))
+        .collect();
+
+    let mut note = if en {
+        format!(
+            "The overall score is normalised over the modules that were measured — a weight basis of {basis} of 100, not the full set."
+        )
+    } else {
+        format!(
+            "Der Gesamtwert ist auf die gemessenen Module normiert — Gewichtsbasis {basis} von 100, nicht der volle Satz."
+        )
+    };
+    if !missing.is_empty() {
+        note.push(' ');
+        note.push_str(&if en {
+            format!("Not included: {}.", missing.join(", "))
+        } else {
+            format!("Nicht enthalten: {}.", missing.join(", "))
+        });
+    }
+    note.push(' ');
+    note.push_str(if en {
+        "A score from a different module set is not directly comparable."
+    } else {
+        "Ein Wert aus einem anderen Modulsatz ist damit nicht direkt vergleichbar."
+    });
+
+    builder = builder.add_component(Callout::info(&note).with_title(if en {
+        "Weight basis"
+    } else {
+        "Gewichtsbasis"
+    }));
+    builder
 }
 
 /// How `overall_score` was actually reached, in `viewport_weighted` mode.

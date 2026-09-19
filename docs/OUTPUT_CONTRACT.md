@@ -155,6 +155,20 @@ reports only; batch page details omit both fields.
 Named module score on the 0-100 scale; higher is better. Throttled and
 Lighthouse performance scores are lab results, not field/RUM data.
 
+<a id="overall-score-weight-basis"></a>
+### overall_score_weight_basis — `summary.overall_score_weight_basis`
+
+Sum of the module weights that actually fed `overall_score`, out of 100.
+Below 100 the score was renormalised over the modules that ran and measured
+successfully — a module that did not run, or that ran without being able to
+measure, changes the denominator rather than the result. A score computed on a
+different weight basis is not directly comparable.
+
+In a batch report the value is the **lowest** basis across the audited pages,
+so it never overstates how much of the model backs the average, and
+`overall_score_weight_basis_uniform` says whether the pages agreed. `false`
+means `overall_score` values from different module sets were averaged.
+
 <a id="accessibility-score-breakdown"></a>
 ### accessibility_score_breakdown — `summary.accessibility_score_breakdown[]`
 

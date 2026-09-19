@@ -545,6 +545,43 @@ pub(super) fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
     }
 }
 
+/// Sum of the module weights that actually fed `overall_score`.
+///
+/// The score is divided by the weight of the *contributing* modules, so a
+/// module that did not run — or that ran but could not measure, as Performance
+/// does when no Core Web Vital came back (#QA-023) — silently changes the
+/// denominator rather than the result. Publishing the basis lets a consumer
+/// see that two runs are not comparable (plan 41).
+pub(super) fn overall_score_weight_basis(reports: &[NormalizedReport]) -> u32 {
+    // Batch: the lowest basis across the audited pages, so the published value
+    // never overstates how much of the model backs the average. When the pages
+    // disagree, `weight_basis_is_uniform` is what says the average mixes
+    // different bases — this number alone cannot (plan 41).
+    page_weight_bases(reports).into_iter().min().unwrap_or(0)
+}
+
+/// Whether every audited page contributed the same weight basis. `false` means
+/// `overall_score` values were averaged across different module sets and are
+/// not directly comparable.
+pub(super) fn weight_basis_is_uniform(reports: &[NormalizedReport]) -> bool {
+    let bases = page_weight_bases(reports);
+    bases.windows(2).all(|pair| pair[0] == pair[1])
+}
+
+fn page_weight_bases(reports: &[NormalizedReport]) -> Vec<u32> {
+    reports
+        .iter()
+        .map(|report| {
+            report
+                .module_scores
+                .iter()
+                .filter(|m| m.contributes_to_overall)
+                .map(|m| m.weight_pct)
+                .sum()
+        })
+        .collect()
+}
+
 /// Number of distinct violated WCAG rules.
 pub(super) fn distinct_wcag_rule_count(
     findings: &[crate::audit::normalized::NormalizedFinding],
@@ -818,6 +855,75 @@ mod tests {
         assert_eq!(apportion(&[3.0, 1.0], 4.0, 0), [0, 0]);
         // A single loaded area takes the whole loss.
         assert_eq!(apportion(&[0.0, 9.0], 9.0, 80), [0, 80]);
+    }
+
+    /// Plan 41: the basis must reflect what actually fed the score, so a
+    /// consumer can tell that two runs are not comparable. A module that did
+    /// not measure changes the denominator, not the result (#QA-023).
+    #[test]
+    fn weight_basis_drops_when_a_weighted_module_does_not_contribute() {
+        let mut report = make_report(vec![]);
+        assert_eq!(
+            overall_score_weight_basis(std::slice::from_ref(&report)),
+            report
+                .module_scores
+                .iter()
+                .filter(|m| m.contributes_to_overall)
+                .map(|m| m.weight_pct)
+                .sum::<u32>(),
+        );
+
+        let full = overall_score_weight_basis(std::slice::from_ref(&report));
+        if let Some(entry) = report
+            .module_scores
+            .iter_mut()
+            .find(|m| m.contributes_to_overall && m.weight_pct > 0)
+        {
+            let dropped = entry.weight_pct;
+            entry.contributes_to_overall = false;
+            assert_eq!(
+                overall_score_weight_basis(std::slice::from_ref(&report)),
+                full - dropped,
+            );
+        }
+    }
+
+    /// Plan 41, batch: averaging `overall_score` across pages with different
+    /// module sets mixes incomparable numbers. The published basis must not
+    /// overstate the backing, and the uniformity flag must say when they
+    /// disagreed.
+    #[test]
+    fn batch_weight_basis_reports_the_lowest_and_flags_disagreement() {
+        let full = make_report(vec![]);
+        let mut reduced = make_report(vec![]);
+        let dropped = reduced
+            .module_scores
+            .iter_mut()
+            .find(|m| m.contributes_to_overall && m.weight_pct > 0)
+            .map(|m| {
+                m.contributes_to_overall = false;
+                m.weight_pct
+            })
+            .expect("a weighted module to drop");
+
+        let full_basis = overall_score_weight_basis(std::slice::from_ref(&full));
+
+        assert!(weight_basis_is_uniform(&[full.clone(), full.clone()]));
+        assert_eq!(
+            overall_score_weight_basis(&[full.clone(), full.clone()]),
+            full_basis,
+        );
+
+        let mixed = [full, reduced];
+        assert!(
+            !weight_basis_is_uniform(&mixed),
+            "differing module sets must not read as uniform",
+        );
+        assert_eq!(
+            overall_score_weight_basis(&mixed),
+            full_basis - dropped,
+            "the published basis must be the lowest, not the first page's",
+        );
     }
 
     /// Plan 40: a single-URL run cannot know whether a template or component
