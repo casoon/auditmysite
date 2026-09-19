@@ -34,7 +34,8 @@ The report distinguishes what was requested from what was successfully measured:
 
 - `audit_scope` records requested modules, interaction mode and budget, viewports, throttle profiles, consent handling, and evidence capture.
 - `execution_environment` records public browser/runtime context and whether data came from a live run or reusable artifacts. Executable paths and browser launch arguments are not exposed.
-- `pages[].detail.module_runs` and `pages[].detail.rule_outcomes` use explicit execution states such as `completed`, `partial`, `failed`, `skipped`, and `not_applicable`.
+- `pages[].detail.module_runs` uses explicit execution states: `completed`, `partial`, `failed`, `skipped`, and `not_applicable`.
+- `pages[].detail.rule_outcomes` records one entry per rule and viewport, keyed by `(rule_id, viewport)`. An entry that ran carries no `not_run` field and reports `findings`; an entry that did not run carries `not_run` with one of `capability_missing`, `disabled`, `not_applicable`, or `errored`, plus a free-text `reason`. Each entry also lists the `wcag` criteria that stand or fall with it, so the report can name which criterion went unchecked. A rule that could not run is never reported as passing.
 - `audit_quality` summarizes whether results are complete, partial, or insufficient. A qualified result remains reportable but cannot silently become an unqualified clean verdict.
 - `pages[].navigation` and `pages[].consent` describe the requested/final URL, main-document status, redirect count, bounded page-stability provenance, and whether consent was not detected, detected, dismissed, failed, or remained unknown. Consent evidence never includes cookie values.
 

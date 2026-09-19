@@ -10,11 +10,10 @@ pub use super::rules::{
     check_focus_visible_css_with_page, check_identify_purpose_with_page,
     check_label_in_name_with_page, check_location_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
-    check_parsing_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
-    check_visual_presentation_with_page,
+    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
+    check_re_authenticate_with_page, check_reduced_motion_with_page, check_reflow_with_page,
+    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use super::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships,
@@ -116,23 +115,13 @@ macro_rules! run_if_allowed {
         if $filter.should_run($axe_id) {
             let rule_results = $check_fn($tree);
             let finding_count = rule_results.violations.len();
-            let status = if finding_count > 0 {
-                crate::wcag::RuleOutcomeStatus::ViolationsFound
-            } else if !rule_results.warnings.is_empty() {
-                crate::wcag::RuleOutcomeStatus::Warning
-            } else if !rule_results.not_testables.is_empty() {
-                crate::wcag::RuleOutcomeStatus::ManualReviewRequired
-            } else {
-                crate::wcag::RuleOutcomeStatus::NoViolationDetected
-            };
-            $results.rule_outcomes.push(crate::wcag::RuleOutcome {
-                rule_id: $axe_id.to_string(),
-                status,
-                wcag_criterion: crate::taxonomy::criterion_for_rule($axe_id),
-                viewport: None,
-                reason_code: None,
-                finding_count,
-            });
+            // Die Regel ist gelaufen -- ob sie etwas fand, steht in
+            // `findings`, und *wie sicher* die Aussage ist, am Befund.
+            let mut run = crate::wcag::RuleRun::ran($axe_id, finding_count);
+            if let Some(criterion) = crate::taxonomy::criterion_for_rule($axe_id) {
+                run = run.with_wcag([criterion]);
+            }
+            $results.rule_outcomes.push(run);
             $results.merge(rule_results);
         }
     };

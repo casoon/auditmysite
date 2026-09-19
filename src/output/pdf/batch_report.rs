@@ -62,8 +62,8 @@ fn build_batch_report(
     let failed_en_criteria: std::collections::BTreeSet<String> = normalized_reports
         .iter()
         .flat_map(|report| report.rule_outcomes.iter())
-        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
-        .filter_map(|outcome| outcome.wcag_criterion.clone())
+        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
+        .flat_map(|outcome| outcome.wcag.iter().cloned())
         .collect();
 
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;

@@ -94,7 +94,7 @@ pub(super) fn build_methodology(
     let executed_rules = normalized
         .rule_outcomes
         .iter()
-        .filter(|outcome| outcome.status != crate::wcag::RuleOutcomeStatus::Skipped)
+        .filter(|outcome| !crate::wcag::rule_run_skipped(outcome))
         .count();
     let method = if en {
         format!("The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native accessibility tree. {executed_rules} automated rule executions were recorded across the configured viewports.")

@@ -31,7 +31,7 @@ use crate::wcag::en301549::{
 pub(super) fn render_en301549_annex(
     mut builder: renderreport::engine::ReportBuilder,
     findings: &[NormalizedFinding],
-    rule_outcomes: &[crate::wcag::RuleOutcome],
+    rule_outcomes: &[crate::wcag::RuleRun],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
@@ -110,8 +110,8 @@ pub(super) fn render_en301549_annex(
 
     let failed_criteria: std::collections::BTreeSet<&str> = rule_outcomes
         .iter()
-        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
-        .filter_map(|outcome| outcome.wcag_criterion.as_deref())
+        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
+        .flat_map(|outcome| outcome.wcag.iter().map(String::as_str))
         .collect();
     let incomplete: Vec<_> = rollups
         .iter()

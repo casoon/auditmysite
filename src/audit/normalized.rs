@@ -51,7 +51,7 @@ pub struct NormalizedReport {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accessibility_assessments: Vec<AccessibilityAssessment>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rule_outcomes: Vec<crate::wcag::RuleOutcome>,
+    pub rule_outcomes: Vec<crate::wcag::RuleRun>,
 
     /// Requested scope, execution provenance and completeness qualification.
     #[serde(default)]

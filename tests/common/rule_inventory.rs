@@ -6,7 +6,7 @@
 //! `Dimension::Accessibility` entries vs. the 116 found here); `PAGE_RULES`'s
 //! `rule_id` field is documented in its own source as "used for logging
 //! only"; `run_if_allowed!`'s axe_id argument in `engine.rs` is
-//! `RuleOutcome` telemetry, not necessarily what lands on the `Violation`.
+//! `RuleRun` telemetry, not necessarily what lands on the `Violation`.
 //!
 //! The actual mechanism: almost every rule file defines a `RuleMetadata`
 //! const, fed into a `Violation` via `.with_rule_id(rule.axe_id)` — this

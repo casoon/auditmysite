@@ -161,14 +161,12 @@ fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
         "A skip link was detected.",
         "n3",
     ));
-    results.rule_outcomes.push(crate::wcag::RuleOutcome {
-        rule_id: "image_alt".to_string(),
-        status: crate::wcag::RuleOutcomeStatus::Failed,
-        wcag_criterion: Some("1.1.1".to_string()),
-        viewport: Some("mobile".to_string()),
-        reason_code: Some("dom_evaluation_failed".to_string()),
-        finding_count: 0,
-    });
+    results.rule_outcomes.push(
+        crate::wcag::RuleRun::not_run("image_alt", crate::wcag::NotRun::Errored)
+            .with_wcag(["1.1.1"])
+            .in_viewport("mobile")
+            .with_reason("dom_evaluation_failed"),
+    );
 
     let mut report = AuditReport::new(
         "https://example.com".to_string(),

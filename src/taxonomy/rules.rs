@@ -285,7 +285,11 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "aria-invalid-without-describedby",
         "a11y.error_id.missing_description",
     ),
-    ("duplicate-id", "a11y.parsing.invalid"),
+    ("ids/duplicate", "a11y.parsing.invalid"),
+    // `focus-order-semantics` bleibt daneben bestehen: Die AX-baumbasierte
+    // Pruefung in `focus_order.rs` (fokussierbar trotz `aria-hidden`) fuehrt
+    // sie weiter. Abgeloest ist nur die Tabindex-Haelfte.
+    ("keyboard/positive-tabindex", "a11y.focus_order.weak"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
 ];
@@ -2251,7 +2255,12 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Critical,
         external_ref: Some("WCAG 4.1.1"),
         external_level: Some("A"),
-        axe_id: Some("duplicate-id"),
+        // Geteilte Kennung aus `a11y-rules` statt der frueheren axe-core-Kennung
+        // `duplicate-id`: Die Pruefung laeuft seit der Umstellung als
+        // `ids/duplicate` (siehe `wcag::shared`). Die verwandte Kennung
+        // `duplicate-id-aria` (widerspruechliche `aria-owns`) bleibt eine
+        // eigene Regel und haengt an `a11y.duplicate_id_aria.invalid`.
+        axe_id: Some("ids/duplicate"),
         title: "Fehlerhaftes Markup (Parsing)",
         title_en: "Malformed markup (parsing)",
         description: "HTML-Code weist schwerwiegende Syntaxfehler auf, wie z. B. doppelte IDs.",

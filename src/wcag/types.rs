@@ -385,36 +385,58 @@ pub struct WcagResults {
     pub incomplete: usize,
     /// Total nodes checked
     pub nodes_checked: usize,
-    /// One execution record per automated page-level rule and viewport.
-    /// This distinguishes a clean check from a check that could not run.
+    /// Ein Ausführungsvermerk je automatisierter Regel und Durchgang.
+    /// Unterscheidet eine saubere Prüfung von einer, die nicht laufen konnte.
+    ///
+    /// Der Schlüssel eines Vermerks ist `(rule_id, viewport)` — dieselbe Regel
+    /// läuft je Viewport einmal. Die Kennungen sind dieselben wie an den
+    /// Befunden, damit sich beide Listen verbinden lassen.
     #[serde(default)]
-    pub rule_outcomes: Vec<RuleOutcome>,
+    pub rule_outcomes: Vec<RuleRun>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RuleOutcomeStatus {
-    ViolationsFound,
-    NoViolationDetected,
-    Warning,
-    ManualReviewRequired,
-    Failed,
-    Skipped,
-    NotApplicable,
+/// Der Ausführungsvermerk kommt aus dem geteilten `a11y-report`-Crate.
+///
+/// Die vormals lokale `RuleOutcomeStatus` kannte sieben Werte, von denen vier
+/// dasselbe aussagten — dass die Regel gelaufen ist:
+///
+/// | vorher | jetzt |
+/// |---|---|
+/// | `ViolationsFound` | `not_run: None`, `findings > 0` |
+/// | `Warning` | `not_run: None` |
+/// | `ManualReviewRequired` | `not_run: None` |
+/// | `NoViolationDetected` | `not_run: None`, `findings == 0` |
+/// | `Failed` | [`NotRun::Errored`] |
+/// | `Skipped` | [`NotRun::Disabled`] bzw. [`NotRun::CapabilityMissing`] |
+/// | `NotApplicable` | [`NotRun::NotApplicable`] |
+///
+/// Dass die vier „gelaufen"-Werte zusammenfallen, ist kein Verlust, sondern der
+/// Zwei-Achsen-Schnitt: *wie sicher* eine Aussage ist, steht am Befund
+/// ([`Outcome`]), nicht am Vermerk. Kein Auswerter im Code hat die vier je
+/// unterschieden — gelesen wurden ausschließlich `Failed` und `Skipped`.
+///
+/// Feldumbenennungen: `wcag_criterion: Option<String>` → `wcag: Vec<String>`,
+/// `reason_code` → `reason`, `finding_count` → `findings`.
+pub use a11y_report::{NotRun, RuleRun};
+
+/// Ob dieser Vermerk einen technischen Fehlschlag festhält.
+///
+/// Ersetzt das vormalige `status == RuleOutcomeStatus::Failed`. Als freie
+/// Funktion statt als Methode, weil [`RuleRun`] aus einem fremden Crate kommt.
+pub fn rule_run_errored(run: &RuleRun) -> bool {
+    run.not_run == Some(NotRun::Errored)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuleOutcome {
-    pub rule_id: String,
-    pub status: RuleOutcomeStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wcag_criterion: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub viewport: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-    #[serde(default)]
-    pub finding_count: usize,
+/// Ob dieser Vermerk eine übersprungene Regel festhält.
+///
+/// Ersetzt das vormalige `status == RuleOutcomeStatus::Skipped`. `Disabled`
+/// und `CapabilityMissing` sind beide „übersprungen" — der Unterschied liegt
+/// im Grund, nicht in der Tatsache.
+pub fn rule_run_skipped(run: &RuleRun) -> bool {
+    matches!(
+        run.not_run,
+        Some(NotRun::Disabled) | Some(NotRun::CapabilityMissing)
+    )
 }
 
 impl WcagResults {

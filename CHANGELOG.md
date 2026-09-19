@@ -5,6 +5,91 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Umstellung auf die geteilten a11y-core-Crates, zweiter Abschnitt, 2026-09-19:** Alle drei
+  Crates von 0.2.0 auf 0.3.0. Damit fällt der Blocker des ersten Abschnitts weg: `RuleRun` führt
+  jetzt `viewport` und `wcag`, und `Finding` hat mit `rule_name`, `with_element(role, name)` und
+  dem undurchsichtigen `Extra`-Slot die Felder, an denen die Umstellung von `Violation` zuvor
+  scheiterte.
+
+  - **`RuleOutcome` durch `a11y_report::RuleRun` ersetzt:** Der Ausführungsvermerk kommt aus dem
+    geteilten Crate. Der Schlüssel eines Vermerks ist damit `(rule_id, viewport)` — dieselbe Regel
+    läuft je Viewport einmal, und `rule_runs` und `findings` benutzen dieselbe Namensmenge.
+    **Befund:** Von den sieben Werten der lokalen `RuleOutcomeStatus` sagten vier dasselbe aus —
+    dass die Regel gelaufen ist. Kein Auswerter im Code hat `ViolationsFound`, `Warning`,
+    `ManualReviewRequired` und `NoViolationDetected` je unterschieden; gelesen wurden ausschließlich
+    `Failed` und `Skipped`. Die vier waren schreibend tot. Dass sie zusammenfallen, ist kein
+    Verlust, sondern der Zwei-Achsen-Schnitt: *wie sicher* eine Aussage ist, steht am Befund
+    (`Outcome`), nicht am Vermerk. **JSON ändert sich** in `pages[].detail.rule_outcomes[]`:
+    `status` entfällt (`not_run` sagt jetzt, ob und warum eine Regel nicht lief),
+    `wcag_criterion` → `wcag` (Array statt Einzelwert), `reason_code` → `reason`,
+    `finding_count` → `findings`.
+  - **Die Übersetzungsschicht in `wcag::shared` fällt weg:** Beide Seiten sprechen dasselbe Modell,
+    der Vermerk aus `a11y-rules` wird durchgereicht statt übersetzt. Ergänzt wird nur das
+    WCAG-Kriterium, das der geteilte Bestand am Vermerk nicht mitführt.
+  - **Zwei weitere Regeln abgelöst und gelöscht, nicht danebengestellt:**
+    `parsing::check_parsing_with_page` (axe-Kennung `duplicate-id`) läuft jetzt als
+    `ids/duplicate`, `focus_order::check_positive_tabindex_with_page` als
+    `keyboard/positive-tabindex`. Beide lasen den DOM per JavaScript, weil weder `id` noch
+    `tabindex` AX-Eigenschaften sind (#QA-030); die geteilten Regeln lesen dieselben Attribute aus
+    dem CDP-Abzug. **JSON ändert sich:** `rule_id` ist für diese Befunde `ids/duplicate` bzw.
+    `keyboard/positive-tabindex`. **Severity sinkt** in beiden Fällen von `High` auf das `Medium`
+    des geteilten Bestands — das wirkt auf die Bewertung und ist bewusst nicht lokal
+    überschrieben, weil ein eigener Schweregrad die Zusicherung bräche, dass derselbe Befund
+    überall gleich heißt.
+  - **Was danebensteht und warum:** `parsing::check_parsing` (`duplicate-id-aria`, widersprüchliche
+    `aria-owns`-Beziehungen im AX-Baum) und `focus_order::check_focus_order` (fokussierbar trotz
+    `aria-hidden`) bleiben — sie prüfen etwas anderes als die abgelösten Hälften. `iframe_rules`
+    erzeugt weiterhin `duplicate-id`, aber für das Dokument *im* iframe.
+  - **Befund an der eigenen Testabdeckung:** Die Kennungsänderung an `keyboard/positive-tabindex`
+    schlug in `patterns_disclosure.expected.json` durch — dieser Korpusfall erwartete
+    `focus-order-semantics`, ausgelöst durch das `tabindex="5"` in seinem Fixture, nicht durch die
+    ARIA-Hälfte derselben Kennung. Zwei Regeln hinter einer axe-Kennung lassen sich am Korpus also
+    nicht auseinanderhalten.
+  - **Befund an `docs/OUTPUT_CONTRACT.md`:** Der Vertrag behauptete, `rule_outcomes` benutze
+    dieselben Ausführungszustände wie `module_runs` (`completed`, `partial`, `failed`, `skipped`,
+    `not_applicable`). Das stimmte schon vor dieser Umstellung nicht — `RuleOutcomeStatus`
+    schrieb `violations_found`, `no_violation_detected`, `warning`, `manual_review_required`.
+    Aufgefallen ist es erst, weil `docs/json-report.schema.json` `rule_outcomes` als
+    unbeschränktes `{"type": "array"}` führt und die Form der Einträge gar nicht prüft. Der
+    Vertragstext ist nachgezogen.
+  - **Noch offen:** `Violation` ist weiterhin auditmysites eigener Typ und nicht
+    `a11y_report::Finding` — der Umbau ist jetzt zwar möglich, aber mit 295 Konstruktionsstellen
+    und 155 betroffenen Dateien zu groß für diesen Abschnitt. Von 24 geteilten Kennungen sind
+    jetzt 4 übernommen (`document/lang-missing`, `document/lang-invalid`, `ids/duplicate`,
+    `keyboard/positive-tabindex`), 20 stehen aus.
+  - **Warum nicht mehr Regeln:** Ein Fähigkeitsvergleich Regel für Regel zeigt ein systematisches
+    Muster statt einzelner Lücken: auditmysites Regeln entscheiden über Chromes **berechnetem**
+    Accessibility-Tree, die geteilten über **Tags und Attribute**. Wo beide dasselbe Kriterium
+    bedienen, ist die AX-basierte Fassung deshalb meist die breitere. Drei belegte Fälle:
+    `lists/invalid-structure` prüft nur `<ul>`/`<ol>` mit fremden Kindern, während
+    `rules::list_structure` zusätzlich leere Listen und `<dt>` ohne `<dd>` kennt und über Rollen
+    auch `role="list"` auf einem `<div>` erfasst; `tables/header-missing` sucht `<th>`, während
+    `rules::table_rules` `columnheader`/`rowheader` als Rollen sucht und damit auch
+    ARIA-ausgezeichnete Kopfzellen findet; `zoom/viewport-locked` vergleicht den
+    `content`-Wert ohne vorheriges Kleinschreiben und übersieht damit `user-scalable=NO`, und es
+    kennt die Abstufung nicht, mit der `rules::resize_text` `user-scalable=no` (`High`) von
+    `maximum-scale<2` (`Medium`) trennt. Diese drei sind Kandidaten dafür, den geteilten Bestand
+    zu **stärken** statt auditmysite zu schwächen — das gehört aber in einen eigenen Pull Request
+    in a11y-core und muss dort veröffentlicht sein, bevor auditmysite es nutzen kann.
+
+  - **Die drei Lücken sind in a11y-core behoben, aber noch nicht veröffentlicht:** Ein eigener
+    Pull Request dort (Branch `feat/staerkere-strukturregeln`, vorgesehen als 0.4.0) schreibt den
+    `content`-Wert des Viewports vor dem Vergleich klein, lässt `role="list"`/`role="listitem"`
+    und `role="columnheader"`/`role="rowheader"`/`role="table"` gleichberechtigt neben den Tags
+    gelten und ergänzt die Kennung `lists/empty`. Solange das nicht auf crates.io steht, kann
+    auditmysite es nicht nutzen — die drei Regeln bleiben bis dahin auditmysite-eigen.
+
+  *Verifiziert:* `cargo clippy --all-targets` ohne Befund; `cargo test --lib` 1404 Tests und
+  `cargo test --tests` alle browserfreien Binaries grün. Diesmal **mit** Chrome gelaufen, was der
+  erste Abschnitt schuldig blieb: `cargo test --test detection_corpus_test -- --ignored` grün
+  (218 s) — dort zeigt sich, dass beide Kennungsänderungen wirklich tragen, und genau dort fiel
+  die Fixture-Lücke bei `patterns_disclosure` auf. `cargo test --test integration_test --
+  --ignored` liefert 22 bestanden, 1 fehlgeschlagen — **derselbe Stand wie auf `main`**, gegen den
+  eigens gegengeprüft wurde: `test_concurrent_wait_for_stable_stays_within_its_timeout_budget`
+  fällt auch ohne diese Änderungen durch, sobald die volle Suite nebenläufig läuft. Es ist ein
+  lastabhängiger Zeitbudget-Test, kein Regressionsbefund — aber ein eigener, bisher nicht
+  vermerkter.
+
 - **Umstellung auf die geteilten a11y-core-Crates, erster Abschnitt, 2026-09-19:** auditmysite
   bezieht Befundmodell und einen ersten Teil des Regelbestands aus
   [a11y-core](https://github.com/casoon/a11y-core) (alle Crates 0.2.0), damit derselbe Befund in
@@ -54,6 +139,24 @@ short current-state summary. Newest entries first (unchanged order from before t
   *Verifiziert:* `cargo clippy --all-features --all-targets` ohne Befund; 1667 Tests in 18
   browserfreien Testbinaries bestanden, 0 fehlgeschlagen. Die browsergestützten Korpus-Tests
   (`detection_corpus_test`) brauchen Chrome und liefen dabei nicht.
+
+- **a11y-core 0.4.0, 2026-09-19 — was noch nicht ablösbar ist:** Mit 0.4.0 lesen die geteilten
+  Struktur­regeln auch `role`-Attribute (`role="list"`, `role="columnheader"`, `role="table"`), und
+  `positive-tabindex` steht wieder auf `High`. Drei naheliegende Ablösungen bleiben trotzdem aus —
+  sie wären ein Fähigkeitsverlust, nicht ein Tausch:
+
+  - **Listen:** `lists/invalid-structure` und `lists/empty` decken zwei der drei Prüfungen aus
+    `rules/list_structure.rs` ab. Es fehlt, ob ein `<dt>` eine zugehörige Definition hat.
+  - **Tabellen:** `tables/header-missing` deckt nur die Kopfzellen ab. `rules/table_rules.rs` prüft
+    zusätzlich Caption bzw. Accessible Name und ob präsentationale Tabellen fälschlich Kopfzellen
+    führen.
+  - **Viewport:** `zoom/viewport-locked` prüft `maximum-scale < 2.0` und entspricht damit
+    `rules/resize_text.rs` (1.4.4, 200 %) — **nicht** `rules/meta_viewport_large.rs`, das dieselbe
+    Auszeichnung bei der strengeren 500-%-Schwelle prüft. Eine Ablösung von `meta_viewport_large`
+    wäre die falsche Zuordnung gewesen.
+
+  *Verifiziert:* Bau und 1.442 browserfreie Tests gegen 0.4.0, clippy `-D warnings` sauber. Die
+  drei Lücken gehören in die nächste a11y-core-Runde, nicht in eine lokale Sonderlocke.
 
 - **1.5.0, 2026-09-19 — Lizenzwechsel auf MIT:** auditmysite steht ab dieser Version unter der
   MIT-Lizenz. Frühere Releases bleiben unter der Lizenz, die zum jeweiligen Zeitpunkt galt — bis

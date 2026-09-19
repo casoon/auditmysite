@@ -28,7 +28,7 @@ use a11y_report::{Finding, NotRun, Outcome};
 
 use crate::accessibility::CdpDocument;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleOutcome, RuleOutcomeStatus, Violation, WcagResults};
+use crate::wcag::types::{RuleRun, Violation, WcagResults};
 
 /// Was auditmysite über eine geteilte Regel zusätzlich wissen muss.
 ///
@@ -73,6 +73,38 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Language of Page",
         help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+    },
+    // Ersetzt `wcag::rules::parsing::check_parsing_with_page` (axe-Kennung
+    // `duplicate-id`). Beide lesen dieselbe Quelle -- die eigene Regel wertete
+    // `document.querySelectorAll('[id]')` per JavaScript aus, die geteilte
+    // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung.
+    //
+    // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
+    // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
+    // etwas anderes als doppelte IDs, und bleibt.
+    SharedRule {
+        id: "ids/duplicate",
+        criterion: "4.1.1",
+        level: WcagLevel::A,
+        name: "Parsing (Duplicate IDs)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+    },
+    // Ersetzt `wcag::rules::focus_order::check_positive_tabindex_with_page`.
+    // Auch hier las die eigene Regel den DOM per JavaScript; die geteilte
+    // liest dasselbe Attribut aus dem Abzug.
+    //
+    // Die eigene Regel deckelte die Zahl der Befunde bei 250
+    // (`POSITIVE_TABINDEX_CAP`) -- die geteilte tut das nicht und meldet
+    // damit eher mehr als weniger.
+    //
+    // `check_focus_order` (aria-hidden und trotzdem fokussierbar) bleibt und
+    // führt die axe-Kennung `focus-order-semantics` weiter.
+    SharedRule {
+        id: "keyboard/positive-tabindex",
+        criterion: "2.4.3",
+        level: WcagLevel::A,
+        name: "Focus Order",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
     },
 ];
 
@@ -151,15 +183,11 @@ fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Viol
 }
 
 /// Vermerk für eine geteilte Kennung, die auditmysite noch nicht führt.
-fn not_yet_migrated(id: &str) -> RuleOutcome {
-    RuleOutcome {
-        rule_id: id.to_string(),
-        status: RuleOutcomeStatus::Skipped,
-        wcag_criterion: None,
-        viewport: None,
-        reason_code: Some("shared_rule_not_yet_adopted".to_string()),
-        finding_count: 0,
-    }
+///
+/// [`NotRun::Disabled`] und nicht etwa Schweigen: Der Bericht sagt damit
+/// ausdrücklich, dass diese Kennung nicht geprüft wurde.
+fn not_yet_migrated(id: &str) -> RuleRun {
+    RuleRun::not_run(id, NotRun::Disabled).with_reason("shared_rule_not_yet_adopted")
 }
 
 /// Lässt den geteilten Regelbestand laufen und übernimmt die Befunde der
@@ -185,24 +213,13 @@ pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
     for run in &report.rule_runs {
         match shared_rule(&run.rule_id) {
             None => results.rule_outcomes.push(not_yet_migrated(&run.rule_id)),
-            Some(rule) => results.rule_outcomes.push(RuleOutcome {
-                rule_id: rule.id.to_string(),
-                status: match run.not_run {
-                    // Sollte hier nicht vorkommen: Der Host erfüllt
-                    // `Semantics`. Ein Vermerk ist trotzdem ehrlicher als
-                    // eine stille Null.
-                    Some(NotRun::CapabilityMissing) => RuleOutcomeStatus::Skipped,
-                    Some(NotRun::Disabled) => RuleOutcomeStatus::Skipped,
-                    Some(NotRun::NotApplicable) => RuleOutcomeStatus::NotApplicable,
-                    Some(NotRun::Errored) => RuleOutcomeStatus::Failed,
-                    None if run.findings > 0 => RuleOutcomeStatus::ViolationsFound,
-                    None => RuleOutcomeStatus::NoViolationDetected,
-                },
-                wcag_criterion: Some(rule.criterion.to_string()),
-                viewport: None,
-                reason_code: run.reason.clone(),
-                finding_count: run.findings,
-            }),
+            // Seit der Vermerk selbst aus dem geteilten Crate kommt, sprechen
+            // beide Seiten dasselbe Modell -- er wird durchgereicht statt
+            // uebersetzt. Ergaenzt wird nur das Kriterium, das `a11y-rules`
+            // am Vermerk nicht mitfuehrt.
+            Some(rule) => results
+                .rule_outcomes
+                .push(run.clone().with_wcag([rule.criterion])),
         }
     }
 
@@ -325,10 +342,32 @@ mod tests {
             .iter()
             .find(|o| o.rule_id == "document/title-missing")
             .expect("Vermerk zu document/title-missing");
-        assert_eq!(titel.status, RuleOutcomeStatus::Skipped);
-        assert_eq!(
-            titel.reason_code.as_deref(),
-            Some("shared_rule_not_yet_adopted")
+        assert!(crate::wcag::rule_run_skipped(titel));
+        assert_eq!(titel.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
+    }
+
+    /// Der Schluessel eines Vermerks ist `(rule_id, viewport)`. Die Pipeline
+    /// stempelt den Viewport nachtraeglich auf jeden Vermerk eines
+    /// Durchgangs -- das traegt nur, wenn die Kennung **innerhalb** eines
+    /// Durchgangs schon eindeutig ist. Sonst kollidieren zwei Vermerke
+    /// derselben Regel im selben Viewport und der Join wird mehrdeutig.
+    #[test]
+    fn jede_kennung_kommt_je_durchgang_genau_einmal_vor() {
+        let r = ergebnis(&[]);
+        let mut gesehen = std::collections::BTreeSet::new();
+        for o in &r.rule_outcomes {
+            assert!(
+                gesehen.insert(o.rule_id.clone()),
+                "Kennung {} doppelt im selben Durchgang",
+                o.rule_id
+            );
+        }
+        // Und der Bestand ist vollstaendig vermerkt, nicht nur das Uebernommene.
+        assert_eq!(gesehen.len(), r.rule_outcomes.len());
+        assert!(gesehen.contains("ids/duplicate"), "{gesehen:?}");
+        assert!(
+            gesehen.contains("keyboard/positive-tabindex"),
+            "{gesehen:?}"
         );
     }
 
