@@ -1,13 +1,10 @@
 auditmysite
 Copyright (c) 2024 Casoon
 
-This project is source available under the Business Source License 1.1.
-See LICENSE for the complete license terms.
+This project is licensed under the MIT License. See LICENSE for the complete
+license terms.
 
-The Business Source License 1.1 is not an Open Source license. Each version of
-auditmysite automatically converts to the Apache License, Version 2.0 on the
-Change Date stated in LICENSE.
-
-Older versions of auditmysite that were released under AGPL-3.0-or-later remain
-available under the license terms that applied to those versions at the time of
-release.
+MIT applies from version 1.5.0 onward. Earlier releases remain available under
+the license that applied at the time of each release: versions up to 0.25.x
+under AGPL-3.0-or-later, versions 0.26.0 through 1.4.0 under the Business
+Source License 1.1.

@@ -5,6 +5,20 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.5.0, 2026-09-19 — Lizenzwechsel auf MIT:** auditmysite steht ab dieser Version unter der
+  MIT-Lizenz. Frühere Releases bleiben unter der Lizenz, die zum jeweiligen Zeitpunkt galt — bis
+  0.25.x AGPL-3.0-or-later, 0.26.0 bis 1.4.0 Business Source License 1.1; das ist in `NOTICE`
+  festgehalten und muss nicht rückwirkend geändert werden.
+
+  *Warum:* Der Regelbestand wandert nach [a11y-core](https://github.com/casoon/a11y-core), damit
+  derselbe Befund in astro-post-audit (Build-Zeit), auditmysite (CI/Crawl) und liveaudit (laufende
+  Seite) gleich heißt. Läge auditmysite weiter unter BUSL, müsste bei jedem Modul, das dorthin
+  wandert, einzeln über die Lizenz entschieden werden — eine Abgrenzung, die dauerhaft gepflegt
+  werden müsste und quer zum Ziel steht.
+
+  *Unumkehrbar:* Ein einmal unter MIT veröffentlichter Release lässt sich nicht zurückholen.
+  Bewusst so entschieden.
+
 - **1.4.0, 2026-09-18 — Upgrade-Hinweise:** Kein reines Patch-Release. Was Konsumenten des
   JSON-Reports und der Bibliothek beim Hochziehen prüfen sollten (Details jeweils in den Einträgen
   unten):

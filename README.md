@@ -5,7 +5,7 @@
 [![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
 [![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-BUSL--1.1-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Overview
 
@@ -711,19 +711,18 @@ cargo test
 
 ## License
 
-`auditmysite` is source available under the Business Source License 1.1
-(`BUSL-1.1`). You may view, copy, modify, redistribute, and make non-production
-use of the source code. Limited internal production use is permitted under the
-Additional Use Grant in [LICENSE](LICENSE).
+`auditmysite` is licensed under the MIT License. Use it freely, including
+commercially.
 
-Commercial SaaS rehosting, paid third-party audit services based on the
-Licensed Work, and use for AI training, embeddings, dataset generation,
-automated code ingestion, or other machine learning usage require a separate
-commercial license from Casoon.
+The rule engine, document model, accessible name computation and report model
+live in [a11y-core](https://github.com/casoon/a11y-core), also MIT, and are
+shared with [astro-post-audit](https://github.com/casoon/astro-post-audit) and
+[liveaudit](https://github.com/casoon/liveaudit) — the same rule IDs across
+build time, CI and the live page.
 
-Each version automatically converts to the Apache License, Version 2.0 on its
-Change Date. For version 0.26.0, the Change Date is 2030-05-21. Older versions
-released under AGPL-3.0-or-later remain under their original license terms.
+MIT applies from version 1.5.0 onward. Earlier releases remain under the
+license that applied at the time: up to 0.25.x AGPL-3.0-or-later, 0.26.0
+through 1.4.0 Business Source License 1.1. See [NOTICE](NOTICE).
 
 ## Credits
 
