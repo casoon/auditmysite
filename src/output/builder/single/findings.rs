@@ -3,7 +3,7 @@ use crate::audit::occurrence_analysis::{
 };
 use crate::audit::prioritization::{derive_execution_priority, severity_to_priority};
 use crate::i18n::I18n;
-use crate::output::explanations::get_explanation;
+use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::{classify_criticality_tier, Effort, FindingGroup, Role};
 
 use super::super::actions::{build_narrative_arc, derive_business_impact, localized_finding_text};
@@ -13,22 +13,10 @@ pub(super) fn finding_group_from_normalized(
     f: &crate::audit::normalized::NormalizedFinding,
 ) -> FindingGroup {
     let locale = i18n.locale();
-    // Try the finding's own axe/rule id first (e.g. "region",
-    // "focusable-no-role") — several distinct checks share one taxonomy
-    // rule_id or WCAG criterion (e.g. many "1.3.1" checks: landmarks, lists,
-    // tables, form groups), so looking up by taxonomy id or WCAG criterion
-    // alone can silently return an explanation written for a *different*
-    // check that happens to share the same bucket (#571). Then fall back to
-    // the taxonomy rule_id (e.g. "a11y.aria_hidden_focus.invalid"), then the
-    // WCAG criterion. Some rules carry their localized explanation under the
-    // taxonomy key, not the WCAG number — looking up by wcag_criterion alone
-    // left those findings with the raw English fix (#357).
-    let explanation = f
-        .axe_id
-        .as_deref()
-        .and_then(get_explanation)
-        .or_else(|| get_explanation(&f.rule_id))
-        .or_else(|| get_explanation(&f.wcag_criterion));
+    // Shared axe_id -> rule_id -> wcag_criterion order; see
+    // `explanations::resolve_explanation` for why it must not be reordered
+    // (#571, #357, plan 32).
+    let explanation = resolve_explanation(f.axe_id.as_deref(), &f.rule_id, &f.wcag_criterion);
 
     let (
         title,

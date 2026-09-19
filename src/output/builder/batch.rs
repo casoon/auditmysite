@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::audit::normalized::NormalizedFinding;
 use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
-use crate::output::explanations::get_explanation;
+use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
 use crate::util::truncate_url;
@@ -1444,8 +1444,14 @@ fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<
 fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator) -> FindingGroup {
     let locale = i18n.locale();
     let finding = &acc.finding;
-    let explanation =
-        get_explanation(&finding.rule_id).or_else(|| get_explanation(&finding.wcag_criterion));
+    // Shared axe_id -> rule_id -> wcag_criterion order; without the axe_id
+    // step the batch report hits the same collapse as the single JSON path
+    // did (plan 32).
+    let explanation = resolve_explanation(
+        finding.axe_id.as_deref(),
+        &finding.rule_id,
+        &finding.wcag_criterion,
+    );
     let dimension_label = finding.dimension.as_str();
     let (
         title,

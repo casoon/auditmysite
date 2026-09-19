@@ -1,5 +1,6 @@
 use super::helpers::*;
 use super::*;
+use crate::output::explanations::resolve_explanation;
 
 #[derive(Default)]
 pub(super) struct DetailContext {
@@ -409,7 +410,16 @@ pub(super) fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidan
         .findings
         .iter()
         .map(|finding| {
-            let expl = get_explanation(&finding.rule_id);
+            // Shared axe_id -> rule_id -> wcag_criterion order. Resolving by
+            // `rule_id` alone let the many "1.3.1" checks collapse onto the
+            // generic table/list explanation — e.g. every landmark finding was
+            // published as "Missing semantic structure" with table markup as
+            // its fix example (plan 32).
+            let expl = resolve_explanation(
+                finding.axe_id.as_deref(),
+                &finding.rule_id,
+                &finding.wcag_criterion,
+            );
 
             let mut seen = std::collections::HashSet::new();
             // Accept any non-empty selector that isn't a raw numeric node ID.

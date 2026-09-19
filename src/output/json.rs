@@ -16,7 +16,6 @@ use crate::audit::{
 };
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
-use crate::output::explanations::get_explanation;
 use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
 

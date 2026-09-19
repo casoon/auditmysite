@@ -146,6 +146,31 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
     None
 }
 
+/// Resolve a finding's explanation in the only order that is safe: the
+/// finding's own axe id first, then the taxonomy rule id, then the WCAG
+/// criterion.
+///
+/// Several distinct checks share one taxonomy rule id or WCAG criterion — the
+/// many "1.3.1" checks (landmarks, lists, tables, form groups) are the usual
+/// case. `get_explanation` resolves a taxonomy id through `external_ref` down
+/// to the bare WCAG number, so looking up by rule id or criterion *alone*
+/// silently returns an explanation written for a different check (#571). The
+/// rule-specific overrides that prevent this are keyed by axe id (e.g.
+/// "landmark-unique"), and are only reachable when the axe id is tried first.
+///
+/// Every caller that turns a `NormalizedFinding` into customer-facing text
+/// must go through here so the order cannot drift apart again (plan 32).
+pub fn resolve_explanation(
+    axe_id: Option<&str>,
+    rule_id: &str,
+    wcag_criterion: &str,
+) -> Option<&'static RuleExplanation> {
+    axe_id
+        .and_then(get_explanation)
+        .or_else(|| get_explanation(rule_id))
+        .or_else(|| get_explanation(wcag_criterion))
+}
+
 /// All WCAG rule explanations indexed by rule ID
 static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // ── 1. Perceivable ──────────────────────────────────────────────────────
@@ -483,8 +508,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  without a matching semantic element, use role=\"region\" plus aria-label.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Medium,
-            example_bad: Some("<body><nav>...</nav><a href=\"/kontakt\">Kontakt</a><main>...</main></body>"),
-            example_good: Some("<body><nav><a href=\"/kontakt\">Kontakt</a></nav><main>...</main></body>"),
+            example_bad: Some("<body><nav>...</nav><a href=\"/contact\">Contact</a><main>...</main></body>"),
+            example_good: Some("<body><nav><a href=\"/contact\">Contact</a></nav><main>...</main></body>"),
             example_decorative: None,
         },
     ),
@@ -543,7 +568,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<nav>...</nav>\n<nav>...</nav>"),
             example_good: Some(
-                "<nav aria-label=\"Hauptnavigation\">...</nav>\n<nav aria-label=\"Breadcrumb\">...</nav>",
+                "<nav aria-label=\"Main navigation\">...</nav>\n<nav aria-label=\"Breadcrumb\">...</nav>",
             ),
             example_decorative: None,
         },
@@ -1024,9 +1049,9 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Associate tooltips carrying role=\"tooltip\" with their trigger via aria-describedby.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Medium,
-            example_bad: Some("<button title=\"Mehr Info\">...</button>\n<div role=\"tooltip\">Hilfetext</div>"),
+            example_bad: Some("<button title=\"More info\">...</button>\n<div role=\"tooltip\">Help text</div>"),
             example_good: Some(
-                "<button aria-describedby=\"tip1\">Mehr Info</button>\n<div id=\"tip1\" role=\"tooltip\">Hilfetext</div>"
+                "<button aria-describedby=\"tip1\">More info</button>\n<div id=\"tip1\" role=\"tooltip\">Help text</div>"
             ),
             example_decorative: None,
         },
@@ -1230,7 +1255,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
             example_bad: Some("<body><div class=\"nav\">...</div><div class=\"content\">...</div></body>"),
-            example_good: Some("<body><a href=\"#main\" class=\"skip-link\">Zum Inhalt</a><nav>...</nav><main id=\"main\">...</main></body>"),
+            example_good: Some("<body><a href=\"#main\" class=\"skip-link\">Skip to content</a><nav>...</nav><main id=\"main\">...</main></body>"),
             example_decorative: None,
         },
     ),
@@ -1275,7 +1300,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             responsible_role: Role::Editorial,
             effort_estimate: Effort::Quick,
             example_bad: Some("<title>Home</title>"),
-            example_good: Some("<title>Kontakt — Casoon Digital Solutions</title>"),
+            example_good: Some("<title>Contact — Example Company</title>"),
             example_decorative: None,
         },
     ),
@@ -1362,8 +1387,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  aria-label or aria-labelledby for an extended description.",
             responsible_role: Role::Editorial,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<a href=\"/leistungen\">mehr erfahren</a>"),
-            example_good: Some("<a href=\"/leistungen\">Unsere Leistungen im Bereich Webentwicklung</a>"),
+            example_bad: Some("<a href=\"/services\">read more</a>"),
+            example_good: Some("<a href=\"/services\">Our web development services</a>"),
             example_decorative: None,
         },
     ),
@@ -3010,6 +3035,64 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
 mod tests {
     use super::*;
 
+    /// Regression for plan 32: several distinct checks share WCAG 1.3.1, so
+    /// resolving a landmark finding by `rule_id` alone returns the generic
+    /// "missing semantic structure" explanation written for tables and lists.
+    /// The axe-id override must win. Confirmed live on the 2026-09-19
+    /// inros-lackner report, where `detail.fix_guidance` published three
+    /// landmark rules as "Missing semantic structure" with `<table><thead>`
+    /// as their fix example.
+    #[test]
+    fn axe_id_override_wins_over_shared_wcag_criterion() {
+        let generic = get_explanation("1.3.1").expect("WCAG 1.3.1 explanation");
+
+        for (axe_id, rule_id) in [
+            ("landmark-unique", "a11y.landmark_unique.invalid"),
+            ("region", "a11y.landmark_region.missing"),
+            (
+                "landmark-banner-is-top-level",
+                "a11y.landmark_banner.missing",
+            ),
+        ] {
+            // Precondition: the bug this guards against is only meaningful
+            // while the rule_id really does fall through to the generic entry.
+            assert_eq!(
+                get_explanation(rule_id).map(|e| e.customer_title),
+                Some(generic.customer_title),
+                "{rule_id}: expected rule_id-only lookup to fall through to 1.3.1",
+            );
+
+            let resolved = resolve_explanation(Some(axe_id), rule_id, "1.3.1")
+                .unwrap_or_else(|| panic!("no explanation resolved for {axe_id}"));
+            assert_ne!(
+                resolved.customer_title, generic.customer_title,
+                "{axe_id}: resolved to the generic 1.3.1 explanation instead of its own",
+            );
+        }
+    }
+
+    /// The fallback chain still has to work for findings without an axe id,
+    /// and for axe ids that have no override of their own.
+    #[test]
+    fn resolve_explanation_falls_back_past_missing_axe_id() {
+        let by_rule = resolve_explanation(None, "a11y.aria_hidden_focus.invalid", "4.1.2");
+        assert!(by_rule.is_some(), "rule_id fallback lost");
+
+        let unknown_axe = resolve_explanation(
+            Some("no-such-axe-rule"),
+            "a11y.aria_hidden_focus.invalid",
+            "4.1.2",
+        );
+        assert_eq!(
+            unknown_axe.map(|e| e.customer_title),
+            by_rule.map(|e| e.customer_title),
+            "an unknown axe id must not shadow the rule_id match",
+        );
+
+        let by_criterion = resolve_explanation(None, "a11y.no.such.rule", "1.1.1");
+        assert!(by_criterion.is_some(), "wcag_criterion fallback lost");
+    }
+
     /// Regression for #357: these rules carry their explanation under the
     /// taxonomy key, so a lookup must resolve them and return a localized
     /// (non-empty, distinct DE/EN) recommendation rather than a raw English fix.
@@ -3042,6 +3125,30 @@ mod tests {
     #[test]
     fn code_examples_are_canonical_english() {
         let has_umlaut = |s: &str| s.chars().any(|c| "äöüßÄÖÜ".contains(c));
+        // An umlaut check alone is not enough: plenty of German slipped
+        // through as umlaut-free words ("Hauptnavigation", "Kontakt",
+        // "Hilfetext", "Zum Inhalt") and only surfaced in the canonical
+        // English JSON once plan 32 made those overrides reachable from the
+        // JSON path. Case-insensitive substrings, so "kontakt" in a href is
+        // caught together with "Kontakt" in link text.
+        const GERMAN_MARKERS: &[&str] = &[
+            "haupt",
+            "kontakt",
+            "hilfe",
+            "zum inhalt",
+            "leistungen",
+            "mehr erfahren",
+            "mehr info",
+            "seite",
+            "suche",
+            "startseite",
+            "impressum",
+            "datenschutz",
+            "schließen",
+            "absenden",
+            "anmelden",
+            "weiterlesen",
+        ];
         for (rule_id, expl) in EXPLANATIONS {
             for example in [expl.example_bad, expl.example_good, expl.example_decorative]
                 .into_iter()
@@ -3051,6 +3158,13 @@ mod tests {
                     !has_umlaut(example),
                     "{rule_id}: code example contains German text: {example}"
                 );
+                let lower = example.to_lowercase();
+                for marker in GERMAN_MARKERS {
+                    assert!(
+                        !lower.contains(marker),
+                        "{rule_id}: code example contains German word '{marker}': {example}"
+                    );
+                }
             }
         }
     }
