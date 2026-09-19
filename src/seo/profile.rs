@@ -489,6 +489,23 @@ fn score_media_text_balance(word_count: u32, has_og: bool, has_product_schema: b
     score
 }
 
+/// Whether [`score_intent_fit`] reads any measured signal for this page type,
+/// or just returns a constant keyed on the type itself.
+///
+/// `MediaHeavy`, `Utility` and `ThinContent` have a single constant each, so
+/// their intent-fit value says nothing about the page in hand — it restates
+/// its classification. A reader-facing judgement about *this page* must not be
+/// gated on such a value (plan 39).
+pub fn intent_fit_is_signal_derived(page_type: &PageType) -> bool {
+    match page_type {
+        PageType::Editorial
+        | PageType::StructuredContent
+        | PageType::MarketingLanding
+        | PageType::NavigationHub => true,
+        PageType::MediaHeavy | PageType::Utility | PageType::ThinContent => false,
+    }
+}
+
 fn score_intent_fit(
     page_type: &PageType,
     word_count: u32,
