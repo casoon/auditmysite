@@ -21,9 +21,8 @@ use auditmysite::wcag::rules::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_link_purpose,
-    check_list_structure, check_media_rules, check_page_titled, check_section_headings,
-    check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
-    check_widget_rules,
+    check_media_rules, check_page_titled, check_section_headings, check_svg_rules,
+    check_table_extended, check_text_alternatives, check_widget_rules,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,9 +87,7 @@ rule_smoke_test!(smoke_check_aria_roles, check_aria_roles);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
 rule_smoke_test!(smoke_check_aria_relationships, check_aria_relationships);
 rule_smoke_test!(smoke_check_aria_naming_rules, check_aria_naming_rules);
-rule_smoke_test!(smoke_check_table_rules, check_table_rules);
 rule_smoke_test!(smoke_check_form_rules, check_form_rules);
-rule_smoke_test!(smoke_check_list_structure, check_list_structure);
 rule_smoke_test!(smoke_check_dialog_rules, check_dialog_rules);
 rule_smoke_test!(smoke_check_widget_rules, check_widget_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);

@@ -106,6 +106,81 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Order",
         help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
     },
+    // Ersetzt `wcag::rules::list_structure` vollständig. Die geteilte Fassung
+    // deckt seit a11y-rules 0.5.0 alle drei Prüfungen ab — Fremdkinder, leere
+    // Listen und Begriffe ohne Definition — und erkennt zusätzlich
+    // `role="list"`/`role="listitem"`, wofür die AX-basierte Regel blind war.
+    SharedRule {
+        id: "lists/invalid-structure",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (List Structure)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "lists/empty",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Empty List)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    // Der Fall, den die geteilte Fassung bis 0.6.0 nicht kannte: ein <li>
+    // ganz ohne Liste darüber. Ohne ihn hätte die Ablösung eine Prüfung
+    // verloren statt sie zu teilen.
+    SharedRule {
+        id: "lists/item-outside-list",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Orphan List Item)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "lists/term-without-definition",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Definition Term)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::table_rules`. Kopfzellen, Name und die
+    // widersprüchlich ausgezeichnete Layouttabelle sind seit 0.5.0 alle
+    // abgedeckt. Ein Unterschied bleibt und ist gewollt: Die fehlende
+    // Tabellenbenennung ist dort `REVIEW`, nicht `Violation` — ob eine
+    // Tabelle einen Namen braucht, hängt vom Kontext ab.
+    SharedRule {
+        id: "tables/header-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Table Headers)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "tables/name-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Table Name)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "tables/presentational-with-headers",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Presentational Table)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::meta_viewport_large`. Die geteilte Regel trennt
+    // seit 0.5.0, was auditmysite auf zwei Regeln verteilt hatte:
+    // `zoom/viewport-locked` ist der Verstoß unter 200 % (entspricht der
+    // Viewport-Hälfte von `resize_text`), `zoom/viewport-scale-limited` die
+    // Begrenzung zwischen 200 % und 500 %. Nur Letztere wird hier abgelöst --
+    // `resize_text` prüft darüber hinaus die Textvergrößerung selbst und
+    // bleibt eigen.
+    SharedRule {
+        id: "zoom/viewport-scale-limited",
+        criterion: "1.4.4",
+        level: WcagLevel::AA,
+        name: "Resize Text (Viewport Scale)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html",
+    },
 ];
 
 fn shared_rule(id: &str) -> Option<&'static SharedRule> {
