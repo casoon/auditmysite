@@ -402,7 +402,48 @@ pub(super) fn derive_security_recommendations(
         recommendations.push(i18n.t("recommendation-security-referrer"));
     }
 
-    if recommendations.is_empty() {
+    // Issue-driven recommendations. Testing only for *absent* headers left a
+    // present-but-misconfigured header with nothing to say: on casoon.de
+    // (2026-09-19) a High "CSP allows unsafe-inline scripts without nonce/hash
+    // protection" produced no recommendation at all, so the list fell through
+    // to `recommendation-security-default` — whose text asserts the headers
+    // are cleanly set, directly below the finding (plan 33).
+    //
+    // Keyed on `SecurityIssueKind` rather than on the message text, so a
+    // reworded finding cannot silently drop its recommendation.
+    for issue in &sec.issues {
+        let Some(kind) = issue.kind() else { continue };
+        use crate::security::SecurityIssueKind;
+        let key = match kind {
+            SecurityIssueKind::CspUnsafeInlineScript | SecurityIssueKind::CspUnsafeInlineStyle => {
+                "recommendation-security-csp-unsafe-inline"
+            }
+            SecurityIssueKind::CspUnsafeEvalScript => "recommendation-security-csp-unsafe-eval",
+            SecurityIssueKind::CspWildcardScriptSource | SecurityIssueKind::CspWildcardSource => {
+                "recommendation-security-csp-wildcard"
+            }
+            SecurityIssueKind::CspMissingDirective => "recommendation-security-csp-directive",
+            SecurityIssueKind::CorsWildcardCredentials => {
+                "recommendation-security-cors-credentials"
+            }
+            SecurityIssueKind::PermissionsPolicyPermissive => {
+                "recommendation-security-permissions-permissive"
+            }
+            SecurityIssueKind::PublicSourceMap => "recommendation-security-sourcemap",
+            SecurityIssueKind::HstsPreloadIneligible => "recommendation-security-hsts-preload",
+            // Missing headers are already covered by the checks above; adding
+            // them here would duplicate every entry.
+            _ => continue,
+        };
+        let text = i18n.t(key);
+        if !recommendations.contains(&text) {
+            recommendations.push(text);
+        }
+    }
+
+    // The default text states that the basic headers are cleanly set, so it
+    // may only appear when there is genuinely nothing to report.
+    if recommendations.is_empty() && sec.issues.is_empty() {
         recommendations.push(i18n.t("recommendation-security-default"));
     }
 
@@ -527,4 +568,122 @@ pub(super) fn build_tracking_summary_text(
     }
 
     i18n.t("tracking-summary-clean")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::security::{
+        HeaderTier, ProtectionDetection, SecurityAnalysis, SecurityHeaders, SecurityIssue,
+        SourceMapLeakAudit, SslInfo,
+    };
+    use crate::taxonomy::Severity;
+
+    fn analysis(headers: SecurityHeaders, issues: Vec<SecurityIssue>) -> SecurityAnalysis {
+        SecurityAnalysis {
+            score: 95,
+            grade: "A".to_string(),
+            headers,
+            ssl: SslInfo {
+                https: true,
+                ..Default::default()
+            },
+            issues,
+            recommendations: Vec::new(),
+            protection: ProtectionDetection::default(),
+            sourcemap_leaks: SourceMapLeakAudit::default(),
+        }
+    }
+
+    fn all_headers_present() -> SecurityHeaders {
+        SecurityHeaders {
+            content_security_policy: Some("default-src 'self'; script-src 'unsafe-inline'".into()),
+            strict_transport_security: Some("max-age=31536000".into()),
+            x_content_type_options: Some("nosniff".into()),
+            x_frame_options: Some("SAMEORIGIN".into()),
+            referrer_policy: Some("strict-origin".into()),
+            permissions_policy: Some("camera=()".into()),
+            cross_origin_opener_policy: Some("same-origin".into()),
+            cross_origin_resource_policy: Some("cross-origin".into()),
+            ..Default::default()
+        }
+    }
+
+    fn csp_issue(issue_type: &str, severity: Severity) -> SecurityIssue {
+        SecurityIssue {
+            header: "Content-Security-Policy".to_string(),
+            issue_type: issue_type.to_string(),
+            message: "canonical english message".to_string(),
+            severity,
+            tier: HeaderTier::Baseline,
+            values: Default::default(),
+        }
+    }
+
+    /// Plan 33: every header present but the CSP misconfigured. The old
+    /// derivation only tested for *absent* headers, produced nothing, and fell
+    /// through to the default text — which asserts the headers are cleanly
+    /// set, directly below the finding. Confirmed live on casoon.de
+    /// (2026-09-19).
+    #[test]
+    fn misconfigured_header_produces_a_recommendation_not_the_all_clear() {
+        let i18n = I18n::new("de").expect("locale loads");
+        let sec = analysis(
+            all_headers_present(),
+            vec![
+                csp_issue("unsafe_inline_script", Severity::High),
+                csp_issue("unsafe_inline_style", Severity::Medium),
+                csp_issue("missing_frame-ancestors", Severity::Medium),
+            ],
+        );
+
+        let recs = derive_security_recommendations(&i18n, &sec);
+
+        assert!(!recs.is_empty(), "a misconfigured CSP must yield an action");
+        let default = i18n.t("recommendation-security-default");
+        assert!(
+            !recs.contains(&default),
+            "the all-clear text must not appear next to open issues: {recs:#?}",
+        );
+        assert!(
+            recs.iter().any(|r| r.contains("unsafe-inline")),
+            "expected the unsafe-inline remediation: {recs:#?}",
+        );
+    }
+
+    /// The all-clear stays available when it is true.
+    #[test]
+    fn clean_security_analysis_keeps_the_default_recommendation() {
+        let i18n = I18n::new("de").expect("locale loads");
+        let sec = analysis(all_headers_present(), Vec::new());
+
+        let recs = derive_security_recommendations(&i18n, &sec);
+        assert_eq!(recs, vec![i18n.t("recommendation-security-default")]);
+    }
+
+    /// Missing headers must not be reported twice now that issues also feed
+    /// the list.
+    #[test]
+    fn missing_header_recommendations_are_not_duplicated() {
+        let i18n = I18n::new("de").expect("locale loads");
+        let sec = analysis(
+            SecurityHeaders::default(),
+            vec![SecurityIssue {
+                header: "Content-Security-Policy".to_string(),
+                issue_type: "missing_header".to_string(),
+                message: "Content-Security-Policy header is missing".to_string(),
+                severity: Severity::High,
+                tier: HeaderTier::Baseline,
+                values: Default::default(),
+            }],
+        );
+
+        let recs = derive_security_recommendations(&i18n, &sec);
+        let csp = i18n.t("recommendation-security-csp");
+        assert_eq!(
+            recs.iter().filter(|r| **r == csp).count(),
+            1,
+            "missing-CSP recommendation duplicated: {recs:#?}",
+        );
+    }
 }

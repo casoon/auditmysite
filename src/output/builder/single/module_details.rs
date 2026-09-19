@@ -1577,6 +1577,16 @@ fn build_security_details(
             grade: normalized_module_grade(&normalized.normalized, "Security")
                 .unwrap_or_else(|| sec.grade.clone()),
             interpretation: module_interpretation(&normalized.normalized, "security", locale),
+            band_label: crate::registry::FIVE_BAND
+                .label(
+                    crate::audit::interpretation::security_text_band(
+                        security_score as f32,
+                        &sec.issues,
+                    )
+                    .representative_score(),
+                    locale == "en",
+                )
+                .to_string(),
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {

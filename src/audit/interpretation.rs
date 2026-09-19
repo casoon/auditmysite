@@ -161,10 +161,53 @@ pub fn interpret_score_localized(area: InterpretArea, score: f32) -> LocalizedTe
 /// (which would change behavior for five unrelated modules), this override
 /// lives here and only ever downgrades the *text* band actually shown — the
 /// numeric score/grade elsewhere in the report is untouched.
+/// The worse (lower-rated) of two bands. Written out rather than relying on
+/// `Ord` over the enum's declaration order, which would make the direction of
+/// the comparison invisible at the call site.
+fn worse_of(a: ScoreBand, b: ScoreBand) -> ScoreBand {
+    let rank = |band: ScoreBand| match band {
+        ScoreBand::Excellent => 0u8,
+        ScoreBand::Good => 1,
+        ScoreBand::NeedsImprovement => 2,
+        ScoreBand::Weak => 3,
+        ScoreBand::Critical => 4,
+    };
+    if rank(a) >= rank(b) {
+        a
+    } else {
+        b
+    }
+}
+
 pub fn interpret_security_score_localized(
     score: f32,
     issues: &[crate::security::SecurityIssue],
 ) -> LocalizedText {
+    interpret_band_localized(InterpretArea::Security, security_text_band(score, issues))
+}
+
+impl ScoreBand {
+    /// A score that falls inside this band, for looking the band's label up in
+    /// the shared `FIVE_BAND` vocabulary instead of duplicating the labels.
+    pub fn representative_score(self) -> f32 {
+        match self {
+            ScoreBand::Excellent => 95.0,
+            ScoreBand::Good => 80.0,
+            ScoreBand::NeedsImprovement => 65.0,
+            ScoreBand::Weak => 45.0,
+            ScoreBand::Critical => 20.0,
+        }
+    }
+}
+
+/// The band the security *wording* uses, which is not always the band the
+/// numeric score falls into.
+///
+/// Exposed so the section's score card can be labelled with the same band as
+/// its takeaway. Labelling the card straight from the score produced "95 —
+/// Sehr gut" directly above a takeaway reading "Verbesserungswürdig": two
+/// labels from one vocabulary for one module (plan 33).
+pub fn security_text_band(score: f32, issues: &[crate::security::SecurityIssue]) -> ScoreBand {
     let band = ScoreBand::from_score(score);
     let has_severe_issue = issues.iter().any(|i| {
         matches!(
@@ -172,12 +215,29 @@ pub fn interpret_security_score_localized(
             crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High
         )
     });
-    let effective_band = if band == ScoreBand::Critical && !has_severe_issue {
+    // The same correction has to work in both directions. Downward: a stack of
+    // minor header misses must not trigger the Critical band's "immediate
+    // action" wording. Upward: the Excellent band's text claims "no significant
+    // security issues found", and the Good band's claims only "minor
+    // weaknesses" — neither may be printed above a list of open findings.
+    //
+    // Confirmed live on casoon.de (2026-09-19): security score 95, three open
+    // CSP issues including a High ("CSP allows unsafe-inline scripts without
+    // nonce/hash protection"), and the section still read "Sehr gut — keine
+    // wesentlichen Sicherheitsauffälligkeiten im geprüften Umfang erkannt."
+    // The score is generous by design — `calculate_security_score` caps the
+    // combined CSP-quality penalty at the missing-CSP penalty and then adds
+    // HSTS bonuses — so the correction belongs to the text, not the number
+    // (plan 33).
+    if band == ScoreBand::Critical && !has_severe_issue {
         ScoreBand::Weak
+    } else if has_severe_issue {
+        worse_of(band, ScoreBand::NeedsImprovement)
+    } else if !issues.is_empty() {
+        worse_of(band, ScoreBand::Good)
     } else {
         band
-    };
-    interpret_band_localized(InterpretArea::Security, effective_band)
+    }
 }
 
 fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedText {
@@ -1021,6 +1081,82 @@ mod tests {
         assert!(text.en.starts_with("Inadequate"), "got: {}", text.en);
     }
 
+    fn severe_csp_issue() -> SecurityIssue {
+        SecurityIssue {
+            header: "Content-Security-Policy".to_string(),
+            issue_type: "unsafe_inline_script".to_string(),
+            message: "CSP allows unsafe-inline scripts without nonce/hash protection".to_string(),
+            severity: Severity::High,
+            tier: crate::security::HeaderTier::Baseline,
+            values: Default::default(),
+        }
+    }
+
+    /// Plan 33: the Excellent band claims "no significant security issues
+    /// found within the scope checked". Confirmed live on casoon.de
+    /// (2026-09-19): security score 95 with three open CSP findings, one of
+    /// them High, still printed that sentence.
+    #[test]
+    fn interpret_security_excellent_band_never_claims_a_clean_result_with_open_issues() {
+        let issues = vec![severe_csp_issue()];
+        assert_eq!(ScoreBand::from_score(95.0), ScoreBand::Excellent);
+
+        let text = interpret_security_score_localized(95.0, &issues);
+        assert!(
+            !text
+                .de
+                .contains("keine wesentlichen Sicherheitsauffälligkeiten"),
+            "claims a clean result above an open High finding: {}",
+            text.de,
+        );
+        assert!(
+            !text.en.contains("no significant security issues"),
+            "claims a clean result above an open High finding: {}",
+            text.en,
+        );
+        // A severe issue caps the wording at "needs improvement" — not at
+        // "critical", which the score does not support.
+        assert!(
+            text.de.starts_with("Verbesserungswürdig"),
+            "got: {}",
+            text.de
+        );
+        assert!(text.en.starts_with("Needs improvement"), "got: {}", text.en);
+    }
+
+    /// Minor issues alone must not claim a clean result either, but they also
+    /// must not be dressed up as severe.
+    #[test]
+    fn interpret_security_minor_issues_cap_the_band_at_good() {
+        use crate::security::HeaderTier;
+
+        let issues = vec![low_severity_context_issue(
+            "Cross-Origin-Resource-Policy",
+            HeaderTier::ContextDependent,
+        )];
+        let text = interpret_security_score_localized(95.0, &issues);
+        assert!(text.de.starts_with("Gut"), "got: {}", text.de);
+        assert!(text.en.starts_with("Good"), "got: {}", text.en);
+    }
+
+    /// The claim is still available when it is true — a genuinely clean run
+    /// must keep reading as Excellent.
+    #[test]
+    fn interpret_security_clean_run_still_reads_excellent() {
+        let text = interpret_security_score_localized(95.0, &[]);
+        assert!(
+            text.de
+                .contains("keine wesentlichen Sicherheitsauffälligkeiten"),
+            "got: {}",
+            text.de,
+        );
+        assert!(
+            text.en.contains("no significant security issues"),
+            "got: {}",
+            text.en
+        );
+    }
+
     /// A genuinely severe finding (missing HTTPS, broken CSP, missing
     /// clickjacking protection, ...) must keep the Critical wording
     /// regardless of how many other low-severity items are also present —
@@ -1046,8 +1182,9 @@ mod tests {
         assert!(text.en.starts_with("Critical"), "got: {}", text.en);
     }
 
-    /// The override only ever downgrades the Critical band — non-Critical
-    /// bands must behave exactly like the generic `interpret_score_localized`.
+    /// A band that is already accurate must pass through untouched: at score
+    /// 80 with one minor issue the generic band (Good) already says "minor
+    /// weaknesses were identified", so the correction has nothing to do.
     #[test]
     fn interpret_security_score_non_critical_band_is_unaffected() {
         use crate::security::HeaderTier;

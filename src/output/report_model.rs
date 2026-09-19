@@ -1073,6 +1073,11 @@ pub struct SecurityPresentation {
     pub score: u32,
     pub grade: String,
     pub interpretation: String,
+    /// Band label for the score card. Derived from the same corrected band as
+    /// `interpretation`, not from `score` — an open severe finding moves the
+    /// wording without moving the number, and the card must not then contradict
+    /// the takeaway right below it (plan 33).
+    pub band_label: String,
     /// (header name, status, value, classification tier label) — the tier
     /// label distinguishes baseline hygiene from context-/architecture-
     /// dependent headers so a missing-header count doesn't read as uniformly

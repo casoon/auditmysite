@@ -525,6 +525,14 @@ recommendation-security-coop = Cross-Origin-Opener-Policy (COOP) ist relevant, w
 recommendation-security-corp = Cross-Origin-Resource-Policy (CORP) ist relevant, wenn die Seite Schriften, Skripte oder Medien ausliefert, die von fremden Origins nicht geladen werden sollen (Spectre-Mitigation). Auf same-origin oder same-site setzen — nicht erforderlich, wenn Ressourcen bewusst öffentlich sind.
 recommendation-security-permissions = Permissions-Policy definieren und nur die Browser-Funktionen freigeben, die auf der Seite wirklich benötigt werden.
 recommendation-security-referrer = Referrer-Policy setzen, damit bei Weiterleitungen und externen Aufrufen nicht mehr Informationen als nötig übergeben werden.
+recommendation-security-csp-unsafe-inline = unsafe-inline aus der CSP entfernen und freigegebene Inline-Skripte bzw. -Styles über Nonces oder Hashes zulassen.
+recommendation-security-csp-unsafe-eval = unsafe-eval aus der CSP entfernen und auf dynamisch ausgewertete Skripte verzichten.
+recommendation-security-csp-wildcard = Platzhalter-Quellen in der CSP durch die konkret benötigten Origins ersetzen.
+recommendation-security-csp-directive = Die CSP um die fehlenden Direktiven ergänzen: object-src 'none', base-uri 'self' und frame-ancestors passend zur Einbettung.
+recommendation-security-cors-credentials = Access-Control-Allow-Origin: * nicht mit credentialed CORS kombinieren, sondern vertrauenswürdige Origins einzeln freigeben.
+recommendation-security-permissions-permissive = Permissions-Policy enger fassen und nur die Browser-Funktionen freigeben, die die Seite wirklich nutzt.
+recommendation-security-sourcemap = Source Maps nicht öffentlich ausliefern oder den Zugriff darauf einschränken.
+recommendation-security-hsts-preload = Die HSTS-Direktive so ergänzen, dass sie die Preload-Anforderungen erfüllt (max-age >= 1 Jahr, includeSubDomains, preload).
 recommendation-security-default = Die grundlegenden Security-Header sind sauber gesetzt. Nächster Schritt: Richtlinien regelmäßig prüfen und an neue Skript- oder Integrationsquellen anpassen.
 lever-mobile-small = Größter Hebel: Touch Targets vergrößern ({ $small_targets } zu klein)
 lever-mobile-crowded = Größter Hebel: Abstände mobiler Bedienelemente erhöhen ({ $crowded_targets })

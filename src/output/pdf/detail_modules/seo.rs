@@ -217,8 +217,16 @@ pub(in crate::output::pdf) fn render_seo(
         }
     }
 
-    // Strong SEO score → no significant findings; confirm it (#446 re-scope).
-    if seo.score >= 80 {
+    // Same correction as the security section (plan 33): gating this on the
+    // score alone printed "no significant issues found" directly below the
+    // problems the section had just listed. On casoon.de (2026-09-19, SEO 85)
+    // it followed a table of five oversized images.
+    let seo_section_is_clean = seo.meta_issues.is_empty()
+        && seo
+            .image_efficiency
+            .as_ref()
+            .is_none_or(|ie| ie.oversized.is_empty());
+    if seo.score >= 80 && seo_section_is_clean {
         builder = builder.add_component(clean_section_note(i18n));
     }
 

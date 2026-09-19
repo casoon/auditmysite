@@ -13,8 +13,13 @@ pub(in crate::output::pdf) fn render_security(
 
     builder = builder
         .add_component(
+            // `sec.band_label`, not `score_band_label(sec.score)`: with an
+            // open severe finding the wording band is corrected while the
+            // number stays, and labelling the card from the raw score printed
+            // "95 — Sehr gut" above a takeaway reading "Verbesserungswürdig"
+            // (plan 33).
             ScoreCard::new(super::module_score_caption(i18n), sec.score)
-                .with_description(super::score_band_label(sec.score, i18n))
+                .with_description(sec.band_label.as_str())
                 .with_thresholds(75, 40),
         )
         .add_component(
@@ -97,12 +102,14 @@ pub(in crate::output::pdf) fn render_security(
         builder = builder.add_component(kv);
     }
 
-    // A strong security score means no significant findings — state it, so a
-    // clean section reads differently from an unchecked one. Mirrors the
-    // score>=80 confirmation the Source Quality / AI Visibility modules use, and
-    // fires for real-but-good sites (which always carry a few minor header
-    // notes and so never hit "zero findings") (#446 re-scope).
-    if sec.score >= 80 {
+    // "No significant issues found within the audited scope" — only when that
+    // is actually the case. This used to be gated on `sec.score >= 80` alone,
+    // so on casoon.de (2026-09-19, score 95) it was printed directly above
+    // three open CSP findings, one of them High (plan 33). The score is
+    // generous by design: `calculate_security_score` caps the combined
+    // CSP-quality penalty and then adds HSTS bonuses, so a high score does not
+    // imply an empty findings list.
+    if sec.score >= 80 && sec.issues.is_empty() {
         builder = builder.add_component(clean_section_note(i18n));
     }
     for (title, sev, msg) in &sec.issues {

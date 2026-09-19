@@ -525,6 +525,14 @@ recommendation-security-coop = Cross-Origin-Opener-Policy (COOP) is relevant whe
 recommendation-security-corp = Cross-Origin-Resource-Policy (CORP) is relevant when the site serves fonts, scripts, or media that should not be loadable by other origins (Spectre mitigation). Set to same-origin or same-site — not required if resources are intentionally public.
 recommendation-security-permissions = Define a Permissions-Policy and only enable browser features actually used by the page.
 recommendation-security-referrer = Set a Referrer-Policy so redirects and external requests don't expose more information than necessary.
+recommendation-security-csp-unsafe-inline = Remove unsafe-inline from the CSP and allow approved inline scripts or styles through nonces or hashes.
+recommendation-security-csp-unsafe-eval = Remove unsafe-eval from the CSP and avoid dynamically evaluated scripts.
+recommendation-security-csp-wildcard = Replace wildcard sources in the CSP with the specific origins actually needed.
+recommendation-security-csp-directive = Add the missing CSP directives: object-src 'none', base-uri 'self', and frame-ancestors matching your embedding policy.
+recommendation-security-cors-credentials = Do not combine Access-Control-Allow-Origin: * with credentialed CORS; allowlist trusted origins instead.
+recommendation-security-permissions-permissive = Tighten Permissions-Policy so only the browser features the page actually uses are enabled.
+recommendation-security-sourcemap = Do not serve source maps publicly, or restrict access to them.
+recommendation-security-hsts-preload = Extend the HSTS directive so it meets the preload requirements (max-age >= 1 year, includeSubDomains, preload).
 recommendation-security-default = Core security headers are clean. Next step: review policies regularly and adapt them to new script and integration sources.
 lever-mobile-small = Biggest lever: enlarge touch targets ({ $small_targets } too small)
 lever-mobile-crowded = Biggest lever: increase spacing of mobile controls ({ $crowded_targets })
