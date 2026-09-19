@@ -23,6 +23,7 @@ pub use engine::{
     check_visual_presentation_with_page, RuleFilterConfig,
 };
 pub use types::{
-    technical_failure_reason, technical_rule_failure, technical_rule_failure_for, Evidence,
-    Outcome, RuleMetadata, RuleOutcome, RuleOutcomeStatus, Severity, Violation, WcagResults,
+    rule_run_errored, rule_run_skipped, technical_failure_reason, technical_rule_failure,
+    technical_rule_failure_for, Evidence, NotRun, Outcome, RuleMetadata, RuleRun, Severity,
+    Violation, WcagResults,
 };

@@ -814,7 +814,7 @@ pub async fn audit_page(
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile.
     // Filtered by the finding's own axe_id ("css-overflow-hidden", REFLOW_RULE.axe_id)
-    // rather than the "reflow" logging-only label used for RuleOutcome below, since
+    // rather than the "reflow" logging-only label used for RuleRun below, since
     // that's the id `[rules] disabled`/`enabled_only` in auditmysite.toml is
     // documented against and the one users actually see on the finding (#560).
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA)
@@ -1444,14 +1444,12 @@ async fn run_rules(
             // Regeln laufen, und genau das kommt in den Bericht.
             warn!("DOM fuer die geteilten Regeln nicht verfuegbar: {e}");
             for rule in wcag::shared::SHARED_RULES {
-                wcag_results.rule_outcomes.push(crate::wcag::RuleOutcome {
-                    rule_id: rule.id.to_string(),
-                    status: crate::wcag::RuleOutcomeStatus::Failed,
-                    wcag_criterion: Some(rule.criterion.to_string()),
-                    viewport: Some(viewport_label.to_string()),
-                    reason_code: Some("shared_dom_unavailable".to_string()),
-                    finding_count: 0,
-                });
+                wcag_results.rule_outcomes.push(
+                    crate::wcag::RuleRun::not_run(rule.id, crate::wcag::NotRun::Errored)
+                        .with_wcag([rule.criterion])
+                        .in_viewport(viewport_label)
+                        .with_reason("shared_dom_unavailable"),
+                );
             }
         }
     }
@@ -1556,7 +1554,7 @@ async fn run_rules(
     wcag_results.incomplete = wcag_results
         .rule_outcomes
         .iter()
-        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
     wcag_results
 }
@@ -1566,7 +1564,7 @@ fn page_rule_outcome(
     criterion: Option<&str>,
     viewport: &str,
     findings: Vec<Violation>,
-) -> (crate::wcag::RuleOutcome, Vec<Violation>) {
+) -> (crate::wcag::RuleRun, Vec<Violation>) {
     let technical_failure = findings
         .iter()
         .find_map(crate::wcag::technical_failure_reason)
@@ -1580,35 +1578,22 @@ fn page_rule_outcome(
         .iter()
         .filter(|finding| finding.kind == crate::wcag::Outcome::Fail)
         .count();
-    let status = if technical_failure.is_some() {
-        crate::wcag::RuleOutcomeStatus::Failed
-    } else if violation_count > 0 {
-        crate::wcag::RuleOutcomeStatus::ViolationsFound
-    } else if visible_findings
-        .iter()
-        .any(|finding| finding.kind == crate::wcag::Outcome::Review)
-    {
-        crate::wcag::RuleOutcomeStatus::Warning
-    } else if visible_findings
-        .iter()
-        .any(|finding| finding.kind == crate::wcag::Outcome::Untested)
-    {
-        crate::wcag::RuleOutcomeStatus::ManualReviewRequired
-    } else {
-        crate::wcag::RuleOutcomeStatus::NoViolationDetected
-    };
 
-    (
-        crate::wcag::RuleOutcome {
-            rule_id: rule_id.to_string(),
-            status,
-            wcag_criterion: criterion.map(str::to_string),
-            viewport: Some(viewport.to_string()),
-            reason_code: technical_failure,
-            finding_count: violation_count,
-        },
-        visible_findings,
-    )
+    // Ein technischer Fehlschlag heisst: die Regel lief nicht zu Ende. Sonst
+    // lief sie -- ob sie Fail, Review oder Untested lieferte, steht am Befund
+    // und wird hier nicht noch einmal ausgesagt.
+    let mut run = match technical_failure {
+        Some(reason) => {
+            crate::wcag::RuleRun::not_run(rule_id, crate::wcag::NotRun::Errored).with_reason(reason)
+        }
+        None => crate::wcag::RuleRun::ran(rule_id, violation_count),
+    }
+    .in_viewport(viewport);
+    if let Some(criterion) = criterion {
+        run = run.with_wcag([criterion]);
+    }
+
+    (run, visible_findings)
 }
 
 /// After enrichment, violations whose kind was demoted to Warning (e.g.
@@ -1842,7 +1827,7 @@ fn ensure_requested_module_runs(report: &mut AuditReport) {
     let outcomes = &report.accessibility.wcag_results.rule_outcomes;
     let failed = outcomes
         .iter()
-        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
     let accessibility_status = if outcomes.is_empty() || failed == outcomes.len() {
         crate::audit::ExecutionStatus::Failed
@@ -1970,7 +1955,7 @@ fn update_audit_quality(report: &mut AuditReport) {
         .wcag_results
         .rule_outcomes
         .iter()
-        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
     let partial_or_failed_modules = report
         .accessibility
@@ -2891,25 +2876,22 @@ journey_budget_ms = 1234
             page_rule_outcome("reflow", Some("1.4.10"), "mobile", vec![marker]);
 
         assert!(visible.is_empty());
-        assert_eq!(outcome.status, crate::wcag::RuleOutcomeStatus::Failed);
+        assert!(crate::wcag::rule_run_errored(&outcome));
         assert_eq!(outcome.viewport.as_deref(), Some("mobile"));
-        assert_eq!(
-            outcome.reason_code.as_deref(),
-            Some("dom_evaluation_failed")
-        );
+        assert_eq!(outcome.reason.as_deref(), Some("dom_evaluation_failed"));
+        // Das Kriterium muss auch am *nicht* gelaufenen Vermerk stehen --
+        // sonst sagt der Bericht nicht, was ungeprueft blieb.
+        assert_eq!(outcome.wcag, vec!["1.4.10".to_string()]);
     }
 
     #[test]
     fn missing_requested_module_qualifies_audit() {
         let mut results = WcagResults::new();
-        results.rule_outcomes.push(crate::wcag::RuleOutcome {
-            rule_id: "image_alt".to_string(),
-            status: crate::wcag::RuleOutcomeStatus::NoViolationDetected,
-            wcag_criterion: Some("1.1.1".to_string()),
-            viewport: Some("desktop".to_string()),
-            reason_code: None,
-            finding_count: 0,
-        });
+        results.rule_outcomes.push(
+            crate::wcag::RuleRun::ran("image_alt", 0)
+                .with_wcag(["1.1.1"])
+                .in_viewport("desktop"),
+        );
         let mut report =
             AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
         report.accessibility.execution.scope.requested_modules =

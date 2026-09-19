@@ -116,23 +116,13 @@ macro_rules! run_if_allowed {
         if $filter.should_run($axe_id) {
             let rule_results = $check_fn($tree);
             let finding_count = rule_results.violations.len();
-            let status = if finding_count > 0 {
-                crate::wcag::RuleOutcomeStatus::ViolationsFound
-            } else if !rule_results.warnings.is_empty() {
-                crate::wcag::RuleOutcomeStatus::Warning
-            } else if !rule_results.not_testables.is_empty() {
-                crate::wcag::RuleOutcomeStatus::ManualReviewRequired
-            } else {
-                crate::wcag::RuleOutcomeStatus::NoViolationDetected
-            };
-            $results.rule_outcomes.push(crate::wcag::RuleOutcome {
-                rule_id: $axe_id.to_string(),
-                status,
-                wcag_criterion: crate::taxonomy::criterion_for_rule($axe_id),
-                viewport: None,
-                reason_code: None,
-                finding_count,
-            });
+            // Die Regel ist gelaufen -- ob sie etwas fand, steht in
+            // `findings`, und *wie sicher* die Aussage ist, am Befund.
+            let mut run = crate::wcag::RuleRun::ran($axe_id, finding_count);
+            if let Some(criterion) = crate::taxonomy::criterion_for_rule($axe_id) {
+                run = run.with_wcag([criterion]);
+            }
+            $results.rule_outcomes.push(run);
             $results.merge(rule_results);
         }
     };

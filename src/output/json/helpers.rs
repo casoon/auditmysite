@@ -34,12 +34,12 @@ pub(super) fn build_en301549_annex(
         .into_iter()
         .map(|r| {
             let failed = normalized.rule_outcomes.iter().any(|outcome| {
-                outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
-                    && outcome.status == crate::wcag::RuleOutcomeStatus::Failed
+                outcome.wcag.iter().any(|c| c == r.clause.wcag)
+                    && crate::wcag::rule_run_errored(outcome)
             });
             let completed = normalized.rule_outcomes.iter().any(|outcome| {
-                outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
-                    && outcome.status != crate::wcag::RuleOutcomeStatus::Failed
+                outcome.wcag.iter().any(|c| c == r.clause.wcag)
+                    && !crate::wcag::rule_run_errored(outcome)
             });
             let base = en301549_status_kind(r.status);
             let status = if base == crate::output::json::En301549ClauseStatusKind::ViolationsFound {
@@ -101,14 +101,14 @@ pub(super) fn build_en301549_batch_rollup(
         .map(|r| {
             let failed = reports.iter().any(|report| {
                 report.rule_outcomes.iter().any(|outcome| {
-                    outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
-                        && outcome.status == crate::wcag::RuleOutcomeStatus::Failed
+                    outcome.wcag.iter().any(|c| c == r.clause.wcag)
+                        && crate::wcag::rule_run_errored(outcome)
                 })
             });
             let completed = reports.iter().any(|report| {
                 report.rule_outcomes.iter().any(|outcome| {
-                    outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
-                        && outcome.status != crate::wcag::RuleOutcomeStatus::Failed
+                    outcome.wcag.iter().any(|c| c == r.clause.wcag)
+                        && !crate::wcag::rule_run_errored(outcome)
                 })
             });
             let base = en301549_status_kind(r.status);

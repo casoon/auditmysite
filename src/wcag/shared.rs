@@ -28,7 +28,7 @@ use a11y_report::{Finding, NotRun, Outcome};
 
 use crate::accessibility::CdpDocument;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleOutcome, RuleOutcomeStatus, Violation, WcagResults};
+use crate::wcag::types::{RuleRun, Violation, WcagResults};
 
 /// Was auditmysite über eine geteilte Regel zusätzlich wissen muss.
 ///
@@ -151,15 +151,11 @@ fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Viol
 }
 
 /// Vermerk für eine geteilte Kennung, die auditmysite noch nicht führt.
-fn not_yet_migrated(id: &str) -> RuleOutcome {
-    RuleOutcome {
-        rule_id: id.to_string(),
-        status: RuleOutcomeStatus::Skipped,
-        wcag_criterion: None,
-        viewport: None,
-        reason_code: Some("shared_rule_not_yet_adopted".to_string()),
-        finding_count: 0,
-    }
+///
+/// [`NotRun::Disabled`] und nicht etwa Schweigen: Der Bericht sagt damit
+/// ausdrücklich, dass diese Kennung nicht geprüft wurde.
+fn not_yet_migrated(id: &str) -> RuleRun {
+    RuleRun::not_run(id, NotRun::Disabled).with_reason("shared_rule_not_yet_adopted")
 }
 
 /// Lässt den geteilten Regelbestand laufen und übernimmt die Befunde der
@@ -185,24 +181,13 @@ pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
     for run in &report.rule_runs {
         match shared_rule(&run.rule_id) {
             None => results.rule_outcomes.push(not_yet_migrated(&run.rule_id)),
-            Some(rule) => results.rule_outcomes.push(RuleOutcome {
-                rule_id: rule.id.to_string(),
-                status: match run.not_run {
-                    // Sollte hier nicht vorkommen: Der Host erfüllt
-                    // `Semantics`. Ein Vermerk ist trotzdem ehrlicher als
-                    // eine stille Null.
-                    Some(NotRun::CapabilityMissing) => RuleOutcomeStatus::Skipped,
-                    Some(NotRun::Disabled) => RuleOutcomeStatus::Skipped,
-                    Some(NotRun::NotApplicable) => RuleOutcomeStatus::NotApplicable,
-                    Some(NotRun::Errored) => RuleOutcomeStatus::Failed,
-                    None if run.findings > 0 => RuleOutcomeStatus::ViolationsFound,
-                    None => RuleOutcomeStatus::NoViolationDetected,
-                },
-                wcag_criterion: Some(rule.criterion.to_string()),
-                viewport: None,
-                reason_code: run.reason.clone(),
-                finding_count: run.findings,
-            }),
+            // Seit der Vermerk selbst aus dem geteilten Crate kommt, sprechen
+            // beide Seiten dasselbe Modell -- er wird durchgereicht statt
+            // uebersetzt. Ergaenzt wird nur das Kriterium, das `a11y-rules`
+            // am Vermerk nicht mitfuehrt.
+            Some(rule) => results
+                .rule_outcomes
+                .push(run.clone().with_wcag([rule.criterion])),
         }
     }
 
@@ -325,11 +310,8 @@ mod tests {
             .iter()
             .find(|o| o.rule_id == "document/title-missing")
             .expect("Vermerk zu document/title-missing");
-        assert_eq!(titel.status, RuleOutcomeStatus::Skipped);
-        assert_eq!(
-            titel.reason_code.as_deref(),
-            Some("shared_rule_not_yet_adopted")
-        );
+        assert!(crate::wcag::rule_run_skipped(titel));
+        assert_eq!(titel.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

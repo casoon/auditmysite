@@ -548,7 +548,7 @@ pub struct PageEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub module_runs: Vec<crate::audit::ModuleRun>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rule_outcomes: Vec<crate::wcag::RuleOutcome>,
+    pub rule_outcomes: Vec<crate::wcag::RuleRun>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accessibility_assessments: Vec<crate::audit::normalized::AccessibilityAssessment>,
     #[serde(skip_serializing_if = "Option::is_none")]
