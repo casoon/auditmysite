@@ -5,6 +5,60 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Report-Qualitaetsdurchlauf, 2026-09-19:** Ergebnis eines `report-critic`-Laufs ueber frische
+  Single-URL-Reports von www.casoon.de und www.inros-lackner.de. `auditmysite report-lint` war auf
+  beiden Reports ohne Befund — alle Punkte sind semantischer Natur und fuer den deterministischen
+  Linter strukturell unsichtbar. Sechs Commits, je einer pro Befund.
+
+  - **Erklaerungs-Lookup uebersprang die axe-Kennung:** JSON-Writer und Batch-Report loesten die
+    kundenseitige Erklaerung ueber die Taxonomie-`rule_id` auf, `get_explanation` faellt von dort
+    auf die blosse WCAG-Nummer zurueck, und die regelspezifischen Eintraege haengen an der
+    axe-Kennung. **Befund:** 4 von 15 `detail.fix_guidance`-Eintraegen trugen fremden Text — die
+    drei Landmark-Regeln erschienen als "Missing semantic structure" mit Tabellen-Markup als
+    Codebeispiel. Das Single-PDF war korrekt, nur das JSON nicht. Dieselbe Fehlerklasse wie #571.
+    Neu `resolve_explanation` als einziger Aufloeser an allen drei Aufrufstellen. Beim Fixen fiel
+    auf, dass die nun erreichbaren Codebeispiele deutschen Text ins kanonisch englische JSON
+    gebracht haetten; der Guard prueft jetzt nicht mehr nur auf Umlaute.
+  - **`accessibility_score_breakdown` war ein zweites Score-Modell:** eigene Severity-Gewichte
+    (20/14/8/4), Deckel bei 90, erfundene Wichtigkeits-Gewichte. **Befund:** ein
+    `accessibility_score` von 20 neben Bereichen, deren gewichteter Schnitt 57 ergab. Ein
+    gewichteter Schnitt kann den Score nicht reproduzieren — `diversity_factor`, sqrt-Kompression,
+    `apply_soft_floor` und der Cap sind nicht-linear und haengen am gesamten Befundsatz. Die zwei
+    vermischten Fragen sind jetzt zwei Felder: `score` ist der Bereich allein durch den Scorer
+    (neu `score_from_penalties`), `estimated_lost_points` der Anteil am tatsaechlichen Verlust.
+    `sum(estimated_lost_points) == 100 - accessibility_score` gilt exakt und wird von
+    `report-lint` geprueft. Schema unveraendert.
+  - **Score-Bereiche kamen aus Fliesstext:** `score_area_for_finding` suchte Woerter in
+    `rule_id + title + description + subcategory`. **Befund:** `a11y.landmark_region.missing`
+    landete unter "Images / alternative text", weil seine Beschreibung `role 'image'` erwaehnt;
+    `seo.headings.multiple_h1` trieb einen Bereich des *Accessibility*-Breakdowns. Neu
+    `taxonomy::score_area` mit einer totalen `rule_id -> ScoreArea`-Tabelle ueber alle 120
+    Accessibility-Regeln und drei Inventar-Tests. `score_area_for_key_point` war eine zweite,
+    wortgleiche Kopie derselben Suche und delegiert jetzt.
+  - **"Erwartungswert fuer diesen Seitentyp" war ein Literal:** `intent_fit_score` ist eine von elf
+    Konstanten und wurde gegen `seo.score` verglichen — andere Funktion, andere Skala. Fuer
+    `ThinContent` (28) kippte die Aussage: eine duenne Seite "erfuellte die Erwartung". Der
+    Vergleich ist gestrichen; die Zahl bleibt als Qualitaetswert erhalten. Zusaetzlich haengt das
+    Gate `intent_fit_score < 65` fuer drei Seitentypen an einer reinen Typ-Konstante, eine
+    Media-Heavy-Seite bekam den Ratschlag also unabhaengig von ihrer Qualitaet.
+  - **Zwei Modelle fuer dieselben Risiken:** `build_management_risks` fuellte das JSON,
+    `compute_dimension_rows` baute daneben das PDF-Panel. **Befund:** das JSON fuehrte 4x high,
+    das Panel zeigte 3x bad und 2x warn, zwei high-Dimensionen fehlten ganz, und alle
+    belegkraeftigen Begruendungen wurden verworfen. Neu `audit::management_risk` als einzige
+    Ableitung nach dem #406-Muster. Dabei fielen drei Aussagen ohne Messgrundlage weg: die
+    Conversion-Ketten (die ohnehin kein Ausgabeformat erreichten), der konstante
+    Trust-Satz und der Template-Schluss aus einer einzelnen Seite. `RiskTier::Unknown` ist neu —
+    ein nicht ausgefuehrtes Modul wurde vorher per `unwrap_or(100)` als *Staerke* gerendert.
+  - **Security behauptete Unauffaelligkeit ueber offenen Findings:** Clean-Hinweis und Takeaway
+    hingen am Score, nicht an der Befundliste, und `derive_security_recommendations` prueft nur auf
+    *fehlende* Header — ein vorhandener, aber fehlkonfigurierter Header erzeugte nichts, und der
+    Default behauptete, die Header seien sauber gesetzt. **Befund:** casoon.de, Score 95, drei
+    offene CSP-Findings (eines High), und die Sektion las "Sehr gut — keine wesentlichen
+    Sicherheitsauffaelligkeiten". Die Bandkorrektur ist jetzt symmetrisch, die Empfehlungen haengen
+    an `SecurityIssueKind`, und die ScoreCard nimmt dasselbe korrigierte Band — sonst stand
+    "95 — Sehr gut" ueber einem Takeaway "Verbesserungswuerdig". Derselbe Defekt steckte in der
+    SEO-Sektion.
+
 - **Umstellung auf die geteilten a11y-core-Crates, zweiter Abschnitt, 2026-09-19:** Alle drei
   Crates von 0.2.0 auf 0.3.0. Damit fällt der Blocker des ersten Abschnitts weg: `RuleRun` führt
   jetzt `viewport` und `wcag`, und `Finding` hat mit `rule_name`, `with_element(role, name)` und

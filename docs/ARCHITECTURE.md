@@ -87,6 +87,7 @@ src/
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
 │   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig)
 │   ├── score.rs         # Taxonomy-based score impact helpers
+│   ├── score_area.rs    # rule_id → ScoreArea map for the accessibility breakdown
 │   └── severity.rs      # Severity mapping helpers
 │
 ├── registry/            # Canonical metric registry (#506, Report Quality Layer)
@@ -114,6 +115,7 @@ src/
 │   ├── occurrence_analysis.rs # Occurrence counting across categories
 │   ├── prioritization.rs # Fix-guidance prioritization
 │   ├── verdict.rs       # Pass/fail verdict derivation
+│   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── baseline.rs      # Baseline/compare-mode support
 │   ├── batch_consistency.rs # Cross-page consistency checks
 │   ├── budget.rs        # Concurrency/rate budgeting
