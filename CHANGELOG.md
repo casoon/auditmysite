@@ -59,6 +59,30 @@ short current-state summary. Newest entries first (unchanged order from before t
     "95 — Sehr gut" ueber einem Takeaway "Verbesserungswuerdig". Derselbe Defekt steckte in der
     SEO-Sektion.
 
+- **Verdict, Einstufung und Herleitung des Gesamtwerts, 2026-09-19:** Fortsetzung des
+  Report-Qualitaetsdurchlaufs, Plan 34 zusammen mit Plan 44.
+
+  - **Der Gesamtwert war nicht herleitbar:** Die Tabelle "Warum ist der Gesamtwert, was er ist"
+    listete die Module mit ihren Gewichten; nachgerechnet ergab das 90.05 gegen ausgewiesene 92
+    (casoon) und 47.05 gegen 45 (inros-lackner). **Befund:** es gibt zwei Rechenwege, und nur einer
+    ist die Modulgewichtung. Im `viewport_weighted`-Modus entsteht der Wert aus einer
+    Desktop/Mobile-Mischung mit eingemischter Security — das steht in `score_breakdown` und wurde
+    nirgends gerendert. Die Tabelle heisst dort jetzt "Die gewichteten Module im Einzelnen", eine
+    zweite Tabelle zeigt die echte Rechnung und reproduziert den Wert exakt. Im
+    `module_weighted`-Modus bleibt alles, wie es war — dort *ist* die Gewichtung die Herleitung.
+  - **Verdict und Einstufung fehlten im PDF vollstaendig:** `summary.certificate` wurde nur als
+    Gate gelesen, `verdict`/`verdict_reasons` gar nicht gerendert. Das `SummaryBlock`-Feld namens
+    `verdict` ist ein Prosa-Satz, ein anderer Wert unter gleichem Namen. **Befund:** die CLI
+    druckte "FAIL — legal_flags: 5, blocking_issues: 36", im Dokument stand davon nichts, und das
+    Deckblatt las "Ausbaufaehiger technischer Zustand". Entschieden: das PDF nennt beides, das
+    Label heisst "Gesamteinstufung" statt "Zertifikat" — `calculate_certificate` bildet den Score
+    auf ein Bandlabel ab und zertifiziert nichts. Ein Teil-Lauf darf eine Einstufung tragen, aber
+    als vorlaeufige, und das steht jetzt vorn statt nur im Anhang.
+  - **Die Verdict-Gruende waren Maschinen-Tokens:** `legal_flags: 5` unveraendert zu rendern haette
+    kanonisches Englisch ins deutsche PDF gebracht. `VerdictReasonKind` traegt jetzt die Zahlen,
+    `text(en)` ist die einzige leserseitige Quelle; `VerdictResult::reasons` behaelt seine exakten
+    Strings fuer JSON und CLI, `reason_kinds` ist `serde(skip)`.
+
 - **Umstellung auf die geteilten a11y-core-Crates, zweiter Abschnitt, 2026-09-19:** Alle drei
   Crates von 0.2.0 auf 0.3.0. Damit fällt der Blocker des ersten Abschnitts weg: `RuleRun` führt
   jetzt `viewport` und `wcag`, und `Finding` hat mit `rule_name`, `with_element(role, name)` und
