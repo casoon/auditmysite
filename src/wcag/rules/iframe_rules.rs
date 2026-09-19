@@ -220,6 +220,16 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
     findings.iter().filter_map(build_violation).collect()
 }
 
+/// Die 3.1.1-Kennung fuer das Dokument *im* iframe.
+///
+/// Bis zur Umstellung auf die geteilten Regeln deklarierte `language.rs` diese
+/// Kennung ueber sein `RuleMetadata`, und das kanonische Inventar
+/// (`tests/common/rule_inventory.rs`) fand sie dort. Die Regel fuer das
+/// Hauptdokument heisst jetzt `document/lang-missing`; `html-has-lang` wird
+/// nur noch hier erzeugt. Ohne diese Deklaration koennte auditmysite eine
+/// Kennung melden, die im Inventar nicht vorkommt.
+const IFRAME_HTML_HAS_LANG_AXE_ID: &str = "html-has-lang";
+
 fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
     let rule_id = finding.get("rule_id")?.as_str()?;
     let iframe_selector = finding
@@ -283,7 +293,7 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             "Ensure all id attributes are unique within the iframe document.",
             "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
         ),
-        "html-has-lang" => (
+        IFRAME_HTML_HAS_LANG_AXE_ID => (
             "3.1.1",
             "Language of Page",
             WcagLevel::A,

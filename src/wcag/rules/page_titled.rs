@@ -65,7 +65,7 @@ pub fn check_page_titled(tree: &AXTree) -> WcagResults {
                     "The AXTree exposes a URL-like document name; the DOM title check is authoritative.",
                     "document",
                 )
-                .with_kind(crate::wcag::types::FindingKind::NotTestable)
+                .with_kind(crate::wcag::types::Outcome::Untested)
                 .with_rule_id(PAGE_TITLED_RULE.axe_id),
             );
         } else if found_document {

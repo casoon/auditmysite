@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::patterns::{PatternConfidence, RecognizedPattern};
 use crate::seo::profile::SignalCheck;
-use crate::wcag::types::FindingKind;
+use crate::wcag::types::Outcome;
 
 // ─── Content Area ────────────────────────────────────────────────────────────
 
@@ -58,8 +58,13 @@ impl ContentArea {
 
 /// Assessment outcome of a single check — generalized across all modules.
 ///
-/// This is the cross-module counterpart of [`crate::wcag::types::FindingKind`].
-/// `Pass` is the only variant added here that `FindingKind` does not have.
+/// This is the cross-module counterpart of [`crate::wcag::types::Outcome`].
+///
+/// The two are close but not interchangeable, so the `From` impl below is the
+/// only sanctioned bridge. `Outcome::Pass` means "a good pattern was actively
+/// detected" and therefore maps to [`AssessmentLevel::Positive`], not to
+/// [`AssessmentLevel::Pass`] — that variant means "the check ran and found
+/// nothing to report" and has no `Outcome` counterpart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssessmentLevel {
@@ -91,13 +96,13 @@ impl AssessmentLevel {
     }
 }
 
-impl From<FindingKind> for AssessmentLevel {
-    fn from(kind: FindingKind) -> Self {
+impl From<Outcome> for AssessmentLevel {
+    fn from(kind: Outcome) -> Self {
         match kind {
-            FindingKind::Violation => Self::Violation,
-            FindingKind::Warning => Self::Warning,
-            FindingKind::Positive => Self::Positive,
-            FindingKind::NotTestable => Self::NotTestable,
+            Outcome::Fail => Self::Violation,
+            Outcome::Review => Self::Warning,
+            Outcome::Pass => Self::Positive,
+            Outcome::Untested => Self::NotTestable,
         }
     }
 }
@@ -320,8 +325,8 @@ impl From<&crate::wcag::Violation> for ContentSignal {
     fn from(v: &crate::wcag::Violation) -> Self {
         let level = AssessmentLevel::from(v.kind);
         let confidence = match v.kind {
-            FindingKind::Violation => EvidenceConfidence::High,
-            FindingKind::Warning => EvidenceConfidence::Medium,
+            Outcome::Fail => EvidenceConfidence::High,
+            Outcome::Review => EvidenceConfidence::Medium,
             _ => EvidenceConfidence::Medium,
         };
         let mut sig = Self::new(
@@ -331,7 +336,7 @@ impl From<&crate::wcag::Violation> for ContentSignal {
             format!("WCAG {} – {}", v.rule, v.rule_name),
             v.message.clone(),
         );
-        // Map ViolationEvidence items from the violation itself.
+        // Map Evidence items from the violation itself.
         for ev in &v.evidence {
             let source = match ev.source.as_str() {
                 "ax_tree" => EvidenceSource::AxTree,
@@ -407,19 +412,19 @@ mod tests {
     #[test]
     fn assessment_level_from_finding_kind() {
         assert_eq!(
-            AssessmentLevel::from(FindingKind::Violation),
+            AssessmentLevel::from(Outcome::Fail),
             AssessmentLevel::Violation
         );
         assert_eq!(
-            AssessmentLevel::from(FindingKind::Warning),
+            AssessmentLevel::from(Outcome::Review),
             AssessmentLevel::Warning
         );
         assert_eq!(
-            AssessmentLevel::from(FindingKind::Positive),
+            AssessmentLevel::from(Outcome::Pass),
             AssessmentLevel::Positive
         );
         assert_eq!(
-            AssessmentLevel::from(FindingKind::NotTestable),
+            AssessmentLevel::from(Outcome::Untested),
             AssessmentLevel::NotTestable
         );
     }
@@ -528,7 +533,7 @@ mod tests {
     #[test]
     fn content_signal_from_violation_maps_violation_evidence() {
         use crate::cli::WcagLevel;
-        use crate::wcag::types::{Violation, ViolationEvidence};
+        use crate::wcag::types::{Evidence, Violation};
 
         let v = Violation::new(
             "4.1.2",
@@ -538,8 +543,8 @@ mod tests {
             "Missing role",
             "btn-1",
         )
-        .with_evidence_item(ViolationEvidence::ax_tree("button.nav-toggle"))
-        .with_evidence_item(ViolationEvidence::dom_attribute("aria-label", None));
+        .with_evidence_item(Evidence::ax_tree("button.nav-toggle"))
+        .with_evidence_item(Evidence::dom_attribute("aria-label", None));
 
         let sig = ContentSignal::from(&v);
         assert_eq!(sig.evidence.len(), 2);

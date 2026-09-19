@@ -9,7 +9,7 @@
 //! re-exports the result structs for backward compatibility.
 
 use crate::audit::normalized::OccurrenceDetail;
-use crate::wcag::ViolationEvidence;
+use crate::wcag::Evidence;
 
 /// One representative occurrence chosen to illustrate a finding.
 pub struct RepresentativeOccurrence {
@@ -20,7 +20,7 @@ pub struct RepresentativeOccurrence {
     pub suggested_code: Option<String>,
     /// Machine-readable provenance (DOM path, computed measurements) carried
     /// through from `OccurrenceDetail::evidence` (evidence-grade findings).
-    pub evidence: Vec<ViolationEvidence>,
+    pub evidence: Vec<Evidence>,
     /// Cropped element screenshot, if one was captured for this occurrence's
     /// rule. In-memory only — never serialized.
     pub evidence_screenshot: Option<Vec<u8>>,

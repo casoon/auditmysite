@@ -874,7 +874,7 @@ async fn test_label_in_name_false_positives() {
         .expect("compound widget with a concise aria-label should still surface a finding");
     assert_eq!(
         compound_widget.kind,
-        auditmysite::wcag::types::FindingKind::Warning,
+        auditmysite::wcag::types::Outcome::Review,
         "compound widget mismatch should be a warning, not an auto-confirmed violation; got {compound_widget:?}"
     );
 
@@ -884,7 +884,7 @@ async fn test_label_in_name_false_positives() {
         .expect("a genuine label/name mismatch must still be caught");
     assert_eq!(
         genuine_mismatch.kind,
-        auditmysite::wcag::types::FindingKind::Violation,
+        auditmysite::wcag::types::Outcome::Fail,
         "genuine mismatch should stay a confirmed violation; got {genuine_mismatch:?}"
     );
 }
@@ -1135,7 +1135,7 @@ async fn test_video_caption_track_resolving_is_a_confirmed_pass() {
     );
     assert_eq!(
         findings[0].kind,
-        auditmysite::wcag::types::FindingKind::Positive,
+        auditmysite::wcag::types::Outcome::Pass,
         "a resolving <track kind=\"captions\"> file should confirm a pass: {:?}",
         findings[0]
     );
@@ -1164,7 +1164,7 @@ async fn test_video_without_track_stays_manual_review() {
     );
     assert_eq!(
         findings[0].kind,
-        auditmysite::wcag::types::FindingKind::NotTestable,
+        auditmysite::wcag::types::Outcome::Untested,
         "a video with no track element must stay a manual-review notice, not a violation \
          or a false pass: {:?}",
         findings[0]
@@ -1194,7 +1194,7 @@ async fn test_video_embed_iframe_gets_platform_specific_manual_review_message() 
     );
     assert_eq!(
         findings[0].kind,
-        auditmysite::wcag::types::FindingKind::NotTestable
+        auditmysite::wcag::types::Outcome::Untested
     );
     assert!(
         findings[0].message.contains("embedded video player"),
@@ -1225,7 +1225,7 @@ async fn test_media_alternative_enriches_message_with_nearby_transcript_link() {
     );
     assert_eq!(
         findings[0].kind,
-        auditmysite::wcag::types::FindingKind::NotTestable,
+        auditmysite::wcag::types::Outcome::Untested,
         "presence of a transcript link is evidence, not a confirmed pass: {:?}",
         findings[0]
     );

@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 pub const HELP_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.5",
@@ -96,7 +96,7 @@ pub fn check_help(tree: &AXTree) -> WcagResults {
         )
         .with_rule_id(HELP_RULE.axe_id)
         .with_help_url(HELP_RULE.help_url)
-        .with_kind(FindingKind::NotTestable),
+        .with_kind(Outcome::Untested),
     );
 
     results

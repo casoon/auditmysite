@@ -35,7 +35,7 @@
 //!   form both having a "name" field) are not conflated as the same process.
 //!
 //! Because "same process" cannot be verified statically, findings are
-//! reported as [`crate::wcag::types::FindingKind::Warning`] (heuristic,
+//! reported as [`crate::wcag::types::Outcome::Review`] (heuristic,
 //! manual-review candidate) rather than a confirmed violation.
 
 use chromiumoxide::Page;

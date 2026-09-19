@@ -6,7 +6,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const RE_AUTHENTICATE_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.5",
@@ -36,5 +36,5 @@ pub async fn check_re_authenticate_with_page(_page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(RE_AUTHENTICATE_RULE.axe_id)
     .with_help_url(RE_AUTHENTICATE_RULE.help_url)
-    .with_kind(FindingKind::NotTestable)]
+    .with_kind(Outcome::Untested)]
 }

@@ -1,28 +1,44 @@
 //! Severity-System
 //!
 //! 4 produktorientierte Schweregrade, einheitlich über alle Module.
-//! Ersetzt die bisherigen verschiedenen Severity-Systeme
-//! (WCAG Minor/Moderate/Serious/Critical, Security-Strings, Mobile-Strings).
+//!
+//! Die Stufen kommen aus dem geteilten `a11y-report`-Crate, damit derselbe
+//! Befund auf allen drei Oberflächen — astro-post-audit, auditmysite,
+//! LiveAudit — dieselbe Schwere trägt. Varianten, Reihenfolge und
+//! JSON-Darstellung (`"low"`/`"medium"`/`"high"`/`"critical"`) sind identisch
+//! zur vorherigen lokalen Definition; die Umstellung ändert die Ausgabe nicht.
+//!
+//! Die auditmysite-eigenen Zusätze — deutsche Labels und die Umsetzer aus den
+//! Alt-Systemen (WCAG Minor/Moderate/Serious/Critical, Security-Strings,
+//! Mobile-Strings) — hängen als [`SeverityExt`] daran, weil an einem fremden
+//! Typ keine inhärenten Methoden ergänzt werden können.
 
-use serde::{Deserialize, Serialize};
+pub use a11y_report::Severity;
 
-/// 4 Severity-Stufen (aufsteigend von niedrigster zu höchster)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    /// Niedrige Priorität, verbesserungswürdig
-    Low,
-    /// Relevantes, aber nicht existenzielles Problem
-    Medium,
-    /// Klares Problem mit spürbarer Auswirkung
-    High,
-    /// Schwerwiegendes Problem, hohe Auswirkung oder hohes Risiko
-    Critical,
+/// Die auditmysite-eigenen Ergänzungen zu [`Severity`].
+///
+/// Muss im Modul sichtbar sein, damit `severity.label()` bzw.
+/// `Severity::from_legacy_wcag(..)` aufgelöst werden — deshalb re-exportiert
+/// `crate::taxonomy` das Trait mit.
+pub trait SeverityExt {
+    /// Nutzerfreundliches Label (deutsch)
+    fn label(&self) -> &'static str;
+
+    /// Englisches Label für Reports
+    fn label_en(&self) -> &'static str;
+
+    /// Konvertierung vom alten WCAG-Severity-System
+    fn from_legacy_wcag(old: &str) -> Severity;
+
+    /// Konvertierung von Security-Modul-Strings
+    fn from_legacy_security(old: &str) -> Severity;
+
+    /// Konvertierung von Mobile/SEO-Modul-Strings
+    fn from_legacy_module(old: &str) -> Severity;
 }
 
-impl Severity {
-    /// Nutzerfreundlicher Label (deutsch)
-    pub fn label(&self) -> &'static str {
+impl SeverityExt for Severity {
+    fn label(&self) -> &'static str {
         match self {
             Severity::Critical => "Kritisch",
             Severity::High => "Hoch",
@@ -31,8 +47,7 @@ impl Severity {
         }
     }
 
-    /// Englischer Label für Reports
-    pub fn label_en(&self) -> &'static str {
+    fn label_en(&self) -> &'static str {
         match self {
             Severity::Critical => "CRITICAL",
             Severity::High => "HIGH",
@@ -41,8 +56,7 @@ impl Severity {
         }
     }
 
-    /// Konvertierung vom alten WCAG-Severity-System
-    pub fn from_legacy_wcag(old: &str) -> Self {
+    fn from_legacy_wcag(old: &str) -> Severity {
         match old {
             "critical" => Severity::Critical,
             "serious" => Severity::High,
@@ -52,8 +66,7 @@ impl Severity {
         }
     }
 
-    /// Konvertierung von Security-Modul-Strings
-    pub fn from_legacy_security(old: &str) -> Self {
+    fn from_legacy_security(old: &str) -> Severity {
         match old {
             "critical" => Severity::Critical,
             "high" => Severity::High,
@@ -63,24 +76,12 @@ impl Severity {
         }
     }
 
-    /// Konvertierung von Mobile/SEO-Modul-Strings
-    pub fn from_legacy_module(old: &str) -> Self {
+    fn from_legacy_module(old: &str) -> Severity {
         match old {
             "error" => Severity::High,
             "warning" => Severity::Medium,
             "info" => Severity::Low,
             _ => Severity::Medium,
-        }
-    }
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Critical => write!(f, "critical"),
-            Severity::High => write!(f, "high"),
-            Severity::Medium => write!(f, "medium"),
-            Severity::Low => write!(f, "low"),
         }
     }
 }
@@ -109,5 +110,30 @@ mod tests {
         assert_eq!(Severity::from_legacy_module("error"), Severity::High);
         assert_eq!(Severity::from_legacy_module("warning"), Severity::Medium);
         assert_eq!(Severity::from_legacy_module("info"), Severity::Low);
+    }
+
+    /// Die JSON-Darstellung muss der vorherigen lokalen Definition entsprechen —
+    /// sonst wäre die Umstellung auf das geteilte Crate eine stille
+    /// Formatänderung.
+    #[test]
+    fn serialisiert_wie_zuvor() {
+        for (sev, erwartet) in [
+            (Severity::Low, "\"low\""),
+            (Severity::Medium, "\"medium\""),
+            (Severity::High, "\"high\""),
+            (Severity::Critical, "\"critical\""),
+        ] {
+            assert_eq!(serde_json::to_string(&sev).unwrap(), erwartet);
+        }
+    }
+
+    /// `as_str` aus dem geteilten Crate liefert genau das, was vorher das
+    /// lokale `Display` schrieb.
+    #[test]
+    fn as_str_entspricht_altem_display() {
+        assert_eq!(Severity::Critical.as_str(), "critical");
+        assert_eq!(Severity::High.as_str(), "high");
+        assert_eq!(Severity::Medium.as_str(), "medium");
+        assert_eq!(Severity::Low.as_str(), "low");
     }
 }

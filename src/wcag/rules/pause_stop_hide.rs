@@ -64,7 +64,7 @@
 //!
 //! Because absence of a detected pause control does not prove no such
 //! mechanism exists (e.g. a keyboard shortcut, or a settings page), findings
-//! are reported as [`crate::wcag::types::FindingKind::Warning`] (heuristic,
+//! are reported as [`crate::wcag::types::Outcome::Review`] (heuristic,
 //! manual-review candidate) — the same treatment as `redundant_entry.rs`,
 //! `meaningful_sequence.rs`, and `focus_not_obscured_minimum.rs`.
 
@@ -277,7 +277,7 @@ pub async fn check_pause_stop_hide_with_page(page: &Page) -> Vec<Violation> {
                     )
                     .with_selector(selector)
                     .with_rule_id(PAUSE_STOP_HIDE_RULE.axe_id)
-                    .with_kind(crate::wcag::types::FindingKind::Warning)
+                    .with_kind(crate::wcag::types::Outcome::Review)
                     .with_fix("Provide a visible pause, stop, or hide control next to the auto-running content")
                     .with_help_url(PAUSE_STOP_HIDE_RULE.help_url),
                 );

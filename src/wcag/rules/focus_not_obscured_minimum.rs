@@ -45,7 +45,7 @@
 //! focusable element — a `position: fixed` element with a lower stacking
 //! context could sit fully behind it. Combined with the static-snapshot
 //! limitation above, findings are reported as
-//! [`crate::wcag::types::FindingKind::Warning`] (heuristic, manual-review
+//! [`crate::wcag::types::Outcome::Review`] (heuristic, manual-review
 //! candidate), matching the precedent set by `redundant_entry.rs` and
 //! `meaningful_sequence.rs` for this kind of geometry-based judgment call.
 
@@ -353,7 +353,7 @@ async fn focus_walk_findings(page: &Page) -> Option<Vec<Violation>> {
                     )
                     .with_selector(selector)
                     .with_rule_id(FOCUS_NOT_OBSCURED_MINIMUM_RULE.axe_id)
-                    .with_kind(crate::wcag::types::FindingKind::Warning)
+                    .with_kind(crate::wcag::types::Outcome::Review)
                     .with_fix(
                         "Reserve space for sticky content or add scroll-padding/scroll-margin so focused controls remain visible",
                     )

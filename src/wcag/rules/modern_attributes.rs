@@ -4,7 +4,7 @@ use chromiumoxide::Page;
 use tracing::warn;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, ViolationEvidence};
+use crate::wcag::types::{Evidence, RuleMetadata, Severity, Violation};
 
 pub const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
@@ -150,7 +150,7 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
             )
             .with_fix("Fix the popover/inert attributes so the active surface has a valid target, accessible name, and operable state.")
             .with_help_url(MODERN_ATTRIBUTES_RULE.help_url)
-            .with_evidence_item(ViolationEvidence::dom_attribute(attr, value));
+            .with_evidence_item(Evidence::dom_attribute(attr, value));
             violation.message = format!("{message} ({issue_type})");
 
             if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {

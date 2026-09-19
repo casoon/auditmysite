@@ -1252,7 +1252,12 @@ pub static RULES: &[Rule] = &[
         severity: Severity::High,
         external_ref: Some("WCAG 3.1.1"),
         external_level: Some("A"),
-        axe_id: Some("html-has-lang"),
+        // Geteilte Kennung aus `a11y-rules` statt der frueheren axe-core-Kennung
+        // `html-has-lang`: Die Pruefung laeuft seit der Umstellung als
+        // `document/lang-missing` (siehe `wcag::shared`). Die alte Kennung
+        // erzeugt weiterhin `iframe_rules`, aber fuer das Dokument *im* iframe
+        // -- ein anderer Befund.
+        axe_id: Some("document/lang-missing"),
         title: "Fehlende Sprachangabe",
         title_en: "Missing language declaration",
         description: "Kein lang-Attribut im HTML-Tag.",

@@ -1,6 +1,6 @@
 {
   "case": "missing_lang",
   "expectations": [
-    { "rule_id": "html-has-lang", "verdict": "violation" }
+    { "rule_id": "document/lang-missing", "verdict": "violation" }
   ]
 }

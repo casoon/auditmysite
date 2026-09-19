@@ -9,7 +9,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const TIMING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.1",
@@ -67,7 +67,7 @@ pub async fn check_timeouts_with_page(_page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(TIMEOUT_RULE.axe_id)
     .with_help_url(TIMEOUT_RULE.help_url)
-    .with_kind(FindingKind::NotTestable)]
+    .with_kind(Outcome::Untested)]
 }
 
 pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
@@ -89,7 +89,7 @@ pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(TIMING_RULE.axe_id)
     .with_help_url(TIMING_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(META_REFRESH_JS).await {
         Ok(r) => r,

@@ -15,4 +15,4 @@ pub use dimensions::{Dimension, Subcategory};
 pub use issue_class::IssueClass;
 pub use rules::{ReportVisibility, Rule, RuleLookup};
 pub use score::{module_score_grade, Scaling, ScoreImpact};
-pub use severity::Severity;
+pub use severity::{Severity, SeverityExt};

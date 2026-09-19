@@ -71,7 +71,7 @@ pub fn format_summary(normalized: &NormalizedReport) -> anyhow::Result<String> {
         .take(TOP_FINDINGS_LIMIT)
         .map(|f| TopFinding {
             id: f.rule_id.clone(),
-            severity: f.severity.to_string().to_lowercase(),
+            severity: f.severity.as_str().to_string(),
             title: f.title.clone(),
             count: f.occurrence_count,
         })

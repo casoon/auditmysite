@@ -42,7 +42,6 @@ mod label_title_only;
 mod labels;
 mod landmark_granular;
 mod landmarks;
-mod language;
 mod language_extended;
 mod language_of_parts;
 mod link_purpose;
@@ -141,7 +140,6 @@ pub use landmark_granular::{
     check_landmark_unique, check_landmarks_with_page, check_skip_link,
 };
 pub use landmarks::check_landmarks;
-pub use language::{check_language, LANGUAGE_RULE};
 pub use language_extended::check_language_extended_with_page;
 pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;

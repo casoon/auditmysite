@@ -33,7 +33,7 @@ use chromiumoxide::Page;
 use tracing::{info, warn};
 
 use super::tree::AXTree;
-use crate::wcag::types::{FindingKind, Violation};
+use crate::wcag::types::{Outcome, Violation};
 
 /// Hard cap on element-evidence crops per report — bounds PDF size growth.
 pub const MAX_ELEMENT_CROPS: usize = 12;
@@ -87,7 +87,7 @@ pub async fn capture_element_evidence(
         }
         // Only confirmed violations get proof crops — warnings/positives/
         // not-testables aren't findings that need self-contained evidence.
-        if violation.kind != FindingKind::Violation {
+        if violation.kind != Outcome::Fail {
             continue;
         }
         if violation.evidence_screenshot.is_some() {
@@ -123,7 +123,7 @@ pub async fn capture_element_evidence(
             violation.evidence_screenshot = Some(bytes);
             violation.evidence_viewport = Some(viewport_label);
             if used_selector_fallback {
-                violation.evidence.push(crate::wcag::ViolationEvidence::computed(
+                violation.evidence.push(crate::wcag::Evidence::computed(
                     "screenshot_completeness",
                     "best_effort_selector_capture; lazy, animated, or overlay content may make this evidence incomplete",
                 ));

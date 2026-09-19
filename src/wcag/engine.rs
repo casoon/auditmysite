@@ -26,11 +26,11 @@ use super::rules::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_language, check_link_purpose,
-    check_link_purpose_link_only, check_list_structure, check_media_rules, check_page_titled,
-    check_parsing, check_region, check_section_headings, check_skip_link, check_status_messages,
-    check_summary_name, check_svg_rules, check_table_extended, check_table_rules,
-    check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
+    check_list_structure, check_media_rules, check_page_titled, check_parsing, check_region,
+    check_section_headings, check_skip_link, check_status_messages, check_summary_name,
+    check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
+    check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -168,11 +168,14 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 2.4.4 Link Purpose (In Context) (Level A)
     run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
 
-    // 3.1.1 Language of Page (Level A)
-    run_if_allowed!(filter, "html-has-lang", check_language, results, tree);
-    // 3.1.1 Valid lang attribute + xml:lang mismatch now run as a DOM page
-    // rule (check_language_extended_with_page in PAGE_RULES) — the AX tree
-    // has no `lang`/`xmlLang` properties (#QA-030).
+    // 3.1.1 Language of Page (Level A) laeuft als geteilte Regel
+    // (`document/lang-missing`, `document/lang-invalid`, siehe wcag::shared)
+    // gegen den per CDP geholten DOM. Die AX-Eigenschaft `language`
+    // synthetisiert Chrome aus Locale und Kontext, auch wenn der Autor nie
+    // ein `lang` gesetzt hat -- eine AX-basierte Pruefung ist fuer den
+    // haeufigsten Fall also blind.
+    // 3.1.1 xml:lang-Abgleich laeuft weiter als DOM-Page-Rule
+    // (check_language_extended_with_page in PAGE_RULES).
 
     // 3.3.2 Labels or Instructions (Level A)
     run_if_allowed!(filter, "label", check_instructions, results, tree);

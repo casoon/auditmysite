@@ -223,7 +223,7 @@ mod tests {
             )
             .with_fix("This raw English fix text must never leak into a German report.")
             .with_rule_id("fictional-not-testable-rule")
-            .with_kind(crate::wcag::FindingKind::NotTestable),
+            .with_kind(crate::wcag::Outcome::Untested),
         );
         results.add_violation(
             Violation::new(
@@ -236,7 +236,7 @@ mod tests {
             )
             .with_fix("This raw English warning text must never leak into a German report.")
             .with_rule_id("fictional-warning-rule")
-            .with_kind(crate::wcag::FindingKind::Warning),
+            .with_kind(crate::wcag::Outcome::Review),
         );
         let report = AuditReport::new(
             "https://example.com".to_string(),

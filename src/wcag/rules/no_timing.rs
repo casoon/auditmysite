@@ -6,7 +6,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const NO_TIMING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.3",
@@ -52,7 +52,7 @@ pub async fn check_no_timing_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(NO_TIMING_RULE.axe_id)
     .with_help_url(NO_TIMING_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(NO_TIMING_JS).await {
         Ok(r) => r,
@@ -88,7 +88,7 @@ pub async fn check_no_timing_with_page(page: &Page) -> Vec<Violation> {
             )
             .with_rule_id(NO_TIMING_RULE.axe_id)
             .with_help_url(NO_TIMING_RULE.help_url)
-            .with_kind(FindingKind::Warning),
+            .with_kind(Outcome::Review),
         );
     }
 

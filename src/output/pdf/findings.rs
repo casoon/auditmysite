@@ -9,7 +9,7 @@ use renderreport::prelude::*;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::truncate_url;
-use crate::wcag::ViolationEvidence;
+use crate::wcag::Evidence;
 
 use super::helpers::{
     effort_label_i18n, manual_recheck_instruction, priority_label_i18n, role_label_i18n,
@@ -199,11 +199,7 @@ fn section_caption(text: &str) -> Label {
 }
 
 /// Find a specific `computed`/`ax_tree` evidence value by field name.
-fn evidence_value<'a>(
-    evidence: &'a [ViolationEvidence],
-    source: &str,
-    field: &str,
-) -> Option<&'a str> {
+fn evidence_value<'a>(evidence: &'a [Evidence], source: &str, field: &str) -> Option<&'a str> {
     evidence
         .iter()
         .find(|e| e.source == source && e.field.as_deref() == Some(field))
@@ -215,7 +211,7 @@ fn evidence_value<'a>(
 /// `computed` evidence into one localized measured-value line. `None` when
 /// the occurrence carries no computed contrast evidence (i.e. every rule
 /// other than 1.4.3).
-fn contrast_measured_text(evidence: &[ViolationEvidence], en: bool) -> Option<String> {
+fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
     let ratio = evidence_value(evidence, "computed", "contrast_ratio")?;
     let required = evidence_value(evidence, "computed", "required_ratio");
     Some(match (required, en) {

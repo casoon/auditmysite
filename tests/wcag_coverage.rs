@@ -20,10 +20,10 @@ use auditmysite::wcag::rules::{
     check_instructions, check_keyboard, check_labels, check_landmark_banner_is_top_level,
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
-    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
-    check_link_purpose, check_list_structure, check_media_rules, check_page_titled,
-    check_section_headings, check_svg_rules, check_table_extended, check_table_rules,
-    check_text_alternatives, check_widget_rules,
+    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_link_purpose,
+    check_list_structure, check_media_rules, check_page_titled, check_section_headings,
+    check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
+    check_widget_rules,
 };
 
 // ---------------------------------------------------------------------------
@@ -81,7 +81,6 @@ rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
 rule_smoke_test!(smoke_check_page_titled, check_page_titled);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
-rule_smoke_test!(smoke_check_language, check_language);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
 rule_smoke_test!(smoke_check_focus_order, check_focus_order);
 rule_smoke_test!(smoke_check_labels, check_labels);
@@ -213,18 +212,25 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
 
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
-    // Tree that would violate both 1.1.1 (missing alt) and 3.1.1 (missing lang)
+    // Ein Baum, der ohne Filter zwei Regeln verletzt: 1.1.1 (Bild ohne
+    // Alternativtext) und 2.4.2 (Dokument ohne Titel).
+    //
+    // Frueher war das zweite Beispiel 3.1.1 (fehlendes lang). Seit 3.1.1 als
+    // geteilte Regel gegen den DOM laeuft (`document/lang-missing`, siehe
+    // `wcag::shared`), kann das AX-basierte `check_all_with_config` dazu
+    // nichts mehr finden -- der Test haette dann nur noch bestaetigt, dass
+    // die Regel verschwunden ist, statt die Filterlogik zu pruefen.
     let tree = AXTree::from_nodes(vec![
         AXNode {
             node_id: "root".to_string(),
             ignored: false,
             ignored_reasons: vec![],
             role: Some("RootWebArea".to_string()),
-            name: Some("Test Page".to_string()),
+            name: None, // kein Titel -> 2.4.2
             name_source: None,
             description: None,
             value: None,
-            properties: vec![], // no lang
+            properties: vec![],
             child_ids: vec!["img1".to_string()],
             parent_id: None,
             backend_dom_node_id: None,
@@ -245,26 +251,33 @@ fn test_enabled_only_runs_exactly_those_rules() {
         },
     ]);
 
-    // Run only the lang rule
+    // Ohne Filter fallen beide an. Ohne diese Haelfte waere die Zusicherung
+    // unten tautologisch: Sie wuerde auch halten, wenn 2.4.2 hier gar nicht
+    // anschlaegt.
+    let ungefiltert = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
+    assert!(
+        ungefiltert.violations.iter().any(|v| v.rule == "1.1.1"),
+        "1.1.1 muss ohne Filter anfallen"
+    );
+    assert!(
+        ungefiltert.violations.iter().any(|v| v.rule == "2.4.2"),
+        "2.4.2 muss ohne Filter anfallen"
+    );
+
+    // Mit enabled_only bleibt genau die eine Regel uebrig.
     let filter = RuleFilterConfig {
         disabled_rules: vec![],
-        enabled_only_rules: vec!["html-has-lang".to_string()],
+        enabled_only_rules: vec!["image-alt".to_string()],
     };
     let results = check_all_with_config(&tree, WcagLevel::A, &filter);
 
-    // Should find 3.1.1 (missing lang) but NOT 1.1.1 (disabled by filter)
     assert!(
-        results.violations.iter().any(|v| v.rule == "3.1.1"),
-        "3.1.1 should be found"
+        results.violations.iter().any(|v| v.rule == "1.1.1"),
+        "1.1.1 steht auf der enabled_only-Liste und muss laufen"
     );
-    let alt_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.rule == "1.1.1")
-        .collect();
     assert!(
-        alt_violations.is_empty(),
-        "1.1.1 should be suppressed by enabled_only filter"
+        !results.violations.iter().any(|v| v.rule == "2.4.2"),
+        "2.4.2 steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
     );
 }
 
@@ -433,11 +446,6 @@ const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[
         "placeholder",
         "instructions.rs's has_format_hint fallback — the primary \
          placeholder-only-label detection now uses name_source (#QA-030)",
-    ),
-    (
-        "lang",
-        "language.rs — fallback alongside the working \"language\" property; \
-         superseded by pipeline.rs's DOM-based apply_lang_attribute_check (#QA-001)",
     ),
     (
         "headers",

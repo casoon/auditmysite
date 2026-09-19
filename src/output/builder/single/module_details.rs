@@ -18,6 +18,7 @@ use crate::output::report_model::{
     UxIssuePresentation, UxPresentation, VisionDeficiencyModePresentation,
 };
 use crate::output::search_experience::build_search_experience;
+use crate::taxonomy::SeverityExt;
 
 use super::super::helpers::{
     security_header_tier_label, security_issue_kind_label, truncate_list, truncate_url_list, yes_no,

@@ -19,7 +19,7 @@ use tracing::warn;
 
 use crate::cli::WcagLevel;
 use crate::i18n::I18n;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const MEDIA_ALTERNATIVE_RULE: RuleMetadata = RuleMetadata {
     id: "1.2.8",
@@ -199,7 +199,7 @@ pub async fn check_media_alternative_with_page(page: &Page) -> Vec<Violation> {
         )
         .with_rule_id(MEDIA_ALTERNATIVE_RULE.axe_id)
         .with_help_url(MEDIA_ALTERNATIVE_RULE.help_url)
-        .with_kind(FindingKind::NotTestable)];
+        .with_kind(Outcome::Untested)];
     }
 
     let message = if let Some(text) = transcript_text {
@@ -229,7 +229,7 @@ pub async fn check_media_alternative_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(MEDIA_ALTERNATIVE_RULE.axe_id)
     .with_help_url(MEDIA_ALTERNATIVE_RULE.help_url)
-    .with_kind(FindingKind::NotTestable)]
+    .with_kind(Outcome::Untested)]
 }
 
 #[cfg(test)]

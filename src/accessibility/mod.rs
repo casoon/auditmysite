@@ -4,6 +4,7 @@
 
 pub(crate) mod code_gen;
 pub mod diff;
+pub mod dom_document;
 mod element_capture;
 mod enrichment;
 mod extractor;
@@ -13,6 +14,7 @@ mod styles;
 mod tree;
 
 pub use diff::{AXTreeDiff, FocusMove, PropertyChange};
+pub use dom_document::{build_document, fetch_dom_document, CdpDocument};
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;
 pub use extractor::extract_ax_tree;

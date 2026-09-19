@@ -37,7 +37,7 @@
 //!
 //! `findings[]` (`NormalizedFinding`) is built exclusively from
 //! `wcag_results.violations` (`audit::normalized::normalize`) — it never
-//! includes `FindingKind::Warning`/`NotTestable` findings. The video checks
+//! includes `Outcome::Review`/`NotTestable` findings. The video checks
 //! (1.2.1/1.2.2/1.2.3/1.2.8) resolve to exactly those kinds far more often
 //! than to a confirmed violation (e.g. an unresolving caption `<track>` is a
 //! manual-review notice, not a hard violation), so relying on `findings[]`

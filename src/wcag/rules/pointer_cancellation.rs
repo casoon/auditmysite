@@ -6,7 +6,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.2",
@@ -60,7 +60,7 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
     )
     .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
     .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(POINTER_CANCELLATION_JS).await {
         Ok(r) => r,
@@ -109,7 +109,7 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
             )
             .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
             .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-            .with_kind(FindingKind::Warning),
+            .with_kind(Outcome::Review),
         );
     } else if has_down_handlers {
         findings.push(
@@ -128,7 +128,7 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
             )
             .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
             .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-            .with_kind(FindingKind::Warning),
+            .with_kind(Outcome::Review),
         );
     }
 

@@ -6,7 +6,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub const NO_INTERRUPTIONS_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.4",
@@ -44,7 +44,7 @@ pub async fn check_no_interruptions_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(NO_INTERRUPTIONS_RULE.axe_id)
     .with_help_url(NO_INTERRUPTIONS_RULE.help_url)
-    .with_kind(FindingKind::NotTestable);
+    .with_kind(Outcome::Untested);
 
     let result = match page.evaluate(INTERRUPTIONS_JS).await {
         Ok(r) => r,
@@ -81,7 +81,7 @@ pub async fn check_no_interruptions_with_page(page: &Page) -> Vec<Violation> {
             )
             .with_rule_id(NO_INTERRUPTIONS_RULE.axe_id)
             .with_help_url(NO_INTERRUPTIONS_RULE.help_url)
-            .with_kind(FindingKind::Warning),
+            .with_kind(Outcome::Review),
         );
     }
 
