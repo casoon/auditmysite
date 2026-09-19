@@ -59,6 +59,33 @@ short current-state summary. Newest entries first (unchanged order from before t
     "95 — Sehr gut" ueber einem Takeaway "Verbesserungswuerdig". Derselbe Defekt steckte in der
     SEO-Sektion.
 
+- **Heuristik-Hygiene: keine stillen Abzuege mehr, 2026-09-19:** Plan 43, Teile 1 und 2.
+
+  - **Abzuege ohne genannten Grund:** In `ux/analysis.rs` senkten drei Pruefungen den Score voellig
+    stumm (Wortzahl 50-100, lange Seite mit unter fuenf Ueberschriften, unter drei
+    Vertrauens-Stichworten), vier weitere zogen ab dem ersten Vorkommen ab, meldeten aber erst ab
+    einer deutlich hoeheren Schwelle. **Befund:** `reports/inros-lackner-audit.json` wies
+    `content_clarity: 80` aus, ohne dass irgendein ContentClarity-Befund in der Liste stand — 80
+    ist genau ein 20-Punkte-Abzug, der stille Wortzahl-Zweig. Die Regel stand schon im Code: der
+    `LargeDom`-Zweig traegt den Kommentar, der Score duerfe nie ohne genannten Grund fallen —
+    angewendet war sie an genau einer Stelle. Jetzt meldet jeder Abzug; damit das nicht von stumm
+    auf alarmierend kippt, ist `ux_issue_severity` wertabhaengig: milde Baender melden `low`. In
+    `journey/analysis.rs` hatten fuenf Abzuege keinen Friction-Point, dafuer gibt es fuenf neue
+    `FrictionKind`-Varianten.
+  - **Binaere Schwellen neben der Prozentzahl, die sie ignorieren:** Die
+    Cross-Page-Konsistenzsignale waren Booleans, waehrend der Report den echten Prozentwert
+    ausgab — 94 % HSTS-Abdeckung zaehlte exakt wie 0 %, sichtbar neben einer "94 %". `QualitySignal`
+    hat jetzt ein `fulfilment` (0.0-1.0); `present` bleibt die Pass/Fail-Markierung, gerechnet wird
+    proportional. `ErrorFreePages` benutzt das `clean_pct`, das es ohnehin schon berechnet und
+    verworfen hatte. Echte Ja/Nein-Signale bleiben unveraendert.
+  - **Dabei gefunden (Plan 49):** `AXTree` iteriert ueber eine `HashMap`, und die
+    Heading-Skip-Erkennung liest das trotzdem — zwei Laeufe derselben Seite lieferten
+    unterschiedliche Befunde. Ausserdem zaehlte `analyze_content_clarity` Text ueber `iter()` und
+    fuehrte `StaticText` als erste Rolle auf, obwohl `iter()` genau diese Rolle herausfiltert: der
+    Zweig konnte nie greifen, und der Abzug war ein **Falschbefund**. Mit `iter_all()` geht
+    inros-lackner.de von `content_clarity` 80 auf 100. Hier behoben, weil sonst aus einem stillen
+    Falschbefund ein sichtbarer geworden waere.
+
 - **Verdict, Einstufung und Herleitung des Gesamtwerts, 2026-09-19:** Fortsetzung des
   Report-Qualitaetsdurchlaufs, Plan 34 zusammen mit Plan 44.
 

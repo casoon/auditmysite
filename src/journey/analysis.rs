@@ -275,6 +275,7 @@ pub enum FrictionKind {
     // Entry
     NoH1,
     MultipleH1,
+    VagueH1,
     NoPageTitle,
     LittleEarlyText,
     // Orientation
@@ -282,16 +283,20 @@ pub enum FrictionKind {
     MainHiddenFromAx,
     MainMissing,
     FewSubheadings,
+    NoBreadcrumb,
+    NoFooter,
     // Navigation
     GenericLinks,
     EmptyLinks,
     DuplicateLinks,
+    TooManyLinks,
     // Interaction
     UnnamedButtons,
     UnlabeledForms,
     GenericButtons,
     // Conversion
     NoCallToAction,
+    CompetingCtas,
     BlockingDialog,
     ComplexForm,
 }
@@ -350,11 +355,12 @@ impl FrictionPoint {
 fn friction_step(kind: FrictionKind) -> &'static str {
     use FrictionKind::*;
     match kind {
-        NoH1 | MultipleH1 | NoPageTitle | LittleEarlyText => "Entry",
-        NavigationMissing | MainHiddenFromAx | MainMissing | FewSubheadings => "Orientation",
-        GenericLinks | EmptyLinks | DuplicateLinks => "Navigation",
+        NoH1 | MultipleH1 | VagueH1 | NoPageTitle | LittleEarlyText => "Entry",
+        NavigationMissing | MainHiddenFromAx | MainMissing | FewSubheadings | NoBreadcrumb
+        | NoFooter => "Orientation",
+        GenericLinks | EmptyLinks | DuplicateLinks | TooManyLinks => "Navigation",
         UnnamedButtons | UnlabeledForms | GenericButtons => "Interaction",
-        NoCallToAction | BlockingDialog | ComplexForm => "Conversion",
+        NoCallToAction | CompetingCtas | BlockingDialog | ComplexForm => "Conversion",
     }
 }
 
@@ -367,7 +373,9 @@ fn friction_severity(kind: FrictionKind) -> &'static str {
         MultipleH1 | NoPageTitle | LittleEarlyText | MainMissing | BlockingDialog | ComplexForm => {
             "medium"
         }
-        MainHiddenFromAx | FewSubheadings | DuplicateLinks | GenericLinks | GenericButtons => "low",
+        VagueH1 | CompetingCtas => "medium",
+        MainHiddenFromAx | FewSubheadings | DuplicateLinks | GenericLinks | GenericButtons
+        | NoBreadcrumb | NoFooter | TooManyLinks => "low",
     }
 }
 
@@ -751,6 +759,91 @@ pub fn journey_friction_text(
                     .into()
             },
         ),
+        VagueH1 => (
+            if en {
+                "The H1 heading is too short to say what the page is about".into()
+            } else {
+                "Die H1-Überschrift ist zu kurz, um den Seitenzweck zu benennen".into()
+            },
+            if en {
+                "Visitors cannot tell from the heading whether they are in the right place".into()
+            } else {
+                "Besucher erkennen an der Überschrift nicht, ob sie richtig sind".into()
+            },
+            if en {
+                "Name the subject of the page in the H1".into()
+            } else {
+                "Den Gegenstand der Seite in der H1 benennen".into()
+            },
+        ),
+        NoBreadcrumb => (
+            if en {
+                "No breadcrumb trail".into()
+            } else {
+                "Keine Brotkrumen-Navigation".into()
+            },
+            if en {
+                "Visitors arriving from search cannot see where this page sits in the site".into()
+            } else {
+                "Wer aus der Suche kommt, sieht nicht, wo die Seite im Aufbau steht".into()
+            },
+            if en {
+                "Add a breadcrumb trail on pages below the top level".into()
+            } else {
+                "Auf Unterseiten eine Brotkrumen-Navigation ergänzen".into()
+            },
+        ),
+        NoFooter => (
+            if en {
+                "No footer region recognizable".into()
+            } else {
+                "Kein Footer-Bereich erkennbar".into()
+            },
+            if en {
+                "The usual place for contact, legal and secondary links is missing".into()
+            } else {
+                "Der übliche Ort für Kontakt, Rechtliches und Zweitnavigation fehlt".into()
+            },
+            if en {
+                "Mark up the page footer with <footer> or role=\"contentinfo\"".into()
+            } else {
+                "Den Seitenfuß mit <footer> oder role=\"contentinfo\" auszeichnen".into()
+            },
+        ),
+        TooManyLinks => (
+            if en {
+                format!("{count} links compete for attention")
+            } else {
+                format!("{count} Links konkurrieren um Aufmerksamkeit")
+            },
+            if en {
+                "The next step is harder to find the more equally weighted links surround it".into()
+            } else {
+                "Der nächste Schritt ist schwerer zu finden, je mehr gleichrangige Links ihn umgeben".into()
+            },
+            if en {
+                "Group secondary links and give the primary path visual weight".into()
+            } else {
+                "Zweitrangige Links gruppieren und dem Hauptweg visuelles Gewicht geben".into()
+            },
+        ),
+        CompetingCtas => (
+            if en {
+                format!("{count} calls to action on one page")
+            } else {
+                format!("{count} Handlungsaufrufe auf einer Seite")
+            },
+            if en {
+                "Several equally prominent actions leave unclear which one is intended".into()
+            } else {
+                "Mehrere gleich prominente Aktionen lassen offen, welche gemeint ist".into()
+            },
+            if en {
+                "Choose one primary action per page and subordinate the rest".into()
+            } else {
+                "Pro Seite eine Hauptaktion wählen und die übrigen unterordnen".into()
+            },
+        ),
         NoCallToAction => (
             if en {
                 "No recognizable call-to-action on the page".into()
@@ -917,6 +1010,7 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         if let Some(name) = h1s[0].name.as_deref() {
             if name.len() < 5 {
                 penalties.push(20.0);
+                friction.push(FrictionPoint::new(VagueH1, FrictionValues::default()));
             }
         }
     }
@@ -983,6 +1077,7 @@ fn analyze_orientation(
     // Not penalized heavily, but bonus signals
     if !has_breadcrumb {
         penalties.push(10.0);
+        friction.push(FrictionPoint::new(NoBreadcrumb, FrictionValues::default()));
     }
 
     // Main landmark
@@ -1008,6 +1103,7 @@ fn analyze_orientation(
         .any(|n| n.role.as_deref() == Some("contentinfo"));
     if !has_footer {
         penalties.push(10.0);
+        friction.push(FrictionPoint::new(NoFooter, FrictionValues::default()));
     }
 
     // Heading structure: are there sub-sections?
@@ -1104,6 +1200,12 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         let excess = (links.len() - 60) as f64;
         let p = saturating_penalty(excess, 15.0, 60.0);
         penalties.push(p);
+        friction.push(FrictionPoint::new(
+            TooManyLinks,
+            FrictionValues {
+                count: Some(links.len() as u32),
+            },
+        ));
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
@@ -1289,6 +1391,12 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     if cta_count > 5 {
         let p = saturating_penalty((cta_count - 5) as f64, 15.0, 5.0);
         penalties.push(p);
+        friction.push(FrictionPoint::new(
+            CompetingCtas,
+            FrictionValues {
+                count: Some(cta_count as u32),
+            },
+        ));
     }
 
     let score = journey_dimension_score(&penalties, 100.0);

@@ -1,0 +1,14 @@
+{
+  "id": "silent-heuristic-penalties",
+  "category": "Semantic",
+  "problem": "Heuristic modules lowered a dimension score without stating why. In src/ux/analysis.rs three penalties emitted no issue at all (word_count 50..100, a long page with fewer than five headings, fewer than three trust keywords) and four more penalised from the first occurrence while only reporting above a much higher bar (generic links from 1 but reported from 3; heading skips from 1 but from 2; links from 41 but from 81; interactive elements from 51 but from 101). src/journey/analysis.rs had five penalties with no friction point. Separately, cross-page consistency signals in src/source_quality/mod.rs were scored as booleans while the report printed the underlying percentage, so 94 % coverage scored exactly as 0 % next to a visible '94 %'.",
+  "evidence": "reports/inros-lackner-audit.json generated 2026-09-19 (auditmysite v1.5.0) reported the UX dimension content_clarity at 80 with no ContentClarity issue anywhere in the list — the issues were GenericLinks (CtaClarity), MultipleH1 (VisualHierarchy) and NoContact (TrustSignals). A score of 80 is exactly one 20-point penalty: the silent word_count < 100 branch. The rule was already recognised in the file: the LargeDom branch carries the comment 'Emit the finding whenever the penalty applies, so the Visual Hierarchy score never drops without a stated reason' — applied in one place only.",
+  "expected": "Every penalty states a reason. The threshold-gated checks report from the first occurrence, the silent ones emit an issue (including a new WeakTrustSignals kind), and journey's five gained FrictionKind variants. Because reporting them all at their previous severity would move the problem from silent to alarming, ux_issue_severity is value-aware: mild bands report at 'low'. Coverage signals score proportionally through a new QualitySignal::fulfilment (0.0-1.0) while 'present' stays the pass/fail marker, so the threshold is a marker rather than a cliff; genuinely binary signals keep 1.0/0.0 and are unchanged.",
+  "regression": "ux::analysis::tests::{every_penalty_states_its_own_reason_at_the_first_occurrence, mild_bands_are_reported_at_low_severity} and source_quality::tests::{coverage_signals_score_proportionally_not_at_a_cliff, binary_signals_are_unchanged}",
+  "counter_examples": [
+    "NoSubheadings must not be listed twice when a page trips both the >200-words/<3-headings check and the >1000-words/<5-headings check.",
+    "A genuinely binary signal must score exactly as before — QualitySignal::new sets fulfilment to 1.0 or 0.0; see binary_signals_are_unchanged.",
+    "HeadingSkips is deliberately absent from the per-rule invariant test: AXTree::headings() returns HashMap order, so the detector's result is not deterministic and cannot be asserted. See plan 49 — that is a separate defect, not a gap in this invariant."
+  ],
+  "status": "resolved"
+}

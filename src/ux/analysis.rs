@@ -173,6 +173,7 @@ pub enum UxIssueKind {
     NoContact,
     NoImprint,
     NoPrivacy,
+    WeakTrustSignals,
     // Cognitive Load
     TooManyLinks,
     TooManyInteractive,
@@ -186,7 +187,7 @@ impl UxIssueKind {
             NoCta | CompetingCtas | GenericLinks => UxDimensionKind::CtaClarity,
             NoH1 | MultipleH1 | HeadingSkips | LargeDom => UxDimensionKind::VisualHierarchy,
             LittleText | NoSubheadings => UxDimensionKind::ContentClarity,
-            NoContact | NoImprint | NoPrivacy => UxDimensionKind::TrustSignals,
+            NoContact | NoImprint | NoPrivacy | WeakTrustSignals => UxDimensionKind::TrustSignals,
             TooManyLinks | TooManyInteractive => UxDimensionKind::CognitiveLoad,
         }
     }
@@ -235,7 +236,7 @@ impl UxIssue {
         UxIssue {
             kind,
             dimension: ux_dimension_name(kind.dimension(), true).to_string(),
-            severity: ux_issue_severity(kind).to_string(),
+            severity: ux_issue_severity(kind, &values).to_string(),
             problem,
             impact,
             recommendation,
@@ -247,12 +248,33 @@ impl UxIssue {
 // ── Localized text (single source of truth) ─────────────────────────
 
 /// Severity of a UX issue (stable, locale-independent).
-fn ux_issue_severity(kind: UxIssueKind) -> &'static str {
+///
+/// Value-aware, because several checks penalise from the first occurrence but
+/// only used to *report* above a much higher bar — one generic link cost
+/// points silently, three named it as a medium issue (plan 43). Now every
+/// penalty is reported, and the mild band is what distinguishes them:
+/// reporting a single skipped heading at the same severity as five would just
+/// move the problem from "silent" to "alarming".
+fn ux_issue_severity(kind: UxIssueKind, values: &UxIssueValues) -> &'static str {
     use UxIssueKind::*;
+    let count = values.count.unwrap_or(0);
+    let mild = match kind {
+        GenericLinks => count < 3,
+        HeadingSkips => count < 2,
+        TooManyLinks => count <= 80,
+        TooManyInteractive => count <= 100,
+        // Below 50 words the page has essentially no content; 50..100 is thin
+        // but not empty.
+        LittleText => values.word_count.unwrap_or(0) >= 50,
+        _ => false,
+    };
+    if mild {
+        return "low";
+    }
     match kind {
         NoCta | NoH1 | LittleText | NoContact => "high",
         CompetingCtas | GenericLinks | MultipleH1 | HeadingSkips | NoSubheadings | NoImprint
-        | NoPrivacy | TooManyLinks | TooManyInteractive => "medium",
+        | NoPrivacy | WeakTrustSignals | TooManyLinks | TooManyInteractive => "medium",
         LargeDom => "low",
     }
 }
@@ -635,6 +657,24 @@ pub fn ux_issue_text(
                 "Datenschutzerklärung im Footer verlinken".into()
             },
         ),
+        WeakTrustSignals => (
+            if en {
+                "Few trust signals on the page".into()
+            } else {
+                "Wenige Vertrauenssignale auf der Seite".into()
+            },
+            if en {
+                "Visitors find little to confirm who runs this site and how to reach them".into()
+            } else {
+                "Besucher finden wenig, was belegt, wer die Seite betreibt und wie er erreichbar ist".into()
+            },
+            if en {
+                "Name the operator, add reachable contact details and reference legal pages".into()
+            } else {
+                "Betreiber benennen, erreichbare Kontaktdaten ergänzen und Rechtsseiten verlinken"
+                    .into()
+            },
+        ),
         TooManyLinks => (
             if en {
                 format!("{} links on the page", count)
@@ -796,15 +836,13 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
     if generic_count > 0 {
         let p = saturating_penalty(generic_count as f64, 20.0, 5.0);
         penalties.push(p);
-        if generic_count >= 3 {
-            issues.push(UxIssue::new(
-                GenericLinks,
-                UxIssueValues {
-                    count: Some(generic_count as u32),
-                    ..Default::default()
-                },
-            ));
-        }
+        issues.push(UxIssue::new(
+            GenericLinks,
+            UxIssueValues {
+                count: Some(generic_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     let score = dimension_score(&penalties, 100.0);
@@ -850,15 +888,13 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
     if skip_count > 0 {
         let p = saturating_penalty(skip_count as f64, 30.0, 3.0);
         penalties.push(p);
-        if skip_count >= 2 {
-            issues.push(UxIssue::new(
-                HeadingSkips,
-                UxIssueValues {
-                    count: Some(skip_count as u32),
-                    ..Default::default()
-                },
-            ));
-        }
+        issues.push(UxIssue::new(
+            HeadingSkips,
+            UxIssueValues {
+                count: Some(skip_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Check DOM depth (very large trees = visual overload)
@@ -891,7 +927,11 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
     // Count text content (approximation from AXTree names)
     let mut total_text_len = 0usize;
     let mut _text_node_count = 0usize;
-    for node in tree.iter() {
+    // `iter_all`, not `iter`: `iter()` filters out browser-generated nodes,
+    // and "StaticText" is one of them — so the role this loop lists first
+    // could never match, and the word count was built from
+    // paragraph/listitem/cell/heading names alone.
+    for node in tree.iter_all() {
         if let Some(role) = node.role.as_deref() {
             if matches!(
                 role,
@@ -919,6 +959,15 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
         ));
     } else if word_count < 100 {
         penalties.push(20.0);
+        // Thin rather than empty — reported at "low" by the severity band so
+        // the Content Clarity score never drops without a stated reason.
+        issues.push(UxIssue::new(
+            LittleText,
+            UxIssueValues {
+                word_count: Some(word_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Subheadings: content without structure
@@ -927,9 +976,14 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
         issues.push(UxIssue::new(NoSubheadings, UxIssueValues::default()));
     }
 
-    // Very long page without structure
+    // Very long page without structure. `NoSubheadings` is only pushed when
+    // the check above did not already push it — both conditions can hold on
+    // the same page, and one finding must not be listed twice.
     if word_count > 1000 && headings.len() < 5 {
         penalties.push(15.0);
+        if !(word_count > 200 && headings.len() < 3) {
+            issues.push(UxIssue::new(NoSubheadings, UxIssueValues::default()));
+        }
     }
 
     let score = dimension_score(&penalties, 100.0);
@@ -1003,6 +1057,13 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
     // Overall trust signal density
     if trust_keyword_count < 3 {
         penalties.push(15.0);
+        issues.push(UxIssue::new(
+            WeakTrustSignals,
+            UxIssueValues {
+                count: Some(trust_keyword_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     let score = dimension_score(&penalties, 100.0);
@@ -1022,15 +1083,13 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
         let excess = (link_count - 40) as f64;
         let p = saturating_penalty(excess, 30.0, 80.0);
         penalties.push(p);
-        if link_count > 80 {
-            issues.push(UxIssue::new(
-                TooManyLinks,
-                UxIssueValues {
-                    count: Some(link_count as u32),
-                    ..Default::default()
-                },
-            ));
-        }
+        issues.push(UxIssue::new(
+            TooManyLinks,
+            UxIssueValues {
+                count: Some(link_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Too many interactive elements
@@ -1038,15 +1097,13 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
         let excess = (interactive_count - 50) as f64;
         let p = saturating_penalty(excess, 25.0, 50.0);
         penalties.push(p);
-        if interactive_count > 100 {
-            issues.push(UxIssue::new(
-                TooManyInteractive,
-                UxIssueValues {
-                    count: Some(interactive_count as u32),
-                    ..Default::default()
-                },
-            ));
-        }
+        issues.push(UxIssue::new(
+            TooManyInteractive,
+            UxIssueValues {
+                count: Some(interactive_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Very large DOM
@@ -1072,6 +1129,142 @@ mod tests {
             name: name.map(|s| s.into()),
             ..Default::default()
         }
+    }
+
+    fn tree_of(nodes: Vec<AXNode>) -> AXTree {
+        AXTree::from_nodes(nodes)
+    }
+
+    impl UxAnalysis {
+        fn iter_issue(&self, kind: UxIssueKind) -> Option<&UxIssue> {
+            self.issues.iter().find(|i| i.kind == kind)
+        }
+    }
+
+    /// Plan 43: a penalty must never apply without a stated reason.
+    ///
+    /// These checks penalised from the first occurrence but only *reported*
+    /// above a much higher bar — one generic link, one skipped heading, 41
+    /// links, 51 interactive elements, a thin page, a long page without
+    /// enough headings, a page without trust keywords: all cost points
+    /// silently. Asserted per rule, not per dimension: a sparse fixture
+    /// triggers several detectors at once, so "the dimension has some issue"
+    /// cannot tell a missing reason from a present one.
+    #[test]
+    fn every_penalty_states_its_own_reason_at_the_first_occurrence() {
+        fn text_nodes(prefix: &str, count: usize, text: &str) -> Vec<AXNode> {
+            (0..count)
+                .map(|i| node(&format!("{prefix}{i}"), "paragraph", Some(text)))
+                .collect()
+        }
+
+        // ~10 chars per node; word_count = total_len / 6.
+        let filler = |words: usize| text_nodes("t", words * 6 / 10 + 1, "abcdefghij");
+
+        let cases: Vec<(&str, Vec<AXNode>, UxIssueKind)> = vec![
+            (
+                "a single generic link",
+                vec![
+                    node("root", "RootWebArea", Some("Page")),
+                    node("l1", "link", Some("mehr")),
+                ],
+                UxIssueKind::GenericLinks,
+            ),
+            (
+                "41 links",
+                {
+                    let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+                    nodes.extend(
+                        (0..41)
+                            .map(|i| node(&format!("l{i}"), "link", Some("Eine klare Zielseite"))),
+                    );
+                    nodes
+                },
+                UxIssueKind::TooManyLinks,
+            ),
+            (
+                "51 interactive elements",
+                {
+                    let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+                    nodes.extend((0..51).map(|i| {
+                        node(&format!("b{i}"), "button", Some("Jetzt Angebot anfordern"))
+                    }));
+                    nodes
+                },
+                UxIssueKind::TooManyInteractive,
+            ),
+            (
+                "a thin but not empty page",
+                {
+                    let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+                    nodes.extend(filler(60));
+                    nodes
+                },
+                UxIssueKind::LittleText,
+            ),
+            (
+                "a long page with too few headings",
+                {
+                    let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+                    // Three headings: enough to clear the >200-words/<3 check,
+                    // so only the >1000-words/<5 branch can fire.
+                    nodes.extend(
+                        (0..3).map(|i| node(&format!("h{i}"), "heading", Some("Abschnitt"))),
+                    );
+                    nodes.extend(filler(1200));
+                    nodes
+                },
+                UxIssueKind::NoSubheadings,
+            ),
+            (
+                "a page without trust keywords",
+                vec![node("root", "RootWebArea", Some("Page"))],
+                UxIssueKind::WeakTrustSignals,
+            ),
+        ];
+
+        for (label, nodes, expected) in cases {
+            let analysis = analyze_ux(&tree_of(nodes));
+            assert!(
+                analysis.issues.iter().any(|issue| issue.kind == expected),
+                "{label}: {expected:?} penalised the score without being reported. \
+                 Issues: {:?}",
+                analysis.issues.iter().map(|i| i.kind).collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    /// The mild bands report at "low" — reporting one generic link as
+    /// severely as five would move the problem from silent to alarming.
+    #[test]
+    fn mild_bands_are_reported_at_low_severity() {
+        let mild = analyze_ux(&tree_of(vec![
+            node("root", "RootWebArea", Some("Page")),
+            node("l1", "link", Some("mehr")),
+        ]));
+        let one = mild
+            .iter_issue(UxIssueKind::GenericLinks)
+            .expect("GenericLinks reported at the first occurrence");
+        assert_eq!(
+            one.severity, "low",
+            "one generic link must not read as medium"
+        );
+
+        let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+        nodes.extend(
+            ["mehr", "hier", "klicken", "weiter"]
+                .iter()
+                .enumerate()
+                .map(|(i, label)| node(&format!("l{i}"), "link", Some(label))),
+        );
+        let many = analyze_ux(&tree_of(nodes));
+        let several = many
+            .iter_issue(UxIssueKind::GenericLinks)
+            .expect("GenericLinks reported");
+        assert_eq!(
+            several.severity, "medium",
+            "four generic links are not mild"
+        );
     }
 
     /// Guard against German leaking into the canonical struct/JSON (#406): the

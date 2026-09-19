@@ -162,8 +162,18 @@ pub struct QualitySignal {
     pub kind: QualitySignalKind,
     /// What was checked (canonical English)
     pub name: String,
-    /// Whether the signal is positive
+    /// Whether the signal is positive. Pass/fail marker for display only —
+    /// the score uses `fulfilment`.
     pub present: bool,
+    /// How much of this signal is met, 0.0–1.0.
+    ///
+    /// Coverage signals are proportions, and scoring them as a bool made 94 %
+    /// HSTS coverage count exactly as 0 % while the report printed "94 %" next
+    /// to a failed marker — a visible contradiction, and a cliff where one
+    /// page in twenty flipped a whole dimension (plan 43). For genuinely
+    /// binary signals this is 1.0 or 0.0 and nothing changes.
+    #[serde(default = "default_fulfilment")]
+    pub fulfilment: f32,
     /// Weight of this signal within its dimension (0.0–1.0)
     pub weight: f32,
     /// Human-readable detail (canonical English)
@@ -173,15 +183,39 @@ pub struct QualitySignal {
     pub values: SignalValues,
 }
 
+/// Signals recorded before `fulfilment` existed are read back as fully met or
+/// not met, matching the old binary behaviour.
+fn default_fulfilment() -> f32 {
+    1.0
+}
+
 impl QualitySignal {
-    /// Build a signal, baking canonical-English `name`/`detail` from its kind +
-    /// values via [`source_quality_signal_text`].
+    /// Build a binary signal — met or not, nothing in between.
     fn new(kind: QualitySignalKind, present: bool, weight: f32, values: SignalValues) -> Self {
+        Self::graded(
+            kind,
+            present,
+            if present { 1.0 } else { 0.0 },
+            weight,
+            values,
+        )
+    }
+
+    /// Build a signal that is met proportionally. `present` remains the
+    /// pass/fail marker the report shows; `fulfilment` is what scores.
+    fn graded(
+        kind: QualitySignalKind,
+        present: bool,
+        fulfilment: f32,
+        weight: f32,
+        values: SignalValues,
+    ) -> Self {
         let (name, detail) = source_quality_signal_text(kind, present, &values, true);
         QualitySignal {
             kind,
             name,
             present,
+            fulfilment: fulfilment.clamp(0.0, 1.0),
             weight,
             detail,
             values,
@@ -1013,9 +1047,12 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let mean = scores.iter().sum::<f32>() / total;
     let variance = scores.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / total;
     let std_dev = variance.sqrt();
-    signals.push(QualitySignal::new(
+    // Tapers from fully met at a standard deviation of 15 to nothing at 30,
+    // rather than falling off a cliff at 15.
+    signals.push(QualitySignal::graded(
         ScoreStability,
         std_dev < 15.0,
+        ((30.0 - std_dev) / 15.0).clamp(0.0, 1.0),
         0.20,
         SignalValues {
             std_dev: Some(std_dev),
@@ -1035,9 +1072,10 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         })
         .count();
     let meta_pct = (with_meta as f32 / total * 100.0) as u32;
-    signals.push(QualitySignal::new(
+    signals.push(QualitySignal::graded(
         MetaDescriptionCoverage,
         meta_pct >= 90,
+        meta_pct as f32 / 100.0,
         0.15,
         SignalValues {
             percent: Some(meta_pct),
@@ -1056,9 +1094,10 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         })
         .count();
     let schema_pct = (with_schema as f32 / total * 100.0) as u32;
-    signals.push(QualitySignal::new(
+    signals.push(QualitySignal::graded(
         StructuredDataCoverage,
         schema_pct >= 80,
+        schema_pct as f32 / 100.0,
         0.15,
         SignalValues {
             percent: Some(schema_pct),
@@ -1077,9 +1116,10 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         })
         .count();
     let lang_pct = (with_lang as f32 / total * 100.0) as u32;
-    signals.push(QualitySignal::new(
+    signals.push(QualitySignal::graded(
         LanguageDeclarationCoverage,
         lang_pct >= 95,
+        lang_pct as f32 / 100.0,
         0.15,
         SignalValues {
             percent: Some(lang_pct),
@@ -1097,9 +1137,10 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         })
         .count();
     let hsts_pct = (with_hsts as f32 / total * 100.0) as u32;
-    signals.push(QualitySignal::new(
+    signals.push(QualitySignal::graded(
         HstsCoverage,
         hsts_pct >= 95,
+        hsts_pct as f32 / 100.0,
         0.15,
         SignalValues {
             percent: Some(hsts_pct),
@@ -1113,9 +1154,11 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         .filter(|r| r.accessibility.statistics.critical > 0)
         .count();
     let clean_pct = ((total as usize - pages_with_critical) as f32 / total * 100.0) as u32;
-    signals.push(QualitySignal::new(
+    // `clean_pct` was computed and then discarded in favour of the bool.
+    signals.push(QualitySignal::graded(
         ErrorFreePages,
         pages_with_critical == 0,
+        clean_pct as f32 / 100.0,
         0.20,
         SignalValues {
             percent: Some(clean_pct),
@@ -1144,13 +1187,7 @@ fn build_dimension(kind: DimensionKind, signals: Vec<QualitySignal>) -> Dimensio
     let score = if total_weight > 0.0 {
         let raw: f32 = signals
             .iter()
-            .map(|s| {
-                if s.present {
-                    s.weight / total_weight * 100.0
-                } else {
-                    0.0
-                }
-            })
+            .map(|s| s.weight / total_weight * 100.0 * s.fulfilment)
             .sum();
         raw.round() as u32
     } else {
@@ -1220,6 +1257,77 @@ fn empty_analysis() -> SourceQualityAnalysis {
 
 #[cfg(test)]
 mod tests {
+
+    /// Plan 43: coverage signals are proportions. Scoring them as a bool made
+    /// 94 % count exactly as 0 %, while the report printed "94 %" beside a
+    /// failed marker — a visible contradiction and a cliff where one page in
+    /// twenty flipped a dimension.
+    #[test]
+    fn coverage_signals_score_proportionally_not_at_a_cliff() {
+        use QualitySignalKind::*;
+
+        let at = |pct: u32| {
+            QualitySignal::graded(
+                HstsCoverage,
+                pct >= 95,
+                pct as f32 / 100.0,
+                0.15,
+                SignalValues {
+                    percent: Some(pct),
+                    ..Default::default()
+                },
+            )
+        };
+
+        let just_below = build_dimension(DimensionKind::Consistency, vec![at(94)]);
+        let none = build_dimension(DimensionKind::Consistency, vec![at(0)]);
+        let just_above = build_dimension(DimensionKind::Consistency, vec![at(95)]);
+
+        assert!(
+            just_below.score > none.score,
+            "94 % coverage must not score like 0 %: {} vs {}",
+            just_below.score,
+            none.score,
+        );
+        assert!(
+            just_above.score - just_below.score <= 2,
+            "the threshold must not be a cliff: {} vs {}",
+            just_below.score,
+            just_above.score,
+        );
+
+        // `present` stays the pass/fail marker the report shows.
+        assert!(!at(94).present);
+        assert!(at(95).present);
+    }
+
+    /// Genuinely binary signals must behave exactly as before.
+    #[test]
+    fn binary_signals_are_unchanged() {
+        let met = QualitySignal::new(
+            QualitySignalKind::HstsCoverage,
+            true,
+            0.5,
+            SignalValues::default(),
+        );
+        let unmet = QualitySignal::new(
+            QualitySignalKind::HstsCoverage,
+            false,
+            0.5,
+            SignalValues::default(),
+        );
+        assert_eq!(met.fulfilment, 1.0);
+        assert_eq!(unmet.fulfilment, 0.0);
+        assert_eq!(
+            build_dimension(DimensionKind::Consistency, vec![met]).score,
+            100,
+        );
+        assert_eq!(
+            build_dimension(DimensionKind::Consistency, vec![unmet]).score,
+            0,
+        );
+    }
+
     use super::*;
     use crate::audit::normalized::InteractiveFinding;
     use crate::audit::AuditReport;
