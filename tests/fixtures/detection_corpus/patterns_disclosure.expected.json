@@ -4,6 +4,6 @@
     { "rule_id": "accordion-trigger-not-button", "verdict": "violation" },
     { "rule_id": "accordion-no-controls", "verdict": "violation" },
     { "rule_id": "aria-expanded-required", "verdict": "violation" },
-    { "rule_id": "focus-order-semantics", "verdict": "violation" }
+    { "rule_id": "keyboard/positive-tabindex", "verdict": "violation" }
   ]
 }

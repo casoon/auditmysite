@@ -5,12 +5,16 @@
 //! order that preserves meaning and operability.
 //! Level A
 //!
-//! The positive-tabindex check is a DOM-level rule: `tabindex` is not exposed
-//! as an AX property, so it must be read from the live DOM via CDP (#QA-030).
-//! It used to be duplicated in `keyboard.rs` under 2.1.1 — positive tabindex
-//! is a focus-*order* problem, so this file is now its single home.
-
-use chromiumoxide::Page;
+//! Die Pruefung auf positives `tabindex` laeuft seit der Umstellung auf die
+//! geteilten Crates als `keyboard/positive-tabindex` im `a11y-rules`-Bestand
+//! (siehe `wcag::shared`) -- die vormalige DOM-Regel ist deshalb geloescht.
+//! Sie las `tabindex` per JavaScript aus dem DOM, weil es keine AX-Eigenschaft
+//! ist (#QA-030); die geteilte Regel liest dasselbe Attribut aus dem
+//! CDP-Abzug.
+//!
+//! Hier bleibt die AX-baumbasierte Pruefung: fokussierbare Elemente innerhalb
+//! von `aria-hidden`. `hidden` ist -- anders als `tabindex` -- eine echte
+//! AX-Eigenschaft.
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -26,79 +30,6 @@ pub const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
     axe_id: "focus-order-semantics",
     tags: &["wcag2a", "wcag243", "cat.keyboard"],
 };
-
-const POSITIVE_TABINDEX_CAP: usize = 250;
-
-const POSITIVE_TABINDEX_BODY: &str = r#"
-  var issues = [];
-  var total = 0;
-  var elems = document.querySelectorAll('[tabindex]');
-  for (var i = 0; i < elems.length; i++) {
-    var el = elems[i];
-    if (el.tabIndex > 0) {
-      total++;
-      if (issues.length < CAP) {
-        issues.push({ selector: __amsCssSelector(el), tabindex: el.tabIndex });
-      }
-    }
-  }
-  return { count: total, issues: issues };
-"#;
-
-/// Check for elements with a positive `tabindex`, which disrupts the natural
-/// (DOM-order) focus sequence.
-pub async fn check_positive_tabindex_with_page(page: &Page) -> Vec<Violation> {
-    let js = [
-        "(function() {",
-        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
-        &POSITIVE_TABINDEX_BODY.replace("CAP", &POSITIVE_TABINDEX_CAP.to_string()),
-        "})()",
-    ]
-    .concat();
-
-    let val = match crate::wcag::types::evaluate_or_fail_for(
-        page,
-        "positive-tabindex",
-        crate::cli::WcagLevel::A,
-        js.as_str(),
-    )
-    .await
-    {
-        Ok(v) => v,
-        Err(violations) => return violations,
-    };
-
-    let issues = match val.get("issues").and_then(|v| v.as_array()) {
-        Some(arr) => arr.clone(),
-        None => return vec![],
-    };
-
-    issues
-        .iter()
-        .filter_map(|issue| {
-            let selector = issue.get("selector")?.as_str()?.to_string();
-            let tabindex = issue.get("tabindex").and_then(|v| v.as_i64()).unwrap_or(0);
-
-            Some(
-                Violation::new(
-                    FOCUS_ORDER_RULE.id,
-                    FOCUS_ORDER_RULE.name,
-                    FOCUS_ORDER_RULE.level,
-                    Severity::High,
-                    format!(
-                        "Element has positive tabindex={} which disrupts natural focus order",
-                        tabindex
-                    ),
-                    selector.clone(),
-                )
-                .with_selector(selector)
-                .with_fix("Remove positive tabindex values. Use tabindex=\"0\" for natural order or tabindex=\"-1\" for programmatic focus only")
-                .with_rule_id(FOCUS_ORDER_RULE.axe_id)
-                .with_help_url(FOCUS_ORDER_RULE.help_url),
-            )
-        })
-        .collect()
-}
 
 /// Check for focusable elements inside `aria-hidden` containers.
 /// Tree-based: `hidden` is a real CDP AX property (unlike `tabindex`).

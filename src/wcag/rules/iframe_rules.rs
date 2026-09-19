@@ -285,6 +285,10 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             "Associate a <label> element using for/id, or use aria-label on the input.",
             "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
         ),
+        // Wie bei `html-has-lang`: Der Befund im Hauptdokument heisst seit der
+        // Umstellung `ids/duplicate`; `duplicate-id` erzeugt nur noch diese
+        // Pruefung, und zwar fuer das Dokument *im* iframe -- ein anderer
+        // Befund an einem anderen Dokument.
         "duplicate-id" => (
             "4.1.1",
             "Parsing",

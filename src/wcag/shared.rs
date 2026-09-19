@@ -74,6 +74,38 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Page",
         help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
     },
+    // Ersetzt `wcag::rules::parsing::check_parsing_with_page` (axe-Kennung
+    // `duplicate-id`). Beide lesen dieselbe Quelle -- die eigene Regel wertete
+    // `document.querySelectorAll('[id]')` per JavaScript aus, die geteilte
+    // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung.
+    //
+    // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
+    // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
+    // etwas anderes als doppelte IDs, und bleibt.
+    SharedRule {
+        id: "ids/duplicate",
+        criterion: "4.1.1",
+        level: WcagLevel::A,
+        name: "Parsing (Duplicate IDs)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+    },
+    // Ersetzt `wcag::rules::focus_order::check_positive_tabindex_with_page`.
+    // Auch hier las die eigene Regel den DOM per JavaScript; die geteilte
+    // liest dasselbe Attribut aus dem Abzug.
+    //
+    // Die eigene Regel deckelte die Zahl der Befunde bei 250
+    // (`POSITIVE_TABINDEX_CAP`) -- die geteilte tut das nicht und meldet
+    // damit eher mehr als weniger.
+    //
+    // `check_focus_order` (aria-hidden und trotzdem fokussierbar) bleibt und
+    // führt die axe-Kennung `focus-order-semantics` weiter.
+    SharedRule {
+        id: "keyboard/positive-tabindex",
+        criterion: "2.4.3",
+        level: WcagLevel::A,
+        name: "Focus Order",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
+    },
 ];
 
 fn shared_rule(id: &str) -> Option<&'static SharedRule> {
@@ -312,6 +344,31 @@ mod tests {
             .expect("Vermerk zu document/title-missing");
         assert!(crate::wcag::rule_run_skipped(titel));
         assert_eq!(titel.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
+    }
+
+    /// Der Schluessel eines Vermerks ist `(rule_id, viewport)`. Die Pipeline
+    /// stempelt den Viewport nachtraeglich auf jeden Vermerk eines
+    /// Durchgangs -- das traegt nur, wenn die Kennung **innerhalb** eines
+    /// Durchgangs schon eindeutig ist. Sonst kollidieren zwei Vermerke
+    /// derselben Regel im selben Viewport und der Join wird mehrdeutig.
+    #[test]
+    fn jede_kennung_kommt_je_durchgang_genau_einmal_vor() {
+        let r = ergebnis(&[]);
+        let mut gesehen = std::collections::BTreeSet::new();
+        for o in &r.rule_outcomes {
+            assert!(
+                gesehen.insert(o.rule_id.clone()),
+                "Kennung {} doppelt im selben Durchgang",
+                o.rule_id
+            );
+        }
+        // Und der Bestand ist vollstaendig vermerkt, nicht nur das Uebernommene.
+        assert_eq!(gesehen.len(), r.rule_outcomes.len());
+        assert!(gesehen.contains("ids/duplicate"), "{gesehen:?}");
+        assert!(
+            gesehen.contains("keyboard/positive-tabindex"),
+            "{gesehen:?}"
+        );
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

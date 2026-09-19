@@ -40,9 +40,8 @@ use super::{
     check_meta_viewport_large_with_page, check_modern_attributes_with_page,
     check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
-    check_orientation_with_page, check_page_titled_with_page, check_parsing_with_page,
-    check_pause_stop_hide_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_positive_tabindex_with_page,
+    check_orientation_with_page, check_page_titled_with_page, check_pause_stop_hide_with_page,
+    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
     check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_redundant_entry_with_page,
     check_redundant_role_with_page, check_resize_text_with_page,
@@ -175,12 +174,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "use-of-color",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_use_of_color_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.4.3/positive-tabindex",
-        name: "positive tabindex",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_positive_tabindex_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.2.1/on-focus",
@@ -434,12 +427,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_abbreviations_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "4.1.1/parsing",
-        name: "parsing",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_parsing_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "4.1.2/aria-valid-attr-value",
         name: "aria-valid-attr-value",
         min_level: WcagLevel::A,
@@ -490,7 +477,10 @@ mod tests {
         //   #video-caption-checks) = 36
         // + redundant-role + link-as-button (plan/18, best-practice ARIA
         //   hygiene checks, both Level A) = 38
-        assert_eq!(count, 38);
+        // - parsing (duplicate-id) und positive-tabindex: laufen seit der
+        //   Umstellung als `ids/duplicate` bzw. `keyboard/positive-tabindex`
+        //   im geteilten Bestand (siehe `wcag::shared`) = 36
+        assert_eq!(count, 36);
     }
 
     #[test]
@@ -511,7 +501,9 @@ mod tests {
         // + video-caption-track (1.2.2, Level A, counted here too since AA >= A) = 47.
         // + redundant-role + link-as-button (plan/18, Level A, counted here
         //   too since AA >= A) = 49.
-        assert_eq!(count, 49);
+        // - parsing und positive-tabindex, beide Level A, in den geteilten
+        //   Bestand abgegeben = 47.
+        assert_eq!(count, 47);
     }
 
     #[test]
