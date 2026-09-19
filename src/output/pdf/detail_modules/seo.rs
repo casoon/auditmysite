@@ -1,4 +1,5 @@
 use super::*;
+use crate::taxonomy::SeverityExt;
 
 pub(in crate::output::pdf) fn render_seo(
     mut builder: renderreport::engine::ReportBuilder,

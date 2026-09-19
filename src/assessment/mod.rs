@@ -331,7 +331,7 @@ impl From<&crate::wcag::Violation> for ContentSignal {
             format!("WCAG {} – {}", v.rule, v.rule_name),
             v.message.clone(),
         );
-        // Map ViolationEvidence items from the violation itself.
+        // Map Evidence items from the violation itself.
         for ev in &v.evidence {
             let source = match ev.source.as_str() {
                 "ax_tree" => EvidenceSource::AxTree,
@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn content_signal_from_violation_maps_violation_evidence() {
         use crate::cli::WcagLevel;
-        use crate::wcag::types::{Violation, ViolationEvidence};
+        use crate::wcag::types::{Evidence, Violation};
 
         let v = Violation::new(
             "4.1.2",
@@ -538,8 +538,8 @@ mod tests {
             "Missing role",
             "btn-1",
         )
-        .with_evidence_item(ViolationEvidence::ax_tree("button.nav-toggle"))
-        .with_evidence_item(ViolationEvidence::dom_attribute("aria-label", None));
+        .with_evidence_item(Evidence::ax_tree("button.nav-toggle"))
+        .with_evidence_item(Evidence::dom_attribute("aria-label", None));
 
         let sig = ContentSignal::from(&v);
         assert_eq!(sig.evidence.len(), 2);

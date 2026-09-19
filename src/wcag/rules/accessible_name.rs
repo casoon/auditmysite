@@ -5,7 +5,7 @@
 
 use crate::accessibility::{AXTree, NameSource};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, ViolationEvidence, WcagResults};
+use crate::wcag::types::{Evidence, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for accessible name checks
 pub const RULE_META: RuleMetadata = RuleMetadata {
@@ -104,11 +104,11 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
             .with_fix("Add aria-label, aria-labelledby, or visible text content")
             .with_help_url(RULE_META.help_url)
             .with_rule_id(RULE_META.axe_id)
-            .with_evidence_item(ViolationEvidence::dom_attribute(
+            .with_evidence_item(Evidence::dom_attribute(
                 "aria-label",
                 Some(aria_label_state.to_string()),
             ))
-            .with_evidence_item(ViolationEvidence::ax_tree(format!("focusable={focusable}")));
+            .with_evidence_item(Evidence::ax_tree(format!("focusable={focusable}")));
 
             if focusable {
                 results.add_violation(violation);

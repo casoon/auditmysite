@@ -34,45 +34,12 @@ pub enum FindingKind {
 
 /// Machine-readable provenance for a single WCAG finding (issue #52).
 ///
-/// `source` uses the same vocabulary as `assessment::EvidenceSource` but as a
-/// plain string to avoid a circular crate dependency. Values: `"ax_tree"`,
-/// `"dom_attribute"`, `"meta"`, `"css_property"`, `"http_header"`, `"computed"`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ViolationEvidence {
-    pub source: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub field: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-}
-
-impl ViolationEvidence {
-    pub fn ax_tree(value: impl Into<String>) -> Self {
-        Self {
-            source: "ax_tree".to_string(),
-            field: None,
-            value: Some(value.into()),
-        }
-    }
-
-    pub fn dom_attribute(field: impl Into<String>, value: Option<String>) -> Self {
-        Self {
-            source: "dom_attribute".to_string(),
-            field: Some(field.into()),
-            value,
-        }
-    }
-
-    /// A value derived from a live measurement (e.g. contrast ratio) rather
-    /// than read directly off the DOM. Canonical English, JSON-safe (#406).
-    pub fn computed(field: impl Into<String>, value: impl Into<String>) -> Self {
-        Self {
-            source: "computed".to_string(),
-            field: Some(field.into()),
-            value: Some(value.into()),
-        }
-    }
-}
+/// Shared with astro-post-audit and LiveAudit via the `a11y-report` crate, so
+/// the same fact carries the same provenance vocabulary on every surface.
+/// `source` values: `"ax_tree"`, `"dom_attribute"`, `"meta"`, `"css_property"`,
+/// `"http_header"`, `"computed"` — the same set `assessment::EvidenceSource`
+/// parses back into.
+pub use a11y_report::Evidence;
 
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,7 +88,7 @@ pub struct Violation {
     /// Machine-readable provenance for this finding (issue #52).
     /// Populated incrementally — not all violations carry evidence yet.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence: Vec<ViolationEvidence>,
+    pub evidence: Vec<Evidence>,
     /// Cropped element screenshot captured during enrichment (evidence-grade
     /// findings). In-memory only — never part of the JSON report or cache.
     #[serde(skip)]
@@ -244,7 +211,7 @@ impl Violation {
     }
 
     /// Convenience: mark as a heuristic warning rather than a confirmed violation.
-    pub fn with_evidence_item(mut self, ev: ViolationEvidence) -> Self {
+    pub fn with_evidence_item(mut self, ev: Evidence) -> Self {
         self.evidence.push(ev);
         self
     }
@@ -599,7 +566,7 @@ mod tests {
 
     #[test]
     fn violation_evidence_ax_tree_constructor() {
-        let ev = ViolationEvidence::ax_tree("img#logo");
+        let ev = Evidence::ax_tree("img#logo");
         assert_eq!(ev.source, "ax_tree");
         assert_eq!(ev.value.as_deref(), Some("img#logo"));
         assert!(ev.field.is_none());
@@ -607,7 +574,7 @@ mod tests {
 
     #[test]
     fn violation_evidence_dom_attribute_constructor() {
-        let ev = ViolationEvidence::dom_attribute("alt", Some("".to_string()));
+        let ev = Evidence::dom_attribute("alt", Some("".to_string()));
         assert_eq!(ev.source, "dom_attribute");
         assert_eq!(ev.field.as_deref(), Some("alt"));
         assert_eq!(ev.value.as_deref(), Some(""));
@@ -615,7 +582,7 @@ mod tests {
 
     #[test]
     fn violation_evidence_dom_attribute_no_value() {
-        let ev = ViolationEvidence::dom_attribute("role", None);
+        let ev = Evidence::dom_attribute("role", None);
         assert_eq!(ev.source, "dom_attribute");
         assert!(ev.value.is_none());
     }
@@ -630,8 +597,8 @@ mod tests {
             "msg",
             "n1",
         )
-        .with_evidence_item(ViolationEvidence::ax_tree("img.hero"))
-        .with_evidence_item(ViolationEvidence::dom_attribute("alt", None));
+        .with_evidence_item(Evidence::ax_tree("img.hero"))
+        .with_evidence_item(Evidence::dom_attribute("alt", None));
         assert_eq!(v.evidence.len(), 2);
         assert_eq!(v.evidence[0].source, "ax_tree");
         assert_eq!(v.evidence[1].source, "dom_attribute");

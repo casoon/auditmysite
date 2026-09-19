@@ -3,6 +3,31 @@
 version = 4
 
 [[package]]
+name = "a11y-dom"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50fc9d063b9d1b7b98c5092b990c6818863135ea96b0d65f9b668105b0cf5e3a"
+
+[[package]]
+name = "a11y-report"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34d9090325e02165f7b6077de2af196e235b9e53ddba81eff916d3daa5b72933"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "a11y-rules"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35e3051694ef16fb94e08dd241b74deb9eaf925053fbc5ca5cb913113ed4a339"
+dependencies = [
+ "a11y-dom",
+ "a11y-report",
+]
+
+[[package]]
 name = "abnf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,6 +322,9 @@ checksum = "239d25181cb40f1955529367ee495e35d03aab4e578028f41e7abc8b21c367a8"
 name = "auditmysite"
 version = "1.5.0"
 dependencies = [
+ "a11y-dom",
+ "a11y-report",
+ "a11y-rules",
  "anyhow",
  "async-trait",
  "c2pa",

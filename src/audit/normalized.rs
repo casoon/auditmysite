@@ -179,7 +179,7 @@ pub struct AccessibilityAssessment {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewport: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence: Vec<crate::wcag::ViolationEvidence>,
+    pub evidence: Vec<crate::wcag::Evidence>,
 }
 
 pub(crate) fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityAssessment> {
@@ -375,7 +375,7 @@ pub struct OccurrenceDetail {
     /// measurements like contrast ratio, …) — mirrors `Violation::evidence`.
     /// Canonical English, JSON-safe (#406); additive JSON field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence: Vec<crate::wcag::ViolationEvidence>,
+    pub evidence: Vec<crate::wcag::Evidence>,
     /// Cropped element screenshot (evidence-grade findings). In-memory only —
     /// never part of the JSON report or cache.
     #[serde(skip)]

@@ -123,7 +123,7 @@ pub async fn capture_element_evidence(
             violation.evidence_screenshot = Some(bytes);
             violation.evidence_viewport = Some(viewport_label);
             if used_selector_fallback {
-                violation.evidence.push(crate::wcag::ViolationEvidence::computed(
+                violation.evidence.push(crate::wcag::Evidence::computed(
                     "screenshot_completeness",
                     "best_effort_selector_capture; lazy, animated, or overlay content may make this evidence incomplete",
                 ));

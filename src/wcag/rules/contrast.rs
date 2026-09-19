@@ -536,11 +536,11 @@ impl ContrastRule {
         // Measured values as machine-readable evidence (evidence-grade
         // findings, slice 3) — canonical English, JSON-safe (#406), rendered
         // in the PDF as "Contrast X:Y (required A:B)" in the run locale.
-        .with_evidence_item(crate::wcag::types::ViolationEvidence::computed(
+        .with_evidence_item(crate::wcag::types::Evidence::computed(
             "contrast_ratio",
             format!("{:.2}:1", final_ratio),
         ))
-        .with_evidence_item(crate::wcag::types::ViolationEvidence::computed(
+        .with_evidence_item(crate::wcag::types::Evidence::computed(
             "required_ratio",
             format!("{}:1", threshold),
         ));
