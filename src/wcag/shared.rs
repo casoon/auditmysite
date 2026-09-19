@@ -166,7 +166,10 @@ fn not_yet_migrated(id: &str) -> RuleOutcome {
 /// Kennungen aus [`SHARED_RULES`].
 pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
     let mut results = WcagResults::new();
-    results.nodes_checked += doc.len();
+    // `nodes_checked` bleibt bewusst unberuehrt: Der Zaehler fuehrt
+    // AXTree-Knoten, und die geteilten Regeln laufen ueber den DOM. Beide
+    // Baeume beschreiben dieselben Elemente -- sie zu addieren zaehlte jedes
+    // Element doppelt und machte die Zahl im Bericht unbrauchbar.
 
     let report = a11y_rules::run_with_semantics(doc);
 
