@@ -40,7 +40,7 @@ pub(in crate::output::pdf) fn render_seo(
         .add_component(module_customer_context(
             i18n,
             "seo",
-            seo.score,
+            Some(seo.score),
             &seo.interpretation,
         ));
 
@@ -698,12 +698,15 @@ pub(in crate::output::pdf) fn render_seo_profile(
     if !profile.signal_rows.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("pdf-serp-category")),
-            TableColumn::new(i18n.t("pdf-seo-profile-rating")),
+            TableColumn::new(i18n.t("pdf-seo-profile-signals-met")),
             TableColumn::new(i18n.t("pdf-seo-profile-classification")),
         ])
         .with_title(i18n.t_args(
             "pdf-seo-profile-strength-title",
-            &[("pct", profile.signal_overall_pct.to_string())],
+            &[
+                ("passed", profile.signal_passed.to_string()),
+                ("total", profile.signal_total.to_string()),
+            ],
         ));
         for (cat, score, rating) in &profile.signal_rows {
             table = table.add_row(vec![cat.as_str(), score.as_str(), rating.as_str()]);

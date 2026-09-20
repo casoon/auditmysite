@@ -279,14 +279,46 @@ pub enum SchemaExtracted {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeoSignalStrength {
     pub categories: Vec<SignalCategory>,
+    /// Weighted pass rate across the categories. Internal aggregate for the
+    /// Search Experience composite — the report shows `totals()` instead,
+    /// because a weighted percentage of pass rates is one derivation further
+    /// from the evidence than the counts are (plan 29, D4).
     pub overall_pct: u32,
+}
+
+impl SeoSignalStrength {
+    /// Total signals met and total signals checked, across all categories.
+    pub fn totals(&self) -> (u32, u32) {
+        self.categories
+            .iter()
+            .fold((0, 0), |(p, t), c| (p + c.passed, t + c.total))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalCategory {
     pub name: String,
-    pub score_pct: u32,
+    /// How many of this category's checks passed, and how many there are.
+    ///
+    /// Reported as counts rather than as a percentage (plan 29, D4): a bare
+    /// "80 %" hides its denominator, so adding a check that usually passes
+    /// silently lifts every site's value. The check list per category is
+    /// fixed, so `passed`/`total` is the whole truth about this category.
+    pub passed: u32,
+    pub total: u32,
     pub checks: Vec<SignalCheck>,
+}
+
+impl SignalCategory {
+    /// Pass rate, for the aggregate that the Search Experience composite
+    /// consumes. Deliberately a method rather than a stored field: the
+    /// percentage is a derivation of the counts, not a second measurement.
+    pub fn pct(&self) -> u32 {
+        if self.total == 0 {
+            return 0;
+        }
+        self.passed * 100 / self.total
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1058,12 +1090,12 @@ fn build_signal_strength(seo: &SeoAnalysis, en: bool) -> SeoSignalStrength {
     let content = build_content_signals(seo, en);
 
     // Gewichteter Durchschnitt
-    let overall_pct = (meta.score_pct as f32 * 0.20
-        + headings.score_pct as f32 * 0.15
-        + social.score_pct as f32 * 0.15
-        + technical.score_pct as f32 * 0.20
-        + structured.score_pct as f32 * 0.15
-        + content.score_pct as f32 * 0.15) as u32;
+    let overall_pct = (meta.pct() as f32 * 0.20
+        + headings.pct() as f32 * 0.15
+        + social.pct() as f32 * 0.15
+        + technical.pct() as f32 * 0.20
+        + structured.pct() as f32 * 0.15
+        + content.pct() as f32 * 0.15) as u32;
 
     SeoSignalStrength {
         categories: vec![meta, headings, social, technical, structured, content],
@@ -1071,12 +1103,12 @@ fn build_signal_strength(seo: &SeoAnalysis, en: bool) -> SeoSignalStrength {
     }
 }
 
-fn category_score(checks: &[SignalCheck]) -> u32 {
-    if checks.is_empty() {
-        return 0;
-    }
-    let passed = checks.iter().filter(|c| c.passed).count();
-    (passed * 100 / checks.len()) as u32
+/// Signals met and signals checked for one category.
+fn category_counts(checks: &[SignalCheck]) -> (u32, u32) {
+    (
+        checks.iter().filter(|c| c.passed).count() as u32,
+        checks.len() as u32,
+    )
 }
 
 fn check(label: &str, passed: bool, detail: Option<String>) -> SignalCheck {
@@ -1157,10 +1189,11 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             seo.meta.lang.clone(),
         ),
     ];
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: "Meta-Tags".to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -1243,10 +1276,11 @@ fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             }),
         ),
     ];
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: if en { "Headings" } else { "Überschriften" }.to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -1326,10 +1360,11 @@ fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 .map(|tc| format!("{}%", tc.completeness())),
         ),
     ];
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: "Social Media".to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -1406,10 +1441,11 @@ fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             seo.technical.robots_meta.clone(),
         ),
     ];
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: if en { "Technical" } else { "Technisch" }.to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -1728,7 +1764,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         ));
     }
 
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: if en {
             "Structured data"
@@ -1736,7 +1772,8 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
             "Strukturierte Daten"
         }
         .to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -1783,7 +1820,7 @@ fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             Some(format!("{:.2}%", link_density * 100.0)),
         ),
     ];
-    let score_pct = category_score(&checks);
+    let (passed, total) = category_counts(&checks);
     SignalCategory {
         name: if en {
             "Technical content base"
@@ -1791,7 +1828,8 @@ fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             "Technische Inhaltsbasis"
         }
         .to_string(),
-        score_pct,
+        passed,
+        total,
         checks,
     }
 }
@@ -2039,7 +2077,13 @@ mod tests {
 
         // All signal categories should be high
         for cat in &profile.signal_strength.categories {
-            assert!(cat.score_pct >= 75, "{} only {}%", cat.name, cat.score_pct);
+            assert!(
+                cat.pct() >= 75,
+                "{} only {} of {}",
+                cat.name,
+                cat.passed,
+                cat.total
+            );
         }
         assert!(profile.signal_strength.overall_pct >= 80);
         assert!(matches!(

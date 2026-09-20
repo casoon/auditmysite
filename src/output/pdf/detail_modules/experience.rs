@@ -27,7 +27,7 @@ pub(in crate::output::pdf) fn render_ux(
         .add_component(module_customer_context(
             i18n,
             "ux",
-            ux.score,
+            Some(ux.score),
             &ux.interpretation,
         ));
 
@@ -98,7 +98,7 @@ pub(in crate::output::pdf) fn render_journey(
         .add_component(module_customer_context(
             i18n,
             "journey",
-            journey.score,
+            Some(journey.score),
             &journey.interpretation,
         ));
 

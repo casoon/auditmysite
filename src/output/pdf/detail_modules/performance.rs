@@ -275,7 +275,7 @@ pub(in crate::output::pdf) fn render_performance(
         .add_component(module_customer_context(
             i18n,
             "performance",
-            perf.score,
+            Some(perf.score),
             &perf.interpretation,
         ));
 

@@ -246,7 +246,7 @@ fn category_score(profile: &crate::seo::profile::SeoContentProfile, name: &str) 
         .categories
         .iter()
         .find(|c| c.name == name)
-        .map(|c| c.score_pct)
+        .map(|c| c.pct())
 }
 
 fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<String> {

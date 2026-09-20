@@ -36,7 +36,7 @@ pub(in crate::output::pdf) fn render_source_quality(
         .add_component(module_customer_context(
             i18n,
             "source_quality",
-            sq.score,
+            Some(sq.score),
             &disclaimer,
         ));
 
@@ -202,7 +202,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         .add_component(module_customer_context(
             i18n,
             "ai_visibility",
-            av.score,
+            Some(av.score),
             &disclaimer,
         ));
 
@@ -402,22 +402,19 @@ pub(in crate::output::pdf) fn render_content_visibility(
     };
 
     let cv_title = i18n.t("pdf-cv-section-title");
-    let score = (cv.signal_count.saturating_sub(cv.problem_count) * 100)
-        .checked_div(cv.signal_count)
-        .unwrap_or(100) as u32;
 
     builder = builder.add_component(Section::new(&cv_title).with_level(3));
 
+    // No 0-100 score. It used to be the share of checks that did not
+    // complain, which made the value depend on how many checks happen to
+    // exist rather than on the page: adding a check that usually passes
+    // lifted every site (plan 29, D4). The counts say the same thing without
+    // implying a measurement.
     builder = builder
-        .add_component(
-            ScoreCard::new(super::module_score_caption(i18n), score)
-                .with_description(super::score_band_label(score, i18n))
-                .with_thresholds(75, 40),
-        )
         .add_component(module_customer_context(
             i18n,
             "content_visibility",
-            score,
+            None,
             &i18n.t("pdf-cv-overview-body"),
         ))
         .add_component(TextBlock::new(i18n.t_args(
@@ -442,13 +439,17 @@ pub(in crate::output::pdf) fn render_content_visibility(
         ),
     ];
 
-    // Mirrors the `score >= 80` early-return idiom used by the sibling
+    // Mirrors the early-return idiom used by the sibling
     // source_quality/ai_visibility renderers in this file: once the module is
     // clean, don't spend a page per passing signal — a single confirmation
     // line replaces the per-area callout+evidence cards. NotTestable signals
     // still populate the "manual review" checklist below regardless, since
     // that's a genuinely separate concern from "everything passed".
-    let cv_clean = score >= 80;
+    //
+    // "Clean" now means no problem signal at all. The old `score >= 80` let
+    // the success line claim "all signals look good" while up to a fifth of
+    // them were problems (plan 29, D4).
+    let cv_clean = cv.problem_count == 0;
     if cv_clean {
         builder = builder.add_component(Callout::success(i18n.t("pdf-cv-success")));
     }

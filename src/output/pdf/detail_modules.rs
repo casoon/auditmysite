@@ -59,7 +59,9 @@ fn clean_section_note(i18n: &I18n) -> Label {
 fn module_customer_context(
     i18n: &I18n,
     module_key: &str,
-    score: u32,
+    // `None` for a module that carries no 0-100 score at all (plan 29, D4) —
+    // the score-derived weakness sentence is then simply omitted.
+    score: Option<u32>,
     // Intentionally unused: the technical interpretation / heuristic disclaimer
     // is already shown in the module's "Überblick" and indicator notes. Appending
     // it here duplicated jargon (e.g. "DOM-Komplexität 20804 Knoten") into the
@@ -70,23 +72,24 @@ fn module_customer_context(
     // html_conform is score-neutral with a known false-positive gap (see
     // detail_modules/html_conform.rs) -- a generic "clear weakness" sentence
     // for its score would contradict the module's own heuristic-reliability
-    // disclaimer immediately above it. Same treatment as content_visibility.
-    let weakness = if module_key == "content_visibility" || module_key == "html_conform" {
-        None
-    } else if score < 50 {
-        Some(pick(
+    // disclaimer immediately above it. content_visibility no longer has a
+    // score to judge at all.
+    let scored = match module_key {
+        "content_visibility" | "html_conform" => None,
+        _ => score,
+    };
+    let weakness = match scored {
+        Some(s) if s < 50 => Some(pick(
             i18n,
             "Der Score zeigt in diesem Bereich eine deutliche Schwäche.",
             "The score indicates a clear weakness in this area.",
-        ))
-    } else if score < 75 {
-        Some(pick(
+        )),
+        Some(s) if s < 75 => Some(pick(
             i18n,
             "Der Score zeigt in diesem Bereich erkennbares Verbesserungspotenzial.",
             "The score indicates visible improvement potential in this area.",
-        ))
-    } else {
-        None
+        )),
+        _ => None,
     };
     let module_text = match (module_key, en) {
         ("performance", true) => "Visitors may experience delays, unstable rendering or unnecessary data transfer before the page feels usable.",

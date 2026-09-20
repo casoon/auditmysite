@@ -32,7 +32,7 @@ pub(in crate::output::pdf) fn render_html_conform(
         .add_component(module_customer_context(
             i18n,
             "html_conform",
-            hc.score,
+            Some(hc.score),
             &hc.interpretation,
         ));
 

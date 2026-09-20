@@ -35,7 +35,7 @@ pub(in crate::output::pdf) fn render_search_experience(
         .add_component(module_customer_context(
             i18n,
             "search_experience",
-            sx.score,
+            Some(sx.score),
             &sx.interpretation,
         ));
 

@@ -3,7 +3,7 @@ use crate::i18n::I18n;
 use renderreport::components::Component;
 
 fn text(i18n: &I18n, module: &str, score: u32, interp: &str) -> String {
-    module_customer_context(i18n, module, score, interp)
+    module_customer_context(i18n, module, Some(score), interp)
         .to_data()
         .to_string()
 }

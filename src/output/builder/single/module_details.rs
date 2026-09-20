@@ -886,7 +886,7 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 .categories
                 .iter()
                 .map(|cat| {
-                    let rating = match (cat.score_pct, en) {
+                    let rating = match (cat.pct(), en) {
                         (90..=100, true) => "Excellent",
                         (67..=89, true) => "Good",
                         (34..=66, true) => "Partial",
@@ -900,7 +900,9 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     };
                     (
                         cat.name.clone(),
-                        format!("{}%", cat.score_pct),
+                        // Counts, not a percentage: the denominator is the
+                        // point (plan 29, D4).
+                        format!("{} / {}", cat.passed, cat.total),
                         rating.to_string(),
                     )
                 })
@@ -1020,7 +1022,8 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 schema_manual_review_rows,
                 schema_parity_rows,
                 signal_rows,
-                signal_overall_pct: cp.signal_strength.overall_pct,
+                signal_passed: cp.signal_strength.totals().0,
+                signal_total: cp.signal_strength.totals().1,
                 signal_details,
                 maturity_level: cp.maturity.label(en).to_string(),
                 maturity_description: cp.maturity.description(en).to_string(),

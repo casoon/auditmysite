@@ -1073,9 +1073,14 @@ pub struct SeoProfilePresentation {
     pub schema_manual_review_rows: Vec<(String, String)>,
     // (schema/property, parity status, short visible-vs-schema evidence)
     pub schema_parity_rows: Vec<(String, String, String)>,
-    // Signal Strength: (category, score%, rating_label)
+    // Signal Strength: (category, "met / checked", rating_label)
     pub signal_rows: Vec<(String, String, String)>,
-    pub signal_overall_pct: u32,
+    /// Signals met and signals checked across all categories. Replaces the
+    /// weighted overall percentage in the report: a percentage of pass rates,
+    /// weighted by six invented factors, is further from the evidence than
+    /// the counts are (plan 29, D4).
+    pub signal_passed: u32,
+    pub signal_total: u32,
     // Signal Details: (category_name, [(check_label, passed, detail)])
     pub signal_details: SignalDetails,
     // Maturity

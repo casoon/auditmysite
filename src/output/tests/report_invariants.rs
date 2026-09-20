@@ -125,6 +125,51 @@ fn only_weighted_modules_carry_a_letter_grade() {
     }
 }
 
+/// Plan 29, D4: "share of checks that did not complain" is not a measurement
+/// of the page — adding a check that usually passes lifts every site. Content
+/// Visibility therefore carries no module score at all.
+#[test]
+fn content_visibility_carries_no_module_score() {
+    let report = make_report(WcagResults::new());
+    let normalized = normalize(&report).normalized;
+
+    assert!(
+        !normalized
+            .module_scores
+            .iter()
+            .any(|m| m.name == "Content Visibility"),
+        "Content Visibility is reported through its counts, not as a score"
+    );
+}
+
+/// Same rule one level down: an SEO signal category publishes how many of its
+/// checks passed and how many there are, never a bare percentage.
+#[test]
+fn seo_signal_categories_publish_their_denominator() {
+    use crate::seo::profile::build_content_profile;
+
+    let seo = crate::seo::SeoAnalysis::default();
+    let profile = build_content_profile(&seo, "en");
+    assert!(
+        !profile.signal_strength.categories.is_empty(),
+        "fixture must produce signal categories"
+    );
+    for cat in &profile.signal_strength.categories {
+        assert!(cat.total > 0, "{} has no checks", cat.name);
+        assert_eq!(
+            cat.total as usize,
+            cat.checks.len(),
+            "{} reports a total its own check list does not back",
+            cat.name
+        );
+        assert!(
+            cat.passed <= cat.total,
+            "{} passed more than it has",
+            cat.name
+        );
+    }
+}
+
 // ─── Performance measurement_warnings serialization ──────────────────────────
 
 #[test]

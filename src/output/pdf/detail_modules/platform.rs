@@ -30,7 +30,7 @@ pub(in crate::output::pdf) fn render_security(
         .add_component(module_customer_context(
             i18n,
             "security",
-            sec.score,
+            Some(sec.score),
             &sec.interpretation,
         ));
 
@@ -149,7 +149,7 @@ pub(in crate::output::pdf) fn render_mobile(
         .add_component(module_customer_context(
             i18n,
             "mobile",
-            mobile.score,
+            Some(mobile.score),
             &mobile.interpretation,
         ));
 

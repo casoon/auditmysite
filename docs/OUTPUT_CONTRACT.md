@@ -23,6 +23,8 @@
 
 ## Score and Count Semantics
 
+- A 0–100 value is only reported where its denominator is a fixed quantity. Where the value would otherwise be "share of however many checks exist", the report gives counts instead: `content_visibility` carries `signal_count`/`problem_count` and no score, and each `seo.content_profile.signal_strength.categories[]` entry carries `passed`/`total` rather than a percentage.
+- `Content Visibility` is not a `module_scores[]` entry. It is an indicator reported through its counts and its signal list.
 - Scores use a 0–100 scale; higher values are better. The top-level `metric_context` block describes the scale and the meaning of score and count fields for machine consumers.
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
