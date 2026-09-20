@@ -170,6 +170,66 @@ fn seo_signal_categories_publish_their_denominator() {
     }
 }
 
+/// Plan 29, D3: an indicator that re-reads another module's result says so.
+/// Without it, a reader takes SEO, AI Visibility and Source Quality agreeing
+/// for three independent assessments.
+#[test]
+fn derived_indicators_name_the_modules_they_re_read() {
+    use crate::accessibility::AXTree;
+    use crate::journey::analyze_journey;
+    use crate::ux::analyze_ux;
+
+    let mut report = make_report(WcagResults::new());
+    report.ux = Some(analyze_ux(&AXTree::new()));
+    report.journey = Some(analyze_journey(&AXTree::new()));
+    let normalized = normalize(&report).normalized;
+
+    for entry in &normalized.module_scores {
+        assert_eq!(
+            entry.derived_from,
+            crate::taxonomy::module_derived_from(&entry.name),
+            "{} disagrees with the derived-from table",
+            entry.name,
+        );
+        assert!(
+            entry.derived_from.is_empty() || entry.weight_pct == 0,
+            "{} carries weight although it only re-reads other modules",
+            entry.name,
+        );
+    }
+    let ux = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "UX")
+        .expect("UX entry");
+    assert_eq!(ux.derived_from, vec!["accessibility".to_string()]);
+}
+
+/// Plan 29, D3: the accessibility result is reported by the Accessibility
+/// module. Folding it into Source Quality's authority dimension and into the
+/// AI citability score let one finding move four displayed numbers.
+#[test]
+fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
+    use crate::ai_visibility::analyze_ai_visibility;
+    use crate::source_quality::analyze_source_quality;
+
+    let mut clean = make_report(WcagResults::new());
+    clean.accessibility.score = 100.0;
+    let mut broken = make_report(WcagResults::new());
+    broken.accessibility.score = 5.0;
+
+    assert_eq!(
+        analyze_source_quality(&clean).authority.score,
+        analyze_source_quality(&broken).authority.score,
+        "the accessibility score still moves Source Quality's authority dimension"
+    );
+    assert_eq!(
+        analyze_ai_visibility(&clean).citation.dimension.score,
+        analyze_ai_visibility(&broken).citation.dimension.score,
+        "the accessibility score still moves the AI citability score"
+    );
+}
+
 // ─── Performance measurement_warnings serialization ──────────────────────────
 
 #[test]

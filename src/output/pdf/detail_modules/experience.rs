@@ -30,6 +30,11 @@ pub(in crate::output::pdf) fn render_ux(
             Some(ux.score),
             &ux.interpretation,
         ));
+    if let Some(note) = super::derived_from_note(i18n, "UX") {
+        builder = builder.add_component(note);
+    }
+    builder =
+        super::a11y_penalty_note(builder, ux.a11y_penalty, ux.score_before_a11y_penalty, i18n);
 
     // The struct carries canonical English; re-derive everything in the run language.
     let en = i18n.locale() == "en";
@@ -101,6 +106,15 @@ pub(in crate::output::pdf) fn render_journey(
             Some(journey.score),
             &journey.interpretation,
         ));
+    if let Some(note) = super::derived_from_note(i18n, "Journey") {
+        builder = builder.add_component(note);
+    }
+    builder = super::a11y_penalty_note(
+        builder,
+        journey.a11y_penalty,
+        journey.score_before_a11y_penalty,
+        i18n,
+    );
 
     // The struct carries canonical English; re-derive everything in the run language.
     let en = i18n.locale() == "en";

@@ -27,14 +27,21 @@ pub(crate) struct CitationInput {
     pub has_og_meta: bool,
     pub word_count: u32,
     pub heading_count: usize,
-    pub security_score: Option<u32>,
-    pub a11y_score: f32,
     pub has_faq_schema: bool,
     pub has_lists: bool,
     pub short_paragraph_ratio: f32,
     pub has_date_published: bool,
     pub has_breadcrumb: bool,
 }
+
+/// Every citation signal counts the same.
+///
+/// The eleven hand-set weights this replaced (0.08, 0.15, 0.10, 0.08, 0.07,
+/// 0.15, 0.10, 0.10, 0.07, 0.05, 0.05) implied a calibration that does not
+/// exist: no evidence says an LLM is likelier to cite a page because it
+/// carries BreadcrumbList schema. Equal weights are at least honest about
+/// that (plan 42 §3).
+const SIGNAL_WEIGHT: f32 = 1.0;
 
 pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     let mut signals = Vec::new();
@@ -43,7 +50,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::Encryption,
         input.has_https,
-        0.08,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -52,7 +59,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::PublisherIdentity,
         has_identity,
-        0.15,
+        SIGNAL_WEIGHT,
         AiSignalValues {
             has_author: Some(input.has_author_schema),
             has_org: Some(input.has_org_schema),
@@ -64,7 +71,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::ArticleStructure,
         input.has_article_schema,
-        0.10,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -72,7 +79,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::PublicationDate,
         input.has_date_published,
-        0.08,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -80,7 +87,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::CanonicalUrl,
         input.has_canonical,
-        0.07,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -89,7 +96,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::SnippetQuality,
         good_snippet_structure,
-        0.15,
+        SIGNAL_WEIGHT,
         AiSignalValues {
             short_paragraph_ratio: Some(input.short_paragraph_ratio),
             has_lists: Some(input.has_lists),
@@ -101,7 +108,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::QuestionAnswerPattern,
         input.has_faq_schema,
-        0.10,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -110,7 +117,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::ContentDepth,
         substantial,
-        0.10,
+        SIGNAL_WEIGHT,
         AiSignalValues {
             word_count: Some(input.word_count),
             section_count: Some(input.heading_count as u32),
@@ -122,7 +129,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::SharingMetadata,
         input.has_og_meta,
-        0.07,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
     ));
 
@@ -130,23 +137,8 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     signals.push(AiSignal::new(
         AiSignalKind::ThematicContext,
         input.has_breadcrumb,
-        0.05,
+        SIGNAL_WEIGHT,
         AiSignalValues::default(),
-    ));
-
-    // 11. Technical trust
-    let sec_good = input.security_score.is_none_or(|s| s >= 70);
-    let a11y_good = input.a11y_score >= 80.0;
-    let tech_trust = sec_good && a11y_good;
-    signals.push(AiSignal::new(
-        AiSignalKind::TechnicalTrust,
-        tech_trust,
-        0.05,
-        AiSignalValues {
-            security_score: input.security_score,
-            a11y_score: Some(input.a11y_score),
-            ..Default::default()
-        },
     ));
 
     CitationAnalysis {
@@ -350,27 +342,6 @@ pub(crate) fn detail_thematic_context(present: bool, en: bool) -> String {
     }
 }
 
-pub(crate) fn detail_technical_trust(present: bool, v: &AiSignalValues, en: bool) -> String {
-    let security_score = v.security_score;
-    let a11y_score = v.a11y_score.unwrap_or(0.0);
-    format!(
-        "Security: {}, Accessibility: {:.0} — {}",
-        security_score.map_or("n/a".to_string(), |s| format!("{}", s)),
-        a11y_score,
-        if present {
-            if en {
-                "stable technical foundation"
-            } else {
-                "stabile technische Basis"
-            }
-        } else if en {
-            "technical weaknesses reduce trust"
-        } else {
-            "technische Schwächen mindern Vertrauen"
-        }
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,8 +356,6 @@ mod tests {
             has_og_meta: true,
             word_count: 800,
             heading_count: 5,
-            security_score: Some(90),
-            a11y_score: 95.0,
             has_faq_schema: true,
             has_lists: true,
             short_paragraph_ratio: 0.6,
@@ -405,8 +374,6 @@ mod tests {
             has_og_meta: false,
             word_count: 0,
             heading_count: 0,
-            security_score: None,
-            a11y_score: 0.0,
             has_faq_schema: false,
             has_lists: false,
             short_paragraph_ratio: 0.0,
@@ -463,22 +430,5 @@ mod tests {
             .find(|s| s.kind == AiSignalKind::SnippetQuality)
             .expect("signal must exist");
         assert!(snippet_signal.present);
-    }
-
-    #[test]
-    fn low_a11y_score_triggers_tech_trust_failure() {
-        let input = CitationInput {
-            a11y_score: 50.0, // below 80.0 threshold
-            security_score: Some(90),
-            ..minimal_input()
-        };
-        let result = analyze_citation(&input);
-        let trust_signal = result
-            .dimension
-            .signals
-            .iter()
-            .find(|s| s.kind == AiSignalKind::TechnicalTrust)
-            .expect("signal must exist");
-        assert!(!trust_signal.present);
     }
 }

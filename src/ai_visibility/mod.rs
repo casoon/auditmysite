@@ -147,7 +147,6 @@ pub enum AiSignalKind {
     ContentDepth,
     SharingMetadata,
     ThematicContext,
-    TechnicalTrust,
     // Chunks
     SectionCount,
     SectionLength,
@@ -232,12 +231,6 @@ pub struct AiSignalValues {
     /// Whether lists are present (SnippetQuality)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub has_lists: Option<bool>,
-    /// Security score (TechnicalTrust)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub security_score: Option<u32>,
-    /// Accessibility score (TechnicalTrust)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub a11y_score: Option<f32>,
     /// Count of optimal-sized sections (SectionLength)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub optimal_count: Option<u32>,
@@ -422,8 +415,6 @@ pub fn ai_signal_text(
         (SharingMetadata, false) => "Teilen-Metadaten".into(),
         (ThematicContext, true) => "Thematic context".into(),
         (ThematicContext, false) => "Thematische Einordnung".into(),
-        (TechnicalTrust, true) => "Technical trust".into(),
-        (TechnicalTrust, false) => "Technisches Vertrauen".into(),
         (SectionCount, true) => "Section count".into(),
         (SectionCount, false) => "Abschnittszahl".into(),
         (SectionLength, true) => "Heuristic: section length".into(),
@@ -500,7 +491,6 @@ fn ai_signal_detail(
         ContentDepth => citation::detail_content_depth(present, values, en),
         SharingMetadata => citation::detail_sharing_metadata(present, en),
         ThematicContext => citation::detail_thematic_context(present, en),
-        TechnicalTrust => citation::detail_technical_trust(present, values, en),
         SectionCount => chunks::detail_section_count(values, en),
         SectionLength => chunks::detail_section_length(values, en),
         NoOversizedSections => chunks::detail_no_oversized(present, values, en),
@@ -967,8 +957,6 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
         has_og_meta,
         word_count,
         heading_count,
-        security_score: report.security.as_ref().map(|s| s.score),
-        a11y_score: report.accessibility.score,
         has_faq_schema,
         has_lists,
         short_paragraph_ratio,

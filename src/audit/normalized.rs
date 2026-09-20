@@ -407,6 +407,13 @@ pub struct ModuleScoreEntry {
     /// False for supplemental dimensions (UX, Journey) that are displayed
     /// but not part of the core weighted average.
     pub contributes_to_overall: bool,
+    /// Modules this one re-reads instead of measuring anything new (plan 29,
+    /// D3). Empty for a module that measures its own subject. A reader who
+    /// sees Source Quality agree with SEO and Accessibility is not looking at
+    /// converging independent evidence — this field says so. Canonical module
+    /// keys, lowercase.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub derived_from: Vec<String>,
     /// Whether this module uses direct measurement or heuristic inference.
     /// One of `"measured"`, `"composite"`, `"heuristic"`, `"optional"`,
     /// `"not_measured"`, `"c2pa_manifest"`, `"dns_query"`. See
@@ -439,6 +446,10 @@ impl ModuleScoreEntry {
             band: crate::registry::FIVE_BAND
                 .label(score as f32, true)
                 .to_string(),
+            derived_from: crate::taxonomy::module_derived_from(name)
+                .iter()
+                .map(|m| m.to_string())
+                .collect(),
             weight_pct,
             contributes_to_overall,
             measurement_type: measurement_type.to_string(),

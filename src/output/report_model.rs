@@ -1176,6 +1176,10 @@ pub struct MobilePresentation {
 /// UX analysis presentation block
 pub struct UxPresentation {
     pub score: u32,
+    /// Points the Accessibility result cost this score, and the score before
+    /// it was charged. Reported rather than folded in silently (plan 29, D3).
+    pub a11y_penalty: u32,
+    pub score_before_a11y_penalty: u32,
     pub grade: String,
     pub interpretation: String,
     pub dimensions: Vec<UxDimensionPresentation>,
@@ -1201,6 +1205,9 @@ pub struct UxIssuePresentation {
 
 pub struct JourneyPresentation {
     pub score: u32,
+    /// See [`UxPresentation::a11y_penalty`].
+    pub a11y_penalty: u32,
+    pub score_before_a11y_penalty: u32,
     pub grade: String,
     pub page_intent: String,
     pub interpretation: String,

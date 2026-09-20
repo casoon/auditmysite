@@ -39,6 +39,9 @@ pub(in crate::output::pdf) fn render_source_quality(
             Some(sq.score),
             &disclaimer,
         ));
+    if let Some(note) = super::derived_from_note(i18n, "Source Quality") {
+        builder = builder.add_component(note);
+    }
 
     if sq.score >= 80 {
         return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
@@ -205,6 +208,9 @@ pub(in crate::output::pdf) fn render_ai_visibility(
             Some(av.score),
             &disclaimer,
         ));
+    if let Some(note) = super::derived_from_note(i18n, "AI Visibility") {
+        builder = builder.add_component(note);
+    }
 
     if av.score >= 80 {
         return builder.add_component(Callout::success(i18n.t("pdf-ai-success")));

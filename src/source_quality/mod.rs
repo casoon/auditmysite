@@ -97,7 +97,6 @@ pub enum QualitySignalKind {
     PublisherIdentity,
     CanonicalUrl,
     SocialMeta,
-    Accessibility,
     TrustSignals,
     // Consistency (single page)
     HeadingHierarchy,
@@ -145,7 +144,7 @@ pub struct SignalValues {
     /// Whether <main> is missing in the AX tree (SemanticStructure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub missing_main: Option<bool>,
-    /// An accessibility/UX score (Accessibility, TrustSignals)
+    /// A UX score (TrustSignals)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<f32>,
     /// A cross-page coverage percentage (*Coverage, ErrorFreePages)
@@ -304,8 +303,6 @@ pub fn source_quality_signal_text(
         (CanonicalUrl, _) => "Canonical URL".into(),
         (SocialMeta, true) => "Social meta".into(),
         (SocialMeta, false) => "Social-Meta".into(),
-        (Accessibility, true) => "Accessibility".into(),
-        (Accessibility, false) => "Barrierefreiheit".into(),
         (TrustSignals, true) => "Trust signals".into(),
         (TrustSignals, false) => "Vertrauenssignale".into(),
         (HeadingHierarchy, true) => "Heading hierarchy".into(),
@@ -526,22 +523,6 @@ pub fn source_quality_signal_text(
                 "Incomplete social metadata".into()
             } else {
                 "Unvollständige Social-Metadaten".into()
-            }
-        }
-        Accessibility => {
-            let score = values.score.unwrap_or(0.0);
-            if en {
-                format!(
-                    "Accessibility score: {:.0}{}",
-                    score,
-                    if present { "" } else { " (low)" }
-                )
-            } else {
-                format!(
-                    "Accessibility-Score: {:.0}{}",
-                    score,
-                    if present { "" } else { " (niedrig)" }
-                )
             }
         }
         TrustSignals => {
@@ -950,19 +931,12 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
         ));
     }
 
-    // 6. Accessibility score as quality signal
-    let a11y_good = report.accessibility.score >= 80.0;
-    signals.push(QualitySignal::new(
-        Accessibility,
-        a11y_good,
-        0.15,
-        SignalValues {
-            score: Some(report.accessibility.score),
-            ..Default::default()
-        },
-    ));
+    // The accessibility score used to be signal 6 here. It is reported by the
+    // Accessibility module, and folding it in again made a single finding move
+    // both numbers, so the report read as two independent assessments that
+    // happened to agree (plan 29, D3).
 
-    // 7. Trust signals from UX module
+    // 6. Trust signals from UX module
     if let Some(ux) = &report.ux {
         let trust_good = ux.trust_signals.score >= 70;
         signals.push(QualitySignal::new(

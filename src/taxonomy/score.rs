@@ -89,6 +89,26 @@ pub const MODULE_WEIGHTS: &[(&str, u32)] = &[
     ("HTML Conformance", 5),
 ];
 
+/// Module this one re-reads instead of measuring anything new (plan 29, D3).
+///
+/// Empty for a module that measures its own subject. One table for both the
+/// stored `ModuleScoreEntry::derived_from` and the note the PDF prints, so the
+/// data and the sentence explaining it cannot drift.
+pub fn module_derived_from(name: &str) -> &'static [&'static str] {
+    match name {
+        // The Accessibility result is charged against both indicators as an
+        // explicit penalty (`ux_a11y_penalty` / `journey_a11y_penalty`).
+        "UX" | "Journey" => &["accessibility"],
+        // Reads SEO's own signals: canonical URL, social meta, structured
+        // data, headings.
+        "AI Visibility" => &["seo"],
+        // Reads SEO, Security headers/HTTPS, and the image-alt and
+        // interactive-name counts from the Accessibility result.
+        "Source Quality" => &["seo", "security", "accessibility"],
+        _ => &[],
+    }
+}
+
 /// Gewicht eines Moduls nachschlagen. `0` für ein Modul, das nicht in den
 /// Gesamtscore eingeht.
 pub fn module_weight(name: &str) -> u32 {

@@ -2210,6 +2210,8 @@ fn build_ux_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<UxPres
         let ux_score = normalized_module_score(&normalized.normalized, "UX").unwrap_or(u.score);
         UxPresentation {
             score: ux_score,
+            a11y_penalty: u.score.saturating_sub(ux_score),
+            score_before_a11y_penalty: u.score,
             grade: normalized_module_grade(&normalized.normalized, "UX")
                 .unwrap_or_else(|| u.grade.clone()),
             interpretation: module_interpretation(&normalized.normalized, "ux", locale),
@@ -2301,6 +2303,8 @@ fn build_journey_details(
         };
         JourneyPresentation {
             score: journey_score,
+            a11y_penalty: j.score.saturating_sub(journey_score),
+            score_before_a11y_penalty: j.score,
             grade: normalized_module_grade(&normalized.normalized, "Journey")
                 .unwrap_or_else(|| j.grade.clone()),
             page_intent: j.page_intent.label(en).to_string(),

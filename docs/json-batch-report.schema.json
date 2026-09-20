@@ -777,6 +777,11 @@
           "type": "string",
           "description": "Canonical English qualitative band for `score` (registry FIVE_BAND). The only qualitative label a module of weight 0 carries."
         },
+        "derived_from": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Modules this one re-reads instead of measuring anything new. Absent when the module measures its own subject (plan 29, D3)."
+        },
         "weight_pct": {
           "type": "integer",
           "minimum": 0,

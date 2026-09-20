@@ -130,6 +130,76 @@ fn module_customer_context(
         .with_color(crate::output::pdf::design::tokens::NEUTRAL)
 }
 
+/// States that an indicator re-reads other modules rather than measuring
+/// anything new (plan 29, D3). `None` for a module that measures its own
+/// subject, so the note only appears where it is true.
+///
+/// Without it, a reader sees SEO, AI Visibility and Source Quality agree and
+/// takes that for three independent assessments. They largely share inputs.
+pub(super) fn derived_from_note(i18n: &I18n, module_name: &str) -> Option<Label> {
+    let sources = crate::taxonomy::module_derived_from(module_name);
+    if sources.is_empty() {
+        return None;
+    }
+    let en = is_english(i18n);
+    let names: Vec<String> = sources
+        .iter()
+        .map(|key| {
+            let translated = i18n.t(&format!("module-{key}"));
+            if translated == format!("module-{key}") {
+                key.to_string()
+            } else {
+                translated
+            }
+        })
+        .collect();
+    let list = names.join(", ");
+    let text = if en {
+        format!(
+            "This indicator re-reads results already reported under {list}. It measures nothing of its own, so its agreement with those modules is not independent confirmation."
+        )
+    } else {
+        format!(
+            "Dieser Indikator liest Ergebnisse neu, die bereits unter {list} berichtet werden. Er misst nichts Eigenes — seine Übereinstimmung mit diesen Modulen ist keine unabhängige Bestätigung."
+        )
+    };
+    Some(
+        Label::new(text)
+            .with_size("10.5pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    )
+}
+
+/// Names the points the Accessibility result cost this indicator.
+///
+/// The penalty is defensible — for users with disabilities, accessibility
+/// *is* the UX — but it was folded into the score with nothing said, so the
+/// number looked like an independent reading of the page (plan 29, D3).
+pub(super) fn a11y_penalty_note(
+    builder: renderreport::engine::ReportBuilder,
+    penalty: u32,
+    score_before: u32,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if penalty == 0 {
+        return builder;
+    }
+    let text = if is_english(i18n) {
+        format!(
+            "Includes an accessibility penalty of {penalty} points: {score_before} before it was applied."
+        )
+    } else {
+        format!(
+            "Enthält einen Abzug von {penalty} Punkten für die Barrierefreiheits-Befunde: {score_before} vor dem Abzug."
+        )
+    };
+    builder.add_component(
+        Label::new(text)
+            .with_size("10.5pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    )
+}
+
 /// Gauge color bands matching `design::score_color`'s 40/75 thresholds
 /// (higher is better). `Gauge`'s own defaults assume the opposite — a
 /// value climbing towards `max` reads as *more* severe — so every score
