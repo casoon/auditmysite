@@ -14,6 +14,7 @@ mod diagnosis;
 mod en301549;
 mod findings;
 mod helpers;
+mod problem_profile;
 mod sanitize;
 mod single_report;
 mod wcag_coverage;

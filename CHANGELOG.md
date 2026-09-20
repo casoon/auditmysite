@@ -5,6 +5,27 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Wartbarkeits-Hotspot 1, 2026-09-20 (Plan 27):** `src/output/pdf/single_report.rs` war mit 3.717
+  Zeilen und 21 Aenderungen in 60 Tagen die am haeufigsten angefasste Datei des Projekts und mischte
+  Risiken/Staerken, Problem-Profil, Score-Treiber-Tabelle, Subkategorie-Breakdown, Anhang, Findings,
+  Root-Cause-Analyse und Roadmap.
+
+  Herausgeloest ist das Problem-Profil-Cluster nach `src/output/pdf/problem_profile.rs` (527
+  Zeilen): neun Funktionen, zwei Konstanten und zwei Typen. Der Schnitt war risikoarm, weil nichts
+  davon von ausserhalb `single_report.rs` referenziert wurde — nur drei Funktionen mussten von
+  privat auf `pub(super)`. `single_report.rs` faellt auf 3.219 Zeilen; der Diff dort enthaelt ausser
+  drei Importzeilen und zwei Sichtbarkeits-Anhebungen nur Loeschungen.
+
+  Output-neutral verifiziert: der `--debug-typ`-Lauf von www.inros-lackner.de hat davor und danach
+  dieselbe Zeilenzahl und einen identischen Problemprofil-Abschnitt.
+
+  Der Test-Helfer `test_report_view_model` wurde nicht dupliziert, sondern ueber
+  `pub(in crate::output::pdf)` sichtbar gemacht — eine zweite Kopie einer 70-Zeilen-Fixture waere
+  genau die Art Duplikat, die dieser Plan abbaut.
+
+  Neubewertung fuer Hotspot 2: `normalized.rs` ist mit 4.553 Zeilen und 20 Aenderungen/60 Tagen
+  jetzt die groesste Datei und der naechste Kandidat. Details im Plan.
+
 - **Darstellungsartefakte im PDF, 2026-09-20 (Plan 36):** Sechs kleine, unabhaengige Defekte aus
   einem Review der beiden `--debug-typ`-Quellen, jeder wenige Zeilen, keiner eine
   Produktentscheidung.
