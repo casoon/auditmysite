@@ -908,7 +908,7 @@ pub fn journey_friction_text(
 ///
 /// Produces canonical-English text in the struct (and thus JSON).
 pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
-    analyze_journey_inner(tree, false)
+    analyze_journey_inner(tree, false, None)
 }
 
 /// Like [`analyze_journey`] but accepts a DOM-level hint for whether a `<main>`
@@ -919,10 +919,28 @@ pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
 ///
 /// Produces canonical-English text in the struct (and thus JSON).
 pub fn analyze_journey_with_dom_check(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
-    analyze_journey_inner(tree, dom_has_main)
+    analyze_journey_inner(tree, dom_has_main, None)
 }
 
-fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
+/// Like [`analyze_journey_with_dom_check`], plus the length of the visible text
+/// in the first viewport height as measured in the rendered page.
+///
+/// Pass `None` when no page is available; the analysis then falls back to a
+/// document-order window over the tree, which is a weaker proxy — see
+/// `analyze_entry_clarity` (plan 51).
+pub fn analyze_journey_with_page_context(
+    tree: &AXTree,
+    dom_has_main: bool,
+    measured_early_text: Option<usize>,
+) -> JourneyAnalysis {
+    analyze_journey_inner(tree, dom_has_main, measured_early_text)
+}
+
+fn analyze_journey_inner(
+    tree: &AXTree,
+    dom_has_main: bool,
+    measured_early_text: Option<usize>,
+) -> JourneyAnalysis {
     info!("Analyzing user journey...");
 
     let page_intent = detect_page_intent(tree);
@@ -930,7 +948,7 @@ fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
 
     let mut friction_points = Vec::new();
 
-    let entry_clarity = analyze_entry_clarity(tree, &mut friction_points);
+    let entry_clarity = analyze_entry_clarity(tree, measured_early_text, &mut friction_points);
     let orientation = analyze_orientation(tree, &mut friction_points, dom_has_main);
     let navigation = analyze_navigation(tree, &mut friction_points);
     let interaction = analyze_interaction(tree, &mut friction_points);
@@ -983,7 +1001,11 @@ fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
 // ── Dimension analyzers ─────────────────────────────────────────────
 
 /// Entry Clarity: Is the purpose of this page immediately clear?
-fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+fn analyze_entry_clarity(
+    tree: &AXTree,
+    measured_early_text: Option<usize>,
+    friction: &mut Vec<FrictionPoint>,
+) -> JourneyDimension {
     use FrictionKind::*;
     let headings = tree.headings();
     let mut penalties = Vec::new();
@@ -1026,20 +1048,25 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
 
     // Early content: does the top of the page carry text at all?
     //
-    // `take(50)` only means "the first portion" because iteration is in
-    // document order (plan 49) — over the old hash order it was fifty
-    // arbitrary nodes. And the window has to be read through `iter_all`:
-    // `iter` drops `StaticText` as browser-generated, so the old filter saw
-    // headings alone and reported "little early text" on 1595 of 2731 real
-    // cached pages — more than half the web, supposedly textless at the top
-    // (plan 50).
-    let early_text_len: usize = tree
-        .iter_all()
-        .take(50)
-        .filter(|n| n.is_text())
-        .filter_map(|n| n.name.as_ref())
-        .map(|n| n.len())
-        .sum();
+    // The finding this feeds claims "little visible text in the upper area of
+    // the page", so it is measured there: `measured_early_text` comes from the
+    // rendered page, summing text whose box lies within the first viewport
+    // height (`JourneyModule::collect`).
+    //
+    // The fallback counts text nodes among the first 50 in document order.
+    // That is a proxy for vertical position and a poor one — on
+    // www.inros-lackner.de the first 50 nodes are a skip link and forty
+    // wrappers, while the articles further down are the actual top of the
+    // page (plan 51). It stands in only where no page is available: the
+    // library entry point `analyze_journey`, and tests.
+    let early_text_len = measured_early_text.unwrap_or_else(|| {
+        tree.iter_all()
+            .take(50)
+            .filter(|n| n.is_text())
+            .filter_map(|n| n.name.as_ref())
+            .map(|n| n.len())
+            .sum()
+    });
 
     if early_text_len < 30 {
         penalties.push(20.0);
@@ -1436,6 +1463,45 @@ mod tests {
             name: name.map(|s| s.into()),
             ..Default::default()
         }
+    }
+
+    /// Plan 51: the measurement from the rendered page wins over the
+    /// tree-order proxy, in both directions. Without this the proxy silently
+    /// decides, and it decides badly on wrapper-heavy markup.
+    #[test]
+    fn a_measured_page_beats_the_tree_order_proxy() {
+        use crate::accessibility::AXTree;
+
+        // A tree whose proxy window is full of text.
+        let mut nodes = vec![node("root", "RootWebArea", Some("Seite"))];
+        for i in 0..5 {
+            nodes.push(node(
+                &format!("t{i}"),
+                "StaticText",
+                Some("Reichlich Text ganz vorne im Baum."),
+            ));
+        }
+        let tree = AXTree::from_nodes(nodes);
+
+        let has_finding = |analysis: JourneyAnalysis| {
+            analysis
+                .friction_points
+                .iter()
+                .any(|f| matches!(f.kind, FrictionKind::LittleEarlyText))
+        };
+
+        assert!(
+            !has_finding(analyze_journey(&tree)),
+            "without a page the proxy applies, and this tree passes it"
+        );
+        assert!(
+            has_finding(analyze_journey_with_page_context(&tree, false, Some(0))),
+            "a page with no text above the fold is flagged even when the proxy passes"
+        );
+        assert!(
+            !has_finding(analyze_journey_with_page_context(&tree, false, Some(400))),
+            "a page with text above the fold is not flagged"
+        );
     }
 
     /// Plan 50: the page's opening text sits on `StaticText` nodes, which

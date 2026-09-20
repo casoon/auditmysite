@@ -5,6 +5,33 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **„Wenig Text oben" mass Knoten- statt Seitenposition, 2026-09-20 (Plan 51):** Der Befund sagt
+  dem Kunden „Wenig sichtbarer Text im oberen Seitenbereich — Nutzer erhalten keine sofortige
+  Orientierung". Das ist eine Aussage ueber die *gerenderte* Seite; gemessen wurden die ersten 50
+  Knoten des Accessibility-Baums in Dokumentreihenfolge.
+
+  Nach dem Rollen-Fix aus Plan 50 blieben 93 von 2731 gecachten Seiten geflaggt, und diese Reste
+  waren keine kleinere Version desselben Problems, sondern das Versagen der Naeherung. Auf
+  www.inros-lackner.de sind die ersten 50 Knoten ein Skip-Link und vierzig Wrapper; die
+  `article`-Elemente stehen als leere Huellen *vor* ihrem eigenen Text. Baumreihenfolge ist dort
+  ueberhaupt keine vertikale Reihenfolge, also haette auch eine Wrapper-ueberspringende Variante
+  (gemessen: 13 statt 93) nur eine unkalibrierte Konstante gegen eine andere getauscht.
+
+  Jetzt misst `JourneyModule::collect` in der Seite: ein `TreeWalker` summiert den Text, dessen
+  Box in der ersten Viewport-Hoehe liegt. In Dokumentkoordinaten (`rect.top + scrollY`), weil ein
+  anderes Modul vorher gescrollt haben kann, und ohne Screenreader-only-Text — derselbe
+  `__amsIsVisuallyHidden`-Helfer, den die In-Page-WCAG-Checks nutzen. Dasselbe Muster wie der
+  bereits vorhandene `<main>`-DOM-Check des Moduls. Die Baum-Naeherung bleibt als Fallback fuer
+  Aufrufe ohne Seite (`analyze_journey`, Tests), damit ein fehlender Messwert nicht als „kein Text"
+  gelesen wird.
+
+  Verifiziert in beide Richtungen mit drei Fixtures: Text hinter einem 3000px-Hero wird geflaggt,
+  eine Seite mit Ueberschrift und Absatz oben nicht, und 79 Zeichen reiner Screenreader-Text oben
+  zaehlen nicht als sichtbarer Text. www.inros-lackner.de wird nicht mehr geflaggt, Journey dort
+  65 -> 68; www.casoon.de unveraendert 91. Zwei Fixtures und ein End-to-End-Test in
+  `tests/integration_test.rs` halten beide Richtungen fest — die alte Naeherung konnte sie nicht
+  auseinanderhalten, weil die Ueberschrift im Baum so oder so vorne steht.
+
 - **Flaky Fixture-Server, 2026-09-20 (Plan 48):** `security_detection_corpus_matches_real_analyze_security_run`
   fiel sporadisch mit einer FALSE-NEGATIVE-Meldung um -- der schlimmstmoeglichen Form eines
   Flakes, weil sie sich wie eine echte Regression in der Security-Erkennung liest. Der Plan

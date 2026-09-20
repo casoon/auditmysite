@@ -384,6 +384,51 @@ async fn test_mobile_issues_detected() {
     );
 }
 
+/// Plan 51: "little visible text in the upper area of the page" is a claim
+/// about the rendered page, and is now measured there. The old proxy — the
+/// first 50 nodes of the accessibility tree in document order — said the
+/// opposite on both of these fixtures: tree order puts the heading first
+/// either way, so neither page could be told from the other.
+#[tokio::test]
+#[ignore]
+async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
+    async fn flagged(fixture: &'static str) -> bool {
+        use auditmysite::journey::FrictionKind;
+
+        let (url, shutdown) = serve_fixture(fixture);
+        let manager = ci_browser().await;
+        let page = manager.new_page().await.expect("New page failed");
+        manager
+            .navigate(&page, &url)
+            .await
+            .expect("Navigation failed");
+        // `check_seo` is the JourneyModule's gate.
+        let mut config = default_config();
+        config.check_seo = true;
+        let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
+            .await
+            .expect("Audit failed");
+        shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+        report
+            .journey
+            .expect("journey analysis present")
+            .friction_points
+            .iter()
+            .any(|f| matches!(f.kind, FrictionKind::LittleEarlyText))
+    }
+
+    // Text pushed below a 3000px hero — the visitor meets nothing.
+    assert!(
+        flagged("early_text_below_fold.html").await,
+        "a page whose text starts below the fold must be flagged"
+    );
+    // Heading and paragraph at the top.
+    assert!(
+        !flagged("early_text_above_fold.html").await,
+        "a page that opens with a heading and a paragraph must not be flagged"
+    );
+}
+
 #[tokio::test]
 #[ignore]
 async fn test_modern_contrast_resolution() {
