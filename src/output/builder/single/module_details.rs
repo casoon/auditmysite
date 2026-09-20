@@ -2476,7 +2476,7 @@ pub(super) fn normalized_module_grade(
         .module_scores
         .iter()
         .find(|m| m.name == module_name)
-        .map(|m| m.grade.clone())
+        .and_then(|m| m.grade.clone())
 }
 
 #[cfg(test)]

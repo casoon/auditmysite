@@ -46,7 +46,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::AuditReport;
 use crate::seo::schema::SchemaType;
-use crate::taxonomy::module_score_grade;
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -55,8 +54,10 @@ use crate::taxonomy::module_score_grade;
 pub struct AiVisibilityAnalysis {
     /// Overall AI visibility score (0–100)
     pub score: u32,
-    /// Letter grade (A–F)
-    pub grade: String,
+    /// Qualitative band for `score`, canonical English (#406). This module
+    /// carries no weight in the overall score, so it gets a band word rather
+    /// than a letter grade (plan 29, D2).
+    pub band: String,
     /// LLM readability dimension
     pub readability: ReadabilityAnalysis,
     /// Citation likelihood dimension
@@ -555,7 +556,9 @@ pub fn analyze_ai_visibility(report: &AuditReport) -> AiVisibilityAnalysis {
 
     AiVisibilityAnalysis {
         score,
-        grade: module_score_grade(score).to_string(),
+        band: crate::registry::FIVE_BAND
+            .label(score as f32, true)
+            .to_string(),
         readability,
         citation,
         chunks,
@@ -581,7 +584,9 @@ pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnaly
         .next()
         .expect("analyses is non-empty: reports is non-empty, checked above");
     result.score = avg_score;
-    result.grade = module_score_grade(avg_score).to_string();
+    result.band = crate::registry::FIVE_BAND
+        .label(avg_score as f32, true)
+        .to_string();
 
     result
 }
@@ -1157,7 +1162,7 @@ fn empty_analysis() -> AiVisibilityAnalysis {
 
     AiVisibilityAnalysis {
         score: 0,
-        grade: "F".into(),
+        band: crate::registry::FIVE_BAND.label(0.0, true).to_string(),
         readability: ReadabilityAnalysis {
             dimension: empty_dim(DimensionKind::Readability),
         },
@@ -1255,7 +1260,7 @@ mod tests {
         let analysis = analyze_ai_visibility(&report);
         assert!(analysis.score <= 100);
         assert!(!analysis.disclaimer.is_empty());
-        assert!(!analysis.grade.is_empty());
+        assert!(!analysis.band.is_empty());
     }
 
     #[test]
@@ -1272,12 +1277,14 @@ mod tests {
     }
 
     #[test]
-    fn test_grade_mapping() {
-        assert_eq!(module_score_grade(95), "A");
-        assert_eq!(module_score_grade(80), "B");
-        assert_eq!(module_score_grade(65), "C");
-        assert_eq!(module_score_grade(45), "D");
-        assert_eq!(module_score_grade(20), "F");
+    fn band_replaces_the_letter_grade_this_module_no_longer_carries() {
+        // Plan 29, D2: an indicator of weight 0 gets a band word, not A-F.
+        let band = |s: f32| crate::registry::FIVE_BAND.label(s, true);
+        assert_eq!(band(95.0), "Excellent");
+        assert_eq!(band(80.0), "Good");
+        assert_eq!(band(65.0), "Needs improvement");
+        assert_eq!(band(45.0), "Inadequate");
+        assert_eq!(band(20.0), "Critical");
     }
 
     #[test]

@@ -46,12 +46,13 @@
   "$defs": {
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall"],
+      "required": ["name", "score", "band", "weight_pct", "contributes_to_overall"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "grade": { "type": "string" },
+        "grade": { "type": "string", "description": "Letter grade. Present only for modules with weight_pct > 0 (plan 29, D2)." },
+        "band": { "type": "string", "description": "Canonical English qualitative band for score. The only qualitative label a module of weight 0 carries." },
         "weight_pct": { "type": "integer", "minimum": 0 },
         "contributes_to_overall": {
           "type": "boolean",

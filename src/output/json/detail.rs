@@ -280,7 +280,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         // below, which are heuristic estimates (#577).
         dark_mode: ctx
             .raw_dark_mode
-            .map(|m| with_measurement_type(inject_grade(m.to_json(), m.score), "optional")),
+            .map(|m| with_measurement_type(inject_band(m.to_json(), m.score), "optional")),
         design_quality: ctx
             .raw_design_quality
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),

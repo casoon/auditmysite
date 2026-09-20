@@ -104,7 +104,12 @@ pub struct StudioReportArtifacts {
 pub struct StudioModuleScore {
     pub name: String,
     pub score: u32,
-    pub grade: String,
+    /// Letter grade — only for modules that carry weight in the overall score.
+    /// Mirrors `ModuleScoreEntry::grade` (plan 29, D2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grade: Option<String>,
+    /// Canonical English qualitative band for `score`; present on every entry.
+    pub band: String,
     pub weight_pct: u32,
     pub contributes_to_overall: bool,
 }
@@ -139,6 +144,7 @@ impl StudioAuditResponse {
                 name: m.name.clone(),
                 score: m.score,
                 grade: m.grade.clone(),
+                band: m.band.clone(),
                 weight_pct: m.weight_pct,
                 contributes_to_overall: m.contributes_to_overall,
             })

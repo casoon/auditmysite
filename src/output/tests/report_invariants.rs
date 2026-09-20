@@ -94,6 +94,37 @@ fn journey_score_propagated_to_summary() {
     assert_eq!(unified.summary.journey_score, Some(journey_entry.score));
 }
 
+/// Plan 29, D2: a letter grade claims the module's value counts. Only the
+/// weighted modules may carry one — "Dark Mode: F" sat next to an F for
+/// excluding screen-reader users and read as the same kind of verdict.
+#[test]
+fn only_weighted_modules_carry_a_letter_grade() {
+    use crate::accessibility::AXTree;
+    use crate::journey::analyze_journey;
+    use crate::ux::analyze_ux;
+
+    let mut report = make_report(WcagResults::new());
+    report.ux = Some(analyze_ux(&AXTree::new()));
+    report.journey = Some(analyze_journey(&AXTree::new()));
+    let normalized = normalize(&report).normalized;
+
+    assert!(
+        normalized.module_scores.len() >= 3,
+        "fixture must cover both weighted and indicator modules"
+    );
+    for entry in &normalized.module_scores {
+        assert!(!entry.band.is_empty(), "{} carries no band", entry.name);
+        assert_eq!(
+            entry.grade.is_some(),
+            entry.weight_pct > 0,
+            "{} has weight {} but grade {:?}",
+            entry.name,
+            entry.weight_pct,
+            entry.grade,
+        );
+    }
+}
+
 // ─── Performance measurement_warnings serialization ──────────────────────────
 
 #[test]

@@ -754,7 +754,7 @@
       "required": [
         "name",
         "score",
-        "grade",
+        "band",
         "weight_pct",
         "contributes_to_overall",
         "measurement_type"
@@ -770,7 +770,12 @@
           "maximum": 100
         },
         "grade": {
-          "type": "string"
+          "type": "string",
+          "description": "Letter grade. Present only for modules with weight_pct > 0 (plan 29, D2)."
+        },
+        "band": {
+          "type": "string",
+          "description": "Canonical English qualitative band for `score` (registry FIVE_BAND). The only qualitative label a module of weight 0 carries."
         },
         "weight_pct": {
           "type": "integer",

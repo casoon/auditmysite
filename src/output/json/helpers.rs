@@ -666,16 +666,32 @@ pub(super) fn with_normalized_score(
             }
         }
         obj.insert("score".to_string(), serde_json::json!(entry.score));
-        obj.insert("grade".to_string(), serde_json::json!(entry.grade));
+        // A letter grade only where one exists — a module of weight 0 carries
+        // the band word alone (plan 29, D2). `remove` rather than leaving the
+        // module's own grade in place: the raw module payload may carry a
+        // pre-adjustment grade (UX/Journey before the a11y penalty), and a
+        // stale letter is worse than none.
+        match &entry.grade {
+            Some(grade) => {
+                obj.insert("grade".to_string(), serde_json::json!(grade));
+            }
+            None => {
+                obj.remove("grade");
+            }
+        }
+        obj.insert("band".to_string(), serde_json::json!(entry.band));
     }
 
     value
 }
 
-pub(super) fn inject_grade(mut value: serde_json::Value, score: u32) -> serde_json::Value {
-    let grade = crate::audit::AccessibilityScorer::calculate_grade(score as f32);
+/// Qualitative band for a module that carries no weight in the overall score
+/// and therefore no letter grade (plan 29, D2). Canonical English (#406).
+pub(super) fn inject_band(mut value: serde_json::Value, score: u32) -> serde_json::Value {
+    let band = crate::registry::FIVE_BAND.label(score as f32, true);
     if let Some(obj) = value.as_object_mut() {
-        obj.insert("grade".to_string(), serde_json::json!(grade));
+        obj.remove("grade");
+        obj.insert("band".to_string(), serde_json::json!(band));
     }
     value
 }

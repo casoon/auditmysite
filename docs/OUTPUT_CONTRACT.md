@@ -12,7 +12,10 @@
 
 ## Module Classification
 
-- Every `report.module_scores[]` entry includes `measurement_type`.
+- Every `report.module_scores[]` entry includes `measurement_type` and `band`.
+- `band` is the canonical English qualitative label for `score`; it is present on every entry.
+- `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `overall_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
+- The same rule applies to the heuristic module payloads: `source_quality` and `ai_visibility` carry `band`, not `grade`, and `dark_mode` carries `band`.
 - `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
 - `measurement_type = "heuristic"` means the score is an indicator inferred from structural signals. These values are report guidance, not direct measurements.
 - `measurement_type = "optional"` means the module scores an optional, non-normative product feature (currently: Dark Mode) — a low score reflects the absence of that feature, not a compliance deficiency. It does not contribute to `overall_score`.

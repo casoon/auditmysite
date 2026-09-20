@@ -3487,46 +3487,11 @@ mod risk_and_strength_tests {
         // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 0
         // critical (< 40) modules, and in fact 0 modules below 75 at all.
         vm.modules.module_scores = vec![
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Accessibility".into(),
-                score: 99,
-                grade: "Sehr gut".into(),
-                weight_pct: 40,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Performance".into(),
-                score: 75,
-                grade: "Gut".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "SEO".into(),
-                score: 100,
-                grade: "Sehr gut".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Security".into(),
-                score: 95,
-                grade: "Sehr gut".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Mobile".into(),
-                score: 90,
-                grade: "Sehr gut".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 99, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 75, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("SEO", 100, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 95, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Mobile", 90, "measured", true),
         ];
         // 1 occurrence — matches the real audit's single a11y.text_spacing.clipped finding.
         let mut finding = vm.findings.all_findings[0].clone();
@@ -3562,46 +3527,11 @@ mod risk_and_strength_tests {
         // count this used to misclassify as "breit & systemisch" (4 modules)
         // instead of "konzentriert & systemisch" (2 critical modules).
         vm.modules.module_scores = vec![
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Accessibility".into(),
-                score: 20,
-                grade: "Kritisch".into(),
-                weight_pct: 40,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Performance".into(),
-                score: 64,
-                grade: "Verbesserungswürdig".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "SEO".into(),
-                score: 65,
-                grade: "Verbesserungswürdig".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Security".into(),
-                score: 30,
-                grade: "Kritisch".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Mobile".into(),
-                score: 80,
-                grade: "Gut".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 20, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 64, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("SEO", 65, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 30, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Mobile", 80, "measured", true),
         ];
         let mut f1 = vm.findings.all_findings[0].clone();
         f1.rule_id = "1.4.3".into();
@@ -3642,46 +3572,11 @@ mod risk_and_strength_tests {
         // (82) is stable and Mobile (70) is merely "Verbesserungswürdig", so
         // neither should be named as "determining the need for action".
         vm.modules.module_scores = vec![
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Accessibility".into(),
-                score: 12,
-                grade: "Kritisch".into(),
-                weight_pct: 40,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Performance".into(),
-                score: 34,
-                grade: "Kritisch".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Security".into(),
-                score: 22,
-                grade: "Kritisch".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "SEO".into(),
-                score: 82,
-                grade: "Gut".into(),
-                weight_pct: 20,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
-            crate::audit::normalized::ModuleScoreEntry {
-                name: "Mobile".into(),
-                score: 70,
-                grade: "Verbesserungswürdig".into(),
-                weight_pct: 10,
-                contributes_to_overall: true,
-                measurement_type: "measured".into(),
-            },
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 12, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 34, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 22, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("SEO", 82, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Mobile", 70, "measured", true),
         ];
 
         let kind = classify_problem_profile(&vm);

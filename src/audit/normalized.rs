@@ -390,7 +390,18 @@ pub struct OccurrenceDetail {
 pub struct ModuleScoreEntry {
     pub name: String,
     pub score: u32,
-    pub grade: String,
+    /// Letter grade — **only** for modules that carry weight in the overall
+    /// score (plan 29, D2). A zero-weight indicator feeds nothing, so grading
+    /// it on the same A–F scale as Accessibility gave it the same visual
+    /// authority as a result that does count: "Dark Mode: F" sat next to an F
+    /// for excluding screen-reader users. Those modules carry `band` instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grade: Option<String>,
+    /// Canonical English qualitative band for `score` (`registry::FIVE_BAND`),
+    /// present on every entry. This is the only qualitative label a zero-weight
+    /// module gets. Canonical English per the localisation contract (#406); the
+    /// PDF re-derives the localised label from `score`.
+    pub band: String,
     pub weight_pct: u32,
     /// True when this module's score feeds directly into overall_score.
     /// False for supplemental dimensions (UX, Journey) that are displayed
@@ -402,6 +413,37 @@ pub struct ModuleScoreEntry {
     /// `output::report_model::ModuleTaxonomyClass` for the coarse
     /// classification derived from this value (#577).
     pub measurement_type: String,
+}
+
+impl ModuleScoreEntry {
+    /// The weight decides the qualitative label (plan 29, D2): a module that
+    /// carries weight in the overall score gets a letter grade, an indicator
+    /// that feeds nothing gets the band word only. The weight is looked up
+    /// from the single table rather than passed in, so the two can never
+    /// disagree.
+    pub(crate) fn new(
+        name: &str,
+        score: u32,
+        measurement_type: &str,
+        contributes_to_overall: bool,
+    ) -> Self {
+        let weight_pct = crate::taxonomy::module_weight(name);
+        Self {
+            name: name.to_string(),
+            score,
+            grade: (weight_pct > 0).then(|| {
+                crate::registry::LETTER_GRADE
+                    .label(score as f32, false)
+                    .to_string()
+            }),
+            band: crate::registry::FIVE_BAND
+                .label(score as f32, true)
+                .to_string(),
+            weight_pct,
+            contributes_to_overall,
+            measurement_type: measurement_type.to_string(),
+        }
+    }
 }
 
 /// Per-subcategory Accessibility score (plan/5-module-accessibility-
@@ -2315,64 +2357,38 @@ fn build_module_scores(
     occurrence_counts: &SeverityCounts,
     vuln_security_penalty: u32,
 ) -> Vec<ModuleScoreEntry> {
-    let score = accessibility_score;
-    let accessibility_grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
-
     let mut module_scores = Vec::new();
 
-    module_scores.push(ModuleScoreEntry {
-        name: "Accessibility".to_string(),
-        score,
-        grade: accessibility_grade,
-        weight_pct: crate::taxonomy::module_weight("Accessibility"),
-        contributes_to_overall: true,
-        measurement_type: "measured".to_string(),
-    });
+    module_scores.push(ModuleScoreEntry::new(
+        "Accessibility",
+        accessibility_score,
+        "measured",
+        true,
+    ));
 
     if let Some(ref perf) = report.performance {
         // No Core Web Vitals could be measured (e.g. collection failed) — a
         // score of 0 here means "not measured", not "unusably slow". Exclude
         // it from the weighted overall score rather than tanking it (#QA-023).
         let measured = perf.score.metrics_available > 0;
-        module_scores.push(ModuleScoreEntry {
-            name: "Performance".to_string(),
-            score: perf.score.overall,
-            grade: AccessibilityScorer::calculate_grade(perf.score.overall as f32).to_string(),
-            weight_pct: crate::taxonomy::module_weight("Performance"),
-            contributes_to_overall: measured,
-            measurement_type: if measured { "measured" } else { "not_measured" }.to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new(
+            "Performance",
+            perf.score.overall,
+            if measured { "measured" } else { "not_measured" },
+            measured,
+        ));
     }
     if let Some(ref seo) = report.discoverability.seo {
-        module_scores.push(ModuleScoreEntry {
-            name: "SEO".to_string(),
-            score: seo.score,
-            grade: AccessibilityScorer::calculate_grade(seo.score as f32).to_string(),
-            weight_pct: crate::taxonomy::module_weight("SEO"),
-            contributes_to_overall: true,
-            measurement_type: "measured".to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new("SEO", seo.score, "measured", true));
     }
     if let Some(ref sec) = report.security {
         let adjusted = sec.score.saturating_sub(vuln_security_penalty);
-        module_scores.push(ModuleScoreEntry {
-            name: "Security".to_string(),
-            score: adjusted,
-            grade: AccessibilityScorer::calculate_grade(adjusted as f32).to_string(),
-            weight_pct: crate::taxonomy::module_weight("Security"),
-            contributes_to_overall: true,
-            measurement_type: "measured".to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new(
+            "Security", adjusted, "measured", true,
+        ));
     }
     if let Some(ref mob) = report.experience.mobile {
-        module_scores.push(ModuleScoreEntry {
-            name: "Mobile".to_string(),
-            score: mob.score,
-            grade: AccessibilityScorer::calculate_grade(mob.score as f32).to_string(),
-            weight_pct: crate::taxonomy::module_weight("Mobile"),
-            contributes_to_overall: true,
-            measurement_type: "measured".to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new("Mobile", mob.score, "measured", true));
     }
     if let Some(ref hc) = report.html_conform {
         // Weighted since the score became trustworthy again (it is now charged
@@ -2392,125 +2408,124 @@ fn build_module_scores(
         //
         // `measurement_type` is "measured" accordingly: schema conformance is
         // a checkable property of the document, not a heuristic reading of it.
-        module_scores.push(ModuleScoreEntry {
-            name: "HTML Conformance".to_string(),
-            score: hc.score,
-            grade: AccessibilityScorer::calculate_grade(hc.score as f32).to_string(),
-            weight_pct: crate::taxonomy::module_weight("HTML Conformance"),
-            contributes_to_overall: true,
-            measurement_type: "measured".to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new(
+            "HTML Conformance",
+            hc.score,
+            "measured",
+            true,
+        ));
     }
     if let Some(ref ux) = report.ux {
         // Accessibility flows into UX: critical a11y issues penalize UX score
         // Rationale: for users with disabilities, Accessibility IS the UX.
         // Penalty thresholds reflect total affected elements, not distinct rules.
-        let a11y_penalty = {
-            let critical = occurrence_counts.critical;
-            let high = occurrence_counts.high;
-            if critical >= 10 {
-                25 // severe: many critical barriers
-            } else if critical >= 5 {
-                15
-            } else if critical > 0 {
-                10
-            } else if high >= 5 {
-                5
-            } else {
-                0
-            }
-        };
-        let adjusted_ux = ux.score.saturating_sub(a11y_penalty);
-        let adjusted_grade = crate::registry::LETTER_GRADE.label(adjusted_ux as f32, false);
-        module_scores.push(ModuleScoreEntry {
-            name: "UX".to_string(),
-            score: adjusted_ux,
-            grade: adjusted_grade.to_string(),
-            // Indicator module: does not feed the overall score, so its weight is
-            // 0 — a non-zero weight on a non-contributing module made the weight
-            // column sum to >100% (#447).
-            weight_pct: 0,
-            contributes_to_overall: false,
-            measurement_type: "heuristic".to_string(),
-        });
+        let a11y_penalty = ux_a11y_penalty(occurrence_counts);
+        module_scores.push(ModuleScoreEntry::new(
+            "UX",
+            ux.score.saturating_sub(a11y_penalty),
+            "heuristic",
+            false,
+        ));
     }
     if let Some(ref journey) = report.journey {
         // Journey also gets a11y penalty — inaccessible journeys are broken journeys.
         // Threshold uses occurrence-level severity, not finding count.
-        let a11y_penalty = {
-            let critical = occurrence_counts.critical;
-            if critical >= 10 {
-                20
-            } else if critical >= 5 {
-                10
-            } else if critical > 0 {
-                5
-            } else {
-                0
-            }
-        };
-        let adjusted_journey = journey.score.saturating_sub(a11y_penalty);
-        let adjusted_grade = crate::registry::LETTER_GRADE.label(adjusted_journey as f32, false);
-        module_scores.push(ModuleScoreEntry {
-            name: "Journey".to_string(),
-            score: adjusted_journey,
-            grade: adjusted_grade.to_string(),
-            // Indicator module — weight 0, see UX note above (#447).
-            weight_pct: 0,
-            contributes_to_overall: false,
-            measurement_type: "heuristic".to_string(),
-        });
+        let a11y_penalty = journey_a11y_penalty(occurrence_counts);
+        module_scores.push(ModuleScoreEntry::new(
+            "Journey",
+            journey.score.saturating_sub(a11y_penalty),
+            "heuristic",
+            false,
+        ));
     }
     if let Some(ref bp) = report.best_practices {
-        module_scores.push(ModuleScoreEntry {
-            name: "Best Practices".to_string(),
-            score: bp.score,
-            grade: AccessibilityScorer::calculate_grade(bp.score as f32).to_string(),
-            weight_pct: 0,
-            contributes_to_overall: false,
-            measurement_type: "measured".to_string(),
-        });
+        module_scores.push(ModuleScoreEntry::new(
+            "Best Practices",
+            bp.score,
+            "measured",
+            false,
+        ));
     }
 
     // Indicator modules that compute a 0–100 score but do not feed the overall
     // score. Previously their score was serialized raw with no grade and no
     // entry here, so the report showed a bare number with no relation to the
-    // rest (#447). They now appear consistently as graded, non-contributing
-    // indicators (weight 0).
-    let mut push_indicator = |name: &str, score: u32, measurement_type: &str| {
-        module_scores.push(ModuleScoreEntry {
-            name: name.to_string(),
-            score,
-            grade: AccessibilityScorer::calculate_grade(score as f32).to_string(),
-            weight_pct: 0,
-            contributes_to_overall: false,
-            measurement_type: measurement_type.to_string(),
-        });
-    };
+    // rest (#447). They appear here consistently as non-contributing
+    // indicators — with a band word rather than a letter grade, because a
+    // grade on a module of weight 0 claimed an authority it does not have
+    // (plan 29, D2).
     if let Some(ref dm) = report.experience.dark_mode {
         // Dark Mode is an optional/non-normative product feature, not a WCAG
-        // conformance criterion — distinct from the other `push_indicator`
-        // calls below, which classify as "heuristic" (#577).
-        push_indicator("Dark Mode", dm.score, "optional");
+        // conformance criterion — distinct from the "heuristic" indicators
+        // below (#577).
+        module_scores.push(ModuleScoreEntry::new(
+            "Dark Mode",
+            dm.score,
+            "optional",
+            false,
+        ));
     }
     if let Some(ref ai) = report.discoverability.ai_visibility {
-        push_indicator("AI Visibility", ai.score, "heuristic");
+        module_scores.push(ModuleScoreEntry::new(
+            "AI Visibility",
+            ai.score,
+            "heuristic",
+            false,
+        ));
     }
     if let Some(ref sq) = report.discoverability.source_quality {
-        push_indicator("Source Quality", sq.score, "heuristic");
+        module_scores.push(ModuleScoreEntry::new(
+            "Source Quality",
+            sq.score,
+            "heuristic",
+            false,
+        ));
     }
-    if let Some(ref cv) = report.discoverability.content_visibility {
-        if cv.signal_count > 0 {
-            let cv_score = (cv.signal_count.saturating_sub(cv.problem_count) as u32 * 100)
-                / cv.signal_count as u32;
-            push_indicator("Content Visibility", cv_score, "heuristic");
-        }
-    }
+    // Content Visibility carries no 0-100 score: it used to be
+    // "share of checks that did not complain", so adding a check that usually
+    // passes raised every site's value (plan 43 §3, resolved by plan 29 D4).
+    // The counts are reported in the module payload instead.
+
     // Tech Stack is detection-only — no score in module_scores.
     // Stack-specific security findings (WordPress admin exposure, etc.) flow
     // into the Security module score instead.
 
     module_scores
+}
+
+/// Points the Accessibility result costs the UX indicator.
+///
+/// Split out of `build_module_scores` so the applied penalty can be reported
+/// next to the score instead of being folded in silently (plan 42 §2).
+pub(crate) fn ux_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
+    let critical = occurrence_counts.critical;
+    let high = occurrence_counts.high;
+    if critical >= 10 {
+        25 // severe: many critical barriers
+    } else if critical >= 5 {
+        15
+    } else if critical > 0 {
+        10
+    } else if high >= 5 {
+        5
+    } else {
+        0
+    }
+}
+
+/// Points the Accessibility result costs the Journey indicator. See
+/// [`ux_a11y_penalty`].
+pub(crate) fn journey_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
+    let critical = occurrence_counts.critical;
+    if critical >= 10 {
+        20
+    } else if critical >= 5 {
+        10
+    } else if critical > 0 {
+        5
+    } else {
+        0
+    }
 }
 
 fn compute_risk_assessment(
