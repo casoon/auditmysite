@@ -98,12 +98,13 @@ pub(super) fn build_score_note(i18n: &I18n, normalized: &NormalizedReport) -> Op
 
 pub(super) fn build_batch_verdict(i18n: &I18n, batch: &crate::audit::BatchReport) -> String {
     let key = &batch.summary.verdict_key;
-    let overall_score = batch.summary.average_score.round() as u32;
+    // The accessibility average, matching the batch cover's headline.
+    let headline_score = batch.summary.average_score.round() as u32;
     i18n.t_args(
         key,
         &[
             ("total_urls", batch.summary.total_urls.to_string()),
-            ("score", overall_score.to_string()),
+            ("score", headline_score.to_string()),
         ],
     )
 }

@@ -110,9 +110,12 @@ fn build_single_report(
 
     // ── Cover Page (single composed component) ───────────────────────
     let en = i18n.locale() == "en";
-    let overall_score = vm.summary.overall_score;
+    // The headline is the accessibility score — the subject of the report.
+    // The weighted overall value across all six modules is a different
+    // question and is reported as such, further in (plan 29, D1).
+    let headline_score = vm.summary.score;
     let band_phrase = self::cover::cover_band_phrase(
-        overall_score,
+        headline_score,
         vm.summary.ci_verdict,
         vm.summary.run_is_partial,
         en,
@@ -136,7 +139,7 @@ fn build_single_report(
     // no automated run can establish.
     let (score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit) = if en {
         (
-            "OVERALL SCORE",
+            "ACCESSIBILITY · AUTOMATED SCOPE",
             "WCAG OCCURRENCES",
             "MODULES · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER",
             "critical/high",
@@ -144,7 +147,7 @@ fn build_single_report(
         )
     } else {
         (
-            "GESAMTSCORE",
+            "BARRIEREFREIHEIT · AUTOMATISIERTER PRÜFUMFANG",
             "WCAG-VORKOMMEN",
             "MODULE · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER",
             "kritisch/hoch",
@@ -176,7 +179,7 @@ fn build_single_report(
         vm.executive.cover_kicker,
         self::single_report::audit_scope_line(en)
     );
-    let mut cover = CoverPage::new(&vm.cover.title, &domain, overall_score, &vm.cover.grade)
+    let mut cover = CoverPage::new(&vm.cover.title, &domain, headline_score, &vm.cover.grade)
         .with_brand(&vm.cover.brand)
         .with_subtitle(&cover_subtitle)
         .with_date(&vm.cover.date)

@@ -9,7 +9,7 @@ expression: value
     "a11y.name_role.missing",
     "a11y.structure.missing"
   ],
-  "grade": "D",
+  "grade": "F",
   "module_count": 7,
   "module_names": [
     "Accessibility",

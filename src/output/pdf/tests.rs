@@ -2365,10 +2365,16 @@ mod tests {
         let typ = unescape_typ(&generate_typ(&report, &config).expect("typ"));
         let (p1, p2, p3) = split_parts(&typ);
 
-        // Teil 1 — Executive: the overall score is the headline aggregate.
+        // Teil 1 — Executive: the accessibility score is the headline (plan
+        // 29, D1). The weighted overall value is a secondary figure and is
+        // derived further in, so it is only required to appear somewhere.
         assert!(
-            part_has_value(&p1, overall),
-            "overall score {overall} (JSON) must appear in Teil 1"
+            part_has_value(&p1, a11y),
+            "accessibility score {a11y} (JSON) must be the Teil 1 headline"
+        );
+        assert!(
+            part_has_value(&typ, overall),
+            "overall score {overall} (JSON) must still appear in the report"
         );
 
         // Teil 2 — Accessibility: a11y score + every module score (overview).

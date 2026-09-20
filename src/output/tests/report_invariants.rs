@@ -230,6 +230,46 @@ fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
     );
 }
 
+/// Plan 29, D1: the headline classification describes accessibility. It used
+/// to hang off the weighted overall score, so an accessibility score of 20
+/// reached the cover as a 39 that five other modules had lifted.
+#[test]
+fn grade_and_certificate_follow_the_accessibility_score() {
+    use crate::audit::AccessibilityScorer;
+
+    let mut report = make_report(WcagResults::new());
+    report.accessibility.score = 30.0;
+    // A module set that pulls the weighted overall well above accessibility.
+    report.discoverability.seo = Some(crate::seo::SeoAnalysis {
+        score: 100,
+        ..Default::default()
+    });
+    let normalized = normalize(&report).normalized;
+
+    assert!(
+        normalized.overall_score > normalized.score,
+        "fixture must separate the two scores: overall {} vs accessibility {}",
+        normalized.overall_score,
+        normalized.score,
+    );
+    assert_eq!(
+        normalized.grade,
+        AccessibilityScorer::calculate_grade(normalized.score as f32),
+    );
+    // The certificate may be risk-gated downwards, never lifted by the other
+    // modules: the score-based value is its ceiling.
+    let ceiling = AccessibilityScorer::calculate_certificate(normalized.score as f32);
+    let from_overall = AccessibilityScorer::calculate_certificate(normalized.overall_score as f32);
+    assert_ne!(
+        ceiling, from_overall,
+        "fixture must make the two bases disagree"
+    );
+    assert_ne!(
+        normalized.certificate, from_overall,
+        "certificate must not follow the weighted overall score"
+    );
+}
+
 // ─── Performance measurement_warnings serialization ──────────────────────────
 
 #[test]

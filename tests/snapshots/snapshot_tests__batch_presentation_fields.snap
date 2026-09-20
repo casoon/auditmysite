@@ -5,8 +5,8 @@ expression: value
 ---
 {
   "average_score": 49.0,
-  "certificate": "STABIL",
-  "grade": "D",
+  "certificate": "AUSBAUFÄHIG",
+  "grade": "F",
   "module_averages": [
     {
       "name": "Accessibility",

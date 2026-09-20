@@ -4,7 +4,9 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedFinding;
-use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
+use crate::audit::{
+    normalize, AccessibilityScorer, BatchReport, BrokenLinkSeverity, NormalizedReport,
+};
 use crate::i18n::I18n;
 use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;
@@ -716,28 +718,19 @@ pub fn build_batch_presentation_with_normalized(
         })
         .unwrap_or_default();
 
-    // The cover classification follows the same overall-score contract as the
-    // single report and unified JSON. Accessibility remains visible as its own
-    // module average in the status and portfolio sections.
-    let certificate = match average_overall_score {
-        90.. => "SEHR GUT",
-        75.. => "GUT",
-        60.. => "STABIL",
-        40.. => "AUSBAUFÄHIG",
-        _ => "UNGENÜGEND",
-    }
-    .to_string();
-
-    let grade = match average_overall_score {
-        95.. => "A+",
-        90.. => "A",
-        85.. => "B+",
-        80.. => "B",
-        70.. => "C",
-        60.. => "D",
-        _ => "F",
-    }
-    .to_string();
+    // Same contract as the single report: grade and certificate describe the
+    // subject of the report, which is accessibility (plan 29, D1). The
+    // weighted `average_overall_score` stays visible as its own figure.
+    //
+    // They also go through the same two functions the single report uses.
+    // The literal band tables that used to stand here were a third and fourth
+    // cutoff set (95/90/85/80/70/60 for the grade), so the same score could
+    // be graded differently depending on which report a reader was holding.
+    let average_accessibility_score = batch.summary.average_score.round() as u32;
+    let certificate =
+        AccessibilityScorer::calculate_certificate(average_accessibility_score as f32).to_string();
+    let grade =
+        AccessibilityScorer::calculate_grade(average_accessibility_score as f32).to_string();
 
     let en = i18n.locale() == "en";
     let template_clusters: Vec<TemplateClusterView> = batch

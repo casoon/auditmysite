@@ -104,8 +104,13 @@ pub fn render_single_report_for(
     };
 
     let mut rm_report = Report::new(&vm.meta.title, verdict)
-        .add_metric(Metric::new("Score", vm.summary.score.to_string()))
-        .add_metric(Metric::new("Overall", vm.summary.overall_score.to_string()))
+        // Accessibility first — it is what grade and certificate below
+        // classify (plan 29, D1); the combined technical value follows, named.
+        .add_metric(Metric::new("Accessibility", vm.summary.score.to_string()))
+        .add_metric(Metric::new(
+            "Combined technical",
+            vm.summary.overall_score.to_string(),
+        ))
         .add_metric(Metric::new("Grade", &vm.summary.grade))
         .add_metric(Metric::new("Certificate", &vm.summary.certificate))
         .add_metric(Metric::new("Violations", vm.severity.total.to_string()))

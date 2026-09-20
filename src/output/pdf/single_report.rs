@@ -1309,6 +1309,38 @@ fn render_score_driver_table(
         .iter()
         .filter(|m| m.contributes_to_overall)
         .collect();
+    // The combined technical value, named as what it is. It is no longer the
+    // headline — that is the accessibility score (plan 29, D1) — so the
+    // report has to say once what this second number averages, otherwise a
+    // reader meets it in the derivation table with no introduction.
+    let basis: u32 = contributing.iter().map(|m| m.weight_pct).sum();
+    builder = builder
+        .add_component(
+            ScoreCard::new(
+                if en {
+                    "Combined technical score · 0–100"
+                } else {
+                    "Kombinierter technischer Wert · 0–100"
+                },
+                vm.summary.overall_score,
+            )
+            .with_description(if en {
+                format!("Weighted across six modules, weight basis {basis}")
+            } else {
+                format!("Gewichtet über sechs Module, Gewichtsbasis {basis}")
+            })
+            .with_thresholds(75, 40),
+        )
+        .add_component(
+            Label::new(if en {
+                "A different question from the accessibility score on the cover, which is what this report assesses."
+            } else {
+                "Eine andere Frage als der Barrierefreiheits-Wert auf dem Deckblatt, um den es in diesem Bericht geht."
+            })
+            .with_size("10.5pt")
+            .with_color(design::tokens::NEUTRAL),
+        );
+
     if contributing.len() < 2 {
         return builder;
     }
@@ -1365,8 +1397,8 @@ fn render_score_driver_table(
         TableColumn::new(if en { "Assessment" } else { "Einordnung" }).with_width("42%"),
     ])
     .with_title(match (is_derivation, en) {
-        (true, true) => "Why is the overall score what it is",
-        (true, false) => "Warum ist der Gesamtwert, was er ist",
+        (true, true) => "Why the combined technical score is what it is",
+        (true, false) => "Warum der kombinierte technische Wert ist, was er ist",
         (false, true) => "The modules that carry weight",
         (false, false) => "Die gewichteten Module im Einzelnen",
     });
@@ -1545,9 +1577,9 @@ fn render_overall_score_derivation(
     builder = builder.add_component(table);
     builder.add_component(
         Label::new(if en {
-            "The module weights above rank what carries how much; this table is the calculation that produced the headline value."
+            "The module weights above rank what carries how much; this table is the calculation that produced the combined technical score."
         } else {
-            "Die Modulgewichte oben zeigen, was wie stark zählt; diese Tabelle ist die Rechnung, aus der der Gesamtwert entsteht."
+            "Die Modulgewichte oben zeigen, was wie stark zählt; diese Tabelle ist die Rechnung, aus der der kombinierte technische Wert entsteht."
         })
         .with_size("8.8pt")
         .with_color(design::tokens::MUTED),

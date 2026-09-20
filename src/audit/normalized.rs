@@ -33,9 +33,10 @@ pub struct NormalizedReport {
 
     /// Korrigierter Score (nach Suppressions, gerundet)
     pub score: u32,
-    /// Grade aus overall_score (gewichteter Gesamtscore über alle aktiven Module)
+    /// Grade aus `score` (Barrierefreiheit) — dem Gegenstand des Berichts.
+    /// Siehe plan 29, D1.
     pub grade: String,
-    /// Certificate aus `overall_score`, gegebenenfalls durch das Risiko-Veto begrenzt
+    /// Certificate aus `score`, gegebenenfalls durch das Risiko-Veto begrenzt
     pub certificate: String,
 
     /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
@@ -2972,12 +2973,20 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
             )
         };
 
-    let grade = AccessibilityScorer::calculate_grade(overall_score as f32).to_string();
-    // Certificate is derived from the overall weighted score so it stays
-    // consistent with `grade`. See issue #233 — previously certificate used
-    // `report.score` (accessibility only), which produced contradictory labels
-    // like "Grade A — Cert AUSBAUFÄHIG" when other module scores were high.
-    let certificate = AccessibilityScorer::calculate_certificate(overall_score as f32).to_string();
+    // Grade and certificate describe the subject of the report: accessibility.
+    //
+    // They used to hang off `overall_score` (#233, to stop grade and
+    // certificate contradicting each other). That fixed the internal
+    // contradiction but moved the headline away from what the tool is for: an
+    // accessibility score of 20 appeared on the cover as an overall 39,
+    // because Performance 45, Mobile 80 and SEO 65 pulled it up. Both now read
+    // the same number, so they still cannot contradict each other, and the
+    // number is the one the report is about (plan 29, D1).
+    //
+    // The weighted `overall_score` remains in the report as a labelled
+    // secondary value, with the weight basis it was computed over.
+    let grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
+    let certificate = AccessibilityScorer::calculate_certificate(score as f32).to_string();
 
     let mut audit_flags = Vec::new();
     if report.accessibility.execution.quality.qualified_results {

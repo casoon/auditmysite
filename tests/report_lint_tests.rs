@@ -35,7 +35,25 @@ fn broken_grade_mismatch_fails_by_default() {
     let (code, output) = run_report_lint("broken_grade_mismatch.json", &[]);
     assert_eq!(code, 3, "output: {output}");
     assert!(
-        output.contains("grade_matches_overall_score"),
+        output.contains("grade_matches_accessibility_score"),
+        "output: {output}"
+    );
+}
+
+/// Plan 29, D1: grade and certificate are derived from `accessibility_score`,
+/// not from the weighted overall. This fixture is clean under the old rule and
+/// broken under the new one — the two scores agree in every other fixture, so
+/// nothing else can tell the change apart.
+#[test]
+fn grade_derived_from_the_overall_score_is_rejected() {
+    let (code, output) = run_report_lint("broken_grade_from_overall_not_accessibility.json", &[]);
+    assert_eq!(code, 3, "output: {output}");
+    assert!(
+        output.contains("grade_matches_accessibility_score"),
+        "output: {output}"
+    );
+    assert!(
+        output.contains("certificate_matches_accessibility_score"),
         "output: {output}"
     );
 }
@@ -55,7 +73,7 @@ fn broken_batch_certificate_fails_by_default() {
     let (code, output) = run_report_lint("broken_batch_certificate.json", &[]);
     assert_eq!(code, 3, "output: {output}");
     assert!(
-        output.contains("certificate_matches_overall_score"),
+        output.contains("certificate_matches_accessibility_score"),
         "output: {output}"
     );
 }

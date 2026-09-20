@@ -139,8 +139,11 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
 
 // ─── Grade/certificate consistency ────────────────────────────────────────
 
-const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_overall_score";
-const CHECK_CERTIFICATE_MATCHES_SCORE: &str = "certificate_matches_overall_score";
+// Named after what they check. The basis moved from `overall_score` to
+// `accessibility_score` with plan 29, D1, so the old
+// `*_matches_overall_score` ids would now name the wrong field.
+const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_accessibility_score";
+const CHECK_CERTIFICATE_MATCHES_SCORE: &str = "certificate_matches_accessibility_score";
 
 /// Risk-gate inputs for a `summary` or `pages[i]` node. `pages[i]` carries a
 /// nested `risk` object with full detail; `summary` only ever carries a flat
@@ -185,8 +188,8 @@ fn acceptable_certificates(
     acceptable
 }
 
-/// `grade` and `certificate` must be derivable from `overall_score` via the
-/// same shared `BandSet` the production code uses
+/// `grade` and `certificate` must be derivable from `accessibility_score` via
+/// the same shared `BandSet` the production code uses
 /// (`audit::scoring::AccessibilityScorer::calculate_grade`/
 /// `calculate_certificate`) — catches a certificate/grade computed from a
 /// different (e.g. stale or pre-normalization) score base. `certificate` may
@@ -203,12 +206,14 @@ fn check_grade_and_certificate(
     evidence_prefix: &str,
     findings: &mut Vec<LintFinding>,
 ) {
-    let Some(overall) = node.get("overall_score").and_then(Value::as_i64) else {
+    // Accessibility, not the weighted overall: grade and certificate describe
+    // the subject of the report (plan 29, D1).
+    let Some(basis) = node.get("accessibility_score").and_then(Value::as_i64) else {
         return;
     };
 
     if let Some(grade) = node.get("grade").and_then(Value::as_str) {
-        let expected = LETTER_GRADE.label(overall as f32, false);
+        let expected = LETTER_GRADE.label(basis as f32, false);
         if grade != expected {
             findings.push(LintFinding {
                 check_id: CHECK_GRADE_MATCHES_SCORE,
@@ -221,7 +226,7 @@ fn check_grade_and_certificate(
     }
 
     if let Some(certificate) = node.get("certificate").and_then(Value::as_str) {
-        let score_based = CERTIFICATE.label(overall as f32, false);
+        let score_based = CERTIFICATE.label(basis as f32, false);
         let (risk_level, legal_flags, blocking_issues) = risk_gate_inputs(risk_source);
         let acceptable =
             acceptable_certificates(score_based, risk_level, legal_flags, blocking_issues);

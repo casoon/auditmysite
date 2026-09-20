@@ -29,7 +29,8 @@
 - Scores use a 0–100 scale; higher values are better. The top-level `metric_context` block describes the scale and the meaning of score and count fields for machine consumers.
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
-- `overall_score`, `grade`, and `certificate` describe the weighted result across the active contributing modules. The optional risk gate may limit an otherwise positive certificate.
+- `grade` and `certificate` describe `accessibility_score`, the subject of the report, and are the headline classification wherever one is shown (cover, batch cover, terminal). The optional risk gate may limit an otherwise positive certificate.
+- `overall_score` is a secondary, explicitly labelled figure: the weighted result across the active contributing modules, reported together with `overall_score_weight_basis`. It is not the headline and carries no classification of its own.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
 - `violated_rule_count` and `severity_counts` count distinct grouped WCAG findings.
 - `finding_count` and `finding_occurrence_count` include findings from all reported categories, such as WCAG and SEO.
@@ -121,8 +122,9 @@ Compatibility alias for `summary.overall_score`.
 <a id="grade-certificate"></a>
 ### grade_certificate — `summary.grade` / `summary.certificate`
 
-Classification derived from `summary.overall_score`; risk gates can restrict
-the certificate without changing the numeric score.
+Classification derived from `summary.accessibility_score` — the subject of the
+report; risk gates can restrict the certificate without changing the numeric
+score. Both read the same number, so they cannot contradict each other.
 
 <a id="module-score"></a>
 ### module_score — `pages[].module_scores[].score`
