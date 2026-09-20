@@ -135,6 +135,36 @@ impl AXTree {
         self.ordered_nodes().into_iter()
     }
 
+    /// The page's visible text, each run counted once.
+    ///
+    /// Chrome puts a text run's characters on a `StaticText` node and repeats
+    /// them on that node's `InlineTextBox` children, one per line box. The
+    /// accessible name of a `heading` or a `link` is computed from the same
+    /// `StaticText` descendants. So the page's text has to be read from
+    /// `StaticText` and nowhere else, or it is counted two or three times.
+    ///
+    /// Measured on two cached trees (plan 50): of all characters carried in a
+    /// `name`, 72-76 % sit on browser-generated roles; `StaticText` and
+    /// `InlineTextBox` hold near-identical totals spread over different node
+    /// counts; 30 of 44 heading names and 71 of 87 link names repeat a
+    /// `StaticText` verbatim. `paragraph` nodes exist but never carry a name
+    /// of their own, so a role filter naming `paragraph` matches nothing.
+    ///
+    /// [`iter`](Self::iter) excludes all of this deliberately — a WCAG rule
+    /// must not report a finding against a node the author never wrote.
+    /// Anything *measuring* text wants this instead.
+    pub fn text_nodes(&self) -> impl Iterator<Item = &AXNode> {
+        self.ordered_nodes().into_iter().filter(|n| n.is_text())
+    }
+
+    /// Total length of the page's visible text. See [`text_nodes`](Self::text_nodes).
+    pub fn visible_text_len(&self) -> usize {
+        self.text_nodes()
+            .filter_map(|n| n.name.as_ref())
+            .map(|name| name.len())
+            .sum()
+    }
+
     /// Get all nodes with a specific role (excludes browser-generated nodes)
     pub fn nodes_with_role(&self, role: &str) -> Vec<&AXNode> {
         self.iter()
@@ -336,6 +366,16 @@ impl AXNode {
     /// rule should evaluate. These roles are injected by the rendering engine
     /// and do not represent author content — flagging them is always a false
     /// positive.
+    /// Whether this node carries a run of the page's visible text.
+    ///
+    /// The single definition of "text" for anything measuring how much a page
+    /// says — see [`AXTree::text_nodes`](crate::accessibility::AXTree::text_nodes)
+    /// for why it is `StaticText` and nothing else.
+    pub fn is_text(&self) -> bool {
+        self.role.as_deref() == Some("StaticText")
+            && self.name.as_deref().is_some_and(|name| !name.is_empty())
+    }
+
     pub fn is_browser_generated(&self) -> bool {
         matches!(
             self.role.as_deref(),
@@ -524,6 +564,51 @@ mod tests {
         tree.order.clear();
         let seq: Vec<String> = tree.iter_all().map(|n| n.node_id.clone()).collect();
         assert_eq!(seq, vec!["root", "a", "b", "c", "zz"]);
+    }
+
+    /// Plan 50: text has to be counted once. Chrome repeats a `StaticText`
+    /// run on its `InlineTextBox` children, and a heading's or link's name is
+    /// computed from the same `StaticText` descendants, so any wider filter
+    /// counts the same words two or three times.
+    #[test]
+    fn text_is_counted_once_per_run() {
+        let mut heading = create_test_node("h", "heading", Some("Ueberschrift"));
+        heading.child_ids = vec!["h-text".into()];
+        let mut link = create_test_node("l", "link", Some("Mehr erfahren"));
+        link.child_ids = vec!["l-text".into()];
+
+        let tree = AXTree::from_nodes(vec![
+            create_test_node("root", "RootWebArea", Some("Seite")),
+            heading,
+            create_test_node("h-text", "StaticText", Some("Ueberschrift")),
+            create_test_node("h-box", "InlineTextBox", Some("Ueberschrift")),
+            link,
+            create_test_node("l-text", "StaticText", Some("Mehr erfahren")),
+            create_test_node("p-text", "StaticText", Some("Fliesstext.")),
+        ]);
+
+        let texts: Vec<&str> = tree
+            .text_nodes()
+            .map(|n| n.name.as_deref().unwrap_or(""))
+            .collect();
+        assert_eq!(texts, vec!["Ueberschrift", "Mehr erfahren", "Fliesstext."]);
+        assert_eq!(
+            tree.visible_text_len(),
+            "Ueberschrift".len() + "Mehr erfahren".len() + "Fliesstext.".len(),
+        );
+    }
+
+    /// An empty name is not text — an unnamed `StaticText` node contributes
+    /// nothing and must not make a page look like it says something.
+    #[test]
+    fn an_unnamed_static_text_node_is_not_text() {
+        let tree = AXTree::from_nodes(vec![
+            create_test_node("root", "RootWebArea", Some("Seite")),
+            create_test_node("empty", "StaticText", Some("")),
+            create_test_node("none", "StaticText", None),
+        ]);
+        assert_eq!(tree.text_nodes().count(), 0);
+        assert_eq!(tree.visible_text_len(), 0);
     }
 
     #[test]

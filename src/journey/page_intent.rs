@@ -610,14 +610,12 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
         return PageIntent::Hub;
     }
 
-    // Long text content = editorial
-    let text_len: usize = tree
-        .iter()
-        .filter(|n| matches!(n.role.as_deref(), Some("StaticText" | "paragraph")))
-        .filter_map(|n| n.name.as_ref())
-        .map(|n| n.len())
-        .sum();
-    let approx_words = text_len / 6;
+    // Long text content = editorial.
+    //
+    // This used to read `StaticText | paragraph` through `iter()`, which drops
+    // `StaticText`, while `paragraph` nodes never carry a name — so the sum
+    // was 0 on every real page and this branch could not fire (plan 50).
+    let approx_words = tree.visible_text_len() / 6;
     if approx_words > 500 && editorial_score >= 2 {
         editorial_score += 5;
     }
@@ -642,13 +640,19 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
 
     if best_score >= 3 {
         best_intent
+    } else if link_count < 30 && !buttons.is_empty() {
+        // Marketing is the default for landing-page-like structure.
+        //
+        // This used to carry a third clause, `approx_words < 300`. It never
+        // once evaluated as false: `approx_words` came from a sum that was
+        // structurally 0 on every real page (plan 50). Measured over 6847
+        // cached snapshots, reviving the word count *with* that clause moved
+        // 222 pages from "Marketing" to "Not detected" — a landing-page
+        // default losing to a 300-word bound that nothing calibrated.
+        // Dropping the clause keeps the behaviour that actually shipped.
+        PageIntent::Marketing
     } else {
-        // Marketing is the default for landing-page-like structure
-        if link_count < 30 && !buttons.is_empty() && approx_words < 300 {
-            PageIntent::Marketing
-        } else {
-            PageIntent::Unknown
-        }
+        PageIntent::Unknown
     }
 }
 
@@ -666,6 +670,44 @@ mod tests {
             intent,
             PageIntent::Unknown | PageIntent::Marketing
         ));
+    }
+
+    fn node(id: &str, role: &str, name: &str) -> crate::accessibility::AXNode {
+        crate::accessibility::AXNode {
+            node_id: id.into(),
+            role: Some(role.into()),
+            name: Some(name.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Plan 50: the word count that decides "long text = editorial" came from
+    /// a sum that was structurally 0 on every real page, so this branch never
+    /// fired. A long article that carries its words where real pages carry
+    /// them — on `StaticText` — has to reach it.
+    #[test]
+    fn a_long_article_is_editorial() {
+        let mut nodes = vec![
+            node("root", "RootWebArea", "Blog"),
+            node("h", "heading", "article"),
+            node("h2", "heading", "author"),
+        ];
+        // > 500 words at the 6-characters-per-word estimate.
+        for i in 0..40 {
+            nodes.push(node(
+                &format!("t{i}"),
+                "StaticText",
+                &"Ein Satz mit ausreichend vielen Woertern darin. ".repeat(4),
+            ));
+        }
+        let tree = AXTree::from_nodes(nodes);
+
+        assert!(
+            tree.visible_text_len() / 6 > 500,
+            "fixture must clear the 500-word bar, got {}",
+            tree.visible_text_len() / 6
+        );
+        assert_eq!(detect_page_intent(&tree), PageIntent::Editorial);
     }
 
     #[test]

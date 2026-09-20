@@ -5,6 +5,48 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`StaticText` war fuer jeden text-messenden Leser unsichtbar, 2026-09-20 (Plan 50):**
+  `AXTree::iter()` filtert browser-generierte Rollen heraus, `StaticText` darunter. Fuer
+  WCAG-Regeln ist das richtig -- ein Befund darf nicht gegen einen Knoten gemeldet werden, den
+  niemand geschrieben hat. Fuer alles, was *Text misst*, ist es falsch: auf einer echten Seite
+  stehen die sichtbaren Woerter genau dort. Gemessen an zwei gecachten Baeumen: 72-76 % aller
+  Zeichen in einem `name` sitzen auf browser-generierten Rollen, und `paragraph`-Knoten tragen
+  ueberhaupt nie einen eigenen `name`.
+
+  Damit las `matches!(role, "StaticText" | "paragraph")` ueber `iter()` auf jeder realen Seite
+  nichts. Zwei Stellen waren betroffen:
+
+  - **Seitentyp-Klassifikation** (`page_intent.rs`): `text_len` war strukturell 0, also konnte
+    `approx_words > 500` nie greifen. Dabei fiel eine zweite tote Konstante auf: der
+    Marketing-Fallback verlangte zusaetzlich `approx_words < 300`, was mit einer Summe von 0
+    immer zutraf. Mit echten Wortzahlen waeren 222 Seiten von „Marketing" auf „Nicht erkannt"
+    gefallen -- ein Landing-Page-Default, der gegen eine nie gepruefte 300er-Schranke verliert.
+    Die Klausel ist entfernt, weil sie nie in Kraft war.
+  - **Journeys „fruehe Inhalte"** (`analysis.rs`): las `StaticText | heading` und sah damit nur
+    Ueberschriften. `LittleEarlyText` -- 20 Punkte Abzug auf Entry Clarity -- feuerte auf
+    **1595 von 2731** eindeutigen gecachten Seiten. Mehr als die Haelfte des Webs angeblich oben
+    ohne Text.
+
+  Eine Definition statt Rollenlisten pro Call-Site: `AXNode::is_text()` und
+  `AXTree::text_nodes()`/`visible_text_len()` zaehlen den Text genau einmal -- `StaticText` und
+  nichts sonst, weil Chrome denselben Lauf auf den `InlineTextBox`-Kindern wiederholt und der Name
+  einer Ueberschrift oder eines Links aus denselben `StaticText`-Nachfahren berechnet wird
+  (gemessen: 30 von 44 Ueberschriften-Namen und 71 von 87 Link-Namen sind wortgleich mit einem
+  `StaticText`).
+
+  Verifiziert ueber 2731 eindeutige gecachte Seiten mit dem neuen
+  `tests/page_intent_corpus.rs` (`#[ignore]`-gated, liest einen lokalen Artefakt-Cache):
+  `LittleEarlyText` faellt von 1595 auf 93, und 68 Seiten wechseln den Seitentyp -- alle Richtung
+  Editorial, 48 davon auf einem tatsaechlichen Blog, der vorher als Corporate durchging.
+
+  **Nicht mitgefixt:** das Zeitfenster selbst. `LittleEarlyText` verspricht „wenig Text im oberen
+  Seitenbereich", misst aber die ersten 50 Knoten in Baumreihenfolge. Auf
+  www.inros-lackner.de stehen dort der Skip-Link und vierzig Wrapper. Eine Variante, die reine
+  Wrapper ueberspringt, wurde gemessen (13 statt 93 geflaggt) und verworfen: die `article`-Knoten
+  dieser Seite stehen als leere Huellen vor ihrem eigenen Text, Baumreihenfolge ist dort also
+  ueberhaupt keine vertikale Reihenfolge. Das braucht Geometrie statt einer neuen Konstante und
+  steht als Plan 51.
+
 - **`AXTree` ohne Dokumentreihenfolge, 2026-09-20 (Plan 49):** `AXTree.nodes` ist eine `HashMap`,
   und `iter()`/`headings()` gaben `values()` zurueck -- Hash-Reihenfolge, die Rust pro Prozess
   zufaellig setzt. Detektoren, die den Baum als Dokument lesen, widersprachen sich damit selbst:

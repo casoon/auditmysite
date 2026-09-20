@@ -1024,14 +1024,19 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         friction.push(FrictionPoint::new(NoPageTitle, FrictionValues::default()));
     }
 
-    // Early content: check if there's substantial text in the first portion of
-    // the tree. `take(50)` only means "the first portion" because iteration is
-    // in document order (plan 49) — over the old hash order it was fifty
-    // arbitrary nodes.
+    // Early content: does the top of the page carry text at all?
+    //
+    // `take(50)` only means "the first portion" because iteration is in
+    // document order (plan 49) — over the old hash order it was fifty
+    // arbitrary nodes. And the window has to be read through `iter_all`:
+    // `iter` drops `StaticText` as browser-generated, so the old filter saw
+    // headings alone and reported "little early text" on 1595 of 2731 real
+    // cached pages — more than half the web, supposedly textless at the top
+    // (plan 50).
     let early_text_len: usize = tree
-        .iter()
+        .iter_all()
         .take(50)
-        .filter(|n| matches!(n.role.as_deref(), Some("StaticText" | "heading")))
+        .filter(|n| n.is_text())
         .filter_map(|n| n.name.as_ref())
         .map(|n| n.len())
         .sum();
@@ -1431,6 +1436,44 @@ mod tests {
             name: name.map(|s| s.into()),
             ..Default::default()
         }
+    }
+
+    /// Plan 50: the page's opening text sits on `StaticText` nodes, which
+    /// `iter()` drops as browser-generated. Reading the window through it
+    /// left only headings, and "little early text" fired on 1595 of 2731 real
+    /// cached pages — each costing 20 points of Entry Clarity.
+    #[test]
+    fn a_page_that_opens_with_a_paragraph_has_early_text() {
+        use crate::accessibility::AXTree;
+
+        let mut root = node("root", "RootWebArea", Some("Seite"));
+        root.child_ids = vec!["p".into()];
+        let mut paragraph = node("p", "paragraph", None);
+        paragraph.child_ids = vec!["p-text".into()];
+
+        let tree = AXTree::from_nodes(vec![
+            root,
+            paragraph,
+            node(
+                "p-text",
+                "StaticText",
+                Some("Dieser Absatz steht ganz oben auf der Seite und ist gut lesbar."),
+            ),
+        ]);
+
+        let analysis = analyze_journey(&tree);
+        assert!(
+            !analysis
+                .friction_points
+                .iter()
+                .any(|f| matches!(f.kind, FrictionKind::LittleEarlyText)),
+            "a page opening with a full paragraph has early text. Friction: {:?}",
+            analysis
+                .friction_points
+                .iter()
+                .map(|f| f.kind)
+                .collect::<Vec<_>>(),
+        );
     }
 
     /// Guard against German leaking into the canonical struct/JSON (#406): the
