@@ -270,7 +270,10 @@ pub(super) fn build_methodology(
                 key("Barrierefreiheits-Score", "Accessibility score"),
                 accessibility_score_value,
             ),
-            (key("Gesamtscore", "Overall score"), total_score_value),
+            (
+                key("Kombinierter technischer Wert", "Combined technical score"),
+                total_score_value,
+            ),
             (key("Zählweise", "Counting method"), counting_value),
             (
                 key("WCAG-Level", "WCAG level"),

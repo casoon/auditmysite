@@ -365,11 +365,15 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let label_wcag_level = i18n.t("metric-wcag-level");
                 let label_warnings = i18n.t("metric-warnings");
                 let label_not_testable = i18n.t("metric-not-testable");
-                let label_overall_score = i18n.t("metric-overall-score");
+                // The headline metric is the accessibility score — what the
+                // report assesses and what grade and certificate classify
+                // (plan 29, D1). The weighted combined value has its own
+                // named card in the score-driver section.
+                let label_accessibility_score = i18n.t("metric-accessibility-score");
                 vec![
                     MetricItem {
-                        title: label_overall_score,
-                        value: normalized.normalized.overall_score.to_string(),
+                        title: label_accessibility_score,
+                        value: normalized.normalized.score.to_string(),
                         accent_color: Some("#0f766e".into()),
                     },
                     MetricItem {

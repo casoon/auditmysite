@@ -51,6 +51,11 @@ pub(super) fn cover_band_phrase(
 
 pub(super) fn build_batch_cover_score_row(
     avg_score: u32,
+    // The grade and certificate the presentation already derived. Recomputing
+    // them here meant a third band table (`BATCH_GRADE`, 95/90/80/70/60)
+    // disagreeing with the one the JSON reports above 95 (plan 29, D1).
+    grade: &str,
+    certificate: &str,
     total_urls: u32,
     total_violations: u32,
     badge_asset: Option<&str>,
@@ -66,9 +71,9 @@ pub(super) fn build_batch_cover_score_row(
     } else {
         grid = grid.add_item(serde_json::json!({
             "type": "metric-card",
-            "data": MetricCard::new(i18n.t("cover-card-certificate"), batch_grade_label(avg_score))
-                .with_subtitle(format!("{} • {} / 100", certificate_label_localized(batch_certificate_label(avg_score), i18n.locale()), avg_score))
-                .with_accent_color(certificate_accent_color(batch_certificate_label(avg_score)))
+            "data": MetricCard::new(i18n.t("cover-card-certificate"), grade)
+                .with_subtitle(format!("{} • {} / 100", certificate_label_localized(certificate, i18n.locale()), avg_score))
+                .with_accent_color(certificate_accent_color(certificate))
                 .with_height("100%")
                 .to_data()
         }));
@@ -162,10 +167,6 @@ pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
         "UNGENÜGEND" | "NICHT BESTANDEN" => tokens::DANGER,
         _ => tokens::INFO,
     }
-}
-
-pub(super) fn batch_grade_label(score: u32) -> &'static str {
-    crate::registry::BATCH_GRADE.label(score as f32, false)
 }
 
 pub(super) fn batch_certificate_label(score: u32) -> &'static str {

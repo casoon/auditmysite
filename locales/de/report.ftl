@@ -981,6 +981,7 @@ metric-wcag-level = WCAG-Level
 metric-warnings = Heuristische{"\u00A0"}Warnungen
 metric-not-testable = Manuell{"\u00A0"}zu{"\u00A0"}prüfen
 metric-overall-score = Gesamtscore{"\u00A0"}Website
+metric-accessibility-score = Barrierefreiheit{"\u00A0"}Score
 date-format-str = %d.%m.%Y
 trend-significantly-improved = Deutlich verbessert
 trend-improved = Verbessert

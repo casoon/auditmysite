@@ -122,21 +122,6 @@ pub static CERTIFICATE: BandSet = BandSet {
     ],
 };
 
-/// A distinct five-cutoff letter grade (95/90/80/70/60, `A+` at 95 not 90)
-/// used only for the batch PDF cover's grade card. Deliberately kept separate
-/// from [`LETTER_GRADE`] and [`SECURITY_GRADE`] — a third distinct family.
-pub static BATCH_GRADE: BandSet = BandSet {
-    name: "batch_grade_95_90_80_70_60",
-    bands: &[
-        (95, "A+", "A+"),
-        (90, "A", "A"),
-        (80, "B", "B"),
-        (70, "C", "C"),
-        (60, "D", "D"),
-        (i64::MIN, "F", "F"),
-    ],
-};
-
 /// The 90/75/60/40 thresholds rendered as a "technical condition" sentence
 /// for the single-report PDF cover.
 pub static COVER_PHRASE: BandSet = BandSet {

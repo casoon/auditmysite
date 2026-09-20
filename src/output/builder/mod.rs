@@ -86,7 +86,7 @@ mod tests {
             .summary
             .metrics
             .iter()
-            .any(|m| m.title == format!("Gesamtscore{NBSP}Website")));
+            .any(|m| m.title == format!("Barrierefreiheit{NBSP}Score")));
         assert!(!vm.executive.key_points.is_empty());
     }
 

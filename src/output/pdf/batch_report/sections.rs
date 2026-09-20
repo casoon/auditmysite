@@ -1547,6 +1547,8 @@ pub(super) fn render_batch_cover(
     builder = builder
         .add_component(build_batch_cover_score_row(
             score,
+            &pres.portfolio_summary.grade,
+            &pres.portfolio_summary.certificate,
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
             batch_badge_enabled.then_some(batch_badge_asset),

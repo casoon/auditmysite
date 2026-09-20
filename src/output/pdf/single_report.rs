@@ -337,9 +337,9 @@ fn render_overall_rating(
     builder = builder.add_component(callout.with_title(title));
     builder.add_component(
         Label::new(if en {
-            "The rating is a band label for the overall score within the automated scope, not a conformance certificate."
+            "The rating is a band label for the accessibility score within the automated scope, not a conformance certificate."
         } else {
-            "Die Einstufung ist ein Bandlabel für den Gesamtwert im automatisierten Prüfumfang, kein Konformitätsnachweis."
+            "Die Einstufung ist ein Bandlabel für den Barrierefreiheits-Wert im automatisierten Prüfumfang, kein Konformitätsnachweis."
         })
         .with_size("8.5pt")
         .with_color(design::tokens::MUTED),
@@ -1376,9 +1376,9 @@ fn render_score_driver_table(
                 "Erheblicher Risikotreiber"
             }
         } else if en {
-            "Stabilizes the overall score"
+            "Stabilizes the combined technical score"
         } else {
-            "Stabilisiert Gesamtwert"
+            "Stabilisiert den kombinierten Wert"
         }
     };
 
@@ -1472,11 +1472,11 @@ fn render_weight_basis_note(
 
     let mut note = if en {
         format!(
-            "The overall score is normalised over the modules that were measured — a weight basis of {basis} of 100, not the full set."
+            "The combined technical score is normalised over the modules that were measured — a weight basis of {basis} of 100, not the full set."
         )
     } else {
         format!(
-            "Der Gesamtwert ist auf die gemessenen Module normiert — Gewichtsbasis {basis} von 100, nicht der volle Satz."
+            "Der kombinierte technische Wert ist auf die gemessenen Module normiert — Gewichtsbasis {basis} von 100, nicht der volle Satz."
         )
     };
     if !missing.is_empty() {
@@ -1525,9 +1525,9 @@ fn render_overall_score_derivation(
         TableColumn::new(if en { "Result" } else { "Ergebnis" }).with_width("20%"),
     ])
     .with_title(if en {
-        "How the overall score was calculated"
+        "How the combined technical score was calculated"
     } else {
-        "Wie der Gesamtwert zustande kommt"
+        "Wie der kombinierte technische Wert zustande kommt"
     });
 
     table = table.add_row(vec![

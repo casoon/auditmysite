@@ -197,12 +197,12 @@ fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -
         String::new()
     } else if en {
         format!(
-            " Indicator modules ({}) are shown separately and do not change the overall score.",
+            " Indicator modules ({}) are shown separately and do not change the combined technical score.",
             indicator_names.join(", ")
         )
     } else {
         format!(
-            " Indikator-Module ({}) werden separat ausgewiesen und verändern den Gesamtscore nicht.",
+            " Indikator-Module ({}) werden separat ausgewiesen und verändern den kombinierten technischen Wert nicht.",
             indicator_names.join(", ")
         )
     };
@@ -210,12 +210,12 @@ fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -
     if normalized.viewport_scores.is_some() {
         if en {
             format!(
-                "Overall score uses the dual-viewport result: 70% mobile and 30% desktop. \
+                "The combined technical score uses the dual-viewport result: 70% mobile and 30% desktop. \
                  Security contributes 10% when active.{indicator_note}"
             )
         } else {
             format!(
-                "Der Gesamtscore nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. \
+                "Der kombinierte technische Wert nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. \
                  Sicherheit fließt mit 10% ein, wenn aktiv.{indicator_note}"
             )
         }
