@@ -558,8 +558,23 @@ mod tests {
         // `lang` und `<title>` sind gesetzt -- kein Befund dazu.
         assert!(!ids.iter().any(|id| id.starts_with("document/")), "{ids:?}");
 
-        // Mit Semantics darf keine Regel mehr mangels Faehigkeit ausfallen.
-        assert_eq!(report.summary.rules_not_run, 0);
+        // Mit Semantics faellt keine Regel mehr mangels Namensberechnung aus.
+        // Was uebrig bleibt, ist Tier 3: Ohne gerenderte Stile koennen die
+        // Kontrastregeln nichts sagen -- und sagen genau das, statt zu
+        // schweigen. Sie kamen mit a11y-core 0.7.0 dazu; auditmysite bedient
+        // `Rendering` noch nicht.
+        let mut nicht_gelaufen: Vec<&str> = report
+            .rule_runs
+            .iter()
+            .filter(|r| r.not_run.is_some())
+            .map(|r| r.rule_id.as_str())
+            .collect();
+        nicht_gelaufen.sort_unstable();
+        assert_eq!(
+            nicht_gelaufen,
+            vec!["contrast/text-insufficient", "contrast/text-undetermined"],
+            "unerwartet nicht gelaufen: {nicht_gelaufen:?}"
+        );
 
         // `rule_runs` und `findings` teilen sich eine Namensmenge -- ein Join
         // ueber `rule_id` muss aufgehen.
