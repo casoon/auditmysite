@@ -13,6 +13,21 @@ pub struct AXTree {
     pub nodes: HashMap<String, AXNode>,
     /// The root node ID
     pub root_id: Option<String>,
+    /// Node ids in document order.
+    ///
+    /// `nodes` is a `HashMap`, and Rust randomises hash order per process, so
+    /// iterating it directly gave a different sequence on every run of the
+    /// same page. Detectors that read the tree as a document — heading-skip
+    /// detection, "the first N nodes are the top of the page" — therefore
+    /// disagreed with themselves: two consecutive audits of the same URL, one
+    /// reported a heading skip, the next did not (plan 49).
+    ///
+    /// CDP's `getFullAXTree` returns nodes in document order, so preserving
+    /// the order they arrived in *is* document order. Hand-built trees in
+    /// tests keep the order the test wrote them in, which is what their
+    /// author means by it.
+    #[serde(default)]
+    order: Vec<String>,
 }
 
 impl AXTree {
@@ -21,6 +36,7 @@ impl AXTree {
         Self {
             nodes: HashMap::new(),
             root_id: None,
+            order: Vec::new(),
         }
     }
 
@@ -33,10 +49,66 @@ impl AXTree {
             if tree.root_id.is_none() {
                 tree.root_id = Some(node.node_id.clone());
             }
-            tree.nodes.insert(node.node_id.clone(), node);
+            if tree
+                .nodes
+                .insert(node.node_id.clone(), node.clone())
+                .is_none()
+            {
+                tree.order.push(node.node_id);
+            }
         }
 
         tree
+    }
+
+    /// All nodes in document order, browser-generated artifacts included.
+    ///
+    /// Normally this is just `order`. It falls back to reconstructing the
+    /// order from the tree structure when `order` does not cover `nodes` —
+    /// a snapshot cached before this field existed, or a direct write to the
+    /// public `nodes` map. The fallback walks `child_ids` depth-first from
+    /// the root and appends whatever that does not reach, sorted by id, so it
+    /// is at least deterministic.
+    fn ordered_nodes(&self) -> Vec<&AXNode> {
+        if self.order.len() == self.nodes.len() {
+            return self
+                .order
+                .iter()
+                .filter_map(|id| self.nodes.get(id))
+                .collect();
+        }
+        self.reconstruct_order()
+    }
+
+    fn reconstruct_order(&self) -> Vec<&AXNode> {
+        let mut out: Vec<&AXNode> = Vec::with_capacity(self.nodes.len());
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+
+        if let Some(root) = self.root_id.as_deref() {
+            let mut stack = vec![root];
+            while let Some(id) = stack.pop() {
+                if !seen.insert(id) {
+                    continue;
+                }
+                let Some(node) = self.nodes.get(id) else {
+                    continue;
+                };
+                out.push(node);
+                // Reversed, so the first child is visited first.
+                for child in node.child_ids.iter().rev() {
+                    stack.push(child.as_str());
+                }
+            }
+        }
+
+        let mut rest: Vec<&AXNode> = self
+            .nodes
+            .values()
+            .filter(|n| !seen.contains(n.node_id.as_str()))
+            .collect();
+        rest.sort_by(|a, b| a.node_id.cmp(&b.node_id));
+        out.extend(rest);
+        out
     }
 
     /// Get a node by ID
@@ -52,13 +124,15 @@ impl AXTree {
     /// Iterate over all auditable nodes (excludes browser-generated artifacts).
     /// This is the default iterator that all WCAG rules should use.
     pub fn iter(&self) -> impl Iterator<Item = &AXNode> {
-        self.nodes.values().filter(|n| !n.is_browser_generated())
+        self.ordered_nodes()
+            .into_iter()
+            .filter(|n| !n.is_browser_generated())
     }
 
     /// Iterate over ALL nodes including browser-generated artifacts.
     /// Only use this for tree traversal, parent/child lookups, or non-WCAG analysis.
     pub fn iter_all(&self) -> impl Iterator<Item = &AXNode> {
-        self.nodes.values()
+        self.ordered_nodes().into_iter()
     }
 
     /// Get all nodes with a specific role (excludes browser-generated nodes)
@@ -396,6 +470,60 @@ mod tests {
             parent_id: None,
             backend_dom_node_id: None,
         }
+    }
+
+    /// Plan 49: `nodes` is a `HashMap`, and two maps in one process do not
+    /// even agree with each other, so iterating it directly made the tree a
+    /// different document on every run. Built twice, iterated twice — the
+    /// sequence has to be the same all four times.
+    #[test]
+    fn iteration_follows_document_order_not_hash_order() {
+        let ids: Vec<String> = (0..64).map(|i| format!("n{i}")).collect();
+        let build = || {
+            AXTree::from_nodes(
+                ids.iter()
+                    .map(|id| create_test_node(id, "heading", Some("x")))
+                    .collect(),
+            )
+        };
+
+        let first = build();
+        let second = build();
+        let seq = |t: &AXTree| -> Vec<String> { t.iter_all().map(|n| n.node_id.clone()).collect() };
+
+        assert_eq!(seq(&first), ids, "construction order is document order");
+        assert_eq!(seq(&first), seq(&second), "two builds must agree");
+        assert_eq!(seq(&first), seq(&first), "one tree must agree with itself");
+    }
+
+    /// A tree that lost its order — an artifact cached before the field
+    /// existed, or a direct write to the public `nodes` map — is rebuilt from
+    /// `child_ids` rather than falling back to hash order.
+    #[test]
+    fn a_tree_without_stored_order_is_rebuilt_from_its_children() {
+        let mut root = create_test_node("root", "WebArea", Some("Page"));
+        root.child_ids = vec!["a".into(), "b".into(), "c".into()];
+        let nodes = vec![
+            root,
+            create_test_node("a", "heading", Some("A")),
+            create_test_node("b", "heading", Some("B")),
+            create_test_node("c", "heading", Some("C")),
+        ];
+
+        let mut tree = AXTree::from_nodes(nodes);
+        // Simulate the lost order.
+        tree.order.clear();
+        let seq: Vec<String> = tree.iter_all().map(|n| n.node_id.clone()).collect();
+        assert_eq!(seq, vec!["root", "a", "b", "c"]);
+
+        // And an unreachable node still lands in a defined place.
+        tree.nodes.insert(
+            "zz".to_string(),
+            create_test_node("zz", "heading", Some("Z")),
+        );
+        tree.order.clear();
+        let seq: Vec<String> = tree.iter_all().map(|n| n.node_id.clone()).collect();
+        assert_eq!(seq, vec!["root", "a", "b", "c", "zz"]);
     }
 
     #[test]

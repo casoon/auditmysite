@@ -5,6 +5,34 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`AXTree` ohne Dokumentreihenfolge, 2026-09-20 (Plan 49):** `AXTree.nodes` ist eine `HashMap`,
+  und `iter()`/`headings()` gaben `values()` zurueck -- Hash-Reihenfolge, die Rust pro Prozess
+  zufaellig setzt. Detektoren, die den Baum als Dokument lesen, widersprachen sich damit selbst:
+  zwei aufeinanderfolgende Audits von www.inros-lackner.de aus demselben Binary, eines meldete
+  UX 78, das andere UX 81, ohne dass sich an der Seite etwas geaendert hatte. Betroffen waren die
+  Heading-Skip-Erkennung (`last_level` setzt Dokumentreihenfolge voraus) und Journeys "fruehe
+  Inhalte" (`iter().take(50)` ueber eine `HashMap` sind fuenfzig beliebige Knoten, nicht der Anfang
+  der Seite).
+
+  CDP liefert `getFullAXTree` bereits in Dokumentreihenfolge -- `from_nodes` hat sie nur in die
+  `HashMap` geworfen. Neues privates Feld `order: Vec<String>` haelt sie fest; `iter()` und
+  `iter_all()` laufen darueber. Faellt die Reihenfolge weg (Snapshot aus dem Cache, der vor dem
+  Feld geschrieben wurde, oder ein direkter Schreibzugriff auf das oeffentliche `nodes`), wird sie
+  aus `child_ids` per Tiefensuche ab der Wurzel rekonstruiert, Unerreichbares nach Id sortiert
+  angehaengt -- degradiert, aber deterministisch.
+
+  Verifiziert: drei aufeinanderfolgende Laeufe ueber www.inros-lackner.de liefern identische
+  UX-Befunde und Modulwerte. Journey faellt dabei von 68 auf 65, weil `take(50)` jetzt tatsaechlich
+  den Seitenanfang liest. Der bei Plan 43 bewusst ausgelassene `HeadingSkips`-Fall steht jetzt in
+  `every_penalty_states_its_own_reason_at_the_first_occurrence` -- er war nicht zu behaupten,
+  solange h1 -> h3 nur je nach Lauf ein Skip war.
+
+  **Nicht mitgefixt:** die `StaticText`-Blindheit der `iter()`-Leser, die im "Related"-Abschnitt von
+  49 als zwei Call-Sites stand. Der Einzeiler (`iter()` -> `iter_all()`) wurde umgesetzt, gemessen
+  und wieder verworfen: er aenderte auf keiner der beiden Testseiten die Klassifikation, und ein
+  Guard-Test dafuer bestand auch mit dem Defekt, weil der Keyword-Scan darueber `StaticText`
+  ebenfalls nicht sieht. Das ist das eigentliche Problem und steht jetzt als Plan 50.
+
 - **Score-Hierarchie, 2026-09-20 (Plan 29):** Der Report trug rund 30 verschiedene 0-100-Werte,
   14 davon mit Note A-F. Der Gegenstand des Tools -- Barrierefreiheit -- war einer davon, mit 40 %
   Gewicht in einem anderen. Vier Entscheidungen, vier Commits, danach gilt eine Drei-Ebenen-Regel:

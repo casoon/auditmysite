@@ -1024,7 +1024,10 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         friction.push(FrictionPoint::new(NoPageTitle, FrictionValues::default()));
     }
 
-    // Early content: check if there's substantial text in the first portion of the tree
+    // Early content: check if there's substantial text in the first portion of
+    // the tree. `take(50)` only means "the first portion" because iteration is
+    // in document order (plan 49) — over the old hash order it was fifty
+    // arbitrary nodes.
     let early_text_len: usize = tree
         .iter()
         .take(50)

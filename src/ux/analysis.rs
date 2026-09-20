@@ -1131,6 +1131,20 @@ mod tests {
         }
     }
 
+    fn heading(id: &str, level: i64, name: &str) -> AXNode {
+        use crate::accessibility::{AXProperty, AXValue};
+        AXNode {
+            node_id: id.into(),
+            role: Some("heading".into()),
+            name: Some(name.into()),
+            properties: vec![AXProperty {
+                name: "level".into(),
+                value: AXValue::Int(level),
+            }],
+            ..Default::default()
+        }
+    }
+
     fn tree_of(nodes: Vec<AXNode>) -> AXTree {
         AXTree::from_nodes(nodes)
     }
@@ -1220,6 +1234,18 @@ mod tests {
                 "a page without trust keywords",
                 vec![node("root", "RootWebArea", Some("Page"))],
                 UxIssueKind::WeakTrustSignals,
+            ),
+            (
+                // This case was omitted while `headings()` returned hash
+                // order: h1 -> h3 only skips if the two arrive in that order,
+                // so the assertion passed or failed per run (plan 49).
+                "one skipped heading level",
+                vec![
+                    node("root", "RootWebArea", Some("Page")),
+                    heading("h1", 1, "Titel"),
+                    heading("h3", 3, "Unterabschnitt"),
+                ],
+                UxIssueKind::HeadingSkips,
             ),
         ];
 
