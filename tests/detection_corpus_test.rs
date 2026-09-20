@@ -16,59 +16,11 @@
 
 mod common;
 
-use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::sync::Arc;
-use std::thread;
-
 use auditmysite::cli::{Args, WcagLevel};
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig};
 use clap::Parser;
 use common::detection_corpus::{detection_corpus_dir, load_corpus_dir, Verdict};
-
-/// Serve an HTML string locally on a random port, mirroring
-/// `tests/integration_test.rs`'s `serve_fixture` — duplicated rather than
-/// shared because it's the only other Chrome-dependent test file so far and
-/// this one serves corpus HTML content directly rather than a fixed
-/// `tests/fixtures/<name>` path.
-fn serve_html(html: String) -> (String, Arc<std::sync::atomic::AtomicBool>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind");
-    let port = listener.local_addr().unwrap().port();
-    let url = format!("http://127.0.0.1:{port}");
-
-    let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let shutdown_clone = shutdown.clone();
-
-    thread::spawn(move || {
-        listener
-            .set_nonblocking(true)
-            .expect("Cannot set non-blocking");
-        loop {
-            if shutdown_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                break;
-            }
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    let mut buf = [0u8; 1024];
-                    let _ = stream.read(&mut buf);
-                    let response = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-                        html.len(),
-                        html
-                    );
-                    let _ = stream.write_all(response.as_bytes());
-                    let _ = stream.flush();
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(std::time::Duration::from_millis(10));
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    (url, shutdown)
-}
+use common::fixture_server::serve_html;
 
 async fn ci_browser() -> BrowserManager {
     let opts = BrowserOptions {
@@ -110,22 +62,22 @@ async fn detection_corpus_matches_real_audit_run() {
             )
         });
 
-        let (url, shutdown) = serve_html(html);
+        let fixture = serve_html(html);
         let page = manager.new_page().await.expect("New page failed");
         manager
-            .navigate(&page, &url)
+            .navigate(&page, &fixture.url)
             .await
             .expect("Navigation failed");
 
-        let args = Args::parse_from(["auditmysite", &url, "--level", "aaa"]);
+        let args = Args::parse_from(["auditmysite", &fixture.url, "--level", "aaa"]);
         let mut config = PipelineConfig::from_args_and_config(&args, None);
         config.wcag_level = WcagLevel::AAA;
 
-        let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
+        let (report, _snapshot) = audit_page(&page, &fixture.url, &config, &manager)
             .await
             .unwrap_or_else(|e| panic!("Audit failed for case '{}': {e}", case.case));
 
-        shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+        fixture.stop();
 
         let wcag = &report.accessibility.wcag_results;
         let mut false_negatives = Vec::new();

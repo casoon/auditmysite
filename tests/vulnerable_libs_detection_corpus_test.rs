@@ -9,17 +9,12 @@
 
 mod common;
 
-use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread;
-
 use auditmysite::best_practices::analyze_vulnerable_libraries;
 use auditmysite::{BrowserManager, BrowserOptions};
 use common::detection_corpus::{
     load_corpus_dir, load_structurally_deferred, nonwcag_detection_corpus_dir, Verdict,
 };
+use common::fixture_server::serve_html;
 
 /// Same CI-sandbox handling as `tests/detection_corpus_test.rs`'s `ci_browser`.
 async fn ci_browser() -> BrowserManager {
@@ -30,49 +25,6 @@ async fn ci_browser() -> BrowserManager {
     BrowserManager::with_options(opts)
         .await
         .expect("browser launch failed")
-}
-
-/// Serve a fixture HTML file's contents locally, mirroring
-/// `tests/detection_corpus_test.rs`'s `serve_html` (duplicated rather than
-/// shared — same rationale as that file gives for not sharing with
-/// `tests/integration_test.rs`).
-fn serve_html(html: String) -> (String, Arc<AtomicBool>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
-    let port = listener.local_addr().unwrap().port();
-    let url = format!("http://127.0.0.1:{port}");
-
-    let shutdown = Arc::new(AtomicBool::new(false));
-    let shutdown_clone = shutdown.clone();
-
-    thread::spawn(move || {
-        listener
-            .set_nonblocking(true)
-            .expect("cannot set non-blocking");
-        loop {
-            if shutdown_clone.load(Ordering::Relaxed) {
-                break;
-            }
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    let mut buf = [0u8; 1024];
-                    let _ = stream.read(&mut buf);
-                    let response = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-                        html.len(),
-                        html
-                    );
-                    let _ = stream.write_all(response.as_bytes());
-                    let _ = stream.flush();
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(std::time::Duration::from_millis(10));
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    (url, shutdown)
 }
 
 struct CaseDiff {
@@ -107,10 +59,10 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
             )
         });
 
-        let (url, shutdown) = serve_html(html);
+        let fixture = serve_html(html);
         let page = manager.new_page().await.expect("new page failed");
         manager
-            .navigate(&page, &url)
+            .navigate(&page, &fixture.url)
             .await
             .expect("navigation failed");
 
@@ -123,7 +75,7 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
                 )
             });
 
-        shutdown.store(true, Ordering::Relaxed);
+        fixture.stop();
 
         let mut false_negatives = Vec::new();
         let mut false_positives = Vec::new();

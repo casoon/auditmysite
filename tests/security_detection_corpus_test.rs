@@ -10,68 +10,11 @@
 
 mod common;
 
-use std::collections::BTreeMap;
-use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread;
-
 use auditmysite::analyze_security;
 use common::detection_corpus::{
     load_corpus_dir, load_structurally_deferred, nonwcag_detection_corpus_dir, Verdict,
 };
-
-/// Serves a fixed HTML body with the given extra response headers on a
-/// random localhost port, for every request regardless of method/path —
-/// same simplistic single-response shape as `tests/integration_test.rs`'s
-/// `serve_fixture`, extended with a header map. Always plain HTTP: this
-/// corpus deliberately defers the one HSTS check gated behind an actual
-/// HTTPS scheme (see `structurally_deferred.json`).
-fn serve_with_headers(headers: BTreeMap<String, String>) -> (String, Arc<AtomicBool>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
-    let port = listener.local_addr().unwrap().port();
-    let url = format!("http://127.0.0.1:{port}");
-
-    let shutdown = Arc::new(AtomicBool::new(false));
-    let shutdown_clone = shutdown.clone();
-
-    thread::spawn(move || {
-        listener
-            .set_nonblocking(true)
-            .expect("cannot set non-blocking");
-        let body = "<html><body>security corpus fixture</body></html>";
-        let mut header_lines = String::new();
-        for (k, v) in &headers {
-            header_lines.push_str(&format!("{k}: {v}\r\n"));
-        }
-        loop {
-            if shutdown_clone.load(Ordering::Relaxed) {
-                break;
-            }
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    let mut buf = [0u8; 1024];
-                    let _ = stream.read(&mut buf);
-                    let response = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n{}\r\n{}",
-                        body.len(),
-                        header_lines,
-                        body
-                    );
-                    let _ = stream.write_all(response.as_bytes());
-                    let _ = stream.flush();
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(std::time::Duration::from_millis(10));
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    (url, shutdown)
-}
+use common::fixture_server::serve;
 
 struct CaseDiff {
     case: String,
@@ -94,13 +37,38 @@ async fn security_detection_corpus_matches_real_analyze_security_run() {
     let mut diffs: Vec<CaseDiff> = Vec::new();
 
     for case in &cases {
-        let (url, shutdown) = serve_with_headers(case.response_headers.clone());
+        // Plain HTTP throughout: this corpus deliberately defers the one
+        // HSTS check gated behind an actual HTTPS scheme (see
+        // `structurally_deferred.json`).
+        let fixture = serve(
+            "<html><body>security corpus fixture</body></html>".to_string(),
+            case.response_headers.clone(),
+        );
 
-        let analysis = analyze_security(&url)
+        let analysis = analyze_security(&fixture.url)
             .await
             .unwrap_or_else(|e| panic!("analyze_security failed for case '{}': {e}", case.case));
 
-        shutdown.store(true, Ordering::Relaxed);
+        fixture.stop();
+
+        // Before reading anything into the diff: did the fixture server
+        // actually answer? `analyze_security` turns a failed fetch into empty
+        // headers, so without this a transport problem arrives as a
+        // detection-accuracy mismatch (plan 48).
+        let transport_errors = fixture.transport_errors();
+        assert!(
+            fixture.served() > 0,
+            "case '{}': the fixture server never delivered a response, so the analysis below \
+             says nothing about detection accuracy. Transport errors: {:?}",
+            case.case,
+            transport_errors,
+        );
+        assert!(
+            transport_errors.is_empty(),
+            "case '{}': fixture server transport errors: {:?}",
+            case.case,
+            transport_errors,
+        );
 
         let mut false_negatives = Vec::new();
         let mut false_positives = Vec::new();

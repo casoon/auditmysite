@@ -4,16 +4,18 @@
 //! so they don't run in CI by default. Run with:
 //!   cargo test --test integration_test -- --ignored
 
-use std::io::{Read, Write};
-use std::net::TcpListener;
+mod common;
+
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread;
 
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
 
 /// Serve a local HTML file over HTTP on a random port.
 /// Returns the URL (e.g. "http://127.0.0.1:PORT") and a shutdown handle.
+///
+/// The server itself lives in `common::fixture_server` — six copies of it
+/// existed, all carrying the same race (plan 48).
 fn serve_fixture(filename: &str) -> (String, Arc<std::sync::atomic::AtomicBool>) {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -22,43 +24,8 @@ fn serve_fixture(filename: &str) -> (String, Arc<std::sync::atomic::AtomicBool>)
     let html = std::fs::read_to_string(&fixture_path)
         .unwrap_or_else(|e| panic!("Failed to read fixture {}: {}", fixture_path.display(), e));
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind");
-    let port = listener.local_addr().unwrap().port();
-    let url = format!("http://127.0.0.1:{}", port);
-
-    let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let shutdown_clone = shutdown.clone();
-
-    thread::spawn(move || {
-        listener
-            .set_nonblocking(true)
-            .expect("Cannot set non-blocking");
-        loop {
-            if shutdown_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                break;
-            }
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    let mut buf = [0u8; 1024];
-                    let _ = stream.read(&mut buf);
-
-                    let response = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-                        html.len(),
-                        html
-                    );
-                    let _ = stream.write_all(response.as_bytes());
-                    let _ = stream.flush();
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(std::time::Duration::from_millis(10));
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    (url, shutdown)
+    let fixture = common::fixture_server::serve_html(html);
+    (fixture.url.clone(), fixture.shutdown.clone())
 }
 
 async fn ci_browser() -> BrowserManager {
@@ -1096,10 +1063,18 @@ async fn test_concurrent_wait_for_stable_stays_within_its_timeout_budget() {
     // ceiling (650ms here), well under the ~30s worst case this regression
     // test guards against.
     let budget = Duration::from_millis(duration_ms + 500 + 4_000);
+    // The outer bound is a hang guard for the whole task, and the task also
+    // creates a page — which is not what this test measures. It used to carry
+    // `budget`, so on a loaded machine the suite failed here with
+    // "exceeded its bounded timeout" when page creation, not
+    // `wait_for_stable`, had used up the time. Reproduced on the unchanged
+    // code: 2 of 2 full `--ignored` runs. `elapsed` below is measured around
+    // `wait_for_stable` alone and stays the real assertion.
+    let hang_guard = Duration::from_secs(60);
     for task in tasks {
-        let elapsed = tokio::time::timeout(budget, task)
+        let elapsed = tokio::time::timeout(hang_guard, task)
             .await
-            .expect("wait_for_stable exceeded its bounded timeout under concurrency")
+            .expect("wait_for_stable hung under concurrency")
             .expect("task panicked");
         assert!(
             elapsed < budget,

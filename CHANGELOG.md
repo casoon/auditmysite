@@ -5,6 +5,39 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Flaky Fixture-Server, 2026-09-20 (Plan 48):** `security_detection_corpus_matches_real_analyze_security_run`
+  fiel sporadisch mit einer FALSE-NEGATIVE-Meldung um -- der schlimmstmoeglichen Form eines
+  Flakes, weil sie sich wie eine echte Regression in der Security-Erkennung liest. Der Plan
+  vermutete einen Port-Race; `bind` auf Port 0 war aber schon da.
+
+  Die tatsaechliche Ursache: der Listener wird non-blocking gesetzt, damit die Accept-Schleife ein
+  Shutdown-Flag pollen kann -- und unter macOS/BSD **erbt der akzeptierte Socket dieses Flag**.
+  `read` und `write_all` konnten also `WouldBlock` liefern, bevor der Request ueberhaupt da war,
+  und beide Ergebnisse wurden mit `let _ =` verworfen. Die Antwort ging ungeschrieben raus, der
+  Client sah nichts, `analyze_security` fiel auf leere Header zurueck (was fuer eine Seite, die
+  HEAD und GET verweigert, richtig ist) und der Corpus-Diff meldete einen fehlenden Header.
+
+  Belegt statt vermutet: eine Probe zeigte `read -> Err(WouldBlock)` in **jedem** Lauf, und unter
+  16-facher Parallellast fiel der alte Test in **29 von 48** Laeufen um, mit exakt der Meldung aus
+  dem Plan (`cors_wildcard_credentials`). Nach dem Fix 48 von 48 gruen.
+
+  Der Fix: akzeptierte Verbindung zurueck auf blocking, Request-Kopf bis zum Ende lesen, jede
+  Verbindung in einem eigenen Thread (eine Accept-Schleife, die auf einen Client wartet, verhungert
+  alle anderen), und Transportfehler werden mitgeschrieben statt verschluckt. Der Test prueft jetzt
+  `fixture.served() > 0`, bevor er irgendetwas als Erkennungsfehler wertet -- verifiziert mit einem
+  simulierten Transportfehler, der jetzt als solcher gemeldet wird statt als FALSE NEGATIVE.
+
+  Derselbe Server steckte **sechsmal kopiert** in den Integrationstests, jede Kopie mit demselben
+  Race. Er liegt jetzt einmal in `tests/common/fixture_server.rs` (298 Zeilen weniger). Die vier
+  Chrome-gegateten Suiten laufen damit gruen.
+
+  Dabei fiel ein zweiter, bereits vorhandener Flake auf:
+  `test_concurrent_wait_for_stable_stays_within_its_timeout_budget` legte sein 4,65-s-Budget um die
+  gesamte Task inklusive `new_page()`, obwohl nur `wait_for_stable` gemeint ist -- auf einer
+  ausgelasteten Maschine fiel die volle `--ignored`-Runde deshalb auf dem **unveraenderten** Code
+  2 von 2 Mal um. Die aeussere Schranke ist jetzt eine reine Hang-Sicherung; die eigentliche
+  Zusicherung misst weiterhin nur `wait_for_stable`. Danach 3 von 3 volle Runden gruen.
+
 - **`StaticText` war fuer jeden text-messenden Leser unsichtbar, 2026-09-20 (Plan 50):**
   `AXTree::iter()` filtert browser-generierte Rollen heraus, `StaticText` darunter. Fuer
   WCAG-Regeln ist das richtig -- ein Befund darf nicht gegen einen Knoten gemeldet werden, den
