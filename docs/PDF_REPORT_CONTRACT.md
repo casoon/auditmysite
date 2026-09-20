@@ -100,7 +100,15 @@ In the rendered PDF:
 - Heuristic score cards carry the description "Heuristic estimate based on structural
   signals" in the subtitle.
 - Indicator modules may be displayed in the module dashboard, but do not contribute to
-  the weighted overall score unless explicitly marked as contributing in the JSON model.
+  the combined technical score unless explicitly marked as contributing in the JSON model.
+  They carry no letter grade — a grade on a module that feeds nothing claims an authority
+  it does not have (plan 29, D2).
+- An indicator that re-reads another module's result instead of measuring anything new says
+  so in a sentence below its score, and an accessibility penalty applied to it is named with
+  its point value rather than folded in silently (plan 29, D3).
+- The cover headline is the accessibility score, with its grade and certificate. The weighted
+  combined technical score is a separate, labelled card carrying its weight basis, never the
+  headline (plan 29, D1).
 - No visual distinction between measured and heuristic modules in the module overview strip —
   the indicator suffix is the only differentiator.
 

@@ -5,6 +5,58 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Score-Hierarchie, 2026-09-20 (Plan 29):** Der Report trug rund 30 verschiedene 0-100-Werte,
+  14 davon mit Note A-F. Der Gegenstand des Tools -- Barrierefreiheit -- war einer davon, mit 40 %
+  Gewicht in einem anderen. Vier Entscheidungen, vier Commits, danach gilt eine Drei-Ebenen-Regel:
+  Barrierefreiheit als Ueberschrift, die fuenf uebrigen gewichteten Module als bewerteter Kontext,
+  alles andere als Indikator ohne Note.
+
+  - **Note nur fuer Module, die den Gesamtwert tragen (D2):** Sieben der dreizehn Module haben
+    `weight_pct: 0`, speisen also nichts, trugen aber dieselbe A-F-Note wie Accessibility. So stand
+    "Dark Mode: F" -- eine Note fuer ein optionales Produktmerkmal, das der Code selbst als
+    `measurement_type: "optional"` fuehrt -- neben einem F fuer den Ausschluss von
+    Screenreader-Nutzern. `ModuleScoreEntry::new` leitet Gewicht, Note und Band aus einer Quelle ab:
+    `grade` ist `Option` und nur bei Gewicht > 0 gesetzt, `band` traegt immer das kanonisch
+    englische FIVE_BAND-Label. Gleiches fuer die `grade`-Felder von `AiVisibilityAnalysis` und
+    `SourceQualityAnalysis` sowie fuer `dark_mode`. Das PDF war nicht betroffen -- es zeigte
+    ohnehin Bandwoerter, die Noten steckten nur im JSON.
+  - **Zaehler statt Quote, wo der Nenner beliebig ist (D4, schliesst Plan 43 §3):** Content
+    Visibility war `(Signale - Probleme) / Signale`, also "Anteil der Checks, die nicht gemeckert
+    haben" -- ein Check mehr, der meist besteht, hob den Wert jeder Seite. Der Score entfaellt
+    ersatzlos; berichtet werden die Zaehler, die ohnehin schon danebenstanden. Dabei fiel auf, dass
+    die Erfolgsmeldung "Alle Content-Visibility-Signale sind in Ordnung" ab `score >= 80` erschien,
+    also auch bei bis zu einem Fuenftel Problemsignalen; sie haengt jetzt an `problem_count == 0`.
+    Eine Ebene tiefer traegt `SignalCategory` `passed`/`total` statt `score_pct`, und der
+    Tabellentitel nennt "17 von 24 Signalen erfuellt" statt eines mit sechs erfundenen Faktoren
+    gewichteten Prozentwerts.
+  - **Abgeleitete Indikatoren als solche ausweisen (D3, schliesst Plan 42):** Ein Leser sah SEO,
+    KI-Sichtbarkeit, Quellenqualitaet, UX und Journey als fuenf getrennte Bewertungen, die zufaellig
+    uebereinstimmen. `AiSignalKind::TechnicalTrust` faltete `a11y_score >= 80` und
+    `security_score >= 70` in die Zitierbarkeit, `QualitySignalKind::Accessibility` zaehlte den
+    Accessibility-Score noch einmal in der Authority-Dimension -- beide entfernt. Die elf
+    erfundenen Citation-Gewichte (0.08, 0.15, 0.10, ...) suggerierten eine Kalibrierung, die es
+    nicht gibt; jetzt gleichgewichtet unter benanntem `SIGNAL_WEIGHT`. Was bleibt, wird deklariert:
+    neues Feld `derived_from`, gespeist aus `taxonomy::module_derived_from`, plus ein Satz im PDF
+    unter jedem betroffenen Indikator. Der Accessibility-Abzug auf UX und Journey wird beziffert
+    statt still eingerechnet.
+  - **Die Ueberschrift ist die Barrierefreiheit (D1, schliesst Plan 41 §3):** Note und Zertifikat
+    hingen am gewichteten Gesamtwert (#233, damit sie einander nicht widersprechen). Das loeste den
+    internen Widerspruch, rueckte die Kennzahl aber vom Gegenstand des Berichts weg:
+    inros-lackner.de mit Barrierefreiheit 20 erschien auf dem Deckblatt als 45, weil Performance,
+    Mobile und SEO sie hochzogen; casoon.de mit Barrierefreiheit 100 als 92. Beide lesen jetzt den
+    Barrierefreiheits-Score, koennen sich also weiterhin nicht widersprechen. Der gewichtete Wert
+    bleibt als benannte ScoreCard "Kombinierter technischer Wert" mit Gewichtsbasis -- ohne sie
+    waere er aus dem PDF verschwunden, er stand nur auf dem Deckblatt. `report-lint` prueft gegen
+    `accessibility_score`; neue Fixture, weil in allen bisherigen beide Scores gleich sind und
+    keine den Wechsel bemerkt haette. Nebenbei zwei weitere Bandtabellen beseitigt: der
+    Batch-Builder rechnete Note und Zertifikat mit eigenen Literalen (95/90/85/80/70/60), das
+    Batch-Deckblatt mit `BATCH_GRADE` -- derselbe Score war also je nach Bericht anders benotet.
+    Beide nutzen jetzt dieselben zwei Funktionen wie der Single-Report; `BATCH_GRADE` entfaellt.
+
+  Verifiziert an frischen Reports von www.casoon.de (Barrierefreiheit 100, kombiniert 92, Note A)
+  und www.inros-lackner.de (Barrierefreiheit 20, kombiniert 45, Note F, Zertifikat NICHT
+  BESTANDEN); `report-lint` auf beiden ohne Befund.
+
 - **Report-Qualitaetsdurchlauf, 2026-09-19:** Ergebnis eines `report-critic`-Laufs ueber frische
   Single-URL-Reports von www.casoon.de und www.inros-lackner.de. `auditmysite report-lint` war auf
   beiden Reports ohne Befund — alle Punkte sind semantischer Natur und fuer den deterministischen
