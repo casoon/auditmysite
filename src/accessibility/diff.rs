@@ -1,14 +1,51 @@
-//! Differences between two AXSnapshots — the basic primitive used by
-//! interactive journey tests (modal open/close, disclosure expand, …).
+//! Die Differenz zweier [`AXSnapshot`]s — das Primitiv, mit dem der
+//! Journey-Layer eine Interaktion bewertet: aufnehmen, handeln, aufnehmen,
+//! vergleichen.
 //!
-//! Phase 1 covers added/removed nodes, focus moves, title and URL changes.
-//! Detailed property-level diffing (e.g. `aria-expanded` flips per node) is
-//! intentionally deferred to Phase 2 — once we know which property changes
-//! we actually care to surface.
+//! Erfasst werden hinzugekommene und verschwundene Knoten, Änderungen an
+//! ARIA-Zustandseigenschaften je Knoten, Fokusbewegungen sowie Titel- und
+//! URL-Wechsel.
+//!
+//! # Knotenidentität
+//!
+//! Verglichen wird über die **Backend-Node-ID**, nicht über die
+//! AXTree-Knotenkennung. Chrome vergibt `nodeId` je `getFullAXTree`-Aufruf
+//! neu; ein Vergleich darüber würde bei jedem zweiten Aufruf den halben Baum
+//! als „hinzugekommen" und „verschwunden" melden und keine einzige
+//! Eigenschaftsänderung finden. Die Backend-ID zeigt dagegen auf den
+//! DOM-Knoten und bleibt über die Lebensdauer der Seite stabil. Nur Knoten
+//! ohne Backend-ID fallen auf die AXTree-Kennung zurück.
+
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
 use super::snapshot::AXSnapshot;
+use super::tree::AXNode;
+
+/// Stabile Kennung eines Knotens über zwei Aufnahmen hinweg.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum NodeKey {
+    /// Der Regelfall: zeigt auf den DOM-Knoten, stabil über Aufnahmen.
+    Backend(i64),
+    /// Rückfall für Knoten ohne DOM-Gegenstück.
+    Ax(String),
+}
+
+fn key_of(node: &AXNode) -> NodeKey {
+    match node.backend_dom_node_id {
+        Some(id) => NodeKey::Backend(id),
+        None => NodeKey::Ax(node.node_id.clone()),
+    }
+}
+
+fn index(snapshot: &AXSnapshot) -> HashMap<NodeKey, &AXNode> {
+    snapshot
+        .tree
+        .iter_all()
+        .map(|node| (key_of(node), node))
+        .collect()
+}
 
 /// Difference between two captured snapshots.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -33,8 +70,15 @@ pub struct AXTreeDiff {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PropertyChange {
+    /// AXTree-Kennung aus der *späteren* Aufnahme. Nur zur Anzeige — die
+    /// Zuordnung läuft über `backend_node_id`.
     pub node_id: String,
-    /// Property name, e.g. `"aria-expanded"`.
+    /// Backend-Node-ID, sofern der Knoten ein DOM-Gegenstück hat. Der
+    /// Schlüssel, über den ein Aufrufer eine Änderung dem Element zuordnet,
+    /// das er bedient hat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_node_id: Option<i64>,
+    /// Property name, e.g. `"expanded"`.
     pub property: String,
     pub before: String,
     pub after: String,
@@ -69,38 +113,71 @@ impl AXTreeDiff {
             });
         }
 
-        for id in after.tree.nodes.keys() {
-            if !before.tree.nodes.contains_key(id) {
-                diff.added.push(id.clone());
+        let before_index = index(before);
+        let after_index = index(after);
+
+        for (key, node) in &after_index {
+            if !before_index.contains_key(key) {
+                diff.added.push(node.node_id.clone());
             }
         }
-        for id in before.tree.nodes.keys() {
-            if !after.tree.nodes.contains_key(id) {
-                diff.removed.push(id.clone());
+        for (key, node) in &before_index {
+            if !after_index.contains_key(key) {
+                diff.removed.push(node.node_id.clone());
             }
         }
         diff.added.sort();
         diff.removed.sort();
 
-        // Property-level diffing: track meaningful ARIA state changes.
-        for (node_id, after_node) in &after.tree.nodes {
-            if let Some(before_node) = before.tree.nodes.get(node_id) {
-                for prop_name in TRACKED_PROPERTIES {
-                    let before_val = before_node.get_property_bool(prop_name);
-                    let after_val = after_node.get_property_bool(prop_name);
-                    if before_val != after_val {
-                        diff.property_changes.push(PropertyChange {
-                            node_id: node_id.clone(),
-                            property: prop_name.to_string(),
-                            before: before_val.map(|b| b.to_string()).unwrap_or_default(),
-                            after: after_val.map(|b| b.to_string()).unwrap_or_default(),
-                        });
-                    }
+        for (key, after_node) in &after_index {
+            let Some(before_node) = before_index.get(key) else {
+                continue;
+            };
+            for prop_name in TRACKED_PROPERTIES {
+                let before_val = before_node.get_property_bool(prop_name);
+                let after_val = after_node.get_property_bool(prop_name);
+                if before_val != after_val {
+                    diff.property_changes.push(PropertyChange {
+                        node_id: after_node.node_id.clone(),
+                        backend_node_id: after_node.backend_dom_node_id,
+                        property: prop_name.to_string(),
+                        before: before_val.map(|b| b.to_string()).unwrap_or_default(),
+                        after: after_val.map(|b| b.to_string()).unwrap_or_default(),
+                    });
                 }
             }
         }
+        diff.property_changes.sort_by(|a, b| {
+            (a.backend_node_id, &a.property).cmp(&(b.backend_node_id, &b.property))
+        });
 
         diff
+    }
+
+    /// Die Änderung einer verfolgten Eigenschaft an genau dem Knoten, den der
+    /// Aufrufer bedient hat.
+    ///
+    /// Das ist der Unterschied zwischen „irgendwo auf der Seite hat sich
+    /// `expanded` geändert" und „der geklickte Auslöser hat sich geändert".
+    pub fn property_change_for(
+        &self,
+        backend_node_id: i64,
+        property: &str,
+    ) -> Option<&PropertyChange> {
+        self.property_changes
+            .iter()
+            .find(|c| c.backend_node_id == Some(backend_node_id) && c.property == property)
+    }
+
+    /// Ob im Accessibility-Tree Knoten hinzugekommen sind — der Hinweis
+    /// darauf, dass durch die Handlung Inhalt wahrnehmbar geworden ist.
+    pub fn has_additions(&self) -> bool {
+        !self.added.is_empty()
+    }
+
+    /// Ob Knoten aus dem Accessibility-Tree verschwunden sind.
+    pub fn has_removals(&self) -> bool {
+        !self.removed.is_empty()
     }
 
     /// True when nothing structural changed between the two snapshots.
@@ -117,7 +194,7 @@ impl AXTreeDiff {
 #[cfg(test)]
 mod tests {
     use super::super::snapshot::FocusSnapshot;
-    use super::super::tree::AXTree;
+    use super::super::tree::{AXNode, AXTree};
     use super::*;
 
     fn snap(label: &str, title: &str, url: &str, focus: Option<i64>) -> AXSnapshot {
@@ -149,6 +226,94 @@ mod tests {
         assert_eq!(d.title_changed, Some(("Old".into(), "New".into())));
         assert_eq!(d.focus_moved.unwrap().after, Some(2));
         assert!(d.url_changed.is_none());
+    }
+
+    /// Baut einen AX-Knoten mit einer booleschen Eigenschaft.
+    fn node(ax_id: &str, backend: i64, prop: Option<(&str, bool)>) -> AXNode {
+        AXNode {
+            node_id: ax_id.to_string(),
+            ignored: false,
+            ignored_reasons: Vec::new(),
+            role: Some("button".to_string()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: prop
+                .map(|(name, value)| {
+                    vec![super::super::tree::AXProperty {
+                        name: name.to_string(),
+                        value: super::super::tree::AXValue::Bool(value),
+                    }]
+                })
+                .unwrap_or_default(),
+            child_ids: Vec::new(),
+            parent_id: None,
+            backend_dom_node_id: Some(backend),
+        }
+    }
+
+    fn snap_with(label: &str, nodes: Vec<AXNode>) -> AXSnapshot {
+        AXSnapshot::new(
+            label,
+            "https://x",
+            "T",
+            0,
+            AXTree::from_nodes(nodes),
+            FocusSnapshot::default(),
+        )
+    }
+
+    /// Der Kern der Identitätskorrektur: Chrome vergibt `nodeId` je Abruf neu.
+    /// Über die Backend-ID bleibt derselbe DOM-Knoten trotzdem derselbe —
+    /// sonst wäre der halbe Baum „hinzugekommen" und „verschwunden".
+    #[test]
+    fn neue_ax_kennungen_erzeugen_keine_scheinaenderung() {
+        let before = snap_with("a", vec![node("ax-1", 42, Some(("expanded", false)))]);
+        let after = snap_with("b", vec![node("ax-999", 42, Some(("expanded", false)))]);
+
+        let d = AXTreeDiff::between(&before, &after);
+        assert!(d.added.is_empty(), "added: {:?}", d.added);
+        assert!(d.removed.is_empty(), "removed: {:?}", d.removed);
+        assert!(d.property_changes.is_empty());
+    }
+
+    #[test]
+    fn eigenschaftswechsel_wird_dem_richtigen_knoten_zugeordnet() {
+        let before = snap_with(
+            "a",
+            vec![
+                node("ax-1", 42, Some(("expanded", false))),
+                node("ax-2", 77, Some(("expanded", false))),
+            ],
+        );
+        // Nur Knoten 77 klappt auf; 42 bekommt zusätzlich eine neue Kennung.
+        let after = snap_with(
+            "b",
+            vec![
+                node("ax-9", 42, Some(("expanded", false))),
+                node("ax-8", 77, Some(("expanded", true))),
+            ],
+        );
+
+        let d = AXTreeDiff::between(&before, &after);
+        assert_eq!(d.property_changes.len(), 1);
+        assert!(d.property_change_for(42, "expanded").is_none());
+        let change = d
+            .property_change_for(77, "expanded")
+            .expect("Änderung an 77");
+        assert_eq!(change.before, "false");
+        assert_eq!(change.after, "true");
+    }
+
+    #[test]
+    fn neuer_inhalt_erscheint_als_zugang() {
+        let before = snap_with("a", vec![node("ax-1", 42, None)]);
+        let after = snap_with("b", vec![node("ax-1", 42, None), node("ax-2", 43, None)]);
+
+        let d = AXTreeDiff::between(&before, &after);
+        assert!(d.has_additions());
+        assert!(!d.has_removals());
     }
 
     #[test]

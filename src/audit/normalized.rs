@@ -834,6 +834,7 @@ pub enum InteractiveFindingKind {
     FocusTrapEscaped,
     FocusTrapEscapeNotClosing,
     FocusRestorationLostToBody,
+    ModalNotOpened,
     MenuNotOpened,
     MenuFocusNotMoved,
     MenuEscapeNotClosing,
@@ -841,6 +842,8 @@ pub enum InteractiveFindingKind {
     TabsFocusNotOnTab,
     DisclosureNotOpened,
     DisclosureNotClosed,
+    DisclosureStateWithoutContent,
+    DisclosureContentWithoutState,
     SpaNoAnnouncementSignal,
     SpaTitleUnchanged,
     SpaFocusNotMoved,
@@ -1139,6 +1142,26 @@ pub fn interactive_finding_text(
                     .to_string()
             }),
         ),
+        ModalNotOpened => (
+            if en {
+                "The trigger announces a dialog via aria-haspopup, but activating it makes \
+                 no dialog appear in the accessibility tree."
+                    .to_string()
+            } else {
+                "Der Auslöser kündigt über aria-haspopup einen Dialog an, beim Betätigen \
+                 erscheint im Accessibility-Tree aber keiner."
+                    .to_string()
+            },
+            Some(if en {
+                "Either open a dialog on activation, or drop aria-haspopup=\"dialog\" from \
+                 the trigger so it does not promise something it does not do."
+                    .to_string()
+            } else {
+                "Entweder beim Betätigen einen Dialog öffnen, oder aria-haspopup=\"dialog\" \
+                 am Auslöser entfernen, damit er nichts ankündigt, was er nicht tut."
+                    .to_string()
+            }),
+        ),
         MenuNotOpened => (
             if en {
                 "Menu trigger was clicked but menu did not open. \
@@ -1232,32 +1255,85 @@ pub fn interactive_finding_text(
         ),
         DisclosureNotOpened => (
             if en {
-                "Disclosure button was clicked but aria-expanded did not change. \
-                 State transition is not announced to screen readers."
+                "Activating the disclosure trigger does not expand it: neither its own \
+                 expanded state nor the accessibility tree changes."
                     .to_string()
             } else {
-                "Der Disclosure-Button wurde geklickt, aber aria-expanded ändert sich nicht. \
-                 Der Zustandswechsel wird Screenreadern nicht angekündigt."
+                "Das Betätigen des Disclosure-Auslösers klappt ihn nicht auf: weder sein \
+                 eigener Aufklappzustand noch der Accessibility-Tree ändern sich."
                     .to_string()
             },
             Some(if en {
-                "Toggle aria-expanded=\"true|false\" on the button in the click handler."
+                "Toggle aria-expanded=\"true|false\" on the activated element and reveal \
+                 the controlled region."
                     .to_string()
             } else {
-                "aria-expanded=\"true|false\" im Klick-Handler des Buttons umschalten.".to_string()
+                "aria-expanded=\"true|false\" am betätigten Element umschalten und den \
+                 gesteuerten Bereich einblenden."
+                    .to_string()
             }),
         ),
         DisclosureNotClosed => (
             if en {
-                "Disclosure does not toggle closed on second activation.".to_string()
+                "Activating the disclosure trigger does not collapse it: neither its own \
+                 expanded state nor the accessibility tree changes."
+                    .to_string()
             } else {
-                "Die Disclosure schließt sich bei erneuter Aktivierung nicht.".to_string()
+                "Das Betätigen des Disclosure-Auslösers klappt ihn nicht zu: weder sein \
+                 eigener Aufklappzustand noch der Accessibility-Tree ändern sich."
+                    .to_string()
             },
             Some(if en {
-                "Ensure the click handler toggles aria-expanded between true and false.".to_string()
+                "Make the activation handler toggle aria-expanded in both directions, \
+                 not just open."
+                    .to_string()
             } else {
-                "Sicherstellen, dass der Klick-Handler aria-expanded zwischen true und false \
-                 umschaltet."
+                "Den Handler aria-expanded in beide Richtungen umschalten lassen, nicht \
+                 nur auf."
+                    .to_string()
+            }),
+        ),
+        DisclosureStateWithoutContent => (
+            if en {
+                "The disclosure trigger reports its new expanded state, but nothing enters \
+                 or leaves the accessibility tree. Screen reader users hear the state change \
+                 and find nothing to read."
+                    .to_string()
+            } else {
+                "Der Disclosure-Auslöser meldet seinen neuen Aufklappzustand, im \
+                 Accessibility-Tree kommt aber nichts hinzu und verschwindet nichts. \
+                 Screenreader-Nutzende hören den Zustandswechsel und finden nichts zu lesen."
+                    .to_string()
+            },
+            Some(if en {
+                "Check that the controlled region really enters the accessibility tree — \
+                 display:none, hidden or aria-hidden on the region keep it out."
+                    .to_string()
+            } else {
+                "Prüfen, ob der gesteuerte Bereich tatsächlich in den Accessibility-Tree \
+                 kommt — display:none, hidden oder aria-hidden am Bereich halten ihn draußen."
+                    .to_string()
+            }),
+        ),
+        DisclosureContentWithoutState => (
+            if en {
+                "Activating the trigger changes the accessibility tree, but the trigger \
+                 itself reports no expanded state. Screen reader users are not told that \
+                 something opened or closed."
+                    .to_string()
+            } else {
+                "Beim Betätigen ändert sich der Accessibility-Tree, der Auslöser selbst \
+                 meldet aber keinen Aufklappzustand. Screenreader-Nutzende erfahren nicht, \
+                 dass sich etwas geöffnet oder geschlossen hat."
+                    .to_string()
+            },
+            Some(if en {
+                "Put aria-expanded on the element that is actually activated and toggle it \
+                 together with the region."
+                    .to_string()
+            } else {
+                "aria-expanded an das tatsächlich betätigte Element setzen und zusammen mit \
+                 dem Bereich umschalten."
                     .to_string()
             }),
         ),
@@ -3626,6 +3702,7 @@ mod tests {
             FocusTrapEscaped,
             FocusTrapEscapeNotClosing,
             FocusRestorationLostToBody,
+            ModalNotOpened,
             MenuNotOpened,
             MenuFocusNotMoved,
             MenuEscapeNotClosing,
@@ -3633,6 +3710,8 @@ mod tests {
             TabsFocusNotOnTab,
             DisclosureNotOpened,
             DisclosureNotClosed,
+            DisclosureStateWithoutContent,
+            DisclosureContentWithoutState,
             SpaNoAnnouncementSignal,
             SpaTitleUnchanged,
             SpaFocusNotMoved,

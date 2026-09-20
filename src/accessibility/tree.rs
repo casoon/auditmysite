@@ -116,6 +116,41 @@ impl AXTree {
         self.nodes.get(node_id)
     }
 
+    /// Den Knoten zu einer Backend-Node-ID finden.
+    ///
+    /// Die Backend-ID zeigt auf den DOM-Knoten und bleibt über mehrere
+    /// `getFullAXTree`-Aufrufe stabil, anders als `node_id`. Sie ist deshalb
+    /// der Schlüssel, mit dem der Journey-Layer ein Element wiederfindet, das
+    /// er selbst bedient hat.
+    pub fn node_by_backend_id(&self, backend_id: i64) -> Option<&AXNode> {
+        self.iter_all()
+            .find(|n| n.backend_dom_node_id == Some(backend_id))
+    }
+
+    /// Ob `backend_id` im Baum unterhalb von `ancestor_backend_id` liegt
+    /// (oder dieser Knoten selbst ist).
+    ///
+    /// Beantwortet „steht der Fokus innerhalb des Dialogs?" am
+    /// Accessibility-Tree statt an `element.contains()` im DOM — und damit
+    /// auch über Shadow Roots hinweg, die `querySelector` nicht durchdringt.
+    pub fn is_within(&self, backend_id: i64, ancestor_backend_id: i64) -> bool {
+        let Some(mut node) = self.node_by_backend_id(backend_id) else {
+            return false;
+        };
+        // Die Kette kommt aus einem fremden Prozess; sie wird nicht länger als
+        // der Baum, sonst zeigt sie im Kreis.
+        for _ in 0..self.nodes.len() {
+            if node.backend_dom_node_id == Some(ancestor_backend_id) {
+                return true;
+            }
+            match node.parent_id.as_ref().and_then(|id| self.get_node(id)) {
+                Some(parent) => node = parent,
+                None => return false,
+            }
+        }
+        false
+    }
+
     /// Get the root node
     pub fn root(&self) -> Option<&AXNode> {
         self.root_id.as_ref().and_then(|id| self.nodes.get(id))

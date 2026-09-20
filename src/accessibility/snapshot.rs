@@ -4,9 +4,10 @@
 //! Journey-Layer instead works with *sequences* of snapshots taken before
 //! and after interactions, so state transitions become visible.
 //!
-//! Phase 1 ships the data types; capture and diffing are wired up by callers
-//! starting with Phase 2.
+//! [`AXSnapshot::capture`] nimmt einen solchen Zeitpunkt auf; die Differenz
+//! zweier Aufnahmen berechnet [`super::diff::AXTreeDiff`].
 
+use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 
 use super::tree::AXTree;
@@ -110,6 +111,36 @@ impl Rect {
 }
 
 impl AXSnapshot {
+    /// Nimmt den aktuellen Zustand der Seite auf: Accessibility-Tree, Fokus,
+    /// URL und Titel.
+    ///
+    /// Das ist der Eingang des Journey-Layers: was Assistive Technology zu
+    /// diesem Zeitpunkt überhaupt wahrnehmen kann. Zwei Aufnahmen um eine
+    /// Handlung herum ergeben über [`super::diff::AXTreeDiff`] die
+    /// wahrnehmbare Änderung.
+    ///
+    /// Der Aufrufer sorgt dafür, dass die Seite vorher zur Ruhe gekommen ist
+    /// (`interaction::stability::settle`) — sonst nimmt die Aufnahme einen
+    /// Zwischenzustand auf.
+    pub async fn capture(
+        page: &Page,
+        label: impl Into<String>,
+        timestamp_ms: u64,
+    ) -> crate::error::Result<Self> {
+        let tree = super::extractor::extract_ax_tree(page).await?;
+        let focus = crate::interaction::focus::capture_focus(page).await?;
+        let url = page.url().await.ok().flatten().unwrap_or_default();
+        let document_title = page.get_title().await.ok().flatten().unwrap_or_default();
+        Ok(Self::new(
+            label,
+            url,
+            document_title,
+            timestamp_ms,
+            tree,
+            focus,
+        ))
+    }
+
     /// Construct a snapshot from the given label and components.
     pub fn new(
         label: impl Into<String>,

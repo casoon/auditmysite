@@ -371,6 +371,35 @@ Uses CDP `Accessibility.getFullAXTree`:
 - Preserves parent/child relationships
 - Extracts properties (role, name, focusable, etc.)
 
+### Journey Layer: snapshot, act, snapshot, diff
+
+Interactive journeys do not probe the page with JavaScript. They take an
+`AXSnapshot` (tree + focus + URL + title), perform the action, take another,
+and judge the `AXTreeDiff` between them.
+
+Nodes are matched across snapshots by **backend DOM node id**, not by AXTree
+node id — Chrome re-assigns `nodeId` on every `getFullAXTree` call. That id is
+also what ties a state change to the element the journey actually operated:
+`diff.property_change_for(trigger, "expanded")` answers "the clicked trigger
+changed", not "something on the page changed".
+
+Reading the accessibility tree instead of the DOM removes three blind spots
+that page-side `document.querySelector` probes have, all three measured on
+real pages (`plan/53-journey-diff-umbau.md`):
+
+- **Shadow DOM** — `querySelectorAll` does not pierce shadow roots;
+  `getFullAXTree` does.
+- **iframes** — same, for document boundaries.
+- **Attribute vs. role** — `[role="dialog"]` matches the attribute. A native
+  `<dialog>` carries the role without the attribute.
+
+Two tree helpers carry the journeys: `AXTree::node_by_backend_id` and
+`AXTree::is_within`, which answers "is focus inside this dialog?" along the
+tree's parent chain rather than via `element.contains()`.
+
+A capture failure yields no finding and records its cause in the trace. Silent
+passing on a read error is the one outcome this layer must not produce.
+
 ### WCAG Engine
 
 Orchestrates rule checking:
