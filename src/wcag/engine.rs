@@ -19,7 +19,7 @@ use super::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships,
     check_aria_required_attr, check_aria_required_parent, check_aria_roles, check_bypass_blocks,
     check_dialog_rules, check_error_identification, check_focus_order, check_focus_visible,
-    check_form_rules, check_headings, check_help, check_info_relationships, check_input_purpose,
+    check_form_rules, check_help, check_info_relationships, check_input_purpose,
     check_instructions, check_keyboard, check_label_title_only, check_labels,
     check_landmark_banner_is_top_level, check_landmark_banner_present,
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
@@ -397,9 +397,6 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
     // (check_non_text_contrast_css_with_page in PAGE_RULES) — the AX tree
     // has no CSS/color data, so a tree-only check could not verify real
     // contrast (#QA-non-text-contrast).
-
-    // 2.4.6 Headings and Labels (Level AA)
-    run_if_allowed!(filter, "heading-order", check_headings, results, tree);
 
     // 2.4.7 Focus Visible (Level AA)
     run_if_allowed!(filter, "focus-visible", check_focus_visible, results, tree);

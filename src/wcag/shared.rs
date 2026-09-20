@@ -82,6 +82,53 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
     // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
     // etwas anderes als doppelte IDs, und bleibt.
+    // Ersetzt `wcag::rules::headings` vollständig — alle vier Prüfungen haben
+    // seit a11y-rules 0.8.0 ein geteiltes Gegenstück; `headings/h1-multiple`
+    // war die letzte Lücke.
+    //
+    // Drei Unterschiede, alle gewollt:
+    //
+    // - Die geteilte Fassung läuft in Dokumentreihenfolge über den DOM. Die
+    //   AX-basierte sortierte nach `node_id` als Text, womit „h10" vor „h2"
+    //   kam und Sprünge in langen Seiten falsch bewertet wurden.
+    // - Mehrere `h1` sind dort `REVIEW` statt `Violation` und melden einmal
+    //   statt je überzähliger Überschrift. In HTML sind mehrere `h1`
+    //   zulässig; das ist eine Erwartung, kein Verstoß.
+    // - „Leer" heißt dort: kein Text im Teilbaum und kein `aria-label`. Die
+    //   AX-Fassung fragte den Accessible Name und übersah damit nichts, was
+    //   über `aria-labelledby` oder ein `alt` im Bild benannt ist. Diese
+    //   beiden Fälle meldet die geteilte Fassung zu Unrecht — ein Befund für
+    //   `a11y-core`, keine Rückausnahme hier.
+    SharedRule {
+        id: "headings/empty",
+        // Die geteilte Regel führt 1.3.1 und 2.4.6; auditmysite meldete leere
+        // Überschriften bisher unter 2.4.6, und dabei bleibt es.
+        criterion: "2.4.6",
+        level: WcagLevel::AA,
+        name: "Headings and Labels (Empty Heading)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html",
+    },
+    SharedRule {
+        id: "headings/skip-level",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Heading Hierarchy)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "headings/h1-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Missing Main Heading)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "headings/h1-multiple",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Main Headings)",
+        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    },
     SharedRule {
         id: "ids/duplicate",
         criterion: "4.1.1",

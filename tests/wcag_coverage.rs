@@ -16,8 +16,8 @@ use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships, check_aria_roles,
     check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
-    check_form_rules, check_headings, check_info_relationships, check_input_purpose,
-    check_instructions, check_keyboard, check_labels, check_landmark_banner_is_top_level,
+    check_form_rules, check_info_relationships, check_input_purpose, check_instructions,
+    check_keyboard, check_labels, check_landmark_banner_is_top_level,
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_link_purpose,
@@ -122,7 +122,6 @@ rule_smoke_test!(smoke_check_input_purpose, check_input_purpose);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
 // here (this file is browser-free/AXTree-only); it has its own unit tests.
-rule_smoke_test!(smoke_check_headings, check_headings);
 rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
 rule_smoke_test!(smoke_check_landmarks, check_landmarks);
 rule_smoke_test!(smoke_check_section_headings, check_section_headings);

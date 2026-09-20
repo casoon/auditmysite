@@ -1,6 +1,6 @@
 {
   "case": "heading_order",
   "expectations": [
-    { "rule_id": "heading-order", "verdict": "violation" }
+    { "rule_id": "headings/skip-level", "verdict": "violation" }
   ]
 }

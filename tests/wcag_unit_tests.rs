@@ -10,9 +10,9 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_required_parent, check_aria_roles, check_focus_order, check_headings,
-    check_info_relationships, check_label_title_only, check_link_purpose, check_page_titled,
-    check_text_alternatives, Color, ContrastRule,
+    check_aria_required_parent, check_aria_roles, check_focus_order, check_info_relationships,
+    check_label_title_only, check_link_purpose, check_page_titled, check_text_alternatives, Color,
+    ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -238,77 +238,14 @@ fn test_244_multiple_links_mixed() {
 }
 
 // ---------------------------------------------------------------------------
-// 2.4.6 Headings and Labels — check_headings
+// 2.4.6 Headings and Labels
 // ---------------------------------------------------------------------------
-
-#[test]
-fn test_246_valid_heading_hierarchy_passes() {
-    let tree = AXTree::from_nodes(vec![
-        heading("1", 1, Some("Main Title")),
-        heading("2", 2, Some("Section")),
-        heading("3", 3, Some("Subsection")),
-    ]);
-    let results = check_headings(&tree);
-    let hierarchy_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.message.contains("skipped"))
-        .collect();
-    assert!(
-        hierarchy_violations.is_empty(),
-        "Valid hierarchy should not produce skipped-level violations"
-    );
-}
-
-#[test]
-fn test_246_skipped_heading_level_flagged() {
-    let tree = AXTree::from_nodes(vec![
-        heading("1", 1, Some("Main Title")),
-        heading("2", 4, Some("Jumped to h4")),
-    ]);
-    let results = check_headings(&tree);
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("skipped")));
-}
-
-#[test]
-fn test_246_empty_heading_flagged() {
-    let tree = AXTree::from_nodes(vec![heading("1", 1, None)]);
-    let results = check_headings(&tree);
-    assert!(!results.violations.is_empty());
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("empty")));
-}
-
-#[test]
-fn test_246_missing_h1_flagged() {
-    let tree = AXTree::from_nodes(vec![
-        heading("1", 2, Some("Section")),
-        heading("2", 3, Some("Subsection")),
-    ]);
-    let results = check_headings(&tree);
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("missing an h1")));
-}
-
-#[test]
-fn test_246_multiple_h1_flagged() {
-    let tree = AXTree::from_nodes(vec![
-        heading("1", 1, Some("First Title")),
-        heading("2", 1, Some("Second Title")),
-    ]);
-    let results = check_headings(&tree);
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("Multiple h1")));
-}
+// Laeuft seit der Umstellung als geteilte Regel gegen den DOM
+// (`headings/empty`, `headings/skip-level`, `headings/h1-missing`,
+// `headings/h1-multiple`). Die frueheren Tests hier stellten AX-Knoten her und
+// sortierten sie nach `node_id` als Text -- dieselbe Annahme, an der die
+// AX-Fassung in langen Seiten scheiterte ("h10" vor "h2"). Die geteilte
+// Fassung laeuft in Dokumentreihenfolge; ihre Tests stehen in `a11y-rules`.
 
 // ---------------------------------------------------------------------------
 // 3.1.1 Language of Page
@@ -942,26 +879,12 @@ fn scenario_missing_alt_fires_only_111() {
 // AX-Eigenschaft `language` synthetisiert Chrome auch ohne Autoren-`lang`.
 // Die Faelle stehen als DOM-Szenarien in `wcag::shared`.
 
-/// Heading hierarchy that jumps from h1 directly to h3 (skips h2).
-/// Rule 1.3.1 must fire (the hierarchy violation is classified under Info and
-/// Relationships, not 2.4.6 Headings and Labels).  No other rule fires.
-#[test]
-fn scenario_heading_skip_fires_only_131() {
-    let tree = page_with_main_content(vec![
-        ("h1", heading("h1", 1, Some("My Blog Post"))),
-        ("h3", heading("h3", 3, Some("Section One"))), // skipped h2 → 1.3.1
-        (
-            "link1",
-            focusable("link1", "link", Some("Read the full post")),
-        ),
-    ]);
-    let rules = fired_rules(&tree, WcagLevel::AA);
-    assert_eq!(
-        rules,
-        vec!["1.3.1"],
-        "Skipped heading level should fire exactly 1.3.1; got: {rules:?}"
-    );
-}
+// Das Szenario zur uebersprungenen Ueberschriftenebene steht nicht mehr hier.
+// Die Gliederung wird seit der Umstellung geteilt geprueft
+// (`headings/skip-level`), und zwar in Dokumentreihenfolge ueber den DOM. Ein
+// AX-Baum-Szenario koennte sie gar nicht mehr ausloesen -- und die alte
+// Fassung sortierte nach `node_id` als Text, was in laengeren Seiten "h10" vor
+// "h2" einsortierte. Die Faelle stehen als DOM-Szenarien in `a11y-rules`.
 
 /// Page with a menu missing its required menuitem children and a focusable
 /// element inside aria-hidden. Rules 4.1.2 (required owned elements) and
