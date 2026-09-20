@@ -3,6 +3,7 @@
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
 };
+use renderreport::components::text::Label;
 use renderreport::components::TagCloud;
 
 use crate::audit::{AccessibilityScorer, AuditReport, CoverageRatio};
@@ -86,10 +87,41 @@ pub(super) fn render_wcag_coverage_section(
 
     builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
 
+    // The cloud lists every criterion this tool checks; `automated` counts
+    // only the WCAG 2.1 A/AA ones the ratio above is scoped to. Titling the
+    // cloud with `automated` put "Automatisch geprüft (36)" above 56 entries,
+    // with nothing reconciling the two numbers (plan 36 §1).
+    let listed = automated_criteria().len();
+    // Three disjoint groups, so they add up to `listed`. They must not
+    // overlap: one AAA criterion is also WCAG 2.2-only, and counting it in
+    // both groups produced 36 + 4 + 17 = 57 against a cloud of 56 — the same
+    // class of unreconciled total this section is fixing.
+    let aaa_listed = automated_criteria()
+        .iter()
+        .filter(|(_, level)| *level == "AAA")
+        .count();
+    let wcag22_ab_listed = automated_criteria()
+        .iter()
+        .filter(|(id, level)| *level != "AAA" && crate::wcag::coverage::is_wcag22_only(id))
+        .count();
+    debug_assert_eq!(
+        automated + wcag22_ab_listed + aaa_listed,
+        listed,
+        "the three groups must partition the listed criteria"
+    );
     let automated_title = if en {
-        format!("Automatically checked ({})", automated)
+        format!("Automatically checked ({listed})")
     } else {
-        format!("Automatisch geprüft ({})", automated)
+        format!("Automatisch geprüft ({listed})")
+    };
+    let listed_note = if en {
+        format!(
+            "{listed} criteria in total: the {automated} WCAG 2.1 A/AA criteria the ratio above is scoped to, plus {wcag22_ab_listed} A/AA criteria added by WCAG 2.2 and {aaa_listed} AAA criteria this tool also checks."
+        )
+    } else {
+        format!(
+            "{listed} Kriterien insgesamt: die {automated} WCAG-2.1-A/AA-Kriterien, auf die sich die Quote oben bezieht, dazu {wcag22_ab_listed} von WCAG 2.2 ergänzte A/AA-Kriterien und {aaa_listed} AAA-Kriterien, die dieses Werkzeug ebenfalls prüft."
+        )
     };
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
     for (c, l) in automated_criteria().iter() {
@@ -101,6 +133,11 @@ pub(super) fn render_wcag_coverage_section(
         tag_cloud = tag_cloud.add(tag, "good");
     }
     builder = builder.add_component(tag_cloud);
+    builder = builder.add_component(
+        Label::new(listed_note)
+            .with_size("8.8pt")
+            .with_color(crate::output::pdf::design::tokens::MUTED),
+    );
 
     let manual_title = if en {
         format!(

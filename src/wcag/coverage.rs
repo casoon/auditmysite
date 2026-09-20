@@ -127,6 +127,30 @@ pub fn manual_review_criterion_name_de(id: &str, fallback_en: &'static str) -> &
 mod tests {
     use super::*;
 
+    /// Plan 36 §1: the report's appendix reconciles its own totals — the
+    /// WCAG-2.1 A/AA count the ratio is scoped to, the A/AA criteria WCAG 2.2
+    /// added, and the AAA ones — against the full listing. They only add up
+    /// while they stay disjoint, and one AAA criterion is also WCAG 2.2-only.
+    #[test]
+    fn the_three_appendix_groups_partition_the_automated_criteria() {
+        let (scoped, _) = coverage_stats();
+        let aaa = automated_criteria()
+            .iter()
+            .filter(|(_, level)| *level == "AAA")
+            .count();
+        let wcag22_ab = automated_criteria()
+            .iter()
+            .filter(|(id, level)| *level != "AAA" && is_wcag22_only(id))
+            .count();
+
+        assert_eq!(
+            scoped + wcag22_ab + aaa,
+            automated_criteria().len(),
+            "scoped {scoped} + WCAG 2.2 A/AA {wcag22_ab} + AAA {aaa} must equal the {} listed",
+            automated_criteria().len(),
+        );
+    }
+
     #[test]
     fn manual_review_criterion_name_de_has_a_real_translation_for_every_current_entry() {
         // #572 guard: the PDF's manual-review tag cloud used to render the

@@ -5,6 +5,38 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Darstellungsartefakte im PDF, 2026-09-20 (Plan 36):** Sechs kleine, unabhaengige Defekte aus
+  einem Review der beiden `--debug-typ`-Quellen, jeder wenige Zeilen, keiner eine
+  Produktentscheidung.
+
+  - **Anhang behauptete 36 automatisch gepruefte Kriterien und listete 56.** Die Wolke trug den
+    Titel der WCAG-2.1-A/AA-Quote, enthielt aber zusaetzlich AAA und die WCAG-2.2-Kriterien, ohne
+    dass das irgendwo stand. Jetzt traegt sie ihre echte Zahl plus eine Zeile, die sie aufschluesselt.
+    Beim Schreiben ging die Aufschluesselung erst nicht auf -- 36 + 4 + 17 = 57 gegen 56 gelistete --,
+    weil ein AAA-Kriterium zugleich WCAG-2.2-only ist und in beiden Gruppen zaehlte. Die drei Gruppen
+    sind jetzt disjunkt, und `the_three_appendix_groups_partition_the_automated_criteria` pinnt die
+    Summe.
+  - **`◐` (U+25D0) wurde still verschluckt.** Kein gebuendelter Font deckt das Zeichen; Typst meldete
+    "Dropping U+25D0" und fuenf Zeilen mittlerer Konfidenz begannen mit einer Luecke, wo alle anderen
+    ein Symbol hatten. Eine Legende gab es ohnehin nicht. Die Skala ist jetzt ein Wort
+    (`[gemessen]`/`[wahrscheinlich]`/`[schwaches Signal]`) -- verifiziert: keine Typst-Warnung mehr,
+    und die fuenf Zeilen tragen jetzt ihr Label.
+  - **Modul-Takeaway stand zweimal.** Der `section-header-split`-Body wurde zwei Komponenten
+    spaeter als eigenes Label wiederholt. Neu `interpretation_beyond_takeaway`: das Label zeigt nur
+    noch, was der Kopf nicht schon gesagt hat.
+  - **"Header 0/10" in der Erfolgsfarbe.** Der Akzent war auf Teal festgenagelt; er kommt jetzt aus
+    dem Verhaeltnis, ueber dieselbe `score_color`-Funktion wie ueberall sonst. inros-lackner 0/10 ist
+    rot, casoon 8/10 gruen.
+  - **"Details im Methodik-Anhang" fuehrte ins Leere.** Der Anhang wiederholte denselben Satz;
+    welche Messungen verworfen wurden, stand nirgends, obwohl
+    `execution.navigation.stability` es weiss. Der Hinweis nennt sie jetzt selbst ("Betroffen:
+    Desktop-Ansicht nach 1500 ms, Mobile-Ansicht nach 1500 ms"). `mutation_count` wird nur
+    genannt, wenn es tatsaechlich gezaehlt wurde -- der Wert faellt sonst auf 0 zurueck, und "noch 0
+    DOM-Aenderungen" waere ein Default, gedruckt als Messung.
+  - **Widerspruechliche DOM-Einordnung.** "(Performance 75 Pkt stabil)" beruhigte ueber genau das,
+    was die Massnahmenliste zwei Bloecke weiter oben priorisiert ("DOM-Struktur verschlanken").
+    Jetzt "bei derzeit tragfaehiger Performance" -- beide Fakten, keiner widerspricht dem anderen.
+
 - **„Wenig Text oben" mass Knoten- statt Seitenposition, 2026-09-20 (Plan 51):** Der Befund sagt
   dem Kunden „Wenig sichtbarer Text im oberen Seitenbereich — Nutzer erhalten keine sofortige
   Orientierung". Das ist eine Aussage ueber die *gerenderte* Seite; gemessen wurden die ersten 50

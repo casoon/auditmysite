@@ -563,9 +563,13 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
             de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
             en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
         },
+        // "stabil"/"stable" in parentheses read as reassurance about exactly
+        // the thing the action list prioritises ("DOM-Struktur verschlanken")
+        // two blocks further up (plan 36 §6). Both facts, neither arguing
+        // with the other.
         (d, Some(p)) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten (Performance {p} Pkt stabil)"),
-            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes (performance {p} pts stable)"),
+            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten bei derzeit tragfähiger Performance ({p} Pkt)"),
+            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes, performance currently holding up ({p} pts)"),
         },
         (_d, Some(p)) if p < 60 => LocalizedText {
             de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {dom_display} DOM-Knoten analysiert"),

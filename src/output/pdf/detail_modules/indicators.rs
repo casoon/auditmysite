@@ -386,6 +386,26 @@ pub(in crate::output::pdf) fn render_ai_visibility(
 
 // ─── Content Visibility & Trust ─────────────────────────────────────────────
 
+/// How firm the evidence behind one signal is, as a word.
+///
+/// This was a three-step glyph scale, `●`/`◐`/`○`. No bundled font covers
+/// U+25D0, so Typst dropped it at render time ("Dropping U+25D0 from the
+/// report") and every medium-confidence line started with a blank where the
+/// others had a symbol — five of them in one report. A glyph scale also needs
+/// a legend, which there was none of, so the word says it directly instead
+/// (plan 36 §2).
+fn confidence_prefix(confidence: crate::assessment::EvidenceConfidence, en: bool) -> &'static str {
+    use crate::assessment::EvidenceConfidence::*;
+    match (confidence, en) {
+        (High, true) => "[measured]",
+        (High, false) => "[gemessen]",
+        (Medium, true) => "[likely]",
+        (Medium, false) => "[wahrscheinlich]",
+        (Low, true) => "[weak signal]",
+        (Low, false) => "[schwaches Signal]",
+    }
+}
+
 pub(in crate::output::pdf) fn render_content_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     cv: &crate::content_visibility::ContentVisibilityAnalysis,
@@ -484,13 +504,8 @@ pub(in crate::output::pdf) fn render_content_visibility(
         builder = builder.add_component(Section::new(area_name.clone()).with_level(3));
 
         for signal in visible {
-            let conf_prefix = match signal.confidence {
-                crate::assessment::EvidenceConfidence::High => "● ",
-                crate::assessment::EvidenceConfidence::Medium => "◐ ",
-                crate::assessment::EvidenceConfidence::Low => "○ ",
-            };
             let (title, detail) = localized(signal);
-            let body = format!("{}{}", conf_prefix, detail);
+            let body = format!("{} {}", confidence_prefix(signal.confidence, en), detail);
 
             builder = builder.add_component(match signal.level {
                 AssessmentLevel::Pass | AssessmentLevel::Positive => {

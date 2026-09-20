@@ -38,6 +38,56 @@ use super::helpers::{
 
 /// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
 /// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
+/// Names the measurements that hit the stability budget, with what they were
+/// still seeing when it ran out.
+///
+/// `audit_quality.reasons` carries only a count
+/// (`page_stability_budget_exhausted:2`), which tells a reader that something
+/// was dropped but not what (plan 36 §5).
+fn exhausted_stability_measurements(
+    stability: &[crate::interaction::stability::StabilityProvenance],
+    en: bool,
+) -> String {
+    use crate::interaction::stability::StabilityStatus;
+    let parts: Vec<String> = stability
+        .iter()
+        .filter(|entry| entry.status == StabilityStatus::BudgetExhausted)
+        .map(|entry| {
+            let mut view = entry.viewport.clone();
+            if let Some(first) = view.get_mut(0..1) {
+                first.make_ascii_uppercase();
+            }
+            let mut text = if en {
+                format!("{view} view after {} ms", entry.waited_ms)
+            } else {
+                format!("{view}-Ansicht nach {} ms", entry.waited_ms)
+            };
+            // Only when it was actually counted: `mutation_count` falls back
+            // to 0 when the in-page script does not report one, and "still 0
+            // DOM changes" is a default printed as a measurement.
+            if entry.mutation_count > 0 {
+                text.push_str(&if en {
+                    format!(", still {} DOM changes", entry.mutation_count)
+                } else {
+                    format!(", noch {} DOM-Änderungen", entry.mutation_count)
+                });
+            }
+            if let Some(reason) = entry.reason.as_deref().filter(|r| !r.is_empty()) {
+                text.push_str(&format!(" ({reason})"));
+            }
+            text
+        })
+        .collect();
+    if parts.is_empty() {
+        return if en {
+            "individual measurements".to_string()
+        } else {
+            "einzelne Messungen".to_string()
+        };
+    }
+    parts.join(", ")
+}
+
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let i18n = I18n::new(&config.locale)
         .or_else(|_| I18n::new("de"))
@@ -316,19 +366,34 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                     // and are therefore excluded from the reported scope
                     // (feedback: "Dieser Prüflauf ist unvollständig" next to a
                     // clean run read as if the tool had failed).
-                    AuditQualityStatus::Partial => Some(if en {
-                        "The automated audit completed successfully. Individual measurements hit \
-                         a stability/retry budget and are excluded from the reported scores, \
-                         which describe only the successfully measured scope. See the \
-                         methodology appendix for details."
-                            .to_string()
-                    } else {
-                        "Der automatisierte Audit wurde erfolgreich durchgeführt. Einzelne \
-                         Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind \
-                         daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben \
-                         den erfolgreich gemessenen Umfang. Details im Methodik-Anhang."
-                            .to_string()
-                    }),
+                    // The affected measurements are named here rather than
+                    // deferred: the note used to end in "Details im
+                    // Methodik-Anhang", and the appendix only restated the
+                    // same sentence, so which measurements were dropped was
+                    // never said anywhere (plan 36 §5). The data sits in
+                    // `execution.navigation.stability`.
+                    AuditQualityStatus::Partial => {
+                        let exhausted = exhausted_stability_measurements(
+                            &normalized.normalized.execution.navigation.stability,
+                            en,
+                        );
+                        Some(if en {
+                            format!(
+                                "The automated audit completed successfully. Individual \
+                                 measurements hit a stability/retry budget and are excluded from \
+                                 the reported scores, which describe only the successfully \
+                                 measured scope. Affected: {exhausted}."
+                            )
+                        } else {
+                            format!(
+                                "Der automatisierte Audit wurde erfolgreich durchgeführt. \
+                                 Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget \
+                                 erreicht und sind daher nicht in den ausgewiesenen Scores \
+                                 enthalten; diese beschreiben den erfolgreich gemessenen Umfang. \
+                                 Betroffen: {exhausted}."
+                            )
+                        })
+                    }
                     AuditQualityStatus::Insufficient => Some(if en {
                         "This audit run has insufficient data quality: several measurements \
                          failed. Scores and findings below may be incomplete or unreliable. \

@@ -200,6 +200,25 @@ pub(super) fn a11y_penalty_note(
     )
 }
 
+/// The interpretation, but only where it says more than the chapter opener
+/// already did.
+///
+/// The opener's takeaway is `first_sentence(interpretation)`, and a
+/// single-sentence interpretation therefore arrived twice: once in the
+/// `section-header-split` body, once as a standalone label two components
+/// later, with only a score card between them (plan 36 §3).
+pub(super) fn interpretation_beyond_takeaway<'a>(
+    interpretation: &'a str,
+    takeaway: &str,
+) -> Option<&'a str> {
+    let rest = interpretation
+        .trim()
+        .strip_prefix(takeaway.trim())
+        .unwrap_or(interpretation)
+        .trim();
+    (!rest.is_empty()).then_some(rest)
+}
+
 /// Gauge color bands matching `design::score_color`'s 40/75 thresholds
 /// (higher is better). `Gauge`'s own defaults assume the opposite — a
 /// value climbing towards `max` reads as *more* severe — so every score

@@ -22,17 +22,21 @@ pub(in crate::output::pdf) fn render_security(
                 .with_description(sec.band_label.as_str())
                 .with_thresholds(75, 40),
         )
-        .add_component(
-            Label::new(sec.interpretation.as_str())
-                .with_size("10.5pt")
-                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
-        )
         .add_component(module_customer_context(
             i18n,
             "security",
             Some(sec.score),
             &sec.interpretation,
         ));
+
+    // Only when it says more than the chapter opener already did (plan 36 §3).
+    if let Some(rest) = super::interpretation_beyond_takeaway(&sec.interpretation, &sec_takeaway) {
+        builder = builder.add_component(
+            Label::new(rest)
+                .with_size("10.5pt")
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        );
+    }
 
     let header_count = sec
         .headers
@@ -41,8 +45,18 @@ pub(in crate::output::pdf) fn render_security(
         .count();
     builder = builder.add_component(
         MetricStrip::new(vec![
+            // Accent from the ratio, not a fixed teal: inros-lackner.de has
+            // 0 of 10 security headers set and the tile rendered in the
+            // success colour (plan 36 §4). Same 75/40 cutoffs as every other
+            // score colour in the report.
             MetricStripItem::new("Header", format!("{}/{}", header_count, sec.headers.len()))
-                .with_accent("#0f766e"),
+                .with_accent(crate::output::pdf::design::score_color(
+                    if sec.headers.is_empty() {
+                        0
+                    } else {
+                        (header_count * 100 / sec.headers.len()) as u8
+                    },
+                )),
             MetricStripItem::new(
                 "HTTPS",
                 if sec
@@ -141,17 +155,23 @@ pub(in crate::output::pdf) fn render_mobile(
                 .with_description(super::score_band_label(mobile.score, i18n))
                 .with_thresholds(75, 40),
         )
-        .add_component(
-            Label::new(mobile.interpretation.as_str())
-                .with_size("10.5pt")
-                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
-        )
         .add_component(module_customer_context(
             i18n,
             "mobile",
             Some(mobile.score),
             &mobile.interpretation,
         ));
+
+    // Only when it says more than the chapter opener already did (plan 36 §3).
+    if let Some(rest) =
+        super::interpretation_beyond_takeaway(&mobile.interpretation, &mobile_takeaway)
+    {
+        builder = builder.add_component(
+            Label::new(rest)
+                .with_size("10.5pt")
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        );
+    }
 
     let configured_label = i18n.t("mobile-configured");
     let viewport_status = mobile
