@@ -2,6 +2,7 @@
 //!
 //! Provides AXTree extraction and accessibility-related utilities.
 
+pub mod accname_diff;
 pub(crate) mod code_gen;
 pub mod diff;
 pub mod dom_document;
@@ -13,6 +14,7 @@ pub mod snapshot;
 mod styles;
 mod tree;
 
+pub use accname_diff::{compare as compare_accname, AccnameDiff, DEFAULT_MAX_SAMPLES};
 pub use diff::{AXTreeDiff, FocusMove, PropertyChange};
 pub use dom_document::{build_document, fetch_dom_document, CdpDocument};
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};

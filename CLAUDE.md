@@ -17,6 +17,7 @@ Resource-efficient WCAG 2.1 AA (plus select 2.2 criteria) Accessibility Checker 
 - Full audit: `--full` (enables performance, seo, security, mobile)
 - Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
 - Report lint: `auditmysite report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
+- accname-Differential: `auditmysite accname-diff <URL> [--output FILE] [--max-samples N]` (eigenes `accname` gegen Chromes nativen AX-Tree; misst, urteilt nicht — Exit-Code immer 0; siehe `docs/accname-differential.md`)
 - Output formats: `--format {json|table|pdf}`
 
 ## Report Intent

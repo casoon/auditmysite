@@ -365,6 +365,18 @@ pub enum Command {
         /// URL to plan an audit for (required unless --sitemap or --url-file is set)
         url: Option<String>,
     },
+    /// Compare the own `accname` computation against Chrome's native
+    /// accessibility tree — a differential test without a screen reader.
+    AccnameDiff {
+        /// URL to load and compare
+        url: String,
+        /// Write the full JSON result here (terminal summary is always printed)
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Maximum stored divergence samples per kind; counts stay complete
+        #[arg(long, default_value_t = auditmysite_default_max_samples())]
+        max_samples: usize,
+    },
     /// Run deterministic report-lint checks (#507) against a JSON report file.
     ReportLint {
         /// Path to a JSON report file (single or batch envelope)
@@ -705,6 +717,12 @@ impl Args {
 
         Ok(())
     }
+}
+
+/// Default for `--max-samples`, kept in sync with the module's own constant
+/// so the CLI help and the library never drift apart.
+fn auditmysite_default_max_samples() -> usize {
+    crate::accessibility::DEFAULT_MAX_SAMPLES
 }
 
 #[cfg(test)]

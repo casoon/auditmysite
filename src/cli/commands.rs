@@ -29,7 +29,125 @@ pub async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
             fail_on,
             typst_source,
         } => run_report_lint_command(input, *fail_on, typst_source.as_deref()),
+        Command::AccnameDiff {
+            url,
+            output,
+            max_samples,
+        } => run_accname_diff_command(url, output.as_deref(), *max_samples).await,
     }
+}
+
+/// Lädt eine Seite, stellt die eigene `accname`-Berechnung gegen Chromes
+/// native Werte und schreibt das Ergebnis.
+///
+/// Chrome ist hier eine zweite Implementierung, nicht die Spezifikation — der
+/// Exit-Code bleibt deshalb 0, auch wenn Abweichungen gefunden werden. Das
+/// Kommando misst, es urteilt nicht.
+async fn run_accname_diff_command(
+    url: &str,
+    output: Option<&std::path::Path>,
+    max_samples: usize,
+) -> Result<f64> {
+    use auditmysite::accessibility::{compare_accname, extract_ax_tree, fetch_dom_document};
+    use auditmysite::browser::BrowserManager;
+
+    let manager = BrowserManager::new().await?;
+    let page = manager.new_page().await?;
+    manager.navigate(&page, url).await?;
+
+    let ax_tree = extract_ax_tree(&page).await?;
+    let doc = fetch_dom_document(&page, &ax_tree).await?;
+    let mut diff = compare_accname(&doc, max_samples);
+    diff.url = Some(url.to_string());
+    manager.close().await?;
+
+    print_accname_diff(&diff);
+
+    if let Some(path) = output {
+        let json = serde_json::to_string_pretty(&diff)?;
+        std::fs::write(path, json).map_err(|e| AuditError::FileError {
+            path: path.to_path_buf(),
+            reason: e.to_string(),
+        })?;
+        println!("\n{} {}", "JSON:".dimmed(), path.display());
+    }
+
+    Ok(0.0)
+}
+
+fn print_accname_diff(diff: &auditmysite::accessibility::AccnameDiff) {
+    let substantive = diff.names_divergent_substantive();
+
+    println!("\n{}", "accname vs. Chrome".bold());
+    println!("{}", diff.url.as_deref().unwrap_or("").dimmed());
+    println!("\n{:<28} {}", "Elemente im DOM", diff.elements_total);
+    println!(
+        "{:<28} {}  ({} ohne AX-Gegenstück, {} ignoriert)",
+        "verglichen", diff.elements_compared, diff.skipped_not_in_ax_tree, diff.skipped_ignored
+    );
+
+    println!("\n{}", "Name".bold());
+    println!("{:<28} {}", "gleich", diff.names_equal);
+    let label = format!("{substantive}");
+    println!(
+        "{:<28} {}",
+        "abweichend (ohne Leerraum)",
+        if substantive == 0 {
+            label.green()
+        } else {
+            label.yellow()
+        }
+    );
+    for (shape, count) in &diff.names_by_shape {
+        println!("  {:<26} {}", shape, count);
+    }
+    if !diff.names_by_source.is_empty() {
+        println!(
+            "\n{}",
+            "Abweichungen nach Namensquelle (laut Chrome)".dimmed()
+        );
+        for (source, count) in &diff.names_by_source {
+            println!("  {:<26} {}", source, count);
+        }
+    }
+
+    println!("\n{}", "Rolle".bold());
+    println!("{:<28} {}", "gleich", diff.roles_equal);
+    println!("{:<28} {}", "abweichend", diff.roles_divergent);
+    println!(
+        "{:<28} {}",
+        "nicht vergleichbar".dimmed(),
+        diff.roles_not_comparable
+    );
+
+    if !diff.name_divergences.is_empty() {
+        const SHOWN: usize = 15;
+        let shown = diff.name_divergences.len().min(SHOWN);
+        println!(
+            "\n{} — {shown} von {} Abweichungen",
+            "Beispiele".bold(),
+            diff.names_divergent()
+        );
+        for d in diff.name_divergences.iter().take(SHOWN) {
+            println!(
+                "  [{}] <{}>  chrome={:?}  accname={:?}",
+                d.shape.as_str(),
+                d.tag,
+                d.chrome.as_deref().unwrap_or(""),
+                d.accname.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    println!(
+        "\n{}",
+        "Chrome ist eine zweite Implementierung, nicht die Spezifikation.".dimmed()
+    );
+    println!(
+        "{}",
+        "Eine Abweichung ist ein Hinweis; sie wird gegen WPT bzw. accname 1.2 entschieden."
+            .dimmed()
+    );
 }
 
 fn report_lint_fail_on_to_severity(fail_on: Option<ReportLintFailOn>) -> Severity {
