@@ -47,9 +47,9 @@ echo "release-check: capture --help"
 cargo run -- --help > target/release-check/help.txt
 
 echo "release-check: documentation consistency"
-# `html` not followed by `-conform`: the html-conform crate name is not a
-# stale `--format html` reference.
-if rg -n -P --glob 'README.md' --glob 'docs/*.md' --glob 'reports/*.md' '\bhtml\b(?!-conform)|\bmarkdown\b|--urls\b' >/tmp/auditmysite-release-check-stale.txt; then
+# `html` not followed by `-conform` or `-aam`: the html-conform crate name and
+# the W3C spec HTML-AAM are not stale `--format html` references.
+if rg -n -P --glob 'README.md' --glob 'docs/*.md' --glob 'reports/*.md' '\bhtml\b(?!-conform|-aam)|\bmarkdown\b|--urls\b' >/tmp/auditmysite-release-check-stale.txt; then
   echo "Found stale CLI/docs references:"
   cat /tmp/auditmysite-release-check-stale.txt
   exit 1

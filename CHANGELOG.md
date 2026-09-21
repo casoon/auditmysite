@@ -5,6 +5,38 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **a11y-core 0.10.0 und die Ueberschriftenregeln abgegeben, 2026-09-21:** Das Projekt hing auf
+  `a11y-core` 0.6.0, veroeffentlicht war 0.10.0. Der Sprung ueber vier Minor-Versionen brachte
+  keinen einzigen API-Bruch — `dom_document.rs` und `wcag/shared.rs` uebersetzen unveraendert —,
+  aber zwoelf zusaetzliche Kennungen: fuenf `landmarks/*`, `keyboard/skip-link-missing`,
+  `zoom/viewport-missing`, `headings/h1-multiple`, `links/generic-name`,
+  `aria/required-attribute-missing` und die beiden `contrast/*`. Damit stehen 42 geteilte
+  Kennungen zur Verfuegung.
+
+  Ein Test fiel dabei, und zwar richtig: Er verlangte, dass mit `Semantics` keine Regel mehr
+  mangels Faehigkeit ausfaellt. Das galt bei 0.6.0, weil es dort kein Tier 3 gab. Seit 0.7.0
+  melden die Kontrastregeln ohne gerenderte Stile `CapabilityMissing` — das Prinzip „nicht
+  gelaufen ist nicht bestanden", angewandt auf auditmysite selbst. Die Zusicherung nennt jetzt
+  die beiden Kennungen, statt eine Null zu verlangen, die nichts mehr bedeutet. `Rendering` ueber
+  CDP zu bedienen bleibt ein eigener Schritt.
+
+  Mit `headings/h1-multiple` fiel die letzte Luecke, an der `wcag::rules::headings` nur teilweise
+  abloesbar war. Das Modul ist geloescht, alle vier Pruefungen kommen aus dem geteilten Bestand,
+  `SHARED_RULES` fuehrt 16 statt 12 Kennungen. Beim Abraeumen kam eine Fehlmessung ans Licht: Die
+  AX-Fassung sortierte Ueberschriften nach `node_id` *als Text*, womit „h10" vor „h2" stand und
+  Spruenge in laengeren Seiten falsch bewertet wurden. Die geteilte Fassung laeuft in
+  Dokumentreihenfolge ueber den DOM.
+
+  Zwei gewollte Unterschiede bleiben: Mehrere `h1` sind geteilt `REVIEW` statt Verstoss und melden
+  einmal statt je ueberzaehliger Ueberschrift — in HTML sind mehrere `h1` zulaessig. Und „leer"
+  heisst geteilt „kein Text im Teilbaum, kein `aria-label`"; eine Ueberschrift, die nur ueber
+  `aria-labelledby` oder ein `alt` im Bild benannt ist, meldet die geteilte Fassung zu Unrecht.
+  Das ist als Befund fuer `a11y-core` vermerkt, nicht als Rueckausnahme hier.
+
+  Verifiziert: 1.716 Tests gruen, `clippy` und `fmt` sauber, die Korpus-Erwartung `heading_order`
+  auf `headings/skip-level` gehoben. Der Vollstaendigkeitstest des Korpus war erneut der Waechter,
+  der eine stehengebliebene Kennung gefunden haette.
+
 - **Wartbarkeits-Hotspot 1, 2026-09-20 (Plan 27):** `src/output/pdf/single_report.rs` war mit 3.717
   Zeilen und 21 Aenderungen in 60 Tagen die am haeufigsten angefasste Datei des Projekts und mischte
   Risiken/Staerken, Problem-Profil, Score-Treiber-Tabelle, Subkategorie-Breakdown, Anhang, Findings,
