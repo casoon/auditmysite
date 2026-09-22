@@ -79,6 +79,12 @@ jobs:
       - name: Run clippy (all features)
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      # Raw HTML tags in doc comments break the rendered pages on docs.rs (#588)
+      - name: Check rustdoc HTML tags (all features)
+        run: cargo doc --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D rustdoc::invalid_html_tags
+
       - name: Run tests (all features, PDF smoke excluded)
         run: cargo test --features pdf -- --nocapture --test-threads=1
 
