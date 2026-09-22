@@ -141,7 +141,7 @@ pub struct SignalValues {
     /// NamedControls, NoCriticalErrors, SecurityHeaders)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
-    /// Whether <main> is missing in the AX tree (SemanticStructure)
+    /// Whether `<main>` is missing in the AX tree (SemanticStructure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub missing_main: Option<bool>,
     /// A UX score (TrustSignals)

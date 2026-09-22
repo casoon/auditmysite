@@ -16,7 +16,7 @@
 //!
 //! Each entry pairs the function with a `rule_id` (used for logging only;
 //! the actual rule strings are produced inside the check functions
-//! themselves) and a `name` for the "Found N <name> violations" log line.
+//! themselves) and a `name` for the `"Found N <name> violations"` log line.
 
 use chromiumoxide::Page;
 use futures::future::BoxFuture;
@@ -59,7 +59,7 @@ pub struct PageRuleEntry {
     /// Stable identifier used in log lines only (not the rule string that
     /// appears in findings — that comes from each check's own metadata).
     pub rule_id: &'static str,
-    /// Short label for the "Found N <name> violations" log line, to match
+    /// Short label for the `"Found N <name> violations"` log line, to match
     /// the previous inline wording exactly.
     pub name: &'static str,
     /// Lowest WCAG level at which this rule runs. The current configured

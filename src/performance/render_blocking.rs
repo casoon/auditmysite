@@ -1,6 +1,6 @@
 //! Render-blocking resource analysis via CDP.
 //!
-//! Detects scripts and stylesheets in <head> that block page rendering,
+//! Detects scripts and stylesheets in `<head>` that block page rendering,
 //! and breaks down first-party vs. third-party resource sizes.
 
 use chromiumoxide::Page;
@@ -24,9 +24,9 @@ pub struct BlockingResource {
 /// Render-blocking analysis results.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderBlockingAnalysis {
-    /// Scripts in <head> without defer/async
+    /// Scripts in `<head>` without defer/async
     pub blocking_scripts: Vec<BlockingResource>,
-    /// CSS <link rel=stylesheet> in <head> for screen/all media
+    /// CSS `<link rel=stylesheet>` in `<head>` for screen/all media
     pub blocking_css: Vec<BlockingResource>,
     /// Total transfer size of all blocking resources in bytes
     pub blocking_transfer_bytes: u64,

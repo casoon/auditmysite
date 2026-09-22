@@ -7,7 +7,7 @@
 //!
 //! Checks via CSS/JS inspection:
 //! - Orientation media queries that hide or transform significant content
-//! - CSS transform: rotate on <body> or <html>
+//! - CSS transform: rotate on `<body>` or `<html>`
 
 use chromiumoxide::Page;
 

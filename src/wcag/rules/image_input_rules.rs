@@ -1,9 +1,9 @@
 //! WCAG 1.1.1 - Non-text Content: additional input/object rules
 //!
 //! Covers axe-core rules that extend image-alt to other non-text elements:
-//! - `area-alt`:        <area> elements in image maps must have alt text
-//! - `input-image-alt`: <input type="image"> must have alt text
-//! - `object-alt`:      <object> elements must have a text alternative
+//! - `area-alt`:        `<area>` elements in image maps must have alt text
+//! - `input-image-alt`: `<input type="image">` must have alt text
+//! - `object-alt`:      `<object>` elements must have a text alternative
 //!
 //! DOM-level rule: `htmlTag`/`type` are not AX properties (the AX tree
 //! synthesizes an accessible name for `<input type="image">` from its `alt`

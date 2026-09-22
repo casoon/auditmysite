@@ -43,6 +43,13 @@ short current-state summary. Newest entries first (unchanged order from before t
   Chrome-Integrationstests (transiente Fehlermeldung, korrekter modaler Dialog, korrektes Menue —
   jeweils ohne Fehlalarm) sowie clippy `-D warnings` fuer beide Feature-Sets.
 
+- **Rohe HTML-Tags in Doc-Kommentaren, 2026-09-22 (#588):** docs.rs meldete abgeschnittene
+  Seiten, etwa `PageHealthAnalysis`: Doc-Kommentare nannten Elemente wie `<iframe>` ohne
+  Backticks, rustdoc gab sie als echtes HTML aus, und der Streaming-Rewriter von docs.rs brach
+  daran ab. 16 Stellen in sechs Dateien stehen jetzt als Inline-Code. Verifiziert mit
+  `cargo doc --all-features --no-deps`: keine `invalid_html_tags`-Warnung mehr. Die CI baut die
+  Doku jetzt mit `-D rustdoc::invalid_html_tags`, damit neue Faelle schon vor dem Release auffallen.
+
 - **a11y-core 0.10.0 und die Ueberschriftenregeln abgegeben, 2026-09-21:** Das Projekt hing auf
   `a11y-core` 0.6.0, veroeffentlicht war 0.10.0. Der Sprung ueber vier Minor-Versionen brachte
   keinen einzigen API-Bruch — `dom_document.rs` und `wcag/shared.rs` uebersetzen unveraendert —,
