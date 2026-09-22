@@ -23,16 +23,16 @@ pub struct PageHealthAnalysis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_404: Option<Custom404Check>,
 
-    /// Page uses <meta http-equiv="refresh">
+    /// Page uses `<meta http-equiv="refresh">`
     pub has_meta_refresh: bool,
     /// Content attribute of the meta-refresh tag
     pub meta_refresh_content: Option<String>,
 
-    /// Number of <frame> / <frameset> elements (deprecated HTML4)
+    /// Number of `<frame>` / `<frameset>` elements (deprecated HTML4)
     pub frame_count: u32,
-    /// Number of <iframe> elements
+    /// Number of `<iframe>` elements
     pub iframe_count: u32,
-    /// Number of <iframe> elements pointing to a different host
+    /// Number of `<iframe>` elements pointing to a different host
     pub cross_origin_iframe_count: u32,
 
     /// Length of the page URL in characters
@@ -66,9 +66,9 @@ pub struct PageHealthAnalysis {
 
     /// Duplicate ID count across the DOM
     pub duplicate_id_count: u32,
-    /// <img> elements missing the alt attribute
+    /// `<img>` elements missing the alt attribute
     pub images_without_alt: u32,
-    /// <table> elements without <th> or <caption>
+    /// `<table>` elements without `<th>` or `<caption>`
     pub tables_without_headers: u32,
     /// Empty heading elements (h1–h6)
     pub empty_headings: u32,
