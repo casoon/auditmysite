@@ -354,6 +354,41 @@ impl AXNode {
             .and_then(|p| p.value.as_str())
     }
 
+    /// `aria-haspopup`, so wie CDP die Eigenschaft benennt.
+    ///
+    /// Die Kennung im Protokoll ist `hasPopup`, mit großem P. Ein
+    /// `get_property_str("haspopup")` trifft sie nie — und tat es an zwei
+    /// Stellen nicht: `patterns::modal_dialog` und `patterns::disclosure_menu`
+    /// fragten so nach dem Auslöser und bekamen immer `None`. Beide Journeys
+    /// haben dadurch nie einen Kandidaten gesehen; über 171 gelaufene Seiten
+    /// lief keine einzige Modal- oder Menü-Journey.
+    ///
+    /// Deshalb steht der Name genau einmal im Code, hier.
+    pub fn haspopup(&self) -> Option<&str> {
+        self.get_property_str("hasPopup")
+    }
+
+    /// Der Wert einer Eigenschaft als Text, unabhängig von seinem CDP-Typ.
+    ///
+    /// Nötig, weil ARIA-Zustände in Chromes Baum uneinheitlich ankommen:
+    /// `expanded` als `Bool`, `invalid` als Token-`String` ("false" / "true" /
+    /// "grammar" / "spelling"), `level` als `Int`. Wer sie einzeln über
+    /// `get_property_bool` liest, übersieht die Token-Fälle stillschweigend —
+    /// genau daran hing #566, und im Diff hing `invalid` daran ein zweites Mal.
+    ///
+    /// Knotenverweise und Listen haben keinen sinnvollen Skalarwert und
+    /// liefern `None`; für sie ist [`has_property`](Self::has_property) da.
+    pub fn property_value_str(&self, name: &str) -> Option<String> {
+        let value = &self.properties.iter().find(|p| p.name == name)?.value;
+        match value {
+            AXValue::Bool(b) => Some(b.to_string()),
+            AXValue::Int(i) => Some(i.to_string()),
+            AXValue::Float(f) => Some(f.to_string()),
+            AXValue::String(s) => Some(s.clone()),
+            AXValue::Node { .. } | AXValue::List(_) => None,
+        }
+    }
+
     /// Returns true if a property with this name exists, regardless of value type.
     /// Use this for relationship attributes (controls, owns, …) whose CDP values are
     /// node references rather than plain strings.

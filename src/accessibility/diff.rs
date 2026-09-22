@@ -50,9 +50,10 @@ fn index(snapshot: &AXSnapshot) -> HashMap<NodeKey, &AXNode> {
 /// Difference between two captured snapshots.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AXTreeDiff {
-    /// AXTree node ids present in `after` but not in `before`.
+    /// Knoten, die wahrnehmbar geworden sind: im `after`-Baum vorhanden und
+    /// nicht ignoriert, vorher nicht vorhanden **oder** ignoriert.
     pub added: Vec<String>,
-    /// AXTree node ids present in `before` but not in `after`.
+    /// Knoten, die aufgehört haben, wahrnehmbar zu sein — das Gegenstück.
     pub removed: Vec<String>,
     /// Per-node property changes (filled in Phase 2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -91,6 +92,12 @@ pub struct FocusMove {
 }
 
 /// ARIA state properties tracked for property-level diffs.
+///
+/// Gelesen wird über [`AXNode::property_value_str`], nicht über
+/// `get_property_bool`: `invalid` kommt aus Chrome als Token-String
+/// ("false"/"true"/"grammar"/"spelling"), nie als `Bool`. Über den
+/// Bool-Zugriff war diese Eigenschaft hier stillschweigend tot — sie stand
+/// in der Liste, konnte aber nie eine Änderung erzeugen.
 const TRACKED_PROPERTIES: &[&str] = &["expanded", "hidden", "selected", "invalid", "modal"];
 
 impl AXTreeDiff {
@@ -116,13 +123,26 @@ impl AXTreeDiff {
         let before_index = index(before);
         let after_index = index(after);
 
+        // „Hinzugekommen" heißt **wahrnehmbar geworden**, nicht „neu im Baum".
+        //
+        // Chrome entfernt einen verborgenen Knoten nicht: er bleibt mit
+        // derselben Backend-ID stehen, als `ignored` mit dem Grund
+        // `notRendered` und ohne seine Rolle. Ein `<ul role="menu" hidden>`,
+        // das sichtbar wird, wechselt von `ignored=true, role="none"` nach
+        // `ignored=false, role="menu"` — dieselbe ID, also strukturell keine
+        // Änderung. Genau so öffnen die meisten Menüs und Akkordeons.
+        //
+        // Über die reine Anwesenheit wäre dieser Knoten unsichtbar geblieben,
+        // und mit ihm jede Aussage darüber, *was* sich geöffnet hat.
         for (key, node) in &after_index {
-            if !before_index.contains_key(key) {
+            let was_perceivable = before_index.get(key).is_some_and(|n| !n.ignored);
+            if !node.ignored && !was_perceivable {
                 diff.added.push(node.node_id.clone());
             }
         }
         for (key, node) in &before_index {
-            if !after_index.contains_key(key) {
+            let is_perceivable = after_index.get(key).is_some_and(|n| !n.ignored);
+            if !node.ignored && !is_perceivable {
                 diff.removed.push(node.node_id.clone());
             }
         }
@@ -134,15 +154,15 @@ impl AXTreeDiff {
                 continue;
             };
             for prop_name in TRACKED_PROPERTIES {
-                let before_val = before_node.get_property_bool(prop_name);
-                let after_val = after_node.get_property_bool(prop_name);
+                let before_val = before_node.property_value_str(prop_name);
+                let after_val = after_node.property_value_str(prop_name);
                 if before_val != after_val {
                     diff.property_changes.push(PropertyChange {
                         node_id: after_node.node_id.clone(),
                         backend_node_id: after_node.backend_dom_node_id,
                         property: prop_name.to_string(),
-                        before: before_val.map(|b| b.to_string()).unwrap_or_default(),
-                        after: after_val.map(|b| b.to_string()).unwrap_or_default(),
+                        before: before_val.unwrap_or_default(),
+                        after: after_val.unwrap_or_default(),
                     });
                 }
             }
@@ -169,8 +189,11 @@ impl AXTreeDiff {
             .find(|c| c.backend_node_id == Some(backend_node_id) && c.property == property)
     }
 
-    /// Ob im Accessibility-Tree Knoten hinzugekommen sind — der Hinweis
-    /// darauf, dass durch die Handlung Inhalt wahrnehmbar geworden ist.
+    /// Ob durch die Handlung Inhalt wahrnehmbar geworden ist.
+    ///
+    /// Seitenweit: unterschieden wird nicht zwischen dem geöffneten Bereich
+    /// und einem nachgeladenen Bild am Seitenende. Für eine schärfere Aussage
+    /// müsste der gesteuerte Bereich bestimmt werden.
     pub fn has_additions(&self) -> bool {
         !self.added.is_empty()
     }
@@ -229,6 +252,108 @@ mod tests {
     }
 
     /// Baut einen AX-Knoten mit einer booleschen Eigenschaft.
+    /// Ein Knoten mit einer Token-Eigenschaft, wie Chrome `aria-invalid`
+    /// liefert: als String, nie als Bool.
+    fn node_with_token(ax_id: &str, backend: i64, name: &str, value: &str) -> AXNode {
+        let mut n = node(ax_id, backend, None);
+        n.properties.push(super::super::tree::AXProperty {
+            name: name.to_string(),
+            value: super::super::tree::AXValue::String(value.to_string()),
+        });
+        n
+    }
+
+    /// Ein verborgener Knoten verschwindet nicht aus dem Baum — Chrome lässt
+    /// ihn mit derselben Backend-ID als `ignored` stehen und nimmt ihm die
+    /// Rolle. Wird er sichtbar, ist das strukturell keine Änderung, für die
+    /// Wahrnehmung aber der ganze Vorgang. So öffnen die meisten Menüs.
+    #[test]
+    fn wahrnehmbar_gewordener_knoten_gilt_als_hinzugekommen() {
+        let mut hidden = node("16", 16, None);
+        hidden.ignored = true;
+        hidden.role = Some("none".to_string());
+        let mut shown = node("16", 16, None);
+        shown.role = Some("menu".to_string());
+
+        let mut before = snap("a", "T", "https://x", None);
+        before.tree = AXTree::from_nodes(vec![hidden]);
+        let mut after = snap("b", "T", "https://x", None);
+        after.tree = AXTree::from_nodes(vec![shown]);
+
+        let diff = AXTreeDiff::between(&before, &after);
+        assert_eq!(diff.added, vec!["16".to_string()]);
+        assert!(diff.has_additions());
+    }
+
+    /// Und die Gegenrichtung: verborgen werden heißt verschwinden.
+    #[test]
+    fn ignoriert_gewordener_knoten_gilt_als_verschwunden() {
+        let shown = node("16", 16, None);
+        let mut hidden = node("16", 16, None);
+        hidden.ignored = true;
+
+        let mut before = snap("a", "T", "https://x", None);
+        before.tree = AXTree::from_nodes(vec![shown]);
+        let mut after = snap("b", "T", "https://x", None);
+        after.tree = AXTree::from_nodes(vec![hidden]);
+
+        let diff = AXTreeDiff::between(&before, &after);
+        assert_eq!(diff.removed, vec!["16".to_string()]);
+        assert!(diff.has_removals());
+    }
+
+    /// Ein Knoten, der die ganze Zeit ignoriert ist, ist nie wahrnehmbar
+    /// geworden — auch dann nicht, wenn er neu ins Dokument kommt.
+    #[test]
+    fn dauerhaft_ignorierter_knoten_zaehlt_nicht() {
+        let mut ignored = node("99", 99, None);
+        ignored.ignored = true;
+
+        let before = snap("a", "T", "https://x", None);
+        let mut after = snap("b", "T", "https://x", None);
+        after.tree = AXTree::from_nodes(vec![ignored]);
+
+        let diff = AXTreeDiff::between(&before, &after);
+        assert!(diff.added.is_empty());
+        assert!(!diff.has_additions());
+    }
+
+    /// `invalid` stand seit jeher in `TRACKED_PROPERTIES`, wurde aber über
+    /// `get_property_bool` gelesen und konnte deshalb nie eine Änderung
+    /// erzeugen. Derselbe Typ-Irrtum wie #566, eine Ebene tiefer.
+    #[test]
+    fn token_eigenschaften_erzeugen_eine_aenderung() {
+        let mut before = snap("a", "T", "https://x", None);
+        before.tree = AXTree::from_nodes(vec![node_with_token("1", 7, "invalid", "false")]);
+        let mut after = snap("b", "T", "https://x", None);
+        after.tree = AXTree::from_nodes(vec![node_with_token("1", 7, "invalid", "true")]);
+
+        let diff = AXTreeDiff::between(&before, &after);
+        let change = diff
+            .property_change_for(7, "invalid")
+            .expect("Wechsel an aria-invalid muss sichtbar sein");
+        assert_eq!(change.before, "false");
+        assert_eq!(change.after, "true");
+    }
+
+    /// Boolesche Eigenschaften bleiben unverändert in ihrer Darstellung.
+    #[test]
+    fn boolesche_eigenschaften_bleiben_true_false() {
+        let mut before = snap("a", "T", "https://x", None);
+        before.tree = AXTree::from_nodes(vec![node("1", 7, Some(("expanded", false)))]);
+        let mut after = snap("b", "T", "https://x", None);
+        after.tree = AXTree::from_nodes(vec![node("1", 7, Some(("expanded", true)))]);
+
+        let change = AXTreeDiff::between(&before, &after)
+            .property_change_for(7, "expanded")
+            .cloned()
+            .expect("Wechsel an expanded");
+        assert_eq!(
+            (change.before.as_str(), change.after.as_str()),
+            ("false", "true")
+        );
+    }
+
     fn node(ax_id: &str, backend: i64, prop: Option<(&str, bool)>) -> AXNode {
         AXNode {
             node_id: ax_id.to_string(),

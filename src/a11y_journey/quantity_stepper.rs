@@ -170,7 +170,7 @@ pub async fn test(
     }
 
     keyboard::press(page, "ArrowUp").await?;
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let value_after = read_value(page, stepper_id).await;
     let valuenow_after = read_valuenow(page, stepper_id).await;

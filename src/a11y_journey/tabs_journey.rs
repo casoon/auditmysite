@@ -25,7 +25,19 @@
 //! `TabsFocusNotOnTab`, ohne je eine Rolle angesehen zu haben. Jetzt wird die
 //! Rolle des fokussierten Knotens gelesen.
 //!
-//! # Manuelle Aktivierung ist kein Mangel
+//! # Die Pfeiltaste braucht eine Voraussetzung
+//!
+//! Das Roving-Tabindex-Muster sagt: *steht der Fokus auf einem Tab*, verschiebt
+//! die Pfeiltaste ihn zum nächsten. Die Journey betätigt den ersten Tab über
+//! `synthetic_click_backend`, und ein `element.click()` aus JavaScript
+//! **verschiebt den Fokus nicht**. Im Korpus stand er danach auf Footer-Links,
+//! Cookie-Dialogen und Navigationspunkten — Hinterlassenschaften der vorher
+//! gelaufenen Journeys. Die Pfeiltaste traf also nie eine Tab-Liste.
+//!
+//! Von 22 Tabs-Journeys im Korpus meldeten 20 `TabsSelectionNotMoved` mit
+//! Severity High und 15 `TabsFocusNotOnTab`. Das waren keine Seitenfehler,
+//! sondern Messartefakte. Die Voraussetzung wird jetzt geprüft: steht der
+//! Fokus nach dem Klick nicht auf dem betätigten Tab, wird nichts bewertet.
 //!
 //! Die APG kennt zwei Tab-Muster: automatische Aktivierung (Pfeiltaste
 //! verschiebt Fokus *und* Auswahl) und manuelle (Pfeiltaste verschiebt nur den
@@ -108,11 +120,32 @@ pub async fn test(
         snapshot_label: Some("after_first_tab_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_click) = snapshot(page, "after_first_tab_click").await else {
         return Ok((trace, findings));
     };
+
+    // Ohne Fokus auf dem betätigten Tab prüft die Pfeiltaste nichts, was mit
+    // dieser Tab-Liste zu tun hat.
+    let focused_trigger = after_click.focus.active_backend_node_id == Some(trigger_id);
+    trace.steps.push(JourneyStep {
+        action: "check_focus_on_trigger".to_string(),
+        target: Some(format!("backend_node:{trigger_id}")),
+        focus: after_click.focus.selector.clone(),
+        result: Some(
+            if focused_trigger {
+                "focus_on_trigger"
+            } else {
+                "focus_not_on_trigger"
+            }
+            .to_string(),
+        ),
+        snapshot_label: Some("after_first_tab_click".to_string()),
+    });
+    if !focused_trigger {
+        return Ok((trace, findings));
+    }
 
     if let Err(e) = keyboard::press_arrow(page, "Right").await {
         tracing::warn!("tabs: ArrowRight failed: {e}");
@@ -126,7 +159,7 @@ pub async fn test(
         snapshot_label: Some("after_arrow_right".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_arrow) = snapshot(page, "after_arrow_right").await else {
         return Ok((trace, findings));

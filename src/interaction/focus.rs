@@ -3,12 +3,53 @@
 //! Builds the `FocusSnapshot` that accompanies each `AXSnapshot` in a
 //! journey. Phase 2 adds focus-indicator detection via computed style.
 
+use chromiumoxide::cdp::browser_protocol::dom::DescribeNodeParams;
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 use serde_json::Value;
 
 use crate::accessibility::{FocusIndicatorStatus, FocusSnapshot, Rect};
 use crate::error::{AuditError, Result};
+
+/// JS, das den **tatsächlich** fokussierten Knoten zurückgibt.
+///
+/// `document.activeElement` hält bei Fokus innerhalb eines Shadow Roots den
+/// Host, nicht das fokussierte Element. Die Schleife steigt hinab, solange
+/// ein Shadow Root ein eigenes `activeElement` führt.
+const DEEP_ACTIVE_ELEMENT_JS: &str = r#"
+(function () {
+    var el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) {
+        el = el.shadowRoot.activeElement;
+    }
+    if (!el || el === document.body || el === document.documentElement) return null;
+    return el;
+})()
+"#;
+
+/// Die Backend-Node-ID des fokussierten Elements.
+///
+/// Ohne sie bleibt [`FocusSnapshot::active_backend_node_id`] leer, und jede
+/// Aussage der Form „steht der Fokus innerhalb dieses Dialogs?" läuft ins
+/// Leere: die Zugehörigkeit im Accessibility-Tree wird über Backend-IDs
+/// entschieden, nicht über Selektortexte.
+///
+/// Zwei CDP-Aufrufe, deshalb nur bei einer Aufnahme und nicht bei jedem
+/// Tab-Schritt. `None`, wenn kein Element fokussiert ist oder die Auflösung
+/// fehlschlägt — beides ist „nicht beobachtet", kein Fokus auf `body`.
+pub async fn capture_focus_backend_id(page: &Page) -> Option<i64> {
+    let params = EvaluateParams::builder()
+        .expression(DEEP_ACTIVE_ELEMENT_JS.to_string())
+        .return_by_value(false)
+        .build()
+        .ok()?;
+    let evaluated = page.execute(params).await.ok()?;
+    let object_id = evaluated.result.result.object_id.clone()?;
+
+    let describe = DescribeNodeParams::builder().object_id(object_id).build();
+    let described = page.execute(describe).await.ok()?;
+    Some(*described.result.node.backend_node_id.inner())
+}
 
 /// JS that returns a description of `document.activeElement`, including
 /// visibility flags used by the journey evaluator. `null` when no element

@@ -83,16 +83,40 @@ impl Verdict {
             Verdict::NotObservable => "diff:not_observable",
         }
     }
+}
 
-    /// Ob der Auslöser den erwarteten Zustand erreicht hat. `None`, solange
-    /// die Aufnahme fehlt — dann ist nichts belegt, weder gut noch schlecht.
-    fn reached_state(self) -> Option<bool> {
-        match self {
-            Verdict::StateAndContent | Verdict::StateOnly => Some(true),
-            Verdict::ContentOnly | Verdict::NoChange => Some(false),
-            // Ohne Ausgangswert ist die Richtung nicht zu beurteilen.
-            Verdict::WrongDirection | Verdict::NotObservable => None,
-        }
+/// Was aus einem Urteil folgt: welcher Befund, und ob der nächste Klick noch
+/// auf einem bekannten Ausgangszustand aufsetzt.
+///
+/// Der Korpuslauf hat hier einen Doppelbefund aufgedeckt: `ContentOnly` ist
+/// bereits die genaue Aussage („der Auslöser meldet seinen Zustand nicht").
+/// Sie zusätzlich als „klappt nicht auf" zu melden, ist derselbe Mangel ein
+/// zweites Mal — im Korpus 144 überzählige Befunde.
+fn outcome(
+    verdict: Verdict,
+    want_open: bool,
+) -> (Option<(InteractiveFindingKind, Severity)>, bool) {
+    match verdict {
+        Verdict::StateAndContent => (None, true),
+        // Der Wechsel kam an, nur wahrnehmbarer Inhalt fehlt. Der Folgeklick
+        // setzt weiterhin auf einem bekannten Zustand auf.
+        Verdict::StateOnly => (
+            Some((
+                InteractiveFindingKind::DisclosureStateWithoutContent,
+                Severity::Medium,
+            )),
+            true,
+        ),
+        Verdict::ContentOnly => (
+            Some((
+                InteractiveFindingKind::DisclosureContentWithoutState,
+                Severity::Medium,
+            )),
+            false,
+        ),
+        Verdict::NoChange => (Some(missed_state_kind(want_open)), false),
+        // Nichts belegt: kein Befund, der Grund steht im Trace.
+        Verdict::WrongDirection | Verdict::NotObservable => (None, false),
     }
 }
 
@@ -270,7 +294,7 @@ pub async fn test(
         snapshot_label: Some("after_first_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let after_first = snapshot(page, "after_first_click", started).await;
     let first_diff = match (&before_snapshot, &after_first) {
@@ -291,38 +315,19 @@ pub async fn test(
         snapshot_label: Some("after_first_click".to_string()),
     });
 
-    match first {
-        Verdict::StateOnly => findings.push(
-            InteractiveFindingKind::DisclosureStateWithoutContent,
-            Severity::Medium,
+    let (finding, proceed) = outcome(first, want_open);
+    if let Some((kind, severity)) = finding {
+        findings.push(
+            kind,
+            severity,
             Some("initial".to_string()),
             "after_first_click".to_string(),
-        ),
-        Verdict::ContentOnly => findings.push(
-            InteractiveFindingKind::DisclosureContentWithoutState,
-            Severity::Medium,
-            Some("initial".to_string()),
-            "after_first_click".to_string(),
-        ),
-        _ => {}
+        );
     }
-
-    // Erreicht der Auslöser den erwarteten Zustand nicht, ist der zweite Klick
-    // nicht mehr aussagekräftig — der Ausgangszustand für ihn steht nicht fest.
-    match first.reached_state() {
-        Some(false) => {
-            let (kind, severity) = missed_state_kind(want_open);
-            findings.push(
-                kind,
-                severity,
-                Some("initial".to_string()),
-                "after_first_click".to_string(),
-            );
-            return Ok((trace, findings.items));
-        }
-        // Ohne Aufnahme ist nichts belegt: kein Befund, der Trace trägt den Grund.
-        None => return Ok((trace, findings.items)),
-        Some(true) => {}
+    // Steht der Zustand nach dem ersten Klick nicht fest, hat der zweite
+    // keinen bekannten Ausgangspunkt mehr.
+    if !proceed {
+        return Ok((trace, findings.items));
     }
 
     if let Err(e) = pointer::synthetic_click_backend(page, trigger_id).await {
@@ -337,7 +342,7 @@ pub async fn test(
         snapshot_label: Some("after_second_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let after_second = snapshot(page, "after_second_click", started).await;
     let second_diff = match (&after_first, &after_second) {
@@ -358,24 +363,7 @@ pub async fn test(
         snapshot_label: Some("after_second_click".to_string()),
     });
 
-    match second {
-        Verdict::StateOnly => findings.push(
-            InteractiveFindingKind::DisclosureStateWithoutContent,
-            Severity::Medium,
-            Some("after_first_click".to_string()),
-            "after_second_click".to_string(),
-        ),
-        Verdict::ContentOnly => findings.push(
-            InteractiveFindingKind::DisclosureContentWithoutState,
-            Severity::Medium,
-            Some("after_first_click".to_string()),
-            "after_second_click".to_string(),
-        ),
-        _ => {}
-    }
-
-    if second.reached_state() == Some(false) {
-        let (kind, severity) = missed_state_kind(!want_open);
+    if let Some((kind, severity)) = outcome(second, !want_open).0 {
         findings.push(
             kind,
             severity,
@@ -501,7 +489,7 @@ mod tests {
     #[test]
     fn fehlende_aufnahme_ist_nicht_beobachtbar() {
         assert_eq!(diff_verdict(None, 42, true), Verdict::NotObservable);
-        assert_eq!(Verdict::NotObservable.reached_state(), None);
+        assert_eq!(outcome(Verdict::NotObservable, true), (None, false));
     }
 
     /// Der Ausgangszustand bestimmt die erwartete Richtung. Ein bereits
@@ -546,7 +534,7 @@ mod tests {
             ),
             Verdict::WrongDirection
         );
-        assert_eq!(Verdict::WrongDirection.reached_state(), None);
+        assert_eq!(outcome(Verdict::WrongDirection, true), (None, false));
     }
 
     /// Zuklappen wird an verschwundenen Knoten gemessen, nicht an
@@ -560,6 +548,46 @@ mod tests {
                 false
             ),
             Verdict::StateAndContent
+        );
+    }
+
+    /// Ein `content_only` ist bereits die genaue Aussage. Zusätzlich „klappt
+    /// nicht auf" zu melden, wäre derselbe Mangel ein zweites Mal — im
+    /// Korpuslauf 144 überzählige Befunde.
+    #[test]
+    fn inhalt_ohne_zustand_erzeugt_genau_einen_befund() {
+        let (finding, proceed) = outcome(Verdict::ContentOnly, true);
+        assert_eq!(
+            finding.map(|f| f.0),
+            Some(InteractiveFindingKind::DisclosureContentWithoutState)
+        );
+        assert!(
+            !proceed,
+            "ohne bekannten Zustand ist der zweite Klick blind"
+        );
+    }
+
+    /// Zustand ohne Inhalt ist ein Befund, hält den Ablauf aber nicht an:
+    /// der Wechsel ist angekommen, der Folgeklick setzt darauf auf.
+    #[test]
+    fn zustand_ohne_inhalt_laeuft_weiter() {
+        let (finding, proceed) = outcome(Verdict::StateOnly, true);
+        assert_eq!(
+            finding.map(|f| f.0),
+            Some(InteractiveFindingKind::DisclosureStateWithoutContent)
+        );
+        assert!(proceed);
+    }
+
+    #[test]
+    fn wirkungslose_betaetigung_meldet_die_richtung() {
+        assert_eq!(
+            outcome(Verdict::NoChange, true).0.map(|f| f.0),
+            Some(InteractiveFindingKind::DisclosureNotOpened)
+        );
+        assert_eq!(
+            outcome(Verdict::NoChange, false).0.map(|f| f.0),
+            Some(InteractiveFindingKind::DisclosureNotClosed)
         );
     }
 

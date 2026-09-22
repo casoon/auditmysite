@@ -2,13 +2,34 @@
 //!
 //! Submits a form without filling required fields, then checks whether the
 //! error state is properly announced via:
-//!   1. A live region (role="alert" or aria-live) appearing in the DOM.
+//!   1. Eine Live-Region, die **gefüllt wird** (beobachtet, nicht abgefragt).
 //!   2. aria-invalid="true" set on the field.
 //!   3. The field linked to the error message via aria-describedby or
 //!      aria-errormessage.
 //!
 //! Focus strategy (first invalid field, error summary, or prominent live
 //! region) is recorded but not counted as a violation on its own.
+//!
+//! # Warum die Ankündigung beobachtet und nicht abgefragt wird
+//!
+//! Bis Plan 53 lautete die Prüfung: existiert jetzt ein
+//! `[role="alert"],[aria-live]`, das vorher nicht existierte. Daraus folgte
+//! `new_live = live_after && !live_before` — und damit war sie für die
+//! **empfohlene** Umsetzung blind. Wer den Live-Container von Anfang an leer
+//! im Markup stehen hat (so soll es sein, denn Screenreader registrieren
+//! Live-Regionen beim Aufbau des Baums), hatte `live_before == true`, also
+//! `new_live == false` für immer. Die Folge war ein
+//! `FormErrorInvalidWithoutLiveRegion` mit Severity High auf genau der
+//! Implementierung, die richtig ist.
+//!
+//! Gemessen wird jetzt über [`crate::interaction::live_regions`]: ein
+//! `MutationObserver` zeichnet auf, **dass** eine Live-Region Inhalt bekommen
+//! hat, mit Zeitpunkt und Dringlichkeit. Das trägt auch den Fall, den zwei
+//! Aufnahmen nie fassen — eine Meldung, die eingefügt und gleich wieder
+//! entfernt wird.
+//!
+//! Beobachtet ist nicht angesagt: dass der Browser den Anlass hatte, heißt
+//! nicht, dass ein Screenreader die Meldung vorgelesen hat.
 
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
@@ -18,7 +39,7 @@ use crate::audit::normalized::{
     InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
 };
 use crate::error::Result;
-use crate::interaction::{focus, pointer, stability};
+use crate::interaction::{focus, live_regions, pointer, stability};
 use crate::patterns::JourneyCandidate;
 use crate::taxonomy::Severity;
 
@@ -86,6 +107,12 @@ pub async fn test(
     };
     let mut findings: Vec<InteractiveFinding> = Vec::new();
 
+    // Der Beobachter muss vor der Handlung stehen, deren Wirkung er messen
+    // soll. Schlägt das fehl, ist „keine Meldung beobachtet" hinterher keine
+    // Aussage über die Seite — das wird unten getrennt behandelt.
+    let observing = live_regions::install(page).await;
+    let _ = live_regions::drain(page).await;
+
     // Capture baseline — no errors yet.
     let (live_before, invalid_before, _linked_before) = check_error_state(page).await;
 
@@ -94,8 +121,7 @@ pub async fn test(
         target: None,
         focus: None,
         result: Some(format!(
-            "live_region:{}, aria_invalid:{}",
-            live_before, invalid_before
+            "live_region_present:{live_before}, aria_invalid:{invalid_before}, observing:{observing}"
         )),
         snapshot_label: Some("before_submit".to_string()),
     });
@@ -122,13 +148,21 @@ pub async fn test(
         snapshot_label: Some("after_submit_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     // Check error state after submit.
     let (live_after, invalid_after, linked_after) = check_error_state(page).await;
 
-    // Did any new live announcements appear?
-    let new_live = live_after && !live_before;
+    // Wurde eine Live-Region gefüllt? Das ist die Ankündigung — nicht, ob
+    // eine Region existiert.
+    let events = live_regions::drain(page).await;
+    let announced = events.iter().any(|e| e.is_announcement());
+    let assertive = events
+        .iter()
+        .any(|e| e.is_announcement() && e.politeness == "assertive");
+    // Der Container kam erst nach dem Absenden ins Dokument — eine eigene,
+    // schwächere Aussage als „es wurde angekündigt".
+    let late_insertion = announced && live_after && !live_before;
     // Did any fields become aria-invalid?
     let new_invalid = invalid_after > invalid_before;
 
@@ -149,7 +183,9 @@ pub async fn test(
         target: None,
         focus: focus_sel,
         result: Some(format!(
-            "live_region:{new_live}, aria_invalid:{new_invalid}, linked:{linked_after}, focus_on_body:{focus_on_body}"
+            "announced:{announced}, assertive:{assertive}, events:{}, \
+             aria_invalid:{new_invalid}, linked:{linked_after}, focus_on_body:{focus_on_body}",
+            events.len()
         )),
         snapshot_label: Some("after_submit_click".to_string()),
     });
@@ -164,7 +200,7 @@ pub async fn test(
     // announced by every browser/AT combination. Advisory severity: this is
     // a robustness recommendation, not a confirmed failure (the region did
     // announce correctly in this run).
-    if new_live {
+    if late_insertion {
         findings.push(InteractiveFinding::new(
             "FormError",
             InteractiveFindingKind::FormErrorLiveRegionLateInsertion,
@@ -179,7 +215,7 @@ pub async fn test(
 
     // If neither live region nor aria-invalid appeared, the form submits
     // silently — errors are not announced at all.
-    if !new_live && !new_invalid {
+    if !announced && !new_invalid {
         // Could be: (a) form performs HTML5 native validation or navigates to a
         // server-side validation/success page (OK — the error is not silently
         // swallowed), or (b) the form silently swallows the error (bad). We
@@ -199,6 +235,19 @@ pub async fn test(
             return Ok((trace, findings));
         }
 
+        // Ohne Beobachter ist „nichts angekündigt" kein Befund, sondern eine
+        // Lücke in der Messung. Der Grund steht im Trace.
+        if !observing {
+            trace.steps.push(JourneyStep {
+                action: "check_error_state".to_string(),
+                target: None,
+                focus: None,
+                result: Some("live_observer_unavailable".to_string()),
+                snapshot_label: Some("after_submit_click".to_string()),
+            });
+            return Ok((trace, findings));
+        }
+
         // No navigation and neither aria-invalid nor a live region appeared:
         // the form swallowed the error silently.
         findings.push(InteractiveFinding::new(
@@ -215,7 +264,7 @@ pub async fn test(
     }
 
     // aria-invalid appeared but no live announcement.
-    if new_invalid && !new_live {
+    if new_invalid && !announced && observing {
         findings.push(InteractiveFinding::new(
             "FormError",
             InteractiveFindingKind::FormErrorInvalidWithoutLiveRegion,
@@ -251,7 +300,7 @@ pub async fn test(
     // is not led to what needs fixing. Independent of the two checks above
     // (a form can correctly expose aria-invalid/a live region and still
     // fail to manage focus).
-    if (new_live || new_invalid) && focus_on_body {
+    if (announced || new_invalid) && focus_on_body {
         findings.push(InteractiveFinding::new(
             "FormError",
             InteractiveFindingKind::FormErrorFocusNotManaged,

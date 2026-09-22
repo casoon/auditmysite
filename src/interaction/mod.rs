@@ -8,5 +8,6 @@
 
 pub mod focus;
 pub mod keyboard;
+pub mod live_regions;
 pub mod pointer;
 pub mod stability;

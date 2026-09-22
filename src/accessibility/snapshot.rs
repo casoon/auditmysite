@@ -128,7 +128,15 @@ impl AXSnapshot {
         timestamp_ms: u64,
     ) -> crate::error::Result<Self> {
         let tree = super::extractor::extract_ax_tree(page).await?;
-        let focus = crate::interaction::focus::capture_focus(page).await?;
+        let mut focus = crate::interaction::focus::capture_focus(page).await?;
+        // Die Backend-ID des fokussierten Knotens wird hier und nur hier
+        // aufgelöst: sie kostet zwei zusätzliche CDP-Aufrufe und wird nur
+        // gebraucht, wo eine Aufnahme gegen den Baum gestellt wird.
+        focus.active_backend_node_id =
+            crate::interaction::focus::capture_focus_backend_id(page).await;
+        focus.ax_node_id = focus
+            .active_backend_node_id
+            .and_then(|id| tree.node_by_backend_id(id).map(|node| node.node_id.clone()));
         let url = page.url().await.ok().flatten().unwrap_or_default();
         let document_title = page.get_title().await.ok().flatten().unwrap_or_default();
         Ok(Self::new(

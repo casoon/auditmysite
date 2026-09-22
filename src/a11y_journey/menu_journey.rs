@@ -125,7 +125,7 @@ pub async fn test(
         snapshot_label: Some("after_open_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_open) = snapshot(page, "after_open_click").await else {
         return Ok((trace, findings));
@@ -169,11 +169,13 @@ pub async fn test(
     }
 
     // Fokus im Menü: nur beurteilbar, wenn ein Menüknoten feststeht.
+    let mut focus_inside = None;
     if let Some(menu) = menu {
         let inside = after_open
             .focus
             .active_backend_node_id
             .map(|f| after_open.tree.is_within(f, menu));
+        focus_inside = inside;
         trace.steps.push(JourneyStep {
             action: "check_focus_in_menu".to_string(),
             target: Some(format!("backend_node:{menu}")),
@@ -202,6 +204,21 @@ pub async fn test(
         }
     }
 
+    // Escape wird nur bewertet, wenn der Fokus tatsächlich im Menü steht.
+    // Sonst trifft die Taste die Seite, nicht dieses Menü — und ein
+    // `MenuEscapeNotClosing` (High) wäre ein Messartefakt, kein Befund.
+    // An der Tab-Liste waren 39 von 40 Befunden genau das.
+    if focus_inside != Some(true) {
+        trace.steps.push(JourneyStep {
+            action: "check_menu_closed".to_string(),
+            target: menu.map(|m| format!("backend_node:{m}")),
+            focus: None,
+            result: Some("escape_not_applicable".to_string()),
+            snapshot_label: Some("after_open_click".to_string()),
+        });
+        return Ok((trace, findings));
+    }
+
     if let Err(e) = keyboard::press_escape(page).await {
         tracing::warn!("menu: Escape press failed: {e}");
         return Ok((trace, findings));
@@ -214,7 +231,7 @@ pub async fn test(
         snapshot_label: Some("after_escape".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_escape) = snapshot(page, "after_escape").await else {
         return Ok((trace, findings));
