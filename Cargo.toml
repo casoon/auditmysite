@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "1.5.0"
+version = "1.5.1"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 AA (+ select 2.2 criteria) Accessibility Checker in Rust"
@@ -11,6 +11,11 @@ documentation = "https://auditmysite.casoon.dev/"
 keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
 categories = ["command-line-utilities", "web-programming"]
 readme = "README.md"
+
+[package.metadata.docs.rs]
+# docs.rs otherwise builds with `default` only, leaving optional modules
+# (c2pa, ...) undocumented (#588 follow-up).
+all-features = true
 
 [dependencies]
 # Browser automation via Chrome DevTools Protocol

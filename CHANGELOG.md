@@ -5,6 +5,11 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **docs.rs baut mit allen Features, 1.5.1, 2026-09-22:** Ohne `[package.metadata.docs.rs]` baut
+  docs.rs nur mit `default = ["pdf"]`. Alles hinter einem optionalen Feature — etwa `c2pa` — fehlte
+  damit in der veroeffentlichten Doku. `all-features = true` behebt das. Die Einstellung wirkt erst
+  fuer Versionen, die danach publiziert werden, daher 1.5.1 statt eines Nachtrags zu 1.5.0.
+
 - **Live-Regionen ueber die Zeit beobachtet, Journeys von Messartefakten befreit, 2026-09-22:**
   Die Formularfehler-Journey fragte, ob nach dem Absenden eine `[aria-live]`-Region existiert, die
   vorher nicht existierte. Damit war sie genau fuer die empfohlene Umsetzung blind: Wer den leeren
