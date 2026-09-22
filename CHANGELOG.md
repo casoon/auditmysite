@@ -5,6 +5,44 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Live-Regionen ueber die Zeit beobachtet, Journeys von Messartefakten befreit, 2026-09-22:**
+  Die Formularfehler-Journey fragte, ob nach dem Absenden eine `[aria-live]`-Region existiert, die
+  vorher nicht existierte. Damit war sie genau fuer die empfohlene Umsetzung blind: Wer den leeren
+  Live-Container von Anfang an im Markup hat, bekam ein `FormErrorInvalidWithoutLiveRegion` mit
+  Severity High. Die Add-to-Cart-Journey verglich zwei Stichproben und sah deshalb keine Meldung,
+  die erscheint und nach zwei Sekunden wieder verschwindet — bei Warenkorb-Feedback der Normalfall.
+
+  Neu ist `interaction::live_regions`: ein `MutationObserver` ueber Live-Regionen, auch in spaeter
+  erzeugten Shadow Roots, zeichnet auf, *dass* eine Region Inhalt bekam, mit Zeitpunkt und
+  Dringlichkeit. Beide Journeys werten diese Ereignisse aus. Laesst sich der Beobachter nicht
+  installieren, entsteht kein Befund, sondern ein `live_observer_unavailable` im Trace — ohne
+  Messung ist „nichts angekuendigt" keine Aussage ueber die Seite. Beobachtet heisst nicht
+  vorgelesen: Das Modul belegt nur, dass der Browser den Anlass dazu hatte.
+
+  Beim Nachpruefen am Korpus fielen weitere Journeys auf, die Messartefakte meldeten:
+  - **Tabs:** `element.click()` verschiebt den Fokus nicht, die Pfeiltaste traf also nie die
+    Tab-Liste. 20 von 22 Tabs-Journeys meldeten `TabsSelectionNotMoved` (High). Bewertet wird jetzt
+    nur, wenn der Fokus auf dem betaetigten Tab steht.
+  - **Menue:** Escape wird nur bewertet, wenn der Fokus im Menue steht, sonst traf die Taste die
+    Seite und nicht das Menue.
+  - **Modal:** Die Journey liest jetzt `modal` am geoeffneten Dialog. Nicht-modale Dialoge wurden
+    bisher pauschal als High-Befund gemeldet; jetzt gilt der Fokus-Einschluss nur fuer modale
+    Dialoge, und `FocusTrapBackgroundNotHidden` nur fuer Dialoge, die den Fokus einschliessen, ohne
+    sich als modal auszuweisen. Stand der Fokus vor dem Oeffnen auf `body`, ist `body` nach dem
+    Schliessen die richtige Wiederherstellung. Ausserdem erzeugte die Kandidatensuche nie einen
+    Ausloeser, solange kein Dialog im Baum stand — ein geschlossenes `<dialog>` hat keine Rolle.
+    Ueber 171 gelaufene Seiten lief deshalb keine einzige Modal-Journey.
+  - **SPA-Navigation:** Titel, URL, Ueberschrift und Fokus kommen aus zwei `AXSnapshot`s statt aus
+    `document.querySelector('h1')`; damit zaehlen auch Shadow Roots und `role="heading"`. Die
+    Ausgangsaufnahme wird vor jedem Versuch neu genommen, damit ein Fehlversuch dem naechsten keine
+    Fokusbewegung unterschiebt.
+  - **Disclosure:** Die Groessenordnung der nativen `<details>`-Luecke ist nachgemessen: 22 von 238
+    Domains, nicht „280 von 663 Seiten".
+
+  Verifiziert mit `cargo test --all-features --lib` (1546 bestanden), drei neuen
+  Chrome-Integrationstests (transiente Fehlermeldung, korrekter modaler Dialog, korrektes Menue —
+  jeweils ohne Fehlalarm) sowie clippy `-D warnings` fuer beide Feature-Sets.
+
 - **a11y-core 0.10.0 und die Ueberschriftenregeln abgegeben, 2026-09-21:** Das Projekt hing auf
   `a11y-core` 0.6.0, veroeffentlicht war 0.10.0. Der Sprung ueber vier Minor-Versionen brachte
   keinen einzigen API-Bruch — `dom_document.rs` und `wcag/shared.rs` uebersetzen unveraendert —,
