@@ -58,8 +58,9 @@ src/
 │   ├── enrichment.rs    # AXNode enrichment (roles, computed properties)
 │   ├── code_gen.rs      # Selector/snippet generation for findings
 │   ├── element_capture.rs # CDP screenshot capture + element highlighting for evidence
-│   ├── snapshot.rs      # Cached snapshot (de)serialization
-│   └── diff.rs          # Snapshot diffing for regression comparisons
+│   ├── snapshot.rs      # AXSnapshot: tree + focus + url + title at one point in time
+│   ├── diff.rs          # AXTreeDiff between two snapshots, matched by backend node id
+│   └── accname_diff.rs  # Differential: own accname crate vs. Chrome's native computation
 │
 ├── wcag/                # WCAG rule engine
 │   ├── mod.rs
@@ -260,8 +261,12 @@ src/
 │   ├── add_to_cart.rs   # Add-to-cart button/feedback detection
 │   └── quantity_stepper.rs # Quantity-stepper control detection
 │
-├── interaction/         # Cross-cutting interaction analysis
-│   └── mod.rs, focus.rs, keyboard.rs, pointer.rs, stability.rs # Bounded DOM/app-ready settling
+├── interaction/         # Browser interaction primitives (actions only, no evaluation)
+│   ├── pointer.rs       # CDP mouse events + synthetic click fallback
+│   ├── keyboard.rs      # CDP key events
+│   ├── focus.rs         # FocusSnapshot, incl. backend-node-id resolution (pierces shadow roots)
+│   ├── live_regions.rs  # MutationObserver over aria-live regions — records events, not state
+│   └── stability.rs     # Bounded DOM/app-ready settling before each capture
 │
 ├── assessment/          # Shared assessment types and evidence model
 │   └── mod.rs
@@ -399,6 +404,19 @@ tree's parent chain rather than via `element.contains()`.
 
 A capture failure yields no finding and records its cause in the trace. Silent
 passing on a read error is the one outcome this layer must not produce.
+
+**Two snapshots are not enough for everything.** A live region that is filled,
+announced and emptied again can be invisible between two samples — the normal
+case for form errors and add-to-cart feedback. `interaction::live_regions`
+covers that with a `MutationObserver` that records *that* a live region
+received content, with timestamp and politeness. It also observes existing
+shadow roots and replaces `Element.prototype.attachShadow` to catch later ones.
+Observed is not announced: the browser having cause to announce is not proof a
+screen reader read it out.
+
+Journeys on this footing: `disclosure`, `modal`, `menu`, `tabs`,
+`spa_navigation`, `form_error`, `add_to_cart`. `tab_walk` and `link_inventory`
+are not diff cases.
 
 ### WCAG Engine
 

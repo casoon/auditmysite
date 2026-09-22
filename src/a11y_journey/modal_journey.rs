@@ -22,9 +22,24 @@
 //!
 //! Der Hintergrundtest war zusätzlich ohne Substanz: er prüfte, ob *irgendwo*
 //! auf der Seite ein `aria-hidden="true"` steht — ein einzelnes dekoratives
-//! Icon genügte. Gemessen wird jetzt die Eigenschaft, die die Sache trägt:
-//! trägt der geöffnete Dialog selbst `modal`, also `aria-modal="true"` oder
-//! ein natives `showModal()`.
+//! Icon genügte.
+//!
+//! # Modal oder nicht entscheidet, was erwartet werden darf
+//!
+//! Gelesen wird jetzt `modal` am geöffneten Dialog — `aria-modal="true"` oder
+//! ein natives `showModal()`. Davon hängt die ganze Bewertung ab:
+//!
+//! - **Modal**: der Fokus gehört hinein und soll drin bleiben.
+//!   `FocusTrapNotEntered` und `FocusTrapEscaped` gelten.
+//! - **Nicht modal**: der Fokus darf den Dialog verlassen, der Hintergrund
+//!   bleibt bedienbar. Das ist ein anderes Muster, kein Mangel — und wird
+//!   deshalb nicht gemeldet.
+//! - **Nicht modal, aber der Fokus kommt trotzdem nicht heraus**: das ist der
+//!   Befund, den `FocusTrapBackgroundNotHidden` benennt. Die Tastatur ist
+//!   gefangen, während der Hintergrund für assistive Technik weiter lesbar
+//!   danebensteht.
+//!
+//! Die vorherige Fassung meldete jeden nicht-modalen Dialog als High-Befund.
 
 use chromiumoxide::Page;
 
@@ -162,7 +177,7 @@ pub async fn test(
         snapshot_label: Some("after_open_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_open) = snapshot(page, "after_open_click").await else {
         return Ok((trace, findings));
@@ -195,7 +210,24 @@ pub async fn test(
         return Ok((trace, findings));
     };
 
-    // 1. Steht der Fokus nach dem Öffnen im Dialog?
+    // 1. Ist der Dialog modal? Davon hängt ab, was überhaupt erwartet werden
+    //    darf. Ein *nicht*-modaler Dialog schließt den Fokus nicht ein und
+    //    nimmt den Hintergrund nicht aus der Wahrnehmung — das ist kein
+    //    Mangel, sondern ein anderes Muster.
+    let modal = after_open
+        .tree
+        .node_by_backend_id(dialog)
+        .and_then(|n| n.get_property_bool("modal"))
+        .unwrap_or(false);
+    trace.steps.push(JourneyStep {
+        action: "check_dialog_modal".to_string(),
+        target: Some(format!("backend_node:{dialog}")),
+        focus: None,
+        result: Some(if modal { "modal" } else { "not_modal" }.to_string()),
+        snapshot_label: Some("after_open_click".to_string()),
+    });
+
+    // 2. Steht der Fokus nach dem Öffnen im Dialog?
     let entered = focus_within(&after_open, dialog);
     trace.steps.push(JourneyStep {
         action: "check_focus_in_dialog".to_string(),
@@ -211,7 +243,8 @@ pub async fn test(
         ),
         snapshot_label: Some("after_open_click".to_string()),
     });
-    if entered == Some(false) {
+    // Nur ein modaler Dialog muss den Fokus aufnehmen.
+    if modal && entered == Some(false) {
         finding(
             InteractiveFindingKind::FocusTrapNotEntered,
             "FocusTrap",
@@ -221,28 +254,18 @@ pub async fn test(
         );
     }
 
-    // 2. Ist der Dialog modal? Nur dann nimmt assistive Technik den
-    //    Hintergrund aus der Wahrnehmung.
-    let modal = after_open
-        .tree
-        .node_by_backend_id(dialog)
-        .and_then(|n| n.get_property_bool("modal"))
-        .unwrap_or(false);
-    trace.steps.push(JourneyStep {
-        action: "check_dialog_modal".to_string(),
-        target: Some(format!("backend_node:{dialog}")),
-        focus: None,
-        result: Some(if modal { "modal" } else { "not_modal" }.to_string()),
-        snapshot_label: Some("after_open_click".to_string()),
-    });
-    if !modal {
-        finding(
-            InteractiveFindingKind::FocusTrapBackgroundNotHidden,
-            "FocusTrap",
-            Severity::High,
-            Some("after_open_click".to_string()),
-            &mut findings,
-        );
+    // Steht der Fokus nicht im Dialog, prüfen Tab und Escape nichts, was mit
+    // diesem Dialog zu tun hat — dieselbe Lehre wie bei der Tab-Liste, wo 39
+    // von 40 Befunden Messartefakte waren. Der Grund steht im Trace.
+    if entered != Some(true) {
+        trace.steps.push(JourneyStep {
+            action: "check_focus_in_dialog".to_string(),
+            target: Some(format!("backend_node:{dialog}")),
+            focus: None,
+            result: Some("keyboard_steps_not_applicable".to_string()),
+            snapshot_label: Some("after_open_click".to_string()),
+        });
+        return Ok((trace, findings));
     }
 
     // 3. Hält der Fokus über Tab-Schritte im Dialog?
@@ -252,7 +275,7 @@ pub async fn test(
             tracing::warn!("modal: Tab {step} fehlgeschlagen: {e}");
             break;
         }
-        stability::settle(page).await?;
+        let _ = stability::settle_after_action(page).await;
         let label = format!("after_tab_{step}");
         let Some(shot) = snapshot(page, &label).await else {
             break;
@@ -277,12 +300,30 @@ pub async fn test(
             break;
         }
     }
-    if escaped {
+    // Ein modaler Dialog, den der Fokus verlässt: der Einschluss fehlt.
+    if modal && escaped {
         finding(
             InteractiveFindingKind::FocusTrapEscaped,
             "FocusTrap",
             Severity::High,
             None,
+            &mut findings,
+        );
+    }
+
+    // Der umgekehrte Fall, und der eigentliche Sinn dieser Befundart: der
+    // Dialog schließt den Fokus ein, meldet sich aber nicht als modal. Dann
+    // ist die Tastatur gefangen, während der Hintergrund für assistive
+    // Technik weiter lesbar danebensteht.
+    //
+    // Nicht gemeldet wird der schlichte nicht-modale Dialog, den der Fokus
+    // erwartungsgemäß verlässt — das ist ein anderes Muster, kein Mangel.
+    if !modal && !escaped && entered == Some(true) {
+        finding(
+            InteractiveFindingKind::FocusTrapBackgroundNotHidden,
+            "FocusTrap",
+            Severity::High,
+            Some("after_open_click".to_string()),
             &mut findings,
         );
     }
@@ -300,7 +341,7 @@ pub async fn test(
         snapshot_label: Some("after_escape".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     let Some(after_escape) = snapshot(page, "after_escape").await else {
         return Ok((trace, findings));
@@ -353,7 +394,27 @@ pub async fn test(
     // Gemeldet wird nur der eindeutige Fall: der Fokus liegt nirgends mehr.
     // „Woanders, aber nicht am Auslöser" kann eine bewusste Entscheidung sein
     // und steht deshalb im Trace, nicht als Befund.
-    if restored.is_none() {
+    //
+    // `selector` trägt das Element unabhängig von der Backend-ID. Scheitert
+    // nur deren Auflösung, ist das ein Aufnahmefehler und kein Fokusverlust.
+    //
+    // Und die Voraussetzung: zurückgeben lässt sich nur, was vorher dastand.
+    // Die Journey betätigt den Auslöser über `element.click()`, und das
+    // verschiebt den Fokus nicht — stand er vorher auf `body`, ist „danach auf
+    // `body`" die richtige Wiederherstellung, kein Verlust. Ohne diese Prüfung
+    // meldet selbst ein natives `showModal()` einen Befund.
+    let had_focus_before =
+        before.focus.active_backend_node_id.is_some() || before.focus.selector.is_some();
+    let focus_lost = restored.is_none() && after_escape.focus.selector.is_none();
+    if !had_focus_before {
+        trace.steps.push(JourneyStep {
+            action: "check_focus_restored".to_string(),
+            target: None,
+            focus: None,
+            result: Some("no_focus_before_open".to_string()),
+            snapshot_label: Some("after_escape".to_string()),
+        });
+    } else if focus_lost {
         finding(
             InteractiveFindingKind::FocusRestorationLostToBody,
             "FocusRestoration",

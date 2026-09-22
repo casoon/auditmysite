@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Dialog und Menue</title></head>
+<body>
+<main>
+  <h1>Dialog und Menue</h1>
+
+  <!-- Korrekt umgesetzter modaler Dialog: natives showModal() setzt
+       AX `modal`, der Browser verlegt den Fokus hinein, Escape schliesst,
+       und der Ausloeser bekommt den Fokus zurueck. -->
+  <button id="open-dialog" type="button" aria-haspopup="dialog">Hinweis oeffnen</button>
+  <dialog id="dlg" aria-labelledby="dlg-title">
+    <h2 id="dlg-title">Hinweis</h2>
+    <p>Ein kurzer Hinweistext.</p>
+    <button id="dlg-close" type="button">Schliessen</button>
+  </dialog>
+
+  <!-- Korrekt umgesetztes Menue: aria-expanded am Ausloeser, role="menu"
+       erscheint, der Fokus wandert auf den ersten Eintrag, Escape schliesst. -->
+  <button id="open-menu" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menu">Menue</button>
+  <ul id="menu" role="menu" hidden>
+    <li role="menuitem" tabindex="-1" id="mi1">Eintrag eins</li>
+    <li role="menuitem" tabindex="-1">Eintrag zwei</li>
+  </ul>
+</main>
+<script>
+var dlg = document.getElementById('dlg');
+document.getElementById('open-dialog').addEventListener('click', function () {
+  dlg.showModal();
+});
+document.getElementById('dlg-close').addEventListener('click', function () { dlg.close(); });
+
+var menu = document.getElementById('menu');
+var menuTrigger = document.getElementById('open-menu');
+menuTrigger.addEventListener('click', function () {
+  var open = menuTrigger.getAttribute('aria-expanded') === 'true';
+  menuTrigger.setAttribute('aria-expanded', open ? 'false' : 'true');
+  menu.hidden = open;
+  if (!open) { document.getElementById('mi1').focus(); }
+});
+menu.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    menu.hidden = true;
+    menuTrigger.setAttribute('aria-expanded', 'false');
+    menuTrigger.focus();
+  }
+});
+</script>
+</body>
+</html>

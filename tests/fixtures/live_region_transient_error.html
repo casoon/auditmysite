@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Kontakt</title></head>
+<body>
+<main>
+  <h1>Kontakt</h1>
+  <!--
+    Der empfohlene Aufbau: die Live-Region steht von Anfang an leer im Markup,
+    damit Screenreader sie beim Aufbau des Baums registrieren.
+
+    Genau daran scheiterte die vorherige Pruefung. Sie fragte
+    `live_after && !live_before` — existiert jetzt eine Region, die vorher
+    nicht existierte. Bei dieser Umsetzung ist die Antwort immer "nein", und
+    es entstand ein FormErrorInvalidWithoutLiveRegion mit Severity High auf
+    einer Seite, die alles richtig macht.
+  -->
+  <div id="status" role="alert" aria-live="assertive"></div>
+
+  <form id="f" novalidate>
+    <label for="name">Name</label>
+    <input id="name" name="name" required aria-invalid="false" aria-describedby="name-err">
+    <span id="name-err"></span>
+    <button type="submit">Absenden</button>
+  </form>
+</main>
+<script>
+document.getElementById('f').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var name = document.getElementById('name');
+  if (!name.value) {
+    name.setAttribute('aria-invalid', 'true');
+    document.getElementById('name-err').textContent = 'Bitte Namen angeben.';
+    var s = document.getElementById('status');
+    s.textContent = 'Bitte Namen angeben.';
+    // Die Meldung verschwindet wieder. Zwischen zwei Aufnahmen ist sie
+    // moeglicherweise nie zu sehen — nur eine Beobachtung faengt sie.
+    setTimeout(function () { s.textContent = ''; }, 700);
+  }
+});
+</script>
+</body>
+</html>

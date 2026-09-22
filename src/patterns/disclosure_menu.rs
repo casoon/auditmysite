@@ -9,9 +9,14 @@
 //!
 //! Bis Plan 53 bot dieses Modul nur Elemente mit `aria-expanded` als
 //! Journey-Kandidat an — natives `<details>` erreichte die Disclosure-Journey
-//! deshalb nie, obwohl der Diff-Pfad es lesen kann. Gemessen am lokalen
-//! Artefakt-Cache betraf das **280 von 663 Seiten** mit Disclosure-Substrat:
-//! Seiten, deren einzige aufklappbare Struktur nativ ist.
+//! deshalb nie, obwohl der Diff-Pfad es lesen kann.
+//!
+//! Zur Größenordnung, gemessen am lokalen Artefakt-Cache (238 Domains):
+//! natives `<details>` steht auf **22 Domains (9 %)**, ARIA-Disclosure auf 137
+//! (58 %). Auf 7 Domains ist das native Element die *einzige* aufklappbare
+//! Struktur — davon sind 4 eigene Testhosts, es bleiben zwei unabhängige
+//! Seiten. Die Lücke war also keine große Menge, sondern eine ganze
+//! Elementklasse, die der Prüfpfad nie erreichte.
 
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
@@ -113,7 +118,7 @@ fn recognize(aria: &[&AXNode], native: &[&AXNode], out: &mut PatternAnalysis) {
 /// Journey-Kandidaten für die interaktive Prüfung.
 fn emit_candidates(aria: &[&AXNode], native: &[&AXNode], out: &mut PatternAnalysis) {
     for btn in aria {
-        let haspopup = btn.get_property_str("haspopup");
+        let haspopup = btn.haspopup();
         let is_menu = matches!(haspopup, Some("menu") | Some("true"));
         let has_controls = btn.has_property("controls");
         if let Some(bid) = btn.backend_dom_node_id {
@@ -284,7 +289,7 @@ mod tests {
     }
 
     /// Eine Seite, deren einzige aufklappbare Struktur nativ ist, erreichte die
-    /// Disclosure-Journey vor Plan 53 gar nicht — im Cache 280 von 663 Seiten.
+    /// Disclosure-Journey vor Plan 53 gar nicht.
     #[test]
     fn natives_summary_wird_zum_journey_kandidaten() {
         let tree = AXTree::from_nodes(vec![expanded("1", "DisclosureTriangle", 11)]);

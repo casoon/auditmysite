@@ -19,25 +19,9 @@ use crate::audit::normalized::{
     InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
 };
 use crate::error::Result;
-use crate::interaction::{pointer, stability};
+use crate::interaction::{live_regions, pointer, stability};
 use crate::patterns::JourneyCandidate;
 use crate::taxonomy::Severity;
-
-/// Joined, non-empty text content of all live-region/status elements — used
-/// to detect whether an announcement appeared or changed after the click.
-/// A boolean "exists" check alone would miss a region that is already
-/// present but empty before the click and only gets text afterward.
-async fn status_region_snapshot(page: &Page) -> String {
-    eval_string(
-        page,
-        r#"Array.from(document.querySelectorAll('[role="status"],[role="alert"],[aria-live]'))
-            .map(function(el) { return (el.textContent || '').trim(); })
-            .filter(function(t) { return t.length > 0; })
-            .join('|')"#,
-    )
-    .await
-    .unwrap_or_default()
-}
 
 /// Best-effort cart-badge/counter text. Deliberately heuristic (site-
 /// specific markup, no guarantee of a match) — used only as evidence that
@@ -59,6 +43,10 @@ async fn cart_badge_snapshot(page: &Page) -> Option<String> {
 /// (`role="dialog"` or `aria-modal="true"`) — the other accessible way an
 /// add-to-cart click can surface feedback, besides a live-region
 /// announcement (a cart drawer opens and takes focus).
+///
+/// `closest()` bleibt an der Shadow-Grenze stehen, und `document.activeElement`
+/// hält dort den Host. Für diesen Nebenpfad hingenommen; die Ankündigung
+/// selbst wird über [`live_regions`] beobachtet, nicht hier.
 async fn focus_in_dialog(page: &Page) -> bool {
     eval_bool(
         page,
@@ -81,7 +69,13 @@ pub async fn test(
     };
     let mut findings: Vec<InteractiveFinding> = Vec::new();
 
-    let status_before = status_region_snapshot(page).await;
+    // Die Ankündigung wird beobachtet, nicht abgefragt: eine Statusmeldung,
+    // die erscheint und nach zwei Sekunden wieder verschwindet, ist zwischen
+    // zwei Stichproben unter Umständen nie zu sehen — bei Warenkorb-Feedback
+    // der Normalfall. Der Beobachter durchdringt zudem Shadow Roots, die
+    // `querySelectorAll` nicht erreicht.
+    let observing = live_regions::install(page).await;
+    let _ = live_regions::drain(page).await;
     let badge_before = cart_badge_snapshot(page).await;
 
     trace.steps.push(JourneyStep {
@@ -89,9 +83,7 @@ pub async fn test(
         target: None,
         focus: None,
         result: Some(format!(
-            "status_region_present:{}, cart_badge:{:?}",
-            !status_before.is_empty(),
-            badge_before
+            "live_observer:{observing}, cart_badge:{badge_before:?}"
         )),
         snapshot_label: Some("before_click".to_string()),
     });
@@ -112,11 +104,11 @@ pub async fn test(
         snapshot_label: Some("after_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
-    let status_after = status_region_snapshot(page).await;
+    let events = live_regions::drain(page).await;
+    let announced = events.iter().any(|e| e.is_announcement());
     let badge_after = cart_badge_snapshot(page).await;
-    let announced = !status_after.is_empty() && status_after != status_before;
     let focus_moved_to_dialog = focus_in_dialog(page).await;
     let badge_changed = matches!(
         (&badge_before, &badge_after),
@@ -128,13 +120,27 @@ pub async fn test(
         target: None,
         focus: None,
         result: Some(format!(
-            "announced:{announced}, focus_in_dialog:{focus_moved_to_dialog}, badge_changed:{badge_changed}"
+            "announced:{announced}, live_events:{}, focus_in_dialog:{focus_moved_to_dialog}, \
+             badge_changed:{badge_changed}",
+            events.len()
         )),
         snapshot_label: Some("after_click".to_string()),
     });
 
     if announced || focus_moved_to_dialog {
         // Accessible feedback confirmed — nothing to flag.
+        return Ok((trace, findings));
+    }
+
+    // Ohne Beobachter ist „nichts angekündigt" keine Aussage über die Seite.
+    if !observing {
+        trace.steps.push(JourneyStep {
+            action: "check_feedback".to_string(),
+            target: None,
+            focus: None,
+            result: Some("live_observer_unavailable".to_string()),
+            snapshot_label: Some("after_click".to_string()),
+        });
         return Ok((trace, findings));
     }
 

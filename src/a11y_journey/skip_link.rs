@@ -40,7 +40,7 @@ pub async fn test(
         snapshot_label: Some("after_skip_click".to_string()),
     });
 
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
     // Capture focus after activation.
     let snap = focus::capture_focus(page).await?;

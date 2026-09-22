@@ -198,3 +198,31 @@ pub async fn wait_for_stable(page: &Page, duration_ms: u64) -> Result<()> {
 pub async fn settle(page: &Page) -> Result<()> {
     wait_for_stable(page, DEFAULT_SETTLE_MS).await
 }
+
+/// Zeitbudget, in dem eine Seite auf eine Handlung reagieren darf.
+///
+/// Gemessen an `www.uni-jena.de`: nach [`settle`] — zwei Animationsframes,
+/// rund 30 ms — war der Accessibility-Tree **unverändert**. 400 ms später
+/// standen 113 wahrnehmbar gewordene Knoten darin, darunter der Dialog, den
+/// der Klick geöffnet hatte. Die Journey hatte bis dahin „kein Dialog
+/// erschienen" gemeldet.
+pub const JOURNEY_SETTLE_BUDGET_MS: u64 = 600;
+
+/// Warten, bis die Seite auf eine Handlung reagiert hat.
+///
+/// [`settle`] wartet zwei Animationsframes. Das reicht, um anstehende
+/// Layout-Arbeit zu leeren, aber nicht, um eine Reaktion abzuwarten: zwischen
+/// Klick und sichtbarer Wirkung liegen Ereignis-Handler, oft ein
+/// Framework-Tick und meist eine Übergangsanimation.
+///
+/// Hier wartet stattdessen [`wait_for_page_stability`] auf 200 ms Ruhe im DOM,
+/// höchstens aber [`JOURNEY_SETTLE_BUDGET_MS`]. Auf einer Seite, die schnell
+/// reagiert, kostet das rund 250 ms; nur eine unruhige Seite schöpft das
+/// Budget aus.
+///
+/// Der Preis ist Abdeckung: mehr Zeit je Schritt heißt weniger Kandidaten
+/// innerhalb des Journey-Budgets. Eine zu früh genommene Aufnahme misst
+/// allerdings die falsche Seite.
+pub async fn settle_after_action(page: &Page) -> StabilityProvenance {
+    wait_for_page_stability(page, "journey", JOURNEY_SETTLE_BUDGET_MS).await
+}

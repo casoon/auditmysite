@@ -10,18 +10,76 @@
 //! We detect client-side navigation by intercepting pushState/replaceState
 //! before the journey runs, then clicking in-page links and observing whether
 //! any of the three announcement signals appear.
+//!
+//! # Gemessen wird an Aufnahmen, nicht an `querySelector`
+//!
+//! Die drei Signale kommen aus der Differenz zweier [`AXSnapshot`]s um den
+//! Klick herum (Plan 53): Titel und URL trägt die Aufnahme selbst, die
+//! Überschrift wird aus dem Accessibility-Tree gelesen statt über
+//! `document.querySelector('h1')`, und die Fokusbewegung über die
+//! Backend-Node-ID statt über „heißt der Selektor `body`".
+//!
+//! Ein clientseitiger Routenwechsel **ersetzt das Dokument nicht** — die
+//! Backend-IDs bleiben über ihn hinweg gültig. Das unterscheidet diesen Fall
+//! von einem echten Seitenwechsel, den `AXTreeDiff::url_changed` zusätzlich
+//! ausweist.
 
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
 use super::eval_bool;
-use super::eval_string as eval_str;
+use crate::accessibility::{AXSnapshot, AXTree, AXTreeDiff};
 use crate::audit::normalized::{
     InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
 };
 use crate::error::Result;
-use crate::interaction::{focus, stability};
+use crate::interaction::stability;
 use crate::taxonomy::Severity;
+
+/// Die Texte der Überschriften erster Ebene, aus dem Accessibility-Tree.
+///
+/// `document.querySelector('h1')` liest nur das erste `<h1>` des Light DOM
+/// und sieht weder Shadow Roots noch `role="heading" aria-level="1"`.
+fn top_headings(tree: &AXTree) -> Vec<String> {
+    tree.iter()
+        .filter(|n| n.heading_level() == Some(1))
+        .filter_map(|n| n.name.as_ref().map(|s| s.trim().to_string()))
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Die drei Ankündigungssignale einer clientseitigen Navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Signals {
+    title_changed: bool,
+    heading_changed: bool,
+    focus_moved: bool,
+}
+
+fn signals(before: &AXSnapshot, after: &AXSnapshot, diff: &AXTreeDiff) -> Signals {
+    Signals {
+        // Ein Titelwechsel zählt nur, wenn danach etwas dasteht.
+        title_changed: diff.title_changed.is_some() && !after.document_title.trim().is_empty(),
+        heading_changed: {
+            let b = top_headings(&before.tree);
+            let a = top_headings(&after.tree);
+            !a.is_empty() && a != b
+        },
+        // Ohne aufgenommenen Fokus danach ist keine Bewegung belegt.
+        focus_moved: after.focus.active_backend_node_id.is_some()
+            && after.focus.active_backend_node_id != before.focus.active_backend_node_id,
+    }
+}
+
+async fn snapshot(page: &Page, label: &str) -> Option<AXSnapshot> {
+    match AXSnapshot::capture(page, label, 0).await {
+        Ok(snapshot) => Some(snapshot),
+        Err(e) => {
+            tracing::warn!("spa_navigation: Aufnahme '{label}' fehlgeschlagen: {e}");
+            None
+        }
+    }
+}
 
 /// JS that injects a History-API observer and returns a cleanup handle.
 /// Sets `window.__ams_spa_nav_count` to 0, then increments it on each
@@ -152,27 +210,33 @@ pub async fn run(
         return Ok(None);
     }
 
-    // Capture baseline signals.
-    let title_before = eval_str(page, "document.title").await.unwrap_or_default();
-    let h1_before = eval_str(
-        page,
-        "document.querySelector('h1')?.textContent?.trim() ?? ''",
-    )
-    .await
-    .unwrap_or_default();
-
-    trace.steps.push(JourneyStep {
-        action: "baseline".to_string(),
-        target: None,
-        focus: None,
-        result: Some(format!("title:{title_before:?}, h1:{h1_before:?}")),
-        snapshot_label: Some("before_spa_nav".to_string()),
-    });
-
-    // Try each candidate link until we observe a History-API call.
+    // Die Ausgangsaufnahme wird vor *jedem* Versuch neu genommen: ein Klick,
+    // der nicht navigiert, verschiebt trotzdem den Fokus auf den Link. Eine
+    // einmal vor der Schleife genommene Aufnahme würde die Fokusbewegung des
+    // vorigen Fehlversuchs der Navigation zuschreiben.
     let mut nav_detected = false;
+    let mut before: Option<AXSnapshot> = None;
 
     for (selector, href) in &candidates {
+        let Some(baseline) = snapshot(page, "before_spa_nav").await else {
+            return Ok(None);
+        };
+        trace.steps.push(JourneyStep {
+            action: "baseline".to_string(),
+            target: Some(selector.clone()),
+            focus: baseline.focus.selector.clone(),
+            result: Some(format!(
+                "title:{:?}, h1:{:?}",
+                baseline.document_title,
+                top_headings(&baseline.tree)
+                    .first()
+                    .cloned()
+                    .unwrap_or_default()
+            )),
+            snapshot_label: Some("before_spa_nav".to_string()),
+        });
+        before = Some(baseline);
+
         let nav_count_before = eval_int(page, "window.__ams_spa_nav_count ?? 0")
             .await
             .unwrap_or(0);
@@ -200,7 +264,7 @@ pub async fn run(
             snapshot_label: Some("after_spa_click".to_string()),
         });
 
-        stability::settle(page).await?;
+        let _ = stability::settle_after_action(page).await;
 
         let nav_count_after = eval_int(page, "window.__ams_spa_nav_count ?? 0")
             .await
@@ -220,37 +284,28 @@ pub async fn run(
     }
 
     // SPA navigation detected — now check announcement signals.
-    stability::settle(page).await?;
+    let _ = stability::settle_after_action(page).await;
 
-    let title_after = eval_str(page, "document.title").await.unwrap_or_default();
-    let h1_after = eval_str(
-        page,
-        "document.querySelector('h1')?.textContent?.trim() ?? ''",
-    )
-    .await
-    .unwrap_or_default();
-
-    let focus_snap = focus::capture_focus(page).await?;
-    let focus_sel = focus_snap.selector.clone();
-    let focus_on_body = focus_sel.is_none()
-        || focus_sel
-            .as_deref()
-            .map(|s| {
-                let l = s.to_lowercase();
-                l == "body" || l == "html"
-            })
-            .unwrap_or(true);
-
-    let title_changed = !title_after.is_empty() && title_after != title_before;
-    let heading_changed = !h1_after.is_empty() && h1_after != h1_before;
-    let focus_moved = !focus_on_body;
+    let (Some(before), Some(after)) = (before, snapshot(page, "after_spa_nav").await) else {
+        // Ohne beide Aufnahmen ist nichts belegt. Kein Befund.
+        return Ok(Some((trace, Vec::new())));
+    };
+    let diff = AXTreeDiff::between(&before, &after);
+    let Signals {
+        title_changed,
+        heading_changed,
+        focus_moved,
+    } = signals(&before, &after, &diff);
+    let title_before = before.document_title.clone();
 
     trace.steps.push(JourneyStep {
         action: "check_spa_announcement".to_string(),
         target: None,
-        focus: focus_sel,
+        focus: after.focus.selector.clone(),
         result: Some(format!(
-            "title_changed:{title_changed}, heading_changed:{heading_changed}, focus_moved:{focus_moved}"
+            "title_changed:{title_changed}, heading_changed:{heading_changed}, \
+             focus_moved:{focus_moved}, url_changed:{}",
+            diff.url_changed.is_some()
         )),
         snapshot_label: Some("after_spa_nav".to_string()),
     });
@@ -302,4 +357,104 @@ pub async fn run(
     }
 
     Ok(Some((trace, findings)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accessibility::{AXNode, AXProperty, AXValue, FocusSnapshot};
+
+    fn heading(ax_id: &str, backend: i64, level: i64, name: &str) -> AXNode {
+        AXNode {
+            node_id: ax_id.to_string(),
+            ignored: false,
+            ignored_reasons: Vec::new(),
+            role: Some("heading".to_string()),
+            name: Some(name.to_string()),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![AXProperty {
+                name: "level".to_string(),
+                value: AXValue::Int(level),
+            }],
+            child_ids: Vec::new(),
+            parent_id: None,
+            backend_dom_node_id: Some(backend),
+        }
+    }
+
+    fn snap(title: &str, nodes: Vec<AXNode>, focus: Option<i64>) -> AXSnapshot {
+        AXSnapshot::new(
+            "s",
+            "https://x/a",
+            title,
+            0,
+            AXTree::from_nodes(nodes),
+            FocusSnapshot {
+                active_backend_node_id: focus,
+                ..Default::default()
+            },
+        )
+    }
+
+    /// Nur Ebene 1 zählt, und nur mit Text.
+    #[test]
+    fn ueberschriften_erster_ebene_werden_gelesen() {
+        let tree = AXTree::from_nodes(vec![
+            heading("1", 1, 1, "Startseite"),
+            heading("2", 2, 2, "Abschnitt"),
+            heading("3", 3, 1, "   "),
+        ]);
+        assert_eq!(top_headings(&tree), vec!["Startseite".to_string()]);
+    }
+
+    #[test]
+    fn alle_drei_signale_fehlen() {
+        let before = snap("Titel", vec![heading("1", 1, 1, "A")], Some(9));
+        let after = snap("Titel", vec![heading("1", 1, 1, "A")], Some(9));
+        let diff = AXTreeDiff::between(&before, &after);
+        assert_eq!(
+            signals(&before, &after, &diff),
+            Signals {
+                title_changed: false,
+                heading_changed: false,
+                focus_moved: false
+            }
+        );
+    }
+
+    #[test]
+    fn titel_ueberschrift_und_fokus_werden_einzeln_erkannt() {
+        let before = snap("Alt", vec![heading("1", 1, 1, "A")], Some(9));
+        let after = snap("Neu", vec![heading("1", 1, 1, "B")], Some(10));
+        let diff = AXTreeDiff::between(&before, &after);
+        assert_eq!(
+            signals(&before, &after, &diff),
+            Signals {
+                title_changed: true,
+                heading_changed: true,
+                focus_moved: true
+            }
+        );
+    }
+
+    /// Ein leerer Titel nach der Navigation ist keine Ankündigung.
+    #[test]
+    fn leerer_titel_zaehlt_nicht_als_wechsel() {
+        let before = snap("Alt", vec![], None);
+        let after = snap("   ", vec![], None);
+        let diff = AXTreeDiff::between(&before, &after);
+        assert!(!signals(&before, &after, &diff).title_changed);
+    }
+
+    /// Ohne aufgenommenen Fokus danach ist keine Bewegung belegt — auch dann
+    /// nicht, wenn vorher einer dastand.
+    #[test]
+    fn fehlender_fokus_danach_ist_keine_bewegung() {
+        let before = snap("T", vec![], Some(5));
+        let after = snap("T", vec![], None);
+        let diff = AXTreeDiff::between(&before, &after);
+        assert!(!signals(&before, &after, &diff).focus_moved);
+    }
 }

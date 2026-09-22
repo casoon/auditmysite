@@ -11,6 +11,13 @@ use crate::wcag::types::{Severity, Violation};
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+    // Der Auslöser wird unabhängig davon angeboten, ob gerade ein Dialog im
+    // Baum steht. Ein geschlossener `<dialog>` ist nicht gerendert und hat
+    // damit keine Rolle — das ist der Normalfall beim Laden der Seite. Die
+    // vorherige Fassung stieg hier aus und hat deshalb nie einen Kandidaten
+    // erzeugt: über 171 gelaufene Seiten lief keine einzige Modal-Journey.
+    emit_trigger_candidates(tree, out);
+
     let dialogs: Vec<_> = tree
         .iter()
         .filter(|n| matches!(n.role.as_deref(), Some("dialog") | Some("alertdialog")))
@@ -86,14 +93,15 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
+}
 
-    // Emit journey candidates for buttons/links that declare aria-haspopup="dialog".
+/// Journey-Kandidaten aus Auslösern, die `aria-haspopup="dialog"` führen.
+fn emit_trigger_candidates(tree: &AXTree, out: &mut PatternAnalysis) {
     for node in tree.iter() {
         if !matches!(node.role.as_deref(), Some("button") | Some("link")) {
             continue;
         }
-        let haspopup = node.get_property_str("haspopup");
-        if !matches!(haspopup, Some("dialog")) {
+        if !matches!(node.haspopup(), Some("dialog")) {
             continue;
         }
         if let Some(bid) = node.backend_dom_node_id {
@@ -164,6 +172,67 @@ mod tests {
         detect(&tree, &mut a);
         assert_eq!(a.recognized[0].confidence, PatternConfidence::Strong);
         assert!(a.violations.is_empty());
+    }
+
+    /// Ein geschlossener `<dialog>` ist nicht gerendert und steht nicht im
+    /// Baum. Der Auslöser muss trotzdem angeboten werden — sonst wird die
+    /// Modal-Journey nie ausgeführt, und genau das war der Fall.
+    #[test]
+    fn ausloeser_wird_auch_ohne_offenen_dialog_angeboten() {
+        let mut trigger = AXNode {
+            node_id: "1".into(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("button".into()),
+            name: Some("Hinweis oeffnen".into()),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![AXProperty {
+                name: "hasPopup".into(),
+                value: AXValue::String("dialog".into()),
+            }],
+            child_ids: vec![],
+            parent_id: None,
+            backend_dom_node_id: Some(7),
+        };
+        trigger.properties.shrink_to_fit();
+        let tree = AXTree::from_nodes(vec![trigger]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(
+            a.recognized.is_empty(),
+            "ohne Dialog im Baum gibt es nichts zu erkennen"
+        );
+        assert_eq!(a.journey_candidates.len(), 1);
+        assert_eq!(a.journey_candidates[0].trigger_backend_id, Some(7));
+        assert_eq!(
+            a.journey_candidates[0].required_journey,
+            JourneyKind::ModalOpen
+        );
+    }
+
+    /// Die CDP-Kennung heißt `hasPopup`, nicht `haspopup`.
+    #[test]
+    fn kleingeschriebenes_haspopup_trifft_nicht() {
+        let trigger = AXNode {
+            node_id: "1".into(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("button".into()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![AXProperty {
+                name: "haspopup".into(),
+                value: AXValue::String("dialog".into()),
+            }],
+            child_ids: vec![],
+            parent_id: None,
+            backend_dom_node_id: Some(7),
+        };
+        assert_eq!(trigger.haspopup(), None);
     }
 
     #[test]

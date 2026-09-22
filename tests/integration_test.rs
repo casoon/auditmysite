@@ -1312,3 +1312,243 @@ async fn test_video_controls_missing_name_flagged_during_tab_walk() {
         auditmysite::audit::normalized::InteractiveFindingKind::MediaControlsMissingName
     );
 }
+
+/// Eine Live-Region, die von Anfang an leer im Markup steht, wird gefüllt und
+/// kurz darauf wieder geleert — der Normalfall bei Formularfehlern, und der
+/// Fall, an dem die vorherige Prüfung scheiterte.
+///
+/// Sie fragte `live_after && !live_before`: *existiert* jetzt eine Region, die
+/// vorher nicht existierte. Bei der empfohlenen Umsetzung — Container leer im
+/// Markup, damit Screenreader ihn beim Aufbau des Baums registrieren — ist die
+/// Antwort immer „nein". Ergebnis war ein `FormErrorInvalidWithoutLiveRegion`
+/// mit Severity High auf einer Seite, die alles richtig macht.
+///
+/// Gemessen wird jetzt über `interaction::live_regions`: beobachtet, **dass**
+/// die Region Inhalt bekommen hat. Der Test pinnt beides — die Beobachtung
+/// greift, und der Fehlalarm bleibt aus.
+#[tokio::test]
+#[ignore]
+async fn transiente_live_region_wird_beobachtet_und_erzeugt_keinen_fehlalarm() {
+    use auditmysite::audit::normalized::InteractiveFindingKind;
+    use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
+
+    let (url, shutdown) = serve_fixture("live_region_transient_error.html");
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let tree = auditmysite::accessibility::extract_ax_tree(&page)
+        .await
+        .expect("AXTree extraction failed");
+    let submit = tree
+        .iter()
+        .find(|n| {
+            n.role.as_deref() == Some("button")
+                && n.name
+                    .as_deref()
+                    .is_some_and(|name| name.contains("Absenden"))
+        })
+        .and_then(|n| n.backend_dom_node_id)
+        .expect("Absenden-Button im AXTree");
+
+    let candidate = JourneyCandidate {
+        pattern_kind: PatternKind::Form,
+        trigger_backend_id: Some(submit),
+        controlled_backend_id: None,
+        confidence: 0.9,
+        required_journey: JourneyKind::FormErrorSubmit,
+    };
+
+    let (trace, findings) = auditmysite::a11y_journey::form_error::test(&page, &candidate, 0)
+        .await
+        .expect("form_error journey failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let state = trace
+        .steps
+        .iter()
+        .find(|s| s.action == "check_error_state")
+        .and_then(|s| s.result.clone())
+        .unwrap_or_default();
+    assert!(
+        state.contains("announced:true"),
+        "die gefüllte Live-Region muss beobachtet werden, Trace: {state:?}"
+    );
+    assert!(
+        state.contains("assertive:true"),
+        "role=\"alert\" ist assertive, Trace: {state:?}"
+    );
+    assert!(
+        !findings
+            .iter()
+            .any(|f| f.kind == InteractiveFindingKind::FormErrorInvalidWithoutLiveRegion),
+        "eine korrekt angekündigte Meldung darf keinen Befund erzeugen: {findings:?}"
+    );
+}
+
+/// Ein korrekt umgesetztes Menü darf keinen Befund erzeugen.
+///
+/// Das Muster kam im Seitenkorpus **nicht vor** — und das hatte einen Grund:
+/// `patterns::disclosure_menu` fragte die CDP-Eigenschaft als `"haspopup"` ab,
+/// sie heißt `hasPopup`. Über 171 gelaufene Seiten lief deshalb keine einzige
+/// Menü-Journey. Dieser Test hält beides fest: dass der Kandidat entsteht und
+/// dass ein korrektes Menü still bleibt.
+#[tokio::test]
+#[ignore]
+async fn korrektes_menue_erzeugt_keine_befunde() {
+    use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
+
+    let (url, shutdown) = serve_fixture("dialog_and_menu_journeys.html");
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let tree = auditmysite::accessibility::extract_ax_tree(&page)
+        .await
+        .expect("AXTree extraction failed");
+    let trigger = tree
+        .iter()
+        .find(|n| {
+            n.role.as_deref() == Some("button")
+                && n.name.as_deref().is_some_and(|name| name.contains("Menue"))
+        })
+        .expect("Menue-Button im AXTree");
+    assert_eq!(
+        trigger.haspopup(),
+        Some("menu"),
+        "die CDP-Eigenschaft heißt hasPopup, nicht haspopup"
+    );
+
+    let candidate = JourneyCandidate {
+        pattern_kind: PatternKind::Menu,
+        trigger_backend_id: trigger.backend_dom_node_id,
+        controlled_backend_id: None,
+        confidence: 0.8,
+        required_journey: JourneyKind::MenuOpen,
+    };
+    let (trace, findings) = auditmysite::a11y_journey::menu_journey::test(&page, &candidate, 0)
+        .await
+        .expect("menu journey failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let step = |action: &str| {
+        trace
+            .steps
+            .iter()
+            .find(|s| s.action == action)
+            .and_then(|s| s.result.clone())
+            .unwrap_or_default()
+    };
+    assert_eq!(
+        step("check_menu_open"),
+        "menu_open",
+        "Zustandswechsel am Auslöser plus sichtbar gewordenes Menü: {trace:?}"
+    );
+    assert_eq!(
+        step("check_focus_in_menu"),
+        "focus_in_menu",
+        "der Fokus wandert auf den ersten Eintrag: {trace:?}"
+    );
+    assert_eq!(step("check_menu_closed"), "menu_closed", "{trace:?}");
+    assert!(
+        findings.is_empty(),
+        "ein korrektes Menü darf nichts melden: {findings:?}"
+    );
+}
+
+/// Ein korrekt umgesetzter modaler Dialog darf keinen Befund erzeugen.
+///
+/// Auch dieses Muster kam im Korpus nicht vor, aus zwei Gründen: derselbe
+/// `hasPopup`-Fehler, und `patterns::modal_dialog` stieg aus, wenn beim Laden
+/// kein Dialog im Baum stand — bei einem geschlossenen `<dialog>` also immer.
+#[tokio::test]
+#[ignore]
+async fn korrekter_modaler_dialog_erzeugt_keine_befunde() {
+    use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
+
+    let (url, shutdown) = serve_fixture("dialog_and_menu_journeys.html");
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let tree = auditmysite::accessibility::extract_ax_tree(&page)
+        .await
+        .expect("AXTree extraction failed");
+
+    // Der geschlossene <dialog> steht nicht im Baum — der Auslöser muss
+    // trotzdem zum Kandidaten werden.
+    assert!(
+        !tree
+            .iter()
+            .any(|n| matches!(n.role.as_deref(), Some("dialog") | Some("alertdialog"))),
+        "ein geschlossener <dialog> ist nicht gerendert"
+    );
+    let analysis = auditmysite::patterns::analyze(&tree);
+    assert!(
+        analysis
+            .journey_candidates
+            .iter()
+            .any(|c| c.required_journey == JourneyKind::ModalOpen),
+        "der Auslöser mit aria-haspopup=\"dialog\" muss angeboten werden: {:?}",
+        analysis.journey_candidates
+    );
+
+    let trigger = tree
+        .iter()
+        .find(|n| {
+            n.role.as_deref() == Some("button")
+                && n.name
+                    .as_deref()
+                    .is_some_and(|name| name.contains("Hinweis"))
+        })
+        .and_then(|n| n.backend_dom_node_id)
+        .expect("Dialog-Button im AXTree");
+
+    let candidate = JourneyCandidate {
+        pattern_kind: PatternKind::Modal,
+        trigger_backend_id: Some(trigger),
+        controlled_backend_id: None,
+        confidence: 0.85,
+        required_journey: JourneyKind::ModalOpen,
+    };
+    let (trace, findings) = auditmysite::a11y_journey::modal_journey::test(&page, &candidate, 0)
+        .await
+        .expect("modal journey failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let step = |action: &str| {
+        trace
+            .steps
+            .iter()
+            .find(|s| s.action == action)
+            .and_then(|s| s.result.clone())
+            .unwrap_or_default()
+    };
+    assert_eq!(step("check_dialog_opened"), "dialog_opened", "{trace:?}");
+    assert_eq!(
+        step("check_dialog_modal"),
+        "modal",
+        "showModal() setzt `modal` im Accessibility-Tree: {trace:?}"
+    );
+    assert_eq!(
+        step("check_focus_in_dialog"),
+        "focus_inside_dialog",
+        "der Browser verlegt den Fokus in den modalen Dialog: {trace:?}"
+    );
+    assert!(
+        findings.is_empty(),
+        "ein korrekter modaler Dialog darf nichts melden: {findings:?}"
+    );
+}
