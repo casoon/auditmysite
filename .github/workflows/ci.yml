@@ -127,6 +127,27 @@ jobs:
           path: target/pdf-visual-debug/
           if-no-files-found: ignore
 
+  # The docs step in `check-all-features` builds on the runner: stable, no
+  # memory ceiling, the working tree rather than the published package. docs.rs
+  # builds nightly, inside a sandbox, from what `cargo package` produces, and
+  # 1.5.1 used 4.75 GB of its 6.4 GB there. A build that dies at that ceiling
+  # is only visible after `cargo publish`, and a published version cannot be
+  # replaced — so this job asks docs.rs's own image the question beforehand.
+  #
+  # The action is in beta and pinned to a commit rather than a tag; failures do
+  # not block the merge (`continue-on-error`) until it has proven itself.
+  docs-rs:
+    name: docs.rs Build (sandbox parity)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the docs the way docs.rs will
+        uses: rust-lang/docs.rs/github-actions/build@a80e3fda4b96c307a0e1cd663166cfda9fc1c7ce
+        with:
+          strict: true
+
   format:
     name: Formatting
     runs-on: ubuntu-latest

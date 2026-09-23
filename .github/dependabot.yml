@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # The docs.rs build action is pinned to a commit, which is the safe way to
+  # run someone else's Docker in CI — and also the way a pin quietly goes stale
+  # while the action moves on. Dependabot is what watches it: it opens a PR when
+  # the pinned commit is behind, and it does the same for the tagged actions
+  # here, which are pins too, just movable ones.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3

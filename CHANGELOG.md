@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
+  eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit
+  deren Nightly, deren Ressourcengrenzen und auf dem, was `cargo package` veroeffentlichen wuerde.
+  Das ist die Frage, die der bestehende Doku-Schritt nicht beantworten kann: Er baut auf dem
+  Runner, mit Stable und ohne Speicherdeckel.
+
+  Der Anlass steht im Build-Log von 1.5.1: **4,75 GB von 6,4 GB** verfuegbarem RAM, 1m35s von 15
+  Minuten. Seit `all-features = true` dokumentiert docs.rs auch `ai-transparency`, was den
+  Abhaengigkeitsgraphen von 454 auf 565 Crates hebt. Ein Build, der an dieser Decke stirbt, faellt
+  erst nach `cargo publish` auf, und eine veroeffentlichte Version laesst sich nicht ersetzen.
+
+  Die Action ist auf einen Commit gepinnt statt auf einen Tag — sie startet fremdes Docker in der
+  CI — und der Job laeuft mit `continue-on-error: true`, solange sie Beta ist. Ein neues
+  `dependabot.yml` haelt den Pin (und die uebrigen Actions) im Blick.
+
 - **Die restlichen rustdoc-Warnungen abgeraeumt, 2026-09-23:** Nach #588 blieben sieben
   Warnungen stehen, die das Tor damals bewusst durchliess: zwei Verweise auf Namen, die es nicht
   (mehr) gibt (`NodeId` ohne Pfad, `RuleOutcome` statt `Outcome`), drei Verweise aus oeffentlicher
