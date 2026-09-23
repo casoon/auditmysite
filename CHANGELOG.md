@@ -16,6 +16,11 @@ short current-state summary. Newest entries first (unchanged order from before t
   Abhaengigkeitsgraphen von 454 auf 565 Crates hebt. Ein Build, der an dieser Decke stirbt, faellt
   erst nach `cargo publish` auf, und eine veroeffentlichte Version laesst sich nicht ersetzen.
 
+  Der Job laeuft **nur auf Tags**: Die Frage lautet „schafft docs.rs diesen Build", und sie ist
+  einmal zu beantworten, kurz bevor die Version publiziert wird. Auf jedem Pull Request kostete sie
+  sieben Runner-Minuten und einen Cache-Platz fuer einen Commit, den niemand veroeffentlicht.
+  `CLAUDE.md` fuehrt den Job jetzt als Pflichtschritt vor `cargo publish`.
+
   Die Action ist auf einen Commit gepinnt statt auf einen Tag — sie startet fremdes Docker in der
   CI — und der Job laeuft mit `continue-on-error: true`, solange sie Beta ist. Ein neues
   `dependabot.yml` haelt den Pin (und die uebrigen Actions) im Blick.
