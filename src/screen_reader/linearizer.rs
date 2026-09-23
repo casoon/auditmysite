@@ -6,7 +6,7 @@ use super::types::{IgnoredReadingNode, ReadingItem};
 
 /// Build the default screen reader reading order from an AXTree.
 ///
-/// Ignored nodes and layout-only nodes (see [`is_layout_only_role`]) are
+/// Ignored nodes and layout-only nodes (see `is_layout_only_role`) are
 /// traversed for their visible descendants, but are not emitted as reading
 /// items.
 pub fn linearize(tree: &AXTree) -> Vec<ReadingItem> {
