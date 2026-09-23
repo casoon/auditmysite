@@ -140,6 +140,11 @@ jobs:
     name: docs.rs Build (sandbox parity)
     runs-on: ubuntu-latest
     continue-on-error: true
+    # A composite action runs its steps in this job, with this job's token.
+    # This one needs to read the checkout and nothing else, so that is all the
+    # token can do here — the rest of the workflow keeps the repository default.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
 
