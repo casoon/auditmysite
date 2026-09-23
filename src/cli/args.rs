@@ -10,6 +10,11 @@ use std::path::PathBuf;
 ///
 /// Analyzes web pages for WCAG accessibility violations using
 /// Chrome DevTools Protocol and the Accessibility Tree.
+// The doc comments on these fields are clap's `--help` text before they are
+// rustdoc, and a bare example URL is what a terminal should show. Wrapping one
+// in angle brackets or backticks to satisfy `bare_urls` would put that markup
+// in front of every user running `--help`.
+#[allow(rustdoc::bare_urls)]
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "auditmysite",

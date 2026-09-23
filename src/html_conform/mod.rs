@@ -34,7 +34,7 @@ pub struct HtmlConformAnalysis {
     pub warning_count: u32,
     pub info_count: u32,
     /// How many *distinct* defects the counts above represent (see
-    /// [`defect_key`]). One bad component in a template emits one finding
+    /// `defect_key`). One bad component in a template emits one finding
     /// per render, so `error_count` alone reads as a much larger problem
     /// than it is; this is the number of things actually to fix, and what
     /// the score is charged against.

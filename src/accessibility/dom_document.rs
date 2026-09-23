@@ -21,7 +21,7 @@
 //!
 //! # Wie die beiden Bäume zusammenfinden
 //!
-//! Der Arena-Index eines Knotens ist seine [`NodeId`]; die Backend-Node-ID des
+//! Der Arena-Index eines Knotens ist seine [`a11y_dom::NodeId`]; die Backend-Node-ID des
 //! CDP-DOM wird beim Bauen in derselben Reihenfolge mitgeschrieben. Der AXTree
 //! führt zu jedem Knoten dieselbe Backend-ID. Über diese ID werden beide Bäume
 //! verbunden — nicht über Position oder Tagnamen, die bei Shadow DOM und

@@ -225,7 +225,7 @@ impl Violation {
 
 /// Internal marker returned by page rules when their browser-side measurement
 /// could not be executed. `run_rules` consumes the marker into a failed
-/// [`RuleOutcome`] instead of treating the empty result as a clean check.
+/// [`Outcome`] instead of treating the empty result as a clean check.
 pub fn technical_rule_failure(rule: &RuleMetadata, reason_code: &str) -> Violation {
     Violation::new(
         rule.id,

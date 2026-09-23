@@ -521,7 +521,7 @@ fn score_media_text_balance(word_count: u32, has_og: bool, has_product_schema: b
     score
 }
 
-/// Whether [`score_intent_fit`] reads any measured signal for this page type,
+/// Whether `score_intent_fit` reads any measured signal for this page type,
 /// or just returns a constant keyed on the type itself.
 ///
 /// `MediaHeavy`, `Utility` and `ThinContent` have a single constant each, so

@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Die restlichen rustdoc-Warnungen abgeraeumt, 2026-09-23:** Nach #588 blieben sieben
+  Warnungen stehen, die das Tor damals bewusst durchliess: zwei Verweise auf Namen, die es nicht
+  (mehr) gibt (`NodeId` ohne Pfad, `RuleOutcome` statt `Outcome`), drei Verweise aus oeffentlicher
+  Doku auf private Items (`defect_key`, `is_layout_only_role`, `score_intent_fit`) — die stehen
+  jetzt als Code statt als Link, denn ein Link, dem der Leser nicht folgen kann, ist keiner — und
+  zwei nackte URLs in `cli/args.rs`. Die letzten beiden bleiben nackt: Diese Doc-Kommentare sind
+  clap's `--help`-Text, bevor sie rustdoc sind, und spitze Klammern oder Backticks stuenden dann
+  vor jedem Nutzer im Terminal. Dort steht jetzt ein `#[allow(rustdoc::bare_urls)]` mit genau
+  dieser Begruendung.
+
+  Das CI-Tor zieht entsprechend nach: statt `-D rustdoc::invalid_html_tags` jetzt
+  `RUSTDOCFLAGS: -D warnings`. Verifiziert mit `cargo doc --all-features --no-deps` (keine
+  Warnung), clippy, `cargo fmt --check`, 1546 Unit-Tests und einem Blick auf `--help`, wo die
+  Beispiel-URLs unveraendert nackt stehen.
+
 - **docs.rs baut mit allen Features, 1.5.1, 2026-09-22:** Ohne `[package.metadata.docs.rs]` baut
   docs.rs nur mit `default = ["pdf"]`. Alles hinter einem optionalen Feature — etwa `c2pa` — fehlte
   damit in der veroeffentlichten Doku. `all-features = true` behebt das. Die Einstellung wirkt erst
