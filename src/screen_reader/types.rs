@@ -1,30 +1,7 @@
+pub use a11y_perception::{IgnoredReadingNode, ReadingItem};
 use serde::{Deserialize, Serialize};
 
 use super::navigator::NavigationViews;
-
-/// A node in the order a screen reader would encounter it in the AXTree.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadingItem {
-    pub seq: usize,
-    pub role: Option<String>,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub value: Option<String>,
-    pub states: Vec<String>,
-    pub tab_stop: bool,
-    pub depth: usize,
-    pub node_id: String,
-}
-
-/// Diagnostic entry for ignored AXNodes skipped by the standard reading order.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IgnoredReadingNode {
-    pub node_id: String,
-    pub role: Option<String>,
-    pub name: Option<String>,
-    pub depth: usize,
-    pub reasons: Vec<String>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SrAuditReport {

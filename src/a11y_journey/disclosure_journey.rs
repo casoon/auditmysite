@@ -184,7 +184,9 @@ fn start_state(snapshot: &AXSnapshot, trigger: i64) -> Start {
 
 /// Nimmt auf und meldet Misserfolg als solchen, statt still weiterzulaufen.
 async fn snapshot(page: &Page, label: &str, started: Instant) -> Option<AXSnapshot> {
-    match AXSnapshot::capture(page, label, started.elapsed().as_millis() as u64).await {
+    match crate::accessibility::capture_snapshot(page, label, started.elapsed().as_millis() as u64)
+        .await
+    {
         Ok(snapshot) => Some(snapshot),
         Err(e) => {
             tracing::warn!("disclosure: Aufnahme '{label}' fehlgeschlagen: {e}");

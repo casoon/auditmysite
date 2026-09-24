@@ -17,8 +17,8 @@ use chromiumoxide::Page;
 use tracing::warn;
 
 use super::code_gen::{generate_suggested_code, truncate_html};
-use super::tree::AXTree;
 use crate::wcag::types::Violation;
+use a11y_perception::AXTree;
 
 /// Identifies the DOM node evidence should be resolved from: either a plain
 /// backend node id, or a live JS object reference (used when we've redirected

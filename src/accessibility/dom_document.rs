@@ -34,8 +34,8 @@ use chromiumoxide::cdp::browser_protocol::dom::{GetDocumentParams, Node as CdpNo
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
-use super::tree::{AXTree, NameSource};
 use crate::error::{AuditError, Result};
+use a11y_perception::{AXTree, NameSource};
 
 /// DOM-Knotentypen, die hier vorkommen. Die Zahlen sind die des DOM-Standards,
 /// die CDP unverändert durchreicht.

@@ -9,6 +9,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f97bc5f897946cefc2faa9b26465a5bb476f88ef1b17d3028d61faafd9c1f835"
 
 [[package]]
+name = "a11y-perception"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce9635df6fd5e29a3c25fb8aa0c8db61e8d9a477af62af8dd1619ece84100c0b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "a11y-report"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -332,6 +341,7 @@ name = "auditmysite"
 version = "1.5.1"
 dependencies = [
  "a11y-dom",
+ "a11y-perception",
  "a11y-report",
  "a11y-rules",
  "accname",

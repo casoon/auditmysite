@@ -82,7 +82,7 @@ fn focused_tab(snapshot: &AXSnapshot) -> Option<i64> {
 }
 
 async fn snapshot(page: &Page, label: &str) -> Option<AXSnapshot> {
-    match AXSnapshot::capture(page, label, 0).await {
+    match crate::accessibility::capture_snapshot(page, label, 0).await {
         Ok(snapshot) => Some(snapshot),
         Err(e) => {
             tracing::warn!("tabs: Aufnahme '{label}' fehlgeschlagen: {e}");
