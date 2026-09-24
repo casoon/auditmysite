@@ -55,6 +55,29 @@ Ein pre-push Hook ist unter `.git/hooks/pre-push` eingerichtet und läuft automa
 Häufige Falle: neue Felder in `NormalizedReport` brechen Struct-Initialisierer in
 `src/audit/normalized.rs` und `src/audit/summary.rs`. Immer beide prüfen.
 
+## Release & `cargo publish` (PFLICHT — #588)
+Eine auf crates.io veröffentlichte Version lässt sich **nie** ersetzen, nur zurückziehen. Und
+docs.rs baut jede Version genau einmal: Was dort kaputt ankommt, bleibt dauerhaft kaputt. Deshalb
+in dieser Reihenfolge:
+
+1. **Tag `vX.Y.Z` setzen und pushen.** Das startet `release.yml`: Versionsabgleich, volle CI,
+   Binaries, GitHub-Release.
+2. **Auf den Job `docs.rs Build (sandbox parity)` warten.** Er läuft **nur auf Tags** und baut die
+   Doku im echten docs.rs-Sandbox-Image — deren Nightly, deren Speicher- und Zeitlimits, und auf
+   dem, was `cargo package` veröffentlichen würde. Nichts sonst in der CI beantwortet das: Der
+   Doku-Schritt in `check-all-features` baut auf dem Runner, mit Stable und ohne Speicherdeckel.
+3. **Erst dann `cargo publish`.**
+
+Der Job ist `continue-on-error`, solange die Action Beta ist — er blockiert also nicht, er
+**informiert**. Ist er rot, nicht publizieren, sondern erst die Ursache klären.
+
+Zur Größenordnung: 1.5.1 brauchte dort 4,75 GB von 6,4 GB verfügbarem RAM. Seit
+`all-features = true` dokumentiert docs.rs auch `ai-transparency`, was den Abhängigkeitsgraphen von
+454 auf 565 Crates hebt. Der Abstand zur Decke ist real, aber nicht groß.
+
+Lokal vor dem Tag, falls `cargo-docs-rs` installiert ist: `cargo docs-rs` baut mit derselben
+`[package.metadata.docs.rs]`-Konfiguration, allerdings ohne Sandbox und ohne Limits.
+
 ## Testing Against Live Sites
 ```bash
 # 1. Single page audit (all modules) — tiefe Analyse einer konkreten Seite

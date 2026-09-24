@@ -32,8 +32,8 @@ use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
 use tracing::{info, warn};
 
-use super::tree::AXTree;
 use crate::wcag::types::{Outcome, Violation};
+use a11y_perception::AXTree;
 
 /// Hard cap on element-evidence crops per report — bounds PDF size growth.
 pub const MAX_ELEMENT_CROPS: usize = 12;

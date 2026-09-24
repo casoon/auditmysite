@@ -8,8 +8,8 @@ use chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
-use super::tree::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
 use crate::error::{AuditError, Result};
+use a11y_perception::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
 
 /// Extract the full Accessibility Tree from a page
 ///

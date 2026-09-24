@@ -104,7 +104,7 @@ fn still_open(snapshot: &AXSnapshot, dialog: i64) -> bool {
 }
 
 async fn snapshot(page: &Page, label: &str) -> Option<AXSnapshot> {
-    match AXSnapshot::capture(page, label, 0).await {
+    match crate::accessibility::capture_snapshot(page, label, 0).await {
         Ok(snapshot) => Some(snapshot),
         Err(e) => {
             tracing::warn!("modal: Aufnahme '{label}' fehlgeschlagen: {e}");

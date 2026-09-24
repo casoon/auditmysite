@@ -21,7 +21,7 @@
 //!
 //! # Wie die beiden Bäume zusammenfinden
 //!
-//! Der Arena-Index eines Knotens ist seine [`NodeId`]; die Backend-Node-ID des
+//! Der Arena-Index eines Knotens ist seine [`a11y_dom::NodeId`]; die Backend-Node-ID des
 //! CDP-DOM wird beim Bauen in derselben Reihenfolge mitgeschrieben. Der AXTree
 //! führt zu jedem Knoten dieselbe Backend-ID. Über diese ID werden beide Bäume
 //! verbunden — nicht über Position oder Tagnamen, die bei Shadow DOM und
@@ -34,8 +34,8 @@ use chromiumoxide::cdp::browser_protocol::dom::{GetDocumentParams, Node as CdpNo
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
-use super::tree::{AXTree, NameSource};
 use crate::error::{AuditError, Result};
+use a11y_perception::{AXTree, NameSource};
 
 /// DOM-Knotentypen, die hier vorkommen. Die Zahlen sind die des DOM-Standards,
 /// die CDP unverändert durchreicht.
