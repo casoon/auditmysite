@@ -139,93 +139,23 @@ impl std::fmt::Display for BotClass {
 
 // ─── Bot Registry ────────────────────────────────────────────────────────────
 
-const SEARCH_BOTS: &[&str] = &[
-    "googlebot",
-    "bingbot",
-    "slurp", // Yahoo
-    "duckduckbot",
-    "baiduspider",
-    "yandexbot",
-    "sogou",
-    "exabot",
-    "ia_archiver", // Wayback Machine
-    "msnbot",
-    "teoma",
-    "ask jeeves",
-];
-
-/// Training-only bots — blocking is standard practice (citationFriendly default)
-const AI_TRAINING_BOTS: &[&str] = &[
-    "gptbot",            // OpenAI — model training
-    "google-extended",   // Google — AI training
-    "applebot-extended", // Apple — AI training
-    "bytespider",        // ByteDance / TikTok — training
-    "ccbot",             // Common Crawl — training datasets
-    "omgili",            // Webz.io — training
-];
-
-/// Citation / AI-search bots — blocking is unusual and may reduce AI visibility
-const AI_CITATION_BOTS: &[&str] = &[
-    "perplexitybot", // Perplexity AI search
-    "youbot",        // You.com AI search
-    "amazonbot",     // Amazon AI / Alexa
-    "oai-searchbot", // OpenAI search (separate from training GPTBot)
-    "claude-web",    // Anthropic web browsing (citation only)
-];
-
-/// Mixed-purpose bots: both training data collection and AI responses/search
-const AI_MIXED_BOTS: &[&str] = &[
-    "claudebot",          // Anthropic — training + citation
-    "anthropic-ai",       // Anthropic general
-    "chatgpt-user",       // OpenAI — user browsing + training
-    "meta-externalagent", // Meta — training + social AI
-    "facebookbot",        // Meta
-    "cohere-ai",          // Cohere
-    "diffbot",            // Diffbot — structured data + training
-];
-
-/// Unverified scrapers / SEO bots — often used for training but not primary AI crawlers
-const UNKNOWN_AI_BOTS: &[&str] = &[
-    "dotbot",
-    "petalbot", // Huawei search
-    "wpbot",
-    "semrushbot",
-    "ahrefsbot",
-    "mj12bot",
-    "rogerbot",
-];
-
-fn classify_bot(ua: &str) -> BotClass {
-    if ua == "*" {
-        return BotClass::Wildcard;
-    }
-    let lower = ua.to_lowercase();
-    for pat in SEARCH_BOTS {
-        if lower.contains(pat) {
-            return BotClass::SearchEngine;
+/// Die Einordnung selbst kommt aus [`web_checks::robots`] — ein Register für
+/// beide Werkzeuge, damit dieselbe Seite nicht zwei Antworten bekommt. Hier
+/// bleibt nur die Beschriftung, die sprachabhängig ist.
+impl From<web_checks::robots::BotClass> for BotClass {
+    fn from(class: web_checks::robots::BotClass) -> Self {
+        use web_checks::robots::BotClass as W;
+        match class {
+            W::Wildcard => BotClass::Wildcard,
+            W::SearchEngine => BotClass::SearchEngine,
+            W::AiTraining => BotClass::AiTraining,
+            W::AiCitation => BotClass::AiCitation,
+            W::AiMixed => BotClass::AiMixed,
+            W::UnknownAi => BotClass::UnknownAi,
+            W::General => BotClass::General,
+            W::Unknown => BotClass::Unknown,
         }
     }
-    for pat in AI_TRAINING_BOTS {
-        if lower.contains(pat) {
-            return BotClass::AiTraining;
-        }
-    }
-    for pat in AI_CITATION_BOTS {
-        if lower.contains(pat) {
-            return BotClass::AiCitation;
-        }
-    }
-    for pat in AI_MIXED_BOTS {
-        if lower.contains(pat) {
-            return BotClass::AiMixed;
-        }
-    }
-    for pat in UNKNOWN_AI_BOTS {
-        if lower.contains(pat) {
-            return BotClass::UnknownAi;
-        }
-    }
-    BotClass::Unknown
 }
 
 // ─── Fetch ───────────────────────────────────────────────────────────────────
@@ -357,76 +287,22 @@ fn extract_base(url: &str) -> String {
 
 fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
     let en = locale == "en";
-    let mut groups: Vec<RobotsGroup> = Vec::new();
-    let mut sitemaps: Vec<String> = Vec::new();
-    let mut crawl_delays: Vec<(String, u32)> = Vec::new();
 
-    // Accumulate current group
-    let mut cur_agents: Vec<String> = Vec::new();
-    let mut cur_allows: Vec<String> = Vec::new();
-    let mut cur_disallows: Vec<String> = Vec::new();
-
-    for line in text.lines() {
-        let line = line.trim();
-        // Skip empty lines and comments
-        if line.is_empty() || line.starts_with('#') {
-            // Empty line separates groups — flush if we have rules
-            if line.is_empty()
-                && !cur_agents.is_empty()
-                && (!cur_allows.is_empty() || !cur_disallows.is_empty())
-            {
-                flush_group(
-                    &mut cur_agents,
-                    &mut cur_allows,
-                    &mut cur_disallows,
-                    &mut groups,
-                );
-            }
-            continue;
-        }
-
-        let Some(colon_pos) = line.find(':') else {
-            continue;
-        };
-        let key = line[..colon_pos].trim().to_lowercase();
-        let value = line[colon_pos + 1..].trim().to_string();
-
-        match key.as_str() {
-            "user-agent" => {
-                // New user-agent: if we have pending rules flush, else just accumulate agents
-                if !cur_allows.is_empty() || !cur_disallows.is_empty() {
-                    flush_group(
-                        &mut cur_agents,
-                        &mut cur_allows,
-                        &mut cur_disallows,
-                        &mut groups,
-                    );
-                }
-                cur_agents.push(value);
-            }
-            "allow" if !value.is_empty() => cur_allows.push(value),
-            "disallow" => cur_disallows.push(value),
-            "sitemap" if !value.is_empty() => sitemaps.push(value),
-            "crawl-delay" => {
-                if let Ok(delay) = value.parse::<u32>() {
-                    for agent in &cur_agents {
-                        crawl_delays.push((agent.clone(), delay));
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    // Flush remaining group
-    if !cur_agents.is_empty() {
-        flush_group(
-            &mut cur_agents,
-            &mut cur_allows,
-            &mut cur_disallows,
-            &mut groups,
-        );
-    }
+    // Grammatik und Bot-Einordnung kommen aus web-checks; astro-post-audit
+    // benutzt dieselbe Auswertung an einem gebauten dist/.
+    let parsed = web_checks::robots::parse(text);
+    let sitemaps = parsed.sitemaps.clone();
+    let crawl_delays = parsed.crawl_delays();
+    let groups: Vec<RobotsGroup> = parsed
+        .groups
+        .into_iter()
+        .map(|g| RobotsGroup {
+            user_agent: g.user_agent,
+            bot_class: g.bot_class.into(),
+            allows: g.allows,
+            disallows: g.disallows,
+        })
+        .collect();
 
     // Derived signals
     let has_wildcard_disallow_all = groups
@@ -531,29 +407,16 @@ pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
     }
 }
 
-fn flush_group(
-    agents: &mut Vec<String>,
-    allows: &mut Vec<String>,
-    disallows: &mut Vec<String>,
-    groups: &mut Vec<RobotsGroup>,
-) {
-    for agent in agents.drain(..) {
-        let class = classify_bot(&agent);
-        groups.push(RobotsGroup {
-            user_agent: agent,
-            bot_class: class,
-            allows: allows.clone(),
-            disallows: disallows.clone(),
-        });
-    }
-    allows.clear();
-    disallows.clear();
-}
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
+    /// Die Einordnung selbst liegt in web-checks und ist dort geprüft; hier
+    /// steht nur, dass die Zuordnung auf diese Typen stimmt.
+    fn bot_class(ua: &str) -> BotClass {
+        web_checks::robots::classify_bot(ua).into()
+    }
+
     use super::*;
 
     const SAMPLE: &str = r#"
@@ -590,14 +453,14 @@ Crawl-delay: 10
 
     #[test]
     fn test_bot_classification() {
-        assert_eq!(classify_bot("GPTBot"), BotClass::AiTraining);
-        assert_eq!(classify_bot("Googlebot"), BotClass::SearchEngine);
-        assert_eq!(classify_bot("CCBot"), BotClass::AiTraining);
-        assert_eq!(classify_bot("*"), BotClass::Wildcard);
-        assert_eq!(classify_bot("SomeRandomBot"), BotClass::Unknown);
-        assert_eq!(classify_bot("claudebot"), BotClass::AiMixed);
-        assert_eq!(classify_bot("PerplexityBot"), BotClass::AiCitation);
-        assert_eq!(classify_bot("semrushbot"), BotClass::UnknownAi);
+        assert_eq!(bot_class("GPTBot"), BotClass::AiTraining);
+        assert_eq!(bot_class("Googlebot"), BotClass::SearchEngine);
+        assert_eq!(bot_class("CCBot"), BotClass::AiTraining);
+        assert_eq!(bot_class("*"), BotClass::Wildcard);
+        assert_eq!(bot_class("SomeRandomBot"), BotClass::Unknown);
+        assert_eq!(bot_class("claudebot"), BotClass::AiMixed);
+        assert_eq!(bot_class("PerplexityBot"), BotClass::AiCitation);
+        assert_eq!(bot_class("semrushbot"), BotClass::UnknownAi);
     }
 
     #[test]
