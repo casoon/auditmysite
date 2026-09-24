@@ -160,6 +160,7 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("3.3.2", "a11y.form_labels.missing"),
     ("3.3.5", "a11y.help.missing"),
     ("3.3.7", "a11y.redundant_entry.missing_reuse"),
+    ("3.3.8", "a11y.accessible_auth.paste_blocked"),
     ("4.1.1", "a11y.parsing.invalid"),
     ("4.1.2", "a11y.name_role.missing"),
     ("4.1.3", "a11y.status_messages.broken"),
@@ -214,6 +215,14 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "a11y.image_map_server_side.invalid",
     ),
     ("svg-img-alt", "a11y.svg_alt.missing"),
+    (
+        "accessible-auth-paste-blocked",
+        "a11y.accessible_auth.paste_blocked",
+    ),
+    (
+        "accessible-auth-captcha",
+        "a11y.accessible_auth.captcha_review",
+    ),
     ("area-alt", "a11y.area_alt.missing"),
     ("input-image-alt", "a11y.input_image_alt.missing"),
     ("object-alt", "a11y.object_alt.missing"),
@@ -1171,6 +1180,52 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Users must retype data they already entered, which costs time and is an extra burden especially for people with motor or cognitive impairments.",
         technical_impact: "Formularfelder ohne autocomplete-Attribut, Vorbefüllung oder Wiederverwendungs-Option für bereits erfasste Werte.",
         technical_impact_en: "Form fields without an autocomplete attribute, prefilled value, or reuse option for already-captured values.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.accessible_auth.paste_blocked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.3.8"),
+        external_level: Some("AA"),
+        axe_id: Some("accessible-auth-paste-blocked"),
+        title: "Einfügen in Passwort- oder Code-Feld blockiert",
+        title_en: "Paste blocked in password or code field",
+        description: "Ein Passwort- oder Einmalcode-Feld unterbindet das Einfügen, sodass Zugangsdaten abgetippt oder auswendig eingegeben werden müssen.",
+        user_impact: "Nutzer können weder einen Passwort-Manager noch die Zwischenablage verwenden. Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.",
+        user_impact_en: "Users can use neither a password manager nor the clipboard. Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.",
+        technical_impact: "paste-Handler mit preventDefault() oder return false am Eingabefeld.",
+        technical_impact_en: "A paste handler calling preventDefault() or returning false on the input field.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.accessible_auth.captcha_review",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Risk,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 3.3.8"),
+        external_level: Some("AA"),
+        axe_id: Some("accessible-auth-captcha"),
+        title: "CAPTCHA im Anmeldeformular prüfen",
+        title_en: "Review CAPTCHA in authentication form",
+        description: "Ein Anmeldeformular enthält ein CAPTCHA. Ob es eine Objekterkennung ist oder eine Alternative ohne kognitiven Test angeboten wird, lässt sich nicht automatisch feststellen.",
+        user_impact: "Text- und Rätsel-CAPTCHAs sperren Menschen mit kognitiven Einschränkungen, Legasthenie oder Sehbehinderung von der Anmeldung aus, wenn es keine Alternative gibt.",
+        user_impact_en: "Text and puzzle CAPTCHAs lock people with cognitive impairments, dyslexia or low vision out of signing in when no alternative is offered.",
+        technical_impact: "Interaktives CAPTCHA-Widget (reCAPTCHA, hCaptcha, Bild-CAPTCHA) in einem Formular mit Passwort- oder Einmalcode-Feld.",
+        technical_impact_en: "Interactive CAPTCHA widget (reCAPTCHA, hCaptcha, image CAPTCHA) in a form with a password or one-time-code field.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -2253,7 +2308,11 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
         severity: Severity::Critical,
-        external_ref: Some("WCAG 4.1.1"),
+        // Seit WCAG 2.2 gibt es 4.1.1 nicht mehr. Gemeldet wird nur noch die
+        // doppelte ID, auf die ein IDREF zeigt (`wcag::shared`) -- das ist ein
+        // Verstoss gegen 4.1.2, weil die Beziehung nicht mehr eindeutig
+        // aufloesbar ist (Plan 54 §2).
+        external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         // Geteilte Kennung aus `a11y-rules` statt der frueheren axe-core-Kennung
         // `duplicate-id`: Die Pruefung laeuft seit der Umstellung als
@@ -2261,13 +2320,13 @@ pub static RULES: &[Rule] = &[
         // `duplicate-id-aria` (widerspruechliche `aria-owns`) bleibt eine
         // eigene Regel und haengt an `a11y.duplicate_id_aria.invalid`.
         axe_id: Some("ids/duplicate"),
-        title: "Fehlerhaftes Markup (Parsing)",
-        title_en: "Malformed markup (parsing)",
-        description: "HTML-Code weist schwerwiegende Syntaxfehler auf, wie z. B. doppelte IDs.",
-        user_impact: "Screenreader können den AX-Tree nicht korrekt aufbauen und überspringen Elemente.",
-        user_impact_en: "Screen readers cannot build the accessibility tree correctly and skip elements.",
-        technical_impact: "Doppelte IDs in der DOM-Struktur oder unvollständige HTML-Tags.",
-        technical_impact_en: "Duplicate IDs in the DOM structure or incomplete HTML tags.",
+        title: "Mehrfach vergebene ID wird referenziert",
+        title_en: "Referenced ID is assigned more than once",
+        description: "Ein Element verweist per IDREF (z. B. label for, headers, aria-labelledby) auf eine ID, die im Dokument mehrfach vorkommt.",
+        user_impact: "Assistierende Technik kann die Beziehung nicht eindeutig auflösen und gibt Name oder Beschreibung des falschen Elements aus.",
+        user_impact_en: "Assistive technology cannot resolve the relationship unambiguously and announces the name or description of the wrong element.",
+        technical_impact: "Dieselbe ID kommt im DOM mehrfach vor und wird von einem for-, headers- oder aria-Attribut referenziert.",
+        technical_impact_en: "The same ID occurs more than once in the DOM and is referenced by a for, headers or aria attribute.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 15.0,
@@ -3587,7 +3646,10 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
         severity: Severity::High,
-        external_ref: Some("WCAG 4.1.1"),
+        // 4.1.1 ist in WCAG 2.2 gestrichen; die mehrdeutige ARIA-Referenz
+        // bricht Name, Rolle und Wert und faellt damit unter 4.1.2 -- dieselbe
+        // Zuordnung wie in axe-core (Plan 54 §2).
+        external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("duplicate-id-aria"),
         title: "ARIA-Referenz zeigt auf mehrdeutige ID",

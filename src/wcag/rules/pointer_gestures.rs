@@ -14,7 +14,7 @@ pub const POINTER_GESTURES_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "All functionality can be operated with single-pointer gestures",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pointer-gestures.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-gestures.html",
     axe_id: "pointer-gestures",
     tags: &["wcag2a", "wcag251", "cat.sensory-and-visual-cues"],
 };

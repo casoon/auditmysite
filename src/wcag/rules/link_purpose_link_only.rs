@@ -14,7 +14,7 @@ pub const LINK_PURPOSE_LINK_ONLY_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text alone",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-link-only.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-link-only.html",
     // Deliberately not "link-name": that axe_id is already used by
     // `link_purpose.rs`'s WCAG 2.4.4 (Level A) check. Both used to share
     // the literal string "link-name" — harmless while grouping fell back

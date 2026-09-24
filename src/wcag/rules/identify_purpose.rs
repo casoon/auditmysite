@@ -15,7 +15,7 @@ pub const IDENTIFY_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Purpose of UI components, icons, and regions can be programmatically determined",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/identify-purpose.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/identify-purpose.html",
     axe_id: "identify-purpose",
     tags: &["wcag2aaa", "wcag136", "cat.semantics"],
 };

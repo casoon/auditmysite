@@ -15,7 +15,7 @@ pub const LOCATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Users can determine their location within a set of web pages",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/location.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/location.html",
     axe_id: "location",
     tags: &["wcag2aaa", "wcag248", "cat.navigation"],
 };

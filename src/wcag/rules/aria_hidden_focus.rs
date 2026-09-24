@@ -16,7 +16,7 @@ pub const ARIA_HIDDEN_FOCUS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Focusable elements must not be contained within an aria-hidden subtree",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-hidden-focus",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };

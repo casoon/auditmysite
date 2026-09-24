@@ -15,7 +15,7 @@ pub const MOTION_ACTUATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Functionality triggered by device motion can also be activated by UI components",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/motion-actuation.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/motion-actuation.html",
     axe_id: "motion-actuation",
     tags: &["wcag2a", "wcag254", "cat.sensory-and-visual-cues"],
 };

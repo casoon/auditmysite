@@ -1162,6 +1162,7 @@ mod tests {
             }],
             violations: vec![],
             journey_candidates: vec![],
+            help_mechanisms: vec![],
         });
 
         let config = ReportConfig {
@@ -1840,6 +1841,47 @@ mod tests {
              headline sentence), found {occurrences} — a KeyValueList-style separate key \
              column would render it a second time and risks the #518 layout blowup"
         );
+    }
+
+    /// Plan 54 §3: a 3.2.6 deviation reaches the batch PDF as a localized
+    /// sentence next to the affected URL, and the cross-page table carries
+    /// the German assessment basis instead of the English JSON text.
+    #[test]
+    fn batch_pdf_lists_consistent_help_deviations_localized() {
+        use crate::patterns::help_mechanisms::{HelpKind, HelpMechanism, HelpRegion};
+        let make_report = |url: &str, region: HelpRegion| {
+            let mut report =
+                AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100);
+            report.patterns = Some(crate::patterns::PatternAnalysis {
+                help_mechanisms: vec![HelpMechanism {
+                    kind: HelpKind::Phone,
+                    key: "tel:+4930123".to_string(),
+                    region,
+                }],
+                ..Default::default()
+            });
+            report
+        };
+        let batch = BatchReport::from_reports(
+            vec![
+                make_report("https://example.com/a", HelpRegion::Footer),
+                make_report("https://example.com/b", HelpRegion::Footer),
+                make_report("https://example.com/c", HelpRegion::Header),
+            ],
+            vec![],
+            300,
+        );
+        let typ = unescape_typ(
+            &generate_batch_typ(&batch, &ReportConfig::default()).expect("batch Typst source"),
+        );
+
+        assert!(typ.contains("Konsistente Hilfe (WCAG 3.2.6): Abweichungen"));
+        assert!(typ.contains(
+            "„tel:+4930123“ steht im Bereich Kopfbereich statt wie auf den meisten Seiten im Bereich Fußbereich."
+        ));
+        assert!(typ.contains("https://example.com/c"));
+        assert!(typ.contains("1 wiederkehrender Hilfemechanismus nach Seitenbereich und relativer Reihenfolge verglichen; 1 Abweichung auf 1 Seite."));
+        assert!(!typ.contains("recurring help mechanisms"));
     }
 
     #[test]

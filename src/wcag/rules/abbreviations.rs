@@ -15,7 +15,7 @@ pub const ABBREVIATIONS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Abbreviations have a mechanism to reveal their expanded form",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/abbreviations.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/abbreviations.html",
     axe_id: "abbreviations",
     tags: &["wcag2aaa", "wcag314", "cat.language"],
 };

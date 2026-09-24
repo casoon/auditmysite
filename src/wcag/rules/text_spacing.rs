@@ -25,7 +25,7 @@ pub const TEXT_SPACING_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::Medium,
     description: "Content remains readable when text spacing is increased to WCAG minimums",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/text-spacing.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
     axe_id: "text-spacing",
     tags: &["wcag2aa", "wcag1412", "cat.text"],
 };

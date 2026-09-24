@@ -17,7 +17,7 @@ pub const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Grouped form controls must have a fieldset/legend; form structure must be programmatically determinable",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "form-field-multiple-labels",
     tags: &["wcag2a", "wcag131", "cat.forms"],
 };
@@ -29,7 +29,7 @@ pub const RULE_META_ERROR: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "If an input error is automatically detected, the item that is in error must be identified and the error described in text",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/error-identification.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html",
     axe_id: "input-error-message",
     tags: &["wcag2a", "wcag331", "cat.forms"],
 };
@@ -41,7 +41,7 @@ pub const RULE_META_LABELS: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Low,
     description: "Labels or instructions are provided when content requires user input",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     axe_id: "label",
     tags: &["wcag2a", "wcag332", "cat.forms"],
 };
@@ -53,7 +53,7 @@ pub const RULE_META_FORM_NO_SUBMIT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Forms that collect user input should provide an explicit submit control",
-    help_url: "https://www.w3.org/WAI/WCAG21/Techniques/html/H32",
+    help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H32",
     axe_id: "form-no-submit",
     tags: &["wcag2a", "wcag322", "cat.forms"],
 };

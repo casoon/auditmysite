@@ -79,7 +79,7 @@ pub const PAUSE_STOP_HIDE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Auto-starting moving, blinking, or scrolling content that lasts more than 5 seconds can be paused, stopped, or hidden",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pause-stop-hide.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
     axe_id: "pause-stop-hide",
     tags: &["wcag2a", "wcag222", "cat.time-and-media"],
 };

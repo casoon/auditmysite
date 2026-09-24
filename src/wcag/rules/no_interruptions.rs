@@ -14,7 +14,7 @@ pub const NO_INTERRUPTIONS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Interruptions can be postponed or suppressed by the user",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/interruptions.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/interruptions.html",
     axe_id: "no-interruptions",
     tags: &["wcag2aaa", "wcag224", "cat.time-and-media"],
 };

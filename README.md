@@ -271,6 +271,7 @@ Core rules:
 - Meaningful sequence — CSS `order` vs. reading-order mismatches (1.3.2)
 - Pause, stop, hide — `<marquee>` and long-running CSS animations without a pause control (2.2.2)
 - Redundant entry — same field requested twice with no reuse/autofill hint (3.3.7, WCAG 2.2)
+- Accessible authentication — paste blocked on password or one-time-code fields, measured with a synthetic paste event (3.3.8, WCAG 2.2); CAPTCHAs in sign-in forms as review items
 - Target size minimum (2.5.8, WCAG 2.2) and text spacing (1.4.12)
 
 ARIA and semantics:
@@ -289,14 +290,14 @@ ARIA and semantics:
 - Video checks — caption tracks for native `<video>` (a same-origin track file is probed before a pass is confirmed, 1.2.2), media alternatives with a nearby-transcript heuristic (1.2.8), and keyboard operability of native video controls (unnamed or unreachable players)
 - ARIA hygiene (best practice, low severity) — explicit roles that restate the element's implicit role, and links without a real target (`href="#"`, `javascript:`) used as button substitutes
 - Duplicated accessible names — names that repeat themselves back to back (e.g. "Contact Contact"), typically from an icon label concatenated with adjacent text
-- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), duplicate IDs (4.1.1), document language attribute (3.1.1)
+- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), referenced duplicate IDs (4.1.2), document language attribute (3.1.1)
 - SVG rules — SVG image accessible names
 - Server-side image maps — detection and flagging
 - Meta viewport — large maximum-scale restrictions
 
 100+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
-Methodology numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`: WCAG 2.1 AA has 50 A/AA criteria, 36 are covered by automated AuditMySite checks, and 10 are listed as manual-review criteria.
+Methodology numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`: WCAG 2.2 AA has 55 A/AA criteria, 39 are covered by automated AuditMySite checks, and 12 are listed as manual-review criteria.
 
 Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
 

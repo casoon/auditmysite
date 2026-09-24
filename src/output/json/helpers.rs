@@ -211,7 +211,8 @@ pub(super) fn build_bik_guide_annex(
 pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary {
     let (automated, total) = crate::wcag::coverage::coverage_stats();
     WcagCoverageSummary {
-        level: format!("WCAG 2.1 {level}"),
+        wcag_version: crate::wcag::coverage::WCAG_VERSION,
+        level: format!("WCAG {} {level}", crate::wcag::coverage::WCAG_VERSION),
         automated_criteria: automated,
         manual_review_criteria: crate::wcag::coverage::manual_review_criteria().len(),
         total_wcag_aa_criteria: total,

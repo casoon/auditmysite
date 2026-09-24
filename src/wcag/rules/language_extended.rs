@@ -29,7 +29,7 @@ pub const RULE_VALID_LANG: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The lang attribute must contain a valid BCP 47 primary language subtag",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     axe_id: "valid-lang",
     tags: &["wcag2a", "wcag311", "cat.language"],
 };
@@ -40,7 +40,7 @@ pub const RULE_LANG_MISMATCH: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "lang and xml:lang attributes must specify the same language",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     axe_id: "html-xml-lang-mismatch",
     tags: &["wcag2a", "wcag311", "cat.language"],
 };

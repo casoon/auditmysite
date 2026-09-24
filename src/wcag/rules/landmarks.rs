@@ -27,7 +27,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Pages should use landmark regions to help users navigate content",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
     axe_id: "landmark-one-main",
     tags: &["wcag2a", "wcag241", "cat.semantics"],
 };
@@ -37,7 +37,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
 const STRUCTURE_CRITERION: &str = "1.3.1";
 const STRUCTURE_NAME: &str = "Landmark Regions";
 const STRUCTURE_HELP_URL: &str =
-    "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html";
+    "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html";
 
 /// Check landmark structure across the accessibility tree
 ///

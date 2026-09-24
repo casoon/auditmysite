@@ -1,6 +1,7 @@
 {
   "case": "duplicate_id",
   "expectations": [
-    { "rule_id": "ids/duplicate", "verdict": "violation" }
+    { "rule_id": "ids/duplicate", "selector": "input#email", "verdict": "violation" },
+    { "rule_id": "ids/duplicate", "selector": "div#content-block", "verdict": "pass" }
   ]
 }

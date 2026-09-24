@@ -14,7 +14,7 @@ pub const TARGET_SIZE_ENHANCED_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Interactive targets are at least 44×44 CSS pixels",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/target-size.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html",
     axe_id: "target-size",
     tags: &["wcag2aaa", "wcag255", "cat.sensory-and-visual-cues"],
 };

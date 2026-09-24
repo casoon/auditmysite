@@ -31,7 +31,7 @@ pub const FOCUS_VISIBLE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Any keyboard operable user interface has a visible focus indicator",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
     axe_id: "focus-visible",
     tags: &["wcag2aa", "wcag247", "cat.keyboard"],
 };

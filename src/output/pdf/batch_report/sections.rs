@@ -961,13 +961,14 @@ pub(super) fn render_batch_consistency(
                 (_, true) => "Manual review",
                 (_, false) => "Manuell prüfen",
             };
-            let basis = if en {
+            let basis = if assessment.criterion.starts_with("3.2.6") {
+                crate::audit::batch_consistency::consistent_help_basis(&consistency.help, en)
+            } else if en {
                 assessment.basis.clone()
             } else {
                 match assessment.criterion.as_str() {
                     value if value.starts_with("3.2.3") => "Hauptnavigation und Skip-Link-Vorkommen wurden über alle geprüften Seiten verglichen.",
                     value if value.starts_with("3.2.4") => "Gleichartige Bedienelemente benötigen einen seitenübergreifenden Vergleich ihrer zugänglichen Namen; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage.",
-                    value if value.starts_with("3.2.6") => "Hilfemechanismen und ihre relative Reihenfolge benötigen Bedienelement-Evidenz über mehrere Seiten.",
                     _ => "Eingehende Links im geprüften Seitenset wurden ausgewertet; Suche, Sitemap und Ausnahmen für Prozessschritte müssen manuell bestätigt werden.",
                 }.to_string()
             };
@@ -978,6 +979,44 @@ pub(super) fn render_batch_consistency(
             ]);
         }
         builder = builder.add_component(table);
+    }
+
+    if !consistency.help.deviations.is_empty() {
+        // Batch reports stay aggregated: the first rows illustrate the
+        // pattern, the full list is in the JSON.
+        const MAX_ROWS: usize = 10;
+        let deviations = &consistency.help.deviations;
+        let mut rows: Vec<ChecklistRow> = deviations
+            .iter()
+            .take(MAX_ROWS)
+            .map(|d| {
+                ChecklistRow::new(
+                    crate::audit::batch_consistency::help_deviation_text(d, en),
+                    d.url(),
+                )
+                .with_status("warn")
+            })
+            .collect();
+        if deviations.len() > MAX_ROWS {
+            let rest = deviations.len() - MAX_ROWS;
+            rows.push(ChecklistRow::new(
+                if en {
+                    format!("{rest} further deviations")
+                } else {
+                    format!("{rest} weitere Abweichungen")
+                },
+                if en {
+                    "see JSON report"
+                } else {
+                    "siehe JSON-Report"
+                },
+            ));
+        }
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Consistent help (WCAG 3.2.6): deviations"
+        } else {
+            "Konsistente Hilfe (WCAG 3.2.6): Abweichungen"
+        }));
     }
 
     if !consistency.orphan_pages.orphan_urls.is_empty() {

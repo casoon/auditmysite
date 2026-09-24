@@ -25,7 +25,7 @@ fn create_test_report() -> AuditReport {
     )
     .with_role(Some("image".to_string()))
     .with_fix("Add alt attribute to the image")
-    .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/non-text-content");
+    .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content");
 
     wcag_results.violations.push(violation);
     wcag_results.passes = 42;
@@ -86,6 +86,9 @@ fn test_json_report_generation() {
     assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
+    // Plan 54 §4: reports scoped to WCAG 2.2 say so; older ones lack the field.
+    assert_eq!(parsed["summary"]["wcag_coverage"]["wcag_version"], "2.2");
+    assert_eq!(parsed["summary"]["wcag_coverage"]["level"], "WCAG 2.2 AA");
     assert!(
         parsed["summary"]["wcag_coverage"]["automated_criteria"]
             .as_u64()

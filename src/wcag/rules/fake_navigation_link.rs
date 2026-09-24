@@ -22,7 +22,7 @@ pub const FAKE_NAVIGATION_LINK_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Low,
     description:
         "A link with no real navigation target must not be used as a substitute for a button",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "link-as-button",
     tags: &["wcag2a", "wcag412", "cat.aria", "best-practice"],
 };
