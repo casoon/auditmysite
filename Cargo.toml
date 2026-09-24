@@ -97,6 +97,7 @@ hickory-resolver = "0.26.1"
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.10"
 a11y-report = "0.10.0"
+web-checks = "0.1.0"
 accname = "0.10.0"
 a11y-dom = "0.10.0"
 a11y-rules = "0.10.0"
