@@ -3,14 +3,13 @@
 pub mod analyzer;
 pub mod announcer;
 pub mod bfsg;
-pub mod linearizer;
 pub mod navigator;
 pub mod types;
 
+pub use a11y_perception::{linearize, linearize_with_ignored};
 pub use analyzer::{analyze_reading_sequence, name_quality_score};
 pub use announcer::{announce, announce_localized};
 pub use bfsg::{map_to_bfsg, wcag_21_aa_criteria, BfsgMapping};
-pub use linearizer::{linearize, linearize_with_ignored};
 pub use navigator::{navigation_views, NavigationViews};
 pub use types::{
     AnnouncedReadingItem, BfsgCompliance, BfsgVerdict, BfsgViolation, IgnoredReadingNode,
