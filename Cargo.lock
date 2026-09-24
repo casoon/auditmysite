@@ -379,6 +379,7 @@ dependencies = [
  "tracing-subscriber",
  "unic-langid",
  "url",
+ "web-checks",
  "zip 2.4.2",
 ]
 
@@ -7003,6 +7004,15 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap 2.14.0",
  "semver",
+]
+
+[[package]]
+name = "web-checks"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c51e735c1ff6469aae8b1130f8bdecdee29d15592da082d577481c348036a6c"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
