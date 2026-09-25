@@ -120,3 +120,62 @@ fn test_release_and_pre_push_use_shared_version_check() {
         "shared version check must fail clearly on mismatched versions"
     );
 }
+
+/// Body of a top-level job in a workflow file: from `  <name>:` up to the
+/// next top-level job (or the end of the file).
+fn workflow_job_body<'a>(workflow: &'a str, job: &str) -> &'a str {
+    let header = format!("\n  {job}:\n");
+    let start = workflow
+        .find(&header)
+        .unwrap_or_else(|| panic!("workflow must have a top-level `{job}:` job"))
+        + header.len();
+    let rest = &workflow[start..];
+    let end = rest
+        .match_indices("\n  ")
+        .find(|(i, _)| {
+            let line = &rest[i + 3..];
+            !line.starts_with(' ') && !line.starts_with('#')
+        })
+        .map_or(rest.len(), |(i, _)| i);
+    &rest[..end]
+}
+
+/// The job-level `if:` condition, if the job has one.
+fn job_condition(job_body: &str) -> Option<&str> {
+    job_body
+        .lines()
+        .find_map(|line| line.strip_prefix("    if:"))
+        .map(str::trim)
+}
+
+#[test]
+fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
+    // plan/30-release-browser-gate-for-tag-sha.md: release.yml calls ci.yml
+    // as its quality gate, so every CI job that can skip itself can also skip
+    // the release gate. In a called workflow the `github` context is the
+    // caller's (`event_name == 'push'`, `ref == 'refs/tags/v*'`), so a guard
+    // on `event_name` does not tell the release call apart — the only safe
+    // contract for `browser-smoke` is to have no job-level condition at all.
+    let ci_yml = read_repo_file(".github/workflows/ci.yml");
+
+    let browser_smoke = workflow_job_body(&ci_yml, "browser-smoke");
+    assert!(
+        browser_smoke.contains("--test integration_test")
+            && browser_smoke.contains("--test detection_corpus_test"),
+        "`browser-smoke` must run the Chrome integration and detection-corpus tests"
+    );
+    assert_eq!(
+        job_condition(browser_smoke),
+        None,
+        "`browser-smoke` must not carry a job-level `if:` — it would be able to \
+         skip the browser tests for the tagged release commit"
+    );
+
+    // Coverage is a measurement, not a release gate: skipped on tag refs.
+    let coverage = workflow_job_body(&ci_yml, "coverage");
+    assert!(
+        job_condition(coverage)
+            .is_some_and(|c| c.contains("!startsWith(github.ref, 'refs/tags/')")),
+        "`coverage` must be skipped when ci.yml runs for a release tag"
+    );
+}

@@ -5,6 +5,22 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Browser-Tests laufen im Release-Tor fuer den getaggten Commit, 2026-09-25 (Plan 30):**
+  `release.yml` ruft `ci.yml` als wiederverwendbaren Workflow auf und baut erst, wenn dieser
+  gruen ist. Der Kommentar in `ci.yml` behauptete, `browser-smoke` und `coverage` liefen dabei
+  nicht mit, weil ihr `if:` nur `push`/`pull_request` zulaesst. Das stimmte nicht: In einem
+  aufgerufenen Workflow gehoert der `github`-Kontext dem Aufrufer, `event_name` ist also das
+  `push` des Tags, nie `workflow_call`. Beide Jobs liefen im Release-Aufruf mit, nur aus Zufall,
+  und eine auf `workflow_call` gezielte Bedingung haette nichts unterschieden.
+
+  Jetzt steht es ausdruecklich da: `browser-smoke` hat keine Job-Bedingung mehr und laeuft bei
+  jedem Aufruf, also auch fuer den getaggten SHA. `coverage` ist eine Messung und kein Tor und
+  wird ueber `!startsWith(github.ref, 'refs/tags/')` fuer Tags uebersprungen. Die Kommentare in
+  `ci.yml` und `release.yml` beschreiben das tatsaechliche Verhalten. Ein Contract-Test in
+  `tests/release_contract_tests.rs` prueft beides. Gegenprobe: Mit der alten Bedingung an
+  `browser-smoke` oder ohne die Tag-Bedingung an `coverage` schlaegt er fehl. Einen echten
+  Tag-Lauf gab es dafuer noch nicht, er steht beim naechsten Release aus.
+
 - **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
   eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit
   deren Nightly, deren Ressourcengrenzen und auf dem, was `cargo package` veroeffentlichen wuerde.

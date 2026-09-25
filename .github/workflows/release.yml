@@ -21,11 +21,14 @@ jobs:
       - name: Compare tag with package version
         run: ./scripts/check-version-match.sh
 
-  # Runs the full CI job set (fmt, clippy, tests without and with PDF,
-  # dependency-audit, ...) against this exact tagged commit before any
-  # artifact is built (plan/25-release-workflow-quality-gate.md) — a `v*`
-  # tag pushed straight from a branch that never went through CI must not
-  # be able to produce a release.
+  # Runs the CI job set (fmt, clippy, tests without and with PDF,
+  # dependency-audit, browser integration and detection-corpus tests, ...)
+  # against this exact tagged commit before any artifact is built
+  # (plan/25-release-workflow-quality-gate.md,
+  # plan/30-release-browser-gate-for-tag-sha.md) — a `v*` tag pushed
+  # straight from a branch that never went through CI must not be able to
+  # produce a release. Only `coverage` is skipped for tags; it is a
+  # measurement, not a gate.
   quality-gates:
     name: Quality Gates (full CI)
     uses: ./.github/workflows/ci.yml
