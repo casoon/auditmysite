@@ -38,7 +38,7 @@ use std::time::Instant;
 
 use chromiumoxide::Page;
 
-use crate::accessibility::{AXSnapshot, AXTreeDiff};
+use crate::accessibility::{AXSnapshot, AXTree, AXTreeDiff, AXValue};
 use crate::audit::normalized::{
     InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
 };
@@ -120,20 +120,92 @@ fn outcome(
     }
 }
 
+/// Der Bereich, den der Auslöser steuert, als Backend-ID.
+///
+/// `aria-controls` (im Baum die Beziehung `controls`), sonst beim `<summary>`
+/// — Rolle `DisclosureTriangle` — das umgebende `<details>`. Mehr gibt der
+/// Baum nicht verlässlich her; ohne Bereich bleibt die Inhaltsaussage
+/// seitenweit, und ein nachgeladenes Bild am Seitenende zählt mit.
+fn controlled_region(snapshot: &AXSnapshot, trigger: i64) -> Option<i64> {
+    let node = snapshot.tree.node_by_backend_id(trigger)?;
+    let controls = node
+        .properties
+        .iter()
+        .find_map(|p| match (&p.name[..], &p.value) {
+            ("controls", AXValue::Node { related_nodes }) => {
+                related_nodes.iter().find_map(|r| r.backend_dom_node_id)
+            }
+            _ => None,
+        });
+    if controls.is_some() {
+        return controls;
+    }
+    if node.role.as_deref() == Some("DisclosureTriangle") {
+        let parent = node.parent_id.as_deref()?;
+        return snapshot.tree.get_node(parent)?.backend_dom_node_id;
+    }
+    None
+}
+
+/// Ob der Knoten `node_id` in `tree` unterhalb des Bereichs `region` liegt
+/// (oder der Bereich selbst ist). Über die Elternkette der Knoten-IDs, damit
+/// auch Knoten ohne eigene Backend-ID — Text, Pseudo-Inhalt — zählen.
+fn within_region(tree: &AXTree, node_id: &str, region: i64) -> bool {
+    let mut current = tree.get_node(node_id);
+    // Die Kette kommt aus einem fremden Prozess; begrenzt, falls sie im Kreis zeigt.
+    for _ in 0..1024 {
+        let Some(node) = current else {
+            return false;
+        };
+        if node.backend_dom_node_id == Some(region) {
+            return true;
+        }
+        current = node.parent_id.as_deref().and_then(|id| tree.get_node(id));
+    }
+    false
+}
+
+/// Ob Inhalt wahrnehmbar geworden (`want` = aufklappen) bzw. verschwunden ist
+/// — im gesteuerten Bereich, falls bekannt, sonst seitenweit.
+fn content_changed(
+    diff: &AXTreeDiff,
+    before: &AXSnapshot,
+    after: &AXSnapshot,
+    region: Option<i64>,
+    want: bool,
+) -> bool {
+    match (region, want) {
+        (None, true) => diff.has_additions(),
+        (None, false) => diff.has_removals(),
+        // `added` trägt Kennungen aus dem späteren, `removed` aus dem früheren Baum.
+        (Some(r), true) => diff
+            .added
+            .iter()
+            .any(|id| within_region(&after.tree, id, r)),
+        (Some(r), false) => diff
+            .removed
+            .iter()
+            .any(|id| within_region(&before.tree, id, r)),
+    }
+}
+
 /// `want` ist der erwartete neue Zustand: `true` beim Aufklappen,
 /// `false` beim Zuklappen.
-fn diff_verdict(diff: Option<&AXTreeDiff>, trigger: i64, want: bool) -> Verdict {
-    let Some(diff) = diff else {
+fn verdict_between(
+    before: Option<&AXSnapshot>,
+    after: Option<&AXSnapshot>,
+    trigger: i64,
+    region: Option<i64>,
+    want: bool,
+) -> Verdict {
+    let (Some(before), Some(after)) = (before, after) else {
         return Verdict::NotObservable;
     };
+    let diff = AXTreeDiff::between(before, after);
     let state = diff
         .property_change_for(trigger, "expanded")
         .map(|c| c.after == want.to_string());
-    let content = if want {
-        diff.has_additions()
-    } else {
-        diff.has_removals()
-    };
+    let content = content_changed(&diff, before, after, region, want);
 
     match (state, content) {
         (Some(true), true) => Verdict::StateAndContent,
@@ -277,6 +349,23 @@ pub async fn test(
         result: Some(start.as_str().to_string()),
         snapshot_label: Some("initial".to_string()),
     });
+    let region = before_snapshot
+        .as_ref()
+        .and_then(|s| controlled_region(s, trigger_id));
+    trace.steps.push(JourneyStep {
+        action: "controlled_region".to_string(),
+        target: region.map(|r| format!("backend_node:{r}")),
+        focus: None,
+        result: Some(
+            if region.is_some() {
+                "scoped"
+            } else {
+                "page_wide"
+            }
+            .to_string(),
+        ),
+        snapshot_label: Some("initial".to_string()),
+    });
 
     // Der Auslöser aus der Mustererkennung existiert nicht mehr. Ihn
     // trotzdem anzuklicken hieße, ein fremdes Element zu bewerten.
@@ -299,11 +388,13 @@ pub async fn test(
     let _ = stability::settle_after_action(page).await;
 
     let after_first = snapshot(page, "after_first_click", started).await;
-    let first_diff = match (&before_snapshot, &after_first) {
-        (Some(before), Some(after)) => Some(AXTreeDiff::between(before, after)),
-        _ => None,
-    };
-    let first = diff_verdict(first_diff.as_ref(), trigger_id, want_open);
+    let first = verdict_between(
+        before_snapshot.as_ref(),
+        after_first.as_ref(),
+        trigger_id,
+        region,
+        want_open,
+    );
 
     trace.steps.push(JourneyStep {
         action: if want_open {
@@ -347,11 +438,13 @@ pub async fn test(
     let _ = stability::settle_after_action(page).await;
 
     let after_second = snapshot(page, "after_second_click", started).await;
-    let second_diff = match (&after_first, &after_second) {
-        (Some(before), Some(after)) => Some(AXTreeDiff::between(before, after)),
-        _ => None,
-    };
-    let second = diff_verdict(second_diff.as_ref(), trigger_id, !want_open);
+    let second = verdict_between(
+        after_first.as_ref(),
+        after_second.as_ref(),
+        trigger_id,
+        region,
+        !want_open,
+    );
 
     trace.steps.push(JourneyStep {
         action: if want_open {
@@ -418,8 +511,7 @@ mod tests {
     }
 
     fn verdict(before: Vec<AXNode>, after: Vec<AXNode>, want: bool) -> Verdict {
-        let diff = AXTreeDiff::between(&snap(before), &snap(after));
-        diff_verdict(Some(&diff), 42, want)
+        verdict_between(Some(&snap(before)), Some(&snap(after)), 42, None, want)
     }
 
     #[test]
@@ -490,7 +582,10 @@ mod tests {
     /// Eine fehlgeschlagene Aufnahme ist kein Bestehen.
     #[test]
     fn fehlende_aufnahme_ist_nicht_beobachtbar() {
-        assert_eq!(diff_verdict(None, 42, true), Verdict::NotObservable);
+        assert_eq!(
+            verdict_between(None, None, 42, None, true),
+            Verdict::NotObservable
+        );
         assert_eq!(outcome(Verdict::NotObservable, true), (None, false));
     }
 
@@ -626,5 +721,98 @@ mod tests {
         );
         assert_eq!(f.items.len(), 1);
         assert_eq!(f.items[0].after_snapshot_label.as_deref(), Some("a"));
+    }
+
+    fn child(ax_id: &str, backend: i64, parent: &str) -> AXNode {
+        AXNode {
+            parent_id: Some(parent.to_string()),
+            role: Some("StaticText".to_string()),
+            ..node(ax_id, backend, None)
+        }
+    }
+
+    fn controls(mut trigger: AXNode, region: i64) -> AXNode {
+        trigger.properties.push(AXProperty {
+            name: "controls".to_string(),
+            value: AXValue::Node {
+                related_nodes: vec![crate::accessibility::RelatedNode {
+                    backend_dom_node_id: Some(region),
+                    idref: None,
+                    text: None,
+                }],
+            },
+        });
+        trigger
+    }
+
+    /// Mit bekanntem Bereich zählt nur, was darin erscheint. Vorher meldete ein
+    /// nachgeladenes Bild am Seitenende „Inhalt erschienen" — und machte aus
+    /// einem `StateOnly` („ausgeklappt" gehört, nichts zu lesen) ein Bestehen.
+    #[test]
+    fn inhalt_ausserhalb_des_gesteuerten_bereichs_zaehlt_nicht() {
+        let region = node("panel", 50, None);
+        let before = vec![controls(node("a", 42, Some(false)), 50), region.clone()];
+        let after_elsewhere = vec![
+            controls(node("a", 42, Some(true)), 50),
+            region.clone(),
+            node("footer-img", 77, None),
+        ];
+        let after_inside = vec![
+            controls(node("a", 42, Some(true)), 50),
+            region,
+            child("text", 51, "panel"),
+        ];
+        let b = snap(before);
+        assert_eq!(controlled_region(&b, 42), Some(50));
+        assert_eq!(
+            verdict_between(Some(&b), Some(&snap(after_elsewhere)), 42, Some(50), true),
+            Verdict::StateOnly
+        );
+        assert_eq!(
+            verdict_between(Some(&b), Some(&snap(after_inside)), 42, Some(50), true),
+            Verdict::StateAndContent
+        );
+    }
+
+    /// Beim Zuklappen zählt, was *im Bereich* verschwindet — gesucht im
+    /// früheren Baum, aus dem die Kennungen in `removed` stammen.
+    #[test]
+    fn zuklappen_prueft_verschwundenes_im_frueheren_baum() {
+        let region = node("panel", 50, None);
+        let before = vec![
+            controls(node("a", 42, Some(true)), 50),
+            region.clone(),
+            child("text", 51, "panel"),
+        ];
+        let after = vec![controls(node("a", 42, Some(false)), 50), region];
+        assert_eq!(
+            verdict_between(Some(&snap(before)), Some(&snap(after)), 42, Some(50), false),
+            Verdict::StateAndContent
+        );
+    }
+
+    /// `<summary>` trägt kein `aria-controls`; der Bereich ist das umgebende
+    /// `<details>`.
+    #[test]
+    fn summary_steuert_das_umgebende_details() {
+        let details = node("details", 60, None);
+        let summary = AXNode {
+            parent_id: Some("details".to_string()),
+            role: Some("DisclosureTriangle".to_string()),
+            ..node("summary", 42, Some(false))
+        };
+        assert_eq!(
+            controlled_region(&snap(vec![details, summary]), 42),
+            Some(60)
+        );
+    }
+
+    /// Ohne `aria-controls` und ohne `<details>` gibt es keinen Bereich.
+    #[test]
+    fn ohne_beziehung_bleibt_die_aussage_seitenweit() {
+        assert_eq!(
+            controlled_region(&snap(vec![node("a", 42, Some(false))]), 42),
+            None
+        );
     }
 }
