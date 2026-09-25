@@ -10,6 +10,22 @@ mod tests {
     use std::process::Command;
 
     #[test]
+    fn remove_file_if_exists_ignores_missing_file_but_reports_real_errors() {
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("never-created.png");
+        assert!(remove_file_if_exists(&missing).is_ok());
+
+        let file = directory.path().join("shot.png");
+        std::fs::write(&file, b"png").unwrap();
+        assert!(remove_file_if_exists(&file).is_ok());
+        assert!(!file.exists());
+
+        // `remove_file` on a directory fails on every platform, with a kind other than NotFound.
+        let error = remove_file_if_exists(directory.path()).unwrap_err();
+        assert_ne!(error.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
     fn test_truncate_url() {
         assert_eq!(
             truncate_url("https://example.com/very/long/path/that/exceeds/limit", 30),
