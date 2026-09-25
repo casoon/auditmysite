@@ -38,11 +38,19 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
     id.split('.').filter_map(|p| p.parse().ok()).collect()
 }
 
+/// Criteria that have a rule in the catalog, but whose rule can only emit
+/// review hints or an `untested` entry — never a violation. A criterion the
+/// tool cannot fail is not automatically checked, so these are excluded from
+/// `automated_criteria()` and listed as manual review instead.
+const HINT_ONLY_CRITERIA: &[&str] = &[
+    "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.3.7",
+];
+
 /// WCAG criteria with at least one automated rule in this tool, derived from
 /// the rule catalog's own `external_ref`/`external_level` (#QA-038) instead
 /// of a hand-maintained duplicate list — that list had drifted from the real
-/// catalog (under-counting by ~20 criteria) and mislabeled several
-/// implemented criteria (e.g. 2.5.1/2.5.2/2.5.4) as manual-review-only.
+/// catalog (under-counting by ~20 criteria). Criteria in
+/// `HINT_ONLY_CRITERIA` are left out: their rules cannot report a violation.
 pub fn automated_criteria() -> &'static [(&'static str, &'static str)] {
     static CACHE: OnceLock<Vec<(&'static str, &'static str)>> = OnceLock::new();
     CACHE.get_or_init(|| {
@@ -54,6 +62,9 @@ pub fn automated_criteria() -> &'static [(&'static str, &'static str)] {
             let Some(id) = ext_ref.strip_prefix("WCAG ") else {
                 continue;
             };
+            if HINT_ONLY_CRITERIA.contains(&id) {
+                continue;
+            }
             if !out.iter().any(|(existing, _)| *existing == id) {
                 out.push((id, level));
             }
@@ -65,19 +76,21 @@ pub fn automated_criteria() -> &'static [(&'static str, &'static str)] {
 
 /// Candidate WCAG criteria that fundamentally require behavioral / manual
 /// review. Filtered against `automated_criteria()` at read time (see
-/// `manual_review_criteria`) so a criterion that gains automated coverage —
-/// or turns out to already have it, as 2.5.1/2.5.2/2.5.4 did — can't stay
-/// stuck here through a forgotten manual edit.
+/// `manual_review_criteria`) so a criterion that gains automated coverage
+/// can't stay stuck here through a forgotten manual edit.
 const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     ("1.2.1", "A", "Audio-only and Video-only (Prerecorded)"),
     ("1.2.2", "A", "Captions (Prerecorded)"),
     ("1.2.3", "A", "Audio Description or Media Alternative"),
     ("1.2.5", "AA", "Audio Description (Prerecorded)"),
+    ("1.3.2", "A", "Meaningful Sequence"),
     ("1.4.2", "A", "Audio Control"),
     ("1.4.5", "AA", "Images of Text"),
+    ("2.1.2", "A", "No Keyboard Trap"),
     ("2.1.4", "A", "Character Key Shortcuts"),
     ("2.2.2", "A", "Pause, Stop, Hide"),
     ("2.3.1", "A", "Three Flashes or Below Threshold"),
+    ("2.4.11", "AA", "Focus Not Obscured (Minimum)"),
     ("2.5.1", "A", "Pointer Gestures"),
     ("2.5.2", "A", "Pointer Cancellation"),
     ("2.5.4", "A", "Motion Actuation"),
@@ -92,6 +105,7 @@ const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     ("3.2.6", "A", "Consistent Help"),
     ("3.3.3", "AA", "Error Suggestion"),
     ("3.3.4", "AA", "Error Prevention (Legal, Financial, Data)"),
+    ("3.3.7", "A", "Redundant Entry"),
 ];
 
 /// WCAG criteria that fundamentally require behavioral / manual review and
@@ -203,6 +217,30 @@ mod tests {
             !automated_criteria().iter().any(|(id, _)| *id == "4.1.1"),
             "WCAG 4.1.1 was removed in WCAG 2.2 and must not be reported as checked"
         );
+    }
+
+    /// A hint-only criterion must still have a catalog rule (otherwise the
+    /// entry is stale) and must land in the manual-review list, not in the
+    /// uncounted remainder.
+    #[test]
+    fn hint_only_criteria_are_catalogued_and_listed_for_manual_review() {
+        for id in HINT_ONLY_CRITERIA {
+            let wcag_ref = format!("WCAG {id}");
+            assert!(
+                RULES
+                    .iter()
+                    .any(|r| r.external_ref == Some(wcag_ref.as_str())),
+                "hint-only criterion {id} has no rule in the catalog"
+            );
+            assert!(
+                !automated_criteria().iter().any(|(aid, _)| aid == id),
+                "hint-only criterion {id} must not count as automated"
+            );
+            assert!(
+                manual_review_criteria().iter().any(|(mid, _, _)| mid == id),
+                "hint-only criterion {id} must be listed for manual review"
+            );
+        }
     }
 
     #[test]
