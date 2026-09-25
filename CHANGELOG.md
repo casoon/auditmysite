@@ -5,22 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
-- **Best-effort cleanup failures are no longer invisible, 2026-09-25:** `cargo judge errors`
-  flagged six production call sites in four files that discarded an I/O result outright. None of
-  them may fail the audit, but two can leave files behind without a trace. Removing the downloaded
-  browser archive after extraction and removing the `.partial` file after a failed atomic write
-  now log a `warn!` with the path; the install result and the original write error are returned
-  unchanged. The flush of the "Checking for sitemap..." status line logs at debug level, and only
-  when stdout is a terminal — piped or closed output is a valid environment, not a fault. PDF
-  screenshot and evidence-crop cleanup goes through one helper, `remove_temp_file`, which treats
-  `NotFound` as success (most evidence slots are never written) and reports any other failure at
-  debug level, so a normal run stays quiet.
+- **Best-Effort-Aufraeumfehler nicht mehr unsichtbar, 2026-09-25 (Plan 31):** `cargo judge errors`
+  meldete sechs Produktionsstellen in vier Dateien, die ein I/O-Ergebnis kommentarlos verwarfen.
+  Keine davon darf den Audit abbrechen, aber zwei koennen unbemerkt Dateien liegen lassen. Das
+  Loeschen des heruntergeladenen Browser-Archivs nach dem Entpacken und das Loeschen der
+  `.partial`-Datei nach einem fehlgeschlagenen atomaren Schreiben protokollieren jetzt ein `warn!`
+  mit Pfad; Installationsergebnis und urspruenglicher Schreibfehler bleiben unveraendert. Der Flush
+  der Statuszeile „Checking for sitemap..." protokolliert auf Debug-Level, und nur wenn stdout ein
+  Terminal ist — eine Pipe oder geschlossene Ausgabe ist eine gueltige Umgebung, kein Fehler. Das
+  Aufraeumen von PDF-Screenshots und Evidence-Ausschnitten laeuft ueber einen Helper,
+  `remove_temp_file`, der `NotFound` als Erfolg wertet (die meisten Evidence-Plaetze werden nie
+  geschrieben) und andere Fehler auf Debug-Level meldet, damit ein normaler Lauf still bleibt.
 
-  Verified with a unit test for the helper (missing file is silent; `remove_file` on a directory
-  yields a non-`NotFound` error), the existing atomic-write test, clippy for both feature sets,
-  `cargo fmt --check` and `cargo test --no-default-features`. `cargo judge errors` drops from 17 to
-  11 `swallowed-result` findings; the rest are test-only and were left alone on purpose, as were
-  intentionally lossy parse conversions.
+  Geprueft mit einem Unit-Test fuer den Helper (fehlende Datei bleibt still; `remove_file` auf ein
+  Verzeichnis liefert einen Fehler, der nicht `NotFound` ist), dem bestehenden Atomic-Write-Test,
+  clippy fuer beide Feature-Sets, `cargo fmt --check` und `cargo test --no-default-features`.
+  `cargo judge errors` sinkt von 17 auf 11 `swallowed-result`-Funde; der Rest liegt in Tests und
+  bleibt bewusst stehen, ebenso absichtlich verlustbehaftete Parse-Konvertierungen.
 
 - **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
   eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit
