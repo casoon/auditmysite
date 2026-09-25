@@ -15,7 +15,7 @@ pub const LABEL_IN_NAME_PAGE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The accessible name of a button contains its visible label text",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html",
     axe_id: "label-content-name-mismatch",
     tags: &["wcag2a", "wcag253", "cat.semantics"],
 };

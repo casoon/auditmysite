@@ -25,7 +25,7 @@ pub const RULE_COMMAND_NAME: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description:
         "Interactive command elements (link, button, menuitem) must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-command-name",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
@@ -36,7 +36,7 @@ pub const RULE_INPUT_FIELD_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Input-type roles must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-input-field-name",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
@@ -47,7 +47,7 @@ pub const RULE_METER_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Elements with role=meter must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "aria-meter-name",
     tags: &["wcag2a", "wcag111", "cat.aria"],
 };
@@ -58,7 +58,7 @@ pub const RULE_PROGRESSBAR_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Elements with role=progressbar must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "aria-progressbar-name",
     tags: &["wcag2a", "wcag111", "cat.aria"],
 };
@@ -69,7 +69,7 @@ pub const RULE_TOGGLE_FIELD_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Toggle elements (checkbox, radio, switch, menu…) must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-toggle-field-name",
     tags: &["wcag2a", "wcag412", "cat.forms"],
 };
@@ -80,7 +80,7 @@ pub const RULE_DIALOG_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Elements with role=dialog or alertdialog must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-dialog-name",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
@@ -91,7 +91,7 @@ pub const RULE_TREEITEM_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Elements with role=treeitem must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-treeitem-name",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };

@@ -14,7 +14,7 @@ pub const NO_TIMING_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Timing is not essential for content unless it is synchronized media or real-time",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/no-timing.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/no-timing.html",
     axe_id: "no-timing",
     tags: &["wcag2aaa", "wcag223", "cat.time-and-media"],
 };

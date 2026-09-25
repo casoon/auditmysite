@@ -20,7 +20,7 @@ pub const ORIENTATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Content must not be restricted to a single display orientation",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/orientation.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
     axe_id: "css-orientation-lock",
     tags: &["wcag2aa", "wcag134", "cat.sensory-and-visual-cues"],
 };

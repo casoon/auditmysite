@@ -23,7 +23,7 @@ pub const ON_FOCUS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Receiving focus does not initiate a change of context",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/on-focus.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-focus.html",
     axe_id: "focus-no-context-change",
     tags: &["wcag2a", "wcag321", "cat.keyboard"],
 };

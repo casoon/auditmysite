@@ -135,6 +135,8 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.form_labels.missing", Forms),
     ("a11y.help.missing", Forms),
     ("a11y.redundant_entry.missing_reuse", Forms),
+    ("a11y.accessible_auth.paste_blocked", Forms),
+    ("a11y.accessible_auth.captcha_review", Forms),
     ("a11y.combobox_options.missing", Forms),
     ("a11y.input_field_name.missing", Forms),
     ("a11y.toggle_field_name.missing", Forms),

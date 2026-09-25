@@ -35,7 +35,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "SVG images must have meaningful accessible names; decorative SVGs must be hidden from assistive technology",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "svg-img-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };

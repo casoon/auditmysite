@@ -12,7 +12,7 @@ pub const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Modern interaction attributes such as popover and inert must expose valid targets, names, and states",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "modern-attribute-misuse",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };

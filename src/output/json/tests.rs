@@ -380,6 +380,8 @@ fn test_batch_envelope_shape() {
         "canonical",
         "orphan_pages",
         "schema_graph",
+        "help",
+        "wcag_cross_page",
     ] {
         assert!(consistency.get(key).is_some(), "missing consistency.{key}");
     }
@@ -641,6 +643,7 @@ fn all_active_modules_report() -> AuditReport {
         recognized: vec![],
         violations: vec![],
         journey_candidates: vec![],
+        help_mechanisms: vec![],
     })
     .with_design_quality(crate::design_quality::DesignQualityAnalysis {
         findings: vec![crate::design_quality::DesignQualityFinding {

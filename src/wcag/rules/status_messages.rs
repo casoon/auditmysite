@@ -23,7 +23,7 @@ pub const STATUS_MESSAGES_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Status messages must be programmatically determinable without receiving focus",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/status-messages.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html",
     axe_id: "aria-live-region-role",
     tags: &["wcag2aa", "wcag413", "cat.aria"],
 };

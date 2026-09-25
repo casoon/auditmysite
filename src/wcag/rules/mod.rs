@@ -3,6 +3,7 @@
 //! Contains individual WCAG rule implementations.
 
 mod abbreviations;
+mod accessible_authentication;
 mod accessible_name;
 mod aria_allowed_attr;
 mod aria_hidden_focus;
@@ -87,6 +88,7 @@ mod visual_presentation;
 mod widget_rules;
 
 pub use abbreviations::check_abbreviations_with_page;
+pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
 pub use aria_allowed_attr::check_aria_allowed_attr_with_page;
 pub use aria_hidden_focus::check_aria_hidden_focus;

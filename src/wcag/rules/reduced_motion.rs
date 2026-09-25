@@ -19,7 +19,7 @@ pub const REDUCED_MOTION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Pages with animation should honor prefers-reduced-motion",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/animation-from-interactions.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
     axe_id: "prefers-reduced-motion",
     tags: &[
         "wcag2aaa",

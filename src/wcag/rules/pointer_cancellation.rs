@@ -14,7 +14,7 @@ pub const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Actions are not triggered on the down-event unless essential",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html",
     axe_id: "pointer-cancellation",
     tags: &["wcag2a", "wcag252", "cat.sensory-and-visual-cues"],
 };

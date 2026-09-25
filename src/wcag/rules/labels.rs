@@ -15,7 +15,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description:
         "For all user interface components, the name and role can be programmatically determined",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     // Deliberately not "label": that axe_id is already used by
     // `instructions.rs`/`form_rules.rs`'s WCAG 3.3.2 label/instructions
     // family. Both used to share the literal string "label", which is
@@ -167,7 +167,7 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
             .with_name(node.name.clone())
             .with_fix("Use descriptive link text that explains the destination")
             .with_help_url(
-                "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
+                "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
             );
 
             results.add_violation(violation);

@@ -15,7 +15,7 @@ pub const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text or context",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
     axe_id: "link-name",
     tags: &["wcag2a", "wcag244", "cat.links"],
 };
@@ -33,7 +33,7 @@ pub const LINK_PURPOSE_CONTEXT_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text or context",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
     axe_id: "link-name-context",
     tags: &["wcag2a", "wcag244", "cat.links"],
 };

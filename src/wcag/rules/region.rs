@@ -13,7 +13,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "All page content should be contained within landmark regions",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "region",
     tags: &["wcag2a", "wcag131", "cat.aria", "best-practice"],
 };

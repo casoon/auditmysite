@@ -31,7 +31,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Critical,
     description: "Roles that require specific ARIA attributes must have them present",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-required-attr",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };

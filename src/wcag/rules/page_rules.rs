@@ -25,7 +25,8 @@ use crate::cli::WcagLevel;
 use crate::wcag::Violation;
 
 use super::{
-    check_abbreviations_with_page, check_aria_allowed_attr_with_page, check_aria_hidden_focus,
+    check_abbreviations_with_page, check_accessible_authentication_with_page,
+    check_aria_allowed_attr_with_page, check_aria_hidden_focus,
     check_aria_prohibited_attr_with_page, check_aria_relationships_with_page,
     check_aria_valid_attr_value_with_page, check_background_audio_with_page,
     check_checked_state_with_page, check_content_on_hover_with_page,
@@ -138,6 +139,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "redundant-entry",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_redundant_entry_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "3.3.8/accessible-authentication",
+        name: "accessible-authentication",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_accessible_authentication_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.3.1/presentation-semantic-children",
@@ -501,7 +508,8 @@ mod tests {
         //   unter 200 % von der Begrenzung zwischen 200 und 500 %, womit die
         //   Regel als zoom/viewport-scale-limited in den geteilten Bestand
         //   wandert = 46.
-        assert_eq!(count, 46);
+        // + accessible-authentication (3.3.8, WCAG 2.2 AA, plan 54 §3) = 47.
+        assert_eq!(count, 47);
     }
 
     #[test]

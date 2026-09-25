@@ -333,6 +333,9 @@ fn artifacts_for(normalized: &NormalizedReport) -> Vec<ArtifactDescriptor> {
 
 #[derive(Debug, Serialize)]
 pub struct WcagCoverageSummary {
+    /// WCAG version the ratio is scoped to ("2.2"). Absent in reports from
+    /// before plan 54, which were scoped to WCAG 2.1.
+    pub wcag_version: &'static str,
     pub level: String,
     pub automated_criteria: usize,
     pub manual_review_criteria: usize,
@@ -825,6 +828,8 @@ fn build_site_analysis(
             "schema_graph": {
                 "conflicts": value.schema_graph.conflicts,
             },
+            "help": value.help,
+            "wcag_cross_page": value.wcag_cross_page,
         })
     });
     let interactive = presentation.interactive_summary.as_ref().map(|value| {

@@ -1,4 +1,4 @@
-//! AuditMySite - Resource-efficient WCAG 2.1 AA (+ select 2.2 criteria) Accessibility Checker
+//! AuditMySite - Resource-efficient WCAG 2.2 AA Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -8,9 +8,9 @@
 //!
 //! - **Fast**: Rust performance with async processing
 //! - **Accurate**: Uses browser's native Accessibility Tree
-//! - **Focused**: automates 36 of the 50 WCAG 2.1 A/AA criteria (see
-//!   `docs/PARITY_CONTRACT.jsonc`), plus select WCAG 2.2 and a few AAA
-//!   criteria; AAA coverage is not comprehensive
+//! - **Focused**: automates a documented subset of the 55 WCAG 2.2 A/AA
+//!   criteria (see `docs/PARITY_CONTRACT.jsonc`), plus a few AAA criteria;
+//!   AAA coverage is not comprehensive
 //! - **Flexible**: CLI, library, and API interfaces
 //!
 //! ## Quick Start
