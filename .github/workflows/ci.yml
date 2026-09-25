@@ -8,17 +8,24 @@ on:
   # Lets release.yml gate a release build on this exact workflow passing for
   # the tagged commit's own SHA (plan/25-release-workflow-quality-gate.md) —
   # a `uses: ./.github/workflows/ci.yml` call runs against the calling
-  # workflow's checkout, not a separate lookup by branch name. The
-  # `browser-smoke`/`coverage` jobs' own `if: github.event_name == 'push' ||
-  # ... == 'pull_request'` guards mean they don't re-run for a
-  # `workflow_call` — those real-Chrome/coverage checks already ran when
-  # this commit was pushed to `main`, and are covered again locally by the
-  # pre-push hook's `scripts/release-check.sh` before a release tag is ever
-  # pushed; re-running them here would slow every release down for checks
-  # that already passed.
+  # workflow's checkout, not a separate lookup by branch name. In a called
+  # workflow the `github` context belongs to the caller, so `event_name` is
+  # the tag's `push` and `ref` is `refs/tags/v*` — never `workflow_call`.
+  # Every job runs for the release call, including `browser-smoke`: the
+  # real-Chrome and detection-corpus tests must pass for the tagged SHA
+  # itself, not only for some earlier push
+  # (plan/30-release-browser-gate-for-tag-sha.md). The one exception is
+  # `coverage`, which is a measurement rather than a release gate and is
+  # skipped on tag refs.
   workflow_call:
 
+# Every `Install Rust toolchain` step runs `rustup toolchain install` without
+# a toolchain argument, which installs the version, profile and components
+# pinned in rust-toolchain.toml (plan/28-toolchain-package-hygiene.md).
+# Incremental compilation stays off as it was under dtolnay/rust-toolchain:
+# CI builds from scratch and would only bloat the cached `target/`.
 env:
+  CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUST_BACKTRACE: 1
@@ -31,9 +38,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6
@@ -60,9 +65,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6
@@ -96,7 +99,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6
@@ -168,9 +171,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
+        run: rustup toolchain install --no-self-update
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -182,7 +183,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Install cargo-machete
         run: cargo install cargo-machete --locked
@@ -197,7 +198,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
@@ -215,7 +216,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6
@@ -232,11 +233,12 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6
@@ -268,12 +270,11 @@ jobs:
   browser-smoke:
     name: Browser Integration Tests (E2E)
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
         uses: actions/cache@v6

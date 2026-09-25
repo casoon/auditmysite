@@ -1,0 +1,6 @@
+# Pinned toolchain for local development, CI and release builds. Raised
+# deliberately; no MSRV promise for older compilers (see README).
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

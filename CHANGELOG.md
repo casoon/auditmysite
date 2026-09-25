@@ -5,6 +5,45 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Gepinnte Toolchain und ein schlankeres Crate-Paket, 2026-09-25 (Plan 28):** Lokal, CI und
+  Release bauten mit dem jeweils aktuellen `stable`. Jetzt pinnt `rust-toolchain.toml` Rust
+  **1.98.1** (die aktuelle Stable-Version, eine Punktversion ueber dem im Plan genannten 1.98.0)
+  mit `clippy` und `rustfmt`. Ein MSRV-Versprechen gibt es bewusst nicht, `Cargo.toml` bekommt
+  kein `rust-version`. Das README-Badge `rust-1.75+` behauptete eine nie gepruefte Untergrenze und
+  nennt jetzt die gepinnte Version.
+
+  `dtolnay/rust-toolchain` liest die Datei nicht. Es installiert, was im Ref oder im Pflicht-Input
+  `toolchain` steht, und setzt es per `rustup default`. Die Datei haette das zwar ueberstimmt, aber
+  `components`/`targets` waeren auf der falschen Toolchain gelandet, und die Version haette doppelt
+  gepflegt werden muessen. Die Workflows rufen deshalb `rustup toolchain install` ohne Argument
+  auf; das installiert Version, Profil und Komponenten aus der Datei. Der Release-Build ergaenzt
+  sein Matrix-Target per `rustup target add`. `CARGO_INCREMENTAL=0`, das die Action bisher
+  setzte, steht jetzt im `env` beider Workflows.
+
+  `Cargo.toml` hat eine `exclude`-Liste: `.claude/`, `.github/`, `.githooks/`, `docs/`,
+  `scripts/`, `tests/`, die beiden Zusatzdokumente und `rust-toolchain.toml`. Das Paket schrumpft
+  von 623 auf 386 Dateien. Die Muster sind mit `/` verankert, denn die Liste aus dem Plan haette
+  mit einem nackten `tests/` still auch `src/output/tests/` aus dem Paket entfernt. Jeder Pfad,
+  den `include_str!`/`include_bytes!` referenziert, ist im Paket; die einzige Ausnahme ist eine
+  Test-Fixture unter `#[cfg(test)]`. `cargo package --locked` laeuft ohne `--allow-dirty` durch,
+  und das Binary aus dem entpackten Paket installiert sich und antwortet auf `--help`. Den ersten
+  CI-Lauf mit der gepinnten Toolchain gab es noch nicht.
+
+- **Browser-Tests laufen im Release-Tor fuer den getaggten Commit, 2026-09-25 (Plan 30):**
+  `release.yml` ruft `ci.yml` als wiederverwendbaren Workflow auf und baut erst, wenn dieser
+  gruen ist. Der Kommentar in `ci.yml` behauptete, `browser-smoke` und `coverage` liefen dabei
+  nicht mit, weil ihr `if:` nur `push`/`pull_request` zulaesst. Das stimmte nicht: In einem
+  aufgerufenen Workflow gehoert der `github`-Kontext dem Aufrufer, `event_name` ist also das
+  `push` des Tags, nie `workflow_call`. Beide Jobs liefen im Release-Aufruf mit, nur aus Zufall,
+  und eine auf `workflow_call` gezielte Bedingung haette nichts unterschieden.
+
+  Jetzt steht es ausdruecklich da: `browser-smoke` hat keine Job-Bedingung mehr und laeuft bei
+  jedem Aufruf, also auch fuer den getaggten SHA. `coverage` ist eine Messung und kein Tor und
+  wird ueber `!startsWith(github.ref, 'refs/tags/')` fuer Tags uebersprungen. Die Kommentare in
+  `ci.yml` und `release.yml` beschreiben das tatsaechliche Verhalten. Ein Contract-Test in
+  `tests/release_contract_tests.rs` prueft beides. Gegenprobe: Mit der alten Bedingung an
+  `browser-smoke` oder ohne die Tag-Bedingung an `coverage` schlaegt er fehl. Einen echten
+  Tag-Lauf gab es dafuer noch nicht, er steht beim naechsten Release aus.
 - **Best-Effort-Aufraeumfehler nicht mehr unsichtbar, 2026-09-25 (Plan 31):** `cargo judge errors`
   meldete sechs Produktionsstellen in vier Dateien, die ein I/O-Ergebnis kommentarlos verwarfen.
   Keine davon darf den Audit abbrechen, aber zwei koennen unbemerkt Dateien liegen lassen. Das

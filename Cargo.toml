@@ -11,6 +11,21 @@ documentation = "https://auditmysite.casoon.dev/"
 keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
 categories = ["command-line-utilities", "web-programming"]
 readme = "README.md"
+# Dev, CI and agent tooling, tests and extra docs are not needed to build or
+# use the crate; everything `include_str!`/`include_bytes!` reads lives under
+# src/, assets/ and locales/ (plan/28-toolchain-package-hygiene.md). Patterns
+# are anchored with `/`: an unanchored `tests/` would also drop src/**/tests/.
+exclude = [
+    "/.claude/",
+    "/.github/",
+    "/.githooks/",
+    "/docs/",
+    "/scripts/",
+    "/tests/",
+    "/WCAG-MANUAL-CHECKS.md",
+    "/SCREEN-READER-AUDIT-LLM.md",
+    "/rust-toolchain.toml",
+]
 
 [package.metadata.docs.rs]
 # docs.rs otherwise builds with `default` only, leaving optional modules
