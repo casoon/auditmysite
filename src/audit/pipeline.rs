@@ -841,7 +841,13 @@ pub async fn audit_page(
     // ── Merge ─────────────────────────────────────────────────────────────────
     let mut merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
 
-    let desktop_acc = AccessibilityScorer::calculate_score(&desktop_wcag.violations);
+    // Page-level rules run once, on the mobile pass, but describe the page in
+    // both viewports. Scoring desktop without them compared the two viewports
+    // over different rule sets (plan 46), so they count in both scores.
+    let desktop_acc = AccessibilityScorer::calculate_score(&with_shared_page_rule_violations(
+        &desktop_wcag.violations,
+        &mobile_wcag.violations,
+    ));
     let mobile_acc = AccessibilityScorer::calculate_score(&mobile_wcag.violations);
 
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
@@ -1163,6 +1169,25 @@ fn compute_viewport_overall(
 }
 
 // ── WCAG deduplication ────────────────────────────────────────────────────────
+
+/// Rules that run only on the mobile pass but judge a viewport-independent
+/// property of the page: the HTML content model (raw markup) and reflow
+/// (measured at 320 CSS px regardless of the audited viewport).
+const SHARED_PAGE_RULE_IDS: [&str; 2] = [
+    wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
+    wcag::rules::REFLOW_RULE.axe_id,
+];
+
+/// Desktop violations plus the mobile pass's violations of the shared page
+/// rules, so both viewport scores are computed over the same rule set.
+fn with_shared_page_rule_violations(desktop: &[Violation], mobile: &[Violation]) -> Vec<Violation> {
+    let shared = mobile.iter().filter(|v| {
+        v.rule_id
+            .as_deref()
+            .is_some_and(|id| SHARED_PAGE_RULE_IDS.contains(&id))
+    });
+    desktop.iter().chain(shared).cloned().collect()
+}
 
 /// Merge violations from both passes.
 ///
@@ -2656,6 +2681,34 @@ journey_budget_ms = 1234
         assert_eq!(
             pipeline.journey_budget_ms,
             crate::a11y_journey::DEFAULT_BUDGET_MS
+        );
+    }
+
+    #[test]
+    fn desktop_score_input_includes_shared_page_rules_only() {
+        let v = |rule: &str, axe_id: &str| {
+            Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1")
+                .with_rule_id(axe_id)
+        };
+        let desktop = vec![v("1.1.1", "image-alt")];
+        let mobile = vec![
+            v("4.1.1", wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id),
+            v("1.4.10", wcag::rules::REFLOW_RULE.axe_id),
+            v("4.1.2", "button-name"),
+        ];
+
+        let ids: Vec<_> = with_shared_page_rule_violations(&desktop, &mobile)
+            .into_iter()
+            .filter_map(|v| v.rule_id)
+            .collect();
+
+        assert_eq!(
+            ids,
+            [
+                "image-alt",
+                wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
+                wcag::rules::REFLOW_RULE.axe_id,
+            ]
         );
     }
 

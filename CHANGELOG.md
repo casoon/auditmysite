@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Desktop- und Mobile-Score ueber dieselben Regeln, 2026-09-25 (Plan 46):** Plan 46 vermutete,
+  der zweite Viewport-Durchlauf bewege den Barrierefreiheits-Score nie. Gemessen an 35 oeffentlichen
+  Startseiten stimmt das nicht: bei **24 von 35** weichen Desktop und Mobile ab, teils stark
+  (berlin.de 74/26, kit.edu 46/26). Ein Wiederholungslauf ueber acht davon war auf sechs exakt
+  gleich — das Signal ist ueberwiegend echt: Seiten liefern je Breakpoint anderes Markup, und die
+  abweichenden Befunde kommen aus gewoehnlichen Strukturregeln (`interactive_name`, `alt_text`,
+  Landmarks, ARIA).
+
+  Ein Teil des Abstands war aber ein Artefakt: `html_content_model` und `reflow` laufen nur im
+  Mobile-Durchlauf und flossen nur in den Mobile-Score. Beide urteilen ueber eine
+  viewport-unabhaengige Eigenschaft der Seite (Roh-Markup; Umbruch bei 320 CSS-Pixeln). Der
+  Desktop-Score wird jetzt ueber die Desktop-Befunde plus die Befunde dieser beiden Regeln
+  berechnet; Ausfuehrungsvermerke und die Viewport-Kennzeichnung der Befunde bleiben unveraendert,
+  denn gelaufen sind die Regeln weiterhin nur mobil. Nachgemessen: wo `html_content_model` der
+  einzige Unterschied war, sind die Scores jetzt gleich (commerzbank.de 36/36, gov.ie 73/73,
+  hamburg.de 20/20); berlin.de behaelt seinen echten Abstand.
+
 - **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
   eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit
   deren Nightly, deren Ressourcengrenzen und auf dem, was `cargo package` veroeffentlichen wuerde.
