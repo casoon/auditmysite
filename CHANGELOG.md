@@ -29,6 +29,39 @@ short current-state summary. Newest entries first (unchanged order from before t
   warnings`, `cargo fmt`. Die vier bestehenden Snapshot-Tests sind **unveraendert** gruen -- das ist
   der Beleg, dass die Ansagen Zeichen fuer Zeichen dieselben sind.
 
+- **Best-Effort-Aufraeumfehler nicht mehr unsichtbar, 2026-09-25 (Plan 31):** `cargo judge errors`
+  meldete sechs Produktionsstellen in vier Dateien, die ein I/O-Ergebnis kommentarlos verwarfen.
+  Keine davon darf den Audit abbrechen, aber zwei koennen unbemerkt Dateien liegen lassen. Das
+  Loeschen des heruntergeladenen Browser-Archivs nach dem Entpacken und das Loeschen der
+  `.partial`-Datei nach einem fehlgeschlagenen atomaren Schreiben protokollieren jetzt ein `warn!`
+  mit Pfad; Installationsergebnis und urspruenglicher Schreibfehler bleiben unveraendert. Der Flush
+  der Statuszeile „Checking for sitemap..." protokolliert auf Debug-Level, und nur wenn stdout ein
+  Terminal ist — eine Pipe oder geschlossene Ausgabe ist eine gueltige Umgebung, kein Fehler. Das
+  Aufraeumen von PDF-Screenshots und Evidence-Ausschnitten laeuft ueber einen Helper,
+  `remove_temp_file`, der `NotFound` als Erfolg wertet (die meisten Evidence-Plaetze werden nie
+  geschrieben) und andere Fehler auf Debug-Level meldet, damit ein normaler Lauf still bleibt.
+
+  Geprueft mit einem Unit-Test fuer den Helper (fehlende Datei bleibt still; `remove_file` auf ein
+  Verzeichnis liefert einen Fehler, der nicht `NotFound` ist), dem bestehenden Atomic-Write-Test,
+  clippy fuer beide Feature-Sets, `cargo fmt --check` und `cargo test --no-default-features`.
+  `cargo judge errors` sinkt von 17 auf 11 `swallowed-result`-Funde; der Rest liegt in Tests und
+  bleibt bewusst stehen, ebenso absichtlich verlustbehaftete Parse-Konvertierungen.
+- **Desktop- und Mobile-Score ueber dieselben Regeln, 2026-09-25 (Plan 46):** Plan 46 vermutete,
+  der zweite Viewport-Durchlauf bewege den Barrierefreiheits-Score nie. Gemessen an 35 oeffentlichen
+  Startseiten stimmt das nicht: bei **24 von 35** weichen Desktop und Mobile ab, teils stark
+  (berlin.de 74/26, kit.edu 46/26). Ein Wiederholungslauf ueber acht davon war auf sechs exakt
+  gleich — das Signal ist ueberwiegend echt: Seiten liefern je Breakpoint anderes Markup, und die
+  abweichenden Befunde kommen aus gewoehnlichen Strukturregeln (`interactive_name`, `alt_text`,
+  Landmarks, ARIA).
+
+  Ein Teil des Abstands war aber ein Artefakt: `html_content_model` und `reflow` laufen nur im
+  Mobile-Durchlauf und flossen nur in den Mobile-Score. Beide urteilen ueber eine
+  viewport-unabhaengige Eigenschaft der Seite (Roh-Markup; Umbruch bei 320 CSS-Pixeln). Der
+  Desktop-Score wird jetzt ueber die Desktop-Befunde plus die Befunde dieser beiden Regeln
+  berechnet; Ausfuehrungsvermerke und die Viewport-Kennzeichnung der Befunde bleiben unveraendert,
+  denn gelaufen sind die Regeln weiterhin nur mobil. Nachgemessen: wo `html_content_model` der
+  einzige Unterschied war, sind die Scores jetzt gleich (commerzbank.de 36/36, gov.ie 73/73,
+  hamburg.de 20/20); berlin.de behaelt seinen echten Abstand.
 - **Automatisierungsquote ehrlich gezaehlt: 30/55 statt 39/55, 2026-09-25:** Als automatisiert galt
   jedes Kriterium, fuer das der Regelkatalog einen Eintrag hat — auch wenn die Regel nur
   Pruefhinweise oder einen `untested`-Eintrag erzeugen kann. Ein Kriterium, das das Werkzeug nicht

@@ -409,8 +409,8 @@ fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool
 fn cleanup_screenshot_temps(report: &AuditReport) {
     let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
     if let Some(ref _shots) = report.page_screenshots {
-        let _ = std::fs::remove_file(std::env::temp_dir().join(format!("ams-desktop-{}.png", ts)));
-        let _ = std::fs::remove_file(std::env::temp_dir().join(format!("ams-mobile-{}.png", ts)));
+        remove_temp_file(&std::env::temp_dir().join(format!("ams-desktop-{}.png", ts)));
+        remove_temp_file(&std::env::temp_dir().join(format!("ams-mobile-{}.png", ts)));
     }
     // Element-evidence crops (evidence-grade findings): named
     // `ams-evidence-{ts}-{n}.png` by `render_finding_technical`, n in
@@ -418,9 +418,22 @@ fn cleanup_screenshot_temps(report: &AuditReport) {
     // so this runs unconditionally rather than tracking whether captures
     // actually happened.
     for n in 0..crate::accessibility::MAX_ELEMENT_CROPS {
-        let _ = std::fs::remove_file(
-            std::env::temp_dir().join(format!("ams-evidence-{}-{}.png", ts, n)),
-        );
+        remove_temp_file(&std::env::temp_dir().join(format!("ams-evidence-{}-{}.png", ts, n)));
+    }
+}
+
+/// Best-effort removal of a temporary render file; failures are only logged at debug level.
+fn remove_temp_file(path: &std::path::Path) {
+    if let Err(e) = remove_file_if_exists(path) {
+        tracing::debug!("Failed to remove temporary file {}: {}", path.display(), e);
+    }
+}
+
+/// Like `std::fs::remove_file`, but a file that was never created is not an error.
+fn remove_file_if_exists(path: &std::path::Path) -> std::io::Result<()> {
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        result => result,
     }
 }
 

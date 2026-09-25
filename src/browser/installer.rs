@@ -92,7 +92,13 @@ impl BrowserInstaller {
         Self::extract_archive(&archive_path, &target_dir)?;
 
         // Clean up archive
-        fs::remove_file(&archive_path).ok();
+        if let Err(e) = fs::remove_file(&archive_path) {
+            warn!(
+                "Failed to remove browser archive {}: {}",
+                archive_path.display(),
+                e
+            );
+        }
 
         // Write version file
         if let Err(e) = fs::write(target_dir.join("version.txt"), &resolved_version) {
