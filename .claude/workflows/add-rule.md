@@ -368,8 +368,11 @@ if node.role == "image" {
 
 See existing rules for reference:
 - `src/wcag/rules/text_alternatives.rs` - Simple check
-- `src/wcag/rules/headings.rs` - Hierarchical check
+- `src/wcag/rules/info_relationships.rs` - Structural check over the AX tree
 - `src/wcag/rules/contrast.rs` - Async CDP calls
+- `src/wcag/shared.rs` - Checks delegated to `a11y-rules`. Heading hierarchy,
+  list structure, table headers and duplicate IDs live there now; do not add a
+  local copy of one of those.
 
 ---
 
