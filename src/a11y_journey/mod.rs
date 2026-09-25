@@ -67,7 +67,20 @@ pub struct RunOutput {
 }
 
 /// Default journey budget per URL (ms).
-pub const DEFAULT_BUDGET_MS: u64 = 5000;
+///
+/// Gemessen an 48 Seiten ohne Grenze (Plan 53): mit 5 s liefen 22 % der Seiten
+/// ins Limit und nur 55 % der Befunde wurden erfasst, weil allein der Tab-Walk
+/// rund 2 s braucht. 15 s erfassen 92 % bei im Mittel +1 s je Seite — das
+/// Budget greift nur auf schweren Seiten, der Median der Phase liegt bei 2,8 s.
+pub const DEFAULT_BUDGET_MS: u64 = 15_000;
+
+/// Harte Obergrenze je Journey (ms).
+///
+/// Die Deadline wird nur vor dem Start einer Journey geprüft. Hängt die Seite,
+/// läuft jeder CDP-Aufruf in seinen eigenen 30-s-Timeout — auf www.dm.de
+/// brauchte so eine einzelne Accordion-Journey 180 s. Die langsamste Journey
+/// ohne Hänger lag bei 5,6 s (Modal).
+const JOURNEY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
     match mode {
@@ -144,8 +157,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     // ── Tab walk + evaluation ────────────────────────────────────────────────
     out.journey.execution.candidates_detected += 1;
     out.journey.execution.attempted += 1;
-    match tab_walk::record(ctx.page, max_steps).await {
-        Ok(record) => {
+    match tokio::time::timeout(JOURNEY_TIMEOUT, tab_walk::record(ctx.page, max_steps)).await {
+        Ok(Ok(record)) => {
             out.findings
                 .extend(evaluate::tab_walk(&record.trace, &record.snapshots));
             out.findings
@@ -166,7 +179,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     reason_code: None,
                 });
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             tracing::warn!("Tab-walk journey failed: {}", e);
             out.journey.execution.failed += 1;
             out.journey
@@ -176,6 +189,18 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     journey: "tab_walk".to_string(),
                     status: crate::audit::ExecutionStatus::Failed,
                     reason_code: Some("tab_walk_failed".to_string()),
+                });
+        }
+        Err(_) => {
+            tracing::warn!("Tab-walk journey timed out after {:?}", JOURNEY_TIMEOUT);
+            out.journey.execution.failed += 1;
+            out.journey
+                .execution
+                .runs
+                .push(crate::audit::normalized::JourneyRun {
+                    journey: "tab_walk".to_string(),
+                    status: crate::audit::ExecutionStatus::Failed,
+                    reason_code: Some("journey_timeout".to_string()),
                 });
         }
     }
@@ -199,7 +224,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
             if Instant::now() >= deadline {
                 tracing::info!("Journey budget exhausted, stopping pattern journeys early.");
                 out.journey.execution.budget_exhausted = true;
-                for remaining in &patterns.journey_candidates[candidate_index..] {
+                for remaining in &ordered[candidate_index..] {
                     out.journey.execution.skipped += 1;
                     out.journey
                         .execution
@@ -236,51 +261,53 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
 
             out.journey.execution.attempted += 1;
 
-            let result = match candidate.required_journey {
-                JourneyKind::SkipLinkActivate => {
-                    let idx = skip_link_idx;
-                    skip_link_idx += 1;
-                    skip_link::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::DisclosureToggle | JourneyKind::AccordionToggle => {
-                    let idx = disclosure_idx;
-                    disclosure_idx += 1;
-                    disclosure_journey::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::ModalOpen => {
-                    let idx = modal_idx;
-                    modal_idx += 1;
-                    modal_journey::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::TabsNavigate => {
-                    let idx = tabs_idx;
-                    tabs_idx += 1;
-                    tabs_journey::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::MenuOpen => {
-                    let idx = menu_idx;
-                    menu_idx += 1;
-                    menu_journey::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::FormErrorSubmit => {
-                    let idx = form_idx;
-                    form_idx += 1;
-                    form_error::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::AddToCart => {
-                    let idx = add_to_cart_idx;
-                    add_to_cart_idx += 1;
-                    add_to_cart::test(ctx.page, candidate, idx).await
-                }
-                JourneyKind::QuantityStepper => {
-                    let idx = quantity_stepper_idx;
-                    quantity_stepper_idx += 1;
-                    quantity_stepper::test(ctx.page, candidate, idx).await
+            let journey = async {
+                match candidate.required_journey {
+                    JourneyKind::SkipLinkActivate => {
+                        let idx = skip_link_idx;
+                        skip_link_idx += 1;
+                        skip_link::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::DisclosureToggle | JourneyKind::AccordionToggle => {
+                        let idx = disclosure_idx;
+                        disclosure_idx += 1;
+                        disclosure_journey::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::ModalOpen => {
+                        let idx = modal_idx;
+                        modal_idx += 1;
+                        modal_journey::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::TabsNavigate => {
+                        let idx = tabs_idx;
+                        tabs_idx += 1;
+                        tabs_journey::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::MenuOpen => {
+                        let idx = menu_idx;
+                        menu_idx += 1;
+                        menu_journey::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::FormErrorSubmit => {
+                        let idx = form_idx;
+                        form_idx += 1;
+                        form_error::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::AddToCart => {
+                        let idx = add_to_cart_idx;
+                        add_to_cart_idx += 1;
+                        add_to_cart::test(ctx.page, candidate, idx).await
+                    }
+                    JourneyKind::QuantityStepper => {
+                        let idx = quantity_stepper_idx;
+                        quantity_stepper_idx += 1;
+                        quantity_stepper::test(ctx.page, candidate, idx).await
+                    }
                 }
             };
 
-            match result {
-                Ok((trace, findings)) => {
+            match tokio::time::timeout(JOURNEY_TIMEOUT, journey).await {
+                Ok(Ok((trace, findings))) => {
                     out.journey.execution.completed += 1;
                     out.journey
                         .execution
@@ -293,7 +320,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     out.journey.traces.push(trace);
                     out.findings.extend(findings);
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     tracing::warn!("Journey {:?} failed: {}", candidate.required_journey, e);
                     out.journey.execution.failed += 1;
                     out.journey
@@ -305,6 +332,22 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                             reason_code: Some("journey_execution_failed".to_string()),
                         });
                 }
+                Err(_) => {
+                    tracing::warn!(
+                        "Journey {:?} timed out after {:?}",
+                        candidate.required_journey,
+                        JOURNEY_TIMEOUT
+                    );
+                    out.journey.execution.failed += 1;
+                    out.journey
+                        .execution
+                        .runs
+                        .push(crate::audit::normalized::JourneyRun {
+                            journey: format!("{:?}", candidate.required_journey).to_lowercase(),
+                            status: crate::audit::ExecutionStatus::Failed,
+                            reason_code: Some("journey_timeout".to_string()),
+                        });
+                }
             }
         }
     }
@@ -314,8 +357,13 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     if matches!(ctx.mode, InteractiveMode::Full) && Instant::now() < deadline {
         out.journey.execution.candidates_detected += 1;
         out.journey.execution.attempted += 1;
-        match spa_navigation::run(ctx.page, ctx.initial_url).await {
-            Ok(Some((trace, findings))) => {
+        match tokio::time::timeout(
+            JOURNEY_TIMEOUT,
+            spa_navigation::run(ctx.page, ctx.initial_url),
+        )
+        .await
+        {
+            Ok(Ok(Some((trace, findings)))) => {
                 out.journey.execution.completed += 1;
                 out.journey
                     .execution
@@ -328,7 +376,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                 out.journey.traces.push(trace);
                 out.findings.extend(findings);
             }
-            Ok(None) => {
+            Ok(Ok(None)) => {
                 out.journey.execution.skipped += 1;
                 out.journey
                     .execution
@@ -339,7 +387,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                         reason_code: Some("no_spa_candidate".to_string()),
                     });
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 tracing::warn!("SPA-navigation journey failed: {}", e);
                 out.journey.execution.failed += 1;
                 out.journey
@@ -349,6 +397,21 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                         journey: "spa_navigation".to_string(),
                         status: crate::audit::ExecutionStatus::Failed,
                         reason_code: Some("spa_navigation_failed".to_string()),
+                    });
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "SPA-navigation journey timed out after {:?}",
+                    JOURNEY_TIMEOUT
+                );
+                out.journey.execution.failed += 1;
+                out.journey
+                    .execution
+                    .runs
+                    .push(crate::audit::normalized::JourneyRun {
+                        journey: "spa_navigation".to_string(),
+                        status: crate::audit::ExecutionStatus::Failed,
+                        reason_code: Some("journey_timeout".to_string()),
                     });
             }
         }

@@ -5,6 +5,28 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Journey-Budget 15 s, harte Grenze je Journey, 2026-09-25 (Plan 53):** Die Hoehe des Budgets
+  war offen. Gemessen an 48 oeffentlichen Startseiten ohne Grenze und dann je Budgethoehe
+  nachgerechnet (Deadline vor jedem Start geprueft, wie im Code): mit **5 s** liefen 22 % der Seiten
+  ins Limit und nur **55 %** der Befunde wurden erfasst — allein der Tab-Walk braucht konstant rund
+  2 s. **15 s** erfassen 92 % (10 s: 83 %, 20 s: 98 %) und kosten im Mittel +1 s je Seite, weil das
+  Budget nur auf schweren Seiten greift; der Median der interaktiven Phase liegt bei 2,8 s.
+
+  Derselbe Lauf zeigte, dass eine einzelne Journey unbegrenzt laufen kann: Die Deadline wird nur vor
+  dem Start geprueft, und haengt die Seite, wartet jeder CDP-Aufruf seine 30 s ab — auf www.dm.de
+  brauchte eine Accordion-Journey 180 s. Jede Journey (Tab-Walk, Muster-Journeys,
+  SPA-Navigation) laeuft jetzt unter einer Grenze von 10 s und wird sonst mit `journey_timeout`
+  als fehlgeschlagen gefuehrt; die langsamste Journey ohne Haenger lag bei 5,6 s (Modal).
+
+  Nebenbei behoben: Lief das Budget ab, wurden die uebrigen Kandidaten aus der *unsortierten*
+  Liste als `budget_exhausted` eingetragen, obwohl seit der Sortierung nach Konfidenz die
+  sortierte abgearbeitet wird — der Report nannte die falschen Journeys als uebersprungen.
+
+  Bekannt und offen: Auf www.dm.de reagiert die Seite nach den Modal-Journeys nicht mehr, und die
+  folgenden Throttling-Profile der Performance-Messung laufen in Timeouts (Audit 73 s → 243 s,
+  Performance `partial`). Mit 5 s kamen die Modals dort nicht an die Reihe. Ein JavaScript-Dialog
+  ist es nicht (geprueft). Einzige betroffene Seite im Korpus; eigener Plan.
+
 - **Gepinnte Toolchain und ein schlankeres Crate-Paket, 2026-09-25 (Plan 28):** Lokal, CI und
   Release bauten mit dem jeweils aktuellen `stable`. Jetzt pinnt `rust-toolchain.toml` Rust
   **1.98.1** (die aktuelle Stable-Version, eine Punktversion ueber dem im Plan genannten 1.98.0)
