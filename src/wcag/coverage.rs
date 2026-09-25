@@ -41,9 +41,14 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
 /// Criteria that have a rule in the catalog, but whose rule can only emit
 /// review hints or an `untested` entry — never a violation. A criterion the
 /// tool cannot fail is not automatically checked, so these are excluded from
-/// `automated_criteria()` and listed as manual review instead.
+/// `automated_criteria()`. The A/AA ones are listed as manual review instead;
+/// the AAA ones simply drop out of the "also checks" count, since the
+/// manual-review list is scoped to A/AA like the ratio.
 const HINT_ONLY_CRITERIA: &[&str] = &[
+    // A/AA
     "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.3.7",
+    // AAA
+    "1.2.8", "2.2.3", "2.2.4", "2.2.5", "2.4.12", "3.1.3",
 ];
 
 /// WCAG criteria with at least one automated rule in this tool, derived from
@@ -220,26 +225,33 @@ mod tests {
     }
 
     /// A hint-only criterion must still have a catalog rule (otherwise the
-    /// entry is stale) and must land in the manual-review list, not in the
-    /// uncounted remainder.
+    /// entry is stale). An A/AA one must land in the manual-review list, not
+    /// in the uncounted remainder; that list is A/AA-scoped, so AAA ones don't.
     #[test]
     fn hint_only_criteria_are_catalogued_and_listed_for_manual_review() {
         for id in HINT_ONLY_CRITERIA {
             let wcag_ref = format!("WCAG {id}");
-            assert!(
-                RULES
-                    .iter()
-                    .any(|r| r.external_ref == Some(wcag_ref.as_str())),
-                "hint-only criterion {id} has no rule in the catalog"
-            );
+            let level = RULES
+                .iter()
+                .find(|r| r.external_ref == Some(wcag_ref.as_str()))
+                .and_then(|r| r.external_level)
+                .unwrap_or_else(|| panic!("hint-only criterion {id} has no rule in the catalog"));
             assert!(
                 !automated_criteria().iter().any(|(aid, _)| aid == id),
                 "hint-only criterion {id} must not count as automated"
             );
-            assert!(
-                manual_review_criteria().iter().any(|(mid, _, _)| mid == id),
-                "hint-only criterion {id} must be listed for manual review"
-            );
+            let listed = manual_review_criteria().iter().any(|(mid, _, _)| mid == id);
+            if level == "AAA" {
+                assert!(
+                    !listed,
+                    "AAA criterion {id} must stay out of the A/AA manual list"
+                );
+            } else {
+                assert!(
+                    listed,
+                    "hint-only criterion {id} must be listed for manual review"
+                );
+            }
         }
     }
 

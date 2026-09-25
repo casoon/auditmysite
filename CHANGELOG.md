@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **AAA-Liste im PDF ehrlich gezaehlt: 11 statt 17, 2026-09-26:** Dieselbe Ueberzeichnung wie
+  bei der A/AA-Quote (30/55): Das PDF fuehrte 17 AAA-Kriterien als „automatisch geprueft", aber
+  sechs davon koennen keinen Verstoss melden — 1.2.8, 2.2.3, 2.2.4, 2.2.5 und 3.1.3 liefern nur
+  einen `untested`-Eintrag, 2.4.12 nur einen Review-Hinweis. Sie stehen jetzt in
+  `HINT_ONLY_CRITERIA`; die Liste zeigt 41 Kriterien (30 A/AA + 11 AAA). Anders als die A/AA-Faelle
+  kommen sie nicht auf die Liste der manuell zu pruefenden Kriterien, weil die wie die Quote auf
+  A/AA bezogen ist. Der Guard-Test unterscheidet das jetzt. Geprueft ueber `--debug-typ` (DE/EN).
+
 - **Journey-Budget 15 s, harte Grenze je Journey, 2026-09-25 (Plan 53):** Die Hoehe des Budgets
   war offen. Gemessen an 48 oeffentlichen Startseiten ohne Grenze und dann je Budgethoehe
   nachgerechnet (Deadline vor jedem Start geprueft, wie im Code): mit **5 s** liefen 22 % der Seiten
