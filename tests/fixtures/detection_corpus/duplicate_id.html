@@ -7,8 +7,16 @@
 <body>
     <main>
         <h1>Duplicate id attributes</h1>
+        <!-- Unreferenced duplicate: no WCAG 2.2 criterion since 4.1.1 was removed. -->
         <div id="content-block">First block</div>
         <div id="content-block">Second block with the same id</div>
+        <!-- Referenced duplicate: the label's IDREF no longer resolves to one element (4.1.2). -->
+        <form action="/subscribe" method="post">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email">
+            <input id="email" name="email-confirm" type="email" aria-label="Confirm e-mail">
+            <button type="submit">Subscribe</button>
+        </form>
     </main>
 </body>
 </html>

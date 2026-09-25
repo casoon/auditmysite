@@ -870,6 +870,7 @@
     "wcagCoverageSummary": {
       "type": "object",
       "required": [
+        "wcag_version",
         "level",
         "automated_criteria",
         "manual_review_criteria",
@@ -878,6 +879,11 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "wcag_version": {
+          "description": "WCAG version the coverage ratio is scoped to. Absent in reports produced before the switch to WCAG 2.2, which were scoped to WCAG 2.1.",
+          "type": "string",
+          "enum": ["2.2"]
+        },
         "level": {
           "type": "string"
         },

@@ -236,7 +236,7 @@ mod tests {
         )
         .with_selector("img.hero")
         .with_fix("Add alt attribute")
-        .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html")
+        .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html")
         .with_rule_id("image-alt")
         .with_tags(vec!["wcag2a".to_string(), "wcag111".to_string()]);
 
@@ -250,7 +250,7 @@ mod tests {
         assert!(output.contains("\"node_id\": \"node-99\""));
         assert!(output.contains("\"fix\": \"Add alt attribute\""));
         assert!(
-            output.contains("https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html")
+            output.contains("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html")
         );
         assert!(output.contains("\"wcag2a\""));
     }

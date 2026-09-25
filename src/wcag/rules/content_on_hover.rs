@@ -18,7 +18,7 @@ pub const CONTENT_ON_HOVER_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::Medium,
     description: "Content shown on hover/focus must be dismissible, hoverable, and persistent",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/content-on-hover-or-focus.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
     axe_id: "content-on-hover-focus",
     tags: &["wcag2aa", "wcag1413", "cat.color"],
 };

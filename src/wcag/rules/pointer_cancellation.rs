@@ -14,7 +14,7 @@ pub const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Actions are not triggered on the down-event unless essential",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html",
     axe_id: "pointer-cancellation",
     tags: &["wcag2a", "wcag252", "cat.sensory-and-visual-cues"],
 };
@@ -30,17 +30,7 @@ const POINTER_CANCELLATION_JS: &str = r#"
       found.push(desc);
     }
   }
-  // Also scan inline scripts
-  var hasDownHandlers = false;
-  var scripts = document.querySelectorAll('script:not([src])');
-  for (var j = 0; j < scripts.length; j++) {
-    var content = scripts[j].textContent || '';
-    if (/addEventListener\s*\(\s*['"]mousedown['"]/.test(content) || /addEventListener\s*\(\s*['"]touchstart['"]/.test(content)) {
-      hasDownHandlers = true;
-      break;
-    }
-  }
-  return { found: found, hasDownHandlers: hasDownHandlers };
+  return { found: found };
 })()
 "#;
 
@@ -82,11 +72,6 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
         })
         .unwrap_or_default();
 
-    let has_down_handlers = val
-        .get("hasDownHandlers")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
     let mut findings = vec![not_testable];
 
     if !found.is_empty() {
@@ -106,25 +91,6 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
             .with_fix(
                 "Use onclick or onmouseup/ontouchend instead, or ensure the action can \
                  be cancelled by moving the pointer off the element before release.",
-            )
-            .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
-            .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-            .with_kind(Outcome::Review),
-        );
-    } else if has_down_handlers {
-        findings.push(
-            Violation::new(
-                POINTER_CANCELLATION_RULE.id,
-                POINTER_CANCELLATION_RULE.name,
-                POINTER_CANCELLATION_RULE.level,
-                Severity::Medium,
-                "Inline scripts register mousedown or touchstart event listeners. \
-                 Verify these do not trigger irreversible actions.",
-                "page",
-            )
-            .with_fix(
-                "Review mousedown/touchstart handlers to ensure they do not perform \
-                 actions that cannot be cancelled.",
             )
             .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
             .with_help_url(POINTER_CANCELLATION_RULE.help_url)

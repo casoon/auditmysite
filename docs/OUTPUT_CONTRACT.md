@@ -82,7 +82,7 @@ Batch reports expose a canonical `site_analysis` block for domain-wide results:
 - structured-data type distribution and entity conflicts,
 - recurring structured-data blockers and visible-content parity mismatches,
 - page-type/schema combinations and Organization/WebSite identity consistency,
-- batch-only WCAG assessments for consistent navigation, consistent identification, consistent help, and multiple ways,
+- batch-only WCAG assessments for consistent navigation, consistent identification, consistent help, and multiple ways (`consistency.wcag_cross_page`), with the help-mechanism comparison behind 3.2.6 in `consistency.help`,
 - interactive coverage and grouped accessibility assessments.
 
 Structured-data detail separates parse state, eligibility blockers, recommendations, manual checks, page-type fit, and visible-content parity. Ambiguous visible facts are not converted into mismatches; evidence samples are short and never contain full page text or DOM dumps.

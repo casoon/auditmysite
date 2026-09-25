@@ -15,7 +15,7 @@ pub const VISUAL_PRESENTATION_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Text blocks must not be fully justified and must have adequate line spacing",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/visual-presentation.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
     axe_id: "visual-presentation",
     tags: &["wcag2aaa", "wcag148", "cat.sensory-and-visual-cues"],
 };

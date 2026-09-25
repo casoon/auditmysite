@@ -21,7 +21,7 @@ pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "Video and audio elements must have accessible alternatives",
     help_url:
-        "https://www.w3.org/WAI/WCAG21/Understanding/audio-only-and-video-only-prerecorded.html",
+        "https://www.w3.org/WAI/WCAG22/Understanding/audio-only-and-video-only-prerecorded.html",
     axe_id: "video-caption",
     tags: &["wcag2a", "wcag121", "cat.media"],
 };
@@ -33,7 +33,7 @@ pub const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Prerecorded audio content in synchronized media has captions",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/captions-prerecorded.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/captions-prerecorded.html",
     axe_id: "video-caption",
     tags: &["wcag2a", "wcag122", "cat.media"],
 };
@@ -45,7 +45,7 @@ pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "All non-text content must have a text alternative",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "image-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
@@ -57,7 +57,7 @@ pub const RULE_META_FRAME_TITLE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Frames and iframes must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Techniques/html/H64",
+    help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
     axe_id: "frame-title",
     tags: &["wcag2a", "wcag241", "cat.text-alternatives"],
 };
@@ -525,7 +525,7 @@ pub const RULE_META_FRAME_TESTED: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Identifies cross-origin iframes that cannot be analyzed automatically",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "frame-tested",
     tags: &["wcag2a", "wcag412", "cat.text-alternatives"],
 };

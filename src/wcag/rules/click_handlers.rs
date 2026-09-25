@@ -21,7 +21,7 @@ pub const CLICK_HANDLERS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Click handlers on non-interactive elements must be keyboard-accessible",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/keyboard.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     axe_id: "click-events-have-key-events",
     tags: &["wcag2a", "wcag211", "cat.keyboard"],
 };

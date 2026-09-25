@@ -49,7 +49,7 @@ use crate::wcag::types::{Severity, Violation};
 /// 
 /// Level: A/AA/AAA
 /// 
-/// https://www.w3.org/WAI/WCAG21/Understanding/rule-name
+/// https://www.w3.org/WAI/WCAG22/Understanding/rule-name
 pub fn check(tree: &AXTree, _styles: &[NodeStyle], level: WcagLevel) -> Vec<Violation> {
     let mut violations = Vec::new();
     
@@ -67,7 +67,7 @@ pub fn check(tree: &AXTree, _styles: &[NodeStyle], level: WcagLevel) -> Vec<Viol
                 )
                 .with_role(node.role.clone())
                 .with_fix("How to fix this issue")
-                .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/rule-name")
+                .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/rule-name")
             );
         }
     }

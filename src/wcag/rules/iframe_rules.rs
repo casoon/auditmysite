@@ -1,4 +1,4 @@
-//! WCAG 1.1.1, 1.3.1, 2.4.4, 3.1.1, 4.1.1, 4.1.2 — same-origin iframe content.
+//! WCAG 1.1.1, 1.3.1, 2.4.4, 3.1.1, 4.1.2 — same-origin iframe content.
 //!
 //! Runs a set of focused WCAG checks inside each same-origin iframe by
 //! executing JavaScript against `contentDocument`. Cross-origin iframes are
@@ -9,7 +9,7 @@
 //! - 2.4.4 / link-name      — links without accessible text
 //! - 4.1.2 / button-name    — buttons without accessible name
 //! - 1.3.1 / label          — form inputs without associated label
-//! - 4.1.1 / duplicate-id   — duplicate IDs within the iframe document
+//! - 4.1.2 / duplicate-id   — referenced duplicate IDs within the iframe document
 //! - 3.1.1 / html-has-lang  — missing lang on the iframe's html element
 
 use chromiumoxide::Page;
@@ -147,7 +147,22 @@ const IFRAME_SCAN_JS: &str = r#"
       });
     }
 
-    // 4.1.1 duplicate-id
+    // 4.1.2 duplicate-id — nur referenzierte IDs, siehe `wcag::shared`
+    var idrefAttrs = ['for', 'form', 'list', 'headers', 'aria-labelledby',
+      'aria-describedby', 'aria-controls', 'aria-owns', 'aria-activedescendant',
+      'aria-details', 'aria-errormessage', 'aria-flowto'];
+    var referencedIds = {};
+    for (var ri = 0; ri < idrefAttrs.length; ri++) {
+      var refEls = iframeDoc.querySelectorAll('[' + idrefAttrs[ri] + ']');
+      for (var rj = 0; rj < refEls.length; rj++) {
+        var refVal = (refEls[rj].getAttribute(idrefAttrs[ri]) || '').trim();
+        if (!refVal) continue;
+        var refParts = refVal.split(/\s+/);
+        for (var rk = 0; rk < refParts.length; rk++) {
+          if (refParts[rk]) referencedIds[refParts[rk]] = true;
+        }
+      }
+    }
     var allIdEls = iframeDoc.querySelectorAll('[id]');
     var seenIds = {};
     var reportedIds = {};
@@ -155,10 +170,10 @@ const IFRAME_SCAN_JS: &str = r#"
       var idVal = allIdEls[di].id;
       if (!idVal) continue;
       if (idVal in seenIds) {
-        if (!(idVal in reportedIds)) {
+        if (!(idVal in reportedIds) && referencedIds[idVal] === true) {
           results.push({
-            rule_id: 'duplicate-id', rule: '4.1.1', severity: 'critical',
-            message: 'Duplicate id "' + idVal + '" inside iframe',
+            rule_id: 'duplicate-id', rule: '4.1.2', severity: 'critical',
+            message: 'Referenced id "' + idVal + '" is assigned more than once inside iframe',
             iframe_selector: ifSel, iframe_src: ifSrc,
             selector: __amsCssSelector(allIdEls[di]),
             snippet: allIdEls[di].outerHTML.substring(0, 200)
@@ -259,7 +274,7 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             WcagLevel::A,
             Severity::High,
             "Add a descriptive alt attribute. Use alt=\"\" for decorative images.",
-            "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+            "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
         ),
         "button-name" => (
             "4.1.2",
@@ -267,7 +282,7 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             WcagLevel::A,
             Severity::Critical,
             "Add visible text, aria-label, or aria-labelledby to the button.",
-            "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+            "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
         ),
         "link-name" => (
             "2.4.4",
@@ -275,7 +290,7 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             WcagLevel::A,
             Severity::High,
             "Add descriptive text inside the link, or use aria-label to describe its destination.",
-            "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
+            "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
         ),
         "label" => (
             "1.3.1",
@@ -283,19 +298,19 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             WcagLevel::A,
             Severity::Critical,
             "Associate a <label> element using for/id, or use aria-label on the input.",
-            "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+            "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
         ),
         // Wie bei `html-has-lang`: Der Befund im Hauptdokument heisst seit der
         // Umstellung `ids/duplicate`; `duplicate-id` erzeugt nur noch diese
         // Pruefung, und zwar fuer das Dokument *im* iframe -- ein anderer
         // Befund an einem anderen Dokument.
         "duplicate-id" => (
-            "4.1.1",
-            "Parsing",
+            "4.1.2",
+            "Name, Role, Value",
             WcagLevel::A,
             Severity::Critical,
-            "Ensure all id attributes are unique within the iframe document.",
-            "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+            "Ensure all id attributes are unique within the iframe document, so for/headers/aria-* references resolve to exactly one element.",
+            "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
         ),
         IFRAME_HTML_HAS_LANG_AXE_ID => (
             "3.1.1",
@@ -303,7 +318,7 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
             WcagLevel::A,
             Severity::Medium,
             "Add a lang attribute to the html element inside the iframe (e.g. lang=\"en\").",
-            "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+            "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
         ),
         _ => return None,
     };

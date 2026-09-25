@@ -264,10 +264,10 @@ pub(super) fn render_finding_technical(
     let color = super::design::severity_color(group.severity);
 
     let header = if !group.wcag_criterion.is_empty() {
-        // Flag WCAG 2.2-only criteria (e.g. 2.5.8) inline — they're outside
-        // this report's WCAG-2.1-scoped "N of ~50" audit-scope ratio, so a
-        // finding tagged just "AA" would otherwise misrepresent its scope
-        // (#572).
+        // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
+        // this report's audit-scope ratio but outside EN 301 549 V3.2.1, which
+        // the BFSG references and which is built on WCAG 2.1. A finding tagged
+        // just "AA" would misrepresent that (#572, plan 54 §1).
         let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.wcag_criterion) {
             ", WCAG 2.2"
         } else {

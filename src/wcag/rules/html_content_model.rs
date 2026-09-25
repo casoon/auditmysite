@@ -26,7 +26,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Structural elements (lists, tables, forms, selects) must not contain content that violates their HTML5 content model, which can break screen-reader semantics even when the resulting accessibility tree looks superficially valid",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "html-content-model",
     tags: &["wcag2a", "wcag131", "cat.structure"],
 };

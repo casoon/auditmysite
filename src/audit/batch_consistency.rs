@@ -5,18 +5,24 @@
 //! hierarchy starts, canonical domain variant.
 //!
 //! These checks complement WCAG 3.2.3 (Consistent Navigation) and 3.2.4
-//! (Consistent Identification) without requiring runtime interaction.
+//! (Consistent Identification) without requiring runtime interaction, and
+//! carry the only automated evidence for 3.2.6 (Consistent Help), which a
+//! single page cannot violate.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
 use crate::audit::report::{AuditReport, BatchReport};
+use crate::patterns::help_mechanisms::HelpRegion;
 
 /// Aggregated consistency analysis across all pages in a batch.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BatchConsistencyAnalysis {
     pub navigation: NavigationConsistency,
+    /// WCAG 3.2.6: recurring help mechanisms compared across pages.
+    #[serde(default)]
+    pub help: HelpConsistency,
     pub headings: HeadingConsistency,
     pub canonical: CanonicalConsistency,
     pub orphan_pages: OrphanPageAnalysis,
@@ -98,6 +104,53 @@ pub struct NavigationConsistency {
     pub findings: Vec<String>,
 }
 
+/// Cross-page comparison of help mechanisms for WCAG 3.2.6 Consistent Help.
+///
+/// Only mechanisms found on at least two pages are constrained by the
+/// criterion. For those, two things are compared: the landmark regions the
+/// mechanism sits in, and — within one region — the order of two mechanisms
+/// relative to each other. Both are judged against the placement most pages
+/// use. A region deviation needs *disjoint* region sets, so a page that
+/// merely repeats the phone number in its header on top of the shared footer
+/// is not flagged.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct HelpConsistency {
+    /// Pages with at least one help mechanism outside `main`.
+    pub pages_with_help: usize,
+    pub total_pages: usize,
+    /// Distinct mechanisms found on at least two pages.
+    pub repeated_mechanisms: usize,
+    pub deviations: Vec<HelpDeviation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HelpDeviation {
+    /// The mechanism sits only in regions where most pages don't place it.
+    Region {
+        url: String,
+        mechanism: String,
+        expected: Vec<HelpRegion>,
+        found: Vec<HelpRegion>,
+    },
+    /// Within `region`, most pages place `first` before `second`; this page
+    /// reverses them.
+    Order {
+        url: String,
+        region: HelpRegion,
+        first: String,
+        second: String,
+    },
+}
+
+impl HelpDeviation {
+    pub fn url(&self) -> &str {
+        match self {
+            Self::Region { url, .. } | Self::Order { url, .. } => url,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HeadingConsistency {
     /// Pages with exactly one H1.
@@ -131,6 +184,7 @@ pub fn analyze(batch: &BatchReport) -> Option<BatchConsistencyAnalysis> {
     }
     Some(BatchConsistencyAnalysis {
         navigation: analyze_navigation(&batch.reports),
+        help: analyze_help(&batch.reports),
         headings: analyze_headings(&batch.reports),
         canonical: analyze_canonical(&batch.reports),
         orphan_pages: analyze_orphan_pages(&batch.reports),
@@ -142,6 +196,7 @@ pub fn analyze(batch: &BatchReport) -> Option<BatchConsistencyAnalysis> {
 
 fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterionAssessment> {
     let navigation = analyze_navigation(reports);
+    let help = analyze_help(reports);
     let orphan_pages = analyze_orphan_pages(reports);
     let inconsistent_navigation = navigation.total_pages - navigation.pages_with_main_nav;
     vec![
@@ -166,10 +221,14 @@ fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterio
         },
         CrossPageCriterionAssessment {
             criterion: "3.2.6 Consistent Help".to_string(),
-            status: "manual_review".to_string(),
-            basis: "Help mechanisms and their relative order require cross-page control-level evidence"
-                .to_string(),
-            affected_pages: 0,
+            status: consistent_help_status(&help).to_string(),
+            basis: consistent_help_basis(&help, true),
+            affected_pages: help
+                .deviations
+                .iter()
+                .map(HelpDeviation::url)
+                .collect::<HashSet<_>>()
+                .len(),
         },
         CrossPageCriterionAssessment {
             criterion: "2.4.5 Multiple Ways".to_string(),
@@ -184,6 +243,254 @@ fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterio
             affected_pages: orphan_pages.orphan_urls.len(),
         },
     ]
+}
+
+/// Status of the 3.2.6 assessment. Without a recurring mechanism there is
+/// nothing to compare — but also no evidence that the site offers no help in a
+/// form the inventory doesn't recognise, so that stays a manual check.
+fn consistent_help_status(help: &HelpConsistency) -> &'static str {
+    if help.repeated_mechanisms == 0 {
+        "manual_review"
+    } else if help.deviations.is_empty() {
+        "no_inconsistency_detected"
+    } else {
+        "warning"
+    }
+}
+
+/// Assessment basis for 3.2.6 — the single text source for the JSON
+/// (`en = true`) and the localized batch PDF (#406).
+pub fn consistent_help_basis(help: &HelpConsistency, en: bool) -> String {
+    let affected = help
+        .deviations
+        .iter()
+        .map(HelpDeviation::url)
+        .collect::<HashSet<_>>()
+        .len();
+    let count =
+        |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    let mechanisms = if en {
+        count(
+            help.repeated_mechanisms,
+            "recurring help mechanism",
+            "recurring help mechanisms",
+        )
+    } else {
+        count(
+            help.repeated_mechanisms,
+            "wiederkehrender Hilfemechanismus",
+            "wiederkehrende Hilfemechanismen",
+        )
+    };
+    match (consistent_help_status(help), en) {
+        ("manual_review", true) => "No help mechanism (contact or help link, e-mail, phone, known chat widget) recurs outside the main content on two or more audited pages; other forms of help must be checked manually.".to_string(),
+        ("manual_review", false) => "Kein Hilfemechanismus (Kontakt- oder Hilfe-Link, E-Mail, Telefon, bekanntes Chat-Widget) wiederholt sich außerhalb des Hauptinhalts auf mindestens zwei geprüften Seiten; andere Formen von Hilfe sind manuell zu prüfen.".to_string(),
+        ("no_inconsistency_detected", true) => format!(
+            "{mechanisms} compared across the audited pages by landmark region and relative order; no deviation found."
+        ),
+        ("no_inconsistency_detected", false) => format!(
+            "{mechanisms} über die geprüften Seiten nach Seitenbereich und relativer Reihenfolge verglichen; keine Abweichung gefunden."
+        ),
+        (_, true) => format!(
+            "{mechanisms} compared by landmark region and relative order; {} on {}.",
+            count(help.deviations.len(), "deviation", "deviations"),
+            count(affected, "page", "pages")
+        ),
+        (_, false) => format!(
+            "{mechanisms} nach Seitenbereich und relativer Reihenfolge verglichen; {} auf {}.",
+            count(help.deviations.len(), "Abweichung", "Abweichungen"),
+            count(affected, "Seite", "Seiten")
+        ),
+    }
+}
+
+/// Display name of a landmark region — single text source for JSON consumers
+/// and the localized batch PDF (#406).
+pub fn help_region_name(region: HelpRegion, en: bool) -> &'static str {
+    match (region, en) {
+        (HelpRegion::Header, true) => "header",
+        (HelpRegion::Header, false) => "Kopfbereich",
+        (HelpRegion::Navigation, true) => "navigation",
+        (HelpRegion::Navigation, false) => "Navigation",
+        (HelpRegion::Complementary, true) => "sidebar",
+        (HelpRegion::Complementary, false) => "Seitenleiste",
+        (HelpRegion::Footer, true) => "footer",
+        (HelpRegion::Footer, false) => "Fußbereich",
+        (HelpRegion::Floating, true) => "floating overlay",
+        (HelpRegion::Floating, false) => "schwebende Einblendung",
+        (HelpRegion::Other, true) => "page body outside the main content",
+        (HelpRegion::Other, false) => "Seitenkörper außerhalb des Hauptinhalts",
+    }
+}
+
+/// One-sentence description of a 3.2.6 deviation (#406: pure text function,
+/// the PDF calls it with the run locale).
+pub fn help_deviation_text(deviation: &HelpDeviation, en: bool) -> String {
+    let regions = |list: &[HelpRegion]| {
+        list.iter()
+            .map(|r| help_region_name(*r, en))
+            .collect::<Vec<_>>()
+            .join(if en { " and " } else { " und " })
+    };
+    match deviation {
+        HelpDeviation::Region {
+            mechanism,
+            expected,
+            found,
+            ..
+        } => {
+            if en {
+                format!(
+                    "'{mechanism}' sits in the {} instead of the {} used on most pages.",
+                    regions(found),
+                    regions(expected)
+                )
+            } else {
+                format!(
+                    "„{mechanism}“ steht im Bereich {} statt wie auf den meisten Seiten im Bereich {}.",
+                    regions(found),
+                    regions(expected)
+                )
+            }
+        }
+        HelpDeviation::Order {
+            region,
+            first,
+            second,
+            ..
+        } => {
+            if en {
+                format!(
+                    "In the {}, '{second}' comes before '{first}'; most pages use the reverse order.",
+                    help_region_name(*region, true)
+                )
+            } else {
+                format!(
+                    "Im Bereich {} steht „{second}“ vor „{first}“; die meisten Seiten nutzen die umgekehrte Reihenfolge.",
+                    help_region_name(*region, false)
+                )
+            }
+        }
+    }
+}
+
+fn analyze_help(reports: &[AuditReport]) -> HelpConsistency {
+    let pages: Vec<(&str, &[crate::patterns::help_mechanisms::HelpMechanism])> = reports
+        .iter()
+        .map(|r| {
+            (
+                r.url.as_str(),
+                r.patterns
+                    .as_ref()
+                    .map(|p| p.help_mechanisms.as_slice())
+                    .unwrap_or(&[]),
+            )
+        })
+        .collect();
+
+    // Mechanism → (page → regions it occupies there).
+    let mut placements: BTreeMap<&str, BTreeMap<&str, BTreeSet<HelpRegion>>> = BTreeMap::new();
+    for (url, mechanisms) in &pages {
+        for m in *mechanisms {
+            placements
+                .entry(m.key.as_str())
+                .or_default()
+                .entry(url)
+                .or_default()
+                .insert(m.region);
+        }
+    }
+    placements.retain(|_, per_page| per_page.len() >= 2);
+
+    let mut deviations = Vec::new();
+
+    for (key, per_page) in &placements {
+        let mut counts: BTreeMap<&BTreeSet<HelpRegion>, usize> = BTreeMap::new();
+        for regions in per_page.values() {
+            *counts.entry(regions).or_default() += 1;
+        }
+        // Most common placement; ties resolve to the first set in order, so
+        // the result doesn't depend on page order.
+        let Some(expected) = counts
+            .iter()
+            .fold(
+                None::<(&BTreeSet<HelpRegion>, usize)>,
+                |best, (set, n)| match best {
+                    Some((_, best_n)) if best_n >= *n => best,
+                    _ => Some((set, *n)),
+                },
+            )
+            .map(|(set, _)| set)
+        else {
+            continue;
+        };
+        for (url, regions) in per_page {
+            if regions.is_disjoint(expected) {
+                deviations.push(HelpDeviation::Region {
+                    url: url.to_string(),
+                    mechanism: key.to_string(),
+                    expected: expected.iter().copied().collect(),
+                    found: regions.iter().copied().collect(),
+                });
+            }
+        }
+    }
+
+    // (region, a, b) with a < b → pages placing a first / pages placing b first.
+    type Pair<'a> = (HelpRegion, &'a str, &'a str);
+    let mut orders: BTreeMap<Pair<'_>, (Vec<&str>, Vec<&str>)> = BTreeMap::new();
+    for (url, mechanisms) in &pages {
+        let mut by_region: BTreeMap<HelpRegion, Vec<&str>> = BTreeMap::new();
+        for m in *mechanisms {
+            if placements.contains_key(m.key.as_str()) {
+                by_region.entry(m.region).or_default().push(m.key.as_str());
+            }
+        }
+        for (region, keys) in by_region {
+            for (i, earlier) in keys.iter().enumerate() {
+                for later in &keys[i + 1..] {
+                    let (a, b, forward) = if earlier < later {
+                        (*earlier, *later, true)
+                    } else {
+                        (*later, *earlier, false)
+                    };
+                    let entry = orders.entry((region, a, b)).or_default();
+                    if forward {
+                        entry.0.push(url);
+                    } else {
+                        entry.1.push(url);
+                    }
+                }
+            }
+        }
+    }
+    for ((region, a, b), (a_first, b_first)) in orders {
+        if a_first.is_empty() || b_first.is_empty() {
+            continue;
+        }
+        let (first, second, deviating) = if a_first.len() >= b_first.len() {
+            (a, b, b_first)
+        } else {
+            (b, a, a_first)
+        };
+        for url in deviating {
+            deviations.push(HelpDeviation::Order {
+                url: url.to_string(),
+                region,
+                first: first.to_string(),
+                second: second.to_string(),
+            });
+        }
+    }
+
+    deviations.sort_by(|x, y| x.url().cmp(y.url()));
+
+    HelpConsistency {
+        pages_with_help: pages.iter().filter(|(_, m)| !m.is_empty()).count(),
+        total_pages: reports.len(),
+        repeated_mechanisms: placements.len(),
+        deviations,
+    }
 }
 
 fn analyze_structured_data(reports: &[AuditReport]) -> StructuredDataConsistency {
@@ -662,8 +969,147 @@ mod tests {
                 .collect(),
             violations: vec![],
             journey_candidates: vec![],
+            help_mechanisms: vec![],
         });
         report
+    }
+
+    fn help_report(url: &str, mechanisms: &[(&str, HelpRegion)]) -> AuditReport {
+        use crate::patterns::help_mechanisms::{HelpKind, HelpMechanism};
+        let mut report = make_report(url, 1, None, vec![]);
+        report.patterns.as_mut().unwrap().help_mechanisms = mechanisms
+            .iter()
+            .map(|(key, region)| HelpMechanism {
+                kind: HelpKind::ContactPage,
+                key: key.to_string(),
+                region: *region,
+            })
+            .collect();
+        report
+    }
+
+    fn cross_page_326(a: &BatchConsistencyAnalysis) -> &CrossPageCriterionAssessment {
+        a.wcag_cross_page
+            .iter()
+            .find(|c| c.criterion.starts_with("3.2.6"))
+            .expect("3.2.6 assessment")
+    }
+
+    #[test]
+    fn consistent_help_passes_when_placement_matches() {
+        use HelpRegion::*;
+        let layout = [("page:a.com/kontakt", Header), ("tel:+4930123", Footer)];
+        let reports = vec![
+            help_report("https://a.com/", &layout),
+            help_report("https://a.com/x", &layout),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).unwrap();
+        assert_eq!(a.help.repeated_mechanisms, 2);
+        assert!(a.help.deviations.is_empty());
+        assert_eq!(cross_page_326(&a).status, "no_inconsistency_detected");
+    }
+
+    #[test]
+    fn consistent_help_flags_mechanism_moved_to_another_region() {
+        use HelpRegion::*;
+        let reports = vec![
+            help_report("https://a.com/", &[("page:a.com/kontakt", Header)]),
+            help_report("https://a.com/x", &[("page:a.com/kontakt", Header)]),
+            help_report("https://a.com/y", &[("page:a.com/kontakt", Footer)]),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).unwrap();
+        assert_eq!(
+            a.help.deviations,
+            vec![HelpDeviation::Region {
+                url: "https://a.com/y".into(),
+                mechanism: "page:a.com/kontakt".into(),
+                expected: vec![Header],
+                found: vec![Footer],
+            }]
+        );
+        let c = cross_page_326(&a);
+        assert_eq!(c.status, "warning");
+        assert_eq!(c.affected_pages, 1);
+    }
+
+    #[test]
+    fn consistent_help_accepts_an_additional_region() {
+        use HelpRegion::*;
+        let reports = vec![
+            help_report("https://a.com/", &[("tel:+4930123", Footer)]),
+            help_report(
+                "https://a.com/x",
+                &[("tel:+4930123", Header), ("tel:+4930123", Footer)],
+            ),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).unwrap();
+        assert!(a.help.deviations.is_empty(), "{:?}", a.help.deviations);
+    }
+
+    #[test]
+    fn consistent_help_flags_reversed_order_within_a_region() {
+        use HelpRegion::*;
+        let usual = [("mailto:info@a.com", Footer), ("tel:+4930123", Footer)];
+        let reports = vec![
+            help_report("https://a.com/", &usual),
+            help_report("https://a.com/x", &usual),
+            help_report(
+                "https://a.com/y",
+                &[("tel:+4930123", Footer), ("mailto:info@a.com", Footer)],
+            ),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).unwrap();
+        assert_eq!(
+            a.help.deviations,
+            vec![HelpDeviation::Order {
+                url: "https://a.com/y".into(),
+                region: Footer,
+                first: "mailto:info@a.com".into(),
+                second: "tel:+4930123".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn consistent_help_stays_manual_without_a_recurring_mechanism() {
+        use HelpRegion::*;
+        let reports = vec![
+            help_report("https://a.com/", &[("page:a.com/kontakt", Header)]),
+            help_report("https://a.com/x", &[]),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).unwrap();
+        assert_eq!(a.help.repeated_mechanisms, 0);
+        assert_eq!(cross_page_326(&a).status, "manual_review");
+    }
+
+    #[test]
+    fn consistent_help_basis_en_has_no_german() {
+        let help = HelpConsistency {
+            repeated_mechanisms: 2,
+            ..Default::default()
+        };
+        let deviations = [
+            HelpDeviation::Region {
+                url: "https://a.com/".into(),
+                mechanism: "tel:+4930123".into(),
+                expected: vec![HelpRegion::Footer],
+                found: vec![HelpRegion::Header, HelpRegion::Other],
+            },
+            HelpDeviation::Order {
+                url: "https://a.com/".into(),
+                region: HelpRegion::Footer,
+                first: "a".into(),
+                second: "b".into(),
+            },
+        ];
+        for text in [
+            consistent_help_basis(&help, true),
+            consistent_help_basis(&HelpConsistency::default(), true),
+            help_deviation_text(&deviations[0], true),
+            help_deviation_text(&deviations[1], true),
+        ] {
+            assert!(!text.chars().any(|c| "äöüÄÖÜß".contains(c)), "{text}");
+        }
     }
 
     #[test]

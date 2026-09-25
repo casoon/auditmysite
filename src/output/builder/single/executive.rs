@@ -194,11 +194,11 @@ fn build_single_key_points_text(
     let (automated, total) = crate::wcag::coverage::coverage_stats();
     if en {
         points.push(format!(
-            "WCAG scope: {automated} of about {total} WCAG 2.1 AA criteria are checked automatically; manual review remains required for context-dependent criteria."
+            "WCAG scope: {automated} of about {total} WCAG 2.2 AA criteria are checked automatically; manual review remains required for context-dependent criteria."
         ));
     } else {
         points.push(format!(
-            "WCAG-Prüfumfang: {automated} von ca. {total} WCAG-2.1-AA-Kriterien werden automatisch geprüft; kontextabhängige Kriterien bleiben manuell zu prüfen."
+            "WCAG-Prüfumfang: {automated} von ca. {total} WCAG-2.2-AA-Kriterien werden automatisch geprüft; kontextabhängige Kriterien bleiben manuell zu prüfen."
         ));
     }
 

@@ -22,7 +22,7 @@ pub const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Active <area> elements in image maps must have alternative text",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "area-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
@@ -33,7 +33,7 @@ pub const RULE_INPUT_IMAGE_ALT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "<input type=\"image\"> elements must have alternative text",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "input-image-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
@@ -44,7 +44,7 @@ pub const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "<object> elements must have a text alternative",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "object-alt",
     tags: &["wcag2a", "wcag111", "cat.text-alternatives"],
 };

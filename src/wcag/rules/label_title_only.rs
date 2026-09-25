@@ -19,7 +19,7 @@ pub const RULE_LABEL_TITLE_ONLY: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description:
         "Form elements must not rely solely on the title attribute for their accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "label-title-only",
     tags: &["wcag2a", "wcag131", "cat.forms"],
 };

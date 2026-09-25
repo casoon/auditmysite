@@ -16,7 +16,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description:
         "Interactive widget roles must have all required states, properties, and owned elements",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-required-children",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };

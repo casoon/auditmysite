@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Accessible authentication</title></head>
+<body>
+<main>
+  <h1>Sign in</h1>
+
+  <!-- Violation: paste blocked via addEventListener + preventDefault. -->
+  <form id="login-blocked" action="/login" method="post">
+    <label for="user-a">Username</label>
+    <input id="user-a" name="username" type="text" autocomplete="username">
+    <label for="pw-blocked">Password</label>
+    <input id="pw-blocked" name="password" type="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <!-- Violation: paste blocked via inline onpaste="return false". -->
+  <form id="otp-form" action="/verify" method="post">
+    <label for="otp-blocked">Verification code</label>
+    <input id="otp-blocked" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" onpaste="return false">
+    <button type="submit">Verify</button>
+  </form>
+
+  <!-- Pass: paste allowed. -->
+  <form id="login-ok" action="/login" method="post">
+    <label for="user-b">E-mail</label>
+    <input id="user-b" name="email" type="email" autocomplete="username">
+    <label for="pw-ok">Password</label>
+    <input id="pw-ok" name="password2" type="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <!-- Pass: handler cancels the native paste but inserts the trimmed text itself. -->
+  <form id="login-sanitised" action="/login" method="post">
+    <label for="pw-sanitised">Password</label>
+    <input id="pw-sanitised" name="password3" type="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <!-- Needs review: image CAPTCHA inside an authentication form. -->
+  <form id="login-captcha" action="/login" method="post">
+    <label for="pw-captcha">Password</label>
+    <input id="pw-captcha" name="password4" type="password" autocomplete="current-password">
+    <img id="captcha-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="captcha" width="120" height="40">
+    <label for="captcha-answer">Type the characters shown</label>
+    <input id="captcha-answer" name="captcha" type="text">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <!-- Not authentication: CAPTCHA on a contact form is out of scope. -->
+  <form id="contact" action="/contact" method="post">
+    <label for="msg">Message</label>
+    <textarea id="msg" name="message"></textarea>
+    <img id="contact-captcha" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="captcha" width="120" height="40">
+    <button type="submit">Send</button>
+  </form>
+</main>
+<script>
+  document.getElementById('pw-blocked').addEventListener('paste', function (e) {
+    e.preventDefault();
+    alert('Pasting is not allowed');
+  });
+  document.getElementById('pw-sanitised').addEventListener('paste', function (e) {
+    e.preventDefault();
+    var text = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
+    this.value = text.trim();
+  });
+</script>
+</body>
+</html>

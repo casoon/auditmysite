@@ -1,0 +1,11 @@
+{
+  "case": "accessible_authentication",
+  "expectations": [
+    { "rule_id": "accessible-auth-paste-blocked", "selector": "input#pw-blocked", "verdict": "violation" },
+    { "rule_id": "accessible-auth-paste-blocked", "selector": "input#otp-blocked", "verdict": "violation" },
+    { "rule_id": "accessible-auth-paste-blocked", "selector": "input#pw-ok", "verdict": "pass" },
+    { "rule_id": "accessible-auth-paste-blocked", "selector": "input#pw-sanitised", "verdict": "pass" },
+    { "rule_id": "accessible-auth-captcha", "selector": "form#login-captcha", "verdict": "needs_review" },
+    { "rule_id": "accessible-auth-captcha", "selector": "form#contact", "verdict": "pass" }
+  ]
+}

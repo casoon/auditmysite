@@ -26,7 +26,7 @@ pub const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Focusable components receive focus in an order that preserves meaning",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
     axe_id: "focus-order-semantics",
     tags: &["wcag2a", "wcag243", "cat.keyboard"],
 };

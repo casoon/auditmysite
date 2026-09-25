@@ -16,7 +16,7 @@ pub const RULE_SUMMARY_NAME: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Summary elements must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "summary-name",
     tags: &["wcag2a", "wcag412", "cat.name-role-value"],
 };
