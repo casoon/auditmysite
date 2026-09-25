@@ -237,7 +237,11 @@ async fn maybe_offer_sitemap_scan(
 
     if !args.quiet {
         print!("{} ", "Checking for sitemap...".dimmed());
-        let _ = std::io::Write::flush(&mut std::io::stdout());
+        if let Err(e) = std::io::Write::flush(&mut std::io::stdout()) {
+            if io::stdout().is_terminal() {
+                tracing::debug!("Failed to flush sitemap status line: {}", e);
+            }
+        }
     }
 
     let Some((sitemap_url, url_count)) = discover_populated_sitemap(url).await? else {

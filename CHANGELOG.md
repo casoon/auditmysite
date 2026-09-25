@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Best-Effort-Aufraeumfehler nicht mehr unsichtbar, 2026-09-25 (Plan 31):** `cargo judge errors`
+  meldete sechs Produktionsstellen in vier Dateien, die ein I/O-Ergebnis kommentarlos verwarfen.
+  Keine davon darf den Audit abbrechen, aber zwei koennen unbemerkt Dateien liegen lassen. Das
+  Loeschen des heruntergeladenen Browser-Archivs nach dem Entpacken und das Loeschen der
+  `.partial`-Datei nach einem fehlgeschlagenen atomaren Schreiben protokollieren jetzt ein `warn!`
+  mit Pfad; Installationsergebnis und urspruenglicher Schreibfehler bleiben unveraendert. Der Flush
+  der Statuszeile „Checking for sitemap..." protokolliert auf Debug-Level, und nur wenn stdout ein
+  Terminal ist — eine Pipe oder geschlossene Ausgabe ist eine gueltige Umgebung, kein Fehler. Das
+  Aufraeumen von PDF-Screenshots und Evidence-Ausschnitten laeuft ueber einen Helper,
+  `remove_temp_file`, der `NotFound` als Erfolg wertet (die meisten Evidence-Plaetze werden nie
+  geschrieben) und andere Fehler auf Debug-Level meldet, damit ein normaler Lauf still bleibt.
+
+  Geprueft mit einem Unit-Test fuer den Helper (fehlende Datei bleibt still; `remove_file` auf ein
+  Verzeichnis liefert einen Fehler, der nicht `NotFound` ist), dem bestehenden Atomic-Write-Test,
+  clippy fuer beide Feature-Sets, `cargo fmt --check` und `cargo test --no-default-features`.
+  `cargo judge errors` sinkt von 17 auf 11 `swallowed-result`-Funde; der Rest liegt in Tests und
+  bleibt bewusst stehen, ebenso absichtlich verlustbehaftete Parse-Konvertierungen.
 - **Desktop- und Mobile-Score ueber dieselben Regeln, 2026-09-25 (Plan 46):** Plan 46 vermutete,
   der zweite Viewport-Durchlauf bewege den Barrierefreiheits-Score nie. Gemessen an 35 oeffentlichen
   Startseiten stimmt das nicht: bei **24 von 35** weichen Desktop und Mobile ab, teils stark

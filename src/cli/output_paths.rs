@@ -74,7 +74,13 @@ fn atomic_write(path: &Path, content: &[u8]) -> std::io::Result<()> {
         fs::rename(&temporary_path, path)
     })();
     if result.is_err() {
-        let _ = fs::remove_file(&temporary_path);
+        if let Err(e) = fs::remove_file(&temporary_path) {
+            tracing::warn!(
+                "Failed to remove partial output file {}: {}",
+                temporary_path.display(),
+                e
+            );
+        }
     }
     result
 }
