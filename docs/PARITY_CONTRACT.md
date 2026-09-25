@@ -9,10 +9,12 @@ different data sources.
 The public methodology/landing-page numbers are frozen in
 `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`:
 
-- WCAG scope: WCAG 2.1 AA
-- Total WCAG A/AA criteria: 50
-- Automated WCAG A/AA criteria: 36
-- Manual-review criteria: 10
+- WCAG scope: WCAG 2.2 AA
+- Total WCAG A/AA criteria: 55
+- Automated WCAG A/AA criteria: 30 (a criterion counts only if its rule can
+  report a violation; rules that only emit review hints or `untested` entries
+  are listed as manual review)
+- Manual-review criteria: 21
 
 When the WCAG coverage manifest changes, update the contract and this document
 in the same change.

@@ -297,7 +297,7 @@ ARIA and semantics:
 
 100+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
-Methodology numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`: WCAG 2.2 AA has 55 A/AA criteria, 39 are covered by automated AuditMySite checks, and 12 are listed as manual-review criteria.
+Methodology numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`: WCAG 2.2 AA has 55 A/AA criteria, 30 are covered by automated AuditMySite checks (a criterion counts only if its rule can report a violation), and 21 are listed as manual-review criteria.
 
 Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
 

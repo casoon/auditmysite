@@ -5,6 +5,22 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Automatisierungsquote ehrlich gezaehlt: 30/55 statt 39/55, 2026-09-25:** Als automatisiert galt
+  jedes Kriterium, fuer das der Regelkatalog einen Eintrag hat — auch wenn die Regel nur
+  Pruefhinweise oder einen `untested`-Eintrag erzeugen kann. Ein Kriterium, das das Werkzeug nicht
+  als verletzt melden kann, prueft es nicht automatisch. Neun Kriterien betrifft das: 1.2.2, 1.3.2,
+  2.1.2, 2.2.2, 2.4.11, 2.5.1, 2.5.2, 2.5.4 und 3.3.7. Sie stehen in `HINT_ONLY_CRITERIA`
+  (`src/wcag/coverage.rs`), fallen aus `automated_criteria()` heraus und zaehlen jetzt als
+  manuelle Pruefung; 1.3.2, 2.1.2, 2.4.11 und 3.3.7 sind dafuer neu in der Manuell-Liste. Die Regeln
+  laufen unveraendert weiter, ihre Hinweise bleiben im Report. Neue Zahlen: 30 automatisiert,
+  21 manuell, 4 weder noch (von 55). Mitbewegt: die Prinzip-Abdeckung (informativ, kein Score-Einfluss)
+  und der EN-301-549-Anhang, der diese Klauseln nun als „manuelle Pruefung" statt „automatisch ohne
+  Befund" fuehrt. Ein Guard-Test stellt sicher, dass jedes Hint-only-Kriterium eine Katalogregel hat,
+  nicht als automatisiert zaehlt und in der Manuell-Liste steht. `docs/PARITY_CONTRACT.jsonc`,
+  `docs/PARITY_CONTRACT.md` (stand noch auf WCAG 2.1, 50/36/10) und README nachgezogen. Geprueft:
+  `--debug-typ`-Lauf gegen eine lokale Fixture (Pruefumfang „30 von ca. 55", Manuell-Wolke 21),
+  `cargo test --lib`, `parity_contract`, `release_contract_tests`, Clippy mit allen Features.
+
 - **Kriterien-Befunde auf blosse Technik-Praesenz entfernt, 2026-09-25 (Plan 45):** Vier Regeln
   meldeten ein WCAG-Kriterium, sobald eine Technik auf der Seite vorkam, die mit dem Kriterium
   zusammenhaengen *koennte* — ohne beobachteten Mangel. **2.2.3 No Timing** schlug auf jedes

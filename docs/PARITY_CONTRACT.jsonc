@@ -15,8 +15,8 @@
   "frozen_numbers": {
     "wcag_version": "WCAG 2.2 AA",
     "wcag_aa_total_criteria": 55,
-    "automated_wcag_aa_criteria": 39,
-    "manual_review_criteria": 12,
+    "automated_wcag_aa_criteria": 30,
+    "manual_review_criteria": 21,
     "en301549_web_clauses": 50,
     "en301549_mapping_version": 1,
     "stable_parity_fixture": "tests/fixtures/parity_gaps.html",
