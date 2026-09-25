@@ -5,6 +5,30 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Gepinnte Toolchain und ein schlankeres Crate-Paket, 2026-09-25 (Plan 28):** Lokal, CI und
+  Release bauten mit dem jeweils aktuellen `stable`. Jetzt pinnt `rust-toolchain.toml` Rust
+  **1.98.1** (die aktuelle Stable-Version, eine Punktversion ueber dem im Plan genannten 1.98.0)
+  mit `clippy` und `rustfmt`. Ein MSRV-Versprechen gibt es bewusst nicht, `Cargo.toml` bekommt
+  kein `rust-version`. Das README-Badge `rust-1.75+` behauptete eine nie gepruefte Untergrenze und
+  nennt jetzt die gepinnte Version.
+
+  `dtolnay/rust-toolchain` liest die Datei nicht. Es installiert, was im Ref oder im Pflicht-Input
+  `toolchain` steht, und setzt es per `rustup default`. Die Datei haette das zwar ueberstimmt, aber
+  `components`/`targets` waeren auf der falschen Toolchain gelandet, und die Version haette doppelt
+  gepflegt werden muessen. Die Workflows rufen deshalb `rustup toolchain install` ohne Argument
+  auf; das installiert Version, Profil und Komponenten aus der Datei. Der Release-Build ergaenzt
+  sein Matrix-Target per `rustup target add`. `CARGO_INCREMENTAL=0`, das die Action bisher
+  setzte, steht jetzt im `env` beider Workflows.
+
+  `Cargo.toml` hat eine `exclude`-Liste: `.claude/`, `.github/`, `.githooks/`, `docs/`,
+  `scripts/`, `tests/`, die beiden Zusatzdokumente und `rust-toolchain.toml`. Das Paket schrumpft
+  von 623 auf 386 Dateien. Die Muster sind mit `/` verankert, denn die Liste aus dem Plan haette
+  mit einem nackten `tests/` still auch `src/output/tests/` aus dem Paket entfernt. Jeder Pfad,
+  den `include_str!`/`include_bytes!` referenziert, ist im Paket; die einzige Ausnahme ist eine
+  Test-Fixture unter `#[cfg(test)]`. `cargo package --locked` laeuft ohne `--allow-dirty` durch,
+  und das Binary aus dem entpackten Paket installiert sich und antwortet auf `--help`. Den ersten
+  CI-Lauf mit der gepinnten Toolchain gab es noch nicht.
+
 - **Browser-Tests laufen im Release-Tor fuer den getaggten Commit, 2026-09-25 (Plan 30):**
   `release.yml` ruft `ci.yml` als wiederverwendbaren Workflow auf und baut erst, wenn dieser
   gruen ist. Der Kommentar in `ci.yml` behauptete, `browser-smoke` und `coverage` liefen dabei

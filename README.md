@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
 [![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.98.1-orange.svg)](rust-toolchain.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Overview
@@ -86,7 +86,7 @@ That default command writes report artifacts into the current directory, for exa
 cargo install auditmysite
 ```
 
-Requires Rust 1.75+. Builds and installs the binary from source.
+Builds and installs the binary from source. Tested with the pinned toolchain (see [Toolchain](#toolchain)); older compilers are not supported.
 
 ### Prebuilt binaries
 
@@ -104,6 +104,10 @@ cargo build --release
 ./target/release/auditmysite --version
 ```
 
+#### Toolchain
+
+`rust-toolchain.toml` pins the exact Rust version used for local development, CI, and release builds; rustup picks it up automatically inside the repository. There is no MSRV promise: the pin is raised deliberately, and older compilers are not supported.
+
 **Optional Cargo features:**
 
 | Feature | What it adds | Build command |
@@ -114,7 +118,7 @@ cargo build --release
 
 ## Requirements
 
-- Rust 1.75+ for local builds
+- Rust as pinned in `rust-toolchain.toml` for local builds
 - Chrome, Chromium, or a managed browser install (`auditmysite browser install`)
 - macOS, Linux, or Windows for released binaries
 
