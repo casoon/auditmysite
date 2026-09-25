@@ -14,7 +14,7 @@ pub const RE_AUTHENTICATE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Data is preserved when users re-authenticate after a session expires",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/re-authenticating.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/re-authenticating.html",
     axe_id: "re-authenticate",
     tags: &["wcag2aaa", "wcag225", "cat.time-and-media"],
 };

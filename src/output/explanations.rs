@@ -1858,25 +1858,29 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     // ── 4. Robust ───────────────────────────────────────────────────────────
+    // Über die geteilte Kennung erreichbar, nicht über das Kriterium: Der
+    // Befund fällt seit dem Wegfall von 4.1.1 unter 4.1.2, und die dortige
+    // Erklärung (Name, Rolle, Wert allgemein) träfe die Dopplung nicht
+    // (Plan 54 §2).
     (
-        "4.1.1",
+        "ids/duplicate",
         RuleExplanation {
-            customer_title: "Doppelte IDs im Dokument",
-            customer_title_en: "Duplicate IDs in the document",
+            customer_title: "Mehrfach vergebene ID wird referenziert",
+            customer_title_en: "Referenced ID is assigned more than once",
             customer_description:
-                "Mehrere Elemente auf der Seite tragen dieselbe id. IDs müssen im \
-                 gesamten Dokument eindeutig sein, damit assistive Technologien \
-                 Referenzen (z. B. aria-owns, aria-labelledby) korrekt auflösen können.",
+                "Mehrere Elemente auf der Seite tragen dieselbe id, und ein anderes \
+                 Element verweist darauf (z. B. label for, aria-labelledby). Welches \
+                 der Elemente gemeint ist, ist damit nicht mehr bestimmbar.",
             customer_description_en:
-                "Multiple elements on the page share the same id. IDs must be unique \
-                 across the entire document so assistive technologies can correctly \
-                 resolve references (e.g. aria-owns, aria-labelledby).",
+                "Multiple elements on the page share the same id, and another element \
+                 references it (e.g. label for, aria-labelledby). Which of them is meant \
+                 can no longer be determined.",
             user_impact:
-                "Screenreader können den Accessibility-Tree nicht korrekt aufbauen und \
-                 überspringen Elemente oder springen zum falschen Ziel.",
+                "Screenreader lösen die Beziehung auf das falsche Element auf und geben \
+                 einen falschen Namen oder eine falsche Beschreibung aus.",
             user_impact_en:
-                "Screen readers cannot correctly build the accessibility tree and skip \
-                 elements or jump to the wrong target.",
+                "Screen readers resolve the relationship to the wrong element and \
+                 announce the wrong name or description.",
             typical_cause:
                 "Wiederholt eingebundene Komponenten oder Templates (z. B. Menüpunkte, \
                  Widgets), die eine statische ID statt einer pro Instanz eindeutigen ID \

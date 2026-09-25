@@ -23,7 +23,9 @@
 //!
 //! [`NotRun::Disabled`]: a11y_report::NotRun::Disabled
 
-use a11y_dom::{Node, NodeId};
+use std::collections::HashSet;
+
+use a11y_dom::{elements, Node, NodeId};
 use a11y_report::{Finding, NotRun, Outcome};
 
 use crate::accessibility::CdpDocument;
@@ -46,6 +48,33 @@ pub struct SharedRule {
     pub help_url: &'static str,
 }
 
+/// Die geteilte Kennung für doppelte IDs. Eigene Konstante, weil die Befunde
+/// dieser Kennung als einzige nachgefiltert werden (Plan 54 §2).
+///
+/// [`SHARED_RULES`] schreibt die Kennung trotzdem als Literal aus: Das
+/// kanonische Regelinventar (`tests/common/rule_inventory.rs`) liest die
+/// Tabelle als Quelltext und sieht durch eine Konstante hindurch nichts.
+/// Gegen ein Auseinanderlaufen steht `die_gefilterte_kennung_steht_in_der_tabelle`.
+const DUPLICATE_ID_RULE: &str = "ids/duplicate";
+
+/// Attribute, die per IDREF auf ein anderes Element zeigen. `headers` und die
+/// ARIA-Verweise tragen Listen, deshalb wird der Wert überall an Leerzeichen
+/// zerlegt.
+const IDREF_ATTRS: &[&str] = &[
+    "for",
+    "form",
+    "list",
+    "headers",
+    "aria-labelledby",
+    "aria-describedby",
+    "aria-controls",
+    "aria-owns",
+    "aria-activedescendant",
+    "aria-details",
+    "aria-errormessage",
+    "aria-flowto",
+];
+
 /// Die geteilten Kennungen, die auditmysite bereits führt.
 ///
 /// Eine Kennung darf hier erst stehen, wenn die auditmysite-eigene Regel
@@ -64,7 +93,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "3.1.1",
         level: WcagLevel::A,
         name: "Language of Page",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     },
     // Neu gegenüber der abgelösten Regel: Sie kannte nur „da oder nicht da".
     SharedRule {
@@ -72,12 +101,13 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "3.1.1",
         level: WcagLevel::A,
         name: "Language of Page",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     },
     // Ersetzt `wcag::rules::parsing::check_parsing_with_page` (axe-Kennung
     // `duplicate-id`). Beide lesen dieselbe Quelle -- die eigene Regel wertete
     // `document.querySelectorAll('[id]')` per JavaScript aus, die geteilte
-    // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung.
+    // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung; gemeldet
+    // wird davon seit Plan 54 §2 nur noch die referenzierte Dublette.
     //
     // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
     // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
@@ -106,35 +136,42 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "2.4.6",
         level: WcagLevel::AA,
         name: "Headings and Labels (Empty Heading)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/headings-and-labels.html",
     },
     SharedRule {
         id: "headings/skip-level",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Heading Hierarchy)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "headings/h1-missing",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Missing Main Heading)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "headings/h1-multiple",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Multiple Main Headings)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
+    // WCAG 2.2 hat 4.1.1 (Parsing) gestrichen — eine doppelte ID ist für sich
+    // genommen kein Erfolgskriterium mehr. Ein Verstoß bleibt sie dort, wo ein
+    // IDREF auf sie zeigt: Dann ist nicht mehr bestimmbar, welches Element
+    // gemeint ist, und Name/Rolle/Wert der referenzierenden Beziehung bricht.
+    // Genau dieser Fall wird gemeldet (siehe `duplicate_id_is_referenced`),
+    // und zwar als 4.1.2 — dieselbe Zuordnung, die axe-core für
+    // `duplicate-id-aria` führt (Plan 54 §2).
     SharedRule {
         id: "ids/duplicate",
-        criterion: "4.1.1",
+        criterion: "4.1.2",
         level: WcagLevel::A,
-        name: "Parsing (Duplicate IDs)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+        name: "Name, Role, Value (Referenced Duplicate ID)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
     // Ersetzt `wcag::rules::focus_order::check_positive_tabindex_with_page`.
     // Auch hier las die eigene Regel den DOM per JavaScript; die geteilte
@@ -151,7 +188,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "2.4.3",
         level: WcagLevel::A,
         name: "Focus Order",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
     },
     // Ersetzt `wcag::rules::list_structure` vollständig. Die geteilte Fassung
     // deckt seit a11y-rules 0.5.0 alle drei Prüfungen ab — Fremdkinder, leere
@@ -162,14 +199,14 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (List Structure)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "lists/empty",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Empty List)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     // Der Fall, den die geteilte Fassung bis 0.6.0 nicht kannte: ein <li>
     // ganz ohne Liste darüber. Ohne ihn hätte die Ablösung eine Prüfung
@@ -179,14 +216,14 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Orphan List Item)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "lists/term-without-definition",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Definition Term)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     // Ersetzt `wcag::rules::table_rules`. Kopfzellen, Name und die
     // widersprüchlich ausgezeichnete Layouttabelle sind seit 0.5.0 alle
@@ -198,21 +235,21 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Table Headers)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "tables/name-missing",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Table Name)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     SharedRule {
         id: "tables/presentational-with-headers",
         criterion: "1.3.1",
         level: WcagLevel::A,
         name: "Info and Relationships (Presentational Table)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     // Ersetzt `wcag::rules::meta_viewport_large`. Die geteilte Regel trennt
     // seit 0.5.0, was auditmysite auf zwei Regeln verteilt hatte:
@@ -226,7 +263,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.4.4",
         level: WcagLevel::AA,
         name: "Resize Text (Viewport Scale)",
-        help_url: "https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     },
 ];
 
@@ -257,16 +294,56 @@ fn selector_for(node: a11y_dom::ArenaNode<'_>) -> String {
     sel
 }
 
-/// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
-fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
-    // `location.node` trägt den Arena-Index als Text; darüber geht es zurück
-    // auf das Element und von dort auf Selektor und AXTree-Kennung.
-    let node = finding
+/// Das Element zu einem Befund. `location.node` trägt den Arena-Index als
+/// Text; darüber geht es zurück auf das Element und von dort auf Selektor,
+/// Attribute und AXTree-Kennung.
+fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom::ArenaNode<'d>> {
+    finding
         .location
         .node
         .as_deref()
         .and_then(|s| s.parse::<u32>().ok())
-        .and_then(|idx| doc.node_at(NodeId(idx)));
+        .and_then(|idx| doc.node_at(NodeId(idx)))
+}
+
+/// Alle IDs, auf die im Dokument per IDREF verwiesen wird.
+fn referenced_ids(doc: &CdpDocument) -> HashSet<&str> {
+    let mut out = HashSet::new();
+    for node in elements(doc) {
+        for attr in IDREF_ATTRS {
+            let Some(value) = node.attr(attr) else {
+                continue;
+            };
+            out.extend(value.split_whitespace());
+        }
+    }
+    out
+}
+
+/// Ob die doppelt vergebene ID eines Befunds referenziert wird.
+///
+/// Nur dann ist sie unter WCAG 2.2 ein Verstoß: Die Beziehung ist nicht mehr
+/// eindeutig auflösbar, assistierende Technik kann Name, Rolle oder Wert des
+/// referenzierenden Elements nicht bestimmen. Eine doppelte ID, auf die
+/// niemand zeigt, ist seit der Streichung von 4.1.1 kein Kriteriumsverstoß
+/// mehr (Plan 54 §2).
+///
+/// Lässt sich das Element zum Befund nicht auflösen, gilt die ID als nicht
+/// referenziert: Der Verstoß wäre dann nicht belegbar, und ein Kriterium zu
+/// behaupten, das der Baum nicht hergibt, ist schlechter als zu schweigen.
+fn duplicate_id_is_referenced(
+    doc: &CdpDocument,
+    finding: &Finding,
+    referenced: &HashSet<&str>,
+) -> bool {
+    finding_node(doc, finding)
+        .and_then(|n| n.attr("id"))
+        .is_some_and(|id| referenced.contains(id.trim()))
+}
+
+/// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
+fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
+    let node = finding_node(doc, finding);
 
     // "document" ist eine der Platzhalter-Kennungen, die die Anreicherung
     // ausdrücklich nicht als Geisterelement wertet.
@@ -323,10 +400,25 @@ pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
 
     let report = a11y_rules::run_with_semantics(doc);
 
+    // Erst gebaut, wenn ein Duplikat-Befund vorliegt — der Lauf über alle
+    // Elemente lohnt sich sonst nicht.
+    let mut referenced: Option<HashSet<&str>> = None;
+    // Verworfene Duplikat-Befunde. Der Vermerk aus dem Crate zählt sie noch
+    // mit und muss um sie gekürzt werden, sonst meldet `rule_outcomes`
+    // Befunde, die es in `violations` nicht gibt.
+    let mut dropped_duplicates = 0usize;
+
     for finding in &report.findings {
         let Some(rule) = shared_rule(&finding.rule_id) else {
             continue;
         };
+        if rule.id == DUPLICATE_ID_RULE && finding.outcome != Outcome::Pass {
+            let referenced = referenced.get_or_insert_with(|| referenced_ids(doc));
+            if !duplicate_id_is_referenced(doc, finding, referenced) {
+                dropped_duplicates += 1;
+                continue;
+            }
+        }
         results.add_violation(to_violation(doc, finding, rule));
     }
 
@@ -339,9 +431,13 @@ pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
             // beide Seiten dasselbe Modell -- er wird durchgereicht statt
             // uebersetzt. Ergaenzt wird nur das Kriterium, das `a11y-rules`
             // am Vermerk nicht mitfuehrt.
-            Some(rule) => results
-                .rule_outcomes
-                .push(run.clone().with_wcag([rule.criterion])),
+            Some(rule) => {
+                let mut run = run.clone().with_wcag([rule.criterion]);
+                if rule.id == DUPLICATE_ID_RULE {
+                    run.findings = run.findings.saturating_sub(dropped_duplicates);
+                }
+                results.rule_outcomes.push(run);
+            }
         }
     }
 
@@ -491,6 +587,97 @@ mod tests {
             gesehen.contains("keyboard/positive-tabindex"),
             "{gesehen:?}"
         );
+    }
+
+    /// Eine Seite mit zwei `<div id="dopplung">` im Koerper. `verweis` haengt,
+    /// wenn gesetzt, ein `<label for=...>` davor.
+    fn seite_mit_doppelter_id(verweis: Option<&str>) -> CdpNode {
+        let mut kinder = vec![];
+        if let Some(ziel) = verweis {
+            kinder.push(serde_json::json!({
+                "nodeId": 4, "backendNodeId": 4, "nodeType": 1,
+                "nodeName": "LABEL", "localName": "label", "nodeValue": "",
+                "attributes": ["for", ziel], "children": []
+            }));
+        }
+        for (i, node_id) in [5, 6].iter().enumerate() {
+            kinder.push(serde_json::json!({
+                "nodeId": node_id, "backendNodeId": node_id, "nodeType": 1,
+                "nodeName": "DIV", "localName": "div", "nodeValue": "",
+                "attributes": ["id", "dopplung", "data-nr", i.to_string()],
+                "children": []
+            }));
+        }
+        serde_json::from_value(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [{
+                "nodeId": 2, "backendNodeId": 2, "nodeType": 1,
+                "nodeName": "HTML", "localName": "html", "nodeValue": "",
+                "attributes": ["lang", "de"],
+                "children": [{
+                    "nodeId": 3, "backendNodeId": 3, "nodeType": 1,
+                    "nodeName": "BODY", "localName": "body", "nodeValue": "",
+                    "attributes": [], "children": kinder
+                }]
+            }]
+        }))
+        .expect("CDP-Knoten")
+    }
+
+    fn duplikat_befunde(verweis: Option<&str>) -> Vec<Violation> {
+        let doc = build_document(&seite_mit_doppelter_id(verweis), &AXTree::new()).unwrap();
+        run_shared_rules(&doc)
+            .violations
+            .into_iter()
+            .filter(|v| v.rule_id.as_deref() == Some(DUPLICATE_ID_RULE))
+            .collect()
+    }
+
+    /// Der Filter greift über eine Konstante, die Tabelle schreibt die
+    /// Kennung aus — beide müssen dieselbe meinen, sonst liefe der Filter ins
+    /// Leere.
+    #[test]
+    fn die_gefilterte_kennung_steht_in_der_tabelle() {
+        assert!(SHARED_RULES.iter().any(|r| r.id == DUPLICATE_ID_RULE));
+    }
+
+    /// Plan 54 §2: Zeigt ein IDREF auf die doppelt vergebene ID, ist die
+    /// Beziehung mehrdeutig -- das ist ein Verstoss gegen 4.1.2, nicht mehr
+    /// gegen das gestrichene 4.1.1.
+    #[test]
+    fn referenzierte_doppelte_id_faellt_unter_4_1_2() {
+        let befunde = duplikat_befunde(Some("dopplung"));
+        assert_eq!(befunde.len(), 1, "{befunde:?}");
+        assert_eq!(befunde[0].rule, "4.1.2");
+    }
+
+    /// Und ohne Verweis darauf gibt es seit der Streichung von 4.1.1 kein
+    /// Kriterium mehr, das die Dopplung verletzt -- also auch keinen Befund.
+    #[test]
+    fn unreferenzierte_doppelte_id_ist_kein_befund_mehr() {
+        assert!(duplikat_befunde(None).is_empty());
+        // Ein Verweis auf eine andere ID macht sie nicht referenziert.
+        assert!(duplikat_befunde(Some("etwas-anderes")).is_empty());
+    }
+
+    /// Der Vermerk zählt nur, was als Befund übrig bleibt. Vorher trug er die
+    /// Zählung des Crates weiter, und ein Report meldete für `ids/duplicate`
+    /// zehn Befunde, die es in `violations` nicht gab (inros-lackner.de,
+    /// 2026-09-24).
+    #[test]
+    fn der_vermerk_zaehlt_verworfene_duplikate_nicht_mit() {
+        let vermerk = |verweis| {
+            let doc = build_document(&seite_mit_doppelter_id(verweis), &AXTree::new()).unwrap();
+            run_shared_rules(&doc)
+                .rule_outcomes
+                .into_iter()
+                .find(|o| o.rule_id == DUPLICATE_ID_RULE)
+                .expect("Vermerk")
+                .findings
+        };
+        assert_eq!(vermerk(None), 0);
+        assert_eq!(vermerk(Some("dopplung")), 1);
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

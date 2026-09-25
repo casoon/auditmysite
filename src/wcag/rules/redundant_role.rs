@@ -22,7 +22,7 @@ pub const REDUNDANT_ROLE_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Low,
     description:
         "An explicit role attribute must not merely restate the element's own implicit role",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "redundant-role",
     tags: &["wcag2a", "wcag412", "cat.aria", "best-practice"],
 };

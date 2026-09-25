@@ -1,17 +1,16 @@
-//! WCAG 4.1.1 Parsing
+//! WCAG 4.1.2 Name, Role, Value -- mehrdeutige ARIA-Beziehungen
 //!
-//! Elements must have complete start and end tags, elements are nested according
-//! to their specifications, elements do not contain duplicate attributes, and any
-//! IDs are unique, except where the specifications allow these features.
+//! Beanspruchen mehrere Knoten per `aria-owns` dasselbe Kind, ist die
+//! Beziehung nicht mehr eindeutig aufloesbar: Assistierende Technik kann Name,
+//! Rolle und Wert des betroffenen Elements nicht zuverlaessig bestimmen.
 //! Level A
 //!
-//! Die eigentliche Pruefung auf doppelte IDs laeuft seit der Umstellung auf
-//! die geteilten Crates als `ids/duplicate` im `a11y-rules`-Bestand (siehe
-//! `wcag::shared`) -- die vormalige DOM-Regel mit der axe-Kennung
-//! `duplicate-id` ist deshalb geloescht.
+//! Die Pruefung auf doppelte IDs laeuft seit der Umstellung auf die geteilten
+//! Crates als `ids/duplicate` im `a11y-rules`-Bestand (siehe `wcag::shared`)
+//! -- die vormalige DOM-Regel mit der axe-Kennung `duplicate-id` ist deshalb
+//! geloescht.
 //!
-//! Hier bleibt die AX-baumbasierte Pruefung `duplicate-id-aria`: mehrere
-//! Knoten, die per `aria-owns` dasselbe Kind beanspruchen. Das ist ein
+//! Hier bleibt die AX-baumbasierte Pruefung `duplicate-id-aria`. Das ist ein
 //! anderer Befund als eine doppelte ID -- er bricht die Aufloesung von
 //! ARIA-Beziehungen und hat im geteilten Bestand kein Gegenstueck.
 
@@ -22,20 +21,21 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 // WCAG 4.1.1 (Parsing) was removed in WCAG 2.2 (Oct 2023) — it "always passes"
-// for HTML since browsers recover from malformed markup. Duplicate IDs remain a
-// real problem (AT may resolve aria-owns/aria-labelledby to the wrong element),
-// but they do not cause complete inaccessibility, so this is High, not Critical.
-// Tagged wcag21 only, not wcag22.
+// for HTML since browsers recover from malformed markup. An ambiguous
+// aria-owns relationship stays a real failure, but of 4.1.2: AT cannot resolve
+// which element the relationship names, so name, role and value are no longer
+// programmatically determinable. That is also where axe-core maps its
+// `duplicate-id-aria` rule (plan 54 §2). It does not cause complete
+// inaccessibility, so this is High, not Critical.
 pub const PARSING_RULE: RuleMetadata = RuleMetadata {
-    id: "4.1.1",
-    name: "Parsing",
+    id: "4.1.2",
+    name: "Name, Role, Value",
     level: WcagLevel::A,
     severity: Severity::High,
-    description:
-        "IDs must be unique; elements must be correctly nested (WCAG 4.1.1, pre-2.2 criterion)",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+    description: "ARIA relationships must resolve to exactly one element; a duplicate ID makes aria-owns/aria-labelledby ambiguous (WCAG 4.1.2)",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "duplicate-id-aria",
-    tags: &["wcag2a", "wcag21", "wcag411", "cat.parsing"],
+    tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
 pub fn check_parsing(tree: &AXTree) -> WcagResults {

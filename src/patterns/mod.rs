@@ -14,6 +14,7 @@ mod add_to_cart;
 mod disclosure_menu;
 pub(crate) mod easy_language;
 mod form;
+pub mod help_mechanisms;
 mod main_navigation;
 mod modal_dialog;
 mod quantity_stepper;
@@ -61,6 +62,10 @@ pub struct PatternAnalysis {
     /// menu burgers, accordion headers).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub journey_candidates: Vec<JourneyCandidate>,
+    /// Help mechanisms outside `main`, in document order — input for the
+    /// cross-page WCAG 3.2.6 comparison in `audit::batch_consistency`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub help_mechanisms: Vec<help_mechanisms::HelpMechanism>,
 }
 
 /// A pattern candidate the journey layer can drive interactively.

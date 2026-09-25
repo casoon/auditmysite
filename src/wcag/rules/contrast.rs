@@ -22,7 +22,7 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Text must have sufficient color contrast with background",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
     axe_id: "color-contrast",
     tags: &["wcag2aa", "wcag143", "cat.color"],
 };

@@ -16,7 +16,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "All non-text content has a text alternative that serves the equivalent purpose",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "image-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };

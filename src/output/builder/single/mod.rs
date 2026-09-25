@@ -985,6 +985,7 @@ mod tests {
             recognized: vec![],
             violations: vec![],
             journey_candidates: vec![],
+            help_mechanisms: vec![],
         })
         .with_design_quality(crate::design_quality::DesignQualityAnalysis {
             findings: vec![crate::design_quality::DesignQualityFinding {
@@ -1322,6 +1323,7 @@ mod tests {
             recognized: vec![],
             violations: vec![],
             journey_candidates: vec![],
+            help_mechanisms: vec![],
         });
 
         let active_keys: std::collections::BTreeSet<&str> = active_modules(&report)

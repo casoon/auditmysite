@@ -21,7 +21,7 @@ pub const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description:
         "Server-side image maps must not be used; use client-side image maps or text links instead",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     axe_id: "server-side-image-map",
     tags: &["wcag2a", "wcag111", "cat.images"],
 };

@@ -66,7 +66,7 @@ impl ScoreImpact {
 
 /// Gewichtung der Module für den Gesamtscore, in Prozent.
 ///
-/// Einzige Quelle: `audit::normalized::build_module_scores` liest hier nach,
+/// Einzige Quelle: `audit::module_scores::build_module_scores` liest hier nach,
 /// statt die Zahlen erneut hinzuschreiben. Vorher gab es zwei Tabellen für
 /// denselben Begriff — diese hier (Accessibility 35, Performance 20, SEO 20,
 /// Security 15, Mobile 10, ohne HTML Conformance) hatte keinen einzigen

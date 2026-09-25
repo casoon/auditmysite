@@ -27,7 +27,7 @@ pub const NON_TEXT_CONTRAST_CSS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::Medium,
     description: "UI components and graphical objects have a contrast ratio of at least 3:1",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
     axe_id: "non-text-contrast-css",
     tags: &["wcag2aa", "wcag1411", "cat.color"],
 };

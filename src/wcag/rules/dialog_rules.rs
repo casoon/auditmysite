@@ -14,7 +14,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description:
         "Dialogs and alert regions must have accessible names and be properly marked as modal",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "dialog-name",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
@@ -111,7 +111,7 @@ fn check_alert_has_name(node: &AXNode, results: &mut WcagResults) {
         )
         .with_role(node.role.clone())
         .with_fix("Add aria-label or aria-labelledby to identify the alert or status region")
-        .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html")
+        .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html")
         .with_rule_id(RULE_META.axe_id);
 
         results.add_violation(violation);

@@ -403,11 +403,11 @@ pub(super) fn render_risks_and_strengths(
         let (automated, total) = crate::wcag::coverage::coverage_stats();
         let empty_state = if en {
             format!(
-                "No priority risks identified within the automated audit scope. This result applies to the automated audit scope only ({automated} of about {total} testable WCAG 2.1 AA criteria); criteria requiring manual review are listed in the appendix."
+                "No priority risks identified within the automated audit scope. This result applies to the automated audit scope only ({automated} of about {total} testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix."
             )
         } else {
             format!(
-                "Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.1-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
+                "Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
             )
         };
         builder = builder.add_component(Callout::success(&empty_state).with_title(if en {
@@ -804,11 +804,11 @@ pub(super) fn render_management_page(
         builder = builder.add_component(
             Label::new(if en {
                 format!(
-                    "This result applies to the automated audit scope only ({automated} of ~{total} testable WCAG 2.1 AA criteria); criteria requiring manual review are listed in the appendix."
+                    "This result applies to the automated audit scope only ({automated} of ~{total} testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix."
                 )
             } else {
                 format!(
-                    "Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.1-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
+                    "Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
                 )
             })
             .with_size("9pt")

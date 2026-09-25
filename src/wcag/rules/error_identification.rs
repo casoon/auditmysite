@@ -15,7 +15,7 @@ pub const ERROR_ID_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Detected input errors must be identified and described in text",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/error-identification.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html",
     axe_id: "aria-invalid-without-describedby",
     tags: &["wcag2a", "wcag331", "cat.forms"],
 };

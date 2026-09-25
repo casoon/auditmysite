@@ -1,7 +1,7 @@
 # AuditMySite - Project Instructions
 
 ## Project Overview
-Resource-efficient WCAG 2.1 AA (plus select 2.2 criteria) Accessibility Checker written in Rust. Audits web pages using Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree. Supports single URL, sitemap batch, and URL file batch modes.
+Resource-efficient WCAG 2.2 AA Accessibility Checker written in Rust. Audits web pages using Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree. Supports single URL, sitemap batch, and URL file batch modes.
 
 ## Architecture
 - **Language:** Rust (async with tokio)

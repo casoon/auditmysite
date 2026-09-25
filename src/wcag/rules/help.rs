@@ -13,7 +13,7 @@ pub const HELP_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Context-sensitive help is available for form inputs",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/help.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/help.html",
     axe_id: "help",
     tags: &["wcag2aaa", "wcag335", "cat.forms"],
 };

@@ -81,7 +81,7 @@ pub const MEANINGFUL_SEQUENCE_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description:
         "The visual reading order matches the order content is exposed to assistive technology",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/meaningful-sequence.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/meaningful-sequence.html",
     axe_id: "css-order-reading-sequence",
     tags: &["wcag2a", "wcag132", "cat.structure"],
 };

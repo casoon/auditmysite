@@ -17,7 +17,7 @@ pub const FOCUS_VISIBLE_CSS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Keyboard focus indicator must be visible",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
     axe_id: "focus-visible-outline-none",
     tags: &["wcag2aa", "wcag247", "cat.keyboard"],
 };

@@ -1274,6 +1274,7 @@ fn test_json_report_includes_report_artifact_fields() {
         }],
         violations: vec![],
         journey_candidates: vec![],
+        help_mechanisms: vec![],
     });
     report.screenshot_status = auditmysite::audit::ScreenshotStatus::Failed("test".to_string());
 

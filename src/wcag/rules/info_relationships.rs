@@ -18,7 +18,7 @@ pub const INFO_RELATIONSHIPS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Information, structure, and relationships can be programmatically determined",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "definition-list",
     tags: &["wcag2a", "wcag131", "cat.structure"],
 };
@@ -30,7 +30,7 @@ pub const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Presentational containers must not hide semantic child structure",
-    help_url: "https://www.w3.org/WAI/WCAG21/Techniques/failures/F92",
+    help_url: "https://www.w3.org/WAI/WCAG22/Techniques/failures/F92",
     axe_id: "presentation-semantic-children",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };

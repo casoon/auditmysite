@@ -18,7 +18,7 @@ pub const BACKGROUND_AUDIO_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Background audio must be avoidable or at least 20 dB lower than speech",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/low-or-no-background-audio.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/low-or-no-background-audio.html",
     axe_id: "background-audio",
     tags: &["wcag2aaa", "wcag147", "cat.time-and-media"],
 };

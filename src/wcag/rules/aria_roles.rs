@@ -24,7 +24,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "ARIA roles must be valid and required owned elements must be present",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     axe_id: "aria-roles",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
