@@ -22,10 +22,14 @@ short current-state summary. Newest entries first (unchanged order from before t
   Liste als `budget_exhausted` eingetragen, obwohl seit der Sortierung nach Konfidenz die
   sortierte abgearbeitet wird — der Report nannte die falschen Journeys als uebersprungen.
 
-  Bekannt und offen: Auf www.dm.de reagiert die Seite nach den Modal-Journeys nicht mehr, und die
-  folgenden Throttling-Profile der Performance-Messung laufen in Timeouts (Audit 73 s → 243 s,
-  Performance `partial`). Mit 5 s kamen die Modals dort nicht an die Reihe. Ein JavaScript-Dialog
-  ist es nicht (geprueft). Einzige betroffene Seite im Korpus; eigener Plan.
+  Mit dem hoeheren Budget kamen auf www.dm.de erstmals die Modal-Journeys an die Reihe — und der
+  Audit dauerte danach 243 s statt 73 s, alle Throttling-Profile der Performance-Messung liefen in
+  Timeouts. Ursache (Plan 55): Escape schliesst keinen der drei Info-Dialoge, die Journeys lassen
+  sie offen, und die Folgephasen auf demselben Tab konfigurieren Drosselung und Cache *vor* ihrem
+  eigenen Neuladen — unter CPU-Drosselung antwortete der Renderer mit drei offenen Dialogen nicht
+  mehr. Ein JavaScript-Dialog war es nicht (geprueft). Nach der interaktiven Phase wird der Tab
+  jetzt auf `about:blank` gesetzt; alle spaeteren Phasen navigieren ohnehin selbst zur URL.
+  dm.de: 87 s, Performance `completed`, alle drei Profile gemessen.
 
 - **Gepinnte Toolchain und ein schlankeres Crate-Paket, 2026-09-25 (Plan 28):** Lokal, CI und
   Release bauten mit dem jeweils aktuellen `stable`. Jetzt pinnt `rust-toolchain.toml` Rust

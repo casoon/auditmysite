@@ -1090,6 +1090,10 @@ pub async fn audit_page(
                 });
         }
     }
+    if config.interactive.is_enabled() {
+        reset_tab_after_journeys(page).await;
+    }
+
     ensure_requested_module_runs(&mut report);
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
@@ -1100,6 +1104,24 @@ pub async fn audit_page(
     // persisting here would cache a pre-canonical report that differs from a
     // fresh render (#404). The caller persists once the report is final.
     Ok((report, primary_snap))
+}
+
+/// Leave the page the journeys interacted with.
+///
+/// Journeys click triggers, open dialogs and move focus; what they open is not
+/// always closable (www.dm.de: Escape closes none of its three info dialogs).
+/// The later phases on this tab — third-party isolation, SSR gap, throttled
+/// performance — start by configuring the tab *before* they reload the URL,
+/// and on dm.de that ran against three open dialogs under CPU throttling: the
+/// renderer stopped answering and every throttle profile timed out (73 s → 243 s,
+/// Performance partial). Each of those phases navigates to the URL itself, so
+/// nothing after the journeys needs the interacted state.
+async fn reset_tab_after_journeys(page: &Page) {
+    match tokio::time::timeout(std::time::Duration::from_secs(5), page.goto("about:blank")).await {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => warn!("Resetting the tab after the journeys failed: {}", e),
+        Err(_) => warn!("Resetting the tab after the journeys timed out"),
+    }
 }
 
 async fn collect_navigation_snapshot(
