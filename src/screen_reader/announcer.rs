@@ -1,3 +1,16 @@
+//! Aus der Ansage-Struktur einen Satz machen.
+//!
+//! Woraus eine Ansage besteht, entscheidet `a11y-perception`: welche Teile, in
+//! welcher Reihenfolge, welcher Zustand nichts hinzufügt. Hier stehen nur die
+//! Wörter — die Zuordnung von jedem Teil auf einen Schlüssel der
+//! Berichtssprache, und das Trennzeichen dazwischen.
+//!
+//! Die Trennung ist der Grund, warum dieser Renderer bei auditmysite bleibt und
+//! nicht mitgewandert ist: `a11y-perception` kennt keine Locale, und es soll
+//! auch keine kennen.
+
+use a11y_perception::{AnnouncedRole, AnnouncedState};
+
 use crate::i18n::I18n;
 
 use super::types::ReadingItem;
@@ -10,110 +23,68 @@ pub fn announce(item: &ReadingItem) -> String {
 
 /// Announce a reading item in the supplied locale.
 pub fn announce_localized(item: &ReadingItem, i18n: &I18n) -> String {
-    let mut parts = vec![item
-        .name
-        .as_deref()
-        .map(str::trim)
-        .filter(|name| !name.is_empty())
-        .map(String::from)
-        .unwrap_or_else(|| i18n.t("sr-no-name"))];
+    let announcement = a11y_perception::announce(item);
 
-    parts.push(role_label(item, i18n));
-    parts.extend(state_labels(item, i18n));
+    // Ein namenloser Knoten bekommt Worte statt Schweigen -- „(kein Name)" ist
+    // selbst die Auskunft, denn ein Schalter ohne Namen ist ein Befund.
+    let mut parts = vec![announcement.name.unwrap_or_else(|| i18n.t("sr-no-name"))];
+
+    parts.push(role_label(&announcement.role, i18n));
+    parts.extend(
+        announcement
+            .states
+            .into_iter()
+            .map(|state| state_label(state, i18n)),
+    );
 
     parts.join(", ")
 }
 
-fn role_label(item: &ReadingItem, i18n: &I18n) -> String {
-    if item.role.as_deref() == Some("heading") {
-        if let Some(level) = state_value(&item.states, "level") {
-            return i18n.t_args("sr-role-heading-level", &[("level", level)]);
+fn role_label(role: &AnnouncedRole, i18n: &I18n) -> String {
+    match role {
+        AnnouncedRole::Heading { level: Some(level) } => {
+            // Als Zeichenkette, nicht als Zahl: Fluent würde eine Zahl nach
+            // Locale formatieren, und eine Überschriftenebene ist keine Menge.
+            let level = level.to_string();
+            i18n.t_args("sr-role-heading-level", &[("level", level.as_str())])
         }
-    }
-
-    match item.role.as_deref().unwrap_or("generic") {
-        "button" => i18n.t("sr-role-button"),
-        "link" => i18n.t("sr-role-link"),
-        "textbox" | "searchbox" => i18n.t("sr-role-textbox"),
-        "checkbox" => i18n.t("sr-role-checkbox"),
-        "radio" => i18n.t("sr-role-radio"),
-        "combobox" => i18n.t("sr-role-combobox"),
-        "listbox" => i18n.t("sr-role-listbox"),
-        "slider" => i18n.t("sr-role-slider"),
-        "spinbutton" => i18n.t("sr-role-spinbutton"),
-        "tab" => i18n.t("sr-role-tab"),
-        "heading" => i18n.t("sr-role-heading"),
-        "navigation" => i18n.t("sr-role-navigation"),
-        "main" => i18n.t("sr-role-main"),
-        "banner" => i18n.t("sr-role-banner"),
-        "contentinfo" => i18n.t("sr-role-contentinfo"),
-        role => role.to_string(),
-    }
-}
-
-fn state_labels(item: &ReadingItem, i18n: &I18n) -> Vec<String> {
-    let mut labels = Vec::new();
-
-    for state in &item.states {
-        match state_parts(state) {
-            ("expanded", Some("false")) => labels.push(i18n.t("sr-state-collapsed")),
-            ("expanded", _) => labels.push(i18n.t("sr-state-expanded")),
-            ("checked", Some("false")) => labels.push(i18n.t("sr-state-unchecked")),
-            ("checked", Some("mixed")) => labels.push(i18n.t("sr-state-mixed")),
-            ("checked", _) => labels.push(i18n.t("sr-state-checked")),
-            ("selected", Some("false")) => labels.push(i18n.t("sr-state-not-selected")),
-            ("selected", _) => labels.push(i18n.t("sr-state-selected")),
-            ("required", Some("false")) => {}
-            ("required", _) => labels.push(i18n.t("sr-state-required")),
-            ("invalid", Some("false")) => {}
-            ("invalid", _) => labels.push(i18n.t("sr-state-invalid")),
-            ("disabled", Some("false")) => {}
-            ("disabled", _) => labels.push(i18n.t("sr-state-disabled")),
-            ("pressed", Some("false")) => labels.push(i18n.t("sr-state-not-pressed")),
-            ("pressed", _) => labels.push(i18n.t("sr-state-pressed")),
-            ("level", _) => {}
-            _ => {}
-        }
-    }
-
-    if item.tab_stop && !is_natively_interactive(item.role.as_deref()) {
-        labels.push(i18n.t("sr-state-tab-stop"));
-    }
-
-    labels
-}
-
-fn state_value<'a>(states: &'a [String], name: &str) -> Option<&'a str> {
-    states
-        .iter()
-        .filter_map(|state| state.split_once('='))
-        .find_map(|(state_name, value)| (state_name == name).then_some(value))
-}
-
-fn state_parts(state: &str) -> (&str, Option<&str>) {
-    match state.split_once('=') {
-        Some((name, value)) => (name, Some(value)),
-        None => (state, None),
+        AnnouncedRole::Heading { level: None } => i18n.t("sr-role-heading"),
+        AnnouncedRole::Button => i18n.t("sr-role-button"),
+        AnnouncedRole::Link => i18n.t("sr-role-link"),
+        AnnouncedRole::TextBox => i18n.t("sr-role-textbox"),
+        AnnouncedRole::CheckBox => i18n.t("sr-role-checkbox"),
+        AnnouncedRole::Radio => i18n.t("sr-role-radio"),
+        AnnouncedRole::ComboBox => i18n.t("sr-role-combobox"),
+        AnnouncedRole::ListBox => i18n.t("sr-role-listbox"),
+        AnnouncedRole::Slider => i18n.t("sr-role-slider"),
+        AnnouncedRole::SpinButton => i18n.t("sr-role-spinbutton"),
+        AnnouncedRole::Tab => i18n.t("sr-role-tab"),
+        AnnouncedRole::Navigation => i18n.t("sr-role-navigation"),
+        AnnouncedRole::Main => i18n.t("sr-role-main"),
+        AnnouncedRole::Banner => i18n.t("sr-role-banner"),
+        AnnouncedRole::ContentInfo => i18n.t("sr-role-contentinfo"),
+        // Eine Rolle ohne eigene Benennung wird unübersetzt genannt. Besser der
+        // rohe Rollenname als gar keine Rolle.
+        AnnouncedRole::Other(role) => role.clone(),
     }
 }
 
-fn is_natively_interactive(role: Option<&str>) -> bool {
-    matches!(
-        role,
-        Some(
-            "button"
-                | "link"
-                | "textbox"
-                | "searchbox"
-                | "checkbox"
-                | "radio"
-                | "combobox"
-                | "listbox"
-                | "slider"
-                | "spinbutton"
-                | "tab"
-        )
-    )
+fn state_label(state: AnnouncedState, i18n: &I18n) -> String {
+    match state {
+        AnnouncedState::Expanded => i18n.t("sr-state-expanded"),
+        AnnouncedState::Collapsed => i18n.t("sr-state-collapsed"),
+        AnnouncedState::Checked => i18n.t("sr-state-checked"),
+        AnnouncedState::Unchecked => i18n.t("sr-state-unchecked"),
+        AnnouncedState::Mixed => i18n.t("sr-state-mixed"),
+        AnnouncedState::Selected => i18n.t("sr-state-selected"),
+        AnnouncedState::NotSelected => i18n.t("sr-state-not-selected"),
+        AnnouncedState::Required => i18n.t("sr-state-required"),
+        AnnouncedState::Invalid => i18n.t("sr-state-invalid"),
+        AnnouncedState::Disabled => i18n.t("sr-state-disabled"),
+        AnnouncedState::Pressed => i18n.t("sr-state-pressed"),
+        AnnouncedState::NotPressed => i18n.t("sr-state-not-pressed"),
+        AnnouncedState::Focusable => i18n.t("sr-state-tab-stop"),
+    }
 }
 
 #[cfg(test)]
@@ -174,5 +145,67 @@ mod tests {
         generic.tab_stop = true;
 
         insta::assert_snapshot!(announce(&generic), @"Card, generic, fokussierbar");
+    }
+
+    #[test]
+    fn every_announced_role_and_state_has_a_german_word() {
+        // Die Zuordnung ist der ganze Zweck dieses Moduls. Faellt in
+        // a11y-perception eine Variante hinzu, muss der Match hier
+        // nachgezogen werden -- der Compiler erzwingt das. Was er nicht
+        // erzwingt, ist ein *vorhandener* Schluessel: `I18n::t` gibt den
+        // Schluessel selbst zurueck, wenn er fehlt, und eine Ansage wie
+        // "Suche, sr-role-textbox" wuerde sonst durchgehen.
+        use a11y_perception::{AnnouncedRole, AnnouncedState};
+
+        let i18n = I18n::new("de").expect("German report locale must parse");
+
+        let roles = [
+            AnnouncedRole::Button,
+            AnnouncedRole::Link,
+            AnnouncedRole::TextBox,
+            AnnouncedRole::CheckBox,
+            AnnouncedRole::Radio,
+            AnnouncedRole::ComboBox,
+            AnnouncedRole::ListBox,
+            AnnouncedRole::Slider,
+            AnnouncedRole::SpinButton,
+            AnnouncedRole::Tab,
+            AnnouncedRole::Heading { level: Some(2) },
+            AnnouncedRole::Heading { level: None },
+            AnnouncedRole::Navigation,
+            AnnouncedRole::Main,
+            AnnouncedRole::Banner,
+            AnnouncedRole::ContentInfo,
+        ];
+        for role in &roles {
+            let label = super::role_label(role, &i18n);
+            assert!(
+                !label.starts_with("sr-role-"),
+                "kein deutsches Wort fuer {role:?}, nur der Schluessel {label}"
+            );
+        }
+
+        let states = [
+            AnnouncedState::Expanded,
+            AnnouncedState::Collapsed,
+            AnnouncedState::Checked,
+            AnnouncedState::Unchecked,
+            AnnouncedState::Mixed,
+            AnnouncedState::Selected,
+            AnnouncedState::NotSelected,
+            AnnouncedState::Required,
+            AnnouncedState::Invalid,
+            AnnouncedState::Disabled,
+            AnnouncedState::Pressed,
+            AnnouncedState::NotPressed,
+            AnnouncedState::Focusable,
+        ];
+        for state in states {
+            let label = super::state_label(state, &i18n);
+            assert!(
+                !label.starts_with("sr-state-"),
+                "kein deutsches Wort fuer {state:?}, nur der Schluessel {label}"
+            );
+        }
     }
 }

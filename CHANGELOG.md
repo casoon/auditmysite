@@ -5,6 +5,30 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Ansage-Struktur nach a11y-perception, Woerter bleiben hier, 2026-09-25:** `announcer.rs` hat
+  zwei Dinge in einem Zug getan: entschieden, *woraus* eine Ansage besteht, und gleich gesagt, *wie
+  das auf Deutsch heisst*. Die erste Haelfte ist keine Eigenschaft von auditmysite -- dass die Ebene
+  einer Ueberschrift in die Rolle gehoert, dass `expanded=false` "eingeklappt" zu sagen hat und
+  `required=false` nichts, dass "fokussierbar" nur dort etwas hinzufuegt, wo die Rolle es nicht schon
+  verraet: das gilt in jeder Sprache und fuer jede Oberflaeche. Sie liegt jetzt in
+  `a11y-perception 0.2.0` als `announce() -> Announcement` (Name, Rolle, Zustaende als benannte
+  Teile, `AnnouncedRole`/`AnnouncedState`). Hier bleibt die Zuordnung auf die Locale-Schluessel und
+  das Trennzeichen -- 16 Rollen, 13 Zustaende, dieselben Schluessel wie vorher, keine Aenderung an
+  `locales/`. Der Renderer ist von 118 auf 89 Zeilen Code geschrumpft; der Gewinn ist weniger die
+  Zahl als das, was hier nicht mehr entschieden wird.
+
+  Ein Verhaltensunterschied, klein und bewusst: `level` wird jetzt als `u8` gefuehrt statt als roher
+  Zeichenkettenwert. Eine Ueberschrift mit einer nicht-numerischen Ebene wird damit als
+  "Ueberschrift" angesagt statt als "Ueberschrift Ebene <muell>". Chrome liefert `level` als Zahl,
+  der Fall ist also theoretisch.
+
+  Neuer Waechter `every_announced_role_and_state_has_a_german_word`: Der Compiler erzwingt, dass
+  jede Variante im Match steht, aber nicht, dass der i18n-Schluessel existiert -- `I18n::t` gibt
+  einen fehlenden Schluessel unveraendert zurueck, und "Suche, sr-role-textbox" waere sonst
+  durchgegangen. Geprueft: `cargo test --lib screen_reader` (44 ok), `cargo clippy --all-targets -D
+  warnings`, `cargo fmt`. Die vier bestehenden Snapshot-Tests sind **unveraendert** gruen -- das ist
+  der Beleg, dass die Ansagen Zeichen fuer Zeichen dieselben sind.
+
 - **Gepinnte Toolchain und ein schlankeres Crate-Paket, 2026-09-25 (Plan 28):** Lokal, CI und
   Release bauten mit dem jeweils aktuellen `stable`. Jetzt pinnt `rust-toolchain.toml` Rust
   **1.98.1** (die aktuelle Stable-Version, eine Punktversion ueber dem im Plan genannten 1.98.0)
