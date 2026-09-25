@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Best-effort cleanup failures are no longer invisible, 2026-09-25:** `cargo judge errors`
+  flagged six production call sites in four files that discarded an I/O result outright. None of
+  them may fail the audit, but two can leave files behind without a trace. Removing the downloaded
+  browser archive after extraction and removing the `.partial` file after a failed atomic write
+  now log a `warn!` with the path; the install result and the original write error are returned
+  unchanged. The flush of the "Checking for sitemap..." status line logs at debug level, and only
+  when stdout is a terminal — piped or closed output is a valid environment, not a fault. PDF
+  screenshot and evidence-crop cleanup goes through one helper, `remove_temp_file`, which treats
+  `NotFound` as success (most evidence slots are never written) and reports any other failure at
+  debug level, so a normal run stays quiet.
+
+  Verified with a unit test for the helper (missing file is silent; `remove_file` on a directory
+  yields a non-`NotFound` error), the existing atomic-write test, clippy for both feature sets,
+  `cargo fmt --check` and `cargo test --no-default-features`. `cargo judge errors` drops from 17 to
+  11 `swallowed-result` findings; the rest are test-only and were left alone on purpose, as were
+  intentionally lossy parse conversions.
+
 - **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
   eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit
   deren Nightly, deren Ressourcengrenzen und auf dem, was `cargo package` veroeffentlichen wuerde.
