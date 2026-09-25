@@ -166,7 +166,7 @@ pub use re_authenticate::check_re_authenticate_with_page;
 pub use reduced_motion::check_reduced_motion_with_page;
 pub use redundant_entry::check_redundant_entry_with_page;
 pub use redundant_role::check_redundant_role_with_page;
-pub use reflow::check_reflow_with_page;
+pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use region::check_region;
 pub use resize_text::check_resize_text_with_page;
 pub use section_headings::check_section_headings;
