@@ -19,25 +19,8 @@ pub const NO_TIMING_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aaa", "wcag223", "cat.time-and-media"],
 };
 
-const NO_TIMING_JS: &str = r#"
-(function() {
-  var hasTimingCalls = false;
-  var scripts = document.querySelectorAll('script:not([src])');
-  for (var i = 0; i < scripts.length; i++) {
-    var content = scripts[i].textContent || '';
-    // Remove single-line comments before checking
-    var stripped = content.replace(/\/\/[^\n]*/g, '');
-    if (/\bsetTimeout\s*\(/.test(stripped) || /\bsetInterval\s*\(/.test(stripped)) {
-      hasTimingCalls = true;
-      break;
-    }
-  }
-  return { hasTimingCalls: hasTimingCalls };
-})()
-"#;
-
-pub async fn check_no_timing_with_page(page: &Page) -> Vec<Violation> {
-    let not_testable = Violation::new(
+pub async fn check_no_timing_with_page(_page: &Page) -> Vec<Violation> {
+    vec![Violation::new(
         NO_TIMING_RULE.id,
         NO_TIMING_RULE.name,
         NO_TIMING_RULE.level,
@@ -52,45 +35,5 @@ pub async fn check_no_timing_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(NO_TIMING_RULE.axe_id)
     .with_help_url(NO_TIMING_RULE.help_url)
-    .with_kind(Outcome::Untested);
-
-    let result = match page.evaluate(NO_TIMING_JS).await {
-        Ok(r) => r,
-        Err(_) => return vec![not_testable],
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => return vec![not_testable],
-    };
-
-    let has_timing_calls = val
-        .get("hasTimingCalls")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let mut findings = vec![not_testable];
-
-    if has_timing_calls {
-        findings.push(
-            Violation::new(
-                NO_TIMING_RULE.id,
-                NO_TIMING_RULE.name,
-                NO_TIMING_RULE.level,
-                Severity::Medium,
-                "Inline scripts contain setTimeout or setInterval calls. Review whether \
-                 timing is essential to any user task on this page.",
-                "page",
-            )
-            .with_fix(
-                "Verify that all timed interactions are either non-essential, user-controlled, \
-                 or fall under the real-time exception (WCAG 2.2.3).",
-            )
-            .with_rule_id(NO_TIMING_RULE.axe_id)
-            .with_help_url(NO_TIMING_RULE.help_url)
-            .with_kind(Outcome::Review),
-        );
-    }
-
-    findings
+    .with_kind(Outcome::Untested)]
 }

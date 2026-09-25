@@ -5,6 +5,22 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Kriterien-Befunde auf blosse Technik-Praesenz entfernt, 2026-09-25 (Plan 45):** Vier Regeln
+  meldeten ein WCAG-Kriterium, sobald eine Technik auf der Seite vorkam, die mit dem Kriterium
+  zusammenhaengen *koennte* — ohne beobachteten Mangel. **2.2.3 No Timing** schlug auf jedes
+  `setTimeout`/`setInterval` in einem Inline-Skript an (Debounce, Karussell-Takt, Analytics),
+  **2.2.4 Interruptions** auf jedes `role="alertdialog"`, **2.5.1 Pointer Gestures** auf
+  Zeichenketten wie `ontouchstart` (auch reine Feature-Erkennung) und **2.5.4 Motion Actuation**
+  auf `deviceorientation`/`devicemotion`/`shake` im Skripttext — letzteres sogar als Verstoss statt
+  als Pruefhinweis. Alle vier melden jetzt nur noch den `untested`-Eintrag, dessen Text bereits
+  sagt, was manuell zu pruefen ist. Bei **2.5.2 Pointer Cancellation** entfaellt der zweite Zweig
+  (irgendein `addEventListener('mousedown'|'touchstart')` im Inline-Skript); der Hinweis auf
+  `onmousedown`/`ontouchstart` direkt an einem Bedienelement bleibt. Eine Stelle fuer
+  kriterienlose Informationssignale gibt es nicht, die Erkennung ist daher ersatzlos gestrichen.
+  Die Pruefhinweise flossen in die `review`-Zaehlung und von dort in Screenreader- und
+  Risiko-Aggregation. Geprueft: `cargo test --lib`, Clippy mit allen Features, Detection-Corpus mit
+  echtem Chrome gruen.
+
 - **Pruefziel auf WCAG 2.2 AA umgestellt, 2026-09-23:** Das Werkzeug pruefte gegen WCAG 2.1 AA und
   zaehlte die 2.2-Kriterien, die es laengst pruefte, bewusst aus der Quote heraus. Bezugsgroesse ist
   jetzt WCAG 2.2 AA: 55 A/AA-Kriterien (2.1s 50, minus das gestrichene 4.1.1, plus die sechs neuen),

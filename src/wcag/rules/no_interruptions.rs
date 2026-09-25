@@ -19,16 +19,8 @@ pub const NO_INTERRUPTIONS_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aaa", "wcag224", "cat.time-and-media"],
 };
 
-const INTERRUPTIONS_JS: &str = r#"
-(function() {
-  var hasAlertDialog = !!document.querySelector('[role="alertdialog"]');
-  var hasAutoPopup = !!document.querySelector('[aria-live="assertive"]:not([role="alert"])');
-  return { hasAlertDialog: hasAlertDialog, hasAutoPopup: hasAutoPopup };
-})()
-"#;
-
-pub async fn check_no_interruptions_with_page(page: &Page) -> Vec<Violation> {
-    let not_testable = Violation::new(
+pub async fn check_no_interruptions_with_page(_page: &Page) -> Vec<Violation> {
+    vec![Violation::new(
         NO_INTERRUPTIONS_RULE.id,
         NO_INTERRUPTIONS_RULE.name,
         NO_INTERRUPTIONS_RULE.level,
@@ -44,46 +36,5 @@ pub async fn check_no_interruptions_with_page(page: &Page) -> Vec<Violation> {
     )
     .with_rule_id(NO_INTERRUPTIONS_RULE.axe_id)
     .with_help_url(NO_INTERRUPTIONS_RULE.help_url)
-    .with_kind(Outcome::Untested);
-
-    let result = match page.evaluate(INTERRUPTIONS_JS).await {
-        Ok(r) => r,
-        Err(_) => return vec![not_testable],
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => return vec![not_testable],
-    };
-
-    let has_alert_dialog = val
-        .get("hasAlertDialog")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let mut findings = vec![not_testable];
-
-    if has_alert_dialog {
-        findings.push(
-            Violation::new(
-                NO_INTERRUPTIONS_RULE.id,
-                NO_INTERRUPTIONS_RULE.name,
-                NO_INTERRUPTIONS_RULE.level,
-                Severity::Low,
-                "Page contains role=\"alertdialog\" elements. Verify that users can \
-                 dismiss or suppress these interruptions unless they represent an emergency.",
-                "[role=\"alertdialog\"]",
-            )
-            .with_selector("[role=\"alertdialog\"]")
-            .with_fix(
-                "Allow users to dismiss or delay alert dialogs. Provide a preference to \
-                 suppress non-emergency notifications.",
-            )
-            .with_rule_id(NO_INTERRUPTIONS_RULE.axe_id)
-            .with_help_url(NO_INTERRUPTIONS_RULE.help_url)
-            .with_kind(Outcome::Review),
-        );
-    }
-
-    findings
+    .with_kind(Outcome::Untested)]
 }
