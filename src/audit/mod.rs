@@ -13,6 +13,7 @@ pub mod duplicate;
 pub mod interpretation;
 pub mod management_risk;
 pub mod module;
+mod module_scores;
 pub mod normalized;
 pub mod occurrence_analysis;
 pub mod performance_interpretation;
