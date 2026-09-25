@@ -338,11 +338,11 @@ fn detect_skipped_heading_levels(
         issues.push(SrAuditIssue {
             // WCAG 2.4.6 (Headings and Labels) is about whether heading TEXT
             // is descriptive, not heading nesting order -- confirmed against
-            // the W3C Understanding doc. This codebase's main WCAG rule
-            // engine already tags the identical check as 1.3.1 (Info and
-            // Relationships, see check_heading_hierarchy in
-            // src/wcag/rules/headings.rs); mirrored here for consistency
-            // instead of a separate, incorrect 2.4.6 citation.
+            // the W3C Understanding doc. The shared rule for the identical
+            // check, `headings/skip-level` from `a11y-rules`, is tagged 1.3.1
+            // (Info and Relationships) in `SHARED_RULES`, src/wcag/shared.rs;
+            // mirrored here for consistency instead of a separate, incorrect
+            // 2.4.6 citation.
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: vec![heading.node_id.clone()],
@@ -849,10 +849,9 @@ mod tests {
         // formatted `heading.level` (Option<u8>) via `{:?}`, leaking
         // "Some(6)" verbatim, and tagged the issue as WCAG 2.4.6 (which is
         // about descriptive heading/label *text*, not heading nesting order
-        // -- verified against the W3C Understanding doc). The main WCAG rule
-        // engine's identical check already uses 1.3.1
-        // (src/wcag/rules/headings.rs, check_heading_hierarchy); this module
-        // must match it.
+        // -- verified against the W3C Understanding doc). The shared rule for
+        // the identical check, `headings/skip-level`, is tagged 1.3.1 in
+        // `SHARED_RULES` (src/wcag/shared.rs); this module must match it.
         let items = vec![
             item(0, "main", Some("Inhalt"), false, vec![]),
             item(1, "heading", Some("Start"), false, vec!["level=1"]),
