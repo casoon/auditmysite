@@ -19,7 +19,7 @@ pub const USE_OF_COLOR_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Color must not be the only visual indicator for information",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
     axe_id: "link-in-text-block",
     tags: &["wcag2a", "wcag141", "cat.color"],
 };

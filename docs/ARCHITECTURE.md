@@ -4,7 +4,7 @@ This document describes the current implementation. For older browser-design exp
 
 ## Overview
 
-auditmysite is a WCAG 2.1 AA (plus select 2.2 criteria) accessibility checker written in Rust. It uses Chrome DevTools Protocol (CDP) to extract the browser's native Accessibility Tree and analyze it for violations.
+auditmysite is a WCAG 2.2 AA accessibility checker written in Rust. It uses Chrome DevTools Protocol (CDP) to extract the browser's native Accessibility Tree and analyze it for violations.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -109,6 +109,7 @@ src/
 │   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
+│   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── scoring.rs       # Score calculation
 │   ├── interpretation.rs # Pre-computed DE/EN interpretation texts
 │   ├── summary.rs       # Cross-page aggregation logic
@@ -118,7 +119,7 @@ src/
 │   ├── verdict.rs       # Pass/fail verdict derivation
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── baseline.rs      # Baseline/compare-mode support
-│   ├── batch_consistency.rs # Cross-page consistency checks
+│   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
 │   ├── budget.rs        # Concurrency/rate budgeting
 │   ├── crawl.rs         # Link crawling (html5ever-based)
 │   ├── duplicate.rs     # Duplicate-page detection
@@ -253,7 +254,7 @@ src/
 ├── tech_stack/          # CMS/framework detection from in-page signals
 │   └── mod.rs, module.rs
 │
-├── patterns/            # UI pattern detection (nav, accordion, modal, ...)
+├── patterns/            # UI pattern detection (nav, accordion, modal, ..., help-mechanism inventory)
 │   ├── mod.rs           # PatternKind/JourneyKind registry, analyze()
 │   ├── main_navigation.rs, accordion.rs, modal_dialog.rs
 │   ├── disclosure_menu.rs, tab_list.rs, skip_link.rs

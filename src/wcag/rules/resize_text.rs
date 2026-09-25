@@ -60,7 +60,7 @@ pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Text can be resized up to 200% without loss of content or functionality",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     axe_id: "meta-viewport",
     tags: &["wcag2aa", "wcag144", "cat.sensory-and-visual-cues"],
 };

@@ -30,7 +30,7 @@ pub const RULE_LANDMARK_UNIQUE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Landmark regions of the same type must have unique accessible names",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-unique",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -41,7 +41,7 @@ pub const RULE_BANNER_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The banner landmark must not be contained within another landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-banner-is-top-level",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -52,7 +52,7 @@ pub const RULE_CONTENTINFO_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The contentinfo landmark must not be contained within another landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-contentinfo-is-top-level",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -63,7 +63,7 @@ pub const RULE_MAIN_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The main landmark must not be contained within another landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-main-is-top-level",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -74,7 +74,7 @@ pub const RULE_NO_DUPLICATE_BANNER: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page must not have more than one banner landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-no-duplicate-banner",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -85,7 +85,7 @@ pub const RULE_NO_DUPLICATE_CONTENTINFO: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page must not have more than one contentinfo landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-no-duplicate-contentinfo",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -96,7 +96,7 @@ pub const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page must not have more than one main landmark",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-no-duplicate-main",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -107,7 +107,7 @@ pub const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page must have a banner landmark (<header> or role=\"banner\")",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-banner-present",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -118,7 +118,7 @@ pub const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page must have a main landmark (<main> or role=\"main\")",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-main-present",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
@@ -129,7 +129,7 @@ pub const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The page should provide a mechanism to skip repeated navigation blocks",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
     axe_id: "skip-link",
     tags: &["wcag2a", "wcag241", "cat.keyboard"],
 };

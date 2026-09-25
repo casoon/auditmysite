@@ -21,6 +21,118 @@ short current-state summary. Newest entries first (unchanged order from before t
   denn gelaufen sind die Regeln weiterhin nur mobil. Nachgemessen: wo `html_content_model` der
   einzige Unterschied war, sind die Scores jetzt gleich (commerzbank.de 36/36, gov.ie 73/73,
   hamburg.de 20/20); berlin.de behaelt seinen echten Abstand.
+- **Automatisierungsquote ehrlich gezaehlt: 30/55 statt 39/55, 2026-09-25:** Als automatisiert galt
+  jedes Kriterium, fuer das der Regelkatalog einen Eintrag hat — auch wenn die Regel nur
+  Pruefhinweise oder einen `untested`-Eintrag erzeugen kann. Ein Kriterium, das das Werkzeug nicht
+  als verletzt melden kann, prueft es nicht automatisch. Neun Kriterien betrifft das: 1.2.2, 1.3.2,
+  2.1.2, 2.2.2, 2.4.11, 2.5.1, 2.5.2, 2.5.4 und 3.3.7. Sie stehen in `HINT_ONLY_CRITERIA`
+  (`src/wcag/coverage.rs`), fallen aus `automated_criteria()` heraus und zaehlen jetzt als
+  manuelle Pruefung; 1.3.2, 2.1.2, 2.4.11 und 3.3.7 sind dafuer neu in der Manuell-Liste. Die Regeln
+  laufen unveraendert weiter, ihre Hinweise bleiben im Report. Neue Zahlen: 30 automatisiert,
+  21 manuell, 4 weder noch (von 55). Mitbewegt: die Prinzip-Abdeckung (informativ, kein Score-Einfluss)
+  und der EN-301-549-Anhang, der diese Klauseln nun als „manuelle Pruefung" statt „automatisch ohne
+  Befund" fuehrt. Ein Guard-Test stellt sicher, dass jedes Hint-only-Kriterium eine Katalogregel hat,
+  nicht als automatisiert zaehlt und in der Manuell-Liste steht. `docs/PARITY_CONTRACT.jsonc`,
+  `docs/PARITY_CONTRACT.md` (stand noch auf WCAG 2.1, 50/36/10) und README nachgezogen. Geprueft:
+  `--debug-typ`-Lauf gegen eine lokale Fixture (Pruefumfang „30 von ca. 55", Manuell-Wolke 21),
+  `cargo test --lib`, `parity_contract`, `release_contract_tests`, Clippy mit allen Features.
+
+- **Kriterien-Befunde auf blosse Technik-Praesenz entfernt, 2026-09-25 (Plan 45):** Vier Regeln
+  meldeten ein WCAG-Kriterium, sobald eine Technik auf der Seite vorkam, die mit dem Kriterium
+  zusammenhaengen *koennte* — ohne beobachteten Mangel. **2.2.3 No Timing** schlug auf jedes
+  `setTimeout`/`setInterval` in einem Inline-Skript an (Debounce, Karussell-Takt, Analytics),
+  **2.2.4 Interruptions** auf jedes `role="alertdialog"`, **2.5.1 Pointer Gestures** auf
+  Zeichenketten wie `ontouchstart` (auch reine Feature-Erkennung) und **2.5.4 Motion Actuation**
+  auf `deviceorientation`/`devicemotion`/`shake` im Skripttext — letzteres sogar als Verstoss statt
+  als Pruefhinweis. Alle vier melden jetzt nur noch den `untested`-Eintrag, dessen Text bereits
+  sagt, was manuell zu pruefen ist. Bei **2.5.2 Pointer Cancellation** entfaellt der zweite Zweig
+  (irgendein `addEventListener('mousedown'|'touchstart')` im Inline-Skript); der Hinweis auf
+  `onmousedown`/`ontouchstart` direkt an einem Bedienelement bleibt. Eine Stelle fuer
+  kriterienlose Informationssignale gibt es nicht, die Erkennung ist daher ersatzlos gestrichen.
+  Die Pruefhinweise flossen in die `review`-Zaehlung und von dort in Screenreader- und
+  Risiko-Aggregation. Geprueft: `cargo test --lib`, Clippy mit allen Features, Detection-Corpus mit
+  echtem Chrome gruen.
+
+- **Pruefziel auf WCAG 2.2 AA umgestellt, 2026-09-23:** Das Werkzeug pruefte gegen WCAG 2.1 AA und
+  zaehlte die 2.2-Kriterien, die es laengst pruefte, bewusst aus der Quote heraus. Bezugsgroesse ist
+  jetzt WCAG 2.2 AA: 55 A/AA-Kriterien (2.1s 50, minus das gestrichene 4.1.1, plus die sechs neuen),
+  davon 38 automatisiert. Die WCAG-2.1-Sicht, auf die sich das BFSG ueber EN 301 549 V3.2.1 beruft,
+  bleibt als Anhang aus demselben Lauf erhalten; Kriterien, die erst 2.2 gebracht hat, sind dort
+  weiterhin als solche gekennzeichnet, weil die Norm sie nicht abdeckt.
+
+  **4.1.1 Parsing** ist in WCAG 2.2 gestrichen und wird nicht mehr als Kriterium gefuehrt. Die
+  beiden Pruefungen, die daran hingen, melden jetzt 4.1.2 — dieselbe Zuordnung, die axe-core fuer
+  `duplicate-id-aria` fuehrt. Die generische Dopplung (`ids/duplicate`, iframe-Variante) meldet nur
+  noch, was auch ein Verstoss ist: eine doppelt vergebene ID, auf die ein IDREF zeigt (`for`,
+  `headers`, `aria-labelledby` und die uebrigen ARIA-Verweise). Dann ist die Beziehung nicht mehr
+  eindeutig aufloesbar. Eine Dopplung, auf die niemand zeigt, verletzt seit dem Wegfall von 4.1.1
+  kein Kriterium mehr und erzeugt keinen Befund. axe-core hat seine Entsprechungen (`duplicate-id`,
+  `duplicate-id-active`) aus demselben Grund entfernt.
+
+  **Scores und Quoten verschieben sich dadurch** und sind mit aelteren Reports nicht direkt
+  vergleichbar — ein Bezugswechsel, keine Regression. Geprueft an www.casoon.de (Single, PDF ueber
+  `--debug-typ` und JSON): Quote 38/55, `wcag_coverage.level` jetzt „WCAG 2.2 AA", `report-lint`
+  ohne Befund. Beim Gegenlesen fiel ein Zaehlfehler auf: Der Pruefumfang-Text zaehlte 2.4.12 (AAA
+  und neu in 2.2) in die A/AA-Quote hinein; gezaehlt wird jetzt nur, was auch im Nenner steht.
+  Alle `help_url`s zeigen jetzt auf `WCAG22/Understanding` bzw. `WCAG22/Techniques`; 2.5.5 dabei
+  auf den 2.2-Namen `target-size-enhanced`.
+
+  **3.3.8 Accessible Authentication (Minimum)** ist als eigene Regel dazugekommen, womit die Quote
+  auf 39/55 steigt. Ein Verstoss ist nur, was gemessen ist: Auf jedes Passwort- und
+  Einmalcode-Feld wird ein synthetisches `paste`-Ereignis mit einem Probewert gefeuert; blockiert
+  gilt das Feld nur, wenn das Ereignis abgebrochen wurde **und** der Wert nicht im Feld landet. Ein
+  Handler, der das native Einfuegen abbricht und den Text selbst bereinigt einsetzt, bleibt damit
+  unbeanstandet. Ein interaktives CAPTCHA in einem Formular mit Passwort- oder Code-Feld ist ein
+  Pruefhinweis, kein Verstoss, weil Objekterkennung und Alternativen aus dem DOM nicht
+  entscheidbar sind; ein CAPTCHA im Kontaktformular gehoert nicht zu 3.3.8. `autocomplete="off"`
+  am Passwortfeld wird bewusst nicht gemeldet — Browser ignorieren es dort.
+
+  Beim Lauf des Detection-Corpus fiel auf, dass die `duplicate_id`-Fixture noch eine
+  unreferenzierte Dublette als Verstoss erwartete. Sie prueft jetzt beide Seiten: referenziert
+  (`label for`) ist ein Verstoss, unreferenziert keiner. Geprueft: Detection-Corpus mit echtem
+  Chrome komplett gruen, `cargo test --all-features`, Clippy fuer beide Feature-Sets,
+  www.casoon.de (Regel laeuft, kein Befund, Quote 39/55, `report-lint` ohne Befund).
+
+  **3.2.6 Consistent Help** wird im Batch-/Sitemap-Modus seitenuebergreifend geprueft. Pro Seite
+  erfasst `patterns::help_mechanisms` die Hilfe-Mechanismen ausserhalb von `main` in
+  Dokumentreihenfolge: Kontakt-/Hilfe-/FAQ-Links, `mailto:`, `tel:` und bekannte Chat-Widgets, jeweils
+  mit ihrem Seitenbereich (Kopf, Navigation, Seitenleiste, Fuss, schwebend). Inhalte in `main` und
+  unsichtbare Elemente bleiben aussen vor, sonst wuerde jeder Kontakt-Link in einem Artikel als
+  Inkonsistenz zaehlen. `audit::batch_consistency` vergleicht alle Mechanismen, die auf mindestens zwei
+  Seiten vorkommen, mit der Platzierung der meisten Seiten. Eine Abweichung ist entweder ein
+  Mechanismus in einem voellig anderen Bereich (disjunkte Bereichsmengen, ein zusaetzliches Vorkommen
+  zaehlt nicht) oder eine vertauschte Reihenfolge zweier Mechanismen im selben Bereich. Ohne
+  wiederkehrenden Mechanismus bleibt das Kriterium „manuell pruefen". Im Einzelseiten-Modus steht
+  3.2.6 jetzt in der Liste der manuell zu pruefenden Kriterien (11 statt 10), mit deutschem Titel aus
+  einer neuen Tabelle fuer die 2.2-Kriterien, die EN 301 549 V3.2.1 nicht enthaelt.
+
+  Dabei fiel auf, dass das Batch-JSON die seitenuebergreifenden WCAG-Bewertungen (3.2.3, 3.2.4,
+  3.2.6, 2.4.5) gar nicht ausgab, obwohl `OUTPUT_CONTRACT.md` sie zusagt — sie standen nur im PDF.
+  `site_analysis.consistency` traegt jetzt `wcag_cross_page` und `help`. Geprueft: neuer
+  Chrome-Integrationstest des Detektors (`tests/help_mechanisms_detection_test.rs`), Unit-Tests fuer
+  Bereichs- und Reihenfolge-Abweichung, PDF-Test fuer die lokalisierte Abweichungsliste, Batch-Lauf
+  www.casoon.de (12 Seiten): 2 wiederkehrende Mechanismen, keine Abweichung, deutscher Text in der
+  Typst-Quelle korrekt.
+
+  **2.5.7 Dragging Movements** steht in der Liste der manuell zu pruefenden Kriterien (jetzt 12).
+  Ob eine Ziehbewegung eine Alternative mit einfachem Zeigen hat, ist Verhalten und nicht am Markup
+  ablesbar. Ein Hinweis-Detektor (sortierbare Listen, `draggable`) wurde bewusst nicht gebaut: Jede
+  Regel mit WCAG-Bezug zaehlt hier als automatisiert, 2.5.7 waere damit in die Quote gerutscht, ohne
+  dass je ein Verstoss belegbar ist. Die Quote bleibt 39/55.
+
+  **`summary.wcag_coverage.wcag_version`** (`"2.2"`) macht die Bezugsversion maschinenlesbar. Reports
+  von vor der Umstellung haben das Feld nicht und waren auf WCAG 2.1 bezogen. Beide JSON-Schemas
+  kennen das Feld, `schema_version` bleibt 2.0 (additiv).
+
+  Beim Referenzlauf auf www.inros-lackner.de fiel ein Zaehlfehler aus dem 4.1.1-Umbau auf:
+  `rule_outcomes` meldete fuer `ids/duplicate` 10 Befunde, `violations` enthielt keinen. Der Filter
+  auf referenzierte IDs verwarf die Befunde, der Vermerk aus `a11y-rules` wurde aber unveraendert
+  weitergereicht. Er wird jetzt um die verworfenen Befunde gekuerzt. Geprueft: Unit-Test,
+  `cargo test --all-features`, Clippy fuer beide Feature-Sets, Referenzlaeufe casoon.de (Single +
+  Batch) und inros-lackner.de mit `wcag_version` „2.2" und ohne `report-lint`-Befund. inros-lackner.de
+  steht bei Barrierefreiheit 47 (am 2026-09-20: 20); die zehn unreferenzierten doppelten IDs zaehlen
+  nicht mehr. Wie viel des Sprungs darauf und wie viel auf Aenderungen an der Seite entfaellt, wurde
+  nicht isoliert gemessen.
 
 - **Den docs.rs-Build in der CI nachstellen, 2026-09-23 (#588):** Der Melder von #588 verwies auf
   eine Action im Beta-Test, die den Doku-Build im *Sandbox-Image von docs.rs* ausfuehrt — mit

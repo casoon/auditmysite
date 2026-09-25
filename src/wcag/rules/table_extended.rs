@@ -28,7 +28,7 @@ pub const RULE_TD_HEADERS_ATTR: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Each cell that uses the headers attribute must only refer to valid header cells in the same table",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "td-headers-attr",
     tags: &["wcag2a", "wcag131", "cat.tables"],
 };
@@ -140,7 +140,7 @@ pub const RULE_TH_HAS_DATA_CELLS: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Each table header must have associated data cells",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "th-has-data-cells",
     tags: &["wcag2a", "wcag131", "cat.tables"],
 };

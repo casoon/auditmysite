@@ -968,6 +968,9 @@ pub async fn audit_page(
     // 09-easy-language-detection.md).
     crate::patterns::easy_language::detect(page, &primary_snap.ax_tree, &mut pattern_analysis)
         .await;
+    // Help mechanisms (WCAG 3.2.6) likewise need the DOM: landmark regions
+    // and `mailto:`/`tel:` targets. Recorded per page, compared in the batch.
+    crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis).await;
     let mut pattern_violations = pattern_analysis.violations.clone();
     enrich_violations_with_page(page, &mut pattern_violations, &primary_snap.ax_tree).await;
     let (kept_patterns, demoted_patterns): (Vec<_>, Vec<_>) = pattern_violations

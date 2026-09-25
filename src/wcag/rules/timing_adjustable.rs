@@ -17,7 +17,7 @@ pub const TIMING_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Time limits must be adjustable or removable",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/timing-adjustable.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
     axe_id: "meta-refresh",
     tags: &["wcag2a", "wcag221", "cat.time-and-media"],
 };
@@ -44,7 +44,7 @@ pub const TIMEOUT_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Users are warned of data loss due to inactivity timeouts",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/timeouts.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timeouts.html",
     axe_id: "timeouts",
     tags: &["wcag21aaa", "wcag226", "cat.time-and-media"],
 };

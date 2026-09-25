@@ -47,39 +47,42 @@ pub(super) fn render_wcag_coverage_section(
             .add(p_rob, fmt_ratio(&coverage.robust)),
     );
     let (automated, total) = coverage_stats();
-    // Criteria this tool checks automatically that are WCAG 2.2-only (didn't
-    // exist in WCAG 2.1) — counted separately from `automated`/`total`, which
-    // stay scoped to WCAG 2.1's 50 A/AA criteria (#572). Stating this
-    // explicitly here, rather than leaving those criteria to appear as
-    // undifferentiated "AA" entries, commits the report to its actual scope
-    // decision: WCAG 2.1 AA, plus a small set of additional WCAG 2.2 AA
-    // criteria this tool happens to already check.
+    // Criteria this tool checks automatically that WCAG 2.2 added (they didn't
+    // exist in WCAG 2.1). They count toward `automated`/`total` like any other
+    // A/AA criterion (plan 54 §1), but stay marked: EN 301 549 V3.2.1 — the
+    // standard the BFSG references, mapped in this report's own appendix — is
+    // built on WCAG 2.1 and does not cover them (#572).
+    //
+    // Nur A/AA: `automated` zählt keine AAA-Kriterien, und 2.4.12 ist sowohl
+    // AAA als auch neu in 2.2 — es als "N davon" in die A/AA-Quote zu zählen
+    // ergäbe wieder eine Zahl, die sich mit ihrer Bezugsgröße nicht deckt
+    // (dieselbe Klasse Fehler wie in Plan 36 §1).
     let wcag22_criteria: Vec<&str> = automated_criteria()
         .iter()
-        .filter(|(id, _)| crate::wcag::coverage::is_wcag22_only(id))
+        .filter(|(id, level)| *level != "AAA" && crate::wcag::coverage::is_wcag22_only(id))
         .map(|(id, _)| *id)
         .collect();
     let title = if en { "Audit scope" } else { "Prüfumfang" };
     let intro = if wcag22_criteria.is_empty() {
         if en {
             format!(
-                "This audit covers {automated} of ~{total} testable WCAG 2.1 AA criteria automatically. The criteria listed below require manual review."
+                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. The criteria listed below require manual review."
             )
         } else {
             format!(
-                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.1-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung."
+                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung."
             )
         }
     } else {
         let wcag22_list = wcag22_criteria.join(", ");
         if en {
             format!(
-                "This audit covers {automated} of ~{total} testable WCAG 2.1 AA criteria automatically, plus {} selected WCAG 2.2 AA criteria ({wcag22_list}, marked \"WCAG 2.2\" below and on individual findings) that are outside the WCAG 2.1-scoped ratio above. The criteria listed below require manual review.",
+                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. {} of them ({wcag22_list}, marked \"WCAG 2.2\" below and on individual findings) were added by WCAG 2.2 and are therefore not part of EN 301 549 V3.2.1. The criteria listed below require manual review.",
                 wcag22_criteria.len()
             )
         } else {
             format!(
-                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.1-AA-Kriterien automatisch, ergänzt um {} ausgewählte WCAG-2.2-AA-Kriterien ({wcag22_list}, unten und bei einzelnen Befunden mit „WCAG 2.2\" gekennzeichnet), die außerhalb der oben genannten WCAG-2.1-Quote liegen. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.",
+                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. {} davon ({wcag22_list}, unten und bei einzelnen Befunden mit „WCAG 2.2\" gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und deshalb nicht Teil von EN 301 549 V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.",
                 wcag22_criteria.len()
             )
         }
@@ -88,26 +91,19 @@ pub(super) fn render_wcag_coverage_section(
     builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
 
     // The cloud lists every criterion this tool checks; `automated` counts
-    // only the WCAG 2.1 A/AA ones the ratio above is scoped to. Titling the
-    // cloud with `automated` put "Automatisch geprüft (36)" above 56 entries,
-    // with nothing reconciling the two numbers (plan 36 §1).
+    // only the A/AA ones the ratio above is scoped to. Titling the cloud with
+    // `automated` put "Automatisch geprüft (36)" above 56 entries, with
+    // nothing reconciling the two numbers (plan 36 §1).
     let listed = automated_criteria().len();
-    // Three disjoint groups, so they add up to `listed`. They must not
-    // overlap: one AAA criterion is also WCAG 2.2-only, and counting it in
-    // both groups produced 36 + 4 + 17 = 57 against a cloud of 56 — the same
-    // class of unreconciled total this section is fixing.
+    // Two disjoint groups, so they add up to `listed`.
     let aaa_listed = automated_criteria()
         .iter()
         .filter(|(_, level)| *level == "AAA")
         .count();
-    let wcag22_ab_listed = automated_criteria()
-        .iter()
-        .filter(|(id, level)| *level != "AAA" && crate::wcag::coverage::is_wcag22_only(id))
-        .count();
     debug_assert_eq!(
-        automated + wcag22_ab_listed + aaa_listed,
+        automated + aaa_listed,
         listed,
-        "the three groups must partition the listed criteria"
+        "the two groups must partition the listed criteria"
     );
     let automated_title = if en {
         format!("Automatically checked ({listed})")
@@ -116,11 +112,11 @@ pub(super) fn render_wcag_coverage_section(
     };
     let listed_note = if en {
         format!(
-            "{listed} criteria in total: the {automated} WCAG 2.1 A/AA criteria the ratio above is scoped to, plus {wcag22_ab_listed} A/AA criteria added by WCAG 2.2 and {aaa_listed} AAA criteria this tool also checks."
+            "{listed} criteria in total: the {automated} WCAG 2.2 A/AA criteria the ratio above is scoped to, plus {aaa_listed} AAA criteria this tool also checks."
         )
     } else {
         format!(
-            "{listed} Kriterien insgesamt: die {automated} WCAG-2.1-A/AA-Kriterien, auf die sich die Quote oben bezieht, dazu {wcag22_ab_listed} von WCAG 2.2 ergänzte A/AA-Kriterien und {aaa_listed} AAA-Kriterien, die dieses Werkzeug ebenfalls prüft."
+            "{listed} Kriterien insgesamt: die {automated} WCAG-2.2-A/AA-Kriterien, auf die sich die Quote oben bezieht, dazu {aaa_listed} AAA-Kriterien, die dieses Werkzeug ebenfalls prüft."
         )
     };
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");

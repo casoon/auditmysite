@@ -292,7 +292,7 @@ pub struct ModulesBlock {
     pub overall_score: Option<u32>,
     pub overall_interpretation: Option<String>,
     /// The canonical per-module score/weight breakdown that actually feeds
-    /// the weighted `overall_score` (`audit::normalized::build_module_scores`
+    /// the weighted `overall_score` (`audit::module_scores::build_module_scores`
     /// verbatim) — distinct from `dashboard` above, whose cards are reshaped
     /// for narrative presentation (e.g. the "Search Experience" card blends
     /// SEO with heuristic AI-visibility/content-visibility signals into one

@@ -15,7 +15,7 @@ pub const UNUSUAL_WORDS_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Low,
     description: "Definitions are available for unusual words, idioms, and jargon",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/unusual-words.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/unusual-words.html",
     axe_id: "unusual-words",
     tags: &["wcag2aaa", "wcag313", "cat.language"],
 };

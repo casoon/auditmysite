@@ -27,7 +27,7 @@ pub const MEDIA_ALTERNATIVE_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AAA,
     severity: Severity::Medium,
     description: "Prerecorded media has a text alternative or description track",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/media-alternative-prerecorded.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/media-alternative-prerecorded.html",
     axe_id: "media-alt",
     tags: &["wcag2aaa", "wcag128", "cat.time-and-media"],
 };

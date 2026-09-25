@@ -25,7 +25,7 @@ pub const REFLOW_RULE: RuleMetadata = RuleMetadata {
     level: WcagLevel::AA,
     severity: Severity::High,
     description: "Content reflows without horizontal scrolling at 320 CSS pixels width",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/reflow.html",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/reflow.html",
     axe_id: "css-overflow-hidden",
     tags: &["wcag2aa", "wcag1410", "cat.sensory-and-visual-cues"],
 };
