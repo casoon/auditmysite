@@ -74,10 +74,9 @@ fn is_partially_hidden(focusable: Rect, overlays: &[Rect]) -> bool {
         .any(|overlay| overlap_ratio(focusable, *overlay) >= PARTIALLY_HIDDEN_RATIO)
 }
 
-/// Same collection as `focus_not_obscured_minimum::FOCUS_OBSCURED_JS` — kept
-/// as an independent copy per this codebase's existing
-/// target-size-minimum/target-size-enhanced precedent (self-contained rule
-/// files rather than a shared JS constant).
+/// Same collection as `focus_not_obscured_minimum::FOCUS_OBSCURED_JS`, still
+/// kept as a separate copy. (The target-size rules it once cited as precedent
+/// now share their helpers, so the copy is a leftover, not a convention.)
 const FOCUS_OBSCURED_JS: &str = r#"
 (function() {
   /*CSS_SELECTOR*/
