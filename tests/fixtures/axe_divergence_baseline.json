@@ -173,7 +173,7 @@
       }
     },
     "detection_corpus/media_and_motion.html": {
-      "auditmysite_score": 49,
+      "auditmysite_score": 85,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -398,5 +398,5 @@
       }
     }
   },
-  "spearman_score_vs_axe_load": -0.462
+  "spearman_score_vs_axe_load": -0.492
 }

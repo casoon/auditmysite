@@ -41,7 +41,6 @@ const WITH_CRITICAL: &[&str] = &[
     "fixtures/detection_corpus/aria_attribute_validation.html",
     "fixtures/detection_corpus/aria_naming_roles.html",
     "fixtures/detection_corpus/combobox_missing_expanded.html",
-    "fixtures/detection_corpus/media_and_motion.html",
     "fixtures/detection_corpus/misc_content_checks.html",
     "fixtures/detection_corpus/missing_label.html",
     "fixtures/detection_corpus/widget_patterns.html",

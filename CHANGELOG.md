@@ -5,6 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Player-Bedienelemente von `<video controls>` sind kein Autoreninhalt, 2026-09-26 (Plan 47,
+  axe-Vergleich):** Die groesste Abweichung im neuen axe-Vergleich war `media_and_motion`: auditmysite
+  49 (Critical), axe nichts. Der Critical kam aus Chromes eigener Player-Oberflaeche: Mit `controls`
+  legt der Browser Wiedergabe-, Stumm- und Vollbild-Button und eine Zeitleiste als `slider` ohne
+  `valuenow` aus seinem Shadow DOM in den Accessibility-Tree. Die ARIA-Regeln meldeten die
+  Zeitleiste als „Required ARIA attribute missing" (Critical) und „Slider is missing accessible
+  value" (High) — auf jeder Seite mit einem Video, gekappt auf 49, und von keinem Autor behebbar.
+  Behoben in `a11y-perception` 0.2.1: `AXTree::iter()` laesst alles unterhalb von `Video`/`Audio`
+  aus, fuer alle WCAG-Regeln. `media_and_motion` 49 → 85, die drei eingebauten Maengel bleiben
+  gefunden. Die Fixture stand in der Critical-Klasse der Score-Baender — nur wegen des
+  Fehlalarms; sie ist dort entfernt. axe-Basislinie neu: Spearman −0,462 → −0,492, einzige
+  bewegte Seite ist diese.
+
 - **Live-Referenzset und axe-Vergleich fuer die Score-Kalibrierung, 2026-09-26 (Plan 47, Schritte
   2 und 3):** *Referenzset:* `tests/fixtures/reference_sites.json` fuehrt acht oeffentliche Seiten;
   jede bekommt ein Band aus einer manuellen Pruefung (nicht aus dem Werkzeug), mit Datum.

@@ -10,9 +10,9 @@ checksum = "f97bc5f897946cefc2faa9b26465a5bb476f88ef1b17d3028d61faafd9c1f835"
 
 [[package]]
 name = "a11y-perception"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ad890aaee20c2b93aabd2bc11fe650d07a069158e4bf0faff09d3d51b03467a"
+checksum = "2892e48e3d9722281ccd9954f7bd7e6edc6e63c10b3439fcbedde8ee7b781078"
 dependencies = [
  "serde",
 ]
