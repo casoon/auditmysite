@@ -640,3 +640,147 @@ mod tests {
         assert_eq!(stats.low, 1);
     }
 }
+
+/// Properties the score must have regardless of how its constants are tuned
+/// (plan 47). None of them says what a page *should* score — that needs an
+/// outside reference — but each one is something no tuning may break, and a
+/// break would mean the score contradicts its own findings.
+#[cfg(test)]
+mod score_invariants {
+    use super::*;
+    use crate::cli::WcagLevel;
+
+    /// Rule ids mixing catalogued criteria (taxonomy score impacts) with ids
+    /// the taxonomy doesn't know (severity-based `default_impact`).
+    const RULES: &[&str] = &[
+        "1.1.1", "1.3.1", "1.4.3", "2.1.1", "2.4.2", "2.4.4", "3.1.1", "4.1.2", "x.1", "x.2",
+        "x.3", "x.4",
+    ];
+    const SEVERITIES: &[Severity] = &[
+        Severity::Low,
+        Severity::Medium,
+        Severity::High,
+        Severity::Critical,
+    ];
+
+    /// Deterministic generator — no dependency, reproducible failures.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self, n: usize) -> usize {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((self.0 >> 33) as usize) % n
+        }
+    }
+
+    fn violation(rule: &str, severity: Severity, i: usize) -> Violation {
+        Violation::new(rule, rule, WcagLevel::A, severity, "m", format!("n{i}"))
+    }
+
+    fn random_set(rng: &mut Lcg) -> Vec<Violation> {
+        (0..rng.next(25))
+            .map(|i| violation(RULES[rng.next(RULES.len())], SEVERITIES[rng.next(4)], i))
+            .collect()
+    }
+
+    fn score(v: &[Violation]) -> f32 {
+        AccessibilityScorer::calculate_score(v)
+    }
+
+    /// Per-rule penalties are summed in `HashMap` order, so the same set can
+    /// differ in the sixth decimal. The report shows whole points.
+    const EPS: f32 = 1e-3;
+
+    #[test]
+    fn score_stays_within_bounds() {
+        let mut rng = Lcg(1);
+        for _ in 0..2000 {
+            let s = score(&random_set(&mut rng));
+            assert!((0.0..=100.0).contains(&s), "score {s} out of bounds");
+        }
+    }
+
+    /// Another finding — a new rule or one more occurrence of a known one —
+    /// never makes the page score better.
+    #[test]
+    fn adding_a_finding_never_raises_the_score() {
+        let mut rng = Lcg(2);
+        for _ in 0..2000 {
+            let mut set = random_set(&mut rng);
+            let before = score(&set);
+            let i = set.len();
+            set.push(violation(
+                RULES[rng.next(RULES.len())],
+                SEVERITIES[rng.next(4)],
+                i,
+            ));
+            let after = score(&set);
+            assert!(
+                after <= before + EPS,
+                "adding {:?} raised the score {before} -> {after}",
+                set.last().map(|v| (&v.rule, v.severity))
+            );
+        }
+    }
+
+    /// Raising the severity of one finding never makes the page score better.
+    #[test]
+    fn raising_a_severity_never_raises_the_score() {
+        let mut rng = Lcg(3);
+        for _ in 0..2000 {
+            let mut set = random_set(&mut rng);
+            if set.is_empty() {
+                continue;
+            }
+            let before = score(&set);
+            let i = rng.next(set.len());
+            let raised = SEVERITIES
+                .iter()
+                .copied()
+                .find(|s| *s > set[i].severity)
+                .unwrap_or(set[i].severity);
+            set[i].severity = raised;
+            let after = score(&set);
+            assert!(
+                after <= before + EPS,
+                "raising severity raised the score {before} -> {after}"
+            );
+        }
+    }
+
+    /// The caps the report text relies on: any Critical keeps a page out of
+    /// the upper half, five or more Critical/High out of the top band.
+    #[test]
+    fn caps_hold_for_any_set() {
+        let mut rng = Lcg(4);
+        for _ in 0..2000 {
+            let set = random_set(&mut rng);
+            let s = score(&set);
+            let critical = set
+                .iter()
+                .filter(|v| v.severity == Severity::Critical)
+                .count();
+            let urgent = critical + set.iter().filter(|v| v.severity == Severity::High).count();
+            if critical > 0 {
+                assert!(s <= 49.0, "{s} with {critical} critical");
+            } else if urgent >= 5 {
+                assert!(s <= 92.0, "{s} with {urgent} critical/high");
+            }
+        }
+    }
+
+    /// No finding, full score — and only then: a single Low finding already
+    /// costs something.
+    #[test]
+    fn only_an_empty_set_scores_100() {
+        assert_eq!(score(&[]), 100.0);
+        for rule in RULES {
+            assert!(
+                score(&[violation(rule, Severity::Low, 0)]) < 100.0,
+                "{rule}"
+            );
+        }
+    }
+}

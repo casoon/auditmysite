@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Invarianten fuer den Accessibility-Score, 2026-09-26 (Plan 47, Schritt 1a):** Der Score hatte
+  keinerlei Pruefung, die nicht von seinen eigenen Konstanten abhing. Fuenf Eigenschaften, die keine
+  Abstimmung brechen darf, laufen jetzt als Tests ueber je 2000 deterministisch erzeugte
+  Befundmengen (katalogisierte und unbekannte Regeln gemischt): Score in 0–100; ein weiterer Befund
+  hebt ihn nie; eine hoehere Severity hebt ihn nie; die Kappungen (Critical → ≤ 49, ≥ 5 Critical/High
+  → ≤ 92) gelten fuer jede Menge; nur die leere Menge ergibt 100. Alle halten. Einzige Beobachtung:
+  Die Strafen werden in `HashMap`-Reihenfolge summiert, dieselbe Menge kann in der sechsten
+  Nachkommastelle abweichen — irrelevant fuer den ganzzahlig angezeigten Score, die Tests tolerieren
+  1e-3. Was eine Seite *erreichen soll*, sagen die Invarianten nicht; dafuer folgen die Score-Baender.
+
 - **AAA-Liste im PDF ehrlich gezaehlt: 11 statt 17, 2026-09-26:** Dieselbe Ueberzeichnung wie
   bei der A/AA-Quote (30/55): Das PDF fuehrte 17 AAA-Kriterien als „automatisch geprueft", aber
   sechs davon koennen keinen Verstoss melden — 1.2.8, 2.2.3, 2.2.4, 2.2.5 und 3.1.3 liefern nur
