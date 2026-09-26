@@ -123,7 +123,7 @@ pub use image_input_rules::check_image_input_rules_with_page;
 pub use info_relationships::{
     check_info_relationships, check_presentation_semantic_children_with_page,
 };
-pub use input_purpose::check_input_purpose;
+pub use input_purpose::check_input_purpose_with_page;
 pub use instructions::check_instructions;
 pub use keyboard::check_keyboard;
 pub use label_in_name::check_label_in_name_with_page;
