@@ -5,6 +5,13 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **AAA-Liste im PDF ehrlich gezaehlt: 11 statt 17, 2026-09-26:** Dieselbe Ueberzeichnung wie
+  bei der A/AA-Quote (30/55): Das PDF fuehrte 17 AAA-Kriterien als „automatisch geprueft", aber
+  sechs davon koennen keinen Verstoss melden — 1.2.8, 2.2.3, 2.2.4, 2.2.5 und 3.1.3 liefern nur
+  einen `untested`-Eintrag, 2.4.12 nur einen Review-Hinweis. Sie stehen jetzt in
+  `HINT_ONLY_CRITERIA`; die Liste zeigt 41 Kriterien (30 A/AA + 11 AAA). Anders als die A/AA-Faelle
+  kommen sie nicht auf die Liste der manuell zu pruefenden Kriterien, weil die wie die Quote auf
+  A/AA bezogen ist. Der Guard-Test unterscheidet das jetzt. Geprueft ueber `--debug-typ` (DE/EN).
 - **Journey-Reste aus Plan 53: Skip-Link-Ziel, eingegrenzter Inhalt, Lesefehler, 2026-09-26:**
   Drei Maengel aus der Offen-Liste von Plan 53.
 
