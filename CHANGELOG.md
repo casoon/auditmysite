@@ -5,6 +5,28 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Journey-Reste aus Plan 53: Skip-Link-Ziel, eingegrenzter Inhalt, Lesefehler, 2026-09-26:**
+  Drei Maengel aus der Offen-Liste von Plan 53.
+
+  *Skip-Link.* Die Journey pruefte nur, ob der Fokus `body` verlassen hat. Das meldete ein nicht
+  fokussierbares `<main>` als High-Befund, obwohl der Browser den Startpunkt der Tab-Navigation
+  versetzt und der naechste Tab im Inhalt landet — und liess einen Fokus durchgehen, der
+  irgendwohin sprang, nur nicht zum Ziel. Jetzt wird der Link zuerst fokussiert (wie bei
+  Tastaturbedienung), das Ziel aus dem `href`-Fragment aufgeloest und geprueft, ob der Fokus darin
+  oder dahinter steht; bleibt er auf Link oder `body`, entscheidet ein Tab. Ein Fragment ohne
+  Element ist ein Befund. Fuenf Fixtures, gegen echtes Chrome getestet.
+
+  *Disclosure.* „Inhalt erschienen" war seitenweit — ein nachgeladenes Bild am Seitenende machte
+  aus „ausgeklappt gehoert, nichts zu lesen" ein Bestehen. Ist der gesteuerte Bereich bekannt
+  (`aria-controls`, oder das `<details>` um ein `<summary>`), zaehlt nur noch, was darin erscheint
+  oder verschwindet. Im Feld reicht das weniger weit als erhofft: auf 12 Seiten mit 138
+  Disclosure-Journeys liess sich der Bereich nur 8-mal bestimmen. Der Trace vermerkt je Journey
+  `scoped` oder `page_wide`.
+
+  *quantity_stepper.* Scheiterte ein CDP-Aufruf, wurde aus `focus_and_confirm`/`is_native_input`
+  `false` — und daraus ein High-Befund „nicht per Tastatur bedienbar". Nicht lesbare Werte stehen
+  jetzt als `not_observable` im Trace, ohne Befund.
+
 - **Journey-Budget 15 s, harte Grenze je Journey, 2026-09-25 (Plan 53):** Die Hoehe des Budgets
   war offen. Gemessen an 48 oeffentlichen Startseiten ohne Grenze und dann je Budgethoehe
   nachgerechnet (Deadline vor jedem Start geprueft, wie im Code): mit **5 s** liefen 22 % der Seiten
