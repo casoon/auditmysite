@@ -92,26 +92,38 @@ async fn read_valuenow(page: &Page, backend_node_id: i64) -> Option<String> {
     .await
 }
 
-async fn is_native_input(page: &Page, backend_node_id: i64) -> bool {
+/// `None` when the element could not be read — not the same as "not an input".
+async fn is_native_input(page: &Page, backend_node_id: i64) -> Option<bool> {
     call_on_backend_bool(
         page,
         backend_node_id,
         "function() { return !!(this.tagName && this.tagName.toLowerCase() === 'input'); }",
     )
     .await
-    .unwrap_or(false)
 }
 
 /// Focus the element and confirm focus actually landed on it (some
 /// elements — e.g. a non-focusable wrapper — silently no-op on `.focus()`).
-async fn focus_and_confirm(page: &Page, backend_node_id: i64) -> bool {
+///
+/// `None` when the call itself failed: that says nothing about the control, so
+/// it must not become a keyboard-inoperability finding.
+async fn focus_and_confirm(page: &Page, backend_node_id: i64) -> Option<bool> {
     call_on_backend_bool(
         page,
         backend_node_id,
         "function() { this.focus(); return document.activeElement === this; }",
     )
     .await
-    .unwrap_or(false)
+}
+
+fn not_observable_step(action: &str, stepper_id: i64, label: &str) -> JourneyStep {
+    JourneyStep {
+        action: action.to_string(),
+        target: Some(format!("backend_node:{stepper_id}")),
+        focus: None,
+        result: Some("not_observable".to_string()),
+        snapshot_label: Some(label.to_string()),
+    }
 }
 
 pub async fn test(
@@ -143,7 +155,12 @@ pub async fn test(
         snapshot_label: Some("before_arrow_up".to_string()),
     });
 
-    let focused = focus_and_confirm(page, stepper_id).await;
+    let Some(focused) = focus_and_confirm(page, stepper_id).await else {
+        trace
+            .steps
+            .push(not_observable_step("focus", stepper_id, "after_focus"));
+        return Ok((trace, findings));
+    };
     trace.steps.push(JourneyStep {
         action: "focus".to_string(),
         target: Some(format!("backend_node:{stepper_id}")),
@@ -181,12 +198,23 @@ pub async fn test(
         target: Some(format!("backend_node:{stepper_id}")),
         focus: None,
         result: Some(format!(
-            "value:{value_after:?}, valuenow:{valuenow_after:?}, native_input:{native_input}"
+            "value:{value_after:?}, valuenow:{valuenow_after:?}, native_input:{}",
+            native_input.map_or_else(|| "not_observable".to_string(), |b| b.to_string())
         )),
         snapshot_label: Some("after_arrow_up".to_string()),
     });
 
-    let value_changed = value_after.is_some() && value_after != value_before;
+    // `read_value` yields `""` for an element without a value; `None` means the
+    // read itself failed, before or after — then there is nothing to compare.
+    if value_before.is_none() || value_after.is_none() {
+        trace.steps.push(not_observable_step(
+            "compare_value",
+            stepper_id,
+            "after_arrow_up",
+        ));
+        return Ok((trace, findings));
+    }
+    let value_changed = value_after != value_before;
 
     if !value_changed {
         // Focus landed, but ArrowUp had no effect on the value — keyboard
@@ -204,7 +232,9 @@ pub async fn test(
         return Ok((trace, findings));
     }
 
-    if !native_input && (valuenow_after.is_none() || valuenow_after == valuenow_before) {
+    if native_input == Some(false)
+        && (valuenow_after.is_none() || valuenow_after == valuenow_before)
+    {
         // A non-native ARIA spinbutton widget must keep aria-valuenow in
         // sync itself — there is no other way for assistive technology to
         // learn the new value. Native <input type="number"> is exempt: its

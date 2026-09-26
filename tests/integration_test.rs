@@ -1552,3 +1552,83 @@ async fn korrekter_modaler_dialog_erzeugt_keine_befunde() {
         "ein korrekter modaler Dialog darf nichts melden: {findings:?}"
     );
 }
+
+/// Die Skip-Link-Journey prüft, ob der Fokus am Sprungziel ankommt — nicht nur,
+/// ob er `body` verlassen hat (Plan 53).
+///
+/// Die vorherige Prüfung meldete ein nicht fokussierbares `<main>` als Fehler,
+/// obwohl der Browser den Startpunkt der Tab-Navigation versetzt und der
+/// nächste Tab im Inhalt landet; und sie ließ einen Fokus durchgehen, der
+/// irgendwohin sprang, nur nicht zum Ziel.
+#[tokio::test]
+#[ignore]
+async fn skip_link_journey_prueft_das_sprungziel() {
+    use auditmysite::audit::normalized::InteractiveFindingKind;
+    use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
+
+    let cases = [
+        ("skip_link_focusable_target.html", "focus_on_target", false),
+        (
+            "skip_link_non_focusable_target.html",
+            "tab_reaches_target",
+            false,
+        ),
+        ("skip_link_missing_target.html", "target_missing", true),
+        (
+            "skip_link_focus_before_target.html",
+            "focus_before_target",
+            true,
+        ),
+        ("skip_link_no_fragment_inert.html", "focus_not_moved", true),
+    ];
+
+    let manager = ci_browser().await;
+    for (fixture, expected_result, expect_finding) in cases {
+        let (url, shutdown) = serve_fixture(fixture);
+        let page = manager.new_page().await.expect("New page failed");
+        manager
+            .navigate(&page, &url)
+            .await
+            .expect("Navigation failed");
+
+        let tree = auditmysite::accessibility::extract_ax_tree(&page)
+            .await
+            .expect("AXTree extraction failed");
+        let link = tree
+            .iter()
+            .find(|n| {
+                n.role.as_deref() == Some("link")
+                    && n.name.as_deref() == Some("Zum Inhalt springen")
+            })
+            .and_then(|n| n.backend_dom_node_id)
+            .expect("Skip-Link im AXTree");
+
+        let candidate = JourneyCandidate {
+            pattern_kind: PatternKind::SkipLink,
+            trigger_backend_id: Some(link),
+            controlled_backend_id: None,
+            confidence: 0.9,
+            required_journey: JourneyKind::SkipLinkActivate,
+        };
+        let (trace, findings) = auditmysite::a11y_journey::skip_link::test(&page, &candidate, 0)
+            .await
+            .expect("skip_link journey failed");
+        shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        let result = trace
+            .steps
+            .iter()
+            .rev()
+            .find(|s| s.action.starts_with("check_focus"))
+            .and_then(|s| s.result.clone());
+        assert_eq!(
+            result.as_deref(),
+            Some(expected_result),
+            "{fixture}: {trace:?}"
+        );
+        let has_finding = findings
+            .iter()
+            .any(|f| f.kind == InteractiveFindingKind::SkipLinkFocusNotMoved);
+        assert_eq!(has_finding, expect_finding, "{fixture}: {findings:?}");
+    }
+}

@@ -12,6 +12,27 @@ short current-state summary. Newest entries first (unchanged order from before t
   `HINT_ONLY_CRITERIA`; die Liste zeigt 41 Kriterien (30 A/AA + 11 AAA). Anders als die A/AA-Faelle
   kommen sie nicht auf die Liste der manuell zu pruefenden Kriterien, weil die wie die Quote auf
   A/AA bezogen ist. Der Guard-Test unterscheidet das jetzt. Geprueft ueber `--debug-typ` (DE/EN).
+- **Journey-Reste aus Plan 53: Skip-Link-Ziel, eingegrenzter Inhalt, Lesefehler, 2026-09-26:**
+  Drei Maengel aus der Offen-Liste von Plan 53.
+
+  *Skip-Link.* Die Journey pruefte nur, ob der Fokus `body` verlassen hat. Das meldete ein nicht
+  fokussierbares `<main>` als High-Befund, obwohl der Browser den Startpunkt der Tab-Navigation
+  versetzt und der naechste Tab im Inhalt landet — und liess einen Fokus durchgehen, der
+  irgendwohin sprang, nur nicht zum Ziel. Jetzt wird der Link zuerst fokussiert (wie bei
+  Tastaturbedienung), das Ziel aus dem `href`-Fragment aufgeloest und geprueft, ob der Fokus darin
+  oder dahinter steht; bleibt er auf Link oder `body`, entscheidet ein Tab. Ein Fragment ohne
+  Element ist ein Befund. Fuenf Fixtures, gegen echtes Chrome getestet.
+
+  *Disclosure.* „Inhalt erschienen" war seitenweit — ein nachgeladenes Bild am Seitenende machte
+  aus „ausgeklappt gehoert, nichts zu lesen" ein Bestehen. Ist der gesteuerte Bereich bekannt
+  (`aria-controls`, oder das `<details>` um ein `<summary>`), zaehlt nur noch, was darin erscheint
+  oder verschwindet. Im Feld reicht das weniger weit als erhofft: auf 12 Seiten mit 138
+  Disclosure-Journeys liess sich der Bereich nur 8-mal bestimmen. Der Trace vermerkt je Journey
+  `scoped` oder `page_wide`.
+
+  *quantity_stepper.* Scheiterte ein CDP-Aufruf, wurde aus `focus_and_confirm`/`is_native_input`
+  `false` — und daraus ein High-Befund „nicht per Tastatur bedienbar". Nicht lesbare Werte stehen
+  jetzt als `not_observable` im Trace, ohne Befund.
 
 - **Journey-Budget 15 s, harte Grenze je Journey, 2026-09-25 (Plan 53):** Die Hoehe des Budgets
   war offen. Gemessen an 48 oeffentlichen Startseiten ohne Grenze und dann je Budgethoehe
