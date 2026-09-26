@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Score-Baender und eine neue Kappung: Level-A-Verstoss ist nicht SEHR GUT, 2026-09-26 (Plan 47,
+  Schritt 1b):** Zum ersten Mal steht neben dem Scorer eine Erwartung, die nicht aus ihm selbst
+  kommt. Entschieden in Zertifikatsbegriffen: eine praktisch saubere Seite ≥ 95; genau ein
+  High-Verstoss auf Level A, sonst (fast) sauber, 75–89; mindestens ein Critical ≤ 49.
+  `tests/score_calibration_test.rs` prueft das an 21 Fixtures gegen echtes Chrome, auf Standardniveau
+  AA wie ein Nutzer-Audit.
+
+  Das mittlere Band scheiterte am bisherigen Scorer: Ein fehlender Alt-Text auf sonst sauberer Seite
+  ergab 92, also SEHR GUT — fuer eine Seite, die Level A nicht erfuellt und damit nicht konform ist.
+  Neue Kappung neben den bestehenden (Critical → 49, ≥ 5 Critical/High → 92): **ein High- oder
+  Critical-Verstoss gegen ein Level-A-Kriterium begrenzt auf 89**. Dieselbe Kappung wirkt in der
+  JSON-Aufschluesselung nach Bereichen, damit die nicht wieder vom Score abweicht (Plan 37).
+  Betroffen: jede Seite mit einem Level-A-High-Befund und sonst hohem Score — sie faellt von
+  SEHR GUT auf GUT. `test_score_with_errors` pinnte genau das alte Verhalten (95, Note A) und ist
+  angepasst; der Invarianten-Generator mischt jetzt Level A und AA, damit auch die 92er-Kappung
+  geprueft wird.
+
 - **Invarianten fuer den Accessibility-Score, 2026-09-26 (Plan 47, Schritt 1a):** Der Score hatte
   keinerlei Pruefung, die nicht von seinen eigenen Konstanten abhing. Fuenf Eigenschaften, die keine
   Abstimmung brechen darf, laufen jetzt als Tests ueber je 2000 deterministisch erzeugte

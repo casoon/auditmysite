@@ -94,6 +94,7 @@ pub(crate) fn score_from_penalties(
     unique_criteria: usize,
     critical_occurrences: usize,
     urgent_occurrences: usize,
+    level_a_urgent_occurrences: usize,
 ) -> f32 {
     if raw_penalty <= 0.0 {
         return 100.0;
@@ -121,8 +122,15 @@ pub(crate) fn score_from_penalties(
 
     // Semantic score cap: a site with open critical/high issues cannot be
     // reported as near-perfect even if penalties are individually small.
+    //
+    // A High failure of a Level A criterion keeps the page below the top band
+    // (90 = SEHR GUT): Level A is the conformance floor, a page failing it is
+    // not conformant. Before, one missing alt text on an otherwise clean page
+    // scored 92 (plan 47, calibration decision 2026-09-26).
     let score_cap: f32 = if critical_occurrences >= 1 {
         49.0
+    } else if level_a_urgent_occurrences >= 1 {
+        89.0
     } else if urgent_occurrences >= 5 {
         92.0
     } else {
@@ -179,12 +187,20 @@ impl AccessibilityScorer {
                 .iter()
                 .filter(|v| matches!(v.severity, Severity::High))
                 .count();
+        let level_a_urgent_count = violations
+            .iter()
+            .filter(|v| {
+                v.level == crate::cli::WcagLevel::A
+                    && matches!(v.severity, Severity::High | Severity::Critical)
+            })
+            .count();
 
         score_from_penalties(
             total_penalty,
             unique_criteria.len(),
             critical_count,
             urgent_count,
+            level_a_urgent_count,
         )
     }
 
@@ -348,10 +364,12 @@ mod tests {
         ];
 
         // Rule 1.1.1: base=3.0, max=10.0, Logarithmic
-        // 2 occurrences: 3.0 * (1 + ln(2)) ≈ 5.08
+        // 2 occurrences: 3.0 * (1 + ln(2)) ≈ 5.08 → 95 before the cap. A High
+        // failure of a Level A criterion caps at 89: not conformant, so not
+        // the top band (plan 47).
         let score = AccessibilityScorer::calculate_score(&violations);
-        assert!(score > 94.0 && score < 96.0, "Score was {}", score);
-        assert_eq!(AccessibilityScorer::calculate_grade(score), "A");
+        assert_eq!(score, 89.0);
+        assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
     }
 
     #[test]
@@ -675,13 +693,27 @@ mod score_invariants {
         }
     }
 
-    fn violation(rule: &str, severity: Severity, i: usize) -> Violation {
-        Violation::new(rule, rule, WcagLevel::A, severity, "m", format!("n{i}"))
+    fn violation(rule: &str, level: WcagLevel, severity: Severity, i: usize) -> Violation {
+        Violation::new(rule, rule, level, severity, "m", format!("n{i}"))
+    }
+
+    fn random_violation(rng: &mut Lcg, i: usize) -> Violation {
+        let level = if rng.next(2) == 0 {
+            WcagLevel::A
+        } else {
+            WcagLevel::AA
+        };
+        violation(
+            RULES[rng.next(RULES.len())],
+            level,
+            SEVERITIES[rng.next(4)],
+            i,
+        )
     }
 
     fn random_set(rng: &mut Lcg) -> Vec<Violation> {
         (0..rng.next(25))
-            .map(|i| violation(RULES[rng.next(RULES.len())], SEVERITIES[rng.next(4)], i))
+            .map(|i| random_violation(rng, i))
             .collect()
     }
 
@@ -711,11 +743,7 @@ mod score_invariants {
             let mut set = random_set(&mut rng);
             let before = score(&set);
             let i = set.len();
-            set.push(violation(
-                RULES[rng.next(RULES.len())],
-                SEVERITIES[rng.next(4)],
-                i,
-            ));
+            set.push(random_violation(&mut rng, i));
             let after = score(&set);
             assert!(
                 after <= before + EPS,
@@ -763,8 +791,14 @@ mod score_invariants {
                 .filter(|v| v.severity == Severity::Critical)
                 .count();
             let urgent = critical + set.iter().filter(|v| v.severity == Severity::High).count();
+            let level_a_urgent = set
+                .iter()
+                .filter(|v| v.level == WcagLevel::A && v.severity >= Severity::High)
+                .count();
             if critical > 0 {
                 assert!(s <= 49.0, "{s} with {critical} critical");
+            } else if level_a_urgent > 0 {
+                assert!(s <= 89.0, "{s} with {level_a_urgent} Level A high");
             } else if urgent >= 5 {
                 assert!(s <= 92.0, "{s} with {urgent} critical/high");
             }
@@ -778,7 +812,7 @@ mod score_invariants {
         assert_eq!(score(&[]), 100.0);
         for rule in RULES {
             assert!(
-                score(&[violation(rule, Severity::Low, 0)]) < 100.0,
+                score(&[violation(rule, WcagLevel::AA, Severity::Low, 0)]) < 100.0,
                 "{rule}"
             );
         }
