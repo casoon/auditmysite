@@ -373,8 +373,13 @@ pub enum Command {
     /// Compare the own `accname` computation against Chrome's native
     /// accessibility tree — a differential test without a screen reader.
     AccnameDiff {
-        /// URL to load and compare
-        url: String,
+        /// URL(s) to load and compare; more than one URL (together with
+        /// --url-file) produces a corpus aggregate instead of a single result
+        #[arg(value_name = "URL", required_unless_present = "url_file")]
+        urls: Vec<String>,
+        /// Read further URLs from a file (one per line, `#` comments allowed)
+        #[arg(long)]
+        url_file: Option<PathBuf>,
         /// Write the full JSON result here (terminal summary is always printed)
         #[arg(long)]
         output: Option<PathBuf>,
@@ -930,5 +935,32 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.skip_mobile = true;
         assert!(!args.full_audit_enabled());
+    }
+
+    #[test]
+    fn accname_diff_nimmt_mehrere_urls_oder_url_datei() {
+        let args = Args::try_parse_from([
+            "auditmysite",
+            "accname-diff",
+            "https://a.example",
+            "https://b.example",
+        ])
+        .unwrap();
+        match args.command {
+            Some(Command::AccnameDiff { urls, url_file, .. }) => {
+                assert_eq!(urls.len(), 2);
+                assert!(url_file.is_none());
+            }
+            _ => panic!("accname-diff erwartet"),
+        }
+
+        let args = Args::try_parse_from(["auditmysite", "accname-diff", "--url-file", "urls.txt"])
+            .unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::AccnameDiff { ref urls, url_file: Some(_), .. }) if urls.is_empty()
+        ));
+
+        assert!(Args::try_parse_from(["auditmysite", "accname-diff"]).is_err());
     }
 }

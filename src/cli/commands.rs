@@ -30,41 +30,65 @@ pub async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
             typst_source,
         } => run_report_lint_command(input, *fail_on, typst_source.as_deref()),
         Command::AccnameDiff {
-            url,
+            urls,
+            url_file,
             output,
             max_samples,
-        } => run_accname_diff_command(url, output.as_deref(), *max_samples).await,
+        } => {
+            run_accname_diff_command(urls, url_file.as_deref(), output.as_deref(), *max_samples)
+                .await
+        }
     }
 }
 
-/// Lädt eine Seite, stellt die eigene `accname`-Berechnung gegen Chromes
-/// native Werte und schreibt das Ergebnis.
+/// Lädt eine oder mehrere Seiten, stellt die eigene `accname`-Berechnung gegen
+/// Chromes native Werte und schreibt das Ergebnis. Bei mehr als einer URL
+/// entsteht ein Korpus-Aggregat; eine Seite, die nicht geladen werden kann,
+/// wird dort als Fehler geführt, statt den Lauf abzubrechen.
 ///
 /// Chrome ist hier eine zweite Implementierung, nicht die Spezifikation — der
 /// Exit-Code bleibt deshalb 0, auch wenn Abweichungen gefunden werden. Das
 /// Kommando misst, es urteilt nicht.
 async fn run_accname_diff_command(
-    url: &str,
+    urls: &[String],
+    url_file: Option<&std::path::Path>,
     output: Option<&std::path::Path>,
     max_samples: usize,
 ) -> Result<f64> {
-    use auditmysite::accessibility::{compare_accname, extract_ax_tree, fetch_dom_document};
+    use auditmysite::accessibility::{AccnameCorpus, AccnamePageFailure};
     use auditmysite::browser::BrowserManager;
 
-    let manager = BrowserManager::new().await?;
-    let page = manager.new_page().await?;
-    manager.navigate(&page, url).await?;
+    let mut all_urls = urls.to_vec();
+    if let Some(path) = url_file {
+        all_urls.extend(auditmysite::read_url_file(&path.to_string_lossy())?);
+    }
 
-    let ax_tree = extract_ax_tree(&page).await?;
-    let doc = fetch_dom_document(&page, &ax_tree).await?;
-    let mut diff = compare_accname(&doc, max_samples);
-    diff.url = Some(url.to_string());
+    let manager = BrowserManager::new().await?;
+
+    let json = if let [url] = all_urls.as_slice() {
+        let diff = accname_diff_page(&manager, url, max_samples).await?;
+        print_accname_diff(&diff);
+        serde_json::to_string_pretty(&diff)?
+    } else {
+        let mut pages = Vec::new();
+        let mut failures = Vec::new();
+        for (i, url) in all_urls.iter().enumerate() {
+            eprintln!("[{}/{}] {}", i + 1, all_urls.len(), url);
+            match accname_diff_page(&manager, url, max_samples).await {
+                Ok(diff) => pages.push(diff),
+                Err(e) => failures.push(AccnamePageFailure {
+                    url: url.clone(),
+                    error: e.to_string(),
+                }),
+            }
+        }
+        let corpus = AccnameCorpus::from_pages(pages, failures, max_samples);
+        print_accname_corpus(&corpus);
+        serde_json::to_string_pretty(&corpus)?
+    };
     manager.close().await?;
 
-    print_accname_diff(&diff);
-
     if let Some(path) = output {
-        let json = serde_json::to_string_pretty(&diff)?;
         std::fs::write(path, json).map_err(|e| AuditError::FileError {
             path: path.to_path_buf(),
             reason: e.to_string(),
@@ -73,6 +97,163 @@ async fn run_accname_diff_command(
     }
 
     Ok(0.0)
+}
+
+/// Ein Differentiallauf über eine Seite, in einem eigenen Tab.
+///
+/// Zweiphasig: Erst die Kandidaten bestimmen, deren Namen sich nur in der
+/// Groß-/Kleinschreibung unterscheiden, dann für genau diese den berechneten
+/// Stil holen. Das ist Messung auf der Seite dieses Werkzeugs — `accname`
+/// selbst bleibt unberührt.
+async fn accname_diff_page(
+    manager: &auditmysite::browser::BrowserManager,
+    url: &str,
+    max_samples: usize,
+) -> Result<auditmysite::accessibility::AccnameDiff> {
+    use auditmysite::accessibility::{
+        accname_case_only_candidates, compare_accname_with_text_transform, extract_ax_tree,
+        fetch_dom_document,
+    };
+
+    let page = manager.new_page().await?;
+    let result = async {
+        manager.navigate(&page, url).await?;
+        let ax_tree = extract_ax_tree(&page).await?;
+        let doc = fetch_dom_document(&page, &ax_tree).await?;
+
+        let mut text_transformed = std::collections::HashSet::new();
+        for id in accname_case_only_candidates(&doc) {
+            if has_text_transform(&page, id).await {
+                text_transformed.insert(id);
+            }
+        }
+
+        let mut diff = compare_accname_with_text_transform(&doc, max_samples, &text_transformed);
+        diff.url = Some(url.to_string());
+        Ok(diff)
+    }
+    .await;
+    let _ = page.close().await;
+    result
+}
+
+/// Hat das Element oder ein Nachfahre ein berechnetes `text-transform`
+/// ungleich `none`? Die Nachfahren zählen mit, weil ein Name aus dem Inhalt
+/// den Text der Kinder übernimmt, deren Stil sich vom Element unterscheiden
+/// kann. Bei einem CDP-Fehler `false` — der Fall bleibt dann `mismatch` und
+/// damit sichtbar.
+async fn has_text_transform(page: &chromiumoxide::Page, backend_node_id: i64) -> bool {
+    use chromiumoxide::cdp::browser_protocol::dom::{BackendNodeId, ResolveNodeParams};
+    use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
+
+    const JS: &str = "function() { return [this, ...this.querySelectorAll('*')].some(\
+        e => getComputedStyle(e).textTransform !== 'none'); }";
+
+    let resolve = ResolveNodeParams::builder()
+        .backend_node_id(BackendNodeId::new(backend_node_id))
+        .build();
+    let Ok(resolved) = page.execute(resolve).await else {
+        return false;
+    };
+    let Some(object_id) = resolved.result.object.object_id.clone() else {
+        return false;
+    };
+    let Ok(call) = CallFunctionOnParams::builder()
+        .function_declaration(JS)
+        .object_id(object_id)
+        .return_by_value(true)
+        .build()
+    else {
+        return false;
+    };
+    page.execute(call)
+        .await
+        .ok()
+        .and_then(|r| r.result.result.value)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+fn print_accname_corpus(corpus: &auditmysite::accessibility::AccnameCorpus) {
+    println!("\n{}", "accname vs. Chrome — Korpus".bold());
+    println!(
+        "{:<28} {} von {}",
+        "Seiten verglichen", corpus.pages_compared, corpus.pages_total
+    );
+    for f in &corpus.failures {
+        println!("  {} {}  {}", "Fehler:".red(), f.url, f.error.dimmed());
+    }
+    println!("{:<28} {}", "Elemente im DOM", corpus.elements_total);
+    println!(
+        "{:<28} {}  ({} ohne AX-Gegenstück, {} ignoriert)",
+        "verglichen",
+        corpus.elements_compared,
+        corpus.skipped_not_in_ax_tree,
+        corpus.skipped_ignored
+    );
+
+    println!("\n{}", "Name".bold());
+    println!("{:<28} {}", "gleich", corpus.names_equal);
+    println!("{:<28} {}", "abweichend", corpus.names_divergent());
+    for (shape, count) in &corpus.names_by_shape {
+        println!("  {:<26} {}", shape, count);
+    }
+    if !corpus.names_by_source.is_empty() {
+        println!(
+            "\n{}",
+            "Abweichungen nach Namensquelle (laut Chrome)".dimmed()
+        );
+        for (source, count) in &corpus.names_by_source {
+            println!("  {:<26} {}", source, count);
+        }
+    }
+
+    println!("\n{}", "Rolle".bold());
+    println!("{:<28} {}", "gleich", corpus.roles_equal);
+    println!("{:<28} {}", "abweichend", corpus.roles_divergent);
+    println!(
+        "{:<28} {}",
+        "nicht vergleichbar".dimmed(),
+        corpus.roles_not_comparable
+    );
+
+    println!("\n{}", "Seiten".bold());
+    for page in &corpus.pages {
+        println!(
+            "  {:>5} verglichen  {:>3} abweichend  {}",
+            page.elements_compared,
+            page.names_divergent(),
+            page.url.as_deref().unwrap_or("")
+        );
+    }
+
+    if !corpus.name_patterns.is_empty() {
+        const SHOWN: usize = 5;
+        println!("\n{} — je Form die häufigsten", "Muster".bold());
+        let mut shown: std::collections::BTreeMap<_, usize> = Default::default();
+        for p in &corpus.name_patterns {
+            let n = shown.entry(p.shape).or_insert(0);
+            *n += 1;
+            if *n > SHOWN {
+                continue;
+            }
+            println!(
+                "  [{}] {}× auf {} Seiten  <{}>  chrome={:?}  accname={:?}",
+                p.shape.as_str(),
+                p.occurrences,
+                p.pages,
+                p.tag,
+                p.chrome.as_deref().unwrap_or(""),
+                p.accname.as_deref().unwrap_or("")
+            );
+        }
+        if !corpus.patterns_complete {
+            println!(
+                "  {}",
+                "Beispielgrenze erreicht — Vorkommen je Muster sind Untergrenzen.".dimmed()
+            );
+        }
+    }
 }
 
 fn print_accname_diff(diff: &auditmysite::accessibility::AccnameDiff) {

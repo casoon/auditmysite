@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
+  `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
+  Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein
+  `AccnameCorpus`: Summen je Form und Namensquelle, Kreuztabelle beider Achsen, wiederkehrende
+  Muster mit Vorkommen und Seitenzahl, die Einzelergebnisse und nicht geladene Seiten. Eine Seite,
+  die nicht laedt, bricht den Lauf nicht mehr ab.
+
+  Neue Form `text_transform`: Namen, die sich nur in der Gross-/Kleinschreibung unterscheiden,
+  werden mit dem berechneten Stil des Elements und seiner Nachfahren abgeglichen (`DOM.resolveNode`
+  + `getComputedStyle`, nur fuer diese Kandidaten). Hat eines davon `text-transform` ungleich
+  `none`, wird der Fall getrennt gezaehlt — im ersten Befund war das die haeufigste Ursache und
+  haette jeden Korpus dominiert. Messung auf der Seite dieses Werkzeugs, `accname` bleibt
+  unberuehrt. Ohne Stil (`compare`) bleibt es `mismatch`. Unit-Tests fuer Klassifikation, Aggregat
+  und CLI-Parsing.
+
 - **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
   `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:
   ein zu kleines Ziel, um dessen Mitte ein 24-px-Kreis kein anderes Ziel (und keinen Kreis eines

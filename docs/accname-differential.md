@@ -8,7 +8,16 @@ von Blink und meldet, wo beide auseinandergehen.
 auditmysite accname-diff https://example.com
 auditmysite accname-diff https://example.com --output reports/example-accname.json
 auditmysite accname-diff https://example.com --max-samples 500
+
+# Korpus: mehrere URLs und/oder eine URL-Datei (eine URL je Zeile, `#` für Kommentare)
+auditmysite accname-diff https://a.example https://b.example --output reports/accname-corpus.json
+auditmysite accname-diff --url-file urls.txt --output reports/accname-corpus.json
 ```
+
+Eine URL ergibt das Einzelergebnis wie bisher. Mehr als eine URL — Argumente und
+`--url-file` zusammengezählt — ergibt ein Korpus-Aggregat (siehe unten). Alle
+Seiten laufen im selben Browser, jede in einem eigenen Tab; eine Seite, die nicht
+lädt, landet in `failures`, statt den Lauf abzubrechen.
 
 ## Warum das ohne zusätzlichen Aufbau geht
 
@@ -56,11 +65,24 @@ Zwei Achsen, weil eine Zahl allein nicht sagt, wo hinzuschauen ist.
 | `missing_locally` | Chrome hat einen Namen, `accname` keinen. |
 | `missing_in_chrome` | `accname` hat einen Namen, Chrome keinen. |
 | `mismatch` | Beide haben einen Namen, die Texte unterscheiden sich. |
+| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
+
+Der Stil wird nur für die Kandidaten geholt — Elemente, deren Namen sich nur in
+der Groß-/Kleinschreibung unterscheiden — über `DOM.resolveNode` und
+`getComputedStyle` im laufenden Tab. Das ist Messung auf der Seite dieses
+Werkzeugs; `accname` bleibt unberührt. Ein Kandidat ohne `text-transform` bleibt
+`mismatch` und damit sichtbar.
 
 **Namensquelle laut Chrome** (`names_by_source`): `aria-label`,
 `aria-labelledby`, `label`, `title`, `alt`, `placeholder`, `contents`, `value`,
 `unknown`. Die nützlichere Achse, weil sie direkt auf den Abschnitt der
 Spezifikation zeigt, der zu prüfen ist.
+
+Einschränkung: Der AX-Extractor fasst `aria-label`, `alt` und andere Attributquellen zu
+`Attribute` und `aria-labelledby` wie `<label for>` zu `RelatedElement` zusammen; beide landen hier
+als `unknown`. `unknown` heißt also in der Praxis „aus einem Attribut oder einer Referenz“.
+
+`names_by_shape_and_source` führt beide Achsen als Kreuztabelle.
 
 ## Rollenvergleich
 
@@ -78,6 +100,22 @@ Jedes Beispiel trägt `backend_node_id` und `ax_node_id` — der Rückweg auf da
 Element in der Seite und in den vorhandenen Anreicherungspfad
 (`enrichment`, `element_capture`).
 
+## Korpus-Aggregat
+
+Bei mehr als einer URL schreibt `--output` ein `AccnameCorpus`:
+
+| Feld | Inhalt |
+|---|---|
+| `pages_total`, `pages_compared`, `failures` | Umfang und nicht geladene Seiten |
+| `elements_*`, `skipped_*`, `names_equal`, `roles_*` | Summen über alle Seiten |
+| `names_by_shape`, `names_by_source`, `names_by_shape_and_source` | Summen der Klassifikation |
+| `name_patterns` | Wiederkehrende Muster (Form, Quelle, Tag, Namenspaar) mit `occurrences`, `pages`, `first_url`; je Form nach Vorkommen sortiert, gedeckelt durch `--max-samples` |
+| `patterns_complete` | `false`, wenn eine Seite an ihre Beispielgrenze gestoßen ist — dann sind die Vorkommen je Muster Untergrenzen |
+| `pages` | Die vollständigen Einzelergebnisse, jeweils mit `url` |
+
+Die Muster sind die Leseeinheit für einen Korpus: dieselbe Navigation auf dreißig
+Unterseiten ist ein Befund, nicht dreißig.
+
 ## Grenzen
 
 - Der Vergleich läuft gegen **eine** Engine. Eine Übereinstimmung mit Chrome ist
@@ -90,6 +128,6 @@ Element in der Seite und in den vorhandenen Anreicherungspfad
 
 | Datei | Inhalt |
 |---|---|
-| `src/accessibility/accname_diff.rs` | Vergleich und Klassifikation, reine Funktion über `CdpDocument`, unit-getestet ohne Browser |
+| `src/accessibility/accname_diff.rs` | Vergleich, Klassifikation und Korpus-Aggregat, reine Funktionen über `CdpDocument`, unit-getestet ohne Browser |
 | `src/cli/args.rs` | `Command::AccnameDiff` |
-| `src/cli/commands.rs` | `run_accname_diff_command`, Terminalausgabe |
+| `src/cli/commands.rs` | `run_accname_diff_command`, Stilabfrage für `text_transform`, Terminalausgabe |
