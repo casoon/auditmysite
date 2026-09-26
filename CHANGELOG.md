@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Geteilte Regeln melden im JSON Englisch: a11y-Familie auf 0.11.0, 2026-09-26:** Beim Pruefen der
+  axe-Abweichung von `landmarks_and_lists` fielen deutsche Saetze im JSON auf („Der Listeneintrag
+  steht außerhalb einer Liste."). `run_shared_rules` uebernimmt die Meldung aus `a11y-rules`
+  unveraendert, und bis 0.10 formulierte das Crate deutsch — betroffen waren alle 16 eingebundenen
+  geteilten Regeln, ein Verstoss gegen die Regel „JSON ist kanonisch Englisch" (#406). `a11y-rules`
+  0.11.0 formuliert Befundtexte und Hinweise englisch und stand bereits auf crates.io;
+  `a11y-rules`, `a11y-report`, `a11y-dom` und `accname` sind von 0.10.0 auf 0.11.0 gehoben, ohne
+  API-Anpassung. Das deutsche PDF zeigt die Fundstellen-Meldungen damit englisch — wie die der
+  eigenen Regeln schon immer; Titel und Erklaerungen bleiben lokalisiert. Die zu grobe Einordnung
+  der geteilten Listen-Regeln in die Taxonomie steht als Plan 56.
+
 - **Player-Bedienelemente von `<video controls>` sind kein Autoreninhalt, 2026-09-26 (Plan 47,
   axe-Vergleich):** Die groesste Abweichung im neuen axe-Vergleich war `media_and_motion`: auditmysite
   49 (Critical), axe nichts. Der Critical kam aus Chromes eigener Player-Oberflaeche: Mit `controls`
