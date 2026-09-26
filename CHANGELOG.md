@@ -17,7 +17,15 @@ short current-state summary. Newest entries first (unchanged order from before t
   Die Korpus-Fixture `keyboard_and_targets` erwartete einen einzelnen 16-px-Button als Verstoss —
   die Grundwahrheit bildete den Fehler ab. Sie traegt jetzt zwei benachbarte 16-px-Buttons
   (Verstoss), einen einzelnen mit Abstand und einen Link im Fliesstext (beide bestanden, der Link
-  auch fuer 2.5.5). axe-Vergleich: Spearman −0,492 → −0,536; `perfect.html` 99 → 100.
+  auch fuer 2.5.5). axe-Vergleich: Spearman −0,492 → −0,536.
+
+  Zwei Nachbesserungen, gefunden am Abgleich mit axe auf `perfect.html`: Die Inline-Pruefung zaehlt
+  nur den Inline-Inhalt der eigenen Zeile ohne andere Ziele — mit dem ganzen Blocktext galt ein
+  Skip-Link direkt unter `<body>` als „im Fliesstext". Und der Kreis darf das *Rechteck* jedes
+  anderen Ziels nicht schneiden, auch wenn das selbst zu klein ist. Dazu eindeutige Selektoren
+  (`tag#id` oder `nth-of-type`-Pfad): mit dem blossen Tag-Namen fielen alle Links einer Seite zu
+  *einer* Fundstelle „a" zusammen. `perfect.html` meldet jetzt dieselben vier dicht stehenden Links
+  wie axe (Skip-Link, Home, About Us, Contact) und laesst den frei stehenden Button aus.
 
 - **Geteilte Regeln melden im JSON Englisch: a11y-Familie auf 0.11.0, 2026-09-26:** Beim Pruefen der
   axe-Abweichung von `landmarks_and_lists` fielen deutsche Saetze im JSON auf („Der Listeneintrag

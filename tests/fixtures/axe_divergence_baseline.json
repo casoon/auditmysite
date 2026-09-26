@@ -335,7 +335,7 @@
       }
     },
     "wcag_fixtures/empty_links.html": {
-      "auditmysite_score": 80,
+      "auditmysite_score": 77,
       "axe": {
         "critical": 1,
         "minor": 0,
@@ -389,7 +389,7 @@
       }
     },
     "wcag_fixtures/perfect.html": {
-      "auditmysite_score": 100,
+      "auditmysite_score": 99,
       "axe": {
         "critical": 0,
         "minor": 0,

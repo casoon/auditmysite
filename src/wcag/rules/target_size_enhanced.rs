@@ -33,7 +33,7 @@ const TARGET_SIZE_JS: &str = r#"
     }
   }
 
-  /*INLINE_TARGET_FN*/
+  /*TARGET_HELPERS*/
   for (var j = 0; j < elements.length && violations.length < 5; j++) {
     var el = elements[j];
     var rect = el.getBoundingClientRect();
@@ -41,7 +41,7 @@ const TARGET_SIZE_JS: &str = r#"
     if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
       violations.push({
-        selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
+        selector: targetSelector(el),
         label: desc,
         width: Math.round(rect.width),
         height: Math.round(rect.height)
@@ -58,8 +58,8 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
         page,
         &TARGET_SIZE_ENHANCED_RULE,
         &TARGET_SIZE_JS.replace(
-            "/*INLINE_TARGET_FN*/",
-            super::target_size_minimum::INLINE_TARGET_JS,
+            "/*TARGET_HELPERS*/",
+            super::target_size_minimum::TARGET_HELPERS_JS,
         ),
     )
     .await

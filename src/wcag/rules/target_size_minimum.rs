@@ -21,17 +21,53 @@ pub const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
 };
 
 /// Shared with 2.5.5: whether a target is "in a sentence or block of text" —
-/// the inline exception both criteria grant. Inline display, and the block it
-/// sits in has text beyond the target's own. A link alone in a list item
-/// (navigation) is not inline in this sense and is still measured.
-pub(super) const INLINE_TARGET_JS: &str = r#"
+/// the inline exception both criteria grant. The target is inline, and the
+/// line it sits in carries text that is not itself a target: the inline
+/// content of its block (text nodes and inline elements, not nested blocks),
+/// minus every link and button. Comparing against the block's whole text was
+/// wrong — a skip link directly under `<body>` counted as "in running text"
+/// because the body holds the whole page, and links side by side in a `<nav>`
+/// counted each other's labels as surrounding text.
+pub(super) const TARGET_HELPERS_JS: &str = r#"
 function isInlineInText(el) {
   if (getComputedStyle(el).display !== 'inline') return false;
   var block = el.parentElement;
   while (block && getComputedStyle(block).display === 'inline') block = block.parentElement;
   if (!block) return false;
-  var norm = function(t) { return (t || '').replace(/\s+/g, ' ').trim(); };
-  return norm(block.textContent).length > norm(el.textContent).length;
+  var isTarget = function(n) {
+    return n.matches && n.matches('a[href], button, [role="button"], [role="link"], input');
+  };
+  var text = '';
+  (function collect(node) {
+    for (var c = node.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType === 3) { text += c.textContent; continue; }
+      if (c.nodeType !== 1 || isTarget(c)) continue;
+      if (getComputedStyle(c).display === 'inline') collect(c);
+    }
+  })(block);
+  return text.replace(/\s+/g, '').length > 0;
+}
+
+// `tag#id`, or an nth-of-type path. The bare tag name used before made every
+// link on a page the same occurrence ("a"), so findings merged into one.
+function targetSelector(el) {
+  if (el.id) return el.tagName.toLowerCase() + '#' + el.id;
+  var parts = [];
+  var node = el;
+  while (node && node.nodeType === 1 && parts.length < 6) {
+    var tag = node.nodeName.toLowerCase();
+    if (node.id) { parts.unshift(tag + '#' + node.id); break; }
+    var parent = node.parentNode;
+    if (parent && parent.children) {
+      var same = Array.prototype.filter.call(parent.children, function (c) {
+        return c.nodeName === node.nodeName;
+      });
+      if (same.length > 1) tag += ':nth-of-type(' + (same.indexOf(node) + 1) + ')';
+    }
+    parts.unshift(tag);
+    node = parent;
+  }
+  return parts.join(' > ');
 }
 "#;
 
@@ -43,7 +79,7 @@ const TARGET_SIZE_JS: &str = r#"
 (function() {
   var MIN_SIZE = 24;
   var RADIUS = MIN_SIZE / 2;
-  /*INLINE_TARGET_FN*/
+  /*TARGET_HELPERS*/
   var selectors = 'button, a[href], [role="button"], [role="link"], input[type="submit"], input[type="button"], input[type="reset"]';
   var targets = [];
   var all = document.querySelectorAll(selectors);
@@ -67,11 +103,10 @@ const TARGET_SIZE_JS: &str = r#"
     for (var k = 0; k < targets.length; k++) {
       var o = targets[k];
       if (o === t || o.el.contains(t.el) || t.el.contains(o.el)) continue;
-      if (o.small) {
-        if (Math.hypot(t.cx - o.cx, t.cy - o.cy) < 2 * RADIUS) return false;
-      } else if (distToRect(t.cx, t.cy, o.rect) < RADIUS) {
-        return false;
-      }
+      // The circle may touch no other target at all, and — if that target
+      // is undersized too — not its circle either.
+      if (distToRect(t.cx, t.cy, o.rect) < RADIUS) return false;
+      if (o.small && Math.hypot(t.cx - o.cx, t.cy - o.cy) < 2 * RADIUS) return false;
     }
     return true;
   }
@@ -82,7 +117,7 @@ const TARGET_SIZE_JS: &str = r#"
     var el = t.el;
     var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
     violations.push({
-      selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
+      selector: targetSelector(el),
       label: desc,
       width: Math.round(t.rect.width),
       height: Math.round(t.rect.height)
@@ -96,7 +131,7 @@ pub async fn check_target_size_minimum_with_page(page: &Page) -> Vec<Violation> 
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &TARGET_SIZE_MINIMUM_RULE,
-        &TARGET_SIZE_JS.replace("/*INLINE_TARGET_FN*/", INLINE_TARGET_JS),
+        &TARGET_SIZE_JS.replace("/*TARGET_HELPERS*/", TARGET_HELPERS_JS),
     )
     .await
     {
