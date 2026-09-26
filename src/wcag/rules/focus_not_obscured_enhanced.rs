@@ -80,11 +80,7 @@ fn is_partially_hidden(focusable: Rect, overlays: &[Rect]) -> bool {
 /// files rather than a shared JS constant).
 const FOCUS_OBSCURED_JS: &str = r#"
 (function() {
-  function selectorFor(el) {
-    var s = el.tagName.toLowerCase();
-    if (el.id) s += '#' + el.id;
-    return s;
-  }
+  /*CSS_SELECTOR*/
 
   var overlays = [];
   var overlayEls = [];
@@ -96,7 +92,7 @@ const FOCUS_OBSCURED_JS: &str = r#"
     if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;
     var rect = el.getBoundingClientRect();
     if (rect.width < 20 || rect.height < 20) continue;
-    overlays.push({ selector: selectorFor(el), x: rect.x, y: rect.y, w: rect.width, h: rect.height });
+    overlays.push({ selector: __amsCssSelector(el), x: rect.x, y: rect.y, w: rect.width, h: rect.height });
     overlayEls.push(el);
   }
   if (overlays.length === 0) return { overlays: [], focusables: [] };
@@ -122,7 +118,7 @@ const FOCUS_OBSCURED_JS: &str = r#"
     if (candidates.length === 0) continue;
 
     focusables.push({
-      selector: selectorFor(fel),
+      selector: __amsCssSelector(fel),
       x: frect.x, y: frect.y, w: frect.width, h: frect.height,
       overlayIndices: candidates
     });
@@ -136,7 +132,10 @@ pub async fn check_focus_not_obscured_enhanced_with_page(page: &Page) -> Vec<Vio
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
-        FOCUS_OBSCURED_JS,
+        &FOCUS_OBSCURED_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {

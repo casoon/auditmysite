@@ -41,7 +41,7 @@ const TARGET_SIZE_JS: &str = r#"
     if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
       violations.push({
-        selector: targetSelector(el),
+        selector: __amsCssSelector(el),
         label: desc,
         width: Math.round(rect.width),
         height: Math.round(rect.height)
@@ -59,7 +59,11 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
         &TARGET_SIZE_ENHANCED_RULE,
         &TARGET_SIZE_JS.replace(
             "/*TARGET_HELPERS*/",
-            super::target_size_minimum::TARGET_HELPERS_JS,
+            &[
+                super::target_size_minimum::TARGET_HELPERS_JS,
+                crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+            ]
+            .concat(),
         ),
     )
     .await

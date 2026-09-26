@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Eindeutige Selektoren in allen eigenen Seitenregeln, 2026-09-27 (Plan 57):** Etliche
+  JS-Regeln bauten ihren Selektor als `tag` bzw. `tag#id` (teils mit Klasse). Fundstellen werden
+  nach (Regel, Selektor) zusammengelegt — also fielen alle id-losen Elemente desselben Tags zu
+  *einer* Fundstelle („a", „button", „div") zusammen: zu niedrige Zaehlung, nicht auffindbar.
+  Betroffen waren 2.4.11/2.4.12 Focus Not Obscured (auch die Fokus-Walk-Pruefung), 1.3.2
+  Meaningful Sequence, 3.3.8 Accessible Authentication (Feld, Formular, CAPTCHA-Widget), 2.2.2
+  Pause/Stop/Hide, 2.5.3 Label in Name, 1.4.11 Non-text Contrast (CSS), 1.4.13 Content on Hover,
+  2.1.1 Click-Handler, 1.4.1 Use of Color und 3.1.2 Language of Parts (einstufiges
+  `nth-of-type`). Alle nutzen jetzt den vorhandenen `__amsCssSelector`
+  (`js_helpers::CSS_SELECTOR_JS`); auch 2.5.5/2.5.8 geben ihre eigene Kopie (`targetSelector`)
+  dafuer auf. Elemente mit id behalten die Form `tag#id`, die Korpus-Erwartungen bleiben gueltig.
+  Die Kind-Bezeichner in der Meaningful-Sequence-Meldung bleiben kurz — sie sind Text, keine
+  Fundstelle. Korpus, Score-Baender und Integrationstests gruen; axe-Vergleich unveraendert
+  (Spearman −0,536), keine Seite bewegt.
+
 - **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
   `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:
   ein zu kleines Ziel, um dessen Mitte ein 24-px-Kreis kein anderes Ziel (und keinen Kreis eines

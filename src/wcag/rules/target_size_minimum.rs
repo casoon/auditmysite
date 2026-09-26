@@ -48,27 +48,6 @@ function isInlineInText(el) {
   return text.replace(/\s+/g, '').length > 0;
 }
 
-// `tag#id`, or an nth-of-type path. The bare tag name used before made every
-// link on a page the same occurrence ("a"), so findings merged into one.
-function targetSelector(el) {
-  if (el.id) return el.tagName.toLowerCase() + '#' + el.id;
-  var parts = [];
-  var node = el;
-  while (node && node.nodeType === 1 && parts.length < 6) {
-    var tag = node.nodeName.toLowerCase();
-    if (node.id) { parts.unshift(tag + '#' + node.id); break; }
-    var parent = node.parentNode;
-    if (parent && parent.children) {
-      var same = Array.prototype.filter.call(parent.children, function (c) {
-        return c.nodeName === node.nodeName;
-      });
-      if (same.length > 1) tag += ':nth-of-type(' + (same.indexOf(node) + 1) + ')';
-    }
-    parts.unshift(tag);
-    node = parent;
-  }
-  return parts.join(' > ');
-}
 "#;
 
 /// Undersized targets pass when the spacing exception holds: a 24 px circle
@@ -117,7 +96,7 @@ const TARGET_SIZE_JS: &str = r#"
     var el = t.el;
     var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
     violations.push({
-      selector: targetSelector(el),
+      selector: __amsCssSelector(el),
       label: desc,
       width: Math.round(t.rect.width),
       height: Math.round(t.rect.height)
@@ -131,7 +110,14 @@ pub async fn check_target_size_minimum_with_page(page: &Page) -> Vec<Violation> 
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &TARGET_SIZE_MINIMUM_RULE,
-        &TARGET_SIZE_JS.replace("/*TARGET_HELPERS*/", TARGET_HELPERS_JS),
+        &TARGET_SIZE_JS.replace(
+            "/*TARGET_HELPERS*/",
+            &[
+                TARGET_HELPERS_JS,
+                crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+            ]
+            .concat(),
+        ),
     )
     .await
     {
