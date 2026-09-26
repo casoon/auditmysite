@@ -60,6 +60,11 @@ Eine auf crates.io veröffentlichte Version lässt sich **nie** ersetzen, nur zu
 docs.rs baut jede Version genau einmal: Was dort kaputt ankommt, bleibt dauerhaft kaputt. Deshalb
 in dieser Reihenfolge:
 
+0. **Vor dem Tag: Referenzlauf.** `cargo test --test reference_sites_test -- --ignored` auditiert
+   die manuell bewerteten Live-Seiten aus `tests/fixtures/reference_sites.json` und meldet jede,
+   die ihr Band verlässt (Plan 47). Blockiert nicht automatisch: Live-Seiten ändern sich, also
+   erst die Seite neu bewerten, dann das Werkzeug verdächtigen — aber jede Abweichung vor dem Tag
+   klären.
 1. **Tag `vX.Y.Z` setzen und pushen.** Das startet `release.yml`: Versionsabgleich, volle CI,
    Binaries, GitHub-Release.
 2. **Auf den Job `docs.rs Build (sandbox parity)` warten.** Er läuft **nur auf Tags** und baut die

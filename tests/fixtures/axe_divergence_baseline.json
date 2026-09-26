@@ -1,0 +1,402 @@
+{
+  "axe_tags": "wcag2a,wcag2aa,wcag21a,wcag21aa,wcag22aa",
+  "pages": {
+    "detection_corpus/accessible_authentication.html": {
+      "auditmysite_score": 77,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/aria_and_widgets.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 2,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/aria_attribute_validation.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 4,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/aria_invalid_attr_value.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/aria_naming_roles.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 5
+      }
+    },
+    "detection_corpus/combobox_missing_expanded.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/duplicate_id.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/empty_link_text.html": {
+      "auditmysite_score": 84,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/empty_title.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/forms_and_misc.html": {
+      "auditmysite_score": 68,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/forms_extended.html": {
+      "auditmysite_score": 76,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 2
+      }
+    },
+    "detection_corpus/frame_missing_title.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/heading_order.html": {
+      "auditmysite_score": 94,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/image_alt.html": {
+      "auditmysite_score": 87,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/invalid_lang_code.html": {
+      "auditmysite_score": 85,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/keyboard_and_targets.html": {
+      "auditmysite_score": 86,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/landmark_granular.html": {
+      "auditmysite_score": 87,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/landmarks_and_lists.html": {
+      "auditmysite_score": 93,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/low_contrast_text.html": {
+      "auditmysite_score": 90,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/media_and_motion.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/media_and_visual.html": {
+      "auditmysite_score": 86,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/meta_refresh_present.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/misc_content_checks.html": {
+      "auditmysite_score": 40,
+      "axe": {
+        "critical": 3,
+        "minor": 0,
+        "moderate": 1,
+        "serious": 2
+      }
+    },
+    "detection_corpus/missing_label.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/missing_lang.html": {
+      "auditmysite_score": 85,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/missing_main_landmark.html": {
+      "auditmysite_score": 90,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/no_focus_targets.html": {
+      "auditmysite_score": 95,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/object_no_alt.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/patterns_disclosure.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/restrictive_viewport.html": {
+      "auditmysite_score": 92,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 1,
+        "serious": 0
+      }
+    },
+    "detection_corpus/summary_empty.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/svg_graphics_role_no_name.html": {
+      "auditmysite_score": 87,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "detection_corpus/svg_no_title.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/table_headers_no_data.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/table_missing_caption.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/text_and_layout.html": {
+      "auditmysite_score": 95,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "detection_corpus/widget_patterns.html": {
+      "auditmysite_score": 49,
+      "axe": {
+        "critical": 2,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "wcag_fixtures/empty_links.html": {
+      "auditmysite_score": 76,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "wcag_fixtures/invalid_aria.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 2,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "wcag_fixtures/low_contrast.html": {
+      "auditmysite_score": 90,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "wcag_fixtures/missing_headings.html": {
+      "auditmysite_score": 93,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "wcag_fixtures/missing_image_alt.html": {
+      "auditmysite_score": 89,
+      "axe": {
+        "critical": 1,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 0
+      }
+    },
+    "wcag_fixtures/missing_lang.html": {
+      "auditmysite_score": 85,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    },
+    "wcag_fixtures/perfect.html": {
+      "auditmysite_score": 99,
+      "axe": {
+        "critical": 0,
+        "minor": 0,
+        "moderate": 0,
+        "serious": 1
+      }
+    }
+  },
+  "spearman_score_vs_axe_load": -0.462
+}

@@ -5,6 +5,20 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Live-Referenzset und axe-Vergleich fuer die Score-Kalibrierung, 2026-09-26 (Plan 47, Schritte
+  2 und 3):** *Referenzset:* `tests/fixtures/reference_sites.json` fuehrt acht oeffentliche Seiten;
+  jede bekommt ein Band aus einer manuellen Pruefung (nicht aus dem Werkzeug), mit Datum.
+  `tests/reference_sites_test.rs` (Chrome + Netz) meldet jede Seite ausserhalb ihres Bands und laeuft
+  als neuer Release-Schritt 0 vor dem Tag (`CLAUDE.md`). Seiten ohne Pruefung werden uebersprungen.
+
+  *axe-Vergleich:* `scripts/axe-divergence.py` laesst auditmysite und axe-core (WCAG-2.2-A/AA-Tags)
+  ueber alle 45 Fixture-Seiten laufen und haelt je Seite Score und axe-Verstoesse nach Schwere fest.
+  Kennzahl ist die Rangkorrelation (Spearman) zwischen Score und gewichteter axe-Last; die
+  Basislinie liegt in `tests/fixtures/axe_divergence_baseline.json`: **−0,46** — gleiche Richtung,
+  maessig stark. Ein spaeterer Lauf nennt die Veraenderung der Korrelation und jede Seite, deren
+  Score sich um ≥ 5 bewegt, obwohl axe dasselbe sieht. Uebereinstimmung ist nicht das Ziel; ein
+  Scoring-Umbau, der die Korrelation deutlich verschlechtert, soll auffallen.
+
 - **Score-Baender und eine neue Kappung: Level-A-Verstoss ist nicht SEHR GUT, 2026-09-26 (Plan 47,
   Schritt 1b):** Zum ersten Mal steht neben dem Scorer eine Erwartung, die nicht aus ihm selbst
   kommt. Entschieden in Zertifikatsbegriffen: eine praktisch saubere Seite ≥ 95; genau ein
