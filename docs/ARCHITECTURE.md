@@ -110,6 +110,7 @@ src/
 │   ├── report.rs        # AuditReport structure (raw data)
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
+│   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation
 │   ├── interpretation.rs # Pre-computed DE/EN interpretation texts
 │   ├── summary.rs       # Cross-page aggregation logic
