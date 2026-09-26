@@ -5,6 +5,28 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Zwei Detection-Fehler, gefunden beim Kalibrieren der Scores, 2026-09-26 (Plan 47):** Bevor
+  Score-Baender festgelegt werden, lief das Tool ueber alle 43 Fixtures. Zwei Befunde waren falsch.
+
+  *1.3.5 Identify Input Purpose las die falsche Quelle.* Die Regel pruefte die AX-Eigenschaft
+  `autocomplete` — das ist `aria-autocomplete` (`list`/`inline`/`both`); das HTML-Attribut
+  `autocomplete` legt Chrome im Baum gar nicht ab. Folge: **jedes** korrekt ausgezeichnete
+  Personendaten-Feld galt als „lacks autocomplete attribute" (Medium), sichtbar schon an
+  `perfect.html` mit `autocomplete="name"`/`"email"`; eine Combobox mit `aria-autocomplete="list"`
+  haette „Invalid autocomplete value" bekommen. Die Regel laeuft jetzt als DOM-Seitenregel
+  (`check_input_purpose_with_page`, wie 1.3.6 und 3.3.7) und liest das Attribut; die Beschriftung
+  naehert den Accessible Name an (aria-label → aria-labelledby → label → title → placeholder). Die
+  Einordnung ist eine reine Funktion mit Unit-Tests.
+
+  *2.4.7 Focus Visible meldete eine Seite ohne fokussierbare Elemente als Verstoss (High).* 2.4.7
+  gilt fuer „any keyboard operable user interface" — gibt es keine, ist das Kriterium nicht
+  anwendbar; axe-core meldet dort nichts. #568 hatte den Befund bewusst wieder erreichbar gemacht,
+  der Korpus erwartete ihn. Er bleibt, aber als Review-Hinweis (Low) ohne Wirkung auf den Score;
+  `no_focus_targets` erwartet jetzt `needs_review`. Betroffen waren 21 von 43 Fixtures.
+
+  Detection-Korpus gegen echtes Chrome gruen. `perfect.html`: 97 → 99 (verbleibend 2.5.8, ein 21 px
+  hoher Button — nach WCAG 2.2 zutreffend).
+
 - **AAA-Liste im PDF ehrlich gezaehlt: 11 statt 17, 2026-09-26:** Dieselbe Ueberzeichnung wie
   bei der A/AA-Quote (30/55): Das PDF fuehrte 17 AAA-Kriterien als „automatisch geprueft", aber
   sechs davon koennen keinen Verstoss melden — 1.2.8, 2.2.3, 2.2.4, 2.2.5 und 3.1.3 liefern nur

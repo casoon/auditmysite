@@ -19,16 +19,16 @@ use super::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships,
     check_aria_required_attr, check_aria_required_parent, check_aria_roles, check_bypass_blocks,
     check_dialog_rules, check_error_identification, check_focus_order, check_focus_visible,
-    check_form_rules, check_help, check_info_relationships, check_input_purpose,
-    check_instructions, check_keyboard, check_label_title_only, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_banner_present,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
-    check_landmark_main_present, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
-    check_media_rules, check_page_titled, check_parsing, check_region, check_section_headings,
-    check_skip_link, check_status_messages, check_summary_name, check_svg_rules,
-    check_table_extended, check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_form_rules, check_help, check_info_relationships, check_instructions, check_keyboard,
+    check_label_title_only, check_labels, check_landmark_banner_is_top_level,
+    check_landmark_banner_present, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_main_present,
+    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
+    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_link_purpose,
+    check_link_purpose_link_only, check_media_rules, check_page_titled, check_parsing,
+    check_region, check_section_headings, check_skip_link, check_status_messages,
+    check_summary_name, check_svg_rules, check_table_extended, check_text_alternatives,
+    check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -380,14 +380,9 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
     // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
-    // 1.3.5 Identify Input Purpose (Level AA)
-    run_if_allowed!(
-        filter,
-        "autocomplete-valid",
-        check_input_purpose,
-        results,
-        tree
-    );
+    // 1.3.5 Identify Input Purpose now runs as a DOM page rule
+    // (check_input_purpose_with_page in PAGE_RULES) — the AX tree carries
+    // `aria-autocomplete`, not the HTML `autocomplete` attribute.
 
     // 1.4.4 Resize Text and Viewport Large Scale restriction now run as DOM
     // page rules (check_resize_text_with_page / check_meta_viewport_large_with_page

@@ -62,20 +62,25 @@ pub fn check_focus_visible(tree: &AXTree) -> WcagResults {
         focusable_count += 1;
     }
 
-    // If there are no focusable elements at all on the page, that's a problem
+    // No focusable elements at all: 2.4.7 is not applicable — it concerns
+    // "any keyboard operable user interface", and there is none. Kept as a
+    // review hint, not a violation, because a page with nothing to focus is
+    // unusual enough to be worth a look (e.g. controls built from plain
+    // elements, which is a 2.1.1 question, not a focus-visibility one).
     if focusable_count == 0 && tree.len() > 5 {
         let violation = Violation::new(
             FOCUS_VISIBLE_RULE.id,
             FOCUS_VISIBLE_RULE.name,
             FOCUS_VISIBLE_RULE.level,
-            Severity::High,
+            Severity::Low,
             "Page has no focusable interactive elements",
             "root",
         )
         .with_selector("root")
         .with_fix("Ensure interactive elements are keyboard focusable")
         .with_help_url(FOCUS_VISIBLE_RULE.help_url)
-        .with_rule_id(FOCUS_VISIBLE_RULE.axe_id);
+        .with_rule_id(FOCUS_VISIBLE_RULE.axe_id)
+        .as_warning();
 
         results.add_violation(violation);
     }
@@ -163,7 +168,9 @@ mod tests {
 
     /// #568: the document root always carries `focusable: true` in real CDP
     /// output — it must not itself count as "the page has a focusable
-    /// element", or this check can never fire for any real page.
+    /// element", or this check can never fire for any real page. What fires
+    /// is a review hint, not a violation: without a keyboard-operable
+    /// interface 2.4.7 is not applicable.
     #[test]
     fn test_root_web_area_focusable_does_not_count_as_a_focusable_element() {
         let mut root = interactive_node("1", "RootWebArea", None);
@@ -177,6 +184,7 @@ mod tests {
             non_interactive_node("6", "generic"),
         ]);
         let results = check_focus_visible(&tree);
-        assert_eq!(results.violations.len(), 1);
+        assert!(results.violations.is_empty());
+        assert_eq!(results.warnings.len(), 1);
     }
 }

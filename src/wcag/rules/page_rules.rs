@@ -34,9 +34,9 @@ use super::{
     check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
     check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
     check_identify_purpose_with_page, check_image_input_rules_with_page,
-    check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
-    check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
-    check_language_of_parts_with_page, check_location_with_page,
+    check_input_purpose_with_page, check_invalid_aria_attribute_name_with_page,
+    check_invalid_role_with_page, check_label_in_name_with_page, check_landmarks_with_page,
+    check_language_extended_with_page, check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -301,6 +301,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
+        rule_id: "1.3.5/autocomplete-valid",
+        name: "autocomplete-valid",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_input_purpose_with_page(p)),
+    },
+    PageRuleEntry {
         rule_id: "1.4.4/meta-viewport",
         name: "resize-text viewport",
         min_level: WcagLevel::AA,
@@ -509,7 +515,9 @@ mod tests {
         //   Regel als zoom/viewport-scale-limited in den geteilten Bestand
         //   wandert = 46.
         // + accessible-authentication (3.3.8, WCAG 2.2 AA, plan 54 §3) = 47.
-        assert_eq!(count, 47);
+        // + autocomplete-valid (1.3.5): moved from the AX tree to the DOM,
+        //   the tree carries aria-autocomplete, not the HTML attribute = 48.
+        assert_eq!(count, 48);
     }
 
     #[test]
