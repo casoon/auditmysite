@@ -2,7 +2,7 @@
   "axe_tags": "wcag2a,wcag2aa,wcag21a,wcag21aa,wcag22aa",
   "pages": {
     "detection_corpus/accessible_authentication.html": {
-      "auditmysite_score": 77,
+      "auditmysite_score": 81,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -56,7 +56,7 @@
       }
     },
     "detection_corpus/duplicate_id.html": {
-      "auditmysite_score": 89,
+      "auditmysite_score": 90,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -83,7 +83,7 @@
       }
     },
     "detection_corpus/forms_and_misc.html": {
-      "auditmysite_score": 68,
+      "auditmysite_score": 71,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -92,7 +92,7 @@
       }
     },
     "detection_corpus/forms_extended.html": {
-      "auditmysite_score": 76,
+      "auditmysite_score": 77,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -137,12 +137,12 @@
       }
     },
     "detection_corpus/keyboard_and_targets.html": {
-      "auditmysite_score": 86,
+      "auditmysite_score": 85,
       "axe": {
         "critical": 0,
         "minor": 0,
         "moderate": 0,
-        "serious": 0
+        "serious": 1
       }
     },
     "detection_corpus/landmark_granular.html": {
@@ -173,7 +173,7 @@
       }
     },
     "detection_corpus/media_and_motion.html": {
-      "auditmysite_score": 85,
+      "auditmysite_score": 86,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -182,7 +182,7 @@
       }
     },
     "detection_corpus/media_and_visual.html": {
-      "auditmysite_score": 86,
+      "auditmysite_score": 87,
       "axe": {
         "critical": 0,
         "minor": 0,
@@ -200,7 +200,7 @@
       }
     },
     "detection_corpus/misc_content_checks.html": {
-      "auditmysite_score": 40,
+      "auditmysite_score": 42,
       "axe": {
         "critical": 3,
         "minor": 0,
@@ -335,7 +335,7 @@
       }
     },
     "wcag_fixtures/empty_links.html": {
-      "auditmysite_score": 76,
+      "auditmysite_score": 77,
       "axe": {
         "critical": 1,
         "minor": 0,
@@ -398,5 +398,5 @@
       }
     }
   },
-  "spearman_score_vs_axe_load": -0.492
+  "spearman_score_vs_axe_load": -0.536
 }
