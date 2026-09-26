@@ -10,6 +10,24 @@ Resource-efficient WCAG 2.2 AA Accessibility Checker written in Rust. Audits web
 - **PDF:** `renderreport` (Typst-based, optional `pdf` feature) — lokales Repo unter `../renderreport`
 - **Config:** Optional `auditmysite.toml` files
 
+## Grenze zu barrierlab (PFLICHT — Absprache 2026-09-26)
+Geteilte Bibliotheken liegen im Monorepo `../barrierlab` und kommen als crates.io-Versionen herein.
+Vor jeder Änderung klären, auf welcher Seite der Code liegt:
+- **Quelle ist barrierlab — nie hier patchen, kopieren oder umgehen:** die `SHARED_RULES`
+  (`src/wcag/shared.rs` → `a11y-rules`), `accname`, `a11y-dom`, `a11y-report`, Baum/Snapshot/Diff/
+  Linearisierung/Ansage-Struktur (`a11y-perception`), Bot-Einordnung in robots.txt (`web-checks`),
+  `html-conform`. Ablauf: Änderung in barrierlab → Release → Version hier anheben.
+- **Umzugskandidaten — erst migrieren, dann weiterentwickeln:** strukturierte Daten
+  (`src/seo/schema_rules.rs`), Meta-Längen, OpenGraph-Anwesenheit, render-blocking. Bis zum Umzug
+  hier nur Bugfixes; vor dem Umzug die Doppelung mit astro-post-audit einzeln belegen.
+- **Bleibt hier:** eigene WCAG-Regeln, Journeys, CDP-Aufnahme, Scoring/Taxonomie, PDF, CLI,
+  Berichtstexte (inkl. `screen_reader/announcer.rs`).
+- **Entwicklungsschleife:** für gleichzeitige Arbeit an beiden Seiten `[patch.crates-io]` mit
+  `path = "../barrierlab/crates/<crate>"` in `.cargo/config.toml` (gitignored). Nie committen,
+  solange der Patch aktiv ist — auch `Cargo.lock` nicht; committet wird erst gegen die
+  veröffentlichte Version.
+- Journey-Umbau führt `plan/53`; `barrierlab/plan/reader/04` verweist nur darauf.
+
 ## Key CLI Modes
 - Single: `auditmysite <URL>`
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
