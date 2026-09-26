@@ -270,6 +270,7 @@ pub(super) fn build_accessibility_score_breakdown(
     let mut criteria: [std::collections::HashSet<&str>; AREAS.len()] = Default::default();
     let mut critical_occ = [0usize; AREAS.len()];
     let mut urgent_occ = [0usize; AREAS.len()];
+    let mut level_a_urgent_occ = [0usize; AREAS.len()];
 
     for finding in reports.iter().flat_map(|report| report.findings.iter()) {
         let Some(area) = score_area_for_finding(finding) else {
@@ -293,6 +294,14 @@ pub(super) fn build_accessibility_score_breakdown(
             }
             crate::taxonomy::Severity::High => urgent_occ[idx] += occ,
             _ => {}
+        }
+        if finding.wcag_level == "A"
+            && matches!(
+                finding.severity,
+                crate::taxonomy::Severity::High | crate::taxonomy::Severity::Critical
+            )
+        {
+            level_a_urgent_occ[idx] += occ;
         }
 
         if drivers[idx]
@@ -330,6 +339,7 @@ pub(super) fn build_accessibility_score_breakdown(
                 criteria[idx].len(),
                 critical_occ[idx],
                 urgent_occ[idx],
+                level_a_urgent_occ[idx],
             )
             .round() as u32,
             weight_pct: share_pct[idx],
