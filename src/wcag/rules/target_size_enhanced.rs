@@ -33,10 +33,12 @@ const TARGET_SIZE_JS: &str = r#"
     }
   }
 
+  /*INLINE_TARGET_FN*/
   for (var j = 0; j < elements.length && violations.length < 5; j++) {
     var el = elements[j];
     var rect = el.getBoundingClientRect();
-    if (rect.width < MIN_SIZE || rect.height < MIN_SIZE) {
+    // 2.5.5 has no spacing exception, only the inline one.
+    if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
       violations.push({
         selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
@@ -55,7 +57,10 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &TARGET_SIZE_ENHANCED_RULE,
-        TARGET_SIZE_JS,
+        &TARGET_SIZE_JS.replace(
+            "/*INLINE_TARGET_FN*/",
+            super::target_size_minimum::INLINE_TARGET_JS,
+        ),
     )
     .await
     {

@@ -5,6 +5,20 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
+  `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:
+  ein zu kleines Ziel, um dessen Mitte ein 24-px-Kreis kein anderes Ziel (und keinen Kreis eines
+  anderen zu kleinen Ziels) schneidet, und ein Link im Fliesstext. Beides fehlte — obwohl der
+  Doc-Kommentar der Regel die Inline-Ausnahme nannte. Jeder einzeln stehende flache Button und jeder
+  Link in einem Satz galt als Verstoss; so auch „Send Message" und der Skip-Link auf `perfect.html`.
+  Jetzt umgesetzt; 2.5.5 (AAA) bekommt nur die Inline-Ausnahme, weil es keine Abstands-Ausnahme
+  kennt. Der Inline-Baustein ist gemeinsam (`INLINE_TARGET_JS`).
+
+  Die Korpus-Fixture `keyboard_and_targets` erwartete einen einzelnen 16-px-Button als Verstoss —
+  die Grundwahrheit bildete den Fehler ab. Sie traegt jetzt zwei benachbarte 16-px-Buttons
+  (Verstoss), einen einzelnen mit Abstand und einen Link im Fliesstext (beide bestanden, der Link
+  auch fuer 2.5.5). axe-Vergleich: Spearman −0,492 → −0,536; `perfect.html` 99 → 100.
+
 - **Geteilte Regeln melden im JSON Englisch: a11y-Familie auf 0.11.0, 2026-09-26:** Beim Pruefen der
   axe-Abweichung von `landmarks_and_lists` fielen deutsche Saetze im JSON auf („Der Listeneintrag
   steht außerhalb einer Liste."). `run_shared_rules` uebernimmt die Meldung aus `a11y-rules`

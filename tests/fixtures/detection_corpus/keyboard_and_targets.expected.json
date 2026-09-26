@@ -4,7 +4,10 @@
     { "rule_id": "focusable-no-role", "verdict": "needs_review" },
     { "rule_id": "click-events-have-key-events", "verdict": "violation" },
     { "rule_id": "target-size", "verdict": "violation" },
-    { "rule_id": "target-size-minimum", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "button#tight-a", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "button#lone", "verdict": "pass" },
+    { "rule_id": "target-size-minimum", "selector": "a#inline", "verdict": "pass" },
+    { "rule_id": "target-size", "selector": "a#inline", "verdict": "pass" },
     { "rule_id": "form-no-submit", "verdict": "violation" }
   ]
 }

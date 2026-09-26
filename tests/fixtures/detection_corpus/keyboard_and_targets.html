@@ -9,7 +9,12 @@
         <h1>Keyboard access and target size issues</h1>
         <div tabindex="0">Focusable div without an interactive role</div>
         <div onclick="console.log('clicked')">Clickable div with no keyboard handler</div>
-        <button style="width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;">X</button>
+        <!-- target-size-minimum violation: two 16 px targets side by side — their 24 px circles overlap -->
+        <p><button id="tight-a" style="width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;">X</button><button id="tight-b" style="width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;">Y</button></p>
+        <!-- target-size-minimum pass: a lone 16 px target, spaced (2.5.8 spacing exception) -->
+        <p style="margin:48px 0;"><button id="lone" style="width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;">Z</button></p>
+        <!-- pass for both target-size rules: a link in running text (inline exception) -->
+        <p>Read the <a id="inline" href="/terms">terms of use</a> before you continue.</p>
         <form>
             <label for="q">Search</label>
             <input type="text" id="q" name="q">
