@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Natives `<details>`: ein Journey-Lauf je Ausloeser, keine Fehlalarme mehr, 2026-09-27 (Plan 53):**
+  Ein neuer Chrome-Fixture-Test (`natives_details_erreicht_die_disclosure_journey`) fand drei
+  Luecken. Erstens bot `patterns::accordion` jeden `<summary>` und jeden ARIA-Button mit
+  `aria-expanded` ausserhalb von Navigation/Banner zusaetzlich als `AccordionToggle` an — der
+  dieselbe `disclosure_journey` startet wie der schon vorhandene `DisclosureToggle`-Kandidat. Jeder
+  solche Ausloeser wurde zweimal durchgeklickt, seine Befunde doppelt gemeldet. Das Akkordeon
+  ueberspringt jetzt Ausloeser, die bereits einen `DisclosureToggle`-Kandidaten haben; die Zahl der
+  Disclosure-Journeys je Seite sinkt entsprechend. Zweitens traegt `<summary>` in `<details name>`
+  die Rolle `DisclosureTriangleGrouped`: das Akkordeon meldete dafuer auf jedem exklusiven Akkordeon
+  `accordion-trigger-not-button` (Medium, 4.1.2), und die Journey bestimmte keinen gesteuerten
+  Bereich. Drittens bekam ein offenes natives `<summary>` `accordion-no-controls` (Low) — ein
+  natives Element braucht kein `aria-controls`; die Pruefung gilt jetzt nur fuer die Rolle `button`.
+  Die Laufzeitschwankung der Disclosure-Urteile ist an Fixtures vermessen und in Plan 53
+  dokumentiert (Ursache: das Beruhigungsfenster endet 200 ms nach dem Klick, spaetere Reaktionen
+  werden nur zufaellig erfasst); das Zeitverhalten bleibt unveraendert, weil die Abhilfe auf acht
+  Live-Seiten +57 % Journey-Zeit kostet.
+
 - **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
   `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:
   ein zu kleines Ziel, um dessen Mitte ein 24-px-Kreis kein anderes Ziel (und keinen Kreis eines

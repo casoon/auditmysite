@@ -21,6 +21,8 @@ mod quantity_stepper;
 pub(crate) mod skip_link;
 mod tab_list;
 
+pub(crate) use disclosure_menu::NATIVE_DISCLOSURE_ROLES;
+
 use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AXTree;

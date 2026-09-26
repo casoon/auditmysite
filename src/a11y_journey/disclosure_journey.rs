@@ -44,7 +44,7 @@ use crate::audit::normalized::{
 };
 use crate::error::Result;
 use crate::interaction::{pointer, stability};
-use crate::patterns::JourneyCandidate;
+use crate::patterns::{JourneyCandidate, NATIVE_DISCLOSURE_ROLES};
 use crate::taxonomy::Severity;
 
 /// Was die Differenz über den bedienten Auslöser sagt.
@@ -123,9 +123,10 @@ fn outcome(
 /// Der Bereich, den der Auslöser steuert, als Backend-ID.
 ///
 /// `aria-controls` (im Baum die Beziehung `controls`), sonst beim `<summary>`
-/// — Rolle `DisclosureTriangle` — das umgebende `<details>`. Mehr gibt der
-/// Baum nicht verlässlich her; ohne Bereich bleibt die Inhaltsaussage
-/// seitenweit, und ein nachgeladenes Bild am Seitenende zählt mit.
+/// — Rolle `DisclosureTriangle`, in `<details name>` `DisclosureTriangleGrouped`
+/// — das umgebende `<details>`. Mehr gibt der Baum nicht verlässlich her; ohne
+/// Bereich bleibt die Inhaltsaussage seitenweit, und ein nachgeladenes Bild am
+/// Seitenende zählt mit.
 fn controlled_region(snapshot: &AXSnapshot, trigger: i64) -> Option<i64> {
     let node = snapshot.tree.node_by_backend_id(trigger)?;
     let controls = node
@@ -140,7 +141,11 @@ fn controlled_region(snapshot: &AXSnapshot, trigger: i64) -> Option<i64> {
     if controls.is_some() {
         return controls;
     }
-    if node.role.as_deref() == Some("DisclosureTriangle") {
+    if node
+        .role
+        .as_deref()
+        .is_some_and(|role| NATIVE_DISCLOSURE_ROLES.contains(&role))
+    {
         let parent = node.parent_id.as_deref()?;
         return snapshot.tree.get_node(parent)?.backend_dom_node_id;
     }
@@ -793,18 +798,24 @@ mod tests {
 
     /// `<summary>` trägt kein `aria-controls`; der Bereich ist das umgebende
     /// `<details>`.
+    ///
+    /// In `<details name>` heißt die Rolle `DisclosureTriangleGrouped`; der
+    /// Bereich ist derselbe.
     #[test]
     fn summary_steuert_das_umgebende_details() {
-        let details = node("details", 60, None);
-        let summary = AXNode {
-            parent_id: Some("details".to_string()),
-            role: Some("DisclosureTriangle".to_string()),
-            ..node("summary", 42, Some(false))
-        };
-        assert_eq!(
-            controlled_region(&snap(vec![details, summary]), 42),
-            Some(60)
-        );
+        for role in ["DisclosureTriangle", "DisclosureTriangleGrouped"] {
+            let details = node("details", 60, None);
+            let summary = AXNode {
+                parent_id: Some("details".to_string()),
+                role: Some(role.to_string()),
+                ..node("summary", 42, Some(false))
+            };
+            assert_eq!(
+                controlled_region(&snap(vec![details, summary]), 42),
+                Some(60),
+                "{role}"
+            );
+        }
     }
 
     /// Ohne `aria-controls` und ohne `<details>` gibt es keinen Bereich.

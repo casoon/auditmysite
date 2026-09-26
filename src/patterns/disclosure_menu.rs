@@ -27,7 +27,8 @@ use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, P
 /// Die Rollen, unter denen Chrome ein natives `<summary>` im
 /// Accessibility-Tree führt. `DisclosureTriangleGrouped` ist die Variante in
 /// einer `<details name>`-Gruppe, also einem exklusiven Akkordeon.
-const NATIVE_DISCLOSURE_ROLES: &[&str] = &["DisclosureTriangle", "DisclosureTriangleGrouped"];
+pub(crate) const NATIVE_DISCLOSURE_ROLES: &[&str] =
+    &["DisclosureTriangle", "DisclosureTriangleGrouped"];
 
 /// Auslöser mit Aufklappzustand, getrennt nach Herkunft der Semantik.
 fn triggers(tree: &AXTree) -> (Vec<&AXNode>, Vec<&AXNode>) {
