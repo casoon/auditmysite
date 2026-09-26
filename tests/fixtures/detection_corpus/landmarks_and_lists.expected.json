@@ -10,7 +10,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "definition-list",
+      "rule_id": "radio-group",
       "verdict": "violation"
     }
   ]

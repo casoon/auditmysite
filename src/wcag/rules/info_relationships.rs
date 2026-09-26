@@ -23,6 +23,20 @@ pub const INFO_RELATIONSHIPS_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.structure"],
 };
 
+/// Rule metadata for a radio button outside a group. Runs inside
+/// `check_info_relationships`, but is its own defect: it used to carry
+/// `definition-list` and was reported under a definition-list id (plan 56).
+pub const RADIO_GROUP_RULE: RuleMetadata = RuleMetadata {
+    id: "1.3.1",
+    name: "Info and Relationships",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "Radio buttons must be contained in a group",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    axe_id: "radio-group",
+    tags: &["wcag2a", "wcag131", "cat.forms"],
+};
+
 /// Rule metadata for role=presentation/none hiding semantic descendants.
 pub const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
@@ -277,18 +291,18 @@ fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) 
                 let parent_role = parent.role.as_deref().unwrap_or("").to_lowercase();
                 if parent_role != "radiogroup" && parent_role != "group" {
                     let violation = Violation::new(
-                        INFO_RELATIONSHIPS_RULE.id,
-                        INFO_RELATIONSHIPS_RULE.name,
-                        INFO_RELATIONSHIPS_RULE.level,
-                        Severity::Medium,
+                        RADIO_GROUP_RULE.id,
+                        RADIO_GROUP_RULE.name,
+                        RADIO_GROUP_RULE.level,
+                        RADIO_GROUP_RULE.severity,
                         "Radio button is not contained in a group",
                         &node.node_id,
                     )
                     .with_role(node.role.clone())
                     .with_name(node.name.clone())
                     .with_fix("Group related radio buttons using <fieldset> and <legend> or role=\"radiogroup\"")
-                    .with_help_url(INFO_RELATIONSHIPS_RULE.help_url)
-                    .with_rule_id(INFO_RELATIONSHIPS_RULE.axe_id);
+                    .with_help_url(RADIO_GROUP_RULE.help_url)
+                    .with_rule_id(RADIO_GROUP_RULE.axe_id);
 
                     results.add_violation(violation);
                     return;
@@ -390,6 +404,24 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("header")));
+    }
+
+    /// Plan 56: the radio check must not report under `definition-list`.
+    #[test]
+    fn test_radio_outside_group_carries_its_own_rule_id() {
+        let paragraph = create_node("1", "paragraph", None, vec!["2"]);
+        let mut radio = create_node("2", "radio", Some("Option"), vec![]);
+        radio.parent_id = Some("1".to_string());
+
+        let tree = AXTree::from_nodes(vec![paragraph, radio]);
+        let results = check_info_relationships(&tree);
+
+        let ids: Vec<_> = results
+            .violations
+            .iter()
+            .filter_map(|v| v.rule_id.as_deref())
+            .collect();
+        assert_eq!(ids, vec!["radio-group"]);
     }
 
     #[test]

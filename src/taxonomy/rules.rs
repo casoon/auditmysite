@@ -298,7 +298,47 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     // `focus-order-semantics` bleibt daneben bestehen: Die AX-baumbasierte
     // Pruefung in `focus_order.rs` (fokussierbar trotz `aria-hidden`) fuehrt
     // sie weiter. Abgeloest ist nur die Tabindex-Haelfte.
-    ("keyboard/positive-tabindex", "a11y.focus_order.weak"),
+    //
+    // Eigener Eintrag statt `a11y.focus_order.weak`: Den fuehrt die
+    // 2.4.3-Gruppe (`focus-order-semantics`, `dialog-no-focusable`) schon,
+    // und zwei Befunde mit derselben Taxonomie-Kennung waeren im Bericht
+    // nicht mehr auseinanderzuhalten (Plan 56).
+    (
+        "keyboard/positive-tabindex",
+        "a11y.positive_tabindex.invalid",
+    ),
+    // ── Geteilte Kennungen unter 1.3.1, 3.1.1 und 1.4.4 (Plan 56) ──
+    // Ohne eigenen Eintrag fielen sie auf ihr WCAG-Kriterium zurueck und
+    // landeten in dessen Sammelbucket: Listen-, Tabellen- und
+    // Ueberschriftenfehler unter „Missing semantic structure" zusammen mit
+    // der fehlenden Navigations-Landmark, der ungueltige Sprachcode unter
+    // „Missing language declaration".
+    ("headings/skip-level", "a11y.heading_level.skipped"),
+    ("headings/h1-missing", "a11y.main_heading.missing"),
+    ("headings/h1-multiple", "a11y.main_heading_multiple.weak"),
+    ("lists/invalid-structure", "a11y.list_children.invalid"),
+    ("lists/empty", "a11y.list_empty.invalid"),
+    ("lists/item-outside-list", "a11y.list_structure.missing"),
+    (
+        "lists/term-without-definition",
+        "a11y.definition_description.missing",
+    ),
+    ("tables/header-missing", "a11y.table_headers.missing"),
+    ("tables/name-missing", "a11y.table_name.missing"),
+    (
+        "tables/presentational-with-headers",
+        "a11y.table_presentational_headers.invalid",
+    ),
+    ("document/lang-invalid", "a11y.page_language.invalid"),
+    // Der Eintrag der abgeloesten Regel `meta-viewport-large` beschreibt
+    // genau diesen Fall (Begrenzung zwischen 200 % und 500 %).
+    (
+        "zoom/viewport-scale-limited",
+        "a11y.viewport_zoom.restricted",
+    ),
+    // Eigene Regel (`info_relationships`): der Radio-Button ausserhalb
+    // einer Gruppe trug bis Plan 56 die Kennung `definition-list`.
+    ("radio-group", "a11y.radio_group.missing"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
 ];
@@ -3212,13 +3252,15 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("definition-list"),
-        title: "Fehlende Informationsstruktur (Tabelle, Liste oder Formulargruppe)",
-        title_en: "Missing information structure (table, list, or form group)",
-        description: "Eine Datentabelle hat keine Kopfzellen, Listenelemente liegen nicht in <ul>/<ol>, oder zusammengehörige Radio-Buttons sind nicht gruppiert.",
-        user_impact: "Screenreader-Nutzer können Tabellen-, Listen- oder Formularstruktur nicht korrekt erfassen.",
-        user_impact_en: "Screen reader users cannot correctly perceive the table, list, or form structure.",
-        technical_impact: "Fehlende <th>-Elemente, <li> außerhalb von <ul>/<ol>, oder Radio-Buttons ohne <fieldset>/role=\"radiogroup\".",
-        technical_impact_en: "Missing <th> elements, <li> outside <ul>/<ol>, or radio buttons without <fieldset>/role=\"radiogroup\".",
+        // Der Radio-Button ausserhalb einer Gruppe hat seit Plan 56 einen
+        // eigenen Eintrag (`a11y.radio_group.missing`).
+        title: "Fehlende Informationsstruktur (Tabelle oder Liste)",
+        title_en: "Missing information structure (table or list)",
+        description: "Eine Datentabelle hat keine Kopfzellen, oder eine Liste enthält keine Listenelemente.",
+        user_impact: "Screenreader-Nutzer können Tabellen- oder Listenstruktur nicht korrekt erfassen.",
+        user_impact_en: "Screen reader users cannot correctly perceive the table or list structure.",
+        technical_impact: "Fehlende <th>-Elemente oder Liste ohne <li>-Kinder.",
+        technical_impact_en: "Missing <th> elements, or a list without <li> children.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3464,17 +3506,301 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Medium,
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
-        axe_id: Some("list"),
+        // Geteilte Kennung `lists/item-outside-list`; die leere Liste hat seit
+        // Plan 56 einen eigenen Eintrag (`a11y.list_empty.invalid`).
+        axe_id: Some("lists/item-outside-list"),
         title: "Listenelemente ohne Listen-Container",
         title_en: "List items outside a list container",
-        description: "Listenelemente (role=\"listitem\") liegen nicht innerhalb eines Listen-Containers (role=\"list\"), oder eine Liste ist leer.",
+        description: "Listenelemente (<li> oder role=\"listitem\") liegen nicht innerhalb eines Listen-Containers (<ul>/<ol> oder role=\"list\").",
         user_impact: "Screenreader-Nutzer erhalten keine Ansage der Listenlänge/-struktur.",
         user_impact_en: "Screen reader users receive no announcement of the list's length/structure.",
-        technical_impact: "<li> außerhalb von <ul>/<ol>, oder leere Liste ohne Listenelemente.",
-        technical_impact_en: "<li> outside <ul>/<ol>, or an empty list with no list items.",
+        technical_impact: "<li> außerhalb von <ul>/<ol>.",
+        technical_impact_en: "<li> outside <ul>/<ol>.",
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // ── Geteilte Kennungen mit eigenem Eintrag (Plan 56) ──
+    // Siehe den Block im LEGACY_WCAG_MAP. Der Score-Abzug ist der des
+    // Sammeleintrags, unter dem die Kennung vorher lief
+    // (`a11y.structure.missing`, `a11y.language.missing`,
+    // `a11y.focus_order.weak`, `a11y.definition_list.invalid`) — die
+    // Aufteilung aendert die Zuordnung, nicht das Gewicht.
+    Rule {
+        id: "a11y.heading_level.skipped",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("headings/skip-level"),
+        title: "Übersprungene Überschriftenebene",
+        title_en: "Skipped heading level",
+        description: "Die Überschriftenhierarchie springt über eine Ebene (z. B. von h1 direkt auf h3).",
+        user_impact: "Screenreader-Nutzer, die über Überschriften navigieren, vermuten fehlende Abschnitte.",
+        user_impact_en: "Screen reader users navigating by headings assume that sections are missing.",
+        technical_impact: "Überschriftenebenen folgen nicht lückenlos aufeinander.",
+        technical_impact_en: "Heading levels do not follow each other without gaps.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.main_heading.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("headings/h1-missing"),
+        title: "Fehlende Hauptüberschrift (h1)",
+        title_en: "Missing main heading (h1)",
+        description: "Die Seite hat keine Überschrift der Ebene 1.",
+        user_impact: "Screenreader-Nutzer finden den Einstieg in den Hauptinhalt nicht über die Überschriftennavigation.",
+        user_impact_en: "Screen reader users cannot find the start of the main content via heading navigation.",
+        technical_impact: "Kein <h1>-Element im Dokument.",
+        technical_impact_en: "No <h1> element in the document.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.main_heading_multiple.weak",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("headings/h1-multiple"),
+        title: "Mehrere Hauptüberschriften (h1)",
+        title_en: "Multiple main headings (h1)",
+        description: "Die Seite hat mehr als eine Überschrift der Ebene 1. In HTML zulässig, aber prüfenswert.",
+        user_impact: "Screenreader-Nutzer können den eigentlichen Seitentitel schwerer vom Rest unterscheiden.",
+        user_impact_en: "Screen reader users find it harder to tell the actual page title from the rest.",
+        technical_impact: "Mehrere <h1>-Elemente im Dokument.",
+        technical_impact_en: "Several <h1> elements in the document.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.list_children.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("lists/invalid-structure"),
+        title: "Liste mit unzulässigen Kindelementen",
+        title_en: "List with invalid child elements",
+        description: "Eine Liste enthält direkte Kinder, die keine Listenelemente sind.",
+        user_impact: "Screenreader-Nutzer hören eine falsche Anzahl von Listeneinträgen oder verlieren Inhalte.",
+        user_impact_en: "Screen reader users hear a wrong number of list items or lose content.",
+        technical_impact: "Direkte Kinder von <ul>/<ol>/role=\"list\" sind keine <li>/role=\"listitem\".",
+        technical_impact_en: "Direct children of <ul>/<ol>/role=\"list\" are not <li>/role=\"listitem\".",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.list_empty.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("lists/empty"),
+        title: "Leere Liste",
+        title_en: "Empty list",
+        description: "Eine Liste enthält keine Listenelemente.",
+        user_impact: "Screenreader kündigen eine Liste ohne Inhalt an.",
+        user_impact_en: "Screen readers announce a list without content.",
+        technical_impact: "<ul>/<ol>/role=\"list\" ohne <li>/role=\"listitem\".",
+        technical_impact_en: "<ul>/<ol>/role=\"list\" without <li>/role=\"listitem\".",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.definition_description.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("lists/term-without-definition"),
+        title: "Begriff ohne Definition in Definitionsliste",
+        title_en: "Term without definition in a description list",
+        description: "Ein Begriff (<dt>) in einer Definitionsliste hat keine zugehörige Definition (<dd>).",
+        user_impact: "Screenreader-Nutzer können Begriff und Definition nicht als zusammengehörig erkennen.",
+        user_impact_en: "Screen reader users cannot recognize the term and its definition as belonging together.",
+        technical_impact: "<dt> ohne folgendes <dd> in der <dl>.",
+        technical_impact_en: "<dt> without a following <dd> inside the <dl>.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.table_headers.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("tables/header-missing"),
+        title: "Datentabelle ohne Kopfzellen",
+        title_en: "Data table without header cells",
+        description: "Eine Datentabelle hat keine Kopfzellen, die Zeilen oder Spalten beschriften.",
+        user_impact: "Screenreader-Nutzer hören Zellwerte ohne die zugehörige Zeilen- oder Spaltenbeschriftung.",
+        user_impact_en: "Screen reader users hear cell values without their row or column label.",
+        technical_impact: "Kein <th> und keine Zelle mit role=\"columnheader\"/\"rowheader\".",
+        technical_impact_en: "No <th> and no cell with role=\"columnheader\"/\"rowheader\".",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.table_name.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("tables/name-missing"),
+        title: "Datentabelle ohne Namen",
+        title_en: "Data table without a name",
+        description: "Eine Datentabelle hat weder <caption> noch aria-label.",
+        user_impact: "Screenreader-Nutzer erfahren beim Betreten der Tabelle nicht, worum es in ihr geht.",
+        user_impact_en: "Screen reader users are not told what the table is about when entering it.",
+        technical_impact: "Kein <caption> und kein aria-label an der Tabelle.",
+        technical_impact_en: "No <caption> and no aria-label on the table.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.table_presentational_headers.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("tables/presentational-with-headers"),
+        title: "Layouttabelle mit Kopfzellen",
+        title_en: "Layout table with header cells",
+        description: "Eine als präsentational ausgezeichnete Tabelle enthält Kopfzellen.",
+        user_impact: "Screenreader-Nutzer erhalten widersprüchliche Signale, ob es sich um eine Datentabelle handelt.",
+        user_impact_en: "Screen reader users receive contradictory signals about whether this is a data table.",
+        technical_impact: "role=\"presentation\"/\"none\" an einer Tabelle mit <th>.",
+        technical_impact_en: "role=\"presentation\"/\"none\" on a table with <th>.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.page_language.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::LanguageClarity,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("document/lang-invalid"),
+        title: "Ungültige Sprachangabe der Seite",
+        title_en: "Invalid page language",
+        description: "Das lang-Attribut am html-Element ist kein gültiger BCP-47-Sprachcode.",
+        user_impact: "Screenreader wählen eine falsche oder die Standard-Aussprache.",
+        user_impact_en: "Screen readers choose a wrong or the default pronunciation.",
+        technical_impact: "Ungültiger Wert im lang-Attribut des html-Elements.",
+        technical_impact_en: "Invalid value in the html element's lang attribute.",
+        score_impact: ScoreImpact {
+            base_penalty: 10.0,
+            max_penalty: 12.5,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.positive_tabindex.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.4.3"),
+        external_level: Some("A"),
+        axe_id: Some("keyboard/positive-tabindex"),
+        title: "Positiver tabindex verändert die Fokusreihenfolge",
+        title_en: "Positive tabindex changes the focus order",
+        description: "Ein Element hat einen tabindex größer als 0 und springt damit in der Tab-Reihenfolge vor alle übrigen Elemente.",
+        user_impact: "Tastaturnutzer erreichen Elemente in einer Reihenfolge, die nicht dem Seitenaufbau entspricht.",
+        user_impact_en: "Keyboard users reach elements in an order that does not match the page layout.",
+        technical_impact: "tabindex-Wert größer als 0.",
+        technical_impact_en: "tabindex value greater than 0.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.radio_group.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("radio-group"),
+        title: "Radio-Button außerhalb einer Gruppe",
+        title_en: "Radio button outside a group",
+        description: "Ein Radio-Button liegt nicht in einer Gruppe (<fieldset> oder role=\"radiogroup\"/\"group\").",
+        user_impact: "Screenreader-Nutzer erfahren nicht, welche Optionen zusammengehören und worauf sich die Auswahl bezieht.",
+        user_impact_en: "Screen reader users are not told which options belong together and what the choice refers to.",
+        technical_impact: "Elternelement des Radio-Buttons ist weder <fieldset> noch role=\"radiogroup\"/\"group\".",
+        technical_impact_en: "The radio button's parent is neither a <fieldset> nor role=\"radiogroup\"/\"group\".",
+        score_impact: ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 4.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
@@ -3510,7 +3836,7 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Medium,
         external_ref: Some("WCAG 1.4.4"),
         external_level: Some("AA"),
-        axe_id: Some("meta-viewport-large"),
+        axe_id: Some("zoom/viewport-scale-limited"),
         title: "Zoom auf 500% durch Viewport-Meta-Tag verhindert",
         title_en: "Viewport meta tag prevents zooming to 500%",
         description: "Das viewport-Meta-Tag begrenzt maximum-scale so stark, dass Nutzer nicht auf mindestens 500% zoomen können.",
@@ -3981,6 +4307,31 @@ mod tests {
                 "Legacy WCAG ID {} maps to rule {} which doesn't exist",
                 wcag_id,
                 rule_id
+            );
+        }
+    }
+
+    /// Plan 56: Jede geteilte Kennung landet in einem Taxonomie-Eintrag ihres
+    /// eigenen Kriteriums — und keine im 1.3.1-Sammelbucket, der sonst
+    /// Listen, Tabellen und Ueberschriften mit der fehlenden
+    /// Navigations-Landmark zu einem Befund verschmilzt.
+    #[test]
+    fn test_shared_rules_resolve_to_specific_taxonomy() {
+        for shared in crate::wcag::shared::SHARED_RULES {
+            let rule = RuleLookup::by_legacy_wcag_id(shared.id)
+                .or_else(|| RuleLookup::by_legacy_wcag_id(shared.criterion))
+                .unwrap_or_else(|| panic!("{} resolves to no taxonomy rule", shared.id));
+            assert_eq!(
+                rule.external_ref,
+                Some(format!("WCAG {}", shared.criterion).as_str()),
+                "{} resolves to {} with a different criterion",
+                shared.id,
+                rule.id
+            );
+            assert_ne!(
+                rule.id, "a11y.structure.missing",
+                "{} falls into the generic 1.3.1 bucket",
+                shared.id
             );
         }
     }
