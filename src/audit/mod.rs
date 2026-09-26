@@ -20,6 +20,7 @@ pub mod performance_interpretation;
 mod pipeline;
 pub mod prioritization;
 mod report;
+mod risk_assessment;
 mod scoring;
 pub mod summary;
 pub mod template_dedup;
