@@ -19,7 +19,11 @@ mod styles;
 pub use a11y_perception::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
 pub use a11y_perception::{AXSnapshot, FocusIndicatorStatus, FocusSnapshot, Rect};
 pub use a11y_perception::{AXTreeDiff, FocusMove, PropertyChange};
-pub use accname_diff::{compare as compare_accname, AccnameDiff, DEFAULT_MAX_SAMPLES};
+pub use accname_diff::{
+    case_only_candidates as accname_case_only_candidates, compare as compare_accname,
+    compare_with_text_transform as compare_accname_with_text_transform, AccnameCorpus, AccnameDiff,
+    PageFailure as AccnamePageFailure, DEFAULT_MAX_SAMPLES,
+};
 pub use dom_document::{build_document, fetch_dom_document, CdpDocument};
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;
