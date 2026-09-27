@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.1.1: Icon in einem benannten Link ist kein fehlender Alternativtext, 2026-09-27 (Plan 47):**
+  Beim Pruefen der Referenzseiten meldete auditmysite auf www.mit.edu 7 „Image is missing
+  alternative text" (High, Level A) — alles Inline-`<svg>`-Icons ohne `role="img"` in Links mit
+  eigenem Namen („MIT@twitter", „open search", das Logo in „Massachusetts Institute of Technology").
+  Der Link traegt die Alternative; das Icon ist dekorativ, 1.1.1 erfuellt. axe laesst diesen Fall aus
+  (`svg-img-alt` gilt nur fuer `role="img"`). Wegen der neuen Level-A-Kappung haette schon ein
+  solcher Fehlalarm die Seite auf 89 begrenzt. `text_alternatives` nimmt jetzt namenlose Grafiken
+  *ohne* `url`-Eigenschaft (also nicht `<img>`) in benannten Links/Buttons aus; ein `<img>` ohne
+  `alt` bleibt ueberall ein Verstoss (F65). Bekannte Unschaerfe: ein explizites `role="img"`
+  sieht im Baum gleich aus. mit.edu 68 → 78.
+
 - **aria-prohibited-attr nennt die Rolle statt des Tags, 2026-09-27:** Fuer `div`/`span` ohne
   `role` meldete die Regel „prohibited on role 'span'". Die Regel erfasst in diesem Fall nur diese
   beiden Tags, deren implizite Rolle nach HTML-AAM `generic` ist — die Meldung nennt jetzt
