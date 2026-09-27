@@ -5,6 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Eigene Erklaerungen fuer die geteilten Kennungen, 2026-09-27 (Plan 56):** Die geteilten
+  Kennungen mit eigenem Taxonomie-Eintrag (Ueberschriftenebene, h1 fehlt/mehrfach, vier
+  Listen-, drei Tabellenregeln, ungueltiger Sprachcode, positiver tabindex, begrenzter Zoom)
+  hatten keinen eigenen Erklaerungstext. `resolve_explanation` fiel auf den Text ihres Kriteriums
+  zurueck: Eine leere Liste las sich im PDF und in `fix_guidance` wie „Fehlende semantische
+  Struktur" mit Tabellen-Beispiel, ein ungueltiger Sprachcode wie eine fehlende Sprachangabe. Jetzt
+  hat jede einen Text (deutsch und englisch, mit Beispielcode), geschluesselt nach der
+  Taxonomie-Kennung. Die beiden Texte fuer `list` und `meta-viewport-large` waren unter toten
+  Kennungen abgelegt und nie erreichbar; sie sind in die Eintraege fuer
+  `a11y.list_structure.missing` und `a11y.viewport_zoom.restricted` aufgegangen (der Listentext
+  sprach noch von leeren Listen, die inzwischen einen eigenen Eintrag haben). Ein Test haelt fest,
+  dass keine geteilte Kennung mit eigenem Eintrag mehr auf den Kriteriumstext zurueckfaellt.
+  `headings/empty` hat keinen eigenen Taxonomie-Eintrag und bleibt beim Text zu 2.4.6.
 - **Tote Katalog-Eintraege entfernt, 2026-09-27 (Plan 56):** `LEGACY_WCAG_MAP` fuehrte noch
   `list`, `meta-viewport-large` und `table-duplicate-name` — Kennungen, die keine Regel mehr
   vergibt (die ersten beiden sind an die geteilten Regeln `lists/*` bzw.
