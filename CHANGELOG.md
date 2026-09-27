@@ -5,6 +5,15 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Referenzset bewertet: sieben Live-Seiten mit Baendern, 2026-09-27 (Plan 47, Schritt 2):**
+  Baender aus drei Quellen je Seite — aktueller Score, Pruefung im Browser (Skip-Link, Gliederung,
+  Alternativtexte, Formularbeschriftungen, Umbruch bei 320 px) und die veroeffentlichte
+  Barrierefreiheitserklaerung —, vom Nutzer bestaetigt: gov.uk 75–92, gov.ie 75–92, casoon.de
+  90–100, mit.edu 70–89, bundesregierung.de 35–60, dm.de 15–40, basf.com 0–25. Referenztest gruen.
+  berlin.de ist vorerst ausgenommen: zwei aufeinanderfolgende Laeufe ergaben Desktop 71 und 27, im
+  niedrigen fehlen Main-/Banner-Landmark und Bypass, als waere ein Zwischenzustand erfasst worden —
+  offen in Plan 47.
+
 - **1.1.1: Icon in einem benannten Link ist kein fehlender Alternativtext, 2026-09-27 (Plan 47):**
   Beim Pruefen der Referenzseiten meldete auditmysite auf www.mit.edu 7 „Image is missing
   alternative text" (High, Level A) — alles Inline-`<svg>`-Icons ohne `role="img"` in Links mit

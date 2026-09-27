@@ -1,13 +1,74 @@
 {
   "_comment": "Live reference set for score calibration (plan 47, step 2). Each expected band comes from a manual review of the page, not from the tool's own output. `expected: null` = not reviewed yet; the test skips it. Live pages change: a drift means re-review the page or look at the tool, in that order.",
   "sites": [
-    { "url": "https://www.gov.uk/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.gov.ie/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.casoon.de/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.mit.edu/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.bundesregierung.de/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.dm.de/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.berlin.de/", "expected": null, "reviewed": null, "notes": "" },
-    { "url": "https://www.basf.com/", "expected": null, "reviewed": null, "notes": "" }
+    {
+      "url": "https://www.gov.uk/",
+      "expected": {
+        "min": 75,
+        "max": 92
+      },
+      "reviewed": "2026-09-27",
+      "notes": "Only medium/low findings, axe clean; own statement: partially compliant."
+    },
+    {
+      "url": "https://www.gov.ie/",
+      "expected": {
+        "min": 75,
+        "max": 92
+      },
+      "reviewed": "2026-09-27",
+      "notes": "Only medium findings (links by colour, text spacing)."
+    },
+    {
+      "url": "https://www.casoon.de/",
+      "expected": {
+        "min": 90,
+        "max": 100
+      },
+      "reviewed": "2026-09-27",
+      "notes": "Skip link with valid target, no reflow overflow at 320px, alt on all images, no high findings."
+    },
+    {
+      "url": "https://www.mit.edu/",
+      "expected": {
+        "min": 70,
+        "max": 89
+      },
+      "reviewed": "2026-09-27",
+      "notes": "No high findings; links by colour only, skipped heading level, target size."
+    },
+    {
+      "url": "https://www.bundesregierung.de/",
+      "expected": {
+        "min": 35,
+        "max": 60
+      },
+      "reviewed": "2026-09-27",
+      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant."
+    },
+    {
+      "url": "https://www.dm.de/",
+      "expected": {
+        "min": 15,
+        "max": 40
+      },
+      "reviewed": "2026-09-27",
+      "notes": "40x prohibited aria-label (star ratings), invalid ARIA values, unlabeled field."
+    },
+    {
+      "url": "https://www.berlin.de/",
+      "expected": null,
+      "reviewed": "2026-09-27",
+      "notes": "Excluded: unstable between runs (desktop 71 vs 27 in two consecutive CLI runs, mobile 27 both times) — the desktop pass sometimes lacks main/banner landmarks, as if it caught an interstitial. Proposed band 30–55 once stable; see plan 47."
+    },
+    {
+      "url": "https://www.basf.com/",
+      "expected": {
+        "min": 0,
+        "max": 25
+      },
+      "reviewed": "2026-09-27",
+      "notes": "55 focusable elements hidden from AT, 49 contrast failures, empty links, no skip link, no statement."
+    }
   ]
 }
