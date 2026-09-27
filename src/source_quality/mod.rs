@@ -1417,6 +1417,7 @@ mod tests {
             message: "Kein <main>-Landmark gefunden.".to_string(),
             fix_suggestion: None,
             values: crate::audit::normalized::InteractiveFindingValues::default(),
+            uncertainty: None,
         });
 
         let analysis = analyze_source_quality(&report);

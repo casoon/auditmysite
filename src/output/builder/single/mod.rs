@@ -1131,6 +1131,7 @@ mod tests {
                 message: "Skip link does not move focus".to_string(),
                 fix_suggestion: Some("Move focus to the main content target".to_string()),
                 values: crate::audit::normalized::InteractiveFindingValues::default(),
+                uncertainty: None,
             });
         report.accessibility_journey = Some(crate::audit::normalized::AccessibilityJourney {
             execution: Default::default(),
