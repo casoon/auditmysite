@@ -34,6 +34,7 @@ use chromiumoxide::cdp::browser_protocol::dom::{GetDocumentParams, Node as CdpNo
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
+use super::extractor::ChromeNameSources;
 use crate::error::{AuditError, Result};
 use a11y_perception::{AXTree, NameSource};
 
@@ -51,6 +52,9 @@ struct AxFacts {
     role: Option<String>,
     name: Option<String>,
     name_source: Option<SharedNameSource>,
+    /// Chromes eigene, feinere Angabe der Namensquelle, sofern mitgegeben
+    /// (siehe [`CdpDocument::with_chrome_name_sources`]).
+    chrome_name_source: Option<String>,
     ignored: bool,
 }
 
@@ -102,6 +106,28 @@ impl CdpDocument {
         Some(self.facts(node)?.ax_node_id.as_str())
     }
 
+    /// Übernimmt Chromes feine Namensquellen (Backend-Node-ID -> Kennung aus
+    /// `extractor::name_source_label`). Danach
+    /// liefert [`Semantics::name_source`] auch `aria-label`, `alt`,
+    /// `aria-labelledby`, `label` und `value`, die der AXTree allein nicht
+    /// mehr unterscheidet, und [`Self::chrome_name_source`] die Kennung selbst.
+    pub fn with_chrome_name_sources(mut self, sources: &ChromeNameSources) -> Self {
+        for (backend, facts) in &mut self.ax {
+            if let Some(label) = sources.get(backend) {
+                facts.name_source = shared_name_source(label);
+                facts.chrome_name_source = Some(label.clone());
+            }
+        }
+        self
+    }
+
+    /// Chromes Namensquelle als Kennung (`aria-label`, `alt`, `label`,
+    /// `legend`, …), sofern sie über [`Self::with_chrome_name_sources`]
+    /// mitgegeben wurde.
+    pub fn chrome_name_source(&self, node: ArenaNode<'_>) -> Option<&str> {
+        self.facts(node)?.chrome_name_source.as_deref()
+    }
+
     fn facts(&self, node: ArenaNode<'_>) -> Option<&AxFacts> {
         self.ax.get(&self.backend_node_id(node)?)
     }
@@ -147,7 +173,8 @@ impl Semantics for CdpDocument {
 /// `<label for>` zu `RelatedElement`. Diese Information ist an der Stelle schon
 /// verloren, und sie hier zu raten hieße, eine Tatsache zu behaupten, die der
 /// Baum nicht hergibt. Für die mehrdeutigen Fälle bleibt es deshalb bei `None`
-/// — das Trait sieht genau das als Vorgabe vor.
+/// — das Trait sieht genau das als Vorgabe vor. Die feine Angabe kommt getrennt
+/// über [`CdpDocument::with_chrome_name_sources`].
 fn map_name_source(src: NameSource) -> Option<SharedNameSource> {
     match src {
         NameSource::Contents => Some(SharedNameSource::Contents),
@@ -155,6 +182,23 @@ fn map_name_source(src: NameSource) -> Option<SharedNameSource> {
         NameSource::Title => Some(SharedNameSource::Title),
         NameSource::Attribute | NameSource::RelatedElement => None,
     }
+}
+
+/// Übersetzt Chromes feine Kennung in die geteilte Fassung. Quellen ohne
+/// Gegenstück dort (`legend`, `tablecaption`, `figcaption`, `title-element`,
+/// …) bleiben `None`.
+fn shared_name_source(label: &str) -> Option<SharedNameSource> {
+    Some(match label {
+        "aria-label" => SharedNameSource::AriaLabel,
+        "aria-labelledby" => SharedNameSource::AriaLabelledBy,
+        "label" => SharedNameSource::Label,
+        "title" => SharedNameSource::Title,
+        "alt" => SharedNameSource::Alt,
+        "placeholder" => SharedNameSource::Placeholder,
+        "contents" => SharedNameSource::Contents,
+        "value" => SharedNameSource::Value,
+        _ => return None,
+    })
 }
 
 /// Baut die Nachschlagetabelle Backend-Node-ID -> AX-Werte.
@@ -171,6 +215,7 @@ fn index_ax_tree(ax_tree: &AXTree) -> HashMap<i64, AxFacts> {
                 role: node.role.clone(),
                 name: node.name.clone(),
                 name_source: node.name_source.and_then(map_name_source),
+                chrome_name_source: None,
                 ignored: node.ignored,
             },
         );
@@ -605,6 +650,50 @@ mod tests {
         let idx: u32 = befund.location.node.as_deref().unwrap().parse().unwrap();
         let knoten = doc.arena.get(a11y_dom::NodeId(idx)).unwrap();
         assert_eq!(doc.backend_node_id(knoten), Some(8));
+    }
+
+    fn ax_mit_quelle(backend: i64, source: NameSource) -> AXTree {
+        AXTree::from_nodes(vec![a11y_perception::AXNode {
+            node_id: format!("ax{backend}"),
+            ignored: false,
+            ignored_reasons: Vec::new(),
+            role: Some("image".into()),
+            name: Some("Logo".into()),
+            name_source: Some(source),
+            description: None,
+            value: None,
+            properties: Vec::new(),
+            child_ids: Vec::new(),
+            parent_id: None,
+            backend_dom_node_id: Some(backend),
+        }])
+    }
+
+    /// Ohne feine Quellen bleibt `Attribute` unbestimmt; mit ihnen kommt die
+    /// tatsächliche Quelle an, und unbekannte Kennungen bleiben `None`.
+    #[test]
+    fn feine_namensquellen_ersetzen_die_grobe_zuordnung() {
+        let ax = ax_mit_quelle(7, NameSource::Attribute);
+        let doc = build_document(&beispielseite(), &ax).unwrap();
+        let img = elements(&doc).find(|n| n.is_element("img")).unwrap();
+        assert_eq!(doc.name_source(img), None);
+        assert_eq!(doc.chrome_name_source(img), None);
+
+        for (label, erwartet) in [
+            ("alt", Some(SharedNameSource::Alt)),
+            ("aria-label", Some(SharedNameSource::AriaLabel)),
+            ("aria-labelledby", Some(SharedNameSource::AriaLabelledBy)),
+            ("label", Some(SharedNameSource::Label)),
+            ("value", Some(SharedNameSource::Value)),
+            ("figcaption", None),
+        ] {
+            let doc = build_document(&beispielseite(), &ax)
+                .unwrap()
+                .with_chrome_name_sources(&HashMap::from([(7, label.to_string())]));
+            let img = elements(&doc).find(|n| n.is_element("img")).unwrap();
+            assert_eq!(doc.name_source(img), erwartet, "{label}");
+            assert_eq!(doc.chrome_name_source(img), Some(label));
+        }
     }
 
     /// iframes bringen ein eigenes Dokument mit eigenem `lang`/`title` mit.

@@ -5,6 +5,18 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **accname-Differential: Namensquelle aus Chromes Detail, `image` = `img`, 2026-09-27 (Plan 52):**
+  Die Quellachse war blind: Der AX-Extractor fasst `aria-label`, `alt` und `value` zu `Attribute`
+  und `aria-labelledby` wie `<label>` zu `RelatedElement` zusammen, und das Differential meldete
+  alle diese Namen als `unknown`. Der Extractor liest jetzt zusaetzlich die gewinnende Quelle aus
+  `name.sources` (erste mit Wert; Kennung aus `attribute`/`nativeSource`), liefert sie ueber
+  `extract_ax_tree_with_name_sources` neben dem Baum, und `CdpDocument::with_chrome_name_sources`
+  reicht sie an `names_by_source` und `Semantics::name_source` weiter. Das grobe `NameSource` aus
+  `a11y-perception`, das `text_alternatives`, `accessible_name`, `svg_rules` und `instructions`
+  lesen, bleibt unveraendert (Test). Rollenvergleich: Chrome `image` gegen `accname` `img` zaehlt
+  als gleich. Korpus neu gemessen (35 Seiten): `unknown` 56 → 0 (`aria-label` 50, `alt` 3,
+  `label` 2, `aria-labelledby` 1), Rollenabweichungen 215 → 25. Nur Messseite, `accname` und
+  `a11y-perception` unberuehrt.
 - **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
   `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
   Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein
