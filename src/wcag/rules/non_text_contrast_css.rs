@@ -34,6 +34,7 @@ pub const NON_TEXT_CONTRAST_CSS_RULE: RuleMetadata = RuleMetadata {
 
 const NON_TEXT_CONTRAST_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   const results = [];
   const els = Array.from(document.querySelectorAll(
     'input[type=checkbox], input[type=radio], input[type=range], [role=checkbox], [role=radio], [role=switch]'
@@ -66,9 +67,8 @@ const NON_TEXT_CONTRAST_JS: &str = r#"
     if (!boundaryColor || boundaryColor === 'transparent' || boundaryColor === 'rgba(0, 0, 0, 0)') continue;
 
     const parentBg = effectiveBackground(el);
-    let selector = el.tagName.toLowerCase();
-    if (el.id) selector += '#' + el.id;
-    const role = el.getAttribute('role') || el.type || selector;
+    const selector = __amsCssSelector(el);
+    const role = el.getAttribute('role') || el.type || el.tagName.toLowerCase();
 
     results.push({ selector, role, boundaryColor, parentBg });
   }
@@ -81,7 +81,10 @@ pub async fn check_non_text_contrast_css_with_page(page: &Page) -> Vec<Violation
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &NON_TEXT_CONTRAST_CSS_RULE,
-        NON_TEXT_CONTRAST_JS,
+        &NON_TEXT_CONTRAST_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {

@@ -28,6 +28,7 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
                 && g.category == f.category
                 && g.message == f.message
                 && g.severity == f.severity
+                && g.uncertainty == f.uncertainty
         }) {
             entry.1 += 1;
         } else {
@@ -104,11 +105,18 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
         // English (#406); the PDF localizes them from `kind` + `values`.
         let (message, fix_suggestion) =
             crate::audit::normalized::interactive_finding_text(finding.kind, &finding.values, en);
-        let body = if let Some(fix) = fix_suggestion {
+        let mut body = if let Some(fix) = fix_suggestion {
             format!("{} — {}", message, fix)
         } else {
             message
         };
+        if let Some(uncertainty) = &finding.uncertainty {
+            body.push(' ');
+            body.push_str(&crate::audit::normalized::finding_uncertainty_text(
+                uncertainty,
+                en,
+            ));
+        }
         let label = journey_category_label(&finding.category, i18n);
         let title = if *count > 1 {
             format!("{label} (×{count})")

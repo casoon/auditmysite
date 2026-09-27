@@ -19,6 +19,82 @@ short current-state summary. Newest entries first (unchanged order from before t
   haette jeden Korpus dominiert. Messung auf der Seite dieses Werkzeugs, `accname` bleibt
   unberuehrt. Ohne Stil (`compare`) bleibt es `mismatch`. Unit-Tests fuer Klassifikation, Aggregat
   und CLI-Parsing.
+- **Stabilitaetspruefung meldete immer „Budget ausgeschoepft": jeder Audit galt als partial,
+  2026-09-27:** `wait_for_page_stability` wertet ein Promise aus, das zu einem Objekt `{ status,
+  waited_ms, mutation_count }` aufloest — gebaut ohne `return_by_value`. CDP gab deshalb nur eine
+  Objekt-Referenz zurueck, `value` blieb leer, und jeder Aufruf fiel auf die Vorgabewerte:
+  `budget_exhausted`, volles Budget, 0 Mutationen, gleich was die Seite tat. Gewartet wurde richtig;
+  falsch war nur, was darueber berichtet wurde. Folgen: `audit_quality` stand praktisch immer auf
+  `partial` mit `page_stability_budget_exhausted:2` (so bei jedem casoon.de-Lauf), und die Journeys
+  konnten nicht sehen, wie lange ein Klick tatsaechlich abgewartet wurde. Gefunden beim Umsetzen von
+  Plan 53 (d). Nachgemessen: casoon.de und bundesregierung.de `complete`; Wartezeiten im Trace jetzt
+  echt (z. B. „stable after 201 ms, 0 mutations").
+
+- **Disclosure-Befunde mit Unsicherheits-Hinweis statt laengerer Wartezeit, 2026-09-27 (Plan 53):**
+  Die Wartezeit nach einem Klick endet nach 200 ms ohne DOM-Aenderung; eine spaetere Reaktion wird
+  nur erfasst, wenn zufaellig eine andere Aenderung das Fenster verlaengert — gemessen die Ursache der
+  rund 8 % Lauf-zu-Lauf-Schwankung. Laenger zu warten kostete +57 % Disclosure-Zeit fuer ein
+  geaendertes Urteil in rund 66. Stattdessen traegt der Trace jetzt je Klick Status, Wartezeit und
+  Mutationen, und ein Befund aus einem Klick, dessen Warten vor dem Budget endete, bekommt
+  `uncertainty: {kind: "late_reaction_possible", waited_ms}`. Nach dem #406-Muster: kanonisches
+  `kind` + Rohwert, `finding_uncertainty_text` als einzige Textquelle, im PDF lokalisiert an den
+  Befund gehaengt; unsichere und sichere Befunde werden dort nicht zusammengefasst.
+
+- **Natives `<details>`: ein Journey-Lauf je Ausloeser, keine Fehlalarme mehr, 2026-09-27 (Plan 53):**
+  Ein neuer Chrome-Fixture-Test (`natives_details_erreicht_die_disclosure_journey`) fand drei
+  Luecken. Erstens bot `patterns::accordion` jeden `<summary>` und jeden ARIA-Button mit
+  `aria-expanded` ausserhalb von Navigation/Banner zusaetzlich als `AccordionToggle` an — der
+  dieselbe `disclosure_journey` startet wie der schon vorhandene `DisclosureToggle`-Kandidat. Jeder
+  solche Ausloeser wurde zweimal durchgeklickt, seine Befunde doppelt gemeldet. Das Akkordeon
+  ueberspringt jetzt Ausloeser, die bereits einen `DisclosureToggle`-Kandidaten haben; die Zahl der
+  Disclosure-Journeys je Seite sinkt entsprechend. Zweitens traegt `<summary>` in `<details name>`
+  die Rolle `DisclosureTriangleGrouped`: das Akkordeon meldete dafuer auf jedem exklusiven Akkordeon
+  `accordion-trigger-not-button` (Medium, 4.1.2), und die Journey bestimmte keinen gesteuerten
+  Bereich. Drittens bekam ein offenes natives `<summary>` `accordion-no-controls` (Low) — ein
+  natives Element braucht kein `aria-controls`; die Pruefung gilt jetzt nur fuer die Rolle `button`.
+  Die Laufzeitschwankung der Disclosure-Urteile ist an Fixtures vermessen und in Plan 53
+  dokumentiert (Ursache: das Beruhigungsfenster endet 200 ms nach dem Klick, spaetere Reaktionen
+  werden nur zufaellig erfasst); das Zeitverhalten bleibt unveraendert, weil die Abhilfe auf acht
+  Live-Seiten +57 % Journey-Zeit kostet.
+- **Geteilte Regeln bekommen eigene Taxonomie-Eintraege, 2026-09-27 (Plan 56):** Auf
+  `landmarks_and_lists` stand ein Befund „Missing semantic structure" mit drei unverwandten
+  Fundstellen — fehlende Navigations-Landmark, leere Liste, Listeneintrag ausserhalb einer Liste.
+  Ursache: `wcag_group_key` gruppiert nach der Regelkennung nur, wenn `LEGACY_WCAG_MAP` sie kennt,
+  sonst nach dem WCAG-Kriterium. Keine der 1.3.1-Kennungen aus `a11y-rules` (vier Listen-, drei
+  Tabellen-, drei Ueberschriftenregeln) stand dort, alle fielen in `a11y.structure.missing`. Ebenso
+  lief `document/lang-invalid` unter „Missing language declaration", und
+  `keyboard/positive-tabindex` teilte sich `a11y.focus_order.weak` mit der 2.4.3-Gruppe, womit zwei
+  Befunde dieselbe Kennung tragen konnten. Jetzt hat jede dieser Kennungen einen eigenen Eintrag
+  (Titel deutsch und englisch, dasselbe Kriterium, Score-Bereich); `lists/item-outside-list` und
+  `zoom/viewport-scale-limited` nutzen die Eintraege der abgeloesten eigenen Regeln
+  (`a11y.list_structure.missing`, `a11y.viewport_zoom.restricted`). Ein Test haelt fest, dass keine
+  geteilte Kennung mehr im 1.3.1-Sammelbucket landet.
+
+  Der Radio-Button ausserhalb einer Gruppe trug die axe-Kennung `definition-list`: Die eigene Regel
+  `info_relationships` stempelte alle drei Teilpruefungen (Tabelle, Liste, Radio-Gruppe) mit der
+  Kennung ihres Laufs. Die Radio-Pruefung meldet jetzt als `radio-group`
+  (`a11y.radio_group.missing`); die Korpus-Erwartung ist nachgezogen.
+
+  Der Accessibility-Score bleibt gleich: `AccessibilityScorer` gruppiert nach `Violation.rule`, also
+  dem Kriterium, nicht nach der Taxonomie. Der Abzug der neuen Eintraege ist der des Sammeleintrags,
+  unter dem die Kennung vorher lief; nur die beiden wiederverwendeten Eintraege bringen ihren
+  frueheren eigenen Abzug mit. Bewegen kann sich die Bereichsaufschluesselung
+  (`accessibility_score_breakdown`), um ein bis zwei Punkte — Ueberschriftenbefunde zaehlen jetzt
+  unter „Heading structure" statt „Semantics". axe-Vergleich: Spearman −0,536 unveraendert, keine Seite bewegt.
+- **Eindeutige Selektoren in allen eigenen Seitenregeln, 2026-09-27 (Plan 57):** Etliche
+  JS-Regeln bauten ihren Selektor als `tag` bzw. `tag#id` (teils mit Klasse). Fundstellen werden
+  nach (Regel, Selektor) zusammengelegt — also fielen alle id-losen Elemente desselben Tags zu
+  *einer* Fundstelle („a", „button", „div") zusammen: zu niedrige Zaehlung, nicht auffindbar.
+  Betroffen waren 2.4.11/2.4.12 Focus Not Obscured (auch die Fokus-Walk-Pruefung), 1.3.2
+  Meaningful Sequence, 3.3.8 Accessible Authentication (Feld, Formular, CAPTCHA-Widget), 2.2.2
+  Pause/Stop/Hide, 2.5.3 Label in Name, 1.4.11 Non-text Contrast (CSS), 1.4.13 Content on Hover,
+  2.1.1 Click-Handler, 1.4.1 Use of Color und 3.1.2 Language of Parts (einstufiges
+  `nth-of-type`). Alle nutzen jetzt den vorhandenen `__amsCssSelector`
+  (`js_helpers::CSS_SELECTOR_JS`); auch 2.5.5/2.5.8 geben ihre eigene Kopie (`targetSelector`)
+  dafuer auf. Elemente mit id behalten die Form `tag#id`, die Korpus-Erwartungen bleiben gueltig.
+  Die Kind-Bezeichner in der Meaningful-Sequence-Meldung bleiben kurz — sie sind Text, keine
+  Fundstelle. Korpus, Score-Baender und Integrationstests gruen; axe-Vergleich unveraendert
+  (Spearman −0,536), keine Seite bewegt.
 
 - **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
   `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:

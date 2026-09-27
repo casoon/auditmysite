@@ -73,14 +73,7 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
     return s.display !== 'none' && s.visibility !== 'hidden';
   }
 
-  function selectorFor(el) {
-    var tag = el.tagName.toLowerCase();
-    if (el.id) return tag + '#' + el.id;
-    var name = el.getAttribute('name');
-    if (name) return tag + '[name="' + name + '"]';
-    var type = el.getAttribute('type');
-    return type ? tag + '[type="' + type + '"]' : tag;
-  }
+  /*CSS_SELECTOR*/
 
   function kindOf(el) {
     var ac = (el.getAttribute('autocomplete') || '').toLowerCase();
@@ -119,7 +112,7 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
     for (var i = 0; i < fields.length && i < 20; i++) {
       var f = fields[i];
       if (f.disabled || f.readOnly || !isVisible(f)) continue;
-      if (pasteBlocked(f)) blocked.push({ selector: selectorFor(f), kind: kindOf(f) });
+      if (pasteBlocked(f)) blocked.push({ selector: __amsCssSelector(f), kind: kindOf(f) });
     }
   } finally {
     window.alert = savedAlert;
@@ -144,10 +137,9 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
     if (!form.querySelector(AUTH_FIELD)) continue;
     var widget = form.querySelector(CAPTCHA);
     if (!widget || !isVisible(widget)) continue;
-    var formName = form.getAttribute('name');
     captchas.push({
-      form: form.id ? 'form#' + form.id : (formName ? 'form[name="' + formName + '"]' : 'form'),
-      widget: selectorFor(widget)
+      form: __amsCssSelector(form),
+      widget: __amsCssSelector(widget)
     });
   }
 
@@ -159,7 +151,10 @@ pub async fn check_accessible_authentication_with_page(page: &Page) -> Vec<Viola
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &ACCESSIBLE_AUTH_PASTE_RULE,
-        ACCESSIBLE_AUTH_JS,
+        &ACCESSIBLE_AUTH_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {

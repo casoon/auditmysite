@@ -30,6 +30,7 @@ pub const CLICK_HANDLERS_RULE: RuleMetadata = RuleMetadata {
 // without a focusable role or tabindex. Returns up to 10 affected selectors.
 const CLICK_HANDLERS_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   const NON_INTERACTIVE = ['div', 'span', 'p', 'li', 'section', 'article'];
   const INTERACTIVE_ROLES = new Set([
     'button', 'link', 'checkbox', 'radio', 'switch',
@@ -47,11 +48,7 @@ const CLICK_HANDLERS_JS: &str = r#"
       const tabindex = el.getAttribute('tabindex');
       const focusable = tabindex !== null && parseInt(tabindex, 10) >= 0;
       if (focusable) continue;
-      const id = el.id ? '#' + el.id : '';
-      const cls = el.className && typeof el.className === 'string'
-        ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.')
-        : '';
-      findings.push(tag + id + cls);
+      findings.push(__amsCssSelector(el));
       if (findings.length >= 10) break;
     }
   } catch(e) {}
@@ -60,13 +57,19 @@ const CLICK_HANDLERS_JS: &str = r#"
 "#;
 
 pub async fn check_click_handlers_with_page(page: &Page) -> Vec<Violation> {
-    let val =
-        match crate::wcag::types::evaluate_or_fail(page, &CLICK_HANDLERS_RULE, CLICK_HANDLERS_JS)
-            .await
-        {
-            Ok(v) => v,
-            Err(violations) => return violations,
-        };
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &CLICK_HANDLERS_RULE,
+        &CLICK_HANDLERS_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
+    };
 
     let count = val.get("count").and_then(|v| v.as_u64()).unwrap_or(0);
     if count == 0 {
