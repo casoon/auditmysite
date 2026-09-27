@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Menue-Buttons nur noch mit der Menue-Journey, 2026-09-27 (Plan 53):** Ein Button mit
+  `aria-haspopup="menu"` wurde zweimal geprueft — als Menue (`MenuOpen`) und zusaetzlich vom
+  Accordion-Erkenner als Aufklapp-Element (`AccordionToggle`, also mit der Disclosure-Journey).
+  Nach den ARIA Authoring Practices ist das das Muster „Menu Button", nicht „Disclosure"; die
+  Disclosure-Journey beurteilte ihn nach Erwartungen, die er nicht erfuellen muss. Der
+  Accordion-Erkenner bietet jetzt keinen Ausloeser mehr an, den der Disclosure-/Menue-Erkenner schon
+  angeboten hat; die Erkennung im Berichtstext bleibt.
+
 - **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
   `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
   Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein
