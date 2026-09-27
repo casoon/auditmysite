@@ -65,7 +65,7 @@ Zwei Achsen, weil eine Zahl allein nicht sagt, wo hinzuschauen ist.
 | `missing_locally` | Chrome hat einen Namen, `accname` keinen. |
 | `missing_in_chrome` | `accname` hat einen Namen, Chrome keinen. |
 | `mismatch` | Beide haben einen Namen, die Texte unterscheiden sich. |
-| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
+| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. **Erwartete Abweichung, kein Fehler** (Entscheidung 2026-09-27): accname 1.2 regelt CSS-Transformationen nicht, `accname` bleibt beim DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
 
 Der Stil wird nur für die Kandidaten geholt — Elemente, deren Namen sich nur in
 der Groß-/Kleinschreibung unterscheiden — über `DOM.resolveNode` und
@@ -73,14 +73,19 @@ der Groß-/Kleinschreibung unterscheiden — über `DOM.resolveNode` und
 Werkzeugs; `accname` bleibt unberührt. Ein Kandidat ohne `text-transform` bleibt
 `mismatch` und damit sichtbar.
 
-**Namensquelle laut Chrome** (`names_by_source`): `aria-label`,
-`aria-labelledby`, `label`, `title`, `alt`, `placeholder`, `contents`, `value`,
-`unknown`. Die nützlichere Achse, weil sie direkt auf den Abschnitt der
-Spezifikation zeigt, der zu prüfen ist.
+**Namensquelle laut Chrome** (`names_by_source`): die Quelle, die Chrome in
+`name.sources` von `Accessibility.getFullAXTree` als erste mit Wert meldet (spätere
+sind `superseded`). Die Kennung folgt CDP: bei `attribute` das Attribut
+(`aria-label`, `alt`, `title`, `value`, …), bei `relatedElement` `aria-labelledby`
+oder die native Quelle — `labelfor`/`labelwrapped` werden `label`, ein
+SVG-`<title>`-Kind wird `title-element`, andere (`legend`, `tablecaption`,
+`figcaption`, …) behalten Chromes Namen —, dazu `placeholder` und `contents`.
+`unknown` bleibt nur, wo Chrome gar keine Quelle mit Wert nennt. Die nützlichere
+Achse, weil sie direkt auf den Abschnitt der Spezifikation zeigt, der zu prüfen ist.
 
-Einschränkung: Der AX-Extractor fasst `aria-label`, `alt` und andere Attributquellen zu
-`Attribute` und `aria-labelledby` wie `<label for>` zu `RelatedElement` zusammen; beide landen hier
-als `unknown`. `unknown` heißt also in der Praxis „aus einem Attribut oder einer Referenz“.
+Die feine Quelle reist neben dem AXTree (`extract_ax_tree_with_name_sources`,
+`CdpDocument::with_chrome_name_sources`). Das grobe `NameSource` aus
+`a11y-perception`, das die WCAG-Regeln lesen, bleibt unverändert.
 
 `names_by_shape_and_source` führt beide Achsen als Kreuztabelle.
 
@@ -90,6 +95,10 @@ Sekundär und heuristisch. Chrome liefert im AX-Tree teils interne Bezeichnungen
 statt ARIA-Rollennamen (`RootWebArea`, `StaticText`, `LineBreak`). Diese werden am
 Großbuchstaben erkannt und als `roles_not_comparable` gezählt statt als Abweichung.
 Die Heuristik ist als solche ausgewiesen; die Zahl gehört mitgelesen.
+
+Bekannte Schreibvarianten derselben Rolle zählen als gleich: Chrome `image`
+gegen `accname` `img` (ARIA 1.3 führt `image` als Synonym). Das ist Normalisierung
+der Messung, keine Änderung an `accname`.
 
 ## JSON-Ausgabe
 

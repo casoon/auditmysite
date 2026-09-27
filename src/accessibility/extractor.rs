@@ -2,6 +2,7 @@
 //!
 //! Uses Chrome DevTools Protocol to extract the full Accessibility Tree.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams;
@@ -20,6 +21,21 @@ use a11y_perception::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNo
 /// * `Ok(AXTree)` - The extracted accessibility tree
 /// * `Err(AuditError)` - If extraction fails
 pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
+    Ok(extract_ax_tree_with_name_sources(page).await?.0)
+}
+
+/// Chrome's winning name source per backend DOM node, in Chrome's own terms
+/// (see `name_source_label`).
+///
+/// `a11y_perception::NameSource` folds `aria-label`, `alt` and `value` into
+/// `Attribute` and `aria-labelledby` and `<label>` into `RelatedElement`; the
+/// accname differential needs them apart. The coarse enum stays as it is —
+/// the WCAG rules read it — and the detail travels next to the tree.
+pub type ChromeNameSources = HashMap<i64, String>;
+
+/// Like [`extract_ax_tree`], plus Chrome's detailed name source per backend
+/// DOM node — from the same `getFullAXTree` response, no second round trip.
+pub async fn extract_ax_tree_with_name_sources(page: &Page) -> Result<(AXTree, ChromeNameSources)> {
     info!("Extracting Accessibility Tree...");
 
     // Request the full AX tree via CDP.
@@ -41,6 +57,7 @@ pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
         })?;
 
     let nodes = extract_nodes_from_json(&nodes_json)?;
+    let sources = extract_name_sources_from_json(&nodes_json);
 
     let tree = AXTree::from_nodes(nodes);
     info!(
@@ -49,7 +66,59 @@ pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
         tree.root_id
     );
 
-    Ok(tree)
+    Ok((tree, sources))
+}
+
+/// Collects the detailed winning name source of every node that has one and
+/// is tied to a DOM node.
+fn extract_name_sources_from_json(json: &serde_json::Value) -> ChromeNameSources {
+    json.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|node| {
+            let backend = node["backendDOMNodeId"].as_i64()?;
+            let label = name_source_label(winning_name_source(&node["name"])?)?;
+            Some((backend, label))
+        })
+        .collect()
+}
+
+/// The source Chrome took the name from: the first entry of `name.sources`
+/// that carries a value. Chrome lists the sources in precedence order and
+/// flags every later source with a value as `superseded`; an empty value
+/// still wins (`alt=""` names an image with the empty string).
+fn winning_name_source(name: &serde_json::Value) -> Option<&serde_json::Value> {
+    name["sources"]
+        .as_array()?
+        .iter()
+        .find(|s| !s["value"].is_null())
+}
+
+/// Chrome's name source as a short label, taken from what CDP reports
+/// rather than inferred from the DOM:
+///
+/// - `attribute` → the attribute (`aria-label`, `alt`, `title`, `value`, …)
+/// - `relatedElement` → `aria-labelledby`, or the native source: `labelfor`
+///   and `labelwrapped` become `label`; an SVG `<title>` child becomes
+///   `title-element` (not to be confused with the `title` attribute); others
+///   (`legend`, `tablecaption`, `figcaption`, …) keep Chrome's name
+/// - `placeholder` (also `aria-placeholder`) → `placeholder`
+/// - `contents` → `contents`
+fn name_source_label(source: &serde_json::Value) -> Option<String> {
+    let label = match source["type"].as_str()? {
+        "attribute" => source["attribute"].as_str()?,
+        "relatedElement" => match source["attribute"].as_str() {
+            Some(attribute) => attribute,
+            None => match source["nativeSource"].as_str()? {
+                "labelfor" | "labelwrapped" | "label" => "label",
+                "title" => "title-element",
+                other => other,
+            },
+        },
+        "placeholder" => "placeholder",
+        other => other,
+    };
+    Some(label.to_string())
 }
 
 /// Extract nodes from the CDP JSON response
@@ -288,5 +357,129 @@ mod tests {
 
         let node = convert_json_node(&json).unwrap();
         assert_eq!(node.name_source, Some(NameSource::Title));
+    }
+
+    /// Sources as Chrome reports them (captured live from `getFullAXTree`).
+    fn name_with_sources(sources: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({ "value": "x", "sources": sources })
+    }
+
+    #[test]
+    fn detailed_name_source_labels_follow_cdp() {
+        let cases = [
+            (
+                serde_json::json!([
+                    {"type": "attribute", "attribute": "aria-label", "value": {"value": "AL"}},
+                    {"type": "contents", "value": {"value": "c"}, "superseded": true},
+                ]),
+                "aria-label",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "attribute": "aria-labelledby", "value": {"value": "L"}},
+                    {"type": "attribute", "attribute": "aria-label", "value": {"value": "x"}, "superseded": true},
+                ]),
+                "aria-labelledby",
+            ),
+            (
+                serde_json::json!([{"type": "attribute", "attribute": "alt", "value": {"value": ""}}]),
+                "alt",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "nativeSource": "labelfor", "value": {"value": "L"}},
+                ]),
+                "label",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "nativeSource": "labelwrapped", "value": {"value": "L"}},
+                ]),
+                "label",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "nativeSource": "title", "value": {"value": "T"}},
+                ]),
+                "title-element",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "nativeSource": "legend", "value": {"value": "Leg"}},
+                ]),
+                "legend",
+            ),
+            (
+                serde_json::json!([{"type": "attribute", "attribute": "value", "value": {"value": "Send"}}]),
+                "value",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "placeholder", "attribute": "placeholder", "value": {"value": "PH"}},
+                ]),
+                "placeholder",
+            ),
+            (
+                serde_json::json!([
+                    {"type": "relatedElement", "attribute": "aria-labelledby", "invalid": true},
+                    {"type": "contents", "value": {"value": "c"}},
+                ]),
+                "contents",
+            ),
+        ];
+        for (sources, expected) in cases {
+            let name = name_with_sources(sources);
+            let label = winning_name_source(&name).and_then(name_source_label);
+            assert_eq!(label.as_deref(), Some(expected), "{name}");
+        }
+    }
+
+    /// The detail travels next to the tree; the coarse `NameSource` the WCAG
+    /// rules read (`text_alternatives::is_decorative_empty_name`,
+    /// `accessible_name`, `svg_rules`, `instructions`) must not change.
+    #[test]
+    fn detailed_sources_leave_the_coarse_name_source_unchanged() {
+        let nodes = serde_json::json!([
+            {
+                "nodeId": "1", "backendDOMNodeId": 10,
+                "name": name_with_sources(serde_json::json!([
+                    {"type": "attribute", "attribute": "alt", "value": {"value": ""}},
+                ])),
+            },
+            {
+                "nodeId": "2", "backendDOMNodeId": 11,
+                "name": name_with_sources(serde_json::json!([
+                    {"type": "relatedElement", "nativeSource": "labelfor", "value": {"value": "L"}},
+                ])),
+            },
+            {
+                "nodeId": "3", "backendDOMNodeId": 12,
+                "name": name_with_sources(serde_json::json!([
+                    {"type": "attribute", "attribute": "aria-label", "value": {"value": "AL"}},
+                ])),
+            },
+            { "nodeId": "4", "name": {"value": ""} },
+        ]);
+
+        let coarse: Vec<_> = extract_nodes_from_json(&nodes)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.name_source)
+            .collect();
+        assert_eq!(
+            coarse,
+            vec![
+                Some(NameSource::Attribute),
+                Some(NameSource::RelatedElement),
+                Some(NameSource::Attribute),
+                None,
+            ]
+        );
+
+        let detail = extract_name_sources_from_json(&nodes);
+        assert_eq!(detail.len(), 3);
+        assert_eq!(detail[&10], "alt");
+        assert_eq!(detail[&11], "label");
+        assert_eq!(detail[&12], "aria-label");
     }
 }

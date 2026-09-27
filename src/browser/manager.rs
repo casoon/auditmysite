@@ -357,8 +357,31 @@ impl BrowserManager {
         Ok(page)
     }
 
-    /// Navigate a page to a URL and wait for load
+    /// Navigate a page to a URL and wait for load.
+    ///
+    /// When the loaded document is a transient refresh interstitial (a bot or
+    /// traffic check such as berlin.de's "Einen Augenblick bitte / Just a moment
+    /// please" that sends the visitor back to the requested URL via a short
+    /// `<meta http-equiv="refresh">`), the refresh is followed so that the audit
+    /// sees the page a visitor ends up reading, not the interstitial. A genuine
+    /// meta-refresh redirect to another page is not followed: the requested page
+    /// is loaded again, its pending refresh is cancelled once it has finished
+    /// loading, and it is audited as served.
     pub async fn navigate(&self, page: &Page, url: &str) -> Result<()> {
+        self.load(page, url).await?;
+        if follow_refresh_interstitial(page, url).await == InterstitialOutcome::LeftRequestedPage {
+            info!(
+                "Meta refresh on {} leads to another page; auditing the requested page as served",
+                url
+            );
+            self.load(page, url).await?;
+            cancel_pending_refresh(page).await;
+        }
+        Ok(())
+    }
+
+    /// Navigate once (with retry) and wait until the document is interactive.
+    async fn load(&self, page: &Page, url: &str) -> Result<()> {
         let timeout = Duration::from_secs(self.options.timeout_secs);
         let max_retries = 1;
         let mut last_error = None;
@@ -527,9 +550,192 @@ impl std::fmt::Debug for BrowserManager {
     }
 }
 
+/// A `<meta http-equiv="refresh">` firing within this many seconds marks the
+/// loaded document as a transient interstitial candidate.
+const INTERSTITIAL_REFRESH_MAX_SECS: u64 = 5;
+/// Upper bound on consecutive refreshes followed for one navigation.
+const INTERSTITIAL_MAX_HOPS: usize = 3;
+/// Extra time, beyond the refresh delay, for the next document to become interactive.
+const INTERSTITIAL_LOAD_BUDGET: Duration = Duration::from_secs(10);
+
+const META_REFRESH_CONTENT_JS: &str = r#"(() => {
+  const m = document.querySelector('meta[http-equiv="refresh" i]');
+  return m ? (m.getAttribute('content') || '') : null;
+})()"#;
+
+#[derive(Debug, PartialEq, Eq)]
+enum InterstitialOutcome {
+    /// No short meta refresh, or the refresh chain ended on the requested URL.
+    OnRequestedPage,
+    /// A short meta refresh was followed and ended on a different URL.
+    LeftRequestedPage,
+}
+
+/// Delay in seconds of a meta-refresh `content` value (`"2; url=/x"`, `"0"`)
+/// when it fires within [`INTERSTITIAL_REFRESH_MAX_SECS`].
+fn short_refresh_delay_secs(content: &str) -> Option<u64> {
+    let digits: String = content
+        .trim_start()
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    let secs: u64 = digits.parse().ok()?;
+    (secs <= INTERSTITIAL_REFRESH_MAX_SECS).then_some(secs)
+}
+
+/// Whether two URLs address the same document (fragment ignored).
+fn same_document_url(a: &str, b: &str) -> bool {
+    match (url::Url::parse(a), url::Url::parse(b)) {
+        (Ok(mut a), Ok(mut b)) => {
+            a.set_fragment(None);
+            b.set_fragment(None);
+            a == b
+        }
+        _ => a == b,
+    }
+}
+
+async fn main_frame(page: &Page) -> Option<chromiumoxide::cdp::browser_protocol::page::Frame> {
+    use chromiumoxide::cdp::browser_protocol::page::GetFrameTreeParams;
+    page.execute(GetFrameTreeParams::default())
+        .await
+        .ok()
+        .map(|r| r.result.frame_tree.frame.clone())
+}
+
+async fn pending_short_refresh(page: &Page) -> Option<u64> {
+    let value = page.evaluate(META_REFRESH_CONTENT_JS).await.ok()?;
+    short_refresh_delay_secs(value.value()?.as_str()?)
+}
+
+/// Waits (bounded) for the document to finish loading, then cancels its
+/// scheduled meta refresh with `window.stop()`, which at that point has nothing
+/// else left to stop.
+async fn cancel_pending_refresh(page: &Page) {
+    let _ = tokio::time::timeout(INTERSTITIAL_LOAD_BUDGET, async {
+        loop {
+            if let Ok(state) = page.evaluate("document.readyState").await {
+                if state.value().and_then(|v| v.as_str()) == Some("complete") {
+                    return;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await;
+    if let Err(e) = page.evaluate("window.stop()").await {
+        warn!("Cancelling the meta refresh failed: {}", e);
+    }
+}
+
+/// Follows short meta refreshes until the main frame holds a document without
+/// one, then reports whether that document is the requested URL.
+async fn follow_refresh_interstitial(page: &Page, url: &str) -> InterstitialOutcome {
+    let mut hops = 0;
+    while hops < INTERSTITIAL_MAX_HOPS {
+        let Some(delay) = pending_short_refresh(page).await else {
+            break;
+        };
+        let Some(before) = main_frame(page).await else {
+            break;
+        };
+        hops += 1;
+        info!(
+            "Document at {} refreshes after {}s (interstitial?); waiting for the next document",
+            before.url, delay
+        );
+        let deadline = Duration::from_secs(delay) + INTERSTITIAL_LOAD_BUDGET;
+        let replaced = tokio::time::timeout(deadline, async {
+            loop {
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                let Some(frame) = main_frame(page).await else {
+                    continue;
+                };
+                if frame.loader_id == before.loader_id {
+                    continue;
+                }
+                if let Ok(state) = page.evaluate("document.readyState").await {
+                    if matches!(
+                        state.value().and_then(|v| v.as_str()),
+                        Some("interactive" | "complete")
+                    ) {
+                        return;
+                    }
+                }
+            }
+        })
+        .await
+        .is_ok();
+        if !replaced {
+            warn!(
+                "Meta refresh on {} did not produce a new document",
+                before.url
+            );
+            break;
+        }
+        // Back on the requested URL: that document is the page (a self-reloading
+        // page is audited after its first reload, not followed further).
+        if main_frame(page)
+            .await
+            .is_some_and(|frame| same_document_url(&frame.url, url))
+        {
+            break;
+        }
+    }
+    if hops == 0 {
+        return InterstitialOutcome::OnRequestedPage;
+    }
+    match main_frame(page).await {
+        Some(frame) if !same_document_url(&frame.url, url) => {
+            InterstitialOutcome::LeftRequestedPage
+        }
+        _ => {
+            info!(
+                "Refresh interstitial on {} resolved after {} hop(s)",
+                url, hops
+            );
+            InterstitialOutcome::OnRequestedPage
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_short_refresh_delay_secs() {
+        assert_eq!(short_refresh_delay_secs("2; url=/~~delay/"), Some(2));
+        assert_eq!(short_refresh_delay_secs("0"), Some(0));
+        assert_eq!(
+            short_refresh_delay_secs(" 5;URL='https://example.com/'"),
+            Some(5)
+        );
+        assert_eq!(short_refresh_delay_secs("6; url=/x"), None);
+        assert_eq!(short_refresh_delay_secs("300"), None);
+        assert_eq!(short_refresh_delay_secs("; url=/x"), None);
+        assert_eq!(short_refresh_delay_secs(""), None);
+    }
+
+    #[test]
+    fn test_same_document_url_ignores_fragment_only() {
+        assert!(same_document_url(
+            "https://www.berlin.de/",
+            "https://www.berlin.de/#top"
+        ));
+        assert!(same_document_url(
+            "https://www.berlin.de",
+            "https://www.berlin.de/"
+        ));
+        assert!(!same_document_url(
+            "https://www.berlin.de/",
+            "https://www.berlin.de/~~delay/"
+        ));
+        assert!(!same_document_url(
+            "https://example.com/old",
+            "https://example.com/new"
+        ));
+    }
 
     #[test]
     fn test_default_browser_options() {

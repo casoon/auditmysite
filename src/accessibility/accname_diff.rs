@@ -141,7 +141,8 @@ pub struct AccnameDiff {
     /// Beispiele, gedeckelt durch `max_samples` je [`Shape`].
     pub name_divergences: Vec<NameDivergence>,
 
-    /// Rollen, bei denen beide Seiten übereinstimmen.
+    /// Rollen, bei denen beide Seiten übereinstimmen — bekannte
+    /// Schreibvarianten (Chrome `image` = `img`) eingeschlossen.
     pub roles_equal: usize,
     /// Rollen, die nicht vergleichbar sind, weil Chrome eine interne
     /// Bezeichnung liefert statt eines ARIA-Rollennamens (`RootWebArea`,
@@ -467,7 +468,9 @@ fn compare_name<'n>(
     *out.names_by_shape
         .entry(shape.as_str().to_string())
         .or_insert(0) += 1;
-    let source = doc.name_source(node).map(name_source_str);
+    let source = doc
+        .chrome_name_source(node)
+        .or_else(|| doc.name_source(node).map(name_source_str));
     let source_key = source.unwrap_or("unknown");
     *out.names_by_source
         .entry(source_key.to_string())
@@ -523,7 +526,7 @@ fn compare_role(doc: &CdpDocument, node: ArenaNode<'_>, max_samples: usize, out:
     }
 
     let own = accname::role(node);
-    if own == Some(chrome_role) {
+    if own.is_some_and(|own| same_role(chrome_role, own)) {
         out.roles_equal += 1;
         return;
     }
@@ -538,6 +541,14 @@ fn compare_role(doc: &CdpDocument, node: ArenaNode<'_>, max_samples: usize, out:
             accname: own.map(str::to_string),
         });
     }
+}
+
+/// Rollen gleich, bis auf bekannte Schreibvarianten desselben Begriffs:
+/// Chrome nennt `img` `image` (ARIA 1.3 führt `image` als Synonym). Reine
+/// Normalisierung der Messung; `accname` bleibt unberührt.
+fn same_role(chrome: &str, own: &str) -> bool {
+    const ALIASES: &[(&str, &str)] = &[("image", "img")];
+    chrome == own || ALIASES.contains(&(chrome, own))
 }
 
 /// Leerraum am Rand entfernen und im Inneren auf ein Leerzeichen
@@ -566,6 +577,7 @@ mod tests {
     use crate::accessibility::dom_document::build_document;
     use crate::accessibility::{AXNode, AXTree};
     use chromiumoxide::cdp::browser_protocol::dom::Node as CdpNode;
+    use std::collections::HashMap;
 
     fn cdp(json: serde_json::Value) -> CdpNode {
         serde_json::from_value(json).expect("CDP-Knoten")
@@ -896,6 +908,71 @@ mod tests {
         let p = &corpus.name_patterns[0];
         assert_eq!((p.occurrences, p.pages), (3, 2));
         assert_eq!(p.first_url, "https://a");
+    }
+
+    /// Mit Chromes feinen Namensquellen landet ein `aria-label` auf einem
+    /// generischen Element unter `aria-label` statt unter `unknown`.
+    #[test]
+    fn chromes_feine_namensquelle_steht_in_der_quellachse() {
+        let dom = document(serde_json::json!([element(
+            10,
+            "span",
+            &["aria-label", "nicht enthalten"],
+            serde_json::json!([text(11, "–")])
+        )]));
+        let mut node = ax_node("ax10", 10, "generic", Some("nicht enthalten"));
+        node.name_source = Some(crate::accessibility::NameSource::Attribute);
+        let ax = ax_tree(vec![node]);
+
+        let grob = compare(&build_document(&dom, &ax).unwrap(), DEFAULT_MAX_SAMPLES);
+        assert_eq!(grob.names_by_source.get("unknown"), Some(&1));
+
+        let doc = build_document(&dom, &ax)
+            .unwrap()
+            .with_chrome_name_sources(&HashMap::from([(10, "aria-label".to_string())]));
+        let fein = compare(&doc, DEFAULT_MAX_SAMPLES);
+        assert_eq!(fein.names_by_source.get("aria-label"), Some(&1));
+        assert_eq!(
+            fein.names_by_shape_and_source["missing_locally"].get("aria-label"),
+            Some(&1)
+        );
+        assert_eq!(
+            fein.name_divergences[0].name_source.as_deref(),
+            Some("aria-label")
+        );
+    }
+
+    /// Chrome `image` und `accname` `img` sind derselbe Begriff.
+    #[test]
+    fn image_und_img_gelten_als_gleiche_rolle() {
+        let dom = document(serde_json::json!([
+            element(
+                10,
+                "img",
+                &["src", "a.png", "alt", "Logo"],
+                serde_json::json!([])
+            ),
+            element(12, "header", &[], serde_json::json!([text(13, "Kopf")])),
+        ]));
+        let ax = ax_tree(vec![
+            ax_node("ax10", 10, "image", Some("Logo")),
+            ax_node("ax12", 12, "sectionheader", None),
+        ]);
+        let doc = build_document(&dom, &ax).unwrap();
+
+        let diff = compare(&doc, DEFAULT_MAX_SAMPLES);
+        assert_eq!(diff.roles_equal, 1);
+        // Kein Alias: `sectionheader` gegen `banner` bleibt eine Abweichung.
+        assert_eq!(diff.roles_divergent, 1);
+        assert_eq!(diff.role_divergences[0].tag, "header");
+    }
+
+    #[test]
+    fn same_role_kennt_nur_die_richtung_chrome_image() {
+        assert!(same_role("image", "img"));
+        assert!(same_role("button", "button"));
+        assert!(!same_role("img", "image"));
+        assert!(!same_role("sectionheader", "banner"));
     }
 
     #[test]

@@ -71,6 +71,70 @@ short current-state summary. Newest entries first (unchanged order from before t
   die Untertags, und auch ein leeres `lang`). `html-xml-lang-mismatch` bleibt eigen. Mit ihr
   fallen der Taxonomie-Eintrag `a11y.language_valid.invalid` und seine Zuordnungen; die
   Korpus-Erwartung `invalid_lang_code` erwartet jetzt `document/lang-invalid`.
+- **accname-Differential: Namensquelle aus Chromes Detail, `image` = `img`, 2026-09-27 (Plan 52):**
+  Die Quellachse war blind: Der AX-Extractor fasst `aria-label`, `alt` und `value` zu `Attribute`
+  und `aria-labelledby` wie `<label>` zu `RelatedElement` zusammen, und das Differential meldete
+  alle diese Namen als `unknown`. Der Extractor liest jetzt zusaetzlich die gewinnende Quelle aus
+  `name.sources` (erste mit Wert; Kennung aus `attribute`/`nativeSource`), liefert sie ueber
+  `extract_ax_tree_with_name_sources` neben dem Baum, und `CdpDocument::with_chrome_name_sources`
+  reicht sie an `names_by_source` und `Semantics::name_source` weiter. Das grobe `NameSource` aus
+  `a11y-perception`, das `text_alternatives`, `accessible_name`, `svg_rules` und `instructions`
+  lesen, bleibt unveraendert (Test). Rollenvergleich: Chrome `image` gegen `accname` `img` zaehlt
+  als gleich. Korpus neu gemessen (35 Seiten): `unknown` 56 → 0 (`aria-label` 50, `alt` 3,
+  `label` 2, `aria-labelledby` 1), Rollenabweichungen 215 → 25. Nur Messseite, `accname` und
+  `a11y-perception` unberuehrt.
+- **Referenzset bewertet: sieben Live-Seiten mit Baendern, 2026-09-27 (Plan 47, Schritt 2):**
+  Baender aus drei Quellen je Seite — aktueller Score, Pruefung im Browser (Skip-Link, Gliederung,
+  Alternativtexte, Formularbeschriftungen, Umbruch bei 320 px) und die veroeffentlichte
+  Barrierefreiheitserklaerung —, vom Nutzer bestaetigt: gov.uk 75–92, gov.ie 75–92, casoon.de
+  90–100, mit.edu 70–89, bundesregierung.de 35–60, dm.de 15–40, berlin.de 15–40, basf.com 0–25.
+  berlin.de schwankte zunaechst (Desktop 71 oder 27): Die 71 stammte von einer Bot-/Last-Zwischenseite,
+  die das Werkzeug als Startseite bewertete — behoben durch das Folgen eines Meta-Refresh auf dieselbe
+  URL; die echte Seite liegt stabil bei 27.
+
+- **1.1.1: Icon in einem benannten Link ist kein fehlender Alternativtext, 2026-09-27 (Plan 47):**
+  Beim Pruefen der Referenzseiten meldete auditmysite auf www.mit.edu 7 „Image is missing
+  alternative text" (High, Level A) — alles Inline-`<svg>`-Icons ohne `role="img"` in Links mit
+  eigenem Namen („MIT@twitter", „open search", das Logo in „Massachusetts Institute of Technology").
+  Der Link traegt die Alternative; das Icon ist dekorativ, 1.1.1 erfuellt. axe laesst diesen Fall aus
+  (`svg-img-alt` gilt nur fuer `role="img"`). Wegen der neuen Level-A-Kappung haette schon ein
+  solcher Fehlalarm die Seite auf 89 begrenzt. `text_alternatives` nimmt jetzt namenlose Grafiken
+  *ohne* `url`-Eigenschaft (also nicht `<img>`) in benannten Links/Buttons aus; ein `<img>` ohne
+  `alt` bleibt ueberall ein Verstoss (F65). Bekannte Unschaerfe: ein explizites `role="img"`
+  sieht im Baum gleich aus. mit.edu 68 → 78.
+
+- **aria-prohibited-attr nennt die Rolle statt des Tags, 2026-09-27:** Fuer `div`/`span` ohne
+  `role` meldete die Regel „prohibited on role 'span'". Die Regel erfasst in diesem Fall nur diese
+  beiden Tags, deren implizite Rolle nach HTML-AAM `generic` ist — die Meldung nennt jetzt
+  `generic`. Gefunden an den 30 `aria-label`-Spans auf casoon.de `/leistungskatalog/` (Plan 52).
+  In `docs/accname-differential.md` ist `text_transform` jetzt als erwartete Abweichung gefuehrt
+  (Entscheidung 2026-09-27: `accname` bleibt beim DOM-Text).
+
+- **Menue-Buttons nur noch mit der Menue-Journey, 2026-09-27 (Plan 53):** Ein Button mit
+  `aria-haspopup="menu"` wurde zweimal geprueft — als Menue (`MenuOpen`) und zusaetzlich vom
+  Accordion-Erkenner als Aufklapp-Element (`AccordionToggle`, also mit der Disclosure-Journey).
+  Nach den ARIA Authoring Practices ist das das Muster „Menu Button", nicht „Disclosure"; die
+  Disclosure-Journey beurteilte ihn nach Erwartungen, die er nicht erfuellen muss. Der
+  Accordion-Erkenner bietet jetzt keinen Ausloeser mehr an, den der Disclosure-/Menue-Erkenner schon
+  angeboten hat; die Erkennung im Berichtstext bleibt.
+
+- **Refresh-Zwischenseiten (Bot-/Lastpruefung) wurden als Seite auditiert, 2026-09-27 (Plan 47):**
+  berlin.de liefert einem Teil der frischen Browser-Sitzungen statt der Startseite eine 453-Byte-
+  Zwischenseite („Einen Augenblick bitte / Just a moment please", Varnish, `<meta http-equiv=
+  "refresh" content="2; url=/~~delay/">`, `<dialog open>`), die nach 2 s auf die echte Seite
+  zurueckfuehrt. HTTP 200, `readyState` `complete`, keine Mutationen — fuer `navigate` und die
+  Stabilitaetspruefung fertig. Der Desktop-Pass auditierte in 8 von 12 Laeufen diese Zwischenseite
+  (5 AX-Knoten, Barrierefreiheit 71 statt 27, Befunde fehlender main/banner-Landmark, bypass,
+  `dialog-name`, `2.2.1/meta-refresh`); der Mobile-Pass sah danach die echte Seite. `navigate`
+  folgt jetzt einem Meta-Refresh mit hoechstens 5 s Verzoegerung (max. 3 Spruenge), bis ein neues
+  Dokument interaktiv ist. Endet die Kette wieder auf der angefragten URL, war es eine
+  Zwischenseite; fuehrt sie woanders hin (echte zeitgesteuerte Weiterleitung), wird die angefragte
+  Seite neu geladen und ihr Refresh nach dem Laden mit `window.stop()` abgebrochen — sie wird so
+  auditiert wie ausgeliefert, samt `2.2.1/meta-refresh`, statt wie bisher je nach Verzoegerung mitten in der Analyse
+  wegzunavigieren. Nachgemessen: berlin.de 12 Laeufe nach dem Fix, Desktop/Mobile stets 27/27
+  (Zwischenseite in 7 davon aufgeloest); bundesregierung.de 4 Laeufe unveraendert 41/41; lokale
+  Seite mit `1; url=b.html` bleibt auf a.html mit Meta-Refresh-Befund. Unit-Tests fuer das Parsen
+  der Verzoegerung und den URL-Vergleich.
 - **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
   `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
   Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein
