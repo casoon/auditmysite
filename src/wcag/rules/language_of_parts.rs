@@ -28,13 +28,7 @@ const LANGUAGE_OF_PARTS_JS: &str = r#"
     de: new Set(['der','die','das','und','ist','sind','mit','für','von','auf','eine','einer','nicht','werden','wird','auch','dass']),
     en: new Set(['the','and','is','are','with','for','from','this','that','not','will','also','have','has','your','our'])
   };
-  const selectorFor = element => {
-    if (element.id) return `${element.tagName.toLowerCase()}#${CSS.escape(element.id)}`;
-    const parent = element.parentElement;
-    if (!parent) return element.tagName.toLowerCase();
-    const peers = [...parent.children].filter(child => child.tagName === element.tagName);
-    return `${element.tagName.toLowerCase()}:nth-of-type(${peers.indexOf(element) + 1})`;
-  };
+  /*CSS_SELECTOR*/
   const candidates = [];
   for (const element of document.querySelectorAll('p, li, dd, td, figcaption')) {
     if (candidates.length >= 5 || element.closest('code, pre, address, blockquote, [translate="no"]')) continue;
@@ -47,7 +41,7 @@ const LANGUAGE_OF_PARTS_JS: &str = r#"
     const en = words.filter(word => markers.en.has(word)).length;
     const detected = de >= 5 && en <= 1 ? 'de' : en >= 5 && de <= 1 ? 'en' : null;
     if (detected && detected !== documentLanguage) {
-      candidates.push({ selector: selectorFor(element), detected, sample: text.slice(0, 120) });
+      candidates.push({ selector: __amsCssSelector(element), detected, sample: text.slice(0, 120) });
     }
   }
   return { supported: true, documentLanguage, candidates };
@@ -55,7 +49,13 @@ const LANGUAGE_OF_PARTS_JS: &str = r#"
 "#;
 
 pub async fn check_language_of_parts_with_page(page: &Page) -> Vec<Violation> {
-    let value = match page.evaluate(LANGUAGE_OF_PARTS_JS).await {
+    let value = match page
+        .evaluate(LANGUAGE_OF_PARTS_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ))
+        .await
+    {
         Ok(result) => result.value().cloned().unwrap_or_default(),
         Err(_) => {
             return vec![crate::wcag::technical_rule_failure(

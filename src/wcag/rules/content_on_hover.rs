@@ -29,6 +29,7 @@ pub const CONTENT_ON_HOVER_RULE: RuleMetadata = RuleMetadata {
 // - role="tooltip" elements with no inbound aria-describedby reference
 const CONTENT_ON_HOVER_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   const titleOnly = [];
   const orphanTooltips = [];
   try {
@@ -50,9 +51,7 @@ const CONTENT_ON_HOVER_JS: &str = r#"
       const textContent = (el.textContent || '').trim();
       // If accessible name comes from text/aria, title is supplemental — fine.
       if (hasAriaLabel || hasAriaLabelledby || textContent.length > 0) continue;
-      const tag = el.tagName.toLowerCase();
-      const id = el.id ? '#' + el.id : '';
-      titleOnly.push(tag + id);
+      titleOnly.push(__amsCssSelector(el));
       if (titleOnly.length >= 10) break;
     }
 
@@ -74,7 +73,10 @@ pub async fn check_content_on_hover_with_page(page: &Page) -> Vec<Violation> {
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &CONTENT_ON_HOVER_RULE,
-        CONTENT_ON_HOVER_JS,
+        &CONTENT_ON_HOVER_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {

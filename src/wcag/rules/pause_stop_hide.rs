@@ -119,6 +119,7 @@ fn decide(
 
 const PAUSE_STOP_HIDE_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   var PAUSE_CONTROL_PATTERN = /\b(pause|stop|anhalten|stopp|bewegung|animation)\b/i;
 
   function isPlausiblePauseControl(el) {
@@ -178,7 +179,7 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
     var duration = parseMaxSeconds(cs.animationDuration);
     if (duration <= 0) continue;
     animated.push({
-      selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
+      selector: __amsCssSelector(el),
       duration_seconds: duration
     });
   }
@@ -192,7 +193,7 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
     const explicitRunning = widget.matches('.swiper-autoplay-running, [data-autoplay="true"], [data-ride="carousel"], [data-bs-ride="carousel"]');
     if (!explicitRunning && interval <= 5000) continue;
     autoWidgets.push({
-      selector: widget.tagName.toLowerCase() + (widget.id ? '#' + widget.id : ''),
+      selector: __amsCssSelector(widget),
       interval_ms: interval || null
     });
     if (autoWidgets.length >= 5) break;
@@ -209,13 +210,19 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
 "#;
 
 pub async fn check_pause_stop_hide_with_page(page: &Page) -> Vec<Violation> {
-    let val =
-        match crate::wcag::types::evaluate_or_fail(page, &PAUSE_STOP_HIDE_RULE, PAUSE_STOP_HIDE_JS)
-            .await
-        {
-            Ok(v) => v,
-            Err(violations) => return violations,
-        };
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &PAUSE_STOP_HIDE_RULE,
+        &PAUSE_STOP_HIDE_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
+    };
 
     let marquee_count = val
         .get("marquee_count")

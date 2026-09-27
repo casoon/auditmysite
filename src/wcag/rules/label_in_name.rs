@@ -22,6 +22,7 @@ pub const LABEL_IN_NAME_PAGE_RULE: RuleMetadata = RuleMetadata {
 
 const LABEL_IN_NAME_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   // Strips everything but letters/digits before comparing. `textContent`
   // never inserts whitespace at element boundaries (e.g. `<h3>A.</h3><p>B</p>`
   // concatenates to "A.B", not "A. B"), so a naive space-sensitive compare
@@ -40,7 +41,7 @@ const LABEL_IN_NAME_JS: &str = r#"
     var visibleText = normalize(visibleTextRaw);
     if (visibleText && ariaLabel && ariaLabel.indexOf(visibleText) === -1 && visibleText.indexOf(ariaLabel) === -1) {
       violations.push({
-        selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
+        selector: __amsCssSelector(el),
         ariaLabel: ariaLabelRaw.substring(0, 200),
         visibleText: visibleTextRaw.substring(0, 200),
         ariaLabelNormLen: ariaLabel.length,
@@ -66,7 +67,10 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &LABEL_IN_NAME_PAGE_RULE,
-        LABEL_IN_NAME_JS,
+        &LABEL_IN_NAME_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {

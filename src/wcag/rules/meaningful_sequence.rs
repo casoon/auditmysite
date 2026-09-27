@@ -91,6 +91,8 @@ const MEANINGFUL_SEQUENCE_JS: &str = r#"
   var results = [];
   var containers = document.querySelectorAll('*');
 
+  /*CSS_SELECTOR*/
+
   function selectorFor(el) {
     var s = el.tagName.toLowerCase();
     if (el.id) s += '#' + el.id;
@@ -118,7 +120,7 @@ const MEANINGFUL_SEQUENCE_JS: &str = r#"
     if (children.length < 2) continue;
 
     results.push({
-      selector: selectorFor(container),
+      selector: __amsCssSelector(container),
       children: children
     });
   }
@@ -131,7 +133,10 @@ pub async fn check_meaningful_sequence_with_page(page: &Page) -> Vec<Violation> 
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &MEANINGFUL_SEQUENCE_RULE,
-        MEANINGFUL_SEQUENCE_JS,
+        &MEANINGFUL_SEQUENCE_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
     )
     .await
     {
