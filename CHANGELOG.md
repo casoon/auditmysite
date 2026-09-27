@@ -5,6 +5,31 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Geteilte Regeln bekommen eigene Taxonomie-Eintraege, 2026-09-27 (Plan 56):** Auf
+  `landmarks_and_lists` stand ein Befund „Missing semantic structure" mit drei unverwandten
+  Fundstellen — fehlende Navigations-Landmark, leere Liste, Listeneintrag ausserhalb einer Liste.
+  Ursache: `wcag_group_key` gruppiert nach der Regelkennung nur, wenn `LEGACY_WCAG_MAP` sie kennt,
+  sonst nach dem WCAG-Kriterium. Keine der 1.3.1-Kennungen aus `a11y-rules` (vier Listen-, drei
+  Tabellen-, drei Ueberschriftenregeln) stand dort, alle fielen in `a11y.structure.missing`. Ebenso
+  lief `document/lang-invalid` unter „Missing language declaration", und
+  `keyboard/positive-tabindex` teilte sich `a11y.focus_order.weak` mit der 2.4.3-Gruppe, womit zwei
+  Befunde dieselbe Kennung tragen konnten. Jetzt hat jede dieser Kennungen einen eigenen Eintrag
+  (Titel deutsch und englisch, dasselbe Kriterium, Score-Bereich); `lists/item-outside-list` und
+  `zoom/viewport-scale-limited` nutzen die Eintraege der abgeloesten eigenen Regeln
+  (`a11y.list_structure.missing`, `a11y.viewport_zoom.restricted`). Ein Test haelt fest, dass keine
+  geteilte Kennung mehr im 1.3.1-Sammelbucket landet.
+
+  Der Radio-Button ausserhalb einer Gruppe trug die axe-Kennung `definition-list`: Die eigene Regel
+  `info_relationships` stempelte alle drei Teilpruefungen (Tabelle, Liste, Radio-Gruppe) mit der
+  Kennung ihres Laufs. Die Radio-Pruefung meldet jetzt als `radio-group`
+  (`a11y.radio_group.missing`); die Korpus-Erwartung ist nachgezogen.
+
+  Der Accessibility-Score bleibt gleich: `AccessibilityScorer` gruppiert nach `Violation.rule`, also
+  dem Kriterium, nicht nach der Taxonomie. Der Abzug der neuen Eintraege ist der des Sammeleintrags,
+  unter dem die Kennung vorher lief; nur die beiden wiederverwendeten Eintraege bringen ihren
+  frueheren eigenen Abzug mit. Bewegen kann sich die Bereichsaufschluesselung
+  (`accessibility_score_breakdown`), um ein bis zwei Punkte — Ueberschriftenbefunde zaehlen jetzt
+  unter „Heading structure" statt „Semantics". axe-Vergleich: Spearman −0,536 unveraendert, keine Seite bewegt.
 - **Eindeutige Selektoren in allen eigenen Seitenregeln, 2026-09-27 (Plan 57):** Etliche
   JS-Regeln bauten ihren Selektor als `tag` bzw. `tag#id` (teils mit Klasse). Fundstellen werden
   nach (Regel, Selektor) zusammengelegt — also fielen alle id-losen Elemente desselben Tags zu
