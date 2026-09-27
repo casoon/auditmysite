@@ -111,15 +111,17 @@ async fn accname_diff_page(
     max_samples: usize,
 ) -> Result<auditmysite::accessibility::AccnameDiff> {
     use auditmysite::accessibility::{
-        accname_case_only_candidates, compare_accname_with_text_transform, extract_ax_tree,
-        fetch_dom_document,
+        accname_case_only_candidates, compare_accname_with_text_transform,
+        extract_ax_tree_with_name_sources, fetch_dom_document,
     };
 
     let page = manager.new_page().await?;
     let result = async {
         manager.navigate(&page, url).await?;
-        let ax_tree = extract_ax_tree(&page).await?;
-        let doc = fetch_dom_document(&page, &ax_tree).await?;
+        let (ax_tree, name_sources) = extract_ax_tree_with_name_sources(&page).await?;
+        let doc = fetch_dom_document(&page, &ax_tree)
+            .await?
+            .with_chrome_name_sources(&name_sources);
 
         let mut text_transformed = std::collections::HashSet::new();
         for id in accname_case_only_candidates(&doc) {
