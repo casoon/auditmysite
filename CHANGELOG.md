@@ -5,6 +5,13 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **aria-prohibited-attr nennt die Rolle statt des Tags, 2026-09-27:** Fuer `div`/`span` ohne
+  `role` meldete die Regel „prohibited on role 'span'". Die Regel erfasst in diesem Fall nur diese
+  beiden Tags, deren implizite Rolle nach HTML-AAM `generic` ist — die Meldung nennt jetzt
+  `generic`. Gefunden an den 30 `aria-label`-Spans auf casoon.de `/leistungskatalog/` (Plan 52).
+  In `docs/accname-differential.md` ist `text_transform` jetzt als erwartete Abweichung gefuehrt
+  (Entscheidung 2026-09-27: `accname` bleibt beim DOM-Text).
+
 - **Menue-Buttons nur noch mit der Menue-Journey, 2026-09-27 (Plan 53):** Ein Button mit
   `aria-haspopup="menu"` wurde zweimal geprueft — als Menue (`MenuOpen`) und zusaetzlich vom
   Accordion-Erkenner als Aufklapp-Element (`AccordionToggle`, also mit der Disclosure-Journey).
