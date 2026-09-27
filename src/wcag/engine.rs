@@ -19,16 +19,15 @@ use super::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships,
     check_aria_required_attr, check_aria_required_parent, check_aria_roles, check_bypass_blocks,
     check_dialog_rules, check_error_identification, check_focus_order, check_focus_visible,
-    check_form_rules, check_help, check_info_relationships, check_instructions, check_keyboard,
-    check_label_title_only, check_labels, check_landmark_banner_is_top_level,
-    check_landmark_banner_present, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_main_present,
-    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
-    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_link_purpose,
-    check_link_purpose_link_only, check_media_rules, check_page_titled, check_parsing,
-    check_region, check_section_headings, check_skip_link, check_status_messages,
-    check_summary_name, check_svg_rules, check_table_extended, check_text_alternatives,
-    check_unusual_words, check_widget_rules,
+    check_form_rules, check_help, check_instructions, check_keyboard, check_label_title_only,
+    check_labels, check_landmark_banner_is_top_level, check_landmark_banner_present,
+    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
+    check_landmark_main_present, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
+    check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
+    check_media_rules, check_page_titled, check_parsing, check_region, check_section_headings,
+    check_skip_link, check_status_messages, check_summary_name, check_svg_rules,
+    check_table_extended, check_text_alternatives, check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -134,16 +133,6 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // image maps, now run as DOM page rules (check_image_input_rules_with_page /
     // check_server_side_image_map_with_page in PAGE_RULES) — htmlTag/type/ismap
     // are not AX properties (#QA-030).
-
-    // 1.3.1 Info and Relationships (Level A). Tabellen- und Listenstruktur
-    // pruefen die geteilten Regeln (`tables/*`, `lists/*`, siehe wcag::shared).
-    run_if_allowed!(
-        filter,
-        "radio-group",
-        check_info_relationships,
-        results,
-        tree
-    );
 
     // 2.1.1 Keyboard (Level A)
     run_if_allowed!(filter, "keyboard", check_keyboard, results, tree);
@@ -255,13 +244,7 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     );
 
     // 1.3.1 / 3.3.1 / 3.3.2 Form Rules (Level A) - P1
-    run_if_allowed!(
-        filter,
-        "form-field-multiple-labels",
-        check_form_rules,
-        results,
-        tree
-    );
+    run_if_allowed!(filter, "form-field-group", check_form_rules, results, tree);
 
     // 4.1.2 / 2.4.3 Dialog Rules (Level A) - P1
     run_if_allowed!(filter, "dialog-name", check_dialog_rules, results, tree);

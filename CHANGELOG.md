@@ -5,6 +5,22 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Eine Pruefung fuer die Gruppierung von Radio-Buttons und Checkboxen: `form-field-group`,
+  2026-09-27 (Plan 56):** Zwei eigene Pruefungen meldeten denselben Radio-Button ausserhalb einer
+  Gruppe: `form_rules::check_grouped_controls` unter `form-field-multiple-labels` (in axe-core
+  heisst das „Feld mit mehreren Labels" — ein anderer Defekt) und `info_relationships` unter
+  `radio-group`. Letztere pruefte nur den direkten Elternknoten und meldete damit zu Unrecht, sobald
+  ein `<label>` zwischen Radio und `<fieldset>` lag. Jetzt gibt es eine Pruefung mit eigener
+  Kennung `form-field-group` (`a11y.form_field_group.missing`): Ein Radio-Button braucht immer
+  eine Gruppe als Vorfahren, eine Checkbox erst, wenn die Seite mehr als ein Radio-/Checkbox-Feld
+  hat. `check_info_relationships` ist damit leer und geloescht; die Laufkennung
+  `definition-list`/`radio-group` entfaellt, `form-field-multiple-labels` heisst als Lauf- und
+  Filterkennung jetzt `form-field-group` (wer sie in `auditmysite.toml` abgeschaltet hatte, muss
+  den Namen nachziehen). Taxonomie-Eintrag `a11y.radio_group.missing` entfernt, Erklaerung und
+  Korpus-Erwartungen (`forms_and_misc`, `landmarks_and_lists`) umgestellt. Accessibility-Score:
+  `forms_and_misc` 71 → 72 (die beiden Radio-Buttons zaehlten doppelt); ueber alle Plan-56-
+  Aenderungen dieses Tages ist das die einzige bewegte Fixture-Seite, axe-Vergleich Spearman
+  −0,536 unveraendert.
 - **Tabellen- und Listenpruefung aus `info_relationships` geloescht, 2026-09-27 (Plan 56):** Die
   beiden Teilpruefungen meldeten unter der Laufkennung `definition-list` und doppelten die geteilten
   Regeln. Verglichen: „Datentabelle ohne Kopfzellen" (AX-Rolle `table` mit Zellen, aber ohne

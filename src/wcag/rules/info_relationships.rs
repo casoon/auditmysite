@@ -3,25 +3,16 @@
 //! Information, structure, and relationships conveyed through presentation
 //! can be programmatically determined or are available in text.
 //! Level A
+//!
+//! Only the presentational-container check lives here. Table and list
+//! structure are checked by the shared rules (`tables/*`, `lists/*`, see
+//! `wcag::shared`), radio/checkbox grouping by `form_rules` (plan 56).
 
 use chromiumoxide::Page;
 use tracing::warn;
 
-use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
-
-/// Rule metadata for a radio button outside a group.
-pub const RADIO_GROUP_RULE: RuleMetadata = RuleMetadata {
-    id: "1.3.1",
-    name: "Info and Relationships",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "Radio buttons must be contained in a group",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-    axe_id: "radio-group",
-    tags: &["wcag2a", "wcag131", "cat.forms"],
-};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 /// Rule metadata for role=presentation/none hiding semantic descendants.
 pub const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
@@ -34,27 +25,6 @@ pub const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
     axe_id: "presentation-semantic-children",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
-
-/// Check for proper info and relationships
-pub fn check_info_relationships(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
-        }
-
-        results.nodes_checked += 1;
-        let role = node.role.as_deref().unwrap_or("").to_lowercase();
-
-        // Check for form fields in fieldsets
-        if is_form_control(&role) {
-            check_form_grouping(node, tree, &mut results);
-        }
-    }
-
-    results
-}
 
 /// DOM check for presentational containers that include semantic descendants.
 pub async fn check_presentation_semantic_children_with_page(page: &Page) -> Vec<Violation> {
@@ -158,105 +128,9 @@ pub async fn check_presentation_semantic_children_with_page(page: &Page) -> Vec<
         .collect()
 }
 
-/// Check form controls are properly grouped
-fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) {
-    let role = node.role.as_deref().unwrap_or("").to_lowercase();
-
-    // Radio buttons and checkboxes should be in a group
-    if role == "radio" {
-        // Check if parent is a radiogroup
-        if let Some(ref parent_id) = node.parent_id {
-            if let Some(parent) = tree.get_node(parent_id) {
-                let parent_role = parent.role.as_deref().unwrap_or("").to_lowercase();
-                if parent_role != "radiogroup" && parent_role != "group" {
-                    let violation = Violation::new(
-                        RADIO_GROUP_RULE.id,
-                        RADIO_GROUP_RULE.name,
-                        RADIO_GROUP_RULE.level,
-                        RADIO_GROUP_RULE.severity,
-                        "Radio button is not contained in a group",
-                        &node.node_id,
-                    )
-                    .with_role(node.role.clone())
-                    .with_name(node.name.clone())
-                    .with_fix("Group related radio buttons using <fieldset> and <legend> or role=\"radiogroup\"")
-                    .with_help_url(RADIO_GROUP_RULE.help_url)
-                    .with_rule_id(RADIO_GROUP_RULE.axe_id);
-
-                    results.add_violation(violation);
-                    return;
-                }
-            }
-        }
-    }
-
-    results.passes += 1;
-}
-
-/// Check if role is a form control
-fn is_form_control(role: &str) -> bool {
-    matches!(
-        role,
-        "textbox"
-            | "searchbox"
-            | "combobox"
-            | "listbox"
-            | "spinbutton"
-            | "slider"
-            | "checkbox"
-            | "radio"
-            | "switch"
-            | "button"
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn create_node(id: &str, role: &str, name: Option<&str>, children: Vec<&str>) -> AXNode {
-        AXNode {
-            node_id: id.to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some(role.to_string()),
-            name: name.map(String::from),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: children.iter().map(|s| s.to_string()).collect(),
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    /// Plan 56: the radio check must not report under `definition-list`.
-    #[test]
-    fn test_radio_outside_group_carries_its_own_rule_id() {
-        let paragraph = create_node("1", "paragraph", None, vec!["2"]);
-        let mut radio = create_node("2", "radio", Some("Option"), vec![]);
-        radio.parent_id = Some("1".to_string());
-
-        let tree = AXTree::from_nodes(vec![paragraph, radio]);
-        let results = check_info_relationships(&tree);
-
-        let ids: Vec<_> = results
-            .violations
-            .iter()
-            .filter_map(|v| v.rule_id.as_deref())
-            .collect();
-        assert_eq!(ids, vec!["radio-group"]);
-    }
-
-    #[test]
-    fn test_is_form_control() {
-        assert!(is_form_control("textbox"));
-        assert!(is_form_control("checkbox"));
-        assert!(is_form_control("radio"));
-        assert!(!is_form_control("link"));
-        assert!(!is_form_control("heading"));
-    }
 
     #[test]
     fn test_presentation_semantic_children_metadata() {

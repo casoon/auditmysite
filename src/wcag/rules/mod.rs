@@ -120,9 +120,7 @@ pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT
 pub use identify_purpose::check_identify_purpose_with_page;
 pub use iframe_rules::check_same_origin_iframes_with_page;
 pub use image_input_rules::check_image_input_rules_with_page;
-pub use info_relationships::{
-    check_info_relationships, check_presentation_semantic_children_with_page,
-};
+pub use info_relationships::check_presentation_semantic_children_with_page;
 pub use input_purpose::check_input_purpose_with_page;
 pub use instructions::check_instructions;
 pub use keyboard::check_keyboard;

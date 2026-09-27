@@ -10,7 +10,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "radio-group",
+      "rule_id": "form-field-group",
       "verdict": "violation"
     }
   ]

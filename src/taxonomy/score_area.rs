@@ -101,7 +101,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.3.1 — Formularsemantik ──
     ("a11y.form_field_group.missing", Forms),
     ("a11y.label_title_only.invalid", Forms),
-    ("a11y.radio_group.missing", Forms),
     // ── 1.3.1 — ARIA-Missbrauch ──
     ("a11y.presentation_semantic_children.invalid", Aria),
     // ── 1.3.1 — Tabellen-, Listen- und Dokumentstruktur ──

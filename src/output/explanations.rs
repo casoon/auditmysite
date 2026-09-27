@@ -2462,7 +2462,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "form-field-multiple-labels",
+        "form-field-group",
         RuleExplanation {
             customer_title: "Fehlende Gruppierung verwandter Formularfelder",
             customer_title_en: "Missing grouping for related form fields",

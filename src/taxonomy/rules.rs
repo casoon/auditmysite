@@ -226,10 +226,7 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("input-image-alt", "a11y.input_image_alt.missing"),
     ("object-alt", "a11y.object_alt.missing"),
     ("html-content-model", "a11y.html_content_model.invalid"),
-    (
-        "form-field-multiple-labels",
-        "a11y.form_field_group.missing",
-    ),
+    ("form-field-group", "a11y.form_field_group.missing"),
     ("table-duplicate-name", "a11y.table_structure.invalid"),
     (
         "landmark-banner-is-top-level",
@@ -334,9 +331,6 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "zoom/viewport-scale-limited",
         "a11y.viewport_zoom.restricted",
     ),
-    // Eigene Regel (`info_relationships`): der Radio-Button ausserhalb
-    // einer Gruppe trug bis Plan 56 die Kennung `definition-list`.
-    ("radio-group", "a11y.radio_group.missing"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
 ];
@@ -3249,7 +3243,7 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Medium,
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
-        axe_id: Some("form-field-multiple-labels"),
+        axe_id: Some("form-field-group"),
         title: "Fehlende Gruppierung verwandter Formularfelder",
         title_en: "Missing grouping for related form fields",
         description: "Zusammengehörige Radio-Buttons oder Checkboxen sind nicht mit <fieldset>/<legend> oder role=\"group\" gruppiert.",
@@ -3729,29 +3723,6 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.radio_group.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("radio-group"),
-        title: "Radio-Button außerhalb einer Gruppe",
-        title_en: "Radio button outside a group",
-        description: "Ein Radio-Button liegt nicht in einer Gruppe (<fieldset> oder role=\"radiogroup\"/\"group\").",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Optionen zusammengehören und worauf sich die Auswahl bezieht.",
-        user_impact_en: "Screen reader users are not told which options belong together and what the choice refers to.",
-        technical_impact: "Elternelement des Radio-Buttons ist weder <fieldset> noch role=\"radiogroup\"/\"group\".",
-        technical_impact_en: "The radio button's parent is neither a <fieldset> nor role=\"radiogroup\"/\"group\".",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
