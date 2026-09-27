@@ -30,6 +30,10 @@
       "verdict": "violation"
     },
     {
+      "rule_id": "tables/header-missing",
+      "verdict": "violation"
+    },
+    {
       "rule_id": "zoom/viewport-scale-limited",
       "verdict": "violation"
     }

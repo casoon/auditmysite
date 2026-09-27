@@ -214,7 +214,7 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     },
     PageRuleEntry {
         rule_id: "3.1.1/language-extended",
-        name: "valid-lang / xml-lang-mismatch",
+        name: "xml-lang-mismatch",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_language_extended_with_page(p)),
     },

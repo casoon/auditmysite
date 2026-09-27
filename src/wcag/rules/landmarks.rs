@@ -6,8 +6,10 @@
 //! Taxonomy split (see issue #242):
 //! - Missing `main` → WCAG 2.4.1 (axe `landmark-one-main` convention — main
 //!   is the canonical skip target).
-//! - Missing nav / contentinfo → WCAG 1.3.1 (structural), via the generic
-//!   `missing_landmark_violation` helper.
+//! - Missing nav / contentinfo → WCAG 1.3.1 (structural), each with its own
+//!   rule id (`landmark-navigation-present`, `landmark-contentinfo-present`).
+//!   Without one they fell back to their criterion and landed in the 1.3.1
+//!   catch-all `a11y.structure.missing` (plan 56).
 //!
 //! Duplicate / nested / unique-name checks live in `landmark_granular.rs`
 //! under WCAG 1.3.1; the skip-link check lives there under WCAG 2.4.1.
@@ -32,12 +34,30 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag241", "cat.semantics"],
 };
 
-/// WCAG criterion + help URL for structural landmark-presence findings
-/// (missing nav / banner / contentinfo). 1.3.1 = Info and Relationships.
-const STRUCTURE_CRITERION: &str = "1.3.1";
-const STRUCTURE_NAME: &str = "Landmark Regions";
-const STRUCTURE_HELP_URL: &str =
-    "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html";
+/// Rule metadata for a missing navigation landmark (1.3.1, structural).
+pub const RULE_NAVIGATION_PRESENT: RuleMetadata = RuleMetadata {
+    id: "1.3.1",
+    name: "Landmark Regions",
+    level: WcagLevel::A,
+    severity: Severity::Low,
+    description: "The page should have a navigation landmark (<nav> or role=\"navigation\")",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    axe_id: "landmark-navigation-present",
+    tags: &["wcag2a", "wcag131", "cat.semantics"],
+};
+
+/// Rule metadata for a missing contentinfo landmark (1.3.1, structural).
+pub const RULE_CONTENTINFO_PRESENT: RuleMetadata = RuleMetadata {
+    id: "1.3.1",
+    name: "Landmark Regions",
+    level: WcagLevel::A,
+    severity: Severity::Low,
+    description:
+        "The page should have a contentinfo landmark (top-level <footer> or role=\"contentinfo\")",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    axe_id: "landmark-contentinfo-present",
+    tags: &["wcag2a", "wcag131", "cat.semantics"],
+};
 
 /// Check landmark structure across the accessibility tree
 ///
@@ -80,7 +100,7 @@ pub fn check_landmarks(tree: &AXTree) -> WcagResults {
     // tiny-tree guard; checking it here too produced a duplicate finding (#565).
     if nav_nodes.is_empty() {
         results.add_violation(missing_landmark_violation(
-            "navigation",
+            &RULE_NAVIGATION_PRESENT,
             "Page has no navigation landmark",
             "Add a <nav> element or an element with role=\"navigation\"",
         ));
@@ -90,7 +110,7 @@ pub fn check_landmarks(tree: &AXTree) -> WcagResults {
 
     if contentinfo_nodes.is_empty() {
         results.add_violation(missing_landmark_violation(
-            "contentinfo",
+            &RULE_CONTENTINFO_PRESENT,
             "Page has no contentinfo landmark",
             "Add a <footer> element at the top level or role=\"contentinfo\"",
         ));
@@ -103,20 +123,21 @@ pub fn check_landmarks(tree: &AXTree) -> WcagResults {
 
 /// Build a structural "missing landmark" violation under WCAG 1.3.1.
 fn missing_landmark_violation(
-    _role: &'static str,
+    rule: &RuleMetadata,
     message: &'static str,
     fix: &'static str,
 ) -> Violation {
     Violation::new(
-        STRUCTURE_CRITERION,
-        STRUCTURE_NAME,
-        WcagLevel::A,
-        Severity::Low,
+        rule.id,
+        rule.name,
+        rule.level,
+        rule.severity,
         message,
         "root",
     )
     .with_fix(fix)
-    .with_help_url(STRUCTURE_HELP_URL)
+    .with_rule_id(rule.axe_id)
+    .with_help_url(rule.help_url)
 }
 
 #[cfg(test)]
@@ -246,6 +267,28 @@ mod tests {
                  not aggregated under 2.4.1 (issue #242)"
             );
         }
+    }
+
+    /// Plan 56: without a rule id both fell into the 1.3.1 catch-all
+    /// `a11y.structure.missing`, merged with unrelated list defects.
+    #[test]
+    fn missing_nav_contentinfo_carry_own_rule_ids() {
+        let tree = AXTree::from_nodes(vec![
+            make_node("1", "WebArea", Some("Test")),
+            make_node("2", "main", Some("Content")),
+        ]);
+        let ids: Vec<_> = check_landmarks(&tree)
+            .violations
+            .iter()
+            .filter_map(|v| v.rule_id.clone())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                "landmark-navigation-present".to_string(),
+                "landmark-contentinfo-present".to_string()
+            ]
+        );
     }
 
     #[test]

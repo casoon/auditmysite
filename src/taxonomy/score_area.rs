@@ -89,6 +89,8 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.frame_title.missing", ImagesAlternativeText),
     // ── 1.3.1 — Landmarks ──
     ("a11y.landmark_banner.missing", Landmarks),
+    ("a11y.landmark_contentinfo.missing", Landmarks),
+    ("a11y.landmark_navigation.missing", Landmarks),
     ("a11y.landmark_banner_duplicate.invalid", Landmarks),
     ("a11y.landmark_banner_nested.invalid", Landmarks),
     ("a11y.landmark_contentinfo_duplicate.invalid", Landmarks),
@@ -101,12 +103,10 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.3.1 — Formularsemantik ──
     ("a11y.form_field_group.missing", Forms),
     ("a11y.label_title_only.invalid", Forms),
-    ("a11y.radio_group.missing", Forms),
     // ── 1.3.1 — ARIA-Missbrauch ──
     ("a11y.presentation_semantic_children.invalid", Aria),
     // ── 1.3.1 — Tabellen-, Listen- und Dokumentstruktur ──
     ("a11y.definition_description.missing", Semantics),
-    ("a11y.definition_list.invalid", Semantics),
     ("a11y.html_content_model.invalid", Semantics),
     ("a11y.list_children.invalid", Semantics),
     ("a11y.list_empty.invalid", Semantics),
@@ -117,7 +117,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.table_headers_ref.invalid", Semantics),
     ("a11y.table_name.missing", Semantics),
     ("a11y.table_presentational_headers.invalid", Semantics),
-    ("a11y.table_structure.invalid", Semantics),
     // ── 1.3.2 / 2.4.2 — Seitenaufbau ──
     ("a11y.meaningful_sequence.invalid", Landmarks),
     ("a11y.page_title.missing", Landmarks),
@@ -192,7 +191,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 3.1.x — Sprache ──
     ("a11y.language.missing", Semantics),
     ("a11y.language_mismatch.invalid", Semantics),
-    ("a11y.language_valid.invalid", Semantics),
     ("a11y.page_language.invalid", Semantics),
     ("a11y.unusual_words.missing_definition", Semantics),
     ("a11y.abbreviations.missing", Semantics),

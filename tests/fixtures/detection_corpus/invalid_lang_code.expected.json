@@ -1,6 +1,6 @@
 {
   "case": "invalid_lang_code",
   "expectations": [
-    { "rule_id": "valid-lang", "verdict": "violation" }
+    { "rule_id": "document/lang-invalid", "verdict": "violation" }
   ]
 }

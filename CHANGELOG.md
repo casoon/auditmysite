@@ -5,6 +5,72 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Fehlende Navigations- und Fussbereich-Landmark mit eigener Kennung, 2026-09-27 (Plan 56):**
+  Die beiden Pruefungen in `landmarks.rs` vergaben keine `rule_id`, fielen damit auf ihr Kriterium
+  zurueck und landeten im 1.3.1-Sammelbucket `a11y.structure.missing` („Missing semantic
+  structure", allgemeine Erklaerung mit Tabellen-Beispiel). Jetzt `landmark-navigation-present`
+  und `landmark-contentinfo-present` mit eigenen Taxonomie-Eintraegen
+  (`a11y.landmark_navigation.missing`, `a11y.landmark_contentinfo.missing`, Bereich
+  „Landmarks"), Erklaerung DE/EN und Korpus-Erwartungen (`missing_main_landmark`,
+  `landmarks_and_lists`). Erkennung und Schwere unveraendert.
+- **Eigene Erklaerungen fuer die geteilten Kennungen, 2026-09-27 (Plan 56):** Die geteilten
+  Kennungen mit eigenem Taxonomie-Eintrag (Ueberschriftenebene, h1 fehlt/mehrfach, vier
+  Listen-, drei Tabellenregeln, ungueltiger Sprachcode, positiver tabindex, begrenzter Zoom)
+  hatten keinen eigenen Erklaerungstext. `resolve_explanation` fiel auf den Text ihres Kriteriums
+  zurueck: Eine leere Liste las sich im PDF und in `fix_guidance` wie „Fehlende semantische
+  Struktur" mit Tabellen-Beispiel, ein ungueltiger Sprachcode wie eine fehlende Sprachangabe. Jetzt
+  hat jede einen Text (deutsch und englisch, mit Beispielcode), geschluesselt nach der
+  Taxonomie-Kennung. Die beiden Texte fuer `list` und `meta-viewport-large` waren unter toten
+  Kennungen abgelegt und nie erreichbar; sie sind in die Eintraege fuer
+  `a11y.list_structure.missing` und `a11y.viewport_zoom.restricted` aufgegangen (der Listentext
+  sprach noch von leeren Listen, die inzwischen einen eigenen Eintrag haben). Ein Test haelt fest,
+  dass keine geteilte Kennung mit eigenem Eintrag mehr auf den Kriteriumstext zurueckfaellt.
+  `headings/empty` hat keinen eigenen Taxonomie-Eintrag und bleibt beim Text zu 2.4.6.
+- **Tote Katalog-Eintraege entfernt, 2026-09-27 (Plan 56):** `LEGACY_WCAG_MAP` fuehrte noch
+  `list`, `meta-viewport-large` und `table-duplicate-name` — Kennungen, die keine Regel mehr
+  vergibt (die ersten beiden sind an die geteilten Regeln `lists/*` bzw.
+  `zoom/viewport-scale-limited` gegangen, die dritte hat es als Pruefung nie gegeben). Ebenso
+  `a11y.table_structure.invalid`, nur ueber `table-duplicate-name` erreichbar, samt
+  Bereichszuordnung und Erklaerung. Geprueft per Suche ueber Quelltext, Tests, Erklaerungen und
+  PDF-Pfad. Die Eintraege `a11y.list_structure.missing` und `a11y.viewport_zoom.restricted`
+  bleiben, sie tragen die geteilten Kennungen.
+- **Eine Pruefung fuer die Gruppierung von Radio-Buttons und Checkboxen: `form-field-group`,
+  2026-09-27 (Plan 56):** Zwei eigene Pruefungen meldeten denselben Radio-Button ausserhalb einer
+  Gruppe: `form_rules::check_grouped_controls` unter `form-field-multiple-labels` (in axe-core
+  heisst das „Feld mit mehreren Labels" — ein anderer Defekt) und `info_relationships` unter
+  `radio-group`. Letztere pruefte nur den direkten Elternknoten und meldete damit zu Unrecht, sobald
+  ein `<label>` zwischen Radio und `<fieldset>` lag. Jetzt gibt es eine Pruefung mit eigener
+  Kennung `form-field-group` (`a11y.form_field_group.missing`): Ein Radio-Button braucht immer
+  eine Gruppe als Vorfahren, eine Checkbox erst, wenn die Seite mehr als ein Radio-/Checkbox-Feld
+  hat. `check_info_relationships` ist damit leer und geloescht; die Laufkennung
+  `definition-list`/`radio-group` entfaellt, `form-field-multiple-labels` heisst als Lauf- und
+  Filterkennung jetzt `form-field-group` (wer sie in `auditmysite.toml` abgeschaltet hatte, muss
+  den Namen nachziehen). Taxonomie-Eintrag `a11y.radio_group.missing` entfernt, Erklaerung und
+  Korpus-Erwartungen (`forms_and_misc`, `landmarks_and_lists`) umgestellt. Accessibility-Score:
+  `forms_and_misc` 71 → 72 (die beiden Radio-Buttons zaehlten doppelt); ueber alle Plan-56-
+  Aenderungen dieses Tages ist das die einzige bewegte Fixture-Seite, axe-Vergleich Spearman
+  −0,536 unveraendert.
+- **Tabellen- und Listenpruefung aus `info_relationships` geloescht, 2026-09-27 (Plan 56):** Die
+  beiden Teilpruefungen meldeten unter der Laufkennung `definition-list` und doppelten die geteilten
+  Regeln. Verglichen: „Datentabelle ohne Kopfzellen" (AX-Rolle `table` mit Zellen, aber ohne
+  `columnheader`/`rowheader` unter Kindern und Enkeln) ist eine Teilmenge von
+  `tables/header-missing` (jede `<table>` bzw. `role=table|grid` ohne `<th>`/Kopfzellenrolle im
+  ganzen Teilbaum); „Liste ohne Listeneintraege" (AX-Rolle `list`, nur fremde Kinder) eine
+  Teilmenge von `lists/invalid-structure` + `lists/empty`. Echte Duplikate, also nach dem
+  `SHARED_RULES`-Grundsatz entfernt, samt der Zellen-Pruefung, die nur Bestanden-Zaehler hochzog.
+  Einzige Luecke: `<menu>` zaehlt fuer Chrome als Liste, fuer die geteilte Regel nicht. Mit den
+  Pruefungen fallen der Taxonomie-Eintrag `a11y.definition_list.invalid` und die Erklaerung, die
+  von `<dl>` sprach, obwohl nie eine Beschreibungsliste gemeint war. Die Radio-Pruefung laeuft
+  vorerst unter der Laufkennung `radio-group` weiter. Der Korpus-Fall `misc_content_checks`
+  erwartet jetzt ausdruecklich `tables/header-missing` fuer seine Tabelle ohne Kopfzellen.
+- **`valid-lang` geloescht: der ungueltige Sprachcode kam doppelt, 2026-09-27 (Plan 56):** Die
+  eigene Regel `valid-lang` (`language_extended.rs`) las dasselbe `<html lang>` wie die geteilte
+  `document/lang-invalid` und meldete denselben Defekt ein zweites Mal. Nach dem Grundsatz von
+  `SHARED_RULES` (das eigene Gegenstueck faellt, sobald die geteilte Kennung uebernommen ist) ist
+  die eigene Pruefung entfernt; die geteilte deckt sie ab (Primaerkennung 2-3 Buchstaben, dazu
+  die Untertags, und auch ein leeres `lang`). `html-xml-lang-mismatch` bleibt eigen. Mit ihr
+  fallen der Taxonomie-Eintrag `a11y.language_valid.invalid` und seine Zuordnungen; die
+  Korpus-Erwartung `invalid_lang_code` erwartet jetzt `document/lang-invalid`.
 - **accname-Differential: Namensquelle aus Chromes Detail, `image` = `img`, 2026-09-27 (Plan 52):**
   Die Quellachse war blind: Der AX-Extractor fasst `aria-label`, `alt` und `value` zu `Attribute`
   und `aria-labelledby` wie `<label>` zu `RelatedElement` zusammen, und das Differential meldete

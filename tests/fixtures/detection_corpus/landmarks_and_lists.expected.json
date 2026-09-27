@@ -10,7 +10,11 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "radio-group",
+      "rule_id": "landmark-navigation-present",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "form-field-group",
       "verdict": "violation"
     }
   ]

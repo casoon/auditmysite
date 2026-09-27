@@ -11,6 +11,10 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for form structure rules (1.3.1)
+///
+/// Own id: axe-core has no rule for missing fieldset grouping. The id used to
+/// be `form-field-multiple-labels`, which in axe-core means a field with more
+/// than one `<label>` — a different defect (plan 56).
 pub const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Info and Relationships - Forms",
@@ -18,7 +22,7 @@ pub const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "Grouped form controls must have a fieldset/legend; form structure must be programmatically determinable",
     help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-    axe_id: "form-field-multiple-labels",
+    axe_id: "form-field-group",
     tags: &["wcag2a", "wcag131", "cat.forms"],
 };
 
@@ -171,7 +175,17 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
         .collect()
 }
 
-/// Check that grouped radio/checkbox controls have a group ancestor
+/// Check that grouped radio/checkbox controls have a group ancestor.
+///
+/// A radio button always needs one: it only makes sense as one option of a
+/// set, and the question the set answers lives in the group's name. A
+/// checkbox can stand alone ("I accept the terms"), so it is only checked
+/// once the page has more than one radio/checkbox control.
+///
+/// Also covers what `info_relationships` checked as `radio-group` (radio whose
+/// *direct* parent is not a group) — that check flagged the same radio a
+/// second time, and falsely whenever a `<label>` sat between radio and
+/// `<fieldset>` (plan 56).
 fn check_grouped_controls(tree: &AXTree, results: &mut WcagResults) {
     let grouped_roles = ["radio", "checkbox"];
 
@@ -189,15 +203,13 @@ fn check_grouped_controls(tree: &AXTree, results: &mut WcagResults) {
 
     results.nodes_checked += grouped_nodes.len();
 
-    if grouped_nodes.len() < 2 {
-        // Single radio/checkbox doesn't require a group
-        if grouped_nodes.len() == 1 {
-            results.passes += 1;
-        }
-        return;
-    }
-
+    let several = grouped_nodes.len() >= 2;
     for node in &grouped_nodes {
+        let needs_group = several || node.role.as_deref() == Some("radio");
+        if !needs_group {
+            results.passes += 1;
+            continue;
+        }
         let has_group = has_ancestor_with_role(node, &["group", "radiogroup"], tree);
         if !has_group {
             let violation = Violation::new(
@@ -412,6 +424,37 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("fieldset/legend")));
+    }
+
+    /// A lone radio button still needs a group (it used to be flagged only by
+    /// `info_relationships`' `radio-group` check, plan 56); a lone checkbox
+    /// does not.
+    #[test]
+    fn test_single_radio_without_group_flagged_single_checkbox_not() {
+        let radio = AXTree::from_nodes(vec![make_node("1", "radio", Some("Option"), None)]);
+        let ids: Vec<_> = check_form_rules(&radio)
+            .violations
+            .iter()
+            .filter_map(|v| v.rule_id.clone())
+            .collect();
+        assert_eq!(ids, vec!["form-field-group".to_string()]);
+
+        let checkbox = AXTree::from_nodes(vec![make_node("1", "checkbox", Some("Accept"), None)]);
+        assert!(check_form_rules(&checkbox).violations.is_empty());
+    }
+
+    /// The group may be any ancestor, not just the direct parent: a `<label>`
+    /// between radio and `<fieldset>` is the common markup.
+    #[test]
+    fn test_radio_with_group_grandparent_passes() {
+        let nodes = vec![
+            make_node("g", "group", Some("Options"), None),
+            make_node("l", "LabelText", None, Some("g")),
+            make_node("1", "radio", Some("Option A"), Some("l")),
+            make_node("2", "radio", Some("Option B"), Some("g")),
+        ];
+        let tree = AXTree::from_nodes(nodes);
+        assert!(check_form_rules(&tree).violations.is_empty());
     }
 
     #[test]

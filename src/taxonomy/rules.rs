@@ -176,7 +176,6 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("aria-valid-attr", "a11y.aria_relationships.invalid"),
     ("aria-roles", "a11y.aria_roles.invalid"),
     ("aria-attr-name-invalid", "a11y.aria_attr_name.invalid"),
-    ("valid-lang", "a11y.language_valid.invalid"),
     ("html-xml-lang-mismatch", "a11y.language_mismatch.invalid"),
     ("aria-command-name", "a11y.command_name.missing"),
     ("aria-input-field-name", "a11y.input_field_name.missing"),
@@ -226,13 +225,8 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("area-alt", "a11y.area_alt.missing"),
     ("input-image-alt", "a11y.input_image_alt.missing"),
     ("object-alt", "a11y.object_alt.missing"),
-    ("definition-list", "a11y.definition_list.invalid"),
     ("html-content-model", "a11y.html_content_model.invalid"),
-    (
-        "form-field-multiple-labels",
-        "a11y.form_field_group.missing",
-    ),
-    ("table-duplicate-name", "a11y.table_structure.invalid"),
+    ("form-field-group", "a11y.form_field_group.missing"),
     (
         "landmark-banner-is-top-level",
         "a11y.landmark_banner_nested.invalid",
@@ -258,9 +252,17 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "a11y.landmark_main_duplicate.invalid",
     ),
     ("landmark-banner-present", "a11y.landmark_banner.missing"),
-    ("list", "a11y.list_structure.missing"),
+    // Bis Plan 56 ohne Kennung und damit im 1.3.1-Sammelbucket
+    // `a11y.structure.missing`, zusammen mit Listenfehlern.
+    (
+        "landmark-navigation-present",
+        "a11y.landmark_navigation.missing",
+    ),
+    (
+        "landmark-contentinfo-present",
+        "a11y.landmark_contentinfo.missing",
+    ),
     ("label-title-only", "a11y.label_title_only.invalid"),
-    ("meta-viewport-large", "a11y.viewport_zoom.restricted"),
     (
         "click-events-have-key-events",
         "a11y.click_handler_keyboard.missing",
@@ -336,9 +338,6 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "zoom/viewport-scale-limited",
         "a11y.viewport_zoom.restricted",
     ),
-    // Eigene Regel (`info_relationships`): der Radio-Button ausserhalb
-    // einer Gruppe trug bis Plan 56 die Kennung `definition-list`.
-    ("radio-group", "a11y.radio_group.missing"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
 ];
@@ -1998,29 +1997,6 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.language_valid.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::LanguageClarity,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 3.1.1"),
-        external_level: Some("A"),
-        axe_id: Some("valid-lang"),
-        title: "Ungültiger Sprachcode",
-        title_en: "Invalid language code",
-        description: "Das lang-Attribut enthält keinen erkannten BCP-47-Sprach-Subtag.",
-        user_impact: "Screenreader können die falsche Ausspracheregel für den Seiteninhalt wählen.",
-        user_impact_en: "Screen readers may select the wrong pronunciation rules for the page content.",
-        technical_impact: "lang-Wert entspricht keinem gültigen BCP-47-Primary-Subtag.",
-        technical_impact_en: "lang value does not match a valid BCP 47 primary subtag.",
-        score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 8.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
         id: "a11y.language_mismatch.invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
@@ -3244,31 +3220,6 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.definition_list.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("definition-list"),
-        // Der Radio-Button ausserhalb einer Gruppe hat seit Plan 56 einen
-        // eigenen Eintrag (`a11y.radio_group.missing`).
-        title: "Fehlende Informationsstruktur (Tabelle oder Liste)",
-        title_en: "Missing information structure (table or list)",
-        description: "Eine Datentabelle hat keine Kopfzellen, oder eine Liste enthält keine Listenelemente.",
-        user_impact: "Screenreader-Nutzer können Tabellen- oder Listenstruktur nicht korrekt erfassen.",
-        user_impact_en: "Screen reader users cannot correctly perceive the table or list structure.",
-        technical_impact: "Fehlende <th>-Elemente oder Liste ohne <li>-Kinder.",
-        technical_impact_en: "Missing <th> elements, or a list without <li> children.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
         id: "a11y.html_content_model.invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
@@ -3299,7 +3250,7 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Medium,
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
-        axe_id: Some("form-field-multiple-labels"),
+        axe_id: Some("form-field-group"),
         title: "Fehlende Gruppierung verwandter Formularfelder",
         title_en: "Missing grouping for related form fields",
         description: "Zusammengehörige Radio-Buttons oder Checkboxen sind nicht mit <fieldset>/<legend> oder role=\"group\" gruppiert.",
@@ -3310,29 +3261,6 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.table_structure.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("table-duplicate-name"),
-        title: "Unvollständige Tabellenstruktur",
-        title_en: "Incomplete table structure",
-        description: "Eine Datentabelle hat keine <caption> oder keine Kopfzellen, oder eine rein präsentationelle Tabelle enthält fälschlich Kopfzellen.",
-        user_impact: "Screenreader-Nutzer können Tabellenzellen nicht ihren Spalten-/Zeilenüberschriften zuordnen.",
-        user_impact_en: "Screen reader users cannot associate table cells with their column/row headers.",
-        technical_impact: "Fehlende <caption>, fehlende <th>-Elemente, oder Zellen außerhalb einer <tr>.",
-        technical_impact_en: "Missing <caption>, missing <th> elements, or cells outside a <tr>.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
@@ -3498,6 +3426,54 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
+    // Abzug wie im Sammeleintrag `a11y.structure.missing`, unter dem beide
+    // bis Plan 56 liefen; Schwere wie der Befund selbst.
+    Rule {
+        id: "a11y.landmark_navigation.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmark-navigation-present"),
+        title: "Fehlender Navigations-Landmark",
+        title_en: "Missing navigation landmark",
+        description: "Die Seite hat keinen Navigationsbereich (<nav> bzw. role=\"navigation\").",
+        user_impact: "Screenreader-Nutzer können nicht direkt zur Navigation springen.",
+        user_impact_en: "Screen reader users cannot jump straight to the navigation.",
+        technical_impact: "Kein Element mit role=\"navigation\" (implizit über <nav> oder explizit) vorhanden.",
+        technical_impact_en: "No element with role=\"navigation\" (implicit via <nav> or explicit) present.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.landmark_contentinfo.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmark-contentinfo-present"),
+        title: "Fehlender Fußbereich-Landmark (contentinfo)",
+        title_en: "Missing contentinfo landmark",
+        description: "Die Seite hat keinen Fußbereich als Landmark (<footer> auf oberster Ebene bzw. role=\"contentinfo\").",
+        user_impact: "Screenreader-Nutzer können den Fußbereich mit Kontakt, Impressum und Rechtlichem nicht direkt ansteuern.",
+        user_impact_en: "Screen reader users cannot jump straight to the footer with contact and legal information.",
+        technical_impact: "Kein Element mit role=\"contentinfo\" (implizit über ein <footer> außerhalb von <main>/<article>/<section> oder explizit) vorhanden.",
+        technical_impact_en: "No element with role=\"contentinfo\" (implicit via a <footer> outside <main>/<article>/<section>, or explicit) present.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
     Rule {
         id: "a11y.list_structure.missing",
         dimension: Dimension::Accessibility,
@@ -3527,7 +3503,8 @@ pub static RULES: &[Rule] = &[
     // Siehe den Block im LEGACY_WCAG_MAP. Der Score-Abzug ist der des
     // Sammeleintrags, unter dem die Kennung vorher lief
     // (`a11y.structure.missing`, `a11y.language.missing`,
-    // `a11y.focus_order.weak`, `a11y.definition_list.invalid`) — die
+    // `a11y.focus_order.weak`, dem inzwischen entfernten
+    // `a11y.definition_list.invalid`) — die
     // Aufteilung aendert die Zuordnung, nicht das Gewicht.
     Rule {
         id: "a11y.heading_level.skipped",
@@ -3778,29 +3755,6 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.radio_group.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("radio-group"),
-        title: "Radio-Button außerhalb einer Gruppe",
-        title_en: "Radio button outside a group",
-        description: "Ein Radio-Button liegt nicht in einer Gruppe (<fieldset> oder role=\"radiogroup\"/\"group\").",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Optionen zusammengehören und worauf sich die Auswahl bezieht.",
-        user_impact_en: "Screen reader users are not told which options belong together and what the choice refers to.",
-        technical_impact: "Elternelement des Radio-Buttons ist weder <fieldset> noch role=\"radiogroup\"/\"group\".",
-        technical_impact_en: "The radio button's parent is neither a <fieldset> nor role=\"radiogroup\"/\"group\".",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
