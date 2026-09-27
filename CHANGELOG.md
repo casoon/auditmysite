@@ -9,10 +9,10 @@ short current-state summary. Newest entries first (unchanged order from before t
   Baender aus drei Quellen je Seite — aktueller Score, Pruefung im Browser (Skip-Link, Gliederung,
   Alternativtexte, Formularbeschriftungen, Umbruch bei 320 px) und die veroeffentlichte
   Barrierefreiheitserklaerung —, vom Nutzer bestaetigt: gov.uk 75–92, gov.ie 75–92, casoon.de
-  90–100, mit.edu 70–89, bundesregierung.de 35–60, dm.de 15–40, basf.com 0–25. Referenztest gruen.
-  berlin.de ist vorerst ausgenommen: zwei aufeinanderfolgende Laeufe ergaben Desktop 71 und 27, im
-  niedrigen fehlen Main-/Banner-Landmark und Bypass, als waere ein Zwischenzustand erfasst worden —
-  offen in Plan 47.
+  90–100, mit.edu 70–89, bundesregierung.de 35–60, dm.de 15–40, berlin.de 15–40, basf.com 0–25.
+  berlin.de schwankte zunaechst (Desktop 71 oder 27): Die 71 stammte von einer Bot-/Last-Zwischenseite,
+  die das Werkzeug als Startseite bewertete — behoben durch das Folgen eines Meta-Refresh auf dieselbe
+  URL; die echte Seite liegt stabil bei 27.
 
 - **1.1.1: Icon in einem benannten Link ist kein fehlender Alternativtext, 2026-09-27 (Plan 47):**
   Beim Pruefen der Referenzseiten meldete auditmysite auf www.mit.edu 7 „Image is missing

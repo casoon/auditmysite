@@ -57,9 +57,12 @@
     },
     {
       "url": "https://www.berlin.de/",
-      "expected": null,
+      "expected": {
+        "min": 15,
+        "max": 40
+      },
       "reviewed": "2026-09-27",
-      "notes": "Excluded: unstable between runs (desktop 71 vs 27 in two consecutive CLI runs, mobile 27 both times) — the desktop pass sometimes lacks main/banner landmarks, as if it caught an interstitial. Proposed band 30–55 once stable; see plan 47."
+      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports."
     },
     {
       "url": "https://www.basf.com/",
