@@ -31,6 +31,7 @@ pub const USE_OF_COLOR_RULE: RuleMetadata = RuleMetadata {
 // distinguishes them visually.
 const USE_OF_COLOR_JS: &str = r#"
 (function() {
+  /*CSS_SELECTOR*/
   const findings = [];
   try {
     const links = document.querySelectorAll('a[href]');
@@ -77,12 +78,7 @@ const USE_OF_COLOR_JS: &str = r#"
       const sameBackground = linkStyle.backgroundColor === parentStyle.backgroundColor;
 
       if (!hasUnderline && sameWeight && sameFontStyle && sameFontFamily && sameBorder && sameBackground) {
-        const tag = link.tagName.toLowerCase();
-        const id = link.id ? '#' + link.id : '';
-        const cls = link.className && typeof link.className === 'string'
-          ? '.' + link.className.trim().split(/\s+/).slice(0, 2).join('.')
-          : '';
-        findings.push(tag + id + cls);
+        findings.push(__amsCssSelector(link));
         if (findings.length >= 10) break;
       }
     }
@@ -92,8 +88,15 @@ const USE_OF_COLOR_JS: &str = r#"
 "#;
 
 pub async fn check_use_of_color_with_page(page: &Page) -> Vec<Violation> {
-    let val = match crate::wcag::types::evaluate_or_fail(page, &USE_OF_COLOR_RULE, USE_OF_COLOR_JS)
-        .await
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &USE_OF_COLOR_RULE,
+        &USE_OF_COLOR_JS.replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ),
+    )
+    .await
     {
         Ok(v) => v,
         Err(violations) => return violations,

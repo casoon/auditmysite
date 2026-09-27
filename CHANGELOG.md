@@ -42,6 +42,45 @@ short current-state summary. Newest entries first (unchanged order from before t
   dokumentiert (Ursache: das Beruhigungsfenster endet 200 ms nach dem Klick, spaetere Reaktionen
   werden nur zufaellig erfasst); das Zeitverhalten bleibt unveraendert, weil die Abhilfe auf acht
   Live-Seiten +57 % Journey-Zeit kostet.
+- **Geteilte Regeln bekommen eigene Taxonomie-Eintraege, 2026-09-27 (Plan 56):** Auf
+  `landmarks_and_lists` stand ein Befund „Missing semantic structure" mit drei unverwandten
+  Fundstellen — fehlende Navigations-Landmark, leere Liste, Listeneintrag ausserhalb einer Liste.
+  Ursache: `wcag_group_key` gruppiert nach der Regelkennung nur, wenn `LEGACY_WCAG_MAP` sie kennt,
+  sonst nach dem WCAG-Kriterium. Keine der 1.3.1-Kennungen aus `a11y-rules` (vier Listen-, drei
+  Tabellen-, drei Ueberschriftenregeln) stand dort, alle fielen in `a11y.structure.missing`. Ebenso
+  lief `document/lang-invalid` unter „Missing language declaration", und
+  `keyboard/positive-tabindex` teilte sich `a11y.focus_order.weak` mit der 2.4.3-Gruppe, womit zwei
+  Befunde dieselbe Kennung tragen konnten. Jetzt hat jede dieser Kennungen einen eigenen Eintrag
+  (Titel deutsch und englisch, dasselbe Kriterium, Score-Bereich); `lists/item-outside-list` und
+  `zoom/viewport-scale-limited` nutzen die Eintraege der abgeloesten eigenen Regeln
+  (`a11y.list_structure.missing`, `a11y.viewport_zoom.restricted`). Ein Test haelt fest, dass keine
+  geteilte Kennung mehr im 1.3.1-Sammelbucket landet.
+
+  Der Radio-Button ausserhalb einer Gruppe trug die axe-Kennung `definition-list`: Die eigene Regel
+  `info_relationships` stempelte alle drei Teilpruefungen (Tabelle, Liste, Radio-Gruppe) mit der
+  Kennung ihres Laufs. Die Radio-Pruefung meldet jetzt als `radio-group`
+  (`a11y.radio_group.missing`); die Korpus-Erwartung ist nachgezogen.
+
+  Der Accessibility-Score bleibt gleich: `AccessibilityScorer` gruppiert nach `Violation.rule`, also
+  dem Kriterium, nicht nach der Taxonomie. Der Abzug der neuen Eintraege ist der des Sammeleintrags,
+  unter dem die Kennung vorher lief; nur die beiden wiederverwendeten Eintraege bringen ihren
+  frueheren eigenen Abzug mit. Bewegen kann sich die Bereichsaufschluesselung
+  (`accessibility_score_breakdown`), um ein bis zwei Punkte — Ueberschriftenbefunde zaehlen jetzt
+  unter „Heading structure" statt „Semantics". axe-Vergleich: Spearman −0,536 unveraendert, keine Seite bewegt.
+- **Eindeutige Selektoren in allen eigenen Seitenregeln, 2026-09-27 (Plan 57):** Etliche
+  JS-Regeln bauten ihren Selektor als `tag` bzw. `tag#id` (teils mit Klasse). Fundstellen werden
+  nach (Regel, Selektor) zusammengelegt — also fielen alle id-losen Elemente desselben Tags zu
+  *einer* Fundstelle („a", „button", „div") zusammen: zu niedrige Zaehlung, nicht auffindbar.
+  Betroffen waren 2.4.11/2.4.12 Focus Not Obscured (auch die Fokus-Walk-Pruefung), 1.3.2
+  Meaningful Sequence, 3.3.8 Accessible Authentication (Feld, Formular, CAPTCHA-Widget), 2.2.2
+  Pause/Stop/Hide, 2.5.3 Label in Name, 1.4.11 Non-text Contrast (CSS), 1.4.13 Content on Hover,
+  2.1.1 Click-Handler, 1.4.1 Use of Color und 3.1.2 Language of Parts (einstufiges
+  `nth-of-type`). Alle nutzen jetzt den vorhandenen `__amsCssSelector`
+  (`js_helpers::CSS_SELECTOR_JS`); auch 2.5.5/2.5.8 geben ihre eigene Kopie (`targetSelector`)
+  dafuer auf. Elemente mit id behalten die Form `tag#id`, die Korpus-Erwartungen bleiben gueltig.
+  Die Kind-Bezeichner in der Meaningful-Sequence-Meldung bleiben kurz — sie sind Text, keine
+  Fundstelle. Korpus, Score-Baender und Integrationstests gruen; axe-Vergleich unveraendert
+  (Spearman −0,536), keine Seite bewegt.
 
 - **2.5.8 Target Size: Abstands- und Inline-Ausnahme, 2026-09-26 (Plan 47, axe-Vergleich):**
   `target_size_minimum` mass nur das Rechteck eines Ziels. WCAG 2.5.8 nimmt aber zwei Faelle aus:

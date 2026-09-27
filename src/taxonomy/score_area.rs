@@ -101,15 +101,22 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.3.1 — Formularsemantik ──
     ("a11y.form_field_group.missing", Forms),
     ("a11y.label_title_only.invalid", Forms),
+    ("a11y.radio_group.missing", Forms),
     // ── 1.3.1 — ARIA-Missbrauch ──
     ("a11y.presentation_semantic_children.invalid", Aria),
     // ── 1.3.1 — Tabellen-, Listen- und Dokumentstruktur ──
+    ("a11y.definition_description.missing", Semantics),
     ("a11y.definition_list.invalid", Semantics),
     ("a11y.html_content_model.invalid", Semantics),
+    ("a11y.list_children.invalid", Semantics),
+    ("a11y.list_empty.invalid", Semantics),
     ("a11y.list_structure.missing", Semantics),
     ("a11y.structure.missing", Semantics),
     ("a11y.table_header_data.missing", Semantics),
+    ("a11y.table_headers.missing", Semantics),
     ("a11y.table_headers_ref.invalid", Semantics),
+    ("a11y.table_name.missing", Semantics),
+    ("a11y.table_presentational_headers.invalid", Semantics),
     ("a11y.table_structure.invalid", Semantics),
     // ── 1.3.2 / 2.4.2 — Seitenaufbau ──
     ("a11y.meaningful_sequence.invalid", Landmarks),
@@ -163,6 +170,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.skip_link.missing", Landmarks),
     // ── 2.4.3 / 2.4.7 / 2.4.11 / 2.4.12 / 3.2.1 — Fokus ──
     ("a11y.focus_order.weak", FocusManagement),
+    ("a11y.positive_tabindex.invalid", FocusManagement),
     ("a11y.focus_indicator_suppressed.invalid", FocusManagement),
     ("a11y.focus_visible.missing", FocusManagement),
     ("a11y.focus_not_obscured_minimum.hidden", FocusManagement),
@@ -176,10 +184,16 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 2.4.6 / 2.4.10 — Überschriften ──
     ("a11y.headings.missing", HeadingStructure),
     ("a11y.section_headings.missing", HeadingStructure),
+    // 1.3.1, aber Ueberschriften: Bis Plan 56 liefen sie ueber
+    // `a11y.structure.missing` und damit unter `Semantics`.
+    ("a11y.heading_level.skipped", HeadingStructure),
+    ("a11y.main_heading.missing", HeadingStructure),
+    ("a11y.main_heading_multiple.weak", HeadingStructure),
     // ── 3.1.x — Sprache ──
     ("a11y.language.missing", Semantics),
     ("a11y.language_mismatch.invalid", Semantics),
     ("a11y.language_valid.invalid", Semantics),
+    ("a11y.page_language.invalid", Semantics),
     ("a11y.unusual_words.missing_definition", Semantics),
     ("a11y.abbreviations.missing", Semantics),
     // ── 3.2.2 — Kontextwechsel ──
