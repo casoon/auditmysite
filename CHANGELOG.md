@@ -5,6 +5,41 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Referenzset bewertet: sieben Live-Seiten mit Baendern, 2026-09-27 (Plan 47, Schritt 2):**
+  Baender aus drei Quellen je Seite — aktueller Score, Pruefung im Browser (Skip-Link, Gliederung,
+  Alternativtexte, Formularbeschriftungen, Umbruch bei 320 px) und die veroeffentlichte
+  Barrierefreiheitserklaerung —, vom Nutzer bestaetigt: gov.uk 75–92, gov.ie 75–92, casoon.de
+  90–100, mit.edu 70–89, bundesregierung.de 35–60, dm.de 15–40, berlin.de 15–40, basf.com 0–25.
+  berlin.de schwankte zunaechst (Desktop 71 oder 27): Die 71 stammte von einer Bot-/Last-Zwischenseite,
+  die das Werkzeug als Startseite bewertete — behoben durch das Folgen eines Meta-Refresh auf dieselbe
+  URL; die echte Seite liegt stabil bei 27.
+
+- **1.1.1: Icon in einem benannten Link ist kein fehlender Alternativtext, 2026-09-27 (Plan 47):**
+  Beim Pruefen der Referenzseiten meldete auditmysite auf www.mit.edu 7 „Image is missing
+  alternative text" (High, Level A) — alles Inline-`<svg>`-Icons ohne `role="img"` in Links mit
+  eigenem Namen („MIT@twitter", „open search", das Logo in „Massachusetts Institute of Technology").
+  Der Link traegt die Alternative; das Icon ist dekorativ, 1.1.1 erfuellt. axe laesst diesen Fall aus
+  (`svg-img-alt` gilt nur fuer `role="img"`). Wegen der neuen Level-A-Kappung haette schon ein
+  solcher Fehlalarm die Seite auf 89 begrenzt. `text_alternatives` nimmt jetzt namenlose Grafiken
+  *ohne* `url`-Eigenschaft (also nicht `<img>`) in benannten Links/Buttons aus; ein `<img>` ohne
+  `alt` bleibt ueberall ein Verstoss (F65). Bekannte Unschaerfe: ein explizites `role="img"`
+  sieht im Baum gleich aus. mit.edu 68 → 78.
+
+- **aria-prohibited-attr nennt die Rolle statt des Tags, 2026-09-27:** Fuer `div`/`span` ohne
+  `role` meldete die Regel „prohibited on role 'span'". Die Regel erfasst in diesem Fall nur diese
+  beiden Tags, deren implizite Rolle nach HTML-AAM `generic` ist — die Meldung nennt jetzt
+  `generic`. Gefunden an den 30 `aria-label`-Spans auf casoon.de `/leistungskatalog/` (Plan 52).
+  In `docs/accname-differential.md` ist `text_transform` jetzt als erwartete Abweichung gefuehrt
+  (Entscheidung 2026-09-27: `accname` bleibt beim DOM-Text).
+
+- **Menue-Buttons nur noch mit der Menue-Journey, 2026-09-27 (Plan 53):** Ein Button mit
+  `aria-haspopup="menu"` wurde zweimal geprueft — als Menue (`MenuOpen`) und zusaetzlich vom
+  Accordion-Erkenner als Aufklapp-Element (`AccordionToggle`, also mit der Disclosure-Journey).
+  Nach den ARIA Authoring Practices ist das das Muster „Menu Button", nicht „Disclosure"; die
+  Disclosure-Journey beurteilte ihn nach Erwartungen, die er nicht erfuellen muss. Der
+  Accordion-Erkenner bietet jetzt keinen Ausloeser mehr an, den der Disclosure-/Menue-Erkenner schon
+  angeboten hat; die Erkennung im Berichtstext bleibt.
+
 - **Refresh-Zwischenseiten (Bot-/Lastpruefung) wurden als Seite auditiert, 2026-09-27 (Plan 47):**
   berlin.de liefert einem Teil der frischen Browser-Sitzungen statt der Startseite eine 453-Byte-
   Zwischenseite („Einen Augenblick bitte / Just a moment please", Varnish, `<meta http-equiv=
