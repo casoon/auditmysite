@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Tote Katalog-Eintraege entfernt, 2026-09-27 (Plan 56):** `LEGACY_WCAG_MAP` fuehrte noch
+  `list`, `meta-viewport-large` und `table-duplicate-name` — Kennungen, die keine Regel mehr
+  vergibt (die ersten beiden sind an die geteilten Regeln `lists/*` bzw.
+  `zoom/viewport-scale-limited` gegangen, die dritte hat es als Pruefung nie gegeben). Ebenso
+  `a11y.table_structure.invalid`, nur ueber `table-duplicate-name` erreichbar, samt
+  Bereichszuordnung und Erklaerung. Geprueft per Suche ueber Quelltext, Tests, Erklaerungen und
+  PDF-Pfad. Die Eintraege `a11y.list_structure.missing` und `a11y.viewport_zoom.restricted`
+  bleiben, sie tragen die geteilten Kennungen.
 - **Eine Pruefung fuer die Gruppierung von Radio-Buttons und Checkboxen: `form-field-group`,
   2026-09-27 (Plan 56):** Zwei eigene Pruefungen meldeten denselben Radio-Button ausserhalb einer
   Gruppe: `form_rules::check_grouped_controls` unter `form-field-multiple-labels` (in axe-core

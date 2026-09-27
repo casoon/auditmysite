@@ -115,7 +115,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.table_headers_ref.invalid", Semantics),
     ("a11y.table_name.missing", Semantics),
     ("a11y.table_presentational_headers.invalid", Semantics),
-    ("a11y.table_structure.invalid", Semantics),
     // ── 1.3.2 / 2.4.2 — Seitenaufbau ──
     ("a11y.meaningful_sequence.invalid", Landmarks),
     ("a11y.page_title.missing", Landmarks),

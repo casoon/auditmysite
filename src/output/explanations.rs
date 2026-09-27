@@ -2484,28 +2484,6 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "table-duplicate-name",
-        RuleExplanation {
-            customer_title: "Unvollständige Tabellenstruktur",
-            customer_title_en: "Incomplete table structure",
-            customer_description: "Eine Datentabelle hat keine <caption> oder keine Kopfzellen, oder eine rein präsentationelle Tabelle enthält fälschlich Kopfzellen.",
-            customer_description_en: "Incomplete table structure. Screen reader users cannot associate table cells with their column/row headers.",
-            user_impact: "Screenreader-Nutzer können Tabellenzellen nicht ihren Spalten-/Zeilenüberschriften zuordnen.",
-            user_impact_en: "Screen reader users cannot associate table cells with their column/row headers.",
-            typical_cause: "Fehlende <caption>, fehlende <th>-Elemente, oder Zellen außerhalb einer <tr>.",
-            typical_cause_en: "Missing <caption>, missing <th> elements, or cells outside a <tr>.",
-            recommendation: "Eine <caption> innerhalb der Tabelle (oder aria-label/aria-labelledby) sowie <th>-Elemente für Spalten-/Zeilenüberschriften ergänzen.",
-            recommendation_en: "Add a <caption> element inside the table (or aria-label/aria-labelledby) and add <th> elements for column/row headers.",
-            technical_note: "Fehlende <caption>, fehlende <th>-Elemente, oder Zellen außerhalb einer <tr>.",
-            technical_note_en: "Missing <caption>, missing <th> elements, or cells outside a <tr>.",
-            responsible_role: Role::Development,
-            effort_estimate: Effort::Medium,
-            example_bad: None,
-            example_good: None,
-            example_decorative: None,
-        },
-    ),
-    (
         "landmark-banner-is-top-level",
         RuleExplanation {
             customer_title: "Banner-Landmark ist verschachtelt",
