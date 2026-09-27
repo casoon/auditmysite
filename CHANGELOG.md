@@ -40,6 +40,23 @@ short current-state summary. Newest entries first (unchanged order from before t
   Accordion-Erkenner bietet jetzt keinen Ausloeser mehr an, den der Disclosure-/Menue-Erkenner schon
   angeboten hat; die Erkennung im Berichtstext bleibt.
 
+- **Refresh-Zwischenseiten (Bot-/Lastpruefung) wurden als Seite auditiert, 2026-09-27 (Plan 47):**
+  berlin.de liefert einem Teil der frischen Browser-Sitzungen statt der Startseite eine 453-Byte-
+  Zwischenseite („Einen Augenblick bitte / Just a moment please", Varnish, `<meta http-equiv=
+  "refresh" content="2; url=/~~delay/">`, `<dialog open>`), die nach 2 s auf die echte Seite
+  zurueckfuehrt. HTTP 200, `readyState` `complete`, keine Mutationen — fuer `navigate` und die
+  Stabilitaetspruefung fertig. Der Desktop-Pass auditierte in 8 von 12 Laeufen diese Zwischenseite
+  (5 AX-Knoten, Barrierefreiheit 71 statt 27, Befunde fehlender main/banner-Landmark, bypass,
+  `dialog-name`, `2.2.1/meta-refresh`); der Mobile-Pass sah danach die echte Seite. `navigate`
+  folgt jetzt einem Meta-Refresh mit hoechstens 5 s Verzoegerung (max. 3 Spruenge), bis ein neues
+  Dokument interaktiv ist. Endet die Kette wieder auf der angefragten URL, war es eine
+  Zwischenseite; fuehrt sie woanders hin (echte zeitgesteuerte Weiterleitung), wird die angefragte
+  Seite neu geladen und ihr Refresh nach dem Laden mit `window.stop()` abgebrochen — sie wird so
+  auditiert wie ausgeliefert, samt `2.2.1/meta-refresh`, statt wie bisher je nach Verzoegerung mitten in der Analyse
+  wegzunavigieren. Nachgemessen: berlin.de 12 Laeufe nach dem Fix, Desktop/Mobile stets 27/27
+  (Zwischenseite in 7 davon aufgeloest); bundesregierung.de 4 Laeufe unveraendert 41/41; lokale
+  Seite mit `1; url=b.html` bleibt auf a.html mit Meta-Refresh-Befund. Unit-Tests fuer das Parsen
+  der Verzoegerung und den URL-Vergleich.
 - **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
   `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
   Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein
