@@ -5,6 +5,8 @@
     { "rule_id": "region", "verdict": "violation" },
     { "rule_id": "landmark-one-main", "verdict": "violation" },
     { "rule_id": "bypass", "verdict": "violation" },
-    { "rule_id": "landmark-banner-present", "verdict": "violation" }
+    { "rule_id": "landmark-banner-present", "verdict": "violation" },
+    { "rule_id": "landmark-navigation-present", "verdict": "violation" },
+    { "rule_id": "landmark-contentinfo-present", "verdict": "violation" }
   ]
 }

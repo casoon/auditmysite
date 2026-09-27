@@ -10,6 +10,10 @@
       "verdict": "violation"
     },
     {
+      "rule_id": "landmark-navigation-present",
+      "verdict": "violation"
+    },
+    {
       "rule_id": "form-field-group",
       "verdict": "violation"
     }

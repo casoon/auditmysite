@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Fehlende Navigations- und Fussbereich-Landmark mit eigener Kennung, 2026-09-27 (Plan 56):**
+  Die beiden Pruefungen in `landmarks.rs` vergaben keine `rule_id`, fielen damit auf ihr Kriterium
+  zurueck und landeten im 1.3.1-Sammelbucket `a11y.structure.missing` („Missing semantic
+  structure", allgemeine Erklaerung mit Tabellen-Beispiel). Jetzt `landmark-navigation-present`
+  und `landmark-contentinfo-present` mit eigenen Taxonomie-Eintraegen
+  (`a11y.landmark_navigation.missing`, `a11y.landmark_contentinfo.missing`, Bereich
+  „Landmarks"), Erklaerung DE/EN und Korpus-Erwartungen (`missing_main_landmark`,
+  `landmarks_and_lists`). Erkennung und Schwere unveraendert.
 - **Eigene Erklaerungen fuer die geteilten Kennungen, 2026-09-27 (Plan 56):** Die geteilten
   Kennungen mit eigenem Taxonomie-Eintrag (Ueberschriftenebene, h1 fehlt/mehrfach, vier
   Listen-, drei Tabellenregeln, ungueltiger Sprachcode, positiver tabindex, begrenzter Zoom)

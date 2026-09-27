@@ -3237,6 +3237,53 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    // ── Fehlende Navigations-/Fußbereich-Landmark (Plan 56) ──
+    // Eigene Befunde aus `landmarks.rs`; ohne eigenen Text liefen sie unter
+    // der allgemeinen 1.3.1-Erklaerung mit Tabellen-Beispiel.
+    (
+        "landmark-navigation-present",
+        RuleExplanation {
+            customer_title: "Fehlender Navigations-Landmark",
+            customer_title_en: "Missing navigation landmark",
+            customer_description: "Die Seite hat keinen als Navigation ausgezeichneten Bereich (<nav> bzw. role=\"navigation\").",
+            customer_description_en: "The page has no area marked up as navigation (<nav> or role=\"navigation\").",
+            user_impact: "Screenreader-Nutzer können nicht direkt zur Navigation springen und müssen sie im Seiteninhalt suchen.",
+            user_impact_en: "Screen reader users cannot jump straight to the navigation and have to search for it in the page content.",
+            typical_cause: "Das Menü ist aus <div>- und <ul>-Elementen gebaut, ohne umschließendes <nav>.",
+            typical_cause_en: "The menu is built from <div> and <ul> elements without an enclosing <nav>.",
+            recommendation: "Das Hauptmenü (und weitere Navigationsblöcke) in ein <nav>-Element legen; mehrere Navigationen per aria-label unterscheiden.",
+            recommendation_en: "Wrap the main menu (and other navigation blocks) in a <nav> element; tell several navigations apart with aria-label.",
+            technical_note: "Seiten ohne jede Navigation (etwa eine einzelne Landingpage) brauchen keinen Navigations-Landmark.",
+            technical_note_en: "Pages without any navigation (such as a single landing page) do not need a navigation landmark.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<div class=\"menu\">\n  <ul>...</ul>\n</div>"),
+            example_good: Some("<nav aria-label=\"Main\">\n  <ul>...</ul>\n</nav>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "landmark-contentinfo-present",
+        RuleExplanation {
+            customer_title: "Fehlender Fußbereich-Landmark (contentinfo)",
+            customer_title_en: "Missing contentinfo landmark",
+            customer_description: "Die Seite hat keinen als Fußbereich ausgezeichneten Bereich (<footer> auf oberster Ebene bzw. role=\"contentinfo\").",
+            customer_description_en: "The page has no area marked up as the page footer (a top-level <footer> or role=\"contentinfo\").",
+            user_impact: "Screenreader-Nutzer können den Fußbereich mit Kontakt, Impressum und Rechtlichem nicht direkt ansteuern.",
+            user_impact_en: "Screen reader users cannot jump straight to the footer with contact and legal information.",
+            typical_cause: "Der Fußbereich ist ein <div>, oder das <footer> steht innerhalb von <main>, <article> oder <section> und gilt dort nicht als Seitenfuß.",
+            typical_cause_en: "The footer is a <div>, or the <footer> sits inside <main>, <article> or <section>, where it does not count as the page footer.",
+            recommendation: "Den Seitenfuß als <footer> direkt unter <body> auszeichnen, außerhalb von <main>.",
+            recommendation_en: "Mark up the page footer as a <footer> directly under <body>, outside <main>.",
+            technical_note: "Nur ein <footer> außerhalb von <main>, <article>, <aside>, <nav> und <section> erhält implizit role=\"contentinfo\".",
+            technical_note_en: "Only a <footer> outside <main>, <article>, <aside>, <nav> and <section> implicitly gets role=\"contentinfo\".",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<div class=\"footer\">...</div>"),
+            example_good: Some("<footer>...</footer>"),
+            example_decorative: None,
+        },
+    ),
 ];
 
 #[cfg(test)]
@@ -3260,6 +3307,14 @@ mod tests {
             (
                 "landmark-banner-is-top-level",
                 "a11y.landmark_banner.missing",
+            ),
+            (
+                "landmark-navigation-present",
+                "a11y.landmark_navigation.missing",
+            ),
+            (
+                "landmark-contentinfo-present",
+                "a11y.landmark_contentinfo.missing",
             ),
         ] {
             // Precondition: the bug this guards against is only meaningful

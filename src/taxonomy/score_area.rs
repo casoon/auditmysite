@@ -89,6 +89,8 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.frame_title.missing", ImagesAlternativeText),
     // ── 1.3.1 — Landmarks ──
     ("a11y.landmark_banner.missing", Landmarks),
+    ("a11y.landmark_contentinfo.missing", Landmarks),
+    ("a11y.landmark_navigation.missing", Landmarks),
     ("a11y.landmark_banner_duplicate.invalid", Landmarks),
     ("a11y.landmark_banner_nested.invalid", Landmarks),
     ("a11y.landmark_contentinfo_duplicate.invalid", Landmarks),
