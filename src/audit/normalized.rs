@@ -787,6 +787,41 @@ pub struct InteractiveFinding {
     /// another language (see [`interactive_finding_text`]).
     #[serde(default)]
     pub values: InteractiveFindingValues,
+    /// Set when the observation behind the finding may have missed the
+    /// page's reaction (plan 53). Absent means no known reason for doubt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertainty: Option<FindingUncertainty>,
+}
+
+/// Why a journey finding may not hold, with the raw values to phrase it.
+///
+/// Canonical `kind` plus values (#406): [`finding_uncertainty_text`] is the
+/// only text source, English for the JSON consumers, localized in the PDF.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum FindingUncertainty {
+    /// The page went quiet `waited_ms` after the action, before the settle
+    /// budget ran out. A reaction arriving later was not observed — measured
+    /// on fixtures, a reaction later than ~200 ms flips the verdict.
+    LateReactionPossible { waited_ms: u64 },
+}
+
+pub fn finding_uncertainty_text(uncertainty: &FindingUncertainty, en: bool) -> String {
+    match uncertainty {
+        FindingUncertainty::LateReactionPossible { waited_ms } => {
+            if en {
+                format!(
+                    "Uncertain: the page settled {waited_ms} ms after the click; \
+                     a slower reaction would not have been observed."
+                )
+            } else {
+                format!(
+                    "Unsicher: Die Seite kam {waited_ms} ms nach dem Klick zur Ruhe; \
+                     eine langsamere Reaktion wäre nicht erfasst worden."
+                )
+            }
+        }
+    }
 }
 
 impl InteractiveFinding {
@@ -815,7 +850,13 @@ impl InteractiveFinding {
             message,
             fix_suggestion,
             values,
+            uncertainty: None,
         }
+    }
+
+    pub fn with_uncertainty(mut self, uncertainty: Option<FindingUncertainty>) -> Self {
+        self.uncertainty = uncertainty;
+        self
     }
 }
 
@@ -3231,6 +3272,18 @@ mod tests {
     /// Guard against German leaking into the canonical `InteractiveFinding`
     /// text baked with `en = true` (#406): no English message/fix_suggestion
     /// produced by `interactive_finding_text` may contain German umlauts/ß.
+    /// #406 guard for the plan-53 uncertainty note: English is umlaut-free and
+    /// the German variant differs.
+    #[test]
+    fn finding_uncertainty_text_en_has_no_german_umlauts() {
+        let u = FindingUncertainty::LateReactionPossible { waited_ms: 210 };
+        let en = finding_uncertainty_text(&u, true);
+        let de = finding_uncertainty_text(&u, false);
+        assert!(!en.chars().any(|c| "äöüÄÖÜß".contains(c)), "{en}");
+        assert_ne!(en, de);
+        assert!(en.contains("210 ms"));
+    }
+
     /// Also checks that the German variant actually differs.
     #[test]
     fn interactive_finding_text_en_has_no_german_umlauts() {
@@ -3706,6 +3759,7 @@ mod tests {
             message: "Modal has no focus trap.".to_string(),
             fix_suggestion: None,
             values: InteractiveFindingValues::default(),
+            uncertainty: None,
         });
 
         let norm = normalize(&report);
@@ -3735,6 +3789,7 @@ mod tests {
             message: "Skip link is present but does not move focus to the target.".to_string(),
             fix_suggestion: None,
             values: InteractiveFindingValues::default(),
+            uncertainty: None,
         });
 
         let norm = normalize(&report);

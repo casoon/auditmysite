@@ -8,6 +8,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
 
+use super::disclosure_menu::NATIVE_DISCLOSURE_ROLES;
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
@@ -43,7 +44,8 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         // Accordion triggers must be buttons.
         // DisclosureTriangle is Chrome's AX-tree role for <summary>, which has
         // implicit ARIA role "button" per the HTML-ARIA spec — treat it as compliant.
-        let is_button_like = role == "button" || role == "DisclosureTriangle";
+        // DisclosureTriangleGrouped is the same <summary> inside <details name>.
+        let is_button_like = role == "button" || NATIVE_DISCLOSURE_ROLES.contains(&role);
         if !is_button_like {
             non_button_triggers += 1;
             out.violations.push(
@@ -73,7 +75,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         // triggers even when aria-controls is correctly set in the DOM.
         // Nav/banner exception remains for disclosure menus that never expand
         // into a visible AX node.
-        if is_button_like
+        // A native <summary> needs no aria-controls: the controlled region is
+        // the enclosing <details>, and the relationship lives in the nesting.
+        if role == "button"
             && expanded == Some(true)
             && !has_controls
             && !in_nav_or_banner(node, tree)
@@ -120,6 +124,16 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Emit journey candidates for interactive accordion verification.
     // Include both button and DisclosureTriangle (<summary>) triggers.
     // Skip nav/banner contexts (handled by DisclosureMenu).
+    //
+    // AccordionToggle and DisclosureToggle run the same journey. A trigger that
+    // DisclosureMenu already offered would otherwise be clicked through twice
+    // and report every finding twice.
+    let already_offered: Vec<i64> = out
+        .journey_candidates
+        .iter()
+        .filter(|c| c.required_journey == JourneyKind::DisclosureToggle)
+        .filter_map(|c| c.trigger_backend_id)
+        .collect();
     for node in tree.iter() {
         if node.get_property_bool("expanded").is_none() {
             continue;
@@ -131,7 +145,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ) {
             continue;
         }
-        if role != "button" && role != "DisclosureTriangle" {
+        if role != "button" && !NATIVE_DISCLOSURE_ROLES.contains(&role) {
             continue;
         }
         if in_nav_or_banner(node, tree) {
@@ -139,6 +153,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         }
         let has_controls = node.has_property("controls");
         if let Some(bid) = node.backend_dom_node_id {
+            if already_offered.contains(&bid) {
+                continue;
+            }
             out.journey_candidates.push(JourneyCandidate {
                 pattern_kind: PatternKind::Accordion,
                 trigger_backend_id: Some(bid),
@@ -240,6 +257,62 @@ mod tests {
                 .iter()
                 .any(|v| v.message.contains("should be a button")),
             "DisclosureTriangle (<summary>) must not be flagged as non-button trigger"
+        );
+    }
+
+    /// `<summary>` in `<details name>` has its own role. It was reported as a
+    /// non-button trigger (Medium, 4.1.2) on every exclusive accordion.
+    #[test]
+    fn grouped_summary_is_no_false_non_button_trigger() {
+        let tree = AXTree::from_nodes(vec![trigger("1", "DisclosureTriangleGrouped", None)]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(a.violations.is_empty(), "{:?}", a.violations);
+    }
+
+    /// An open `<details>` has no aria-controls, and needs none.
+    #[test]
+    fn open_native_summary_needs_no_aria_controls() {
+        for role in NATIVE_DISCLOSURE_ROLES {
+            let tree = AXTree::from_nodes(vec![trigger_with_expanded("1", role, None, true)]);
+            let mut a = PatternAnalysis::default();
+            detect(&tree, &mut a);
+            assert!(a.violations.is_empty(), "{role}: {:?}", a.violations);
+        }
+    }
+
+    /// AccordionToggle and DisclosureToggle run the same journey: a trigger
+    /// DisclosureMenu already offered gets no second candidate.
+    #[test]
+    fn trigger_already_offered_by_disclosure_menu_is_not_offered_twice() {
+        for role in ["button", "DisclosureTriangle", "DisclosureTriangleGrouped"] {
+            let mut n = trigger("1", role, None);
+            n.backend_dom_node_id = Some(7);
+            let tree = AXTree::from_nodes(vec![n]);
+            let analysis = crate::patterns::analyze(&tree);
+            let offered: Vec<_> = analysis
+                .journey_candidates
+                .iter()
+                .filter(|c| c.trigger_backend_id == Some(7))
+                .collect();
+            assert_eq!(offered.len(), 1, "{role}: {offered:?}");
+            assert_eq!(offered[0].required_journey, JourneyKind::DisclosureToggle);
+        }
+    }
+
+    /// Without a DisclosureToggle candidate for the trigger, the accordion
+    /// still offers its own.
+    #[test]
+    fn accordion_still_offers_triggers_nobody_else_offered() {
+        let mut n = trigger("1", "DisclosureTriangle", None);
+        n.backend_dom_node_id = Some(7);
+        let tree = AXTree::from_nodes(vec![n]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert_eq!(a.journey_candidates.len(), 1);
+        assert_eq!(
+            a.journey_candidates[0].required_journey,
+            JourneyKind::AccordionToggle
         );
     }
 

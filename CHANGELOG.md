@@ -5,6 +5,43 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Stabilitaetspruefung meldete immer „Budget ausgeschoepft": jeder Audit galt als partial,
+  2026-09-27:** `wait_for_page_stability` wertet ein Promise aus, das zu einem Objekt `{ status,
+  waited_ms, mutation_count }` aufloest — gebaut ohne `return_by_value`. CDP gab deshalb nur eine
+  Objekt-Referenz zurueck, `value` blieb leer, und jeder Aufruf fiel auf die Vorgabewerte:
+  `budget_exhausted`, volles Budget, 0 Mutationen, gleich was die Seite tat. Gewartet wurde richtig;
+  falsch war nur, was darueber berichtet wurde. Folgen: `audit_quality` stand praktisch immer auf
+  `partial` mit `page_stability_budget_exhausted:2` (so bei jedem casoon.de-Lauf), und die Journeys
+  konnten nicht sehen, wie lange ein Klick tatsaechlich abgewartet wurde. Gefunden beim Umsetzen von
+  Plan 53 (d). Nachgemessen: casoon.de und bundesregierung.de `complete`; Wartezeiten im Trace jetzt
+  echt (z. B. „stable after 201 ms, 0 mutations").
+
+- **Disclosure-Befunde mit Unsicherheits-Hinweis statt laengerer Wartezeit, 2026-09-27 (Plan 53):**
+  Die Wartezeit nach einem Klick endet nach 200 ms ohne DOM-Aenderung; eine spaetere Reaktion wird
+  nur erfasst, wenn zufaellig eine andere Aenderung das Fenster verlaengert — gemessen die Ursache der
+  rund 8 % Lauf-zu-Lauf-Schwankung. Laenger zu warten kostete +57 % Disclosure-Zeit fuer ein
+  geaendertes Urteil in rund 66. Stattdessen traegt der Trace jetzt je Klick Status, Wartezeit und
+  Mutationen, und ein Befund aus einem Klick, dessen Warten vor dem Budget endete, bekommt
+  `uncertainty: {kind: "late_reaction_possible", waited_ms}`. Nach dem #406-Muster: kanonisches
+  `kind` + Rohwert, `finding_uncertainty_text` als einzige Textquelle, im PDF lokalisiert an den
+  Befund gehaengt; unsichere und sichere Befunde werden dort nicht zusammengefasst.
+
+- **Natives `<details>`: ein Journey-Lauf je Ausloeser, keine Fehlalarme mehr, 2026-09-27 (Plan 53):**
+  Ein neuer Chrome-Fixture-Test (`natives_details_erreicht_die_disclosure_journey`) fand drei
+  Luecken. Erstens bot `patterns::accordion` jeden `<summary>` und jeden ARIA-Button mit
+  `aria-expanded` ausserhalb von Navigation/Banner zusaetzlich als `AccordionToggle` an — der
+  dieselbe `disclosure_journey` startet wie der schon vorhandene `DisclosureToggle`-Kandidat. Jeder
+  solche Ausloeser wurde zweimal durchgeklickt, seine Befunde doppelt gemeldet. Das Akkordeon
+  ueberspringt jetzt Ausloeser, die bereits einen `DisclosureToggle`-Kandidaten haben; die Zahl der
+  Disclosure-Journeys je Seite sinkt entsprechend. Zweitens traegt `<summary>` in `<details name>`
+  die Rolle `DisclosureTriangleGrouped`: das Akkordeon meldete dafuer auf jedem exklusiven Akkordeon
+  `accordion-trigger-not-button` (Medium, 4.1.2), und die Journey bestimmte keinen gesteuerten
+  Bereich. Drittens bekam ein offenes natives `<summary>` `accordion-no-controls` (Low) — ein
+  natives Element braucht kein `aria-controls`; die Pruefung gilt jetzt nur fuer die Rolle `button`.
+  Die Laufzeitschwankung der Disclosure-Urteile ist an Fixtures vermessen und in Plan 53
+  dokumentiert (Ursache: das Beruhigungsfenster endet 200 ms nach dem Klick, spaetere Reaktionen
+  werden nur zufaellig erfasst); das Zeitverhalten bleibt unveraendert, weil die Abhilfe auf acht
+  Live-Seiten +57 % Journey-Zeit kostet.
 - **Geteilte Regeln bekommen eigene Taxonomie-Eintraege, 2026-09-27 (Plan 56):** Auf
   `landmarks_and_lists` stand ein Befund „Missing semantic structure" mit drei unverwandten
   Fundstellen — fehlende Navigations-Landmark, leere Liste, Listeneintrag ausserhalb einer Liste.

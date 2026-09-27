@@ -40,11 +40,13 @@ use chromiumoxide::Page;
 
 use crate::accessibility::{AXSnapshot, AXTree, AXTreeDiff, AXValue};
 use crate::audit::normalized::{
-    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+    FindingUncertainty, InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues,
+    JourneyStep, JourneyTrace,
 };
 use crate::error::Result;
+use crate::interaction::stability::StabilityProvenance;
 use crate::interaction::{pointer, stability};
-use crate::patterns::JourneyCandidate;
+use crate::patterns::{JourneyCandidate, NATIVE_DISCLOSURE_ROLES};
 use crate::taxonomy::Severity;
 
 /// Was die Differenz über den bedienten Auslöser sagt.
@@ -123,9 +125,10 @@ fn outcome(
 /// Der Bereich, den der Auslöser steuert, als Backend-ID.
 ///
 /// `aria-controls` (im Baum die Beziehung `controls`), sonst beim `<summary>`
-/// — Rolle `DisclosureTriangle` — das umgebende `<details>`. Mehr gibt der
-/// Baum nicht verlässlich her; ohne Bereich bleibt die Inhaltsaussage
-/// seitenweit, und ein nachgeladenes Bild am Seitenende zählt mit.
+/// — Rolle `DisclosureTriangle`, in `<details name>` `DisclosureTriangleGrouped`
+/// — das umgebende `<details>`. Mehr gibt der Baum nicht verlässlich her; ohne
+/// Bereich bleibt die Inhaltsaussage seitenweit, und ein nachgeladenes Bild am
+/// Seitenende zählt mit.
 fn controlled_region(snapshot: &AXSnapshot, trigger: i64) -> Option<i64> {
     let node = snapshot.tree.node_by_backend_id(trigger)?;
     let controls = node
@@ -140,7 +143,11 @@ fn controlled_region(snapshot: &AXSnapshot, trigger: i64) -> Option<i64> {
     if controls.is_some() {
         return controls;
     }
-    if node.role.as_deref() == Some("DisclosureTriangle") {
+    if node
+        .role
+        .as_deref()
+        .is_some_and(|role| NATIVE_DISCLOSURE_ROLES.contains(&role))
+    {
         let parent = node.parent_id.as_deref()?;
         return snapshot.tree.get_node(parent)?.backend_dom_node_id;
     }
@@ -294,21 +301,53 @@ impl Findings {
         severity: Severity,
         before: Option<String>,
         after: String,
+        uncertainty: Option<FindingUncertainty>,
     ) {
         if self.items.iter().any(|f| f.kind == kind) {
             return;
         }
-        self.items.push(InteractiveFinding::new(
-            "StateTransition",
-            kind,
-            None,
-            severity,
-            self.journey.clone(),
-            before,
-            Some(after),
-            InteractiveFindingValues::default(),
-        ));
+        self.items.push(
+            InteractiveFinding::new(
+                "StateTransition",
+                kind,
+                None,
+                severity,
+                self.journey.clone(),
+                before,
+                Some(after),
+                InteractiveFindingValues::default(),
+            )
+            .with_uncertainty(uncertainty),
+        );
     }
+}
+
+/// Whether the wait after a click could have missed the page's reaction.
+///
+/// The settle step starts watching only after the click and declares the page
+/// quiet after 200 ms without mutations. A reaction arriving later than that
+/// is caught only if some unrelated mutation happens to extend the window
+/// (plan 53, measured on fixtures). Waiting longer on every failing click cost
+/// +57 % disclosure time on live pages for one changed verdict in ~66, so the
+/// verdict is kept and marked instead: if the wait ended before the budget,
+/// a finding from it is uncertain.
+fn late_reaction(settle: &StabilityProvenance) -> Option<FindingUncertainty> {
+    (settle.waited_ms < stability::JOURNEY_SETTLE_BUDGET_MS).then_some(
+        FindingUncertainty::LateReactionPossible {
+            waited_ms: settle.waited_ms,
+        },
+    )
+}
+
+fn settle_label(settle: &StabilityProvenance) -> String {
+    let status = serde_json::to_value(settle.status)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    format!(
+        "settle:{status} after {} ms, {} mutations",
+        settle.waited_ms, settle.mutation_count
+    )
 }
 
 pub async fn test(
@@ -377,15 +416,14 @@ pub async fn test(
         tracing::warn!("disclosure: click on backend node {trigger_id} failed: {e}");
         return Ok((trace, findings.items));
     }
+    let first_settle = stability::settle_after_action(page).await;
     trace.steps.push(JourneyStep {
         action: "synthetic_click".to_string(),
         target: Some(format!("backend_node:{trigger_id}")),
         focus: None,
-        result: None,
+        result: Some(settle_label(&first_settle)),
         snapshot_label: Some("after_first_click".to_string()),
     });
-
-    let _ = stability::settle_after_action(page).await;
 
     let after_first = snapshot(page, "after_first_click", started).await;
     let first = verdict_between(
@@ -415,6 +453,7 @@ pub async fn test(
             severity,
             Some("initial".to_string()),
             "after_first_click".to_string(),
+            late_reaction(&first_settle),
         );
     }
     // Steht der Zustand nach dem ersten Klick nicht fest, hat der zweite
@@ -427,15 +466,14 @@ pub async fn test(
         tracing::warn!("disclosure: second click on backend node {trigger_id} failed: {e}");
         return Ok((trace, findings.items));
     }
+    let second_settle = stability::settle_after_action(page).await;
     trace.steps.push(JourneyStep {
         action: "synthetic_click".to_string(),
         target: Some(format!("backend_node:{trigger_id}")),
         focus: None,
-        result: None,
+        result: Some(settle_label(&second_settle)),
         snapshot_label: Some("after_second_click".to_string()),
     });
-
-    let _ = stability::settle_after_action(page).await;
 
     let after_second = snapshot(page, "after_second_click", started).await;
     let second = verdict_between(
@@ -464,6 +502,7 @@ pub async fn test(
             severity,
             Some("after_first_click".to_string()),
             "after_second_click".to_string(),
+            late_reaction(&second_settle),
         );
     }
 
@@ -712,15 +751,46 @@ mod tests {
             Severity::Medium,
             None,
             "a".to_string(),
+            None,
         );
         f.push(
             InteractiveFindingKind::DisclosureContentWithoutState,
             Severity::Medium,
             None,
             "b".to_string(),
+            None,
         );
         assert_eq!(f.items.len(), 1);
         assert_eq!(f.items[0].after_snapshot_label.as_deref(), Some("a"));
+    }
+
+    fn settled(status: stability::StabilityStatus, waited_ms: u64) -> StabilityProvenance {
+        StabilityProvenance {
+            viewport: "journey".to_string(),
+            status,
+            waited_ms,
+            mutation_count: 0,
+            reason: None,
+        }
+    }
+
+    /// Plan 53 (d): a wait that ended before the budget could have missed a
+    /// slower reaction, so a finding from it is marked; one that ran the full
+    /// budget saw everything up to it and is not.
+    #[test]
+    fn nur_ein_vorzeitig_beendetes_warten_macht_den_befund_unsicher() {
+        use stability::{StabilityStatus, JOURNEY_SETTLE_BUDGET_MS};
+        assert_eq!(
+            late_reaction(&settled(StabilityStatus::Stable, 210)),
+            Some(FindingUncertainty::LateReactionPossible { waited_ms: 210 })
+        );
+        assert_eq!(
+            late_reaction(&settled(
+                StabilityStatus::BudgetExhausted,
+                JOURNEY_SETTLE_BUDGET_MS
+            )),
+            None
+        );
     }
 
     fn child(ax_id: &str, backend: i64, parent: &str) -> AXNode {
@@ -793,18 +863,24 @@ mod tests {
 
     /// `<summary>` trägt kein `aria-controls`; der Bereich ist das umgebende
     /// `<details>`.
+    ///
+    /// In `<details name>` heißt die Rolle `DisclosureTriangleGrouped`; der
+    /// Bereich ist derselbe.
     #[test]
     fn summary_steuert_das_umgebende_details() {
-        let details = node("details", 60, None);
-        let summary = AXNode {
-            parent_id: Some("details".to_string()),
-            role: Some("DisclosureTriangle".to_string()),
-            ..node("summary", 42, Some(false))
-        };
-        assert_eq!(
-            controlled_region(&snap(vec![details, summary]), 42),
-            Some(60)
-        );
+        for role in ["DisclosureTriangle", "DisclosureTriangleGrouped"] {
+            let details = node("details", 60, None);
+            let summary = AXNode {
+                parent_id: Some("details".to_string()),
+                role: Some(role.to_string()),
+                ..node("summary", 42, Some(false))
+            };
+            assert_eq!(
+                controlled_region(&snap(vec![details, summary]), 42),
+                Some(60),
+                "{role}"
+            );
+        }
     }
 
     /// Ohne `aria-controls` und ohne `<details>` gibt es keinen Bereich.

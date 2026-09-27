@@ -1632,3 +1632,109 @@ async fn skip_link_journey_prueft_das_sprungziel() {
         assert_eq!(has_finding, expect_finding, "{fixture}: {findings:?}");
     }
 }
+
+/// Natives `<details>`/`<summary>` erreicht die Disclosure-Journey — genau
+/// einmal je Auslöser, mit dem umgebenden `<details>` als gesteuertem Bereich.
+///
+/// Vor Plan 53 bot `patterns::disclosure_menu` nur Elemente mit
+/// `aria-expanded` an. Danach bekam ein `<summary>` zwei Kandidaten — einen aus
+/// `disclosure_menu`, einen aus `accordion` —, und die Journey lief zweimal.
+/// `<details name>` trägt die Rolle `DisclosureTriangleGrouped`, die weder der
+/// Bereichsbestimmung noch dem Akkordeon bekannt war.
+#[tokio::test]
+#[ignore]
+async fn natives_details_erreicht_die_disclosure_journey() {
+    use auditmysite::patterns::JourneyKind;
+
+    let (url, shutdown) = serve_fixture("details_disclosure.html");
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let tree = auditmysite::accessibility::extract_ax_tree(&page)
+        .await
+        .expect("AXTree extraction failed");
+    let summaries: Vec<(String, i64)> = tree
+        .iter()
+        .filter(|n| {
+            matches!(
+                n.role.as_deref(),
+                Some("DisclosureTriangle") | Some("DisclosureTriangleGrouped")
+            )
+        })
+        .map(|n| {
+            (
+                n.role.clone().unwrap_or_default(),
+                n.backend_dom_node_id.expect("summary mit Backend-ID"),
+            )
+        })
+        .collect();
+    assert_eq!(summaries.len(), 3, "drei <summary> im Baum: {summaries:?}");
+    assert!(
+        summaries
+            .iter()
+            .any(|(role, _)| role == "DisclosureTriangleGrouped"),
+        "<details name> trägt die Gruppenrolle: {summaries:?}"
+    );
+
+    let analysis = auditmysite::patterns::analyze(&tree);
+    assert!(
+        !analysis
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("accordion-trigger-not-button")),
+        "ein natives <summary> ist kein falscher Auslöser: {:?}",
+        analysis.violations
+    );
+
+    for (role, summary) in summaries {
+        let candidates: Vec<_> = analysis
+            .journey_candidates
+            .iter()
+            .filter(|c| c.trigger_backend_id == Some(summary))
+            .collect();
+        assert_eq!(
+            candidates.len(),
+            1,
+            "{role}: genau ein Kandidat je Auslöser: {candidates:?}"
+        );
+        let candidate = candidates[0];
+        assert_eq!(candidate.required_journey, JourneyKind::DisclosureToggle);
+        assert!((candidate.confidence - 0.9).abs() < f32::EPSILON);
+
+        let (trace, findings) =
+            auditmysite::a11y_journey::disclosure_journey::test(&page, candidate, 0)
+                .await
+                .expect("disclosure journey failed");
+
+        let step = |action: &str| {
+            trace
+                .steps
+                .iter()
+                .find(|s| s.action == action)
+                .and_then(|s| s.result.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(step("initial_state"), "collapsed", "{role}: {trace:?}");
+        assert_eq!(step("controlled_region"), "scoped", "{role}: {trace:?}");
+        assert_eq!(
+            step("check_expanded"),
+            "diff:state+content",
+            "{role}: {trace:?}"
+        );
+        assert_eq!(
+            step("check_collapsed"),
+            "diff:state+content",
+            "{role}: {trace:?}"
+        );
+        assert!(
+            findings.is_empty(),
+            "{role}: ein natives <details> darf nichts melden: {findings:?}"
+        );
+    }
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+}
