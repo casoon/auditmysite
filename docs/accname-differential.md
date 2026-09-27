@@ -65,7 +65,7 @@ Zwei Achsen, weil eine Zahl allein nicht sagt, wo hinzuschauen ist.
 | `missing_locally` | Chrome hat einen Namen, `accname` keinen. |
 | `missing_in_chrome` | `accname` hat einen Namen, Chrome keinen. |
 | `mismatch` | Beide haben einen Namen, die Texte unterscheiden sich. |
-| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
+| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. **Erwartete Abweichung, kein Fehler** (Entscheidung 2026-09-27): accname 1.2 regelt CSS-Transformationen nicht, `accname` bleibt beim DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
 
 Der Stil wird nur für die Kandidaten geholt — Elemente, deren Namen sich nur in
 der Groß-/Kleinschreibung unterscheiden — über `DOM.resolveNode` und

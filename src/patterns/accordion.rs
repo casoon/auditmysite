@@ -127,11 +127,19 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     //
     // AccordionToggle and DisclosureToggle run the same journey. A trigger that
     // DisclosureMenu already offered would otherwise be clicked through twice
-    // and report every finding twice.
+    // and report every finding twice. A menu button (`aria-haspopup`) that
+    // DisclosureMenu offered as MenuOpen is skipped as well: ARIA APG treats it
+    // as the Menu Button pattern, and the disclosure journey would judge it by
+    // expectations it isn't meant to meet (plan 53, 2026-09-27).
     let already_offered: Vec<i64> = out
         .journey_candidates
         .iter()
-        .filter(|c| c.required_journey == JourneyKind::DisclosureToggle)
+        .filter(|c| {
+            matches!(
+                c.required_journey,
+                JourneyKind::DisclosureToggle | JourneyKind::MenuOpen
+            )
+        })
         .filter_map(|c| c.trigger_backend_id)
         .collect();
     for node in tree.iter() {
@@ -298,6 +306,27 @@ mod tests {
             assert_eq!(offered.len(), 1, "{role}: {offered:?}");
             assert_eq!(offered[0].required_journey, JourneyKind::DisclosureToggle);
         }
+    }
+
+    /// A menu button is tested by the menu journey only — no accordion
+    /// candidate next to its MenuOpen one.
+    #[test]
+    fn menu_button_is_offered_to_the_menu_journey_only() {
+        let mut n = trigger("1", "button", None);
+        n.backend_dom_node_id = Some(7);
+        n.properties.push(AXProperty {
+            name: "hasPopup".into(),
+            value: AXValue::String("menu".into()),
+        });
+        let tree = AXTree::from_nodes(vec![n]);
+        let analysis = crate::patterns::analyze(&tree);
+        let offered: Vec<_> = analysis
+            .journey_candidates
+            .iter()
+            .filter(|c| c.trigger_backend_id == Some(7))
+            .map(|c| c.required_journey)
+            .collect();
+        assert_eq!(offered, vec![JourneyKind::MenuOpen]);
     }
 
     /// Without a DisclosureToggle candidate for the trigger, the accordion

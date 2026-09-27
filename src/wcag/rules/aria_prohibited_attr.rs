@@ -94,7 +94,9 @@ pub async fn check_aria_prohibited_attr_with_page(page: &Page) -> Vec<Violation>
             selector: __amsCssSelector(el),
             snippet: el.outerHTML.substring(0, 200),
             attrs: attrs.join(', '),
-            role: el.getAttribute('role') || el.tagName.toLowerCase()
+            // Without an explicit role only div/span match (see the
+            // selectors above); their implicit role is `generic` (HTML-AAM).
+            role: el.getAttribute('role') || 'generic'
           });
         }
         return issues;
