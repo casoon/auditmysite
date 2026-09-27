@@ -110,9 +110,16 @@ pub async fn wait_for_page_stability(
             }}
         }})"#
     );
+    // `return_by_value`: the promise resolves to an object. Without it CDP
+    // hands back a remote-object reference, `value` stays empty, and every
+    // call fell through to the defaults below — `budget_exhausted` after the
+    // full budget with 0 mutations, whatever the page did. That marked
+    // practically every audit `partial` (`page_stability_budget_exhausted`)
+    // and hid how long a journey click really waited (plan 53).
     let params = match EvaluateParams::builder()
         .expression(expression)
         .await_promise(true)
+        .return_by_value(true)
         .build()
     {
         Ok(params) => params,
