@@ -225,7 +225,6 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("area-alt", "a11y.area_alt.missing"),
     ("input-image-alt", "a11y.input_image_alt.missing"),
     ("object-alt", "a11y.object_alt.missing"),
-    ("definition-list", "a11y.definition_list.invalid"),
     ("html-content-model", "a11y.html_content_model.invalid"),
     (
         "form-field-multiple-labels",
@@ -3220,31 +3219,6 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.definition_list.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("definition-list"),
-        // Der Radio-Button ausserhalb einer Gruppe hat seit Plan 56 einen
-        // eigenen Eintrag (`a11y.radio_group.missing`).
-        title: "Fehlende Informationsstruktur (Tabelle oder Liste)",
-        title_en: "Missing information structure (table or list)",
-        description: "Eine Datentabelle hat keine Kopfzellen, oder eine Liste enthält keine Listenelemente.",
-        user_impact: "Screenreader-Nutzer können Tabellen- oder Listenstruktur nicht korrekt erfassen.",
-        user_impact_en: "Screen reader users cannot correctly perceive the table or list structure.",
-        technical_impact: "Fehlende <th>-Elemente oder Liste ohne <li>-Kinder.",
-        technical_impact_en: "Missing <th> elements, or a list without <li> children.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
         id: "a11y.html_content_model.invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
@@ -3503,7 +3477,8 @@ pub static RULES: &[Rule] = &[
     // Siehe den Block im LEGACY_WCAG_MAP. Der Score-Abzug ist der des
     // Sammeleintrags, unter dem die Kennung vorher lief
     // (`a11y.structure.missing`, `a11y.language.missing`,
-    // `a11y.focus_order.weak`, `a11y.definition_list.invalid`) — die
+    // `a11y.focus_order.weak`, dem inzwischen entfernten
+    // `a11y.definition_list.invalid`) — die
     // Aufteilung aendert die Zuordnung, nicht das Gewicht.
     Rule {
         id: "a11y.heading_level.skipped",

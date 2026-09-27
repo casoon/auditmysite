@@ -10,9 +10,8 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_required_parent, check_aria_roles, check_focus_order, check_info_relationships,
-    check_label_title_only, check_link_purpose, check_page_titled, check_text_alternatives, Color,
-    ContrastRule,
+    check_aria_required_parent, check_aria_roles, check_focus_order, check_label_title_only,
+    check_link_purpose, check_page_titled, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -503,88 +502,6 @@ fn test_engine_clean_tree_has_zero_image_alt_violations() {
     assert!(
         alt_violations.is_empty(),
         "Clean tree should have no 1.1.1 violations"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// 1.3.1 Info and Relationships — check_info_relationships (table structure)
-// ---------------------------------------------------------------------------
-
-fn table_node(id: &str, row_ids: Vec<&str>) -> AXNode {
-    node_with_children(id, "table", None, row_ids)
-}
-
-fn row_node(id: &str, parent: &str, cell_ids: Vec<&str>) -> AXNode {
-    let mut n = node_with_children(id, "row", None, cell_ids);
-    n.parent_id = Some(parent.to_string());
-    n
-}
-
-fn cell_node(id: &str, role: &str, parent: &str, name: Option<&str>) -> AXNode {
-    let mut n = node(id, role, name);
-    n.parent_id = Some(parent.to_string());
-    n
-}
-
-#[test]
-fn test_131_table_with_columnheaders_passes() {
-    let tree = AXTree::from_nodes(vec![
-        table_node("t", vec!["r1", "r2"]),
-        row_node("r1", "t", vec!["h1", "h2"]),
-        cell_node("h1", "columnheader", "r1", Some("Name")),
-        cell_node("h2", "columnheader", "r1", Some("Age")),
-        row_node("r2", "t", vec!["c1", "c2"]),
-        cell_node("c1", "cell", "r2", Some("Alice")),
-        cell_node("c2", "cell", "r2", Some("30")),
-    ]);
-    let results = check_info_relationships(&tree);
-    let table_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.message.contains("header") && v.node_id == "t")
-        .collect();
-    assert!(
-        table_violations.is_empty(),
-        "Table with column headers should not produce a header violation"
-    );
-}
-
-#[test]
-fn test_131_table_without_headers_flagged() {
-    let tree = AXTree::from_nodes(vec![
-        table_node("t", vec!["r1"]),
-        row_node("r1", "t", vec!["c1", "c2"]),
-        cell_node("c1", "cell", "r1", Some("Alice")),
-        cell_node("c2", "cell", "r1", Some("30")),
-    ]);
-    let results = check_info_relationships(&tree);
-    assert!(
-        results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("header")),
-        "Table with data cells but no headers should be flagged"
-    );
-}
-
-#[test]
-fn test_131_table_with_only_headers_no_violation() {
-    // A table consisting only of headers (no data cells) is OK
-    let tree = AXTree::from_nodes(vec![
-        table_node("t", vec!["r1"]),
-        row_node("r1", "t", vec!["h1", "h2"]),
-        cell_node("h1", "columnheader", "r1", Some("Name")),
-        cell_node("h2", "columnheader", "r1", Some("Score")),
-    ]);
-    let results = check_info_relationships(&tree);
-    let table_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.message.contains("header") && v.node_id == "t")
-        .collect();
-    assert!(
-        table_violations.is_empty(),
-        "Table with only header cells should not be flagged"
     );
 }
 

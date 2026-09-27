@@ -135,10 +135,11 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // check_server_side_image_map_with_page in PAGE_RULES) — htmlTag/type/ismap
     // are not AX properties (#QA-030).
 
-    // 1.3.1 Info and Relationships (Level A)
+    // 1.3.1 Info and Relationships (Level A). Tabellen- und Listenstruktur
+    // pruefen die geteilten Regeln (`tables/*`, `lists/*`, siehe wcag::shared).
     run_if_allowed!(
         filter,
-        "definition-list",
+        "radio-group",
         check_info_relationships,
         results,
         tree

@@ -106,7 +106,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.presentation_semantic_children.invalid", Aria),
     // ── 1.3.1 — Tabellen-, Listen- und Dokumentstruktur ──
     ("a11y.definition_description.missing", Semantics),
-    ("a11y.definition_list.invalid", Semantics),
     ("a11y.html_content_model.invalid", Semantics),
     ("a11y.list_children.invalid", Semantics),
     ("a11y.list_empty.invalid", Semantics),

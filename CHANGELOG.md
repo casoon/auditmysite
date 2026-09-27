@@ -5,6 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Tabellen- und Listenpruefung aus `info_relationships` geloescht, 2026-09-27 (Plan 56):** Die
+  beiden Teilpruefungen meldeten unter der Laufkennung `definition-list` und doppelten die geteilten
+  Regeln. Verglichen: „Datentabelle ohne Kopfzellen" (AX-Rolle `table` mit Zellen, aber ohne
+  `columnheader`/`rowheader` unter Kindern und Enkeln) ist eine Teilmenge von
+  `tables/header-missing` (jede `<table>` bzw. `role=table|grid` ohne `<th>`/Kopfzellenrolle im
+  ganzen Teilbaum); „Liste ohne Listeneintraege" (AX-Rolle `list`, nur fremde Kinder) eine
+  Teilmenge von `lists/invalid-structure` + `lists/empty`. Echte Duplikate, also nach dem
+  `SHARED_RULES`-Grundsatz entfernt, samt der Zellen-Pruefung, die nur Bestanden-Zaehler hochzog.
+  Einzige Luecke: `<menu>` zaehlt fuer Chrome als Liste, fuer die geteilte Regel nicht. Mit den
+  Pruefungen fallen der Taxonomie-Eintrag `a11y.definition_list.invalid` und die Erklaerung, die
+  von `<dl>` sprach, obwohl nie eine Beschreibungsliste gemeint war. Die Radio-Pruefung laeuft
+  vorerst unter der Laufkennung `radio-group` weiter. Der Korpus-Fall `misc_content_checks`
+  erwartet jetzt ausdruecklich `tables/header-missing` fuer seine Tabelle ohne Kopfzellen.
 - **`valid-lang` geloescht: der ungueltige Sprachcode kam doppelt, 2026-09-27 (Plan 56):** Die
   eigene Regel `valid-lang` (`language_extended.rs`) las dasselbe `<html lang>` wie die geteilte
   `document/lang-invalid` und meldete denselben Defekt ein zweites Mal. Nach dem Grundsatz von

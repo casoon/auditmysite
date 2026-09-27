@@ -431,12 +431,6 @@ const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[
          placeholder-only-label detection now uses name_source (#QA-030)",
     ),
     (
-        "headers",
-        "info_relationships.rs check_cell_headers — only affects an internal \
-         `passes` counter, not violation detection (table_extended.rs's \
-         td-headers-attr is the DOM-based, violation-producing check)",
-    ),
-    (
         "id",
         "aria_relationships.rs — appears only in a doc comment explaining a \
          past bug, not an actual property read",

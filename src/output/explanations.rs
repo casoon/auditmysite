@@ -2440,28 +2440,6 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "definition-list",
-        RuleExplanation {
-            customer_title: "Fehlerhafte Definitionsliste",
-            customer_title_en: "Malformed definition list",
-            customer_description: "Eine Definitionsliste (<dl>) enthält Begriffe (<dt>) ohne zugehörige Definition (<dd>) oder umgekehrt.",
-            customer_description_en: "Malformed definition list. Screen reader users cannot recognize the term and its definition as belonging together.",
-            user_impact: "Screenreader-Nutzer können Begriff und Definition nicht als zusammengehörig erkennen.",
-            user_impact_en: "Screen reader users cannot recognize the term and its definition as belonging together.",
-            typical_cause: "<dt>/<dd>-Paare in der <dl> unvollständig oder falsch verschachtelt.",
-            typical_cause_en: "Incomplete or incorrectly nested <dt>/<dd> pairs inside the <dl>.",
-            recommendation: "<th>-Elemente für Tabellenüberschriften ergänzen, Listenelemente in <ul>/<ol> einbetten, oder zusammengehörige Radio-Buttons mit <fieldset> und <legend> gruppieren.",
-            recommendation_en: "Add <th> elements for table headers, wrap list items in <ul>/<ol>, or group related radio buttons with <fieldset> and <legend>.",
-            technical_note: "<dt>/<dd>-Paare in der <dl> unvollständig oder falsch verschachtelt.",
-            technical_note_en: "Incomplete or incorrectly nested <dt>/<dd> pairs inside the <dl>.",
-            responsible_role: Role::Development,
-            effort_estimate: Effort::Medium,
-            example_bad: None,
-            example_good: None,
-            example_decorative: None,
-        },
-    ),
-    (
         "html-content-model",
         RuleExplanation {
             customer_title: "Verletzung des HTML5-Content-Models",
