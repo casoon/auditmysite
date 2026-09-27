@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`valid-lang` geloescht: der ungueltige Sprachcode kam doppelt, 2026-09-27 (Plan 56):** Die
+  eigene Regel `valid-lang` (`language_extended.rs`) las dasselbe `<html lang>` wie die geteilte
+  `document/lang-invalid` und meldete denselben Defekt ein zweites Mal. Nach dem Grundsatz von
+  `SHARED_RULES` (das eigene Gegenstueck faellt, sobald die geteilte Kennung uebernommen ist) ist
+  die eigene Pruefung entfernt; die geteilte deckt sie ab (Primaerkennung 2-3 Buchstaben, dazu
+  die Untertags, und auch ein leeres `lang`). `html-xml-lang-mismatch` bleibt eigen. Mit ihr
+  fallen der Taxonomie-Eintrag `a11y.language_valid.invalid` und seine Zuordnungen; die
+  Korpus-Erwartung `invalid_lang_code` erwartet jetzt `document/lang-invalid`.
 - **accname-Differential: Korpuslauf und `text_transform`-Klasse, 2026-09-27 (Plan 52):**
   `accname-diff` war auf eine URL beschraenkt; ein Korpus liess sich nur von Hand zusammenzaehlen.
   Das Kommando nimmt jetzt mehrere URLs und `--url-file` und schreibt ab zwei Seiten ein

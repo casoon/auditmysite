@@ -192,7 +192,6 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 3.1.x — Sprache ──
     ("a11y.language.missing", Semantics),
     ("a11y.language_mismatch.invalid", Semantics),
-    ("a11y.language_valid.invalid", Semantics),
     ("a11y.page_language.invalid", Semantics),
     ("a11y.unusual_words.missing_definition", Semantics),
     ("a11y.abbreviations.missing", Semantics),
