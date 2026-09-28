@@ -5,6 +5,7 @@
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use web_checks::meta::LengthClass;
 
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
@@ -61,15 +62,16 @@ impl MetaTags {
                 });
             }
             Some(title) => {
-                let len = title.len();
-                if len < 30 {
+                let len = web_checks::meta::length(title);
+                let range = web_checks::meta::TITLE;
+                if range.classify(title) == LengthClass::TooShort {
                     issues.push(MetaValidation {
                         field: "title".to_string(),
                         message: format!("Title is too short ({} chars, recommended: 30-60)", len),
                         severity: Severity::Medium,
                         suggestion: Some("Expand title to 30-60 characters".to_string()),
                     });
-                } else if len > 60 {
+                } else if range.classify(title) == LengthClass::TooLong {
                     issues.push(MetaValidation {
                         field: "title".to_string(),
                         message: format!("Title is too long ({} chars, recommended: 30-60)", len),
@@ -91,8 +93,9 @@ impl MetaTags {
                 });
             }
             Some(desc) => {
-                let len = desc.len();
-                if len < 120 {
+                let len = web_checks::meta::length(desc);
+                let range = web_checks::meta::DESCRIPTION;
+                if range.classify(desc) == LengthClass::TooShort {
                     issues.push(MetaValidation {
                         field: "description".to_string(),
                         message: format!(
@@ -102,7 +105,7 @@ impl MetaTags {
                         severity: Severity::Medium,
                         suggestion: Some("Expand description to 120-160 characters".to_string()),
                     });
-                } else if len > 160 {
+                } else if range.classify(desc) == LengthClass::TooLong {
                     issues.push(MetaValidation {
                         field: "description".to_string(),
                         message: format!(

@@ -5,6 +5,15 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Meta-Laengen und OpenGraph aus `web-checks` 0.3, 2026-09-28:** Titel- und
+  Description-Laenge kamen an vier Stellen (`meta.rs`, `serp.rs`, zweimal `profile.rs`) mit
+  denselben Grenzen 30–60 / 120–160 und zaehlten **Bytes**: Jeder Umlaut zaehlte doppelt, ein
+  deutscher Titel mit 60 Zeichen konnte „zu lang" sein. Jetzt `web_checks::meta` (Zeichen, Leerraum
+  wie im Browser zusammengefasst), geteilt mit astro-post-audit. OpenGraph/Twitter: Tag mit leerem
+  `content` gilt als fehlend (vorher vorhanden), eine Gruppe nur aus leeren Tags als nicht
+  vorhanden; Vollstaendigkeit ueber `web_checks::social`. Neu in `meta_issues`: ungueltiger
+  `twitter:card`-Wert und relatives `og:image` (je Medium), bisher nur in astro-post-audit geprueft.
+  web-checks von 0.1 auf 0.3 (robots unveraendert).
 - **accname-Differential mit berechnetem Stil, a11y-core 0.11.3, 2026-09-28:** `accname-diff`
   rechnet die eigene Seite jetzt mit `accname::name_rendered`: `display`/`visibility` kommen aus
   einem CDP-`DOMSnapshot` (`fetch_dom_document_with_layout`, `LayoutStyles`,

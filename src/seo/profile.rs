@@ -5,6 +5,7 @@
 //! SEO-Signale werden eingesetzt, wie vollständig sind strukturierte Daten.
 
 use serde::{Deserialize, Serialize};
+use web_checks::meta::LengthClass;
 
 use super::SeoAnalysis;
 use crate::seo::schema::SchemaType;
@@ -1124,13 +1125,13 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
         .meta
         .title
         .as_ref()
-        .map(|t| t.len() >= 30 && t.len() <= 60)
+        .map(|t| web_checks::meta::TITLE.classify(t) == LengthClass::Ok)
         .unwrap_or(false);
     let desc_ok = seo
         .meta
         .description
         .as_ref()
-        .map(|d| d.len() >= 120 && d.len() <= 160)
+        .map(|d| web_checks::meta::DESCRIPTION.classify(d) == LengthClass::Ok)
         .unwrap_or(false);
 
     let chars = |n: usize| {
@@ -1150,7 +1151,10 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 "Title vorhanden & Länge optimal"
             },
             title_ok,
-            seo.meta.title.as_ref().map(|t| chars(t.len())),
+            seo.meta
+                .title
+                .as_ref()
+                .map(|t| chars(web_checks::meta::length(t))),
         ),
         check(
             if en {
@@ -1159,7 +1163,10 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 "Description vorhanden & Länge optimal"
             },
             desc_ok,
-            seo.meta.description.as_ref().map(|d| chars(d.len())),
+            seo.meta
+                .description
+                .as_ref()
+                .map(|d| chars(web_checks::meta::length(d))),
         ),
         check(
             if en {
@@ -1844,7 +1851,7 @@ fn count_techniques(seo: &SeoAnalysis) -> u32 {
         .meta
         .title
         .as_ref()
-        .map(|t| t.len() >= 30 && t.len() <= 60)
+        .map(|t| web_checks::meta::TITLE.classify(t) == LengthClass::Ok)
         .unwrap_or(false)
     {
         count += 1;
@@ -1854,7 +1861,7 @@ fn count_techniques(seo: &SeoAnalysis) -> u32 {
         .meta
         .description
         .as_ref()
-        .map(|d| d.len() >= 120 && d.len() <= 160)
+        .map(|d| web_checks::meta::DESCRIPTION.classify(d) == LengthClass::Ok)
         .unwrap_or(false)
     {
         count += 1;
