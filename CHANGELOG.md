@@ -32,6 +32,14 @@ short current-state summary. Newest entries first (unchanged order from before t
   Felder aus der Gesamtzahl), `top_actions` fuehrt `url_count`. Neue Tests: JSON-PDF-Paritaet fuer
   Einzel- und Batch-Bericht, Reihenfolge unabhaengig von der Eingabe, sichtbare und fokussierte
   Parallel-Seiten.
+- **`a11y-*` 0.12: deutsche Befundtexte, `ids/duplicate` im Kern, 2026-09-28:** Die geteilten
+  Regeln laufen jetzt in der Laufsprache des Berichts (`run_with_semantics_in`, `--lang de` ist die
+  Vorgabe). Seit 0.11 kamen ihre `message`-Texte englisch und standen so in deutschen PDF-Berichten.
+  Der WCAG-2.2-Filter fuer `ids/duplicate` (nur per IDREF referenzierte Duplikate, 4.1.2) liegt jetzt
+  in `a11y-rules` selbst und gilt damit auch fuer astro-post-audit und LiveAudit; `IDREF_ATTRS`,
+  `referenced_ids`, `duplicate_id_is_referenced` und die Nachzaehlung am Vermerk sind entfallen.
+  Die Duplikat-Tests in `shared.rs` pruefen dasselbe Verhalten weiter, neu ist ein Test fuer deutsche
+  Texte. Geprueft: 1749 Tests gruen, clippy und fmt sauber.
 - **Strukturierte Daten aus `web-checks` 0.4, 2026-09-28:** Regeltabellen, JSON-LD-Normalisierung
   und Bewertung (`schema_rules.rs`, Normalisierungshaelfte von `schema.rs`) liegen jetzt in
   `web_checks::structured_data`, geteilt mit astro-post-audit (Plan barrierlab/02, Entscheidungen
