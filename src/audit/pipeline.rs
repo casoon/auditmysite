@@ -527,9 +527,9 @@ pub async fn run_single_audit(
     debug!("Created new page");
 
     let result = audit_on_page(&page, url, browser, config, start_time).await;
-    // Close it whether or not the audit succeeded: every page runs in its own
-    // visible window (plan 62), so one left open keeps executing its scripts
-    // and slows down every later audit on the same browser.
+    // Close it whether or not the audit succeeded: every page stays visible
+    // (focus emulation, plan 62), so one left open keeps executing its
+    // scripts and slows down every later audit on the same browser.
     if let Err(e) = page.close().await {
         warn!("Failed to close audit page for {}: {}", url, e);
     }

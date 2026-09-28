@@ -5,7 +5,7 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
-- **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-63):**
+- **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die
   „5 wichtigsten Massnahmen" reihten nach zwei Logiken; jetzt gilt
@@ -20,11 +20,18 @@ short current-state summary. Newest entries first (unchanged order from before t
   `aria-prohibited-attr`, `aria-hidden-focus` und `frame-tested` die Regel-Kennung statt 4.1.2.
   (5) Im Batch waren alle Seiten ausser einer verborgene Tabs: `requestAnimationFrame` feuerte
   nie, `document.hasFocus()` war false, der Tab-Walk lief auf 7 von 10 casoon.de-Seiten in den
-  Timeout und Fokus-Pruefungen massen anders als im Einzelaudit. Jede Seite hat jetzt ein eigenes
-  Fenster (Batch 84 s -> 41-47 s, keine Timeouts); `run_single_audit` schliesst seine Seite.
+  Timeout und Fokus-Pruefungen massen anders als im Einzelaudit. Jede Seite laeuft jetzt mit
+  CDP-Fokus-Emulation, sichtbar und fokussiert (casoon.de-Batch 84 s -> rund 50 s, keine
+  Timeouts). Ein eigenes Fenster je Seite leistete dasselbe, liess Chrome aber mit mehreren
+  schweren Seiten gleichzeitig haengen (Referenz-Batch 215 s statt 57 s) und wurde verworfen.
+  `run_single_audit` schliesst seine Seite.
   (6) `report-lint` pruefte das PDF-Zertifikat gegen `overall_score` statt gegen das gespeicherte
-  Zertifikat. Neue Tests: JSON-PDF-Paritaet, Reihenfolge unabhaengig von der Eingabe,
-  sichtbare und fokussierte Parallel-Seiten.
+  Zertifikat. (7) Das Batch-JSON listete in `top_actions` dieselbe Regel je Seite einmal, das
+  Batch-PDF fasste zusammen, sortierte aber eigen und nannte in „Wirkung" die Anzahl einer Seite;
+  beide nutzen jetzt `aggregate_batch_findings` (je Regel summiert, Schwere als Maximum, abgeleitete
+  Felder aus der Gesamtzahl), `top_actions` fuehrt `url_count`. Neue Tests: JSON-PDF-Paritaet fuer
+  Einzel- und Batch-Bericht, Reihenfolge unabhaengig von der Eingabe, sichtbare und fokussierte
+  Parallel-Seiten.
 - **a11y-core 0.11.2, 2026-09-28 (Plan 52):** `accname`, `a11y-dom`, `a11y-report`, `a11y-rules`
   von 0.11.0 auf 0.11.2. 0.11.1 (Leerzeichen zwischen Inline-Elementen nach Tag) ist uebersprungen
   und zurueckgezogen: Im accname-Korpus fiel die Namensgleichheit von 97,7 % auf 92,9 %, weil per

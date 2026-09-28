@@ -308,27 +308,28 @@ impl BrowserManager {
 
     /// Create a new page (tab) in the browser
     pub async fn new_page(&self) -> Result<Page> {
+        use chromiumoxide::cdp::browser_protocol::emulation::SetFocusEmulationEnabledParams;
         use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 
-        use chromiumoxide::cdp::browser_protocol::target::CreateTargetParams;
-        // Own window per page: tabs sharing a window are hidden except the
-        // active one, and a hidden page never runs requestAnimationFrame and
-        // has no focus. In a batch that timed out the tab walk on 7 of 10
-        // pages and measured focus differently than a single-URL run of the
-        // same page (plan 62).
-        let target = CreateTargetParams::builder()
-            .url("about:blank")
-            .new_window(true)
-            .build()
-            .expect("url is set");
-        let page =
-            self.browser
-                .new_page(target)
-                .await
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to create new page: {}", e),
-                })?;
+        let page = self.browser.new_page("about:blank").await.map_err(|e| {
+            AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to create new page: {}", e),
+            }
+        })?;
+
+        // Tabs of one window are hidden except the active one: a hidden page
+        // never runs requestAnimationFrame and has no focus. In a batch that
+        // timed out the tab walk on 7 of 10 pages and measured focus
+        // differently than a single-URL run of the same page. Focus
+        // emulation makes every tab focused and visible; an own window per
+        // page did the same but stalled Chrome with several heavy sites
+        // rendering at once (plan 62).
+        page.execute(SetFocusEmulationEnabledParams::new(true))
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to enable focus emulation: {}", e),
+            })?;
 
         // Patch navigator.webdriver = undefined on every document load.
         // --disable-blink-features=AutomationControlled removes it at the Blink level,

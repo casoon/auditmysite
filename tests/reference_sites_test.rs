@@ -63,7 +63,7 @@ async fn reference_sites_stay_in_their_reviewed_bands() {
         let args = Args::parse_from(["auditmysite", &site.url]);
         let config = PipelineConfig::from_args_and_config(&args, None);
         let audited = audit_page(&page, &site.url, &config, &manager).await;
-        // Close before the next site: every page is its own visible window,
+        // Close before the next site: every page stays visible (plan 62),
         // and a finished live site left open keeps running its scripts.
         let _ = page.close().await;
         let score = match audited {
