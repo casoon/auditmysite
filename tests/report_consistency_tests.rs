@@ -1471,6 +1471,12 @@ fn pdf_finding_groups_are_the_json_findings() {
     // Same rules, same counts, same order — no criterion-level merge of the
     // two 4.1.2 rules into one "missing name/role" group.
     assert_eq!(pdf, json);
+    // Urgency first all the way down: severity never rises along the list.
+    assert!(vm
+        .findings
+        .all_findings
+        .windows(2)
+        .all(|w| w[0].severity >= w[1].severity));
 }
 
 #[test]

@@ -174,25 +174,18 @@ pub fn is_mandatory(category: &str, wcag_level: &str) -> bool {
     category == "wcag" && matches!(wcag_level, "A" | "AA")
 }
 
-/// Urgency tier a finding is ranked in: mandatory critical/high first, then
-/// any other critical/high, then the rest.
-fn urgency_tier(f: &NormalizedFinding) -> u8 {
-    let urgent = matches!(f.severity, Severity::Critical | Severity::High);
-    match (urgent, is_mandatory(&f.category, &f.wcag_level)) {
-        (true, true) => 0,
-        (true, false) => 1,
-        (false, _) => 2,
-    }
-}
-
-/// The one order in which findings are presented as actions — `findings`
-/// and `top_actions` in the JSON, the top measures and finding list in the
-/// PDF (plan 58). Urgency first, within a tier the leverage
-/// (`priority_score`: severity × reach / effort), then reach; `rule_id` last
-/// so ties never depend on input order (plan 60).
+/// The one order in which findings are presented — `findings` and
+/// `top_actions` in the JSON, the top measures, finding list and finding
+/// matrix in the PDF (plan 58). Urgency first: severity, and within a
+/// severity the legal obligations (WCAG A/AA) ahead of the rest. Within that,
+/// the leverage (`priority_score`: severity × reach / effort), then reach;
+/// `rule_id` last so ties never depend on input order (plan 60).
 pub fn action_order(a: &NormalizedFinding, b: &NormalizedFinding) -> std::cmp::Ordering {
-    urgency_tier(a)
-        .cmp(&urgency_tier(b))
+    b.severity
+        .cmp(&a.severity)
+        .then_with(|| {
+            is_mandatory(&b.category, &b.wcag_level).cmp(&is_mandatory(&a.category, &a.wcag_level))
+        })
         .then_with(|| b.priority_score.total_cmp(&a.priority_score))
         .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
         .then_with(|| a.rule_id.cmp(&b.rule_id))
