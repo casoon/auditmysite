@@ -468,6 +468,7 @@ pub struct ManagementRisk {
 
 #[derive(Debug, Serialize)]
 pub struct DecisionAction {
+    pub rule_id: String,
     pub title: String,
     pub risk: String,
     pub priority: String,

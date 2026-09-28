@@ -1367,3 +1367,124 @@ fn test_view_model_shows_journey_as_indicator_dashboard_module() {
 
     assert_eq!(journey.measurement_type, "heuristic");
 }
+
+// ─── JSON ↔ PDF parity (plans 58–60) ───────────────────────────────
+
+/// Mirrors dm.de on 2026-09-28: a medium finding with many occurrences, and
+/// several distinct 4.1.2 rules with few. `reverse` feeds the same
+/// violations in the opposite order.
+fn make_parity_report(reverse: bool) -> AuditReport {
+    let mut violations = Vec::new();
+    for i in 0..20 {
+        violations.push(
+            Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                Severity::Medium,
+                "Content uses visual formatting instead of semantic HTML",
+                format!("node-sem-{i}"),
+            )
+            .with_selector(format!("div.sem-{i}")),
+        );
+    }
+    for (axe_id, count) in [("aria-valid-attr-value", 2), ("aria-allowed-attr", 1)] {
+        for i in 0..count {
+            violations.push(
+                Violation::new(
+                    "4.1.2",
+                    "Name, Role, Value",
+                    WcagLevel::A,
+                    Severity::High,
+                    format!("{axe_id} violation"),
+                    format!("node-{axe_id}-{i}"),
+                )
+                .with_rule_id(axe_id)
+                .with_selector(format!("div.{axe_id}-{i}")),
+            );
+        }
+    }
+    if reverse {
+        violations.reverse();
+    }
+    let mut results = WcagResults::new();
+    for v in violations {
+        results.add_violation(v);
+    }
+    AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        1000,
+    )
+}
+
+#[test]
+fn pdf_top_measures_follow_json_top_actions() {
+    let report = make_parity_report(false);
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let vm = build_view_model(&normalized, &ReportConfig::default());
+
+    let json_top: Vec<&str> = unified
+        .summary
+        .top_actions
+        .iter()
+        .map(|a| a.rule_id.as_str())
+        .collect();
+    let pdf_top: Vec<&str> = vm
+        .findings
+        .top_findings
+        .iter()
+        .map(|g| g.rule_id.as_str())
+        .collect();
+    assert_eq!(pdf_top, json_top[..pdf_top.len()]);
+    // Urgency first: the high findings lead, the 20 medium occurrences follow.
+    assert_eq!(
+        json_top,
+        [
+            "a11y.aria_valid_attr_value.invalid",
+            "a11y.aria_allowed_attr.invalid",
+            "a11y.structure.missing",
+        ]
+    );
+}
+
+#[test]
+fn pdf_finding_groups_are_the_json_findings() {
+    let report = make_parity_report(false);
+    let normalized = normalize(&report);
+    let vm = build_view_model(&normalized, &ReportConfig::default());
+
+    let json: Vec<(&str, usize)> = normalized
+        .normalized
+        .findings
+        .iter()
+        .map(|f| (f.rule_id.as_str(), f.occurrence_count))
+        .collect();
+    let pdf: Vec<(&str, usize)> = vm
+        .findings
+        .all_findings
+        .iter()
+        .map(|g| (g.rule_id.as_str(), g.occurrence_count))
+        .collect();
+    // Same rules, same counts, same order — no criterion-level merge of the
+    // two 4.1.2 rules into one "missing name/role" group.
+    assert_eq!(pdf, json);
+}
+
+#[test]
+fn finding_order_does_not_depend_on_input_order() {
+    let forward = make_parity_report(false);
+    let reversed = make_parity_report(true);
+    let a = normalize(&forward);
+    let b = normalize(&reversed);
+    let ids = |r: &auditmysite::audit::AuditContext<'_>| -> Vec<String> {
+        r.normalized
+            .findings
+            .iter()
+            .map(|f| f.rule_id.clone())
+            .collect()
+    };
+    assert_eq!(ids(&a), ids(&b));
+}

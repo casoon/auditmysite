@@ -12,6 +12,7 @@
 //! take an explicit `en` flag rather than baking the run locale, so the domain
 //! stays language-neutral and the output layer chooses the language.
 
+use crate::audit::normalized::NormalizedFinding;
 use crate::taxonomy::Severity;
 
 /// Priority level for findings and actions.
@@ -164,6 +165,37 @@ pub fn derive_execution_priority(
         (Severity::Medium, Effort::Quick, _) => ExecutionPriority::Important,
         _ => ExecutionPriority::Optional,
     }
+}
+
+/// Whether a finding is a legal obligation: a WCAG Level A/AA violation
+/// (BFSG/EAA). Everything else — SEO, WCAG AAA, other modules — is
+/// optimization (#245).
+pub fn is_mandatory(category: &str, wcag_level: &str) -> bool {
+    category == "wcag" && matches!(wcag_level, "A" | "AA")
+}
+
+/// Urgency tier a finding is ranked in: mandatory critical/high first, then
+/// any other critical/high, then the rest.
+fn urgency_tier(f: &NormalizedFinding) -> u8 {
+    let urgent = matches!(f.severity, Severity::Critical | Severity::High);
+    match (urgent, is_mandatory(&f.category, &f.wcag_level)) {
+        (true, true) => 0,
+        (true, false) => 1,
+        (false, _) => 2,
+    }
+}
+
+/// The one order in which findings are presented as actions — `findings`
+/// and `top_actions` in the JSON, the top measures and finding list in the
+/// PDF (plan 58). Urgency first, within a tier the leverage
+/// (`priority_score`: severity × reach / effort), then reach; `rule_id` last
+/// so ties never depend on input order (plan 60).
+pub fn action_order(a: &NormalizedFinding, b: &NormalizedFinding) -> std::cmp::Ordering {
+    urgency_tier(a)
+        .cmp(&urgency_tier(b))
+        .then_with(|| b.priority_score.total_cmp(&a.priority_score))
+        .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
+        .then_with(|| a.rule_id.cmp(&b.rule_id))
 }
 
 #[cfg(test)]

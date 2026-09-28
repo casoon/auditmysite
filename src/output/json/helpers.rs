@@ -427,16 +427,12 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
 
 pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
     let mut findings: Vec<_> = reports.iter().flat_map(|r| r.findings.iter()).collect();
-    findings.sort_by(|a, b| {
-        b.priority_score
-            .partial_cmp(&a.priority_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
-    });
+    findings.sort_by(|a, b| crate::audit::prioritization::action_order(a, b));
     findings
         .into_iter()
         .take(8)
         .map(|finding| DecisionAction {
+            rule_id: finding.rule_id.clone(),
             title: finding.title.clone(),
             risk: format!("{:?}", finding.severity).to_lowercase(),
             priority: finding.remediation_priority.clone(),

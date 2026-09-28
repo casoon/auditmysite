@@ -486,7 +486,7 @@ pub enum CriticalityTier {
 /// Mandatory tier covers WCAG Level A/AA violations (legal/BFSG risk). Everything
 /// else (SEO, AI visibility, dark mode, WCAG AAA, …) is classified as Optimization.
 pub fn classify_criticality_tier(category: &str, wcag_level: &str) -> CriticalityTier {
-    if category == "wcag" && matches!(wcag_level, "A" | "AA") {
+    if crate::audit::prioritization::is_mandatory(category, wcag_level) {
         CriticalityTier::Mandatory
     } else {
         CriticalityTier::Optimization

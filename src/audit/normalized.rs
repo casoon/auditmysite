@@ -2502,13 +2502,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
     }
 
-    // Sort by priority score (highest first), then by severity
-    findings.sort_by(|a, b| {
-        b.priority_score
-            .partial_cmp(&a.priority_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.severity.cmp(&a.severity))
-    });
+    findings.sort_by(crate::audit::prioritization::action_order);
 
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);

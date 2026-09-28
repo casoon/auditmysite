@@ -15,7 +15,7 @@ use self::diagnosis::{
     build_thematic_clusters,
 };
 use self::executive::{build_executive_narrative, build_positive_signals};
-use self::findings::{finding_group_from_normalized, recompute_occurrence_derived_fields};
+use self::findings::finding_group_from_normalized;
 use self::methodology::{build_appendix_block_from_normalized, build_methodology};
 use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
@@ -27,9 +27,8 @@ use crate::audit::summary::analyze_with_locale;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::wcag::Severity;
 
-use super::actions::{derive_action_plan, humanize_action_text, impact_score};
+use super::actions::{derive_action_plan, humanize_action_text};
 use super::helpers::{
     build_benchmark_context, build_business_consequence, build_consequence_text,
     build_overall_impact, build_score_note, build_verdict_text, extract_domain,
@@ -92,14 +91,21 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     let i18n = I18n::new(&config.locale)
         .or_else(|_| I18n::new("de"))
         .expect("default locale must always load");
-    let priority_by_rule: std::collections::HashMap<&str, f32> = normalized
+    // Findings arrive in `action_order` from the normalization — the order
+    // the JSON lists them in. The PDF keeps it rather than re-sorting (plan 58).
+    //
+    // A WCAG rule and an SEO check can report the same defect (e.g. an empty
+    // heading) under the same canonical title. The PDF shows it once, as the
+    // WCAG finding with its own count; the JSON keeps both rows. Distinct
+    // rules of one category are never merged (plan 59).
+    let wcag_titles: std::collections::HashSet<String> = normalized
         .normalized
         .findings
         .iter()
-        .map(|f| (f.rule_id.as_str(), f.priority_score))
+        .filter(|f| f.category == "wcag")
+        .map(|f| f.title.trim().to_lowercase())
         .collect();
-
-    let mut sorted_groups: Vec<FindingGroup> = normalized
+    let sorted_groups: Vec<FindingGroup> = normalized
         .normalized
         .findings
         .iter()
@@ -108,48 +114,9 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ReportLevel::Standard => f.report_visibility.standard,
             ReportLevel::Technical => f.report_visibility.technical,
         })
+        .filter(|f| f.category == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase()))
         .map(|f| finding_group_from_normalized(&i18n, f))
         .collect();
-    sorted_groups.sort_by(|a, b| {
-        let pa = priority_by_rule
-            .get(a.rule_id.as_str())
-            .copied()
-            .unwrap_or(0.0);
-        let pb = priority_by_rule
-            .get(b.rule_id.as_str())
-            .copied()
-            .unwrap_or(0.0);
-        pb.partial_cmp(&pa)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| impact_score(b).cmp(&impact_score(a)))
-    });
-
-    // Deduplicate findings with the same title (e.g. WCAG + SEO rules detecting
-    // the same issue). Prefer the non-"unknown." rule_id; merge occurrence counts.
-    {
-        let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-        let mut deduped: Vec<FindingGroup> = Vec::with_capacity(sorted_groups.len());
-        for group in sorted_groups {
-            let key = group.title.trim().to_lowercase();
-            if let Some(&idx) = seen.get(&key) {
-                let existing = &mut deduped[idx];
-                if existing.rule_id.starts_with("unknown.")
-                    && !group.rule_id.starts_with("unknown.")
-                {
-                    let merged = existing.occurrence_count + group.occurrence_count;
-                    *existing = group;
-                    existing.occurrence_count = merged;
-                } else {
-                    existing.occurrence_count += group.occurrence_count;
-                }
-                recompute_occurrence_derived_fields(existing, &i18n);
-            } else {
-                seen.insert(key, deduped.len());
-                deduped.push(group);
-            }
-        }
-        sorted_groups = deduped;
-    }
 
     let score = normalized.normalized.score;
     let grade = normalized.normalized.grade.clone();
@@ -185,47 +152,8 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.normalized.url);
-    let top_findings: Vec<FindingGroup> = {
-        use crate::output::report_model::CriticalityTier;
-        // Prefer Mandatory (BFSG) tier first within the urgent (Critical/High) bucket — #245.
-        let mandatory_urgent: Vec<FindingGroup> = sorted_groups
-            .iter()
-            .filter(|f| {
-                f.criticality_tier == CriticalityTier::Mandatory
-                    && matches!(f.severity, Severity::Critical | Severity::High)
-            })
-            .take(5)
-            .cloned()
-            .collect();
-
-        let mut urgent = mandatory_urgent;
-        if urgent.len() < 5 {
-            let seen_ids: std::collections::HashSet<String> =
-                urgent.iter().map(|f| f.rule_id.clone()).collect();
-            let other_urgent: Vec<FindingGroup> = sorted_groups
-                .iter()
-                .filter(|f| {
-                    !seen_ids.contains(&f.rule_id)
-                        && matches!(f.severity, Severity::Critical | Severity::High)
-                })
-                .take(5 - urgent.len())
-                .cloned()
-                .collect();
-            urgent.extend(other_urgent);
-        }
-        if urgent.len() < 5 {
-            let seen_ids: std::collections::HashSet<String> =
-                urgent.iter().map(|f| f.rule_id.clone()).collect();
-            let remaining: Vec<FindingGroup> = sorted_groups
-                .iter()
-                .filter(|f| !seen_ids.contains(&f.rule_id))
-                .take(5 - urgent.len())
-                .cloned()
-                .collect();
-            urgent.extend(remaining);
-        }
-        urgent
-    };
+    // Same order as `summary.top_actions` in the JSON (plan 58).
+    let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
     let positive_aspects = derive_positive_aspects_from_normalized(&config.locale, normalized);
     let action_plan = derive_action_plan(&i18n, &sorted_groups);
 

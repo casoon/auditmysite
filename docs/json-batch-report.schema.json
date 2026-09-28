@@ -960,6 +960,7 @@
     "decisionAction": {
       "type": "object",
       "required": [
+        "rule_id",
         "title",
         "risk",
         "priority",
@@ -970,6 +971,10 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "rule_id": {
+          "type": "string",
+          "description": "Taxonomy rule id of the finding behind this action; the same id as in pages[].findings[].rule_id."
+        },
         "title": {
           "type": "string"
         },
