@@ -526,7 +526,24 @@ pub async fn run_single_audit(
     let page = browser.new_page().await?;
     debug!("Created new page");
 
-    let (mut report, snapshot) = audit_page(&page, url, config, browser).await?;
+    let result = audit_on_page(&page, url, browser, config, start_time).await;
+    // Close it whether or not the audit succeeded: every page runs in its own
+    // visible window (plan 62), so one left open keeps executing its scripts
+    // and slows down every later audit on the same browser.
+    if let Err(e) = page.close().await {
+        warn!("Failed to close audit page for {}: {}", url, e);
+    }
+    result
+}
+
+async fn audit_on_page(
+    page: &Page,
+    url: &str,
+    browser: &BrowserManager,
+    config: &PipelineConfig,
+    start_time: Instant,
+) -> Result<AuditReport> {
+    let (mut report, snapshot) = audit_page(page, url, config, browser).await?;
 
     // Isolated third-party script impact (#531). Deliberately runs BEFORE
     // the throttled-performance pass below, so the baseline TBT it diffs
@@ -542,7 +559,7 @@ pub async fn run_single_audit(
         if let Some((baseline_tbt_ms, origins)) = baseline {
             if !origins.is_empty() {
                 let impacts = crate::performance::isolate_third_party_impact(
-                    &page,
+                    page,
                     browser,
                     url,
                     &origins,
@@ -554,7 +571,7 @@ pub async fn run_single_audit(
                         third_party.isolated_impact = impacts;
                     }
                 }
-                if let Err(e) = settle(&page).await {
+                if let Err(e) = settle(page).await {
                     warn!(
                         "Browser settle failed after third-party isolation pass: {}",
                         e
@@ -572,13 +589,13 @@ pub async fn run_single_audit(
     // the finding can be appended to it.
     if config.check_ssr_content {
         if let Some(gap) =
-            crate::content_visibility::ssr_gap::measure_ssr_content_gap(&page, browser, url).await
+            crate::content_visibility::ssr_gap::measure_ssr_content_gap(page, browser, url).await
         {
             if let Some(cv) = report.discoverability.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
         }
-        if let Err(e) = settle(&page).await {
+        if let Err(e) = settle(page).await {
             warn!("Browser settle failed after SSR content-gap check: {}", e);
         }
     }
@@ -589,7 +606,7 @@ pub async fn run_single_audit(
             .as_ref()
             .and_then(|p| p.content_weight.clone());
         let (throttled, canonical) =
-            collect_throttled_performance(&page, url, browser, config, content_weight.as_ref())
+            collect_throttled_performance(page, url, browser, config, content_weight.as_ref())
                 .await;
         attach_throttled_profile_subchecks(&mut report, &throttled);
         report.throttled_performance = throttled;

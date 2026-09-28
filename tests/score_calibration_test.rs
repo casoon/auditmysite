@@ -63,6 +63,7 @@ async fn score(manager: &BrowserManager, fixture: &str) -> u32 {
     let (report, _) = audit_page(&page, &server.url, &config, manager)
         .await
         .unwrap_or_else(|e| panic!("audit failed for {fixture}: {e}"));
+    let _ = page.close().await;
     server.stop();
     report.accessibility.score.round() as u32
 }

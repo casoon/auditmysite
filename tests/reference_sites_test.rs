@@ -57,11 +57,16 @@ async fn reference_sites_stay_in_their_reviewed_bands() {
         let page = manager.new_page().await.expect("New page failed");
         if let Err(e) = manager.navigate(&page, &site.url).await {
             misses.push(format!("{}: unreachable ({e})", site.url));
+            let _ = page.close().await;
             continue;
         }
         let args = Args::parse_from(["auditmysite", &site.url]);
         let config = PipelineConfig::from_args_and_config(&args, None);
-        let score = match audit_page(&page, &site.url, &config, &manager).await {
+        let audited = audit_page(&page, &site.url, &config, &manager).await;
+        // Close before the next site: every page is its own visible window,
+        // and a finished live site left open keeps running its scripts.
+        let _ = page.close().await;
+        let score = match audited {
             Ok((report, _)) => report.accessibility.score.round() as u32,
             Err(e) => {
                 misses.push(format!("{}: audit failed ({e})", site.url));
