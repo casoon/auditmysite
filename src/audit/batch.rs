@@ -142,9 +142,12 @@ pub async fn run_concurrent_batch(
     // Bounded work queue: at most `concurrency` futures in flight at any time.
     // No unbounded spawn — tasks are only created as slots free up.
     let mut in_flight: FuturesUnordered<_> = FuturesUnordered::new();
-    let mut url_iter = urls.into_iter().take(total_urls);
+    // Indexed so the report lists pages in input (sitemap) order, not in the
+    // order they happened to finish (plan 60).
+    let mut url_iter = urls.into_iter().take(total_urls).enumerate();
 
-    let make_task = |url: String,
+    let make_task = |index: usize,
+                     url: String,
                      pool: Arc<BrowserPool>,
                      config: Arc<PipelineConfig>,
                      completed: Arc<AtomicUsize>,
@@ -171,13 +174,14 @@ pub async fn run_concurrent_batch(
                     }
                 }
             }
-            result
+            (index, result)
         }
     };
 
     // Fill up to concurrency limit before starting the drain loop
-    for url in url_iter.by_ref().take(config.concurrency) {
+    for (index, url) in url_iter.by_ref().take(config.concurrency) {
         in_flight.push(make_task(
+            index,
             url,
             Arc::clone(&pool),
             Arc::clone(&pipeline_config),
@@ -191,13 +195,14 @@ pub async fn run_concurrent_batch(
     let mut reports = Vec::with_capacity(total_urls);
     let mut errors = Vec::new();
 
-    while let Some(batch_result) = in_flight.next().await {
+    while let Some((index, batch_result)) = in_flight.next().await {
         match batch_result.outcome {
-            Ok(report) => reports.push(report),
-            Err(e) => errors.push((batch_result.url, e)),
+            Ok(report) => reports.push((index, report)),
+            Err(e) => errors.push((index, batch_result.url, e)),
         }
-        if let Some(url) = url_iter.next() {
+        if let Some((index, url)) = url_iter.next() {
             in_flight.push(make_task(
+                index,
                 url,
                 Arc::clone(&pool),
                 Arc::clone(&pipeline_config),
@@ -245,9 +250,12 @@ pub async fn run_concurrent_batch(
         total_duration_ms
     );
 
+    reports.sort_by_key(|(index, _)| *index);
+    errors.sort_by_key(|(index, _, _)| *index);
+    let reports = reports.into_iter().map(|(_, report)| report).collect();
     let batch_errors = errors
         .into_iter()
-        .map(|(url, error)| BatchError {
+        .map(|(_, url, error)| BatchError {
             url,
             error: error.to_string(),
         })
