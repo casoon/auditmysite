@@ -5,6 +5,12 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **a11y-core 0.11.2, 2026-09-28 (Plan 52):** `accname`, `a11y-dom`, `a11y-report`, `a11y-rules`
+  von 0.11.0 auf 0.11.2. 0.11.1 (Leerzeichen zwischen Inline-Elementen nach Tag) ist uebersprungen
+  und zurueckgezogen: Im accname-Korpus fiel die Namensgleichheit von 97,7 % auf 92,9 %, weil per
+  CSS zu Bloecken gemachte `<span>` zusammengeklebt wurden. 0.11.2 nimmt das zurueck und haelt
+  `<dt>` (Rolle `term`) als namenlos fest. Korpus mit 0.11.2: 97,9 %, 6 echte Abweichungen wie
+  zuvor. Die richtige Loesung (Trenner aus dem berechneten `display`) liegt in barrierlab.
 - **Meta-Refresh-Zwischenseiten im JSON, 2026-09-28 (Plan 47):** Dass `navigate` eine
   Zwischenseite (kurzer `<meta http-equiv="refresh">`) verfolgt oder eine echte Weiterleitung per
   Refresh abgebrochen hat, stand bisher nur im Log. Jetzt fuehrt
