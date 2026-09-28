@@ -5,6 +5,20 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Headless shell statt vollem Chrome gegen haengende Journeys, 2026-09-28 (Plan 65):** Im
+  Referenz-Batch (gov.uk, bundesregierung.de, dm.de, berlin.de, `--full`, drei Worker) liefen mit
+  dem System-Chrome 154 in 4 von 4 Laeufen Journeys ins 10-s-Budget, zweimal blieb der Browser
+  ganz stehen (> 5 bzw. > 10 min). Alle offenen Seiten liefen in derselben Sekunde in den Timeout,
+  unabhaengig von der Journey. Eine Stichprobe des Browser-Prozesses zeigte den Hauptthread in der
+  AppKit-Tastaturverarbeitung (`performKeyEquivalent` → `SLSObscureCursor`, wartend auf den
+  WindowServer): Auch `--headless=new` faehrt unter macOS die Ereignisschleife, und Tasten, die die
+  Seite nicht verbraucht, laufen dort durch. Mit `chrome-headless-shell` liefen 5 von 5 Laeufen
+  vollstaendig (37-46 s, keine Timeouts, dm.de 19 statt 9 Journeys); die Barrierefreiheits-Befunde
+  waren identisch, die Unterschiede lagen im Performance-Rauschen. Aenderung: Eine mit
+  `browser install --headless-shell` installierte Shell wird vor jedem System-Browser gewaehlt
+  (bisher suchte die Aufloesung gar nicht danach und nahm nur Chrome for Testing, und auch das
+  erst ohne System-Browser). `doctor` und der Audit-Start warnen unter macOS, wenn ein voller
+  Browser laeuft. Tests fuer die Einordnung; der Batch-Nachweis liegt in `reports/p65/`.
 - **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die

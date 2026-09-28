@@ -49,6 +49,14 @@ pub fn run_doctor() {
                     resolved.browser.source,
                 ),
             );
+            if crate::browser::resolver::stalls_on_keyboard_journeys(&resolved.browser) {
+                print_check(
+                    "Journey stability",
+                    CheckStatus::Warning,
+                    "full browsers on macOS can stall during keyboard journeys; \
+                     install the headless shell: auditmysite browser install --headless-shell",
+                );
+            }
         }
         Err(_) => {
             print_check(
