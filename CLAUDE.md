@@ -26,7 +26,8 @@ Vor jeder Änderung klären, auf welcher Seite der Code liegt:
   `path = "../barrierlab/crates/<crate>"` in `.cargo/config.toml` (gitignored). Nie committen,
   solange der Patch aktiv ist — auch `Cargo.lock` nicht; committet wird erst gegen die
   veröffentlichte Version.
-- Journey-Umbau führt `plan/53`; `barrierlab/plan/reader/04` verweist nur darauf.
+- Journey-Umbau (Plan 53) ist abgeschlossen; der offene Blindvergleich gegen echte Screenreader
+  steht in `barrierlab/plan/reader/06`.
 
 ## Key CLI Modes
 - Single: `auditmysite <URL>`
