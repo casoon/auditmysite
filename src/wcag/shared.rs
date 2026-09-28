@@ -23,10 +23,9 @@
 //!
 //! [`NotRun::Disabled`]: a11y_report::NotRun::Disabled
 
-use std::collections::HashSet;
-
-use a11y_dom::{elements, Node, NodeId};
+use a11y_dom::{Node, NodeId};
 use a11y_report::{Finding, NotRun, Outcome};
+use a11y_rules::Locale;
 
 use crate::accessibility::CdpDocument;
 use crate::cli::WcagLevel;
@@ -47,33 +46,6 @@ pub struct SharedRule {
     pub name: &'static str,
     pub help_url: &'static str,
 }
-
-/// Die geteilte Kennung für doppelte IDs. Eigene Konstante, weil die Befunde
-/// dieser Kennung als einzige nachgefiltert werden (Plan 54 §2).
-///
-/// [`SHARED_RULES`] schreibt die Kennung trotzdem als Literal aus: Das
-/// kanonische Regelinventar (`tests/common/rule_inventory.rs`) liest die
-/// Tabelle als Quelltext und sieht durch eine Konstante hindurch nichts.
-/// Gegen ein Auseinanderlaufen steht `die_gefilterte_kennung_steht_in_der_tabelle`.
-const DUPLICATE_ID_RULE: &str = "ids/duplicate";
-
-/// Attribute, die per IDREF auf ein anderes Element zeigen. `headers` und die
-/// ARIA-Verweise tragen Listen, deshalb wird der Wert überall an Leerzeichen
-/// zerlegt.
-const IDREF_ATTRS: &[&str] = &[
-    "for",
-    "form",
-    "list",
-    "headers",
-    "aria-labelledby",
-    "aria-describedby",
-    "aria-controls",
-    "aria-owns",
-    "aria-activedescendant",
-    "aria-details",
-    "aria-errormessage",
-    "aria-flowto",
-];
 
 /// Die geteilten Kennungen, die auditmysite bereits führt.
 ///
@@ -163,9 +135,11 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // genommen kein Erfolgskriterium mehr. Ein Verstoß bleibt sie dort, wo ein
     // IDREF auf sie zeigt: Dann ist nicht mehr bestimmbar, welches Element
     // gemeint ist, und Name/Rolle/Wert der referenzierenden Beziehung bricht.
-    // Genau dieser Fall wird gemeldet (siehe `duplicate_id_is_referenced`),
-    // und zwar als 4.1.2 — dieselbe Zuordnung, die axe-core für
-    // `duplicate-id-aria` führt (Plan 54 §2).
+    // Genau dieser Fall wird gemeldet, und zwar als 4.1.2 — dieselbe
+    // Zuordnung, die axe-core für `duplicate-id-aria` führt (Plan 54 §2).
+    // Seit a11y-rules 0.12 entscheidet das die geteilte Regel selbst; bis
+    // dahin filterte auditmysite hier nach, und die Kennung hieß in den
+    // anderen Hosts etwas anderes.
     SharedRule {
         id: "ids/duplicate",
         criterion: "4.1.2",
@@ -306,41 +280,6 @@ fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom:
         .and_then(|idx| doc.node_at(NodeId(idx)))
 }
 
-/// Alle IDs, auf die im Dokument per IDREF verwiesen wird.
-fn referenced_ids(doc: &CdpDocument) -> HashSet<&str> {
-    let mut out = HashSet::new();
-    for node in elements(doc) {
-        for attr in IDREF_ATTRS {
-            let Some(value) = node.attr(attr) else {
-                continue;
-            };
-            out.extend(value.split_whitespace());
-        }
-    }
-    out
-}
-
-/// Ob die doppelt vergebene ID eines Befunds referenziert wird.
-///
-/// Nur dann ist sie unter WCAG 2.2 ein Verstoß: Die Beziehung ist nicht mehr
-/// eindeutig auflösbar, assistierende Technik kann Name, Rolle oder Wert des
-/// referenzierenden Elements nicht bestimmen. Eine doppelte ID, auf die
-/// niemand zeigt, ist seit der Streichung von 4.1.1 kein Kriteriumsverstoß
-/// mehr (Plan 54 §2).
-///
-/// Lässt sich das Element zum Befund nicht auflösen, gilt die ID als nicht
-/// referenziert: Der Verstoß wäre dann nicht belegbar, und ein Kriterium zu
-/// behaupten, das der Baum nicht hergibt, ist schlechter als zu schweigen.
-fn duplicate_id_is_referenced(
-    doc: &CdpDocument,
-    finding: &Finding,
-    referenced: &HashSet<&str>,
-) -> bool {
-    finding_node(doc, finding)
-        .and_then(|n| n.attr("id"))
-        .is_some_and(|id| referenced.contains(id.trim()))
-}
-
 /// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
 fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
     let node = finding_node(doc, finding);
@@ -389,36 +328,33 @@ fn not_yet_migrated(id: &str) -> RuleRun {
     RuleRun::not_run(id, NotRun::Disabled).with_reason("shared_rule_not_yet_adopted")
 }
 
+/// Die Sprache der Befundtexte zur Laufsprache des Berichts.
+///
+/// Die Laufsprache kennt nur `de` und `en`; alles andere fällt auf Englisch,
+/// die Vorgabe des geteilten Bestands.
+fn locale_for(lang: &str) -> Locale {
+    if lang == "de" {
+        Locale::De
+    } else {
+        Locale::En
+    }
+}
+
 /// Lässt den geteilten Regelbestand laufen und übernimmt die Befunde der
 /// Kennungen aus [`SHARED_RULES`].
-pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
+pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
     let mut results = WcagResults::new();
     // `nodes_checked` bleibt bewusst unberuehrt: Der Zaehler fuehrt
     // AXTree-Knoten, und die geteilten Regeln laufen ueber den DOM. Beide
     // Baeume beschreiben dieselben Elemente -- sie zu addieren zaehlte jedes
     // Element doppelt und machte die Zahl im Bericht unbrauchbar.
 
-    let report = a11y_rules::run_with_semantics(doc);
-
-    // Erst gebaut, wenn ein Duplikat-Befund vorliegt — der Lauf über alle
-    // Elemente lohnt sich sonst nicht.
-    let mut referenced: Option<HashSet<&str>> = None;
-    // Verworfene Duplikat-Befunde. Der Vermerk aus dem Crate zählt sie noch
-    // mit und muss um sie gekürzt werden, sonst meldet `rule_outcomes`
-    // Befunde, die es in `violations` nicht gibt.
-    let mut dropped_duplicates = 0usize;
+    let report = a11y_rules::run_with_semantics_in(doc, locale_for(lang));
 
     for finding in &report.findings {
         let Some(rule) = shared_rule(&finding.rule_id) else {
             continue;
         };
-        if rule.id == DUPLICATE_ID_RULE && finding.outcome != Outcome::Pass {
-            let referenced = referenced.get_or_insert_with(|| referenced_ids(doc));
-            if !duplicate_id_is_referenced(doc, finding, referenced) {
-                dropped_duplicates += 1;
-                continue;
-            }
-        }
         results.add_violation(to_violation(doc, finding, rule));
     }
 
@@ -431,13 +367,9 @@ pub fn run_shared_rules(doc: &CdpDocument) -> WcagResults {
             // beide Seiten dasselbe Modell -- er wird durchgereicht statt
             // uebersetzt. Ergaenzt wird nur das Kriterium, das `a11y-rules`
             // am Vermerk nicht mitfuehrt.
-            Some(rule) => {
-                let mut run = run.clone().with_wcag([rule.criterion]);
-                if rule.id == DUPLICATE_ID_RULE {
-                    run.findings = run.findings.saturating_sub(dropped_duplicates);
-                }
-                results.rule_outcomes.push(run);
-            }
+            Some(rule) => results
+                .rule_outcomes
+                .push(run.clone().with_wcag([rule.criterion])),
         }
     }
 
@@ -479,7 +411,7 @@ mod tests {
 
     fn ergebnis(html_attrs: &[&str]) -> WcagResults {
         let doc = build_document(&seite(html_attrs), &AXTree::new()).unwrap();
-        run_shared_rules(&doc)
+        run_shared_rules(&doc, "en")
     }
 
     #[test]
@@ -491,6 +423,28 @@ mod tests {
             .filter_map(|v| v.rule_id.as_deref())
             .collect();
         assert!(ids.contains(&"document/lang-missing"), "{ids:?}");
+    }
+
+    /// Ein deutscher Bericht bekommt die Befundtexte des geteilten Bestands
+    /// auf Deutsch; die Kennung bleibt dieselbe.
+    #[test]
+    fn deutscher_lauf_liefert_deutsche_befundtexte() {
+        let doc = build_document(&seite(&[]), &AXTree::new()).unwrap();
+        let meldung = |lang: &str| {
+            run_shared_rules(&doc, lang)
+                .violations
+                .into_iter()
+                .find(|v| v.rule_id.as_deref() == Some("document/lang-missing"))
+                .map(|v| v.message)
+        };
+        assert_eq!(
+            meldung("de").as_deref(),
+            Some("Das <html>-Element hat kein lang-Attribut.")
+        );
+        assert_eq!(
+            meldung("en").as_deref(),
+            Some("The <html> element has no lang attribute.")
+        );
     }
 
     /// Der Befund muss auditmysites Felder fuellen, sonst faellt er in der
@@ -627,21 +581,16 @@ mod tests {
 
     fn duplikat_befunde(verweis: Option<&str>) -> Vec<Violation> {
         let doc = build_document(&seite_mit_doppelter_id(verweis), &AXTree::new()).unwrap();
-        run_shared_rules(&doc)
+        run_shared_rules(&doc, "en")
             .violations
             .into_iter()
-            .filter(|v| v.rule_id.as_deref() == Some(DUPLICATE_ID_RULE))
+            .filter(|v| v.rule_id.as_deref() == Some("ids/duplicate"))
             .collect()
     }
 
     /// Der Filter greift über eine Konstante, die Tabelle schreibt die
     /// Kennung aus — beide müssen dieselbe meinen, sonst liefe der Filter ins
     /// Leere.
-    #[test]
-    fn die_gefilterte_kennung_steht_in_der_tabelle() {
-        assert!(SHARED_RULES.iter().any(|r| r.id == DUPLICATE_ID_RULE));
-    }
-
     /// Plan 54 §2: Zeigt ein IDREF auf die doppelt vergebene ID, ist die
     /// Beziehung mehrdeutig -- das ist ein Verstoss gegen 4.1.2, nicht mehr
     /// gegen das gestrichene 4.1.1.
@@ -669,10 +618,10 @@ mod tests {
     fn der_vermerk_zaehlt_verworfene_duplikate_nicht_mit() {
         let vermerk = |verweis| {
             let doc = build_document(&seite_mit_doppelter_id(verweis), &AXTree::new()).unwrap();
-            run_shared_rules(&doc)
+            run_shared_rules(&doc, "en")
                 .rule_outcomes
                 .into_iter()
-                .find(|o| o.rule_id == DUPLICATE_ID_RULE)
+                .find(|o| o.rule_id == "ids/duplicate")
                 .expect("Vermerk")
                 .findings
         };

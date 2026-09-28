@@ -1494,7 +1494,7 @@ async fn run_rules(
     // direkt aus dem DOM und braucht beide nicht mehr.
     match crate::accessibility::fetch_dom_document(page, &snapshot.ax_tree).await {
         Ok(doc) => {
-            let mut shared = wcag::shared::run_shared_rules(&doc);
+            let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }
