@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **accname-Differential mit berechnetem Stil, a11y-core 0.11.3, 2026-09-28:** `accname-diff`
+  rechnet die eigene Seite jetzt mit `accname::name_rendered`: `display`/`visibility` kommen aus
+  einem CDP-`DOMSnapshot` (`fetch_dom_document_with_layout`, `LayoutStyles`,
+  `RenderedCdpDocument`), ebenso die Leerraum-Textknoten, die `DOM.getDocument` auslaesst. Die
+  geteilten Regeln laufen unveraendert ueber `fetch_dom_document`. Korpus (35 Seiten): ein echtes
+  Abweichungsmuster statt sechs (2 Vorkommen, per Skript eingefuegter Text auf
+  bundesregierung.de) — „EU-Arktis", „Rechenpower", „abholen*", ein `display:none`- und ein
+  `<br>`-Fall stimmen jetzt mit Chrome ueberein.
 - **a11y-core 0.11.2, 2026-09-28 (Plan 52):** `accname`, `a11y-dom`, `a11y-report`, `a11y-rules`
   von 0.11.0 auf 0.11.2. 0.11.1 (Leerzeichen zwischen Inline-Elementen nach Tag) ist uebersprungen
   und zurueckgezogen: Im accname-Korpus fiel die Namensgleichheit von 97,7 % auf 92,9 %, weil per

@@ -425,7 +425,11 @@ fn names<'n>(
     node: ArenaNode<'n>,
     ids: &IdIndex<'n, ArenaNode<'n>>,
 ) -> (Option<String>, Option<String>) {
-    (doc.accessible_name(node), accname::name(node, ids))
+    let own = match doc.rendered() {
+        Some(rendered) => accname::name_rendered(&rendered, node, ids),
+        None => accname::name(node, ids),
+    };
+    (doc.accessible_name(node), own)
 }
 
 /// Gleich bis auf Groß-/Kleinschreibung. Verglichen wird über

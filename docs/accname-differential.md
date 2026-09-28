@@ -53,6 +53,15 @@ Nur Elemente, die im Accessibility-Tree ein Gegenstück haben und dort nicht als
 Vergleich wäre Rauschen. Beide übersprungenen Mengen werden gezählt und
 ausgewiesen, damit der nicht verglichene Anteil sichtbar bleibt.
 
+Die eigene Seite rechnet mit `accname::name_rendered`, also mit berechnetem
+`display` und `visibility` aus einem CDP-`DOMSnapshot` (seit a11y-core 0.11.3):
+Inline-Elemente schließen ohne Leerzeichen an, per Stil Verstecktes fällt weg.
+Ein Element ohne Layout-Objekt gilt als `display: contents`, wenn darunter etwas
+gerendert wird, sonst als `none`. Aus demselben Snapshot kommen die
+Leerraum-Textknoten, die `DOM.getDocument` auslässt — ohne sie klebten
+`<span>a</span> <span>b</span>` zusammen. Gemessen wird damit, was ein Host mit
+Rendering-Daten bekommt; statische Hosts rechnen mit `accname::name` ohne Stil.
+
 ## Klassifikation
 
 Zwei Achsen, weil eine Zahl allein nicht sagt, wo hinzuschauen ist.
@@ -130,7 +139,8 @@ Unterseiten ist ein Befund, nicht dreißig.
 - Der Vergleich läuft gegen **eine** Engine. Eine Übereinstimmung mit Chrome ist
   kein Nachweis von Spezifikationstreue, nur Abwesenheit eines Unterschieds.
 - Ein einzelner Seitenlauf ist eine Stichprobe. Aussagekraft entsteht erst über
-  einen Korpus — siehe `plan/52-accname-differential-korpus.md`.
+  einen Korpus (`--url-file`); Verlauf und Entscheidungen im `CHANGELOG.md` und in
+  `barrierlab/plan/01-accname-findings-from-auditmysite.md`.
 - Der Rollenvergleich ist heuristisch abgegrenzt, siehe oben.
 
 ## Code
@@ -140,3 +150,4 @@ Unterseiten ist ein Befund, nicht dreißig.
 | `src/accessibility/accname_diff.rs` | Vergleich, Klassifikation und Korpus-Aggregat, reine Funktionen über `CdpDocument`, unit-getestet ohne Browser |
 | `src/cli/args.rs` | `Command::AccnameDiff` |
 | `src/cli/commands.rs` | `run_accname_diff_command`, Stilabfrage für `text_transform`, Terminalausgabe |
+| `src/accessibility/dom_document.rs` | `fetch_dom_document_with_layout`, `LayoutStyles` (DOMSnapshot), `RenderedCdpDocument` (Tier 3 für `name_rendered`) |
