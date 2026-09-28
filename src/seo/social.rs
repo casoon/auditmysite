@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::seo::meta::MetaValidation;
+use crate::taxonomy::Severity;
+use web_checks::social;
 
 /// Social media meta tags
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -32,24 +35,26 @@ pub struct OpenGraph {
 }
 
 impl OpenGraph {
+    /// Inhalt eines Tags nach seinem Namen (`og:title`, …).
+    fn content(&self, tag: &str) -> Option<&str> {
+        match tag {
+            "og:title" => self.title.as_deref(),
+            "og:description" => self.description.as_deref(),
+            "og:image" => self.image.as_deref(),
+            "og:url" => self.url.as_deref(),
+            "og:type" => self.og_type.as_deref(),
+            "og:site_name" => self.site_name.as_deref(),
+            "og:locale" => self.locale.as_deref(),
+            _ => None,
+        }
+    }
+
     pub fn is_complete(&self) -> bool {
-        self.title.is_some()
-            && self.description.is_some()
-            && self.image.is_some()
-            && self.url.is_some()
+        social::is_complete(&social::OPEN_GRAPH_REQUIRED, |t| self.content(t))
     }
 
     pub fn completeness(&self) -> u32 {
-        let fields = [
-            self.title.is_some(),
-            self.description.is_some(),
-            self.image.is_some(),
-            self.url.is_some(),
-            self.og_type.is_some(),
-            self.site_name.is_some(),
-        ];
-        let count = fields.iter().filter(|&&x| x).count();
-        (count * 100 / fields.len()) as u32
+        social::completeness(&social::OPEN_GRAPH_FIELDS, |t| self.content(t))
     }
 }
 
@@ -65,19 +70,62 @@ pub struct TwitterCard {
 }
 
 impl TwitterCard {
+    /// Inhalt eines Tags nach seinem Namen (`twitter:card`, …).
+    fn content(&self, tag: &str) -> Option<&str> {
+        match tag {
+            "twitter:card" => self.card.as_deref(),
+            "twitter:title" => self.title.as_deref(),
+            "twitter:description" => self.description.as_deref(),
+            "twitter:image" => self.image.as_deref(),
+            "twitter:site" => self.site.as_deref(),
+            "twitter:creator" => self.creator.as_deref(),
+            _ => None,
+        }
+    }
+
     pub fn is_complete(&self) -> bool {
-        self.card.is_some() && self.title.is_some() && self.description.is_some()
+        social::is_complete(&social::TWITTER_REQUIRED, |t| self.content(t))
     }
 
     pub fn completeness(&self) -> u32 {
-        let fields = [
-            self.card.is_some(),
-            self.title.is_some(),
-            self.description.is_some(),
-            self.image.is_some(),
-        ];
-        let count = fields.iter().filter(|&&x| x).count();
-        (count * 100 / fields.len()) as u32
+        social::completeness(&social::TWITTER_FIELDS, |t| self.content(t))
+    }
+}
+
+impl SocialTags {
+    /// Wertprüfungen aus `web_checks::social`: ein `twitter:card`-Typ, den
+    /// Twitter nicht kennt, und ein relatives `og:image`, das Plattformen nicht
+    /// gegen die Seite auflösen.
+    pub fn validate(&self) -> Vec<MetaValidation> {
+        let mut issues = Vec::new();
+        if let Some(card) = self.twitter_card.as_ref().and_then(|t| t.card.as_deref()) {
+            if !social::is_valid_twitter_card(card) {
+                issues.push(MetaValidation {
+                    field: "twitter:card".to_string(),
+                    message: format!(
+                        "Invalid twitter:card value \"{}\" (allowed: {})",
+                        card.trim(),
+                        social::TWITTER_CARD_TYPES.join(", ")
+                    ),
+                    severity: Severity::Medium,
+                    suggestion: Some("Use summary_large_image".to_string()),
+                });
+            }
+        }
+        if let Some(image) = self.open_graph.as_ref().and_then(|o| o.image.as_deref()) {
+            if !social::is_absolute_url(image) {
+                issues.push(MetaValidation {
+                    field: "og:image".to_string(),
+                    message: format!("og:image is not an absolute URL: \"{}\"", image.trim()),
+                    severity: Severity::Medium,
+                    suggestion: Some(
+                        "Use an absolute URL (https://...) so social platforms can fetch the image"
+                            .to_string(),
+                    ),
+                });
+            }
+        }
+        issues
     }
 }
 
@@ -116,36 +164,7 @@ pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
 
     let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
-    // Parse OpenGraph
-    let og = &parsed["og"];
-    let open_graph = if og.is_object() && !og.as_object().map(|o| o.is_empty()).unwrap_or(true) {
-        Some(OpenGraph {
-            title: og["title"].as_str().map(String::from),
-            description: og["description"].as_str().map(String::from),
-            image: og["image"].as_str().map(String::from),
-            url: og["url"].as_str().map(String::from),
-            og_type: og["type"].as_str().map(String::from),
-            site_name: og["site_name"].as_str().map(String::from),
-            locale: og["locale"].as_str().map(String::from),
-        })
-    } else {
-        None
-    };
-
-    // Parse Twitter Card
-    let tw = &parsed["twitter"];
-    let twitter_card = if tw.is_object() && !tw.as_object().map(|o| o.is_empty()).unwrap_or(true) {
-        Some(TwitterCard {
-            card: tw["card"].as_str().map(String::from),
-            title: tw["title"].as_str().map(String::from),
-            description: tw["description"].as_str().map(String::from),
-            image: tw["image"].as_str().map(String::from),
-            site: tw["site"].as_str().map(String::from),
-            creator: tw["creator"].as_str().map(String::from),
-        })
-    } else {
-        None
-    };
+    let (open_graph, twitter_card) = parse_social_tags(&parsed);
 
     // Calculate completeness
     let og_score = open_graph.as_ref().map(|o| o.completeness()).unwrap_or(0);
@@ -164,6 +183,59 @@ pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
         twitter_card,
         completeness,
     })
+}
+
+/// Liest die Tags aus dem Ergebnis der Seitenabfrage. Ein Tag mit leerem
+/// `content` gilt als fehlend (`web_checks::social::is_present`); eine Gruppe
+/// ohne ein vorhandenes Tag als nicht vorhanden.
+fn parse_social_tags(parsed: &serde_json::Value) -> (Option<OpenGraph>, Option<TwitterCard>) {
+    let read = |group: &serde_json::Value, key: &str| {
+        group[key]
+            .as_str()
+            .filter(|v| social::is_present(Some(v)))
+            .map(String::from)
+    };
+    let og = &parsed["og"];
+    let open_graph = OpenGraph {
+        title: read(og, "title"),
+        description: read(og, "description"),
+        image: read(og, "image"),
+        url: read(og, "url"),
+        og_type: read(og, "type"),
+        site_name: read(og, "site_name"),
+        locale: read(og, "locale"),
+    };
+    let tw = &parsed["twitter"];
+    let twitter_card = TwitterCard {
+        card: read(tw, "card"),
+        title: read(tw, "title"),
+        description: read(tw, "description"),
+        image: read(tw, "image"),
+        site: read(tw, "site"),
+        creator: read(tw, "creator"),
+    };
+    let og_any = [
+        "og:title",
+        "og:description",
+        "og:image",
+        "og:url",
+        "og:type",
+        "og:site_name",
+        "og:locale",
+    ]
+    .iter()
+    .any(|t| open_graph.content(t).is_some());
+    let tw_any = [
+        "twitter:card",
+        "twitter:title",
+        "twitter:description",
+        "twitter:image",
+        "twitter:site",
+        "twitter:creator",
+    ]
+    .iter()
+    .any(|t| twitter_card.content(t).is_some());
+    (og_any.then_some(open_graph), tw_any.then_some(twitter_card))
 }
 
 #[cfg(test)]
@@ -199,5 +271,50 @@ mod tests {
 
         assert!(tw.is_complete());
         assert_eq!(tw.completeness(), 100);
+    }
+
+    #[test]
+    fn leerer_inhalt_gilt_als_fehlend() {
+        let parsed = serde_json::json!({
+            "og": {"title": "T", "image": "  "},
+            "twitter": {"card": ""}
+        });
+        let (og, tw) = parse_social_tags(&parsed);
+        let og = og.expect("og:title ist vorhanden");
+        assert_eq!(og.image, None);
+        assert!(
+            tw.is_none(),
+            "nur leere Twitter-Tags zählen als keine Karte"
+        );
+    }
+
+    #[test]
+    fn wertpruefungen_melden_ungueltige_karte_und_relatives_bild() {
+        let tags = SocialTags {
+            open_graph: Some(OpenGraph {
+                image: Some("/og.png".to_string()),
+                ..Default::default()
+            }),
+            twitter_card: Some(TwitterCard {
+                card: Some("large".to_string()),
+                ..Default::default()
+            }),
+            completeness: 0,
+        };
+        let fields: Vec<_> = tags.validate().into_iter().map(|i| i.field).collect();
+        assert_eq!(fields, ["twitter:card", "og:image"]);
+
+        let ok = SocialTags {
+            open_graph: Some(OpenGraph {
+                image: Some("https://example.com/og.png".to_string()),
+                ..Default::default()
+            }),
+            twitter_card: Some(TwitterCard {
+                card: Some("summary".to_string()),
+                ..Default::default()
+            }),
+            completeness: 0,
+        };
+        assert!(ok.validate().is_empty());
     }
 }

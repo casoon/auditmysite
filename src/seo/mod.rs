@@ -94,9 +94,10 @@ pub struct SeoAnalysis {
 pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     // Extract all SEO data in parallel where possible
     let meta = extract_meta_tags(page).await?;
-    let meta_issues = meta.validate();
+    let mut meta_issues = meta.validate();
     let headings = analyze_heading_structure(page).await?;
     let social = extract_social_tags(page).await?;
+    meta_issues.extend(social.validate());
     let technical = analyze_technical_seo(page, url).await?;
     let structured_data = detect_structured_data(page).await?;
 
