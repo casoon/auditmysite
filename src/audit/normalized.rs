@@ -200,7 +200,7 @@ pub(crate) fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityA
                     .rule_id
                     .clone()
                     .unwrap_or_else(|| finding.rule.clone()),
-                wcag_criterion: finding.rule.clone(),
+                wcag_criterion: wcag_criterion_of(&finding.rule),
                 severity: finding.severity,
                 message: finding.message.clone(),
                 fix_suggestion: finding.fix_suggestion.clone(),
@@ -2137,7 +2137,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             NormalizedFinding {
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
-                wcag_criterion: first.rule.clone(),
+                wcag_criterion: wcag_criterion_of(&first.rule),
                 axe_id,
                 wcag_level: first.level.to_string(),
                 dimension,
@@ -2867,6 +2867,14 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     ctx
 }
 
+/// The WCAG criterion a violation belongs to. A few page rules (e.g.
+/// `aria-prohibited-attr`) carry their own slug in `Violation::rule` instead of
+/// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
+/// rule slug (plan 61).
+fn wcag_criterion_of(rule: &str) -> String {
+    crate::taxonomy::criterion_for_rule(rule).unwrap_or_else(|| rule.to_string())
+}
+
 fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id: &str) -> f32 {
     let severity_weight = match severity {
         Severity::Critical => 4.0,
@@ -3268,6 +3276,16 @@ fn effort_weight_for_rule(rule_id: &str) -> f32 {
 mod tests {
     use super::*;
     use crate::wcag::{Violation, WcagResults};
+
+    /// The page rules that emit their own slug as `Violation::rule` still land
+    /// on their WCAG criterion (plan 61: dm.de showed
+    /// `wcag_criterion: "aria-prohibited-attr"`).
+    #[test]
+    fn slug_page_rules_normalize_to_their_criterion() {
+        for slug in ["aria-prohibited-attr", "aria-hidden-focus", "frame-tested"] {
+            assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
+        }
+    }
 
     /// Guard against German leaking into the canonical `InteractiveFinding`
     /// text baked with `en = true` (#406): no English message/fix_suggestion
