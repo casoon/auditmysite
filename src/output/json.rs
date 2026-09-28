@@ -474,6 +474,8 @@ pub struct DecisionAction {
     pub priority: String,
     pub complexity: String,
     pub occurrence_count: usize,
+    /// Pages the rule occurs on (1 in a single report).
+    pub url_count: usize,
     pub root_cause: String,
     pub expected_impact: String,
 }

@@ -15,8 +15,7 @@ use crate::util::truncate_url;
 use crate::wcag::Severity;
 
 use super::actions::{
-    build_narrative_arc, derive_action_plan, derive_business_impact, impact_score,
-    localized_finding_text,
+    build_narrative_arc, derive_action_plan, derive_business_impact, localized_finding_text,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
 use crate::audit::prioritization::{
@@ -93,30 +92,23 @@ pub fn build_batch_presentation_with_normalized(
         normalized_reports.len(),
         "batch presentation requires one normalized report per raw report"
     );
-    let collected = collect_batch_finding_groups(normalized_reports, i18n);
-    // Deduplicate findings with the same title across rule sources; prefer
-    // non-"unknown." rule_ids, merge occurrence counts.
-    let mut seen_titles: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
-    let mut deduped: Vec<FindingGroup> = Vec::with_capacity(collected.len());
-    for group in collected {
-        let key = group.title.trim().to_lowercase();
-        if let Some(&idx) = seen_titles.get(&key) {
-            let existing = &mut deduped[idx];
-            if existing.rule_id.starts_with("unknown.") && !group.rule_id.starts_with("unknown.") {
-                let merged = existing.occurrence_count + group.occurrence_count;
-                *existing = group;
-                existing.occurrence_count = merged;
-            } else {
-                existing.occurrence_count += group.occurrence_count;
-            }
-        } else {
-            seen_titles.insert(key, deduped.len());
-            deduped.push(group);
-        }
-    }
-    let mut top_issues = deduped;
-    top_issues.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
+    // One group per rule across all pages, in the order the batch JSON's
+    // `top_actions` lists them (plan 64).
+    let top_issues: Vec<FindingGroup> =
+        crate::audit::normalized::aggregate_batch_findings(normalized_reports)
+            .into_iter()
+            .map(|batch| {
+                finding_group_from_normalized(
+                    i18n,
+                    &NormalizedFindingAccumulator {
+                        severity: batch.finding.severity,
+                        count: batch.finding.occurrence_count,
+                        finding: batch.finding,
+                        urls: batch.urls,
+                    },
+                )
+            })
+            .collect();
 
     let issue_frequency: Vec<IssueFrequency> = top_issues
         .iter()
@@ -214,9 +206,8 @@ pub fn build_batch_presentation_with_normalized(
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            let per_url_groups = normalized_finding_groups(i18n, nr);
-            let mut sorted = per_url_groups;
-            sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
+            // Already in the page's finding order (plan 58).
+            let sorted = normalized_finding_groups(i18n, nr);
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
 
@@ -1383,39 +1374,6 @@ struct NormalizedFindingAccumulator {
     urls: Vec<String>,
 }
 
-fn collect_batch_finding_groups(
-    normalized_reports: &[NormalizedReport],
-    i18n: &I18n,
-) -> Vec<FindingGroup> {
-    let mut groups: HashMap<String, NormalizedFindingAccumulator> = HashMap::new();
-    for report in normalized_reports {
-        for finding in &report.findings {
-            let base_severity = crate::taxonomy::rules::RULES
-                .iter()
-                .find(|r| r.id == finding.rule_id)
-                .map(|r| r.severity)
-                .unwrap_or(finding.severity);
-            let entry = groups
-                .entry(finding.aggregation_key.clone())
-                .or_insert_with(|| NormalizedFindingAccumulator {
-                    finding: finding.clone(),
-                    severity: base_severity,
-                    count: 0,
-                    urls: Vec::new(),
-                });
-            entry.count += finding.occurrence_count;
-            if !entry.urls.contains(&report.url) {
-                entry.urls.push(report.url.clone());
-            }
-        }
-    }
-
-    groups
-        .values()
-        .map(|acc| finding_group_from_normalized(i18n, acc))
-        .collect()
-}
-
 fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<FindingGroup> {
     normalized
         .findings
@@ -1459,7 +1417,9 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
         execution_priority,
     ) = if let Some(expl) = explanation {
         (
-            expl.customer_title_for(locale).to_string(),
+            // The rule's taxonomy title, as in the JSON, not the explanation's
+            // criterion fallback (plans 59, 64).
+            localized_finding_text(locale, finding).0,
             expl.customer_description_for(locale).to_string(),
             expl.user_impact_for(locale).to_string(),
             derive_business_impact(

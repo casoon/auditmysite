@@ -505,11 +505,19 @@ pub(super) fn render_batch_decision_actions(
             severity_label_i18n(group.severity, i18n),
             crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
             effort_label_i18n(group.effort, i18n),
-            format!(
-                "{} occurrences / {} URLs",
-                group.occurrence_count,
-                group.affected_urls.len()
-            ),
+            if en {
+                format!(
+                    "{} occurrences / {} URLs",
+                    group.occurrence_count,
+                    group.affected_urls.len()
+                )
+            } else {
+                format!(
+                    "{} Vorkommen / {} URLs",
+                    group.occurrence_count,
+                    group.affected_urls.len()
+                )
+            },
         ]);
         count += 1;
     }

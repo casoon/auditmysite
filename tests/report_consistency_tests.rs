@@ -1494,3 +1494,69 @@ fn finding_order_does_not_depend_on_input_order() {
     };
     assert_eq!(ids(&a), ids(&b));
 }
+
+#[test]
+fn batch_top_actions_match_pdf_and_aggregate_across_pages() {
+    use auditmysite::output::builder::build_batch_presentation;
+
+    let mut a = make_parity_report(false);
+    a.url = "https://example.com/a".to_string();
+    let mut b = make_parity_report(true);
+    b.url = "https://example.com/b".to_string();
+    let batch = BatchReport::from_reports(vec![a, b], vec![], 100);
+
+    let json: serde_json::Value =
+        serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON must render"))
+            .expect("batch JSON must parse");
+    let actions = json["summary"]["top_actions"]
+        .as_array()
+        .expect("top_actions");
+    let json_rows: Vec<(String, u64, u64)> = actions
+        .iter()
+        .map(|a| {
+            (
+                a["rule_id"].as_str().unwrap().to_string(),
+                a["occurrence_count"].as_u64().unwrap(),
+                a["url_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+
+    let pres = build_batch_presentation(&batch);
+    let pdf_rows: Vec<(String, u64, u64)> = pres
+        .top_issues
+        .iter()
+        .take(8)
+        .map(|g| {
+            (
+                g.rule_id.clone(),
+                g.occurrence_count as u64,
+                g.affected_urls.len() as u64,
+            )
+        })
+        .collect();
+
+    // One row per rule, summed over both pages, same order as the PDF.
+    assert_eq!(
+        json_rows,
+        [
+            ("a11y.aria_valid_attr_value.invalid".to_string(), 4, 2),
+            ("a11y.aria_allowed_attr.invalid".to_string(), 2, 2),
+            ("a11y.structure.missing".to_string(), 40, 2),
+        ]
+    );
+    assert_eq!(pdf_rows, json_rows);
+    // The impact sentence quotes the batch-wide count, not one page's.
+    let structure = actions
+        .iter()
+        .find(|a| a["rule_id"] == "a11y.structure.missing")
+        .unwrap();
+    assert!(
+        structure["expected_impact"]
+            .as_str()
+            .unwrap()
+            .contains("40 occurrences"),
+        "{}",
+        structure["expected_impact"]
+    );
+}

@@ -257,16 +257,6 @@ pub(super) fn humanize_action_text(i18n: &I18n, action: &str) -> String {
     action.to_string()
 }
 
-pub(super) fn impact_score(group: &FindingGroup) -> u32 {
-    let severity_weight = match group.severity {
-        Severity::Critical => 4,
-        Severity::High => 3,
-        Severity::Medium => 2,
-        Severity::Low => 1,
-    };
-    severity_weight * group.occurrence_count as u32
-}
-
 pub(super) fn derive_user_effect_from_action(i18n: &I18n, action: &str, effort: Effort) -> String {
     let a = action.to_lowercase();
     if a.contains("buttons")
