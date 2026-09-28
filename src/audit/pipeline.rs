@@ -729,7 +729,7 @@ pub async fn audit_page(
             warn!("Console collection setup failed (desktop): {}", e);
         }
     }
-    browser.navigate(page, url).await?;
+    let desktop_refresh = browser.navigate(page, url).await?;
     if let (Some(sec), Some(details)) = (
         &mut security,
         collect_certificate_details(&mut security_events).await,
@@ -783,7 +783,7 @@ pub async fn audit_page(
             warn!("Console collection setup failed (mobile): {}", e);
         }
     }
-    browser.navigate(page, url).await?;
+    let mobile_refresh = browser.navigate(page, url).await?;
 
     // ── Post-navigation: consent banner may reappear after mobile reload ──────
     let mobile_consent = handle_post_navigation(page, config.dismiss_consent).await;
@@ -998,6 +998,16 @@ pub async fn audit_page(
     };
     report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
+    report.accessibility.execution.navigation.meta_refresh =
+        [("desktop", desktop_refresh), ("mobile", mobile_refresh)]
+            .into_iter()
+            .filter_map(|(viewport, refresh)| {
+                refresh.map(|refresh| crate::audit::ViewportMetaRefresh {
+                    viewport: viewport.to_string(),
+                    refresh,
+                })
+            })
+            .collect();
     report.accessibility.execution.consent = crate::audit::ConsentAuditState {
         detected: report.consent_banner_detected,
         cmp: report.consent_banner_cmp.clone(),
@@ -1159,6 +1169,7 @@ async fn collect_navigation_snapshot(
             .and_then(|v| v.as_str())
             .map(str::to_string),
         stability: Vec::new(),
+        meta_refresh: Vec::new(),
     }
 }
 

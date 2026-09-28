@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Meta-Refresh-Zwischenseiten im JSON, 2026-09-28 (Plan 47):** Dass `navigate` eine
+  Zwischenseite (kurzer `<meta http-equiv="refresh">`) verfolgt oder eine echte Weiterleitung per
+  Refresh abgebrochen hat, stand bisher nur im Log. Jetzt fuehrt
+  `accessibility.execution.navigation.meta_refresh` je Viewport-Durchgang `outcome`
+  (`interstitial_followed` | `redirect_not_followed`) und `hops`; ohne Refresh fehlt das Feld.
+- **Leere Ueberschrift mit eigenem Taxonomie-Eintrag, 2026-09-28 (Plan 56):** `headings/empty`
+  fiel auf `a11y.headings.missing` zurueck — „Fehlende Ueberschriftenstruktur", Schwere High,
+  pauschal 20 Punkte Abzug. Eine leere Ueberschrift ist ein einzelner Defekt, keine fehlende
+  Gliederung. Jetzt `a11y.heading_empty.invalid` (Medium, 2,5–8 Punkte logarithmisch wie die
+  anderen Ueberschriftenregeln, Bereich Ueberschriften) mit eigener Erklaerung DE/EN.
 - **Fehlende Navigations- und Fussbereich-Landmark mit eigener Kennung, 2026-09-27 (Plan 56):**
   Die beiden Pruefungen in `landmarks.rs` vergaben keine `rule_id`, fielen damit auf ihr Kriterium
   zurueck und landeten im 1.3.1-Sammelbucket `a11y.structure.missing` („Missing semantic
