@@ -605,7 +605,7 @@ mod tests {
         crate::seo::schema::refresh_rule_assessments(&mut structured_data, fit.product_context());
         structured_data.rule_assessments[0]
             .manual_review
-            .push("Confirm that marked-up details are visible.".to_string());
+            .push(crate::seo::schema_rules::ManualReview::EventIsSinglePublicEvent);
         structured_data.content_parity = vec![crate::seo::schema_parity::ContentParityAssessment {
             node_index: 0,
             schema_type: "Product".to_string(),

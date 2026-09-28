@@ -686,16 +686,16 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     let status = match assessment.availability {
                         SchemaFeatureAvailability::Limited => format!(
                             "{} - {}",
-                            assessment.status_text(en),
+                            crate::seo::schema_rules::status_text(assessment, en),
                             i18n.t("pdf-seo-schema-rule-limited")
                         ),
                         SchemaFeatureAvailability::ContextDependent => format!(
                             "{} - {}",
-                            assessment.status_text(en),
+                            crate::seo::schema_rules::status_text(assessment, en),
                             i18n.t("pdf-seo-schema-rule-context-dependent")
                         ),
                         SchemaFeatureAvailability::General => {
-                            assessment.status_text(en).to_string()
+                            crate::seo::schema_rules::status_text(assessment, en).to_string()
                         }
                     };
                     let detail = if !assessment.missing_required.is_empty() {
@@ -719,7 +719,7 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                         format!(
                             "{} - {}",
                             assessment.schema_type,
-                            assessment.feature.label(en)
+                            crate::seo::schema_rules::feature_label(assessment.feature, en)
                         ),
                         status,
                         detail,
@@ -737,9 +737,9 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                             format!(
                                 "{} - {}",
                                 assessment.schema_type,
-                                assessment.feature.label(en)
+                                crate::seo::schema_rules::feature_label(assessment.feature, en)
                             ),
-                            crate::seo::schema_rules::manual_review_text(review, en),
+                            crate::seo::schema_rules::manual_review_text(*review, en).to_string(),
                         )
                     })
                 })

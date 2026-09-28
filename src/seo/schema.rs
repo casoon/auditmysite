@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use web_checks::structured_data::StructuralIssue;
 
 /// Structured data analysis
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -422,32 +423,30 @@ pub(crate) fn analyze_structured_data_payloads(
     let mut json_ld = Vec::new();
     let mut schema_issues = Vec::new();
 
-    for (block_index, raw) in scripts.iter().enumerate() {
-        match serde_json::from_str::<serde_json::Value>(raw) {
-            Ok(value) => {
-                normalize_json_ld_document(&value, block_index, &mut json_ld, &mut schema_issues)
-            }
-            Err(error) => {
-                json_ld.push(JsonLdSchema {
-                    schema_type: String::new(),
-                    schema_types: Vec::new(),
-                    content: serde_json::json!({
-                        "raw": raw.chars().take(200).collect::<String>()
-                    }),
-                    is_valid: false,
-                });
-                schema_issues.push(SchemaIssue {
-                    schema_type: "JSON-LD".to_string(),
-                    severity: SchemaIssueSeverity::Required,
-                    issue_type: "jsonld_parse_error".to_string(),
-                    message: format!(
-                        "JSON-LD block {} contains invalid JSON: {}",
-                        block_index + 1,
-                        error
-                    ),
-                });
-            }
+    for (block_index, (raw, block)) in scripts
+        .iter()
+        .zip(web_checks::structured_data::parse_blocks(scripts))
+        .enumerate()
+    {
+        if block.json_error.is_some() || block.issues.contains(&StructuralIssue::EmptyScript) {
+            json_ld.push(JsonLdSchema {
+                schema_type: String::new(),
+                schema_types: Vec::new(),
+                content: serde_json::json!({
+                    "raw": raw.chars().take(200).collect::<String>()
+                }),
+                is_valid: false,
+            });
         }
+        for issue in &block.issues {
+            schema_issues.push(structural_issue(*issue, block_index, &block));
+        }
+        json_ld.extend(block.nodes.into_iter().map(|node| JsonLdSchema {
+            schema_type: node.types.first().cloned().unwrap_or_default(),
+            schema_types: node.types,
+            content: node.content,
+            is_valid: true,
+        }));
     }
 
     let mut types = Vec::new();
@@ -562,168 +561,62 @@ fn rule_assessment_issues(
                 "{}: required property condition \"{}\" is not met for {}",
                 assessment.schema_type,
                 property,
-                assessment.feature.label(true)
+                crate::seo::schema_rules::feature_label(assessment.feature, true)
             ),
         })
         .collect()
 }
 
-fn normalize_json_ld_document(
-    value: &serde_json::Value,
+/// A structural problem from `web_checks::structured_data` as a stored
+/// schema issue: stable key for the report, canonical English message (#406).
+fn structural_issue(
+    issue: StructuralIssue,
     block_index: usize,
-    schemas: &mut Vec<JsonLdSchema>,
-    issues: &mut Vec<SchemaIssue>,
-) {
-    match value {
-        serde_json::Value::Array(items) => {
-            if items.is_empty() {
-                issues.push(structural_issue(
-                    "jsonld_empty_document",
-                    format!("JSON-LD block {} contains no nodes", block_index + 1),
-                ));
-                return;
-            }
-            for item in items {
-                normalize_json_ld_root(item, false, schemas, issues);
-            }
-        }
-        serde_json::Value::Object(_) => {
-            normalize_json_ld_root(value, false, schemas, issues);
-        }
-        _ => issues.push(structural_issue(
-            "jsonld_invalid_root",
+    block: &web_checks::structured_data::Block,
+) -> SchemaIssue {
+    let block_no = block_index + 1;
+    let (issue_type, message) = match issue {
+        StructuralIssue::InvalidJson | StructuralIssue::EmptyScript => (
+            "jsonld_parse_error",
             format!(
-                "JSON-LD block {} has a non-object root value",
-                block_index + 1
+                "JSON-LD block {block_no} contains invalid JSON: {}",
+                block
+                    .json_error
+                    .as_deref()
+                    .unwrap_or("EOF while parsing a value at line 1 column 0")
             ),
-        )),
-    }
-}
-
-fn normalize_json_ld_root(
-    value: &serde_json::Value,
-    context_inherited: bool,
-    schemas: &mut Vec<JsonLdSchema>,
-    issues: &mut Vec<SchemaIssue>,
-) {
-    let Some(object) = value.as_object() else {
-        issues.push(structural_issue(
+        ),
+        StructuralIssue::InvalidRoot => (
             "jsonld_invalid_root",
-            "JSON-LD array entries must be objects".to_string(),
-        ));
-        return;
-    };
-
-    let has_context = context_inherited || has_schema_org_context(object.get("@context"));
-    if !has_context {
-        issues.push(structural_issue(
+            format!("JSON-LD block {block_no} has a root or array entry that is not an object"),
+        ),
+        StructuralIssue::EmptyDocument => (
+            "jsonld_empty_document",
+            format!("JSON-LD block {block_no} contains no nodes"),
+        ),
+        StructuralIssue::GraphNotArray => (
+            "jsonld_graph_not_array",
+            "JSON-LD @graph value is not an array".to_string(),
+        ),
+        // Not schema.org, no context at all, or a @graph container without
+        // one: the report treats all three as a missing schema.org context.
+        StructuralIssue::MissingContext
+        | StructuralIssue::NonSchemaOrgContext
+        | StructuralIssue::GraphWithoutContext => (
             "jsonld_missing_context",
             "No schema.org @context found for JSON-LD node".to_string(),
-        ));
-    }
-
-    let root_types = extract_types(value);
-    let graph = object.get("@graph");
-
-    if !root_types.is_empty() {
-        schemas.push(JsonLdSchema {
-            schema_type: root_types.first().cloned().unwrap_or_default(),
-            schema_types: root_types,
-            content: value.clone(),
-            is_valid: true,
-        });
-    } else if graph.is_none() {
-        schemas.push(JsonLdSchema {
-            schema_type: String::new(),
-            schema_types: Vec::new(),
-            content: value.clone(),
-            is_valid: true,
-        });
-        issues.push(structural_issue(
+        ),
+        StructuralIssue::MissingType => (
             "jsonld_missing_type",
             "JSON-LD node has no @type".to_string(),
-        ));
-    }
-
-    if let Some(graph) = graph {
-        let Some(items) = graph.as_array() else {
-            issues.push(structural_issue(
-                "jsonld_graph_not_array",
-                "JSON-LD @graph value is not an array".to_string(),
-            ));
-            return;
-        };
-        if items.is_empty() {
-            issues.push(structural_issue(
-                "jsonld_empty_document",
-                "JSON-LD @graph contains no nodes".to_string(),
-            ));
-        }
-        for item in items {
-            normalize_json_ld_root(item, has_context, schemas, issues);
-        }
-    }
-}
-
-fn structural_issue(issue_type: &str, message: String) -> SchemaIssue {
+        ),
+    };
     SchemaIssue {
         schema_type: "JSON-LD".to_string(),
         severity: SchemaIssueSeverity::Required,
         issue_type: issue_type.to_string(),
         message,
     }
-}
-
-fn has_schema_org_context(context: Option<&serde_json::Value>) -> bool {
-    match context {
-        Some(serde_json::Value::String(value)) => {
-            matches!(
-                value.trim_end_matches('/'),
-                "https://schema.org" | "http://schema.org"
-            )
-        }
-        Some(serde_json::Value::Array(values)) => values
-            .iter()
-            .any(|value| has_schema_org_context(Some(value))),
-        Some(serde_json::Value::Object(values)) => values
-            .get("@vocab")
-            .is_some_and(|value| has_schema_org_context(Some(value))),
-        _ => false,
-    }
-}
-
-fn extract_types(schema: &serde_json::Value) -> Vec<String> {
-    let mut types = Vec::new();
-
-    if let Some(type_str) = schema["@type"].as_str() {
-        if let Some(normalized) = normalize_schema_type(type_str) {
-            types.push(normalized);
-        }
-    } else if let Some(type_arr) = schema["@type"].as_array() {
-        for t in type_arr {
-            if let Some(s) = t.as_str() {
-                if let Some(normalized) = normalize_schema_type(s) {
-                    types.push(normalized);
-                }
-            }
-        }
-    }
-
-    types
-}
-
-fn normalize_schema_type(value: &str) -> Option<String> {
-    let trimmed = value.trim().trim_end_matches('/');
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(
-        trimmed
-            .rsplit(['/', '#'])
-            .next()
-            .unwrap_or(trimmed)
-            .to_string(),
-    )
 }
 
 #[cfg(test)]

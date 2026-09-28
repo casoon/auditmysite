@@ -32,6 +32,34 @@ short current-state summary. Newest entries first (unchanged order from before t
   Felder aus der Gesamtzahl), `top_actions` fuehrt `url_count`. Neue Tests: JSON-PDF-Paritaet fuer
   Einzel- und Batch-Bericht, Reihenfolge unabhaengig von der Eingabe, sichtbare und fokussierte
   Parallel-Seiten.
+- **Strukturierte Daten aus `web-checks` 0.4, 2026-09-28:** Regeltabellen, JSON-LD-Normalisierung
+  und Bewertung (`schema_rules.rs`, Normalisierungshaelfte von `schema.rs`) liegen jetzt in
+  `web_checks::structured_data`, geteilt mit astro-post-audit (Plan barrierlab/02, Entscheidungen
+  D1–D8). Hier bleiben CDP-Erhebung, Inhaltsabgleich (`schema_parity`), Mikrodaten/RDFa und die
+  Berichtstexte (`feature_label`, `status_text`, `manual_review_text`). Aenderungen: Breadcrumb-Name
+  darf aus `item.name` kommen (tagesschau.de: drei falsche Pflichtbefunde weniger); FAQPage verlangt
+  `acceptedAnswer` je Frage; NewsArticle empfiehlt `publisher`, WebSite `potentialAction` (Qualitaet
+  von WebSite jetzt ueber 5 statt 4 Angaben); `RULESET_VERSION` 2026-09-28. **JSON-Form:**
+  `rule_assessments[].manual_review` enthaelt Kennungen (`merchant_listing_context`, …) statt
+  englischer Saetze (#406-Muster; das PDF leitet die Texte ab). Strukturmeldungen im JSON nennen den
+  Block, Kennungen (`jsonld_*`) unveraendert.
+- **Meta-Laengen und OpenGraph aus `web-checks` 0.3, 2026-09-28:** Titel- und
+  Description-Laenge kamen an vier Stellen (`meta.rs`, `serp.rs`, zweimal `profile.rs`) mit
+  denselben Grenzen 30–60 / 120–160 und zaehlten **Bytes**: Jeder Umlaut zaehlte doppelt, ein
+  deutscher Titel mit 60 Zeichen konnte „zu lang" sein. Jetzt `web_checks::meta` (Zeichen, Leerraum
+  wie im Browser zusammengefasst), geteilt mit astro-post-audit. OpenGraph/Twitter: Tag mit leerem
+  `content` gilt als fehlend (vorher vorhanden), eine Gruppe nur aus leeren Tags als nicht
+  vorhanden; Vollstaendigkeit ueber `web_checks::social`. Neu in `meta_issues`: ungueltiger
+  `twitter:card`-Wert und relatives `og:image` (je Medium), bisher nur in astro-post-audit geprueft.
+  web-checks von 0.1 auf 0.3 (robots unveraendert).
+- **accname-Differential mit berechnetem Stil, a11y-core 0.11.3, 2026-09-28:** `accname-diff`
+  rechnet die eigene Seite jetzt mit `accname::name_rendered`: `display`/`visibility` kommen aus
+  einem CDP-`DOMSnapshot` (`fetch_dom_document_with_layout`, `LayoutStyles`,
+  `RenderedCdpDocument`), ebenso die Leerraum-Textknoten, die `DOM.getDocument` auslaesst. Die
+  geteilten Regeln laufen unveraendert ueber `fetch_dom_document`. Korpus (35 Seiten): ein echtes
+  Abweichungsmuster statt sechs (2 Vorkommen, per Skript eingefuegter Text auf
+  bundesregierung.de) — „EU-Arktis", „Rechenpower", „abholen*", ein `display:none`- und ein
+  `<br>`-Fall stimmen jetzt mit Chrome ueberein.
 - **a11y-core 0.11.2, 2026-09-28 (Plan 52):** `accname`, `a11y-dom`, `a11y-report`, `a11y-rules`
   von 0.11.0 auf 0.11.2. 0.11.1 (Leerzeichen zwischen Inline-Elementen nach Tag) ist uebersprungen
   und zurueckgezogen: Im accname-Korpus fiel die Namensgleichheit von 97,7 % auf 92,9 %, weil per

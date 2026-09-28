@@ -3,6 +3,7 @@
 //! No live search calls, no ML. Pure heuristics over already-collected data.
 
 use serde::{Deserialize, Serialize};
+use web_checks::meta::LengthClass;
 
 use crate::seo::SeoAnalysis;
 
@@ -110,8 +111,8 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAn
             },
         )),
         Some(title) => {
-            let len = title.len();
-            let status = if !(30..=60).contains(&len) {
+            let len = web_checks::meta::length(title);
+            let status = if web_checks::meta::TITLE.classify(title) != LengthClass::Ok {
                 SerpSignalStatus::Warning
             } else {
                 SerpSignalStatus::Ok
@@ -168,8 +169,8 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAn
             },
         )),
         Some(desc) => {
-            let len = desc.len();
-            let status = if !(120..=160).contains(&len) {
+            let len = web_checks::meta::length(desc);
+            let status = if web_checks::meta::DESCRIPTION.classify(desc) != LengthClass::Ok {
                 SerpSignalStatus::Warning
             } else {
                 SerpSignalStatus::Ok

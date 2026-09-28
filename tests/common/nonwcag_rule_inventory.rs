@@ -1,6 +1,6 @@
 //! Canonical inventories of the enumerable checks in three non-WCAG modules
 //! (#558): security headers, `best_practices::vulnerable_libs`, and
-//! `seo::schema_rules`'s `SchemaFeature` catalog.
+//! the `SchemaFeature` catalog (from `web_checks::structured_data`).
 //!
 //! Unlike `rule_inventory.rs`'s WCAG scan, none of these three modules share
 //! a single uniform data shape like `RuleMetadata` — each function below
@@ -23,13 +23,6 @@ fn vulnerable_libs_path() -> PathBuf {
         .join("src")
         .join("best_practices")
         .join("vulnerable_libs.rs")
-}
-
-fn schema_rules_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("seo")
-        .join("schema_rules.rs")
 }
 
 /// Read a source file and drop everything from its `#[cfg(test)]` module
@@ -152,47 +145,14 @@ pub fn canonical_vulnerable_library_ids() -> BTreeSet<String> {
         .collect()
 }
 
-/// `CamelCase` -> `snake_case`, matching `#[serde(rename_all = "snake_case")]`'s
-/// behavior for the plain-word enum variants used here (no acronyms/digits
-/// to special-case in `SchemaFeature`).
-fn to_snake_case(camel: &str) -> String {
-    let mut out = String::new();
-    for (i, c) in camel.char_indices() {
-        if c.is_uppercase() && i > 0 {
-            out.push('_');
-        }
-        out.extend(c.to_lowercase());
-    }
-    out
-}
-
-/// Every variant of `pub enum SchemaFeature { ... }`, converted to the
-/// snake_case form `#[serde(rename_all = "snake_case")]` produces (the same
-/// strings `SchemaFeature::key()` hand-maintains in parallel — both must
-/// agree, which is exactly what this inventory can catch drifting).
-fn extract_schema_feature_variants(source: &str) -> Vec<String> {
-    let marker = "pub enum SchemaFeature {";
-    let Some(start) = source.find(marker) else {
-        return Vec::new();
-    };
-    let body_start = start + marker.len();
-    let end = source[body_start..]
-        .find('}')
-        .map(|i| body_start + i)
-        .unwrap_or(source.len());
-    source[body_start..end]
-        .lines()
-        .map(|l| l.trim().trim_end_matches(','))
-        .filter(|l| !l.is_empty() && !l.starts_with("//"))
-        .map(to_snake_case)
-        .collect()
-}
-
 /// The canonical, deduplicated list of every `SchemaFeature` key
 /// `seo::schema_rules` can currently produce.
+///
+/// The catalog lives in `web_checks::structured_data` since web-checks 0.4;
+/// `SchemaFeature::ALL` is its own list, so no source scan is needed here.
 pub fn canonical_schema_feature_ids() -> BTreeSet<String> {
-    let source = production_source(&schema_rules_path());
-    extract_schema_feature_variants(&source)
-        .into_iter()
+    auditmysite::seo::schema_rules::SchemaFeature::ALL
+        .iter()
+        .map(|feature| feature.key().to_string())
         .collect()
 }
