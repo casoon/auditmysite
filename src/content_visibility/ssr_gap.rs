@@ -141,7 +141,7 @@ pub async fn measure_ssr_content_gap(
     }
 
     let without_js_chars = match browser.navigate(page, url).await {
-        Ok(()) => match read_visible_content_chars(page).await {
+        Ok(_) => match read_visible_content_chars(page).await {
             Ok(chars) => Some(chars),
             Err(e) => {
                 warn!(

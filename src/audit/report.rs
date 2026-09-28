@@ -107,6 +107,16 @@ pub struct NavigationSnapshot {
     pub ready_state: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stability: Vec<crate::interaction::stability::StabilityProvenance>,
+    /// Short meta refreshes met while loading, per viewport pass (Plan 47).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub meta_refresh: Vec<ViewportMetaRefresh>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ViewportMetaRefresh {
+    pub viewport: String,
+    #[serde(flatten)]
+    pub refresh: crate::browser::MetaRefresh,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -1226,6 +1236,26 @@ impl BatchReport {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn meta_refresh_serializes_flat_per_viewport() {
+        let nav = NavigationSnapshot {
+            meta_refresh: vec![ViewportMetaRefresh {
+                viewport: "desktop".to_string(),
+                refresh: crate::browser::MetaRefresh {
+                    outcome: crate::browser::MetaRefreshOutcome::InterstitialFollowed,
+                    hops: 1,
+                },
+            }],
+            ..Default::default()
+        };
+        let json = serde_json::to_value(&nav).unwrap();
+        assert_eq!(
+            json["meta_refresh"],
+            serde_json::json!([{"viewport": "desktop", "outcome": "interstitial_followed", "hops": 1}])
+        );
+        let empty = serde_json::to_value(NavigationSnapshot::default()).unwrap();
+        assert!(empty.get("meta_refresh").is_none());
+    }
     use super::*;
     use crate::wcag::WcagResults;
 

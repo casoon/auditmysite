@@ -51,7 +51,8 @@ pub use report::{
     ExecutionStatus, ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots,
     PerformanceResults, RecurringRule, RedirectChain, RobotsSitemapConflict, SampleMetadata,
     ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult,
-    ViewportAuditData, ViewportDefinition, ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
+    ViewportScreenshot,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

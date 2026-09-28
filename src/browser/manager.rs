@@ -367,9 +367,13 @@ impl BrowserManager {
     /// meta-refresh redirect to another page is not followed: the requested page
     /// is loaded again, its pending refresh is cancelled once it has finished
     /// loading, and it is audited as served.
-    pub async fn navigate(&self, page: &Page, url: &str) -> Result<()> {
+    ///
+    /// Returns what was done about a short meta refresh, `None` when the
+    /// loaded document had none.
+    pub async fn navigate(&self, page: &Page, url: &str) -> Result<Option<MetaRefresh>> {
         self.load(page, url).await?;
-        if follow_refresh_interstitial(page, url).await == InterstitialOutcome::LeftRequestedPage {
+        let refresh = follow_refresh_interstitial(page, url).await;
+        if refresh.is_some_and(|r| r.outcome == MetaRefreshOutcome::RedirectNotFollowed) {
             info!(
                 "Meta refresh on {} leads to another page; auditing the requested page as served",
                 url
@@ -377,7 +381,7 @@ impl BrowserManager {
             self.load(page, url).await?;
             cancel_pending_refresh(page).await;
         }
-        Ok(())
+        Ok(refresh)
     }
 
     /// Navigate once (with retry) and wait until the document is interactive.
@@ -554,7 +558,7 @@ impl std::fmt::Debug for BrowserManager {
 /// loaded document as a transient interstitial candidate.
 const INTERSTITIAL_REFRESH_MAX_SECS: u64 = 5;
 /// Upper bound on consecutive refreshes followed for one navigation.
-const INTERSTITIAL_MAX_HOPS: usize = 3;
+const INTERSTITIAL_MAX_HOPS: u32 = 3;
 /// Extra time, beyond the refresh delay, for the next document to become interactive.
 const INTERSTITIAL_LOAD_BUDGET: Duration = Duration::from_secs(10);
 
@@ -563,12 +567,23 @@ const META_REFRESH_CONTENT_JS: &str = r#"(() => {
   return m ? (m.getAttribute('content') || '') : null;
 })()"#;
 
-#[derive(Debug, PartialEq, Eq)]
-enum InterstitialOutcome {
-    /// No short meta refresh, or the refresh chain ended on the requested URL.
-    OnRequestedPage,
-    /// A short meta refresh was followed and ended on a different URL.
-    LeftRequestedPage,
+/// What [`BrowserManager::navigate`] did about a short `<meta http-equiv="refresh">`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MetaRefresh {
+    pub outcome: MetaRefreshOutcome,
+    /// Refreshes followed before the chain settled.
+    pub hops: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetaRefreshOutcome {
+    /// The refresh chain ended on the requested URL: the loaded document was a
+    /// transient interstitial, and the page after it is what was audited.
+    InterstitialFollowed,
+    /// The refresh chain ended on another URL: the requested page was loaded
+    /// again with its refresh cancelled, and audited as served.
+    RedirectNotFollowed,
 }
 
 /// Delay in seconds of a meta-refresh `content` value (`"2; url=/x"`, `"0"`)
@@ -630,7 +645,9 @@ async fn cancel_pending_refresh(page: &Page) {
 
 /// Follows short meta refreshes until the main frame holds a document without
 /// one, then reports whether that document is the requested URL.
-async fn follow_refresh_interstitial(page: &Page, url: &str) -> InterstitialOutcome {
+///
+/// `None` when the loaded document had no short meta refresh.
+async fn follow_refresh_interstitial(page: &Page, url: &str) -> Option<MetaRefresh> {
     let mut hops = 0;
     while hops < INTERSTITIAL_MAX_HOPS {
         let Some(delay) = pending_short_refresh(page).await else {
@@ -683,20 +700,21 @@ async fn follow_refresh_interstitial(page: &Page, url: &str) -> InterstitialOutc
         }
     }
     if hops == 0 {
-        return InterstitialOutcome::OnRequestedPage;
+        return None;
     }
-    match main_frame(page).await {
+    let outcome = match main_frame(page).await {
         Some(frame) if !same_document_url(&frame.url, url) => {
-            InterstitialOutcome::LeftRequestedPage
+            MetaRefreshOutcome::RedirectNotFollowed
         }
         _ => {
             info!(
                 "Refresh interstitial on {} resolved after {} hop(s)",
                 url, hops
             );
-            InterstitialOutcome::OnRequestedPage
+            MetaRefreshOutcome::InterstitialFollowed
         }
-    }
+    };
+    Some(MetaRefresh { outcome, hops })
 }
 
 #[cfg(test)]

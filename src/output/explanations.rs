@@ -2974,6 +2974,28 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
+        "a11y.heading_empty.invalid",
+        RuleExplanation {
+            customer_title: "Leere Überschrift",
+            customer_title_en: "Empty heading",
+            customer_description: "Ein Überschriften-Element hat keinen Text. Es steht in der Gliederung der Seite, sagt aber nichts.",
+            customer_description_en: "A heading element has no text. It appears in the page outline but says nothing.",
+            user_impact: "Screenreader-Nutzer navigieren über die Überschriftenliste und treffen auf einen Eintrag ohne Namen.",
+            user_impact_en: "Screen reader users navigate via the list of headings and hit an entry without a name.",
+            typical_cause: "Überschriften-Tags als Abstandshalter oder für Icons, oder CMS-Felder, die leer bleiben, während das Tag trotzdem ausgegeben wird.",
+            typical_cause_en: "Heading tags used as spacers or for icons, or CMS fields left empty while the tag is still rendered.",
+            recommendation: "Leere Überschriften entfernen oder mit einem sinnvollen Text füllen; Abstände per CSS setzen.",
+            recommendation_en: "Remove empty headings or give them meaningful text; create spacing with CSS.",
+            technical_note: "Das Tag nur rendern, wenn der Titel vorhanden ist. Ein Icon allein benennt keine Überschrift.",
+            technical_note_en: "Render the tag only when the title exists. An icon alone does not name a heading.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<h2></h2>\n<p>Our services</p>"),
+            example_good: Some("<h2>Our services</h2>"),
+            example_decorative: None,
+        },
+    ),
+    (
         "a11y.main_heading.missing",
         RuleExplanation {
             customer_title: "Fehlende Hauptüberschrift (h1)",

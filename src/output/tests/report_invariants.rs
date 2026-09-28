@@ -367,8 +367,8 @@ fn severity_counts_low_nonzero_with_low_finding() {
 
 #[test]
 fn severity_counts_low_not_upgraded_by_taxonomy_floor() {
-    // Rule 1.3.1 has taxonomy.severity = High, but list_structure.rs deliberately
-    // generates Severity::Low for minor cases (empty list). Before #288 the
+    // Rule 1.3.1 has taxonomy.severity = High, but rules may deliberately
+    // generate Severity::Low for minor cases (empty list). Before #288 the
     // taxonomy floor max(Low, High) = High silently upgraded these to High,
     // making severity_counts.low always 0 in practice.
     let mut results = WcagResults::new();
