@@ -311,11 +311,24 @@ impl BrowserManager {
         use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 
-        let page = self.browser.new_page("about:blank").await.map_err(|e| {
-            AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to create new page: {}", e),
-            }
-        })?;
+        use chromiumoxide::cdp::browser_protocol::target::CreateTargetParams;
+        // Own window per page: tabs sharing a window are hidden except the
+        // active one, and a hidden page never runs requestAnimationFrame and
+        // has no focus. In a batch that timed out the tab walk on 7 of 10
+        // pages and measured focus differently than a single-URL run of the
+        // same page (plan 62).
+        let target = CreateTargetParams::builder()
+            .url("about:blank")
+            .new_window(true)
+            .build()
+            .expect("url is set");
+        let page =
+            self.browser
+                .new_page(target)
+                .await
+                .map_err(|e| AuditError::BrowserLaunchFailed {
+                    reason: format!("Failed to create new page: {}", e),
+                })?;
 
         // Patch navigator.webdriver = undefined on every document load.
         // --disable-blink-features=AutomationControlled removes it at the Blink level,
