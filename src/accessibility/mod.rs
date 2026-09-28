@@ -24,7 +24,10 @@ pub use accname_diff::{
     compare_with_text_transform as compare_accname_with_text_transform, AccnameCorpus, AccnameDiff,
     PageFailure as AccnamePageFailure, DEFAULT_MAX_SAMPLES,
 };
-pub use dom_document::{build_document, fetch_dom_document, CdpDocument};
+pub use dom_document::{
+    build_document, fetch_dom_document, fetch_dom_document_with_layout, CdpDocument, LayoutStyles,
+    RenderedCdpDocument,
+};
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;
 pub use extractor::{extract_ax_tree, extract_ax_tree_with_name_sources, ChromeNameSources};

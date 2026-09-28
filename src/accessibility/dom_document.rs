@@ -27,10 +27,16 @@
 //! verbunden — nicht über Position oder Tagnamen, die bei Shadow DOM und
 //! ignorierten Knoten auseinanderlaufen.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use a11y_dom::{Arena, ArenaNode, Document, NameSource as SharedNameSource, Node, Semantics};
+use a11y_dom::{
+    Arena, ArenaNode, ComputedStyle, Document, NameSource as SharedNameSource, Node, Rect,
+    Rendering, Semantics,
+};
 use chromiumoxide::cdp::browser_protocol::dom::{GetDocumentParams, Node as CdpNode};
+use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
+    CaptureSnapshotParams, CaptureSnapshotReturns,
+};
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
@@ -71,6 +77,9 @@ pub struct CdpDocument {
     backend_ids: Vec<Option<i64>>,
     /// Native AX-Werte, über die Backend-Node-ID verschlüsselt.
     ax: HashMap<i64, AxFacts>,
+    /// Berechnete Layout-Stile, sofern mit [`fetch_dom_document_with_layout`]
+    /// gebaut. Nur dann erfüllt [`CdpDocument::rendered`] Tier 3.
+    layout: Option<LayoutStyles>,
 }
 
 impl CdpDocument {
@@ -128,8 +137,198 @@ impl CdpDocument {
         self.facts(node)?.chrome_name_source.as_deref()
     }
 
+    /// Das Dokument mit Tier 3 ([`Rendering`]), wenn es mit Layout-Stilen
+    /// gebaut wurde ([`fetch_dom_document_with_layout`]). Eine eigene Sicht statt einer Implementierung auf
+    /// `CdpDocument` selbst: Es gibt nur `display` und `visibility`, keine
+    /// Geometrie — Regeln auf Tier 3 sollen daran nicht stillschweigend
+    /// laufen.
+    pub fn rendered(&self) -> Option<RenderedCdpDocument<'_>> {
+        Some(RenderedCdpDocument {
+            doc: self,
+            styles: self.layout.as_ref()?,
+        })
+    }
+
     fn facts(&self, node: ArenaNode<'_>) -> Option<&AxFacts> {
         self.ax.get(&self.backend_node_id(node)?)
+    }
+}
+
+/// Berechnetes `display` und `visibility` je Backend-Node-ID.
+///
+/// Aus einem `DOMSnapshot`: Elemente mit Layout-Objekt tragen ihre
+/// berechneten Werte. Ein Element **ohne** Layout-Objekt ist entweder
+/// `display: none` (oder liegt darunter) oder `display: contents` — Letzteres
+/// genau dann, wenn darunter etwas gerendert wird.
+///
+/// Dazu die Leerraum-Textknoten, die `DOM.getDocument` auslässt, der Snapshot
+/// aber führt: Zwischen `<span>a</span> <span>b</span>` trennt nur dieser
+/// Knoten die Wörter, sobald Inline-Elemente direkt anschließen.
+#[derive(Debug, Clone, Default)]
+pub struct LayoutStyles {
+    by_backend: HashMap<i64, LayoutStyle>,
+    /// Knoten, deren vorheriges Geschwister ein reiner Leerraum-Textknoten ist.
+    whitespace_before: HashSet<i64>,
+    /// Knoten, deren letztes Kind ein reiner Leerraum-Textknoten ist.
+    whitespace_last: HashSet<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LayoutStyle {
+    display: String,
+    visibility: Option<String>,
+}
+
+impl LayoutStyles {
+    pub fn len(&self) -> usize {
+        self.by_backend.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_backend.is_empty()
+    }
+
+    /// Aus der Antwort von `DOMSnapshot.captureSnapshot` mit
+    /// `computedStyles = ["display", "visibility"]`.
+    pub fn from_snapshot(snapshot: &CaptureSnapshotReturns) -> Self {
+        let string = |i: i64| {
+            usize::try_from(i)
+                .ok()
+                .and_then(|i| snapshot.strings.get(i))
+        };
+        let mut by_backend = HashMap::new();
+        let mut whitespace_before = HashSet::new();
+        let mut whitespace_last = HashSet::new();
+        for document in &snapshot.documents {
+            let nodes = &document.nodes;
+            let (Some(backend), Some(types), Some(parents)) = (
+                nodes.backend_node_id.as_ref(),
+                nodes.node_type.as_ref(),
+                nodes.parent_index.as_ref(),
+            ) else {
+                continue;
+            };
+            let mut styles: Vec<Option<LayoutStyle>> = vec![None; backend.len()];
+            let mut renders_below = vec![false; backend.len()];
+            for (layout_index, &node_index) in document.layout.node_index.iter().enumerate() {
+                let Ok(node_index) = usize::try_from(node_index) else {
+                    continue;
+                };
+                if let Some(values) = document.layout.styles.get(layout_index) {
+                    let values = values.inner();
+                    styles[node_index] =
+                        values
+                            .first()
+                            .and_then(|d| string(*d.inner()))
+                            .map(|display| LayoutStyle {
+                                display: display.clone(),
+                                visibility: values.get(1).and_then(|v| string(*v.inner())).cloned(),
+                            });
+                }
+                // Jeder Vorfahre eines gerenderten Knotens hat etwas
+                // Gerendertes unter sich.
+                let mut current = parents.get(node_index).copied().unwrap_or(-1);
+                while let Ok(parent) = usize::try_from(current) {
+                    if renders_below[parent] {
+                        break;
+                    }
+                    renders_below[parent] = true;
+                    current = parents.get(parent).copied().unwrap_or(-1);
+                }
+            }
+            // Der Snapshot steht in Dokumentreihenfolge; je Elternknoten wird
+            // vermerkt, ob zuletzt ein Leerraum-Textknoten kam.
+            let values = nodes.node_value.as_ref();
+            let mut pending = vec![false; backend.len()];
+            for (i, id) in backend.iter().enumerate() {
+                let Some(parent) = parents.get(i).and_then(|p| usize::try_from(*p).ok()) else {
+                    continue;
+                };
+                let blank = types.get(i) == Some(&TEXT_NODE)
+                    && values
+                        .and_then(|v| v.get(i))
+                        .and_then(|v| string(*v.inner()))
+                        .is_some_and(|t| t.trim().is_empty());
+                if blank {
+                    pending[parent] = true;
+                    continue;
+                }
+                if std::mem::take(&mut pending[parent]) {
+                    whitespace_before.insert(*id.inner());
+                }
+            }
+            for (i, open) in pending.into_iter().enumerate() {
+                if open {
+                    whitespace_last.insert(*backend[i].inner());
+                }
+            }
+            for (i, id) in backend.iter().enumerate() {
+                if types.get(i) != Some(&ELEMENT_NODE) {
+                    continue;
+                }
+                let style = styles[i].take().unwrap_or_else(|| LayoutStyle {
+                    display: if renders_below[i] { "contents" } else { "none" }.to_string(),
+                    visibility: None,
+                });
+                by_backend.insert(*id.inner(), style);
+            }
+        }
+        Self {
+            by_backend,
+            whitespace_before,
+            whitespace_last,
+        }
+    }
+}
+
+/// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
+async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
+    let params = CaptureSnapshotParams::new(vec!["display".to_string(), "visibility".to_string()]);
+    let response = page
+        .execute(params)
+        .await
+        .map_err(|e| AuditError::AXTreeExtractionFailed {
+            reason: format!("DOMSnapshot.captureSnapshot fehlgeschlagen: {e}"),
+        })?;
+    Ok(LayoutStyles::from_snapshot(&response.result))
+}
+
+/// [`CdpDocument`] mit Tier 3, siehe [`CdpDocument::rendered`].
+pub struct RenderedCdpDocument<'d> {
+    doc: &'d CdpDocument,
+    styles: &'d LayoutStyles,
+}
+
+impl Document for RenderedCdpDocument<'_> {
+    type N<'a>
+        = ArenaNode<'a>
+    where
+        Self: 'a;
+
+    fn root(&self) -> Self::N<'_> {
+        self.doc.root()
+    }
+}
+
+impl Rendering for RenderedCdpDocument<'_> {
+    fn computed_style<'n>(&'n self, node: Self::N<'n>) -> Option<ComputedStyle> {
+        let style = self
+            .styles
+            .by_backend
+            .get(&self.doc.backend_node_id(node)?)?;
+        Some(ComputedStyle {
+            color: None,
+            background_color: None,
+            font_size_px: None,
+            font_weight: None,
+            display: Some(style.display.clone()),
+            visibility: style.visibility.clone(),
+        })
+    }
+
+    /// Keine Geometrie — siehe [`CdpDocument::rendered`].
+    fn bounds<'n>(&'n self, _node: Self::N<'n>) -> Option<Rect> {
+        None
     }
 }
 
@@ -233,12 +432,15 @@ fn local_name_of(node: &CdpNode) -> String {
 }
 
 /// Zustand beim Umkopieren des CDP-Baums in die Arena.
-struct Walk {
+struct Walk<'l> {
     builder: Option<a11y_dom::ArenaBuilder>,
     backend_ids: Vec<Option<i64>>,
+    /// Wenn gesetzt, werden die Leerraum-Textknoten ergänzt, die
+    /// `DOM.getDocument` auslässt (siehe [`LayoutStyles`]).
+    layout: Option<&'l LayoutStyles>,
 }
 
-impl Walk {
+impl Walk<'_> {
     /// Jeder Push in die Arena wird hier gespiegelt, damit Arena-Index und
     /// `backend_ids`-Index nicht auseinanderlaufen.
     fn record(&mut self, backend: Option<i64>) {
@@ -278,9 +480,25 @@ impl Walk {
     }
 
     fn children(&mut self, node: &CdpNode) {
+        let layout = self.layout;
+        let blank_before = |n: &CdpNode| {
+            layout.is_some_and(|l| l.whitespace_before.contains(n.backend_node_id.inner()))
+        };
         for child in node.children.iter().flatten() {
+            if blank_before(child) {
+                self.blank();
+            }
             self.node(child);
         }
+        if layout.is_some_and(|l| l.whitespace_last.contains(node.backend_node_id.inner())) {
+            self.blank();
+        }
+    }
+
+    /// Ein ergänzter Leerraum-Textknoten, ohne Backend-ID.
+    fn blank(&mut self) {
+        self.with(|b| b.text(" "));
+        self.record(None);
     }
 
     fn node(&mut self, node: &CdpNode) {
@@ -325,6 +543,10 @@ fn find_html(root: &CdpNode) -> Option<&CdpNode> {
 /// Getrennt von [`fetch_dom_document`], damit der Umbau ohne laufenden Browser
 /// geprüft werden kann.
 pub fn build_document(root: &CdpNode, ax_tree: &AXTree) -> Result<CdpDocument> {
+    build(root, ax_tree, None)
+}
+
+fn build(root: &CdpNode, ax_tree: &AXTree, layout: Option<LayoutStyles>) -> Result<CdpDocument> {
     let html = find_html(root).ok_or_else(|| AuditError::AXTreeExtractionFailed {
         reason: "DOM enthält kein <html>-Element".to_string(),
     })?;
@@ -332,6 +554,7 @@ pub fn build_document(root: &CdpNode, ax_tree: &AXTree) -> Result<CdpDocument> {
     let mut walk = Walk {
         builder: Some(Arena::builder()),
         backend_ids: Vec::new(),
+        layout: layout.as_ref(),
     };
     walk.node(html);
 
@@ -349,11 +572,31 @@ pub fn build_document(root: &CdpNode, ax_tree: &AXTree) -> Result<CdpDocument> {
         arena,
         backend_ids: walk.backend_ids,
         ax: index_ax_tree(ax_tree),
+        layout,
     })
 }
 
 /// Holt den vollständigen DOM über CDP und verbindet ihn mit dem AXTree.
 pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
+    let root = get_document(page).await?;
+    let doc = build_document(&root, ax_tree)?;
+    if doc.is_empty() {
+        warn!("DOM für die geteilten Regeln ist leer");
+    }
+    Ok(doc)
+}
+
+/// Wie [`fetch_dom_document`], dazu berechnetes `display`/`visibility` und die
+/// Leerraum-Textknoten aus einem `DOMSnapshot` — die Grundlage für
+/// [`CdpDocument::rendered`]. Für den accname-Differentiallauf; die geteilten
+/// Regeln laufen weiter über [`fetch_dom_document`].
+pub async fn fetch_dom_document_with_layout(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
+    let root = get_document(page).await?;
+    let layout = fetch_layout_styles(page).await?;
+    build(&root, ax_tree, Some(layout))
+}
+
+async fn get_document(page: &Page) -> Result<CdpNode> {
     let params = GetDocumentParams {
         // -1 = gesamter Teilbaum. Ein flacher Abruf mit Nachladen je Ebene
         // wäre ein CDP-Roundtrip pro Knoten.
@@ -368,18 +611,57 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
         .map_err(|e| AuditError::AXTreeExtractionFailed {
             reason: format!("DOM.getDocument fehlgeschlagen: {e}"),
         })?;
-
-    let doc = build_document(&response.result.root, ax_tree)?;
-    if doc.is_empty() {
-        warn!("DOM für die geteilten Regeln ist leer");
-    }
-    Ok(doc)
+    Ok(response.result.root.clone())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use a11y_dom::{elements, NodeKind};
+
+    /// Snapshot: `<div>` (block, gerendert) mit `<span>` ohne Layout-Objekt
+    /// über gerendertem Text (`display: contents`), einem Leerraum-Textknoten,
+    /// einem `<span>` ohne Gerendertes darunter (`none`) und einem
+    /// abschließenden Leerraum-Textknoten.
+    #[test]
+    fn layout_styles_leiten_contents_none_und_leerraum_ab() {
+        let snapshot: CaptureSnapshotReturns = serde_json::from_value(serde_json::json!({
+            "strings": ["block", "visible", "hidden", " ", "a"],
+            "documents": [{
+                "documentURL": 0, "title": 0, "baseURL": 0, "contentLanguage": 0,
+                "encodingName": 0, "publicId": 0, "systemId": 0, "frameId": 0,
+                "nodes": {
+                    "parentIndex": [-1, 0, 1, 2, 1, 1, 5, 1],
+                    "nodeType": [9, 1, 1, 3, 3, 1, 3, 3],
+                    "nodeValue": [-1, -1, -1, 4, 3, -1, 4, 3],
+                    "backendNodeId": [1, 2, 3, 4, 5, 6, 7, 8]
+                },
+                "layout": {
+                    "nodeIndex": [1, 3],
+                    "styles": [[0, 2], []],
+                    "bounds": [[0, 0, 1, 1], [0, 0, 1, 1]],
+                    "text": [-1, -1],
+                    "stackingContexts": {"index": []}
+                },
+                "textBoxes": {"layoutIndex": [], "bounds": [], "start": [], "length": []}
+            }]
+        }))
+        .unwrap();
+        let styles = LayoutStyles::from_snapshot(&snapshot);
+        let get = |id| styles.by_backend.get(&id).cloned();
+        assert_eq!(
+            get(2),
+            Some(LayoutStyle {
+                display: "block".into(),
+                visibility: Some("hidden".into())
+            })
+        );
+        assert_eq!(get(3).map(|s| s.display), Some("contents".into()));
+        assert_eq!(get(6).map(|s| s.display), Some("none".into()));
+        assert_eq!(get(4), None, "Textknoten tragen keinen Stil");
+        assert_eq!(styles.whitespace_before, HashSet::from([6]));
+        assert_eq!(styles.whitespace_last, HashSet::from([2]));
+    }
 
     /// Baut einen CDP-Knotenbaum aus JSON. `Node` ist `Deserialize`, damit
     /// laesst sich der Umbau ohne laufenden Chrome pruefen.
