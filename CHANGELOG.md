@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Strukturierte Daten aus `web-checks` 0.4, 2026-09-28:** Regeltabellen, JSON-LD-Normalisierung
+  und Bewertung (`schema_rules.rs`, Normalisierungshaelfte von `schema.rs`) liegen jetzt in
+  `web_checks::structured_data`, geteilt mit astro-post-audit (Plan barrierlab/02, Entscheidungen
+  D1–D8). Hier bleiben CDP-Erhebung, Inhaltsabgleich (`schema_parity`), Mikrodaten/RDFa und die
+  Berichtstexte (`feature_label`, `status_text`, `manual_review_text`). Aenderungen: Breadcrumb-Name
+  darf aus `item.name` kommen (tagesschau.de: drei falsche Pflichtbefunde weniger); FAQPage verlangt
+  `acceptedAnswer` je Frage; NewsArticle empfiehlt `publisher`, WebSite `potentialAction` (Qualitaet
+  von WebSite jetzt ueber 5 statt 4 Angaben); `RULESET_VERSION` 2026-09-28. **JSON-Form:**
+  `rule_assessments[].manual_review` enthaelt Kennungen (`merchant_listing_context`, …) statt
+  englischer Saetze (#406-Muster; das PDF leitet die Texte ab). Strukturmeldungen im JSON nennen den
+  Block, Kennungen (`jsonld_*`) unveraendert.
 - **Meta-Laengen und OpenGraph aus `web-checks` 0.3, 2026-09-28:** Titel- und
   Description-Laenge kamen an vier Stellen (`meta.rs`, `serp.rs`, zweimal `profile.rs`) mit
   denselben Grenzen 30–60 / 120–160 und zaehlten **Bytes**: Jeder Umlaut zaehlte doppelt, ein
