@@ -186,6 +186,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // 1.3.1, aber Ueberschriften: Bis Plan 56 liefen sie ueber
     // `a11y.structure.missing` und damit unter `Semantics`.
     ("a11y.heading_level.skipped", HeadingStructure),
+    ("a11y.heading_empty.invalid", HeadingStructure),
     ("a11y.main_heading.missing", HeadingStructure),
     ("a11y.main_heading_multiple.weak", HeadingStructure),
     // ── 3.1.x — Sprache ──
