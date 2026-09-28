@@ -587,16 +587,27 @@
     "decisionAction": {
       "type": "object",
       "required": [
+        "rule_id",
         "title",
         "risk",
         "priority",
         "complexity",
         "occurrence_count",
+        "url_count",
         "root_cause",
         "expected_impact"
       ],
       "additionalProperties": false,
       "properties": {
+        "url_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of pages the rule occurs on; 1 in a single report."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "Taxonomy rule id of the finding behind this action; the same id as in pages[].findings[].rule_id."
+        },
         "title": {
           "type": "string"
         },

@@ -425,29 +425,29 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
         .collect()
 }
 
+/// Top actions, one per rule across all pages, in the order the PDF lists
+/// them (plans 58, 64).
 pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
-    let mut findings: Vec<_> = reports.iter().flat_map(|r| r.findings.iter()).collect();
-    findings.sort_by(|a, b| {
-        b.priority_score
-            .partial_cmp(&a.priority_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
-    });
-    findings
+    crate::audit::normalized::aggregate_batch_findings(reports)
         .into_iter()
         .take(8)
-        .map(|finding| DecisionAction {
-            title: finding.title.clone(),
-            risk: format!("{:?}", finding.severity).to_lowercase(),
-            priority: finding.remediation_priority.clone(),
-            complexity: finding.complexity.clone(),
-            occurrence_count: finding.occurrence_count,
-            root_cause: if finding.occurrence_count >= 10 {
-                "Likely shared component or template".to_string()
-            } else {
-                finding.subcategory.clone()
-            },
-            expected_impact: finding.expected_impact.clone(),
+        .map(|batch| {
+            let finding = batch.finding;
+            DecisionAction {
+                rule_id: finding.rule_id,
+                title: finding.title,
+                risk: format!("{:?}", finding.severity).to_lowercase(),
+                priority: finding.remediation_priority,
+                complexity: finding.complexity,
+                occurrence_count: finding.occurrence_count,
+                url_count: batch.urls.len(),
+                root_cause: if finding.occurrence_count >= 10 || batch.urls.len() > 1 {
+                    "Likely shared component or template".to_string()
+                } else {
+                    finding.subcategory
+                },
+                expected_impact: finding.expected_impact,
+            }
         })
         .collect()
 }

@@ -6,7 +6,7 @@
 //! - Einheitlicher Severity-Terminologie
 //! - Konsistenter Grade/Certificate-Berechnung
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -200,7 +200,7 @@ pub(crate) fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityA
                     .rule_id
                     .clone()
                     .unwrap_or_else(|| finding.rule.clone()),
-                wcag_criterion: finding.rule.clone(),
+                wcag_criterion: wcag_criterion_of(&finding.rule),
                 severity: finding.severity,
                 message: finding.message.clone(),
                 fix_suggestion: finding.fix_suggestion.clone(),
@@ -2118,7 +2118,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             let expected_impact = expected_impact_text(&expected_impact_kind, true);
             let bfsg_relevance = derive_bfsg_relevance(
                 "wcag",
-                &first.rule,
+                &wcag_criterion_of(&first.rule),
                 first.level.to_string().as_str(),
                 severity,
             );
@@ -2137,7 +2137,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             NormalizedFinding {
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
-                wcag_criterion: first.rule.clone(),
+                wcag_criterion: wcag_criterion_of(&first.rule),
                 axe_id,
                 wcag_level: first.level.to_string(),
                 dimension,
@@ -2173,6 +2173,88 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
         .collect();
 
     findings
+}
+
+/// One finding of a batch: a rule aggregated over every page it occurs on.
+#[derive(Debug, Clone)]
+pub struct BatchFinding {
+    /// The rule's finding with batch-wide `occurrence_count`, `severity` and
+    /// everything derived from them (priority, complexity, expected impact).
+    pub finding: NormalizedFinding,
+    /// Pages the rule occurs on, in batch order.
+    pub urls: Vec<String>,
+}
+
+/// Aggregates the findings of a batch per rule, in `action_order` — the one
+/// source for `top_actions` in the batch JSON and the top actions, finding
+/// list and action plan in the batch PDF (plan 64).
+///
+/// Severity is the highest any page reported, as within a page (#288). The
+/// count-dependent fields are re-derived from the batch-wide count, so the
+/// expected impact no longer quotes one page's count next to the batch reach.
+/// A WCAG rule and an SEO check reporting the same defect under one title
+/// appear once, as the WCAG finding, as in the single report (plan 59).
+pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFinding> {
+    let mut aggregated: Vec<BatchFinding> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for report in reports {
+        for finding in &report.findings {
+            match index.get(&finding.aggregation_key) {
+                Some(&i) => {
+                    let entry = &mut aggregated[i];
+                    entry.finding.occurrence_count += finding.occurrence_count;
+                    entry.finding.severity = entry.finding.severity.max(finding.severity);
+                    if !entry.urls.contains(&report.url) {
+                        entry.urls.push(report.url.clone());
+                    }
+                }
+                None => {
+                    index.insert(finding.aggregation_key.clone(), aggregated.len());
+                    aggregated.push(BatchFinding {
+                        finding: finding.clone(),
+                        urls: vec![report.url.clone()],
+                    });
+                }
+            }
+        }
+    }
+
+    let wcag_titles: HashSet<String> = aggregated
+        .iter()
+        .filter(|b| b.finding.category == "wcag")
+        .map(|b| b.finding.title.trim().to_lowercase())
+        .collect();
+    aggregated.retain(|b| {
+        b.finding.category == "wcag"
+            || !wcag_titles.contains(&b.finding.title.trim().to_lowercase())
+    });
+
+    for entry in &mut aggregated {
+        rederive_count_dependent_fields(&mut entry.finding);
+    }
+    aggregated.sort_by(|a, b| crate::audit::prioritization::action_order(&a.finding, &b.finding));
+    aggregated
+}
+
+/// Re-derives what `build_wcag_findings`/`aggregate_seo_findings` compute
+/// from severity and occurrence count, after both changed in aggregation.
+fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
+    let count = f.occurrence_count;
+    let issue_class_de = if f.category == "wcag" {
+        f.issue_class_kind.label(false)
+    } else {
+        "issue"
+    };
+    f.priority_score = calculate_priority_score(f.severity, count, &f.rule_id);
+    let (complexity, complexity_kind) = derive_complexity(count, &f.rule_id, issue_class_de);
+    f.complexity_reason = complexity_text(complexity_kind, true);
+    f.complexity = complexity;
+    f.complexity_kind = complexity_kind;
+    f.expected_impact_kind = derive_expected_impact(f.severity, count, &f.category, &f.wcag_level);
+    f.expected_impact = expected_impact_text(&f.expected_impact_kind, true);
+    f.remediation_priority = derive_remediation_priority(f.severity, count, &f.complexity);
+    f.bfsg_relevance =
+        derive_bfsg_relevance(&f.category, &f.wcag_criterion, &f.wcag_level, f.severity);
 }
 
 fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
@@ -2502,13 +2584,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
     }
 
-    // Sort by priority score (highest first), then by severity
-    findings.sort_by(|a, b| {
-        b.priority_score
-            .partial_cmp(&a.priority_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.severity.cmp(&a.severity))
-    });
+    findings.sort_by(crate::audit::prioritization::action_order);
 
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
@@ -2865,6 +2941,14 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
     ctx
+}
+
+/// The WCAG criterion a violation belongs to. A few page rules (e.g.
+/// `aria-prohibited-attr`) carry their own slug in `Violation::rule` instead of
+/// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
+/// rule slug (plan 61).
+fn wcag_criterion_of(rule: &str) -> String {
+    crate::taxonomy::criterion_for_rule(rule).unwrap_or_else(|| rule.to_string())
 }
 
 fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id: &str) -> f32 {
@@ -3268,6 +3352,16 @@ fn effort_weight_for_rule(rule_id: &str) -> f32 {
 mod tests {
     use super::*;
     use crate::wcag::{Violation, WcagResults};
+
+    /// The page rules that emit their own slug as `Violation::rule` still land
+    /// on their WCAG criterion (plan 61: dm.de showed
+    /// `wcag_criterion: "aria-prohibited-attr"`).
+    #[test]
+    fn slug_page_rules_normalize_to_their_criterion() {
+        for slug in ["aria-prohibited-attr", "aria-hidden-focus", "frame-tested"] {
+            assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
+        }
+    }
 
     /// Guard against German leaking into the canonical `InteractiveFinding`
     /// text baked with `en = true` (#406): no English message/fix_suggestion

@@ -518,10 +518,11 @@ fn check_registry_docs_urls_well_formed(findings: &mut Vec<LintFinding>) {
 
 const CHECK_PDF_CERTIFICATE_TRACEABLE: &str = "pdf_certificate_traceable_to_json";
 
-/// Checks that the certificate token the JSON's `overall_score` implies (via
-/// the same shared `CERTIFICATE` `BandSet` the PDF's `cover::batch_certificate_label`/
-/// `audit::scoring::AccessibilityScorer::calculate_certificate` use) actually
-/// appears in the report's rendered Typst source.
+/// Checks that the certificate token the JSON stores in `summary.certificate`
+/// actually appears in the report's rendered Typst source. The stored token,
+/// not one re-derived here: it classifies the accessibility score (plan 29,
+/// D1) and may be a risk-gated downgrade, and whether it matches its score is
+/// already `CHECK_CERTIFICATE_MATCHES_SCORE`'s job (plan 63).
 ///
 /// Deliberately narrow: this does not scan for arbitrary numbers/claims in
 /// the PDF text (a naive "does this number appear anywhere" scan has a real
@@ -536,19 +537,18 @@ pub(super) fn check_pdf_certificate_traceability(
     typst_source: &str,
     findings: &mut Vec<LintFinding>,
 ) {
-    let Some(overall_score) = report
+    let Some(expected) = report
         .get("summary")
-        .and_then(|s| s.get("overall_score"))
-        .and_then(Value::as_i64)
+        .and_then(|s| s.get("certificate"))
+        .and_then(Value::as_str)
     else {
         return;
     };
 
-    let expected = CERTIFICATE.label(overall_score as f32, false);
     if !typst_source.contains(expected) {
         findings.push(LintFinding {
             check_id: CHECK_PDF_CERTIFICATE_TRACEABLE,
-            evidence_path: "summary.overall_score vs --typst-source".to_string(),
+            evidence_path: "summary.certificate vs --typst-source".to_string(),
             expected: format!("Typst source contains {expected:?}"),
             actual: "not found in Typst source".to_string(),
             severity: Severity::Low,
@@ -946,7 +946,7 @@ mod tests {
 
     #[test]
     fn pdf_certificate_traceability_passes_when_token_present() {
-        let report = clean_single_report(); // overall_score 82 -> "GUT"
+        let report = clean_single_report(); // certificate "GUT"
         let typst_source = "... some rendered PDF text ... GUT ... more text ...";
         let mut findings = Vec::new();
         check_pdf_certificate_traceability(&report, typst_source, &mut findings);
@@ -1042,8 +1042,22 @@ mod tests {
     }
 
     #[test]
+    fn pdf_certificate_traceability_follows_the_stored_certificate_not_overall() {
+        // dm.de, 2026-09-28: accessibility 25 -> "NICHT BESTANDEN", overall 43
+        // would be "AUSBAUFÄHIG". The PDF prints the stored token (plan 63).
+        let mut report = clean_single_report();
+        report["summary"]["accessibility_score"] = json!(25);
+        report["summary"]["overall_score"] = json!(43);
+        report["summary"]["certificate"] = json!("NICHT BESTANDEN");
+        let typst_source = "... NICHT BESTANDEN ...";
+        let mut findings = Vec::new();
+        check_pdf_certificate_traceability(&report, typst_source, &mut findings);
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+    }
+
+    #[test]
     fn pdf_certificate_traceability_flags_missing_token() {
-        let report = clean_single_report(); // overall_score 82 -> "GUT"
+        let report = clean_single_report(); // certificate "GUT"
         let typst_source = "... some rendered PDF text without the certificate word ...";
         let mut findings = Vec::new();
         check_pdf_certificate_traceability(&report, typst_source, &mut findings);

@@ -1800,12 +1800,8 @@ fn render_findings_section(
         // not replace or alter the per-category cards rendered afterward.
         const FINDINGS_MATRIX_MAX_ROWS: usize = 30;
 
-        let mut matrix_findings: Vec<&FindingGroup> = all_findings.iter().collect();
-        matrix_findings.sort_by(|a, b| {
-            b.priority
-                .cmp(&a.priority)
-                .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
-        });
+        // In the shared finding order, like the JSON (plan 58).
+        let matrix_findings: Vec<&FindingGroup> = all_findings.iter().collect();
 
         if !matrix_findings.is_empty() {
             let (matrix_title, matrix_intro) = if en {

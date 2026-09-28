@@ -1738,3 +1738,42 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 }
+
+/// Batch pages run side by side in one browser. Each must be visible and
+/// focused like a single-URL run, or requestAnimationFrame never fires and
+/// focus-based checks measure something else (plan 62).
+#[tokio::test]
+#[ignore]
+async fn parallel_pages_are_visible_and_focused() {
+    use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
+
+    let manager = ci_browser().await;
+    let mut pages = Vec::new();
+    for _ in 0..3 {
+        pages.push(manager.new_page().await.expect("New page failed"));
+    }
+    for (i, page) in pages.iter().enumerate() {
+        let visible: String = page
+            .evaluate("document.visibilityState")
+            .await
+            .expect("evaluate")
+            .into_value()
+            .expect("string");
+        let focused: bool = page
+            .evaluate("document.hasFocus()")
+            .await
+            .expect("evaluate")
+            .into_value()
+            .expect("bool");
+        let raf = EvaluateParams::builder()
+            .expression("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
+            .await_promise(true)
+            .build()
+            .expect("params");
+        let frames =
+            tokio::time::timeout(std::time::Duration::from_secs(2), page.execute(raf)).await;
+        assert_eq!(visible, "visible", "page {i}");
+        assert!(focused, "page {i} has no focus");
+        assert!(matches!(frames, Ok(Ok(_))), "page {i}: no animation frame");
+    }
+}
