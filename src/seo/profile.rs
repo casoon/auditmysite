@@ -1758,13 +1758,13 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                 )
             }
         } else {
-            assessment.status_text(en).to_string()
+            crate::seo::schema_rules::status_text(assessment, en).to_string()
         };
         checks.push(check(
             &format!(
                 "{}: {}",
                 assessment.schema_type,
-                assessment.feature.label(en)
+                crate::seo::schema_rules::feature_label(assessment.feature, en)
             ),
             passed,
             Some(detail),
