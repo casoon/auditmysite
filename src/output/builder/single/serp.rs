@@ -1,4 +1,7 @@
 use crate::output::report_model::{PageHealthPresentation, SerpPresentation};
+use crate::seo::page_health::{
+    html_validation_check_text, html_validation_detail_text, html_validator_executed_text,
+};
 
 use super::super::helpers::yes_no;
 
@@ -86,10 +89,10 @@ pub(super) fn build_page_health_presentation(
         .iter()
         .map(|i| {
             (
-                i.check.clone(),
+                html_validation_check_text(i.kind, en).to_string(),
                 i.count,
                 i.severity.clone(),
-                i.detail.clone(),
+                html_validation_detail_text(i.kind, i.count, &i.samples, en),
             )
         })
         .collect();
@@ -103,13 +106,12 @@ pub(super) fn build_page_health_presentation(
             (_, true) => "Skipped".to_string(),
             (_, false) => "Übersprungen".to_string(),
         },
-        ph.html_validator_detail.clone().unwrap_or_else(|| {
-            if en {
-                "No additional information available".to_string()
-            } else {
-                "Keine Zusatzinformationen verfügbar".to_string()
-            }
-        }),
+        match (ph.html_validator_status.as_str(), &ph.html_validator_detail) {
+            ("executed", _) => html_validator_executed_text(en).to_string(),
+            (_, Some(detail)) => detail.clone(),
+            (_, None) if en => "No additional information available".to_string(),
+            (_, None) => "Keine Zusatzinformationen verfügbar".to_string(),
+        },
     ));
 
     let www_status = ph.www_consolidation.as_ref().map(|w| {
