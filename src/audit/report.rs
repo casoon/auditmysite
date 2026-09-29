@@ -679,7 +679,7 @@ pub struct BatchReport {
     /// Individual reports for each URL
     pub reports: Vec<AuditReport>,
     /// URLs that failed to audit (with error messages)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<BatchError>,
     /// Summary statistics
     pub summary: BatchSummary,
@@ -733,18 +733,18 @@ pub struct SitemapDiagnostics {
     pub checked_urls: usize,
     /// Sitemap entries that do not resolve to a direct canonical 200 response,
     /// or that are marked noindex.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub http_issues: Vec<SitemapHttpIssue>,
     /// URLs present in the sitemap but not linked by any audited page.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub orphan_sitemap_urls: Vec<String>,
     /// Internal targets linked by audited pages but absent from the sitemap.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub linked_not_in_sitemap: Vec<String>,
     /// Sitemap entries blocked by a `Disallow` rule in `robots.txt` under
     /// `User-agent: *` — a URL with declared indexing intent (sitemap
     /// membership) that crawlers following `robots.txt` will not fetch (#549).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub robots_conflicts: Vec<RobotsSitemapConflict>,
     /// Crawl-depth (BFS click-distance from a heuristic start page) through
     /// this batch run's internal link graph (#548). `None` when no
@@ -853,15 +853,15 @@ pub struct CrawlDiagnostics {
     /// Number of unique internal links that were status-checked
     pub checked_internal_links: usize,
     /// Broken internal links (4xx/5xx or fetch failure)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub broken_internal_links: Vec<BrokenLink>,
     /// Number of unique external links that were status-checked
     pub checked_external_links: usize,
     /// Broken external links (4xx/5xx or fetch failure)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub broken_external_links: Vec<BrokenLink>,
     /// Links with more than 1 redirect hop
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub redirect_chains: Vec<RedirectChain>,
 }
 
@@ -1012,6 +1012,7 @@ pub fn compute_recurring_rules(
             .cmp(&a.affected_pages)
             .then_with(|| b.total_occurrences.cmp(&a.total_occurrences))
             .then_with(|| b.severity.cmp(&a.severity))
+            .then_with(|| a.rule_id.cmp(&b.rule_id))
     });
     rules.truncate(10);
 
@@ -1436,6 +1437,73 @@ mod tests {
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].affected_pages, 2, "rule appeared on both pages");
         assert_eq!(rules[0].total_occurrences, 2);
+    }
+
+    #[test]
+    fn compute_recurring_rules_breaks_ties_by_rule_id() {
+        use crate::audit::normalized::normalize;
+        use crate::wcag::Violation;
+
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            crate::wcag::Severity::High,
+            "Missing alt",
+            "n1",
+        ));
+        let report = AuditReport::new("https://a.com".into(), WcagLevel::AA, results, 100);
+        let mut normalized = normalize(&report).normalized;
+        let base = normalized.findings[0].clone();
+        // 12 rules tied on pages, occurrences and severity: the top 10 must be
+        // the same set in the same order on every run.
+        normalized.findings = (0..12)
+            .rev()
+            .map(|i| {
+                let mut f = base.clone();
+                f.rule_id = format!("rule-{i:02}");
+                f
+            })
+            .collect();
+
+        let (rules, violated_count) = compute_recurring_rules(&[normalized]);
+        assert_eq!(violated_count, 12);
+        let ids: Vec<&str> = rules.iter().map(|r| r.rule_id.as_str()).collect();
+        let expected: Vec<String> = (0..10).map(|i| format!("rule-{i:02}")).collect();
+        assert_eq!(ids, expected);
+    }
+
+    /// Batch reports and their diagnostics skip empty lists when serialized;
+    /// reading them back must not fail on the missing fields.
+    #[test]
+    fn batch_report_with_empty_lists_round_trips_through_json() {
+        let mut batch = BatchReport::from_reports(
+            vec![AuditReport::new(
+                "https://a.com".into(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            )],
+            vec![],
+            0,
+        );
+        batch.crawl_diagnostics = Some(CrawlDiagnostics {
+            seed_url: "https://a.com".into(),
+            discovered_urls: 1,
+            checked_internal_links: 0,
+            broken_internal_links: vec![],
+            checked_external_links: 0,
+            broken_external_links: vec![],
+            redirect_chains: vec![],
+        });
+        batch.sitemap_diagnostics = Some(SitemapDiagnostics::default());
+
+        let json = serde_json::to_value(&batch).unwrap();
+        assert!(json.get("errors").is_none());
+        let reparsed: BatchReport =
+            serde_json::from_value(json.clone()).expect("serialized BatchReport must deserialize");
+        assert_eq!(serde_json::to_value(&reparsed).unwrap(), json);
     }
 
     #[test]

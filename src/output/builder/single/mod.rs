@@ -1103,6 +1103,34 @@ mod tests {
         report
     }
 
+    /// The artifact cache persists `AuditReport` as `report.json` and reads it
+    /// back on a cache hit. Every field serialized with `skip_serializing_if`
+    /// must also carry `default`, or an entry whose field was skipped fails to
+    /// parse and the CLI silently re-audits. The fixture includes an entity
+    /// without properties, the case that broke 13 of 17 golden cache entries.
+    #[test]
+    fn cached_audit_report_round_trips_through_json() {
+        let mut report = report_with_all_report_areas();
+        report
+            .discoverability
+            .ai_visibility
+            .as_mut()
+            .expect("fixture has ai_visibility")
+            .knowledge_graph
+            .entities
+            .push(crate::ai_visibility::GraphEntity {
+                name: "Example".to_string(),
+                entity_type: "Organization".to_string(),
+                source: crate::ai_visibility::EntitySource::Heading,
+                properties: Vec::new(),
+            });
+
+        let json = serde_json::to_value(&report).unwrap();
+        let reparsed: AuditReport =
+            serde_json::from_value(json.clone()).expect("serialized AuditReport must deserialize");
+        assert_eq!(serde_json::to_value(&reparsed).unwrap(), json);
+    }
+
     #[test]
     fn test_pdf_viewmodel_covers_all_active_modules() {
         use crate::output::module::active_modules;
