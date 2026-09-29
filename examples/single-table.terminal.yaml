@@ -25,7 +25,7 @@ steps:
 
         \e[0m
 
-        \  \e[1mAuditMySite\e[0m v1.6.0 - WCAG 2.2 AA Accessibility Checker
+        \  \e[1mAuditMySite\e[0m v1.7.0 - WCAG 2.2 AA Accessibility Checker
 
 
         \e[1;36mAudit plan\e[0m
@@ -38,14 +38,14 @@ steps:
 
         \  \e[2mModules:\e[0m Accessibility, Accessibility Journey, Best Practices, Dark Mode, HTML Conformance, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, Commerce, UX, Source Quality, Content Visibility
 
-        \  \e[2mOutput:\e[0m stdout, casoon-de-2026-09-29-single-report-screen-reader-audit.json
+        \  \e[2mOutput:\e[0m stdout, casoon-de-2026-09-30-single-report-screen-reader-audit.json
 
 
         \e[2mChecking:\e[0m https://www.casoon.de/
 
         \e[2mStarting browser...\e[0m
 
-        \e[1;32mFound:\e[0m Chrome 154.0.8037.92 (/Applications/Google Chrome.app/Contents/MacOS/Google Chrome)
+        \e[1;32mFound:\e[0m Chrome 154.0.8037.93 (/Applications/Google Chrome.app/Contents/MacOS/Google Chrome)
 
         \e[1;36mAuditing:\e[0m https://www.casoon.de/
 
@@ -62,11 +62,11 @@ steps:
 
         \  \e[2mViolations: \e[0m\e[36m0\e[0m
 
-        \  \e[2mDuration: \e[0m\e[36m17287ms\e[0m
+        \  \e[2mDuration: \e[0m\e[36m9561ms\e[0m
 
 
 
-        \e[1;32mDone:\e[0m Screen-reader JSON report saved to casoon-de-2026-09-29-single-report-screen-reader-audit.json
+        \e[1;32mDone:\e[0m Screen-reader JSON report saved to casoon-de-2026-09-30-single-report-screen-reader-audit.json
 
 
         \e[1;32mPASS\e[0m\n"

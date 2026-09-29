@@ -86,7 +86,7 @@ const examples_ = [
     title: 'Technician mode',
     demo: 'technician',
     command:
-      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
+      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
     tags: ['batch', 'json', 'technician'],
     description:
       'The first three sitemap URLs of casoon.de as one JSON file per page, plus index.json and findings.jsonl to script against.',

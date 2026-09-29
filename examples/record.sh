@@ -58,7 +58,7 @@ terminal:
   theme: github-dark
 
 steps:
-  - exec: auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech --request-mode browser
+  - exec: auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser
     timeout: 300000
     idle: 1500
   - exec: jq -c .totals tech/index.json

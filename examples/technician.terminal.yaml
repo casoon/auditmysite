@@ -7,7 +7,7 @@ terminal:
   theme: github-dark
 
 steps:
-  - run: auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech --request-mode browser
+  - run: auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser
   - output:
       raw: "\e[36m
 
@@ -25,7 +25,7 @@ steps:
 
         \e[0m
 
-        \  \e[1mAuditMySite\e[0m v1.6.0 - WCAG 2.2 AA Accessibility Checker
+        \  \e[1mAuditMySite\e[0m v1.7.0 - WCAG 2.2 AA Accessibility Checker
 
 
         \e[1;36mFetching sitemap:\e[0m https://www.casoon.de/sitemap.xml
@@ -53,13 +53,13 @@ steps:
         \  \e[2mOutput:\e[0m tech/*, tech/index.json, tech/findings.jsonl
 
 
-        \e[36m⠁\e[0m [00:00:00] [\e[36m\e[34m----------------------------------------\e[0m\e[0m] 0/3 (0s)                                    \r\e[2K\e[36m⠁\e[0m [00:00:00] [\e[36m\e[34m----------------------------------------\e[0m\e[0m] 0/3 (0s) Auditing URLs                      \r\e[2K\e[36m⠁\e[0m [00:00:13] [\e[36m#############>\e[34m--------------------------\e[0m\e[0m] 1/3 (27s) Auditing URLs                     \r\e[2K\e[36m⠁\e[0m [00:00:13] [\e[36m#############>\e[34m--------------------------\e[0m\e[0m] 1/3 (27s) https://www.casoon.de/agb/        \r\e[2K\e[36m⠉\e[0m [00:00:25] [\e[36m##########################>\e[34m-------------\e[0m\e[0m] 2/3 (12s) https://www.casoon.de/agb/        \r\e[2K\e[36m⠉\e[0m [00:00:25] [\e[36m##########################>\e[34m-------------\e[0m\e[0m] 2/3 (12s) https://www.casoon.de/agenturen/  \r\e[2K\e[36m⠙\e[0m [00:00:39] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/agenturen/   \r\e[2K\e[36m⠙\e[0m [00:00:39] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36mSitemap check: 124 URLs checked, 1 sitemap issues\e[0m                                                   \e[36m⠙\e[0m [00:00:40] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36mResults: 3/3 passed, 0 violations found in 39470ms\e[0m                                                  \e[36m⠙\e[0m [00:00:40] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36m \e[0m [00:00:40] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) \e[1;92m✔\e[0m PASS                             \e[1;36mInfo:\e[0m 3 individual reports to tech
+        \e[36m⠁\e[0m [00:00:00] [\e[36m\e[34m----------------------------------------\e[0m\e[0m] 0/3 (0s)                                    \r\e[2K\e[36m⠁\e[0m [00:00:00] [\e[36m\e[34m----------------------------------------\e[0m\e[0m] 0/3 (0s) Auditing URLs                      \r\e[2K\e[36m⠁\e[0m [00:00:07] [\e[36m#############>\e[34m--------------------------\e[0m\e[0m] 1/3 (15s) Auditing URLs                     \r\e[2K\e[36m⠁\e[0m [00:00:07] [\e[36m#############>\e[34m--------------------------\e[0m\e[0m] 1/3 (15s) https://www.casoon.de/agb/        \r\e[2K\e[36m⠉\e[0m [00:00:13] [\e[36m##########################>\e[34m-------------\e[0m\e[0m] 2/3 (7s) https://www.casoon.de/agb/         \r\e[2K\e[36m⠉\e[0m [00:00:13] [\e[36m##########################>\e[34m-------------\e[0m\e[0m] 2/3 (7s) https://www.casoon.de/agenturen/   \r\e[2K\e[36m⠙\e[0m [00:00:21] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/agenturen/   \r\e[2K\e[36m⠙\e[0m [00:00:21] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36mSitemap check: 124 URLs checked, 1 sitemap issues\e[0m                                                   \e[36m⠙\e[0m [00:00:22] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36mResults: 3/3 passed, 0 violations found in 21462ms\e[0m                                                  \e[36m⠙\e[0m [00:00:22] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) https://www.casoon.de/arbeitsweise/\r\e[2K\e[36m \e[0m [00:00:22] [\e[36m########################################\e[34m\e[0m\e[0m] 3/3 (0s) \e[1;92m✔\e[0m PASS                             \e[1;36mInfo:\e[0m 3 individual reports to tech/
 
-        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-agb-2026-09-29-single-report.json
+        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-agb-2026-09-30-single-report.json
 
-        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-agenturen-2026-09-29-single-report.json
+        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-agenturen-2026-09-30-single-report.json
 
-        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-arbeitsweise-2026-09-29-single-report.json
+        \e[1;32mDone:\e[0m JSON-report saved to tech/casoon-de-arbeitsweise-2026-09-30-single-report.json
 
         \e[1;32mDone:\e[0m Index JSON-report saved to tech/index.json
 

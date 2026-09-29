@@ -13,5 +13,5 @@ steps:
       raw: "\e[1;36mreport-lint:\e[0m \e[32mno findings\e[0m
 
         exit code 0\n"
-    delay: 14
+    delay: 19
   - wait: 3000
