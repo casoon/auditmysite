@@ -34,6 +34,13 @@ short current-state summary. Newest entries first (unchanged order from before t
   begrenzt und mit den Pfeiltasten schrittweise aendert. Die Erkennung ueber die Beschriftung
   („Date", „Postal code") gilt weiter fuer jede Rolle.
 
+  (4) Der AX-Extraktor las `value` nur als Zeichenkette; Chrome schickt den Wert von Slider,
+  Spinbutton, Progressbar und Meter als Zahl, der damit verloren ging. Zahlen und Wahrheitswerte
+  bleiben jetzt in Textform erhalten. Keine WCAG-Regel liest `AXNode.value` mehr (die einzige,
+  `check_slider_has_value`, ist oben entfallen); Folge hat es nur fuer die Screenreader-Linearisierung
+  (`a11y-perception`): Wertelemente ohne Namen tragen jetzt ihren Wert und zaehlen in der
+  Ansage-Wuesten-Messung als angesagter Inhalt, was sie beim Vorlesen auch sind.
+
   Live nachgeprueft mit dem Release-Build gegen og-vanilla.casoon.dev: keine Accordion-, keine
   `aria-valuenow`-, keine Slider-Wert- und keine Spinbutton-Format-Befunde mehr. Neue Korpus-Fixtures `treegrid_expandable_rows`,
   `value_widgets_native` (bestehen), `value_widgets_custom` und `value_widgets_shadow` (Verstoss);
