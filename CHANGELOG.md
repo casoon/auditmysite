@@ -5,6 +5,33 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **3.2.2 On Input: nur echte Kontextwechsel sind Verstoesse, 2026-09-29 (#657):** Auf
+  og-vanilla.casoon.dev (`/filtering`, `/sorting`, `/localization`) meldete
+  `a11y.on_input.risk` Selects fuer Filter-Preset, Sortierung und Sprache als „may trigger
+  navigation", nur weil ihr Name „filter"/„sort"/„language" enthielt und die Seite keinen
+  Absende-Button hat. Die Selects aktualisieren aber nur das Grid daneben — eine Inhaltsaenderung
+  ist kein Kontextwechsel. Jetzt ist nur noch ein Verstoss, was der Inline-`onchange`-Handler
+  (oder die globale Funktion, die er direkt aufruft) sichtbar tut: Navigation (`location…`),
+  Formular absenden (`.submit(`/`.requestSubmit(`), neues Fenster (`window.open(`) oder
+  Fokusverschiebung (`.focus(`). Ein Handler, dessen Wirkung sich nicht ablesen laesst, und ein
+  Name, der nur nach Navigation klingt (language, country, region, navigate, redirect, go to),
+  werden zur Pruefwarnung statt zum Verstoss; „sort" und „filter" fallen als Hinweis ganz weg.
+  Die Einordnung liegt jetzt in Rust (`evaluate`) und ist unit-getestet. Neue Korpus-Fixture
+  `on_input_context_change` (besteht: Filter ohne Handler; Pruefung: inhaltsaendernder Handler,
+  Sprach-Select; Verstoss: Handler navigiert ueber aufgerufene Funktion, Handler sendet Formular).
+
+- **1.3.5 Identify Input Purpose: „Name" einer Sache ist kein Personenname, 2026-09-29 (#658):**
+  Auf og-vanilla.casoon.dev/saved-views galt `#view-name` (Label „Name", Name einer gespeicherten
+  Grid-Ansicht) als Feld fuer den Namen der Nutzerin, weil das Label „name" als Teilstring
+  enthielt. „name" wird jetzt wortweise eingeordnet (Trennung an Satzzeichen und camelCase): ein
+  vorangestelltes Wort, das keine Person und kein technisches Id-Praefix ist („view name",
+  „project name", „company name"), ein folgendes „of/for/der/des/für/von" („Name der Ansicht")
+  und Komposita wie „Dateiname"/„Filename" schliessen das Feld aus; „Name", „Your name",
+  „Full name", „Vorname", „Nachname", „Ihr Name" bleiben Treffer. Ein Sach-Qualifier in `id` oder
+  `name`-Attribut schliesst ein blosses „Name"-Label aus, sofern das andere Attribut nicht die
+  Person nennt. Die Erkennungswoerter sind Englisch und Deutsch zusammengefuehrt (wie bei
+  `media_alternative`), unabhaengig von der Ausgabesprache. Neue Korpus-Fixture
+  `input_purpose_name`.
 - **Absichtlich kaputte Beispiele vom Audit ausnehmen, sichtbar im Bericht, 2026-09-29 (#645):**
   Seiten, die Barrierefreiheit lehren, zeigen bewusst fehlerhafte Beispiele (barrierlab.eu,
   `/tasks/ticket/`: unbeschriftete Felder, ein `div` als Button). auditmysite meldete sie als
@@ -123,6 +150,20 @@ short current-state summary. Newest entries first (unchanged order from before t
   `aria-valuenow`-, keine Slider-Wert- und keine Spinbutton-Format-Befunde mehr. Neue Korpus-Fixtures `treegrid_expandable_rows`,
   `value_widgets_native` (bestehen), `value_widgets_custom` und `value_widgets_shadow` (Verstoss);
   `aria_and_widgets` erwartet den eigenen Slider jetzt unter `aria-required-attr`.
+
+  Nachzug derselben Fehlerklasse: Auch die uebrigen 1.3.5-Stichwoerter wurden als Teilstring
+  gesucht — „Hotel" galt wegen „tel" als Telefonfeld, „Sorting" haette „ort" enthalten. Sie gelten
+  jetzt nur als ganze Woerter (tel, zip, plz, fax, city, first, last …) oder als bekannte
+  Kompositum-Anfaenge bzw. -Enden (`telefon…`, `postleit…`, `birth…`, `geburts…`, `…adresse`,
+  `…address`, `…strasse`); „E-Mail" zaehlt als ein Wort. Deutsche Felder wie „Telefonnummer",
+  „Postleitzahl", „Straße", „Passwort" werden damit erstmals erkannt. Ebenso bei 3.2.2: die
+  seitenweite Suche nach einem Absende-Button fand „go" in „Google", „Category" oder „Logo" und
+  unterdrueckte dadurch die Pruefwarnung; die Button-Namen werden jetzt wortweise geprueft
+  (submit, send, go, search, absenden, senden, suchen), die Entscheidung liegt in Rust und ist
+  unit-getestet. Korpus: `#stay` („Hotel") besteht, „Telefonnummer"/„Postleitzahl" sind
+  Verstoesse; die On-Input-Fixture hat Google/Category/Logo-Buttons, der Sprach-Select bleibt
+  Pruefung.
+
 - **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
   AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).
   Beide meldeten dieselben Elemente mit unterschiedlich gebildeten Selektoren, sodass nichts

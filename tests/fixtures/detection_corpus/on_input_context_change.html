@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>On input: content updates vs. context changes (#657)</title>
+    <script>
+        function applySort(value) { document.getElementById('out').textContent = 'Sorted by ' + value; }
+        function goTo(value) { window.location.href = value; }
+    </script>
+</head>
+<body>
+    <main>
+        <h1>Grid options</h1>
+
+        <!-- Updates the grid next to it via a script listener: no context change -->
+        <label for="filter-preset">Filter preset</label>
+        <select id="filter-preset">
+            <option>All</option>
+            <option>Active</option>
+        </select>
+
+        <!-- Inline handler that only updates content: at most needs review -->
+        <label for="sort-preset">Sort preset</label>
+        <select id="sort-preset" onchange="applySort(this.value)">
+            <option>Name</option>
+            <option>Date</option>
+        </select>
+
+        <!-- Name suggests navigation, effect unknown: needs review, no violation -->
+        <label for="grid-language">Language</label>
+        <select id="grid-language">
+            <option>English</option>
+            <option>Deutsch</option>
+        </select>
+
+        <!-- Handler navigates via a called function: change of context -->
+        <label for="jump">Jump to page</label>
+        <select id="jump" onchange="goTo(this.value)">
+            <option value="#a">Page A</option>
+            <option value="#b">Page B</option>
+        </select>
+
+        <!-- Handler submits the form: change of context -->
+        <form action="#submitted">
+            <label for="per-page">Rows per page</label>
+            <select id="per-page" name="per_page" onchange="this.form.submit()">
+                <option>10</option>
+                <option>50</option>
+            </select>
+        </form>
+
+        <!-- Not submit buttons: "go" inside "Google"/"category"/"logo" must not
+             suppress the review for the language select above -->
+        <button type="button">Sign in with Google</button>
+        <button type="button">Category</button>
+        <button type="button">Logo</button>
+
+        <p id="out"></p>
+    </main>
+</body>
+</html>
