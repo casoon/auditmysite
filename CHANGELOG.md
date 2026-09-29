@@ -12,9 +12,17 @@ short current-state summary. Newest entries first (unchanged order from before t
   `parity_gaps.html` auf 4 statt 2. Massgeblich ist jetzt allein die AX-Pruefung; sie arbeitet
   mit Chromes berechneten Rollen und Namen und erfasst jede Landmark, die die DOM-Naeherung sieht
   (dazu `<section>` mit Namen, `form`, und korrekte Rollen fuer verschachtelte `header`/`footer`/
-  `aside`). Die DOM-Ergaenzung meldet nur noch `landmark-main-present`. Der Korpus kann jetzt
-  per `occurrences` die genaue Anzahl pinnen; `landmark_granular` erwartet 11, der neue Fall
-  `landmark_unique_one_per_element` 4 (1.6.0: 6).
+  `aside`). Dasselbe galt fuer `landmark-main-present`: Eine fehlende `main`-Landmark stand
+  zweimal im Bericht (`root` und `document`). Die DOM-Ergaenzung hatte dabei keine eigene
+  Abdeckung: Faellt der AX-Baum aus, bricht der ganze Audit ab; bei Mini-Seiten mit hoechstens
+  zwei AX-Knoten schweigt die AX-Pruefung absichtlich; und ein `<main>` in einem Shadow Root sah
+  nur Chrome, `querySelectorAll` nicht, sodass die DOM-Pruefung dort faelschlich meldete. Die
+  DOM-Ergaenzung (`check_landmarks_with_page`, Page-Regel `1.3.1/landmark-dom`) ist deshalb samt
+  Rollenableitung entfernt. Der Korpus kann jetzt per `occurrences` die genaue Anzahl pinnen:
+  `landmark_granular` 11, der neue Fall `landmark_unique_one_per_element` 4 (1.6.0: 6),
+  `landmark_aside_named_duplicate` 2, `missing_main_landmark` 1 (1.6.0: 2); der neue Fall
+  `landmark_main_in_shadow_root` ist ein echtes Negativ. `parity_gaps.html` prueft die Anzahl im
+  Integrationstest (1 fehlende `main`, 2 doppelte Navigationen).
 
 - **Skip-Link und `role="list"`, 2026-09-29 (#642, #644):** (1) `region` (1.3.1) meldete den
   Skip-Link `<a href="#main">Aller au contenu</a>` auf allen franzoesischen Seiten von
