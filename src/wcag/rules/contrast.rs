@@ -37,6 +37,9 @@ pub enum ContrastVerdict {
     /// Below the threshold, but the effective background is an image or gradient
     /// that could not be resolved from CSS. Reported as a manual-review warning
     /// rather than a confirmed failure, to avoid false positives (#264).
+    /// Also used when the rendered text colour itself is unknown (gradient
+    /// text via `background-clip: text`, transparent `color`) — the ratio is
+    /// then undetermined, not failing (#640).
     NeedsReview,
 }
 
@@ -105,13 +108,20 @@ impl ContrastRule {
     /// that CSS could not resolve), a sub-threshold ratio is demoted to
     /// `NeedsReview` instead of a confirmed `Violation`, because the CSS-derived
     /// background is only an estimate of what is actually rendered (#264).
+    ///
+    /// When the foreground is uncertain (glyphs painted by `background-clip:
+    /// text` or a transparent text colour), the CSS-derived ratio is not a
+    /// measurement at all, so the verdict is always `NeedsReview` (#640).
     pub fn verdict(
         contrast_ratio: f64,
         is_large_text: bool,
         level: WcagLevel,
         background_uncertain: bool,
+        foreground_uncertain: bool,
     ) -> ContrastVerdict {
-        if Self::meets_requirement(contrast_ratio, is_large_text, level) {
+        if foreground_uncertain && level != WcagLevel::A {
+            ContrastVerdict::NeedsReview
+        } else if Self::meets_requirement(contrast_ratio, is_large_text, level) {
             ContrastVerdict::Pass
         } else if background_uncertain {
             ContrastVerdict::NeedsReview
@@ -150,6 +160,10 @@ impl ContrastRule {
         }
     }
 
+    fn flag(style: &ComputedStyles, name: &str) -> bool {
+        style.get(name).is_some_and(|v| v == "true")
+    }
+
     fn is_invisible(style: &ComputedStyles) -> bool {
         style.get("visibility").is_some_and(|v| v == "hidden")
             || style.get("display").is_some_and(|v| v == "none")
@@ -181,6 +195,11 @@ impl ContrastRule {
                 .get("background-uncertain")
                 .is_none_or(|v| v != "true")
             {
+                continue;
+            }
+            // Sampling compares the CSS text colour against rendered pixels;
+            // with an unknown foreground (#640) that comparison is meaningless.
+            if Self::flag(style, "foreground-uncertain") {
                 continue;
             }
             let is_large = style.is_large_text();
@@ -431,10 +450,8 @@ impl ContrastRule {
 
         let fg_str = style.color()?;
         let bg_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
-        let bg_uncertain = style
-            .get("background-uncertain")
-            .map(|v| v == "true")
-            .unwrap_or(false);
+        let bg_uncertain = Self::flag(style, "background-uncertain");
+        let fg_uncertain = Self::flag(style, "foreground-uncertain");
 
         let fg = Color::from_css(fg_str)?;
         let bg = match Color::from_css(bg_str) {
@@ -451,10 +468,10 @@ impl ContrastRule {
         let ratio = Self::calculate_contrast_ratio(&fg_eff, &bg_eff);
         let is_large = style.is_large_text();
 
-        let initial_verdict = Self::verdict(ratio, is_large, level, bg_uncertain);
+        let initial_verdict = Self::verdict(ratio, is_large, level, bg_uncertain, fg_uncertain);
         let (verdict, is_warning, final_ratio) = Self::resolve_sampled(
             initial_verdict,
-            bg_uncertain,
+            bg_uncertain || fg_uncertain,
             ratio,
             style.selector.as_deref(),
             sampled,
@@ -470,6 +487,7 @@ impl ContrastRule {
             apca_lc,
             is_large,
             is_warning,
+            fg_uncertain,
             level,
             fg_str,
             bg_str,
@@ -484,6 +502,7 @@ impl ContrastRule {
         apca_lc: f64,
         is_large: bool,
         is_warning: bool,
+        fg_uncertain: bool,
         level: WcagLevel,
         fg_str: &str,
         bg_str: &str,
@@ -491,7 +510,13 @@ impl ContrastRule {
         let selector = style.selector.as_deref().unwrap_or("unknown");
         let threshold = Self::contrast_threshold_str(is_large, level);
 
-        let message = if is_warning {
+        let message = if fg_uncertain {
+            format!(
+                "Contrast could not be determined ({}text, requires {}:1): the text is painted by its background (background-clip: text, e.g. gradient text) or has a transparent text color, so no ratio can be derived from CSS colors. Needs manual review.",
+                if is_large { "large " } else { "" },
+                threshold,
+            )
+        } else if is_warning {
             format!(
                 "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). APCA Lc {:.1} (supplementary, not a conformance gate). Background includes an image or gradient and needs manual review.",
                 final_ratio,
@@ -509,7 +534,12 @@ impl ContrastRule {
             )
         };
 
-        let fix = if is_warning {
+        let fix = if fg_uncertain {
+            format!(
+                "Verify the contrast of the rendered text (e.g. every gradient stop) against the background behind it. CSS colors: foreground={}, background={}",
+                fg_str, bg_str
+            )
+        } else if is_warning {
             format!(
                 "Verify contrast against the rendered image/gradient background. Estimated from CSS colors: foreground={}, background={}",
                 fg_str, bg_str
@@ -532,15 +562,19 @@ impl ContrastRule {
         .with_selector(selector)
         .with_fix(&fix)
         .with_help_url(CONTRAST_RULE.help_url)
-        .with_rule_id(CONTRAST_RULE.axe_id)
+        .with_rule_id(CONTRAST_RULE.axe_id);
+
         // Measured values as machine-readable evidence (evidence-grade
         // findings, slice 3) — canonical English, JSON-safe (#406), rendered
         // in the PDF as "Contrast X:Y (required A:B)" in the run locale.
-        .with_evidence_item(crate::wcag::types::Evidence::computed(
-            "contrast_ratio",
-            format!("{:.2}:1", final_ratio),
-        ))
-        .with_evidence_item(crate::wcag::types::Evidence::computed(
+        // An unknown foreground yields no measurement, so no ratio (#640).
+        if !fg_uncertain {
+            violation = violation.with_evidence_item(crate::wcag::types::Evidence::computed(
+                "contrast_ratio",
+                format!("{:.2}:1", final_ratio),
+            ));
+        }
+        violation = violation.with_evidence_item(crate::wcag::types::Evidence::computed(
             "required_ratio",
             format!("{}:1", threshold),
         ));
@@ -1021,11 +1055,11 @@ mod tests {
     #[test]
     fn verdict_passes_when_ratio_meets_threshold() {
         assert_eq!(
-            ContrastRule::verdict(5.0, false, WcagLevel::AA, false),
+            ContrastRule::verdict(5.0, false, WcagLevel::AA, false, false),
             ContrastVerdict::Pass
         );
         assert_eq!(
-            ContrastRule::verdict(5.0, false, WcagLevel::AA, true),
+            ContrastRule::verdict(5.0, false, WcagLevel::AA, true, false),
             ContrastVerdict::Pass
         );
     }
@@ -1033,7 +1067,7 @@ mod tests {
     #[test]
     fn verdict_confirms_violation_on_solid_background() {
         assert_eq!(
-            ContrastRule::verdict(3.0, false, WcagLevel::AA, false),
+            ContrastRule::verdict(3.0, false, WcagLevel::AA, false, false),
             ContrastVerdict::Violation
         );
     }
@@ -1073,11 +1107,11 @@ mod tests {
     #[test]
     fn verdict_demotes_image_background_to_review() {
         assert_eq!(
-            ContrastRule::verdict(3.0, false, WcagLevel::AA, true),
+            ContrastRule::verdict(3.0, false, WcagLevel::AA, true, false),
             ContrastVerdict::NeedsReview
         );
         assert_eq!(
-            ContrastRule::verdict(3.0, true, WcagLevel::AA, true),
+            ContrastRule::verdict(3.0, true, WcagLevel::AA, true, false),
             ContrastVerdict::Pass
         );
     }
@@ -1155,5 +1189,81 @@ mod tests {
             format!("p.uncertain-{}", ContrastRule::MAX_SAMPLE_TASKS + 9),
             "the largest-area candidate must be prioritized ahead of the cap"
         );
+    }
+
+    fn gradient_text_style(foreground_uncertain: bool) -> ComputedStyles {
+        // What `extract_text_styles` yields for `color: transparent` text: the
+        // transparent foreground composited onto the background, i.e. the
+        // background colour itself — a fabricated 1.00:1 ratio.
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("color".to_string(), "rgb(255, 255, 255)".to_string());
+        properties.insert(
+            "background-color".to_string(),
+            "rgb(255, 255, 255)".to_string(),
+        );
+        properties.insert("background-uncertain".to_string(), "false".to_string());
+        properties.insert(
+            "foreground-uncertain".to_string(),
+            foreground_uncertain.to_string(),
+        );
+        ComputedStyles {
+            node_id: 1,
+            selector: Some("a#logo".to_string()),
+            html_snippet: None,
+            properties,
+        }
+    }
+
+    #[test]
+    fn verdict_foreground_uncertain_is_always_review() {
+        // #640: gradient text (background-clip: text) / transparent color —
+        // the CSS-derived ratio is no measurement, neither failing nor passing.
+        for ratio in [1.0, 21.0] {
+            assert_eq!(
+                ContrastRule::verdict(ratio, false, WcagLevel::AA, false, true),
+                ContrastVerdict::NeedsReview
+            );
+        }
+        assert_eq!(
+            ContrastRule::verdict(1.0, false, WcagLevel::A, false, true),
+            ContrastVerdict::Pass
+        );
+    }
+
+    #[test]
+    fn gradient_text_is_reported_as_review_without_fabricated_ratio() {
+        let finding = ContrastRule::evaluate_style(
+            &gradient_text_style(true),
+            WcagLevel::AA,
+            &SampledVerdicts::new(),
+        )
+        .expect("gradient text must surface as needs-review");
+        assert_eq!(finding.kind, crate::wcag::types::Outcome::Review);
+        assert!(!finding.message.contains("1.00:1"), "{}", finding.message);
+        assert!(!finding
+            .evidence
+            .iter()
+            .any(|e| e.field.as_deref() == Some("contrast_ratio")));
+    }
+
+    #[test]
+    fn same_colors_without_uncertain_foreground_stay_a_violation() {
+        let finding = ContrastRule::evaluate_style(
+            &gradient_text_style(false),
+            WcagLevel::AA,
+            &SampledVerdicts::new(),
+        )
+        .expect("confirmed low contrast must still be reported");
+        assert_ne!(finding.kind, crate::wcag::types::Outcome::Review);
+        assert!(finding.message.contains("1.00:1"));
+    }
+
+    #[test]
+    fn build_sample_tasks_skips_uncertain_foreground() {
+        let mut style = uncertain_background_style(1, false);
+        style
+            .properties
+            .insert("foreground-uncertain".to_string(), "true".to_string());
+        assert!(ContrastRule::build_sample_tasks(&[style], WcagLevel::AA).is_empty());
     }
 }

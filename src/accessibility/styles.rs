@@ -161,6 +161,30 @@ const STYLES_EXTRACT_JS: &str = r#"
         return false;
     }
 
+    // #640: `background-clip: text` (prefixed or not) on the element or an
+    // ancestor paints the glyphs with that element's background (typically a
+    // gradient), so the CSS `color` is not what is rendered.
+    function hasTextClippedBackground(el) {
+        let current = el;
+        while (current && current !== document.documentElement) {
+            const styles = window.getComputedStyle(current);
+            if (styles.backgroundClip === 'text' || styles.webkitBackgroundClip === 'text') {
+                return true;
+            }
+            current = current.parentElement;
+        }
+        return false;
+    }
+
+    // #640: a (near-)transparent text colour or text fill means the visible
+    // glyphs come from something other than `color` (background-clip,
+    // text-stroke) — compositing it would yield a fabricated ~1:1 ratio.
+    const NEAR_TRANSPARENT_ALPHA = 0.05;
+    function isNearTransparent(colorStr) {
+        const c = parseCssColor(colorStr);
+        return !c || c.a < NEAR_TRANSPARENT_ALPHA;
+    }
+
     function getEffectiveBackground(el) {
         let current = el;
         const layers = [];
@@ -251,6 +275,10 @@ const STYLES_EXTRACT_JS: &str = r#"
             finalFg = composite(fg, bgParsed);
         }
 
+        const foregroundUncertain = hasTextClippedBackground(el) ||
+            isNearTransparent(styles.color) ||
+            (styles.webkitTextFillColor !== undefined && isNearTransparent(styles.webkitTextFillColor));
+
         const rect = el.getBoundingClientRect();
 
         results.push({
@@ -260,6 +288,7 @@ const STYLES_EXTRACT_JS: &str = r#"
             color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,
             backgroundColor: bg,
             backgroundUncertain: effectiveBackground.uncertain,
+            foregroundUncertain,
             fontSize: styles.fontSize,
             fontWeight: styles.fontWeight,
             visibility: styles.visibility,
@@ -320,6 +349,14 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 {
                                     properties.insert(
                                         "background-uncertain".to_string(),
+                                        uncertain.to_string(),
+                                    );
+                                }
+                                if let Some(uncertain) =
+                                    item.get("foregroundUncertain").and_then(|v| v.as_bool())
+                                {
+                                    properties.insert(
+                                        "foreground-uncertain".to_string(),
                                         uncertain.to_string(),
                                     );
                                 }
