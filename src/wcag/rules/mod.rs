@@ -136,7 +136,7 @@ pub use landmark_granular::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks_with_page, check_skip_link,
+    check_landmark_unique, check_skip_link,
 };
 pub use landmarks::check_landmarks;
 pub use language_extended::check_language_extended_with_page;

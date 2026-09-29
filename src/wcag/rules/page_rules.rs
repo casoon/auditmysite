@@ -36,7 +36,7 @@ use super::{
     check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
     check_image_input_rules_with_page, check_input_purpose_with_page,
     check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
-    check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
+    check_label_in_name_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
@@ -158,12 +158,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "presentation semantic children",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_presentation_semantic_children_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.3.1/landmark-dom",
-        name: "landmark DOM",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_landmarks_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.3.2/meaningful-sequence",
@@ -502,9 +496,11 @@ mod tests {
         //   im geteilten Bestand (siehe `wcag::shared`) = 36
         // + form-field-group for named checkbox sets: moved from the AX tree to
         //   the DOM, the tree carries no `name` attribute (#643) = 37
+        // - landmark-dom: duplicated the AX tree's landmark-unique and
+        //   landmark-main-present, each defect counted twice = 36
         // + value-now: aria-valuenow moved from the AX tree to the DOM, CDP
-        //   has no `valuenow` property (#656) = 38
-        assert_eq!(count, 38);
+        //   has no `valuenow` property (#656) = 37
+        assert_eq!(count, 37);
     }
 
     #[test]
@@ -535,8 +531,10 @@ mod tests {
         // + autocomplete-valid (1.3.5): moved from the AX tree to the DOM,
         //   the tree carries aria-autocomplete, not the HTML attribute = 48.
         // + form-field-group for named checkbox sets (#643, Level A) = 49.
-        // + value-now (#656, Level A) = 50.
-        assert_eq!(count, 50);
+        // - landmark-dom: duplicated the AX tree's landmark-unique and
+        //   landmark-main-present, each defect counted twice = 48.
+        // + value-now (#656, Level A) = 49.
+        assert_eq!(count, 49);
     }
 
     #[test]

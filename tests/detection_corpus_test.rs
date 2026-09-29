@@ -97,6 +97,18 @@ async fn detection_corpus_matches_real_audit_run() {
                     if !matches_violations {
                         false_negatives
                             .push(expectation_label(exp, "expected violation, found none"));
+                    } else if let Some(expected) = exp.occurrences {
+                        let found = wcag
+                            .violations
+                            .iter()
+                            .filter(|v| finding_matches(v, exp))
+                            .count();
+                        if found != expected {
+                            false_positives.push(expectation_label(
+                                exp,
+                                &format!("expected {expected} occurrences, found {found}"),
+                            ));
+                        }
                     }
                 }
                 Verdict::Pass => {

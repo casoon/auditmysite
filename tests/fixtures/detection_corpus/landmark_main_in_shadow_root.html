@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Main landmark inside a shadow root corpus case</title>
+</head>
+<body>
+    <!-- The page's landmarks live in an open shadow root, as in web-component
+         app shells. Chrome's accessibility tree exposes the main landmark; a
+         document.querySelectorAll('main') check does not see it and used to
+         report a missing main. -->
+    <app-shell></app-shell>
+    <script>
+        const root = document.querySelector('app-shell').attachShadow({ mode: 'open' });
+        root.innerHTML =
+            '<header><nav aria-label="Site"><a href="/">Home</a></nav></header>' +
+            '<main><h1>Content in a shadow root</h1><p>Text.</p></main>' +
+            '<footer>Footer</footer>';
+    </script>
+</body>
+</html>
