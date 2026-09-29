@@ -114,7 +114,9 @@ pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_order::check_focus_order;
 pub use focus_visible::check_focus_visible;
 pub use focus_visible_css::check_focus_visible_css_with_page;
-pub use form_rules::{check_form_no_submit_with_page, check_form_rules};
+pub use form_rules::{
+    check_checkbox_group_with_page, check_form_no_submit_with_page, check_form_rules,
+};
 pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
 pub use identify_purpose::check_identify_purpose_with_page;

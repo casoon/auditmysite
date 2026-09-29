@@ -4,7 +4,6 @@
 //! directly to renderreport components. Zero data transformation here.
 
 mod appendix;
-mod batch;
 mod batch_report;
 mod bik_guide;
 mod cover;
@@ -15,7 +14,9 @@ mod en301549;
 mod findings;
 mod helpers;
 mod problem_profile;
+mod root_causes;
 mod sanitize;
+mod score_drivers;
 mod single_report;
 mod wcag_coverage;
 
@@ -31,15 +32,16 @@ use renderreport::prelude::*;
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
 use self::diagnosis::{business_relevance, format_word_count, output_scope_callout};
-use self::helpers::{create_engine, extract_domain};
+use self::helpers::create_engine;
+use self::root_causes::{render_root_cause_analysis, render_timeframe_roadmap};
 use self::single_report::{
     render_appendix_full, render_management_page, render_module_sections, render_part_divider,
-    render_root_cause_analysis, render_tech_details, render_timeframe_roadmap,
+    render_tech_details,
 };
 use crate::audit::{normalize, AuditReport};
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
-use crate::output::builder::build_view_model;
+use crate::output::builder::{build_view_model, extract_domain};
 use crate::output::report_model::*;
 
 const WORDMARK_ASSET: &str = "/auditmysite-wordmark.svg";

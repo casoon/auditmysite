@@ -16,6 +16,104 @@ short current-state summary. Newest entries first (unchanged order from before t
   per `occurrences` die genaue Anzahl pinnen; `landmark_granular` erwartet 11, der neue Fall
   `landmark_unique_one_per_element` 4 (1.6.0: 6).
 
+- **Skip-Link und `role="list"`, 2026-09-29 (#642, #644):** (1) `region` (1.3.1) meldete den
+  Skip-Link `<a href="#main">Aller au contenu</a>` auf allen franzoesischen Seiten von
+  barrierlab.eu, auf den englischen, deutschen und spanischen nicht. Die Ausnahme hing am Linktext:
+  Die Pruefung auf `href="#…"` verglich mit `#`, Chrome liefert als `url` aber die aufgeloeste
+  Adresse (`https://barrierlab.eu/fr/#main`), also griff nur die Phrasenliste, und der fehlte das
+  Franzoesische. Jetzt zaehlt das Verhalten wie bei axe-cores `isSkipLink`: ein Link auf ein
+  Fragment derselben Seite (Adresse ohne Fragment gleich der `url` des Wurzelknotens), der vor dem
+  ersten gewoehnlichen Link steht. Die Phrasenliste ist entfallen; sie nahm auch jeden Link mit
+  „springen" im Text aus. (2) `redundant-role` (4.1.2) meldete `role="list"` an `<ul>`/`<ol>` mit
+  `list-style: none` (1.142 Vorkommen auf barrierlab.eu). WebKit/VoiceOver verwirft bei solchen
+  Listen die Listensemantik, die Rolle stellt sie wieder her. Bei berechnetem
+  `list-style-type: none` bleibt sie jetzt unerwaehnt; alle anderen redundanten Rollen werden
+  weiter gemeldet. Geprueft mit Unit-Tests, zwei neuen Faellen im Detection-Korpus
+  (`skip_link_language`, `redundant_role_list_style`, je mit weiter gemeldetem Gegenbeispiel) und
+  Live-Laeufen gegen barrierlab.eu/fr/ und /en/.
+- **Kontrast bei Verlaufstext, #640, 2026-09-29:** `a11y.contrast.weak` meldete fuer die
+  Logo-Links auf geographia.eu (`background-clip: text` mit Verlauf, `color: transparent`) einen
+  Verstoss mit 1,00:1. Das war keine Messung: Die transparente Textfarbe wurde auf den Hintergrund
+  gerechnet und ergab den Hintergrund selbst. Die Stilerfassung setzt jetzt
+  `foreground-uncertain`, wenn das Element oder ein Vorfahr `background-clip: text` (auch
+  `-webkit-`) traegt oder `color`/`-webkit-text-fill-color` (nahezu) transparent ist. Solche Texte
+  gehen als Pruefhinweis (Warnung) ohne `contrast_ratio`-Beleg in den Bericht und werden nicht per
+  Pixelabtastung aufgeloest, weil diese die CSS-Textfarbe braucht. Zudem gilt eine gesetzte,
+  deckende `-webkit-text-fill-color` jetzt als Textfarbe (Kontrastrechnung und Pixelabtastung),
+  denn Browser malen die Glyphen damit, nicht mit `color` (Korpusfall `text_fill_color_contrast`:
+  helle Fuellfarbe bei dunklem `color` ist Verstoss, umgekehrt bestanden). Belegt mit Unit-Tests und dem
+  Korpusfall `gradient_text_contrast` (Verlaufstext Hinweis, grauer Fliesstext weiter Verstoss);
+  Live-Lauf gegen geographia.eu/atmosphere/de/kapitel/hebel/: beide 1,00:1-Verstoesse sind
+  Hinweise, weitere Kontrastbefunde gab es auf der Seite weder vorher noch nachher
+  (Barrierefreiheit 75 → 86, gesamt 74 → 79).
+- **Heuristische Formularbefunde, 2026-09-29 (#643):** Zwei Vermutungsregeln meldeten auf
+  barrierlab.eu korrekt gebaute Formulare. (1) „Input may require format instructions" (3.3.2,
+  `label`) liess eine Accessible Description nur gelten, wenn sie ein Formatwort wie „Format:"
+  oder „z.B." enthielt; das Datumsfeld des Musterformulars mit `aria-describedby` („Day of
+  travel") fiel durch. Ausserdem traf der Begriff „pass" (Reisepass) per Teilstring das Label „Was
+  ist passiert?" der Kontakt-Textarea. Jetzt zaehlt jede Beschreibung als Anleitung, Begriffe unter
+  fuenf Zeichen (`pass`, `tel`, `date`, `zip`, `plz`, `ssn`) zaehlen nur als ganzes Wort, und der
+  Befund ist ein Pruefhinweis (`as_warning`) statt eines Verstosses, weil der Formatbedarf nur aus
+  dem Labeltext geraten ist. (2) „Grouped form controls may be missing a fieldset/legend" (1.3.1,
+  `form-field-group`) verlangte fuer jede Checkbox eine Gruppe, sobald die Seite irgendwo zwei
+  Radio-/Checkbox-Elemente hatte — auf /tasks/bill/ und /tasks/appointment/ traf das die einzelne
+  Checkbox neben einer korrekt gruppierten Radio-Umschaltung. Zusammengehoerig sind Checkboxen
+  ueber ein gemeinsames `name` im selben Formular; das traegt der AX-Baum nicht. Die Pruefung fuer
+  Checkboxen laeuft deshalb als DOM-Seitenregel (`check_checkbox_group_with_page`): erst ab zwei
+  sichtbaren Checkboxen gleichen Namens wird ein `fieldset`/`role=group`-Vorfahr verlangt. Radios
+  bleiben unveraendert im Baum (ein Radio braucht immer eine Gruppe). Neue Korpusfaelle
+  `form_heuristics_clean` und `form_heuristics_flagged`.
+- **`--per-page-reports`: eine Datei je Seite, 2026-09-29:** Die Dateinamen der Einzelberichte
+  kamen nur aus dem Host (`casoon-de-<datum>-single-report.json`); jede Seite einer Website
+  ueberschrieb die vorige, aus einer Sitemap mit drei Seiten blieb eine Datei. Der Name enthaelt
+  jetzt Host und Pfad (`casoon-de-arbeitsweise-…`), bei Query-Strings einen kurzen stabilen Hash.
+  Gilt fuer alle Formate; Einzelaudits ohne `--per-page-reports` behalten ihren Namen.
+- **Zwei Fehlalarme auf geographia.eu (#638, #639), 2026-09-29:** Auf
+  geographia.eu/atmosphere/de/kapitel/hebel/ meldete 1.6.0 zwei Verstoesse gegen 1.3.1, die keine
+  sind. (1) `th-has-data-cells` (8 Vorkommen, hoch): Chrome legt `<thead>` als `rowgroup` in den
+  AX-Baum, markiert das schlichte `<tbody>` aber als ignoriert; Zeilen und Zellen haengen trotzdem
+  darunter. Die Regel liess ignorierte Knoten samt Teilbaum aus, fand so keine einzige Datenzelle
+  und meldete jede Spaltenueberschrift. Leere Zellen und `aria-hidden`-Kinder spielten keine
+  Rolle. Jetzt steigt die Suche durch ignorierte Knoten hindurch, zaehlt sie aber selbst nicht.
+  (2) `landmark-unique` (2 Vorkommen, mittel): Die DOM-Ergaenzung zu den Landmark-Regeln leitete
+  die Rolle aus dem Tag ab und machte jedes `<header>` zum `banner`, auch das Kapitel-`<header>`
+  in `<main>`. Nach HTML-AAM (und in Chromes AX-Baum) sind `<header>`/`<footer>` in `article`,
+  `aside`, `main`, `nav`, `section` oder den entsprechenden Rollen generisch; die DOM-Ergaenzung
+  folgt dem jetzt. Dasselbe galt fuer `<aside>`: Innerhalb von `article`, `aside`, `nav` oder
+  `section` (bzw. den Rollen `article`, `complementary`, `navigation`) ist es nur mit
+  zugaenglichem Namen `complementary`, sonst generisch; `role=region` zaehlt dabei nicht, ein
+  unbenanntes `<section>` schon (so rechnet Chrome). Die DOM-Ergaenzung beruecksichtigt dafuer
+  auch `title` als Namen. Belegt am Live-Lauf: beide Befunde weg, die uebrigen vier unveraendert,
+  Barrierefreiheitswert 75 auf 85. Neue Korpusfaelle `table_headers_tbody_ignored` und
+  `landmark_header_in_main`, `landmark_aside_scoping` (echte Negative) und
+  `landmark_aside_named_duplicate` (echtes Positiv); `table_headers_no_data` und
+  `landmark_granular` sichern die bisherigen echten Positive.
+- **Englische PDFs ohne deutsche Tabellenbeschriftungen, 2026-09-29:** Mit `--lang en` standen in
+  den Tabellen zu Sicherheits-Headern („Vorhanden"/„Fehlt"), SSL („Gueltiges Zertifikat", „Laeuft
+  ab in … Tage", „Chain-Laenge"), Touch-Targets („Zu klein", „Zu eng beieinander") und Schrift
+  („Kleinste Schrift", „Lesbarer Text") deutsche Beschriftungen, gefunden an einem englischen
+  casoon.de-Bericht. Die Beschriftungen folgen jetzt der Laufsprache; ein Guard-Test mit den
+  Moduldaten dieses Laufs prueft die englische Ausgabe auf deutsche Begriffe.
+- **Cache-Rundreise und deterministische Reihenfolge, 2026-09-29:** Beim Aufbau des
+  Golden-Render-Harness (Plan 66) fielen zwei Fehler auf. (1) `GraphEntity.properties` wurde mit
+  `skip_serializing_if` weggelassen, trug aber kein `default`: Ein gecachter `report.json` mit einer
+  Entitaet ohne Eigenschaften liess sich nicht mehr lesen („missing field `properties`"), und die
+  CLI auditierte stillschweigend neu. Betroffen waren 13 der 17 eingefrorenen Cache-Eintraege.
+  Dieselbe Luecke hatten `BatchReport.errors`, die vier Listen in `SitemapDiagnostics` und die
+  drei in `CrawlDiagnostics`; alle tragen jetzt `default`. Neue Rundreise-Tests serialisieren und
+  lesen einen vollstaendigen `AuditReport` und einen `BatchReport` mit leeren Listen. (2) Zwei
+  Laeufe ueber dieselbe Eingabe konnten verschiedene Berichte liefern, weil Ergebnisse aus
+  `HashMap`s ohne vollstaendige Sortierung kamen: Bei Gleichstand konnten sich Reihenfolge und
+  (nach dem Kuerzen auf 10) Inhalt von `top_recurring_rules` aendern; Schema-Konflikte im
+  Batch, die interaktiven Kategorien samt PDF-Tabelle „Befunde nach Kategorie", die dominante
+  Regel der Zusammenfassung, die Hauptrolle im Massnahmenplan, Template-Cluster, doppelte
+  Inhalte, Minifizierungs-Abweichungen und die Sitemap-HTTP-Befunde (Abschlussreihenfolge der
+  Anfragen) hatten dieselbe Luecke; die Strafpunkte des Accessibility-Scores wurden in
+  `HashMap`-Reihenfolge summiert. Jede Sortierung hat jetzt einen letzten eindeutigen Schluessel
+  (Regel-ID, Entitaets-ID, Kategorie, Selektor, URL), die Strafpunkte werden in Regel-ID-Reihenfolge
+  summiert. Tests fixieren die Reihenfolge bei Gleichstand. Geprueft: drei Golden-Render-Laeufe
+  ueber alle 17 Seiten, `diff -r` leer.
+
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
   darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,

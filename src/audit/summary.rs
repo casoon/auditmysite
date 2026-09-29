@@ -245,7 +245,7 @@ fn detect_dominant_issue(
         let result = rule_counts
             .into_values()
             .filter(|(_, _, occ_total)| (*occ_total as f32 / urgent_occurrences as f32) >= 0.45)
-            .max_by_key(|(_, _, occ_total)| *occ_total)
+            .max_by(|a, b| a.2.cmp(&b.2).then_with(|| b.0.rule_id.cmp(&a.0.rule_id)))
             .map(|(f, count, occurrence_total)| DominantIssue {
                 rule_id: f.rule_id.clone(),
                 title: f.title.clone(),
@@ -274,7 +274,7 @@ fn detect_dominant_issue(
     rule_counts
         .into_values()
         .filter(|(_, _, occ_total)| (*occ_total as f32 / all_occurrences as f32) >= 0.60)
-        .max_by_key(|(_, _, occ_total)| *occ_total)
+        .max_by(|a, b| a.2.cmp(&b.2).then_with(|| b.0.rule_id.cmp(&a.0.rule_id)))
         .map(|(f, count, occurrence_total)| DominantIssue {
             rule_id: f.rule_id.clone(),
             title: f.title.clone(),
