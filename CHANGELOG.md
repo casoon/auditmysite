@@ -15,6 +15,55 @@ short current-state summary. Newest entries first (unchanged order from before t
   samt Tests entfernt (oeffentliche Funktion `wcag::rules::check_page_titled` entfaellt).
   `empty_title` pinnt 1 Vorkommen, der Integrationstest auf `parity_gaps.html` ebenfalls.
 
+- **Tabellen: ignorierte und noch nicht gerenderte Zeilen (#654, #659), 2026-09-29:**
+  (1) `aria-roles` meldete auf og-vanilla.casoon.dev (`/accessibility`, `table.keys`) „role 'table'
+  is missing required child roles: row, rowgroup" fuer eine Tabelle mit `tbody > tr`. Chrome
+  markiert ein schlichtes `<tbody>` als ignoriert, die Zeilen haengen darunter; die Pruefung der
+  geforderten Kind-Rollen sah nur direkte Kinder. Sie schaut jetzt durch ignorierte Knoten hindurch
+  (gleiches Muster wie #638). Eine Tabelle ohne Zeile (nur `caption`) bleibt gemeldet.
+  (2) `th-has-data-cells` meldete die Kopfzellen des `role="grid"`-Rasters in einer Shadow-Root
+  (`/columns`, `/accessibility`), obwohl jede Spalte Daten hat. Im Nachstellen per CDP lag die
+  Aufnahme vor dem Eintreffen der Daten: Das Raster haelt 40 Pool-Zeilen mit `display: none` im
+  DOM, bis der Worker liefert (rund 300-500 ms nach `load`); Chrome fuehrt sie als ignoriert mit
+  `notRendered`. Die Stabilitaetswartung sieht Mutationen in Shadow-Roots nicht und meldete die
+  Seite nach 255 ms stabil. Stehen in einer Tabelle ohne Datenzellen solche nicht gerenderten Zeilen
+  an Zeilenposition (direkt unter der Tabelle, unter einer rowgroup oder einem ignorierten
+  `<tbody>`), gilt das Ergebnis jetzt als unbestimmt (`incomplete`) statt als Verstoss. Versteckte
+  Inhalte innerhalb einer Kopfzelle zaehlen nicht; eine Tabelle nur mit Kopfzeile bleibt gemeldet.
+
+  Neue Korpus-Fixtures `table_required_rows_tbody` und `table_grid_rows_unrendered` (Shadow-DOM-
+  Raster mit wartenden bzw. gerenderten Zeilen, Tabelle nur mit Kopfzeile als Verstoss) und
+  Unit-Tests in beiden Regeln.
+- **Technician-Modus: Einzelseiten-JSON zum Beheben statt Bericht zum Lesen, 2026-09-29 (Plan 67):**
+  Neu fuer Leute, die Befunde abarbeiten: `--sitemap URL --technician -o DIR/` (ebenso mit
+  `--url-file`/`--crawl`) schreibt pro Seite den regulaeren Einzelbericht als JSON und daneben zwei
+  flache Dateien. `index.json` fuehrt jede versuchte URL in Eingabereihenfolge — Dateiname oder
+  `null`, Status `ok`/`blocked`/`failed` mit Grund, Gesamt- und Barrierefreiheits-Score, Zahl der
+  Befunde und Vorkommen, `audit_quality`. Gesperrte (Bot-Wall, `AccessBlocked`) und
+  fehlgeschlagene Seiten stehen nur dort, ohne Platzhalterdatei; dafuer traegt `BatchError` jetzt
+  `blocked_reason` (nicht serialisiert, Batch-JSON unveraendert). `findings.jsonl` enthaelt eine
+  Zeile pro Vorkommen ueber alle Seiten (`url`, `source` wcag/journey/seo/html_conform, `rule_id`,
+  `wcag_criterion`, `level`, `severity`, `selector`, `location`, `message`, `fix_suggestion`,
+  `viewport_tags`), vollstaendig — die Seitendatei kappt ihre Beispiel-Vorkommen pro Befund auf
+  fuenf. Beide Dateien sind kanonisch Englisch (#406), Schemas unter
+  `docs/technician-index.schema.json` und `docs/technician-finding.schema.json`. Jeder Lauf mit
+  `--per-page-reports -f json` schreibt sie.
+
+  `--technician` steht fuer `--per-page-reports -f json --no-screen-reader-report --seo
+  --html-conform`: Barrierefreiheit (inkl. Tastatur-Journeys), HTML-Konformitaet und SEO, keine
+  gedrosselten Performance-Durchlaeufe, kein Mobile/Security/Tech-Stack. Jede Seitendatei nennt
+  diesen Umfang in `execution.scope`/`module_runs`. Ausdruecklich gesetzte Flags gewinnen: `-f`
+  ersetzt das Format, `--full`/`--performance`/`--mobile`/`--security` schalten ihre Module wie
+  gewohnt zu. Einzeln nutzbar sind die neuen Flags auch: `--include-path`/`--exclude-path`
+  (wiederholbar, Glob auf den dekodierten URL-Pfad: `*`/`?` innerhalb eines Segments, `**`
+  segmentuebergreifend, `/**/` auch als einzelnes `/`; wirkt vor `-m`; `sample.selection` wird
+  dann `path_filter`), `--no-screen-reader-report` (kein `*-screen-reader-audit.json`, auch im
+  Einzelmodus) und `--html-conform` (HTML-Konformitaet ohne `--full`).
+
+  Nicht in `findings.jsonl`: `accessibility_assessments` (Hinweise/manuelle Pruefpunkte, keine
+  Verstoesse). Die abgeleiteten Indikator-Module (UX, Journey, Commerce, Content Visibility, AI
+  Visibility, Source Quality, Dark Mode) laufen weiter, weil sie an `check_seo` bzw. fest an
+  `PipelineConfig` haengen; sie abzuschalten braeuchte neue `PipelineConfig`-Felder.
 - **3.2.2 On Input: nur echte Kontextwechsel sind Verstoesse, 2026-09-29 (#657):** Auf
   og-vanilla.casoon.dev (`/filtering`, `/sorting`, `/localization`) meldete
   `a11y.on_input.risk` Selects fuer Filter-Preset, Sortierung und Sprache als „may trigger

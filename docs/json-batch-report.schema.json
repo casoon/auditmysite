@@ -305,7 +305,8 @@
           "type": "string",
           "enum": [
             "first_n",
-            "all"
+            "all",
+            "path_filter"
           ]
         },
         "is_sample": {

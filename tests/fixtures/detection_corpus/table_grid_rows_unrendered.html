@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Virtualized grid with unrendered rows corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>Orders</h1>
+        <!-- #654: a web-component grid renders its header row and a pool of
+             body rows into a shadow root; the pooled rows stay display:none
+             until the data arrives (here: never, to pin the snapshot state).
+             The rows exist, so whether the headers get data cells is
+             undetermined, not a failure. -->
+        <pending-grid></pending-grid>
+        <!-- Same component with its rows rendered: headers have data cells. -->
+        <loaded-grid></loaded-grid>
+        <!-- Still a true positive: headers and no row that could hold data. -->
+        <table id="header-only" aria-label="Header only">
+            <tr><th scope="col">Name</th><th scope="col">Score</th></tr>
+        </table>
+    </main>
+    <script>
+        function gridMarkup(hidden) {
+            var rows = '';
+            for (var i = 0; i < 5; i++) {
+                rows += '<tr' + (hidden ? ' style="display: none;"' : '') + '>' +
+                    '<td tabindex="-1">' + (hidden ? '' : i + 1) + '</td>' +
+                    '<td tabindex="-1">' + (hidden ? '' : 'Customer ' + (i + 1)) + '</td></tr>';
+            }
+            return '<table role="grid" aria-label="Orders">' +
+                '<thead><tr><th scope="col">ID</th><th scope="col">Customer</th></tr></thead>' +
+                '<tbody>' + rows + '</tbody></table>';
+        }
+        customElements.define('pending-grid', class extends HTMLElement {
+            connectedCallback() { this.attachShadow({ mode: 'open' }).innerHTML = gridMarkup(true); }
+        });
+        customElements.define('loaded-grid', class extends HTMLElement {
+            connectedCallback() { this.attachShadow({ mode: 'open' }).innerHTML = gridMarkup(false); }
+        });
+    </script>
+</body>
+</html>
