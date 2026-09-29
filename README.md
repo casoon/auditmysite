@@ -598,6 +598,34 @@ Key layers:
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
 - `tech_stack/`, `source_quality/`, `ai_visibility/`, `dark_mode/`: heuristic indicator modules
 
+### Shared libraries from barrierlab
+
+Parts of what auditmysite checks no longer live in this repository. They moved
+to [barrierlab](https://github.com/casoon/barrierlab), a Rust monorepo of
+accessibility and web-conformance libraries, so that the same checks, rule IDs
+and wording serve auditmysite, [astro-post-audit](https://github.com/casoon/astro-post-audit)
+and [liveaudit](https://github.com/casoon/liveaudit) alike. auditmysite pulls
+them in as published crates.io versions:
+
+| Crate | Provides |
+|---|---|
+| `a11y-rules` | the shared WCAG rules (lists, headings, landmarks, IDs, language, …) |
+| `a11y-dom` | the document model those rules run on |
+| `a11y-report` | the finding, outcome and rule-run model |
+| `accname` | accessible name computation (accname 1.2, HTML-AAM) |
+| `a11y-perception` | accessibility tree, snapshot, reading-order projection and snapshot diff |
+| `web-checks` | robots.txt rules and bot classification, meta lengths, OpenGraph and JSON-LD structured-data checks |
+| `html-conform` | HTML5 conformance checking, comparable to the W3C validator |
+
+This is a real dependency: a fix or a new rule in one of these areas is made in
+barrierlab, released there, and then taken over here by raising the version.
+auditmysite does not patch or fork them. What stays here is everything specific
+to this tool: its own WCAG rules, the keyboard journeys, the Chrome/CDP
+capture, scoring and taxonomy, the PDF report, the CLI and the report texts.
+For work on both sides at once, point `[patch.crates-io]` in a local,
+uncommitted `.cargo/config.toml` at a barrierlab checkout; commits always
+build against the published versions.
+
 More detail:
 - Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Browser dependency details: [docs/chrome-dependency.md](docs/chrome-dependency.md)
@@ -728,8 +756,10 @@ cargo test
 `auditmysite` is licensed under the MIT License. Use it freely, including
 commercially.
 
-The rule engine, document model, accessible name computation and report model
-live in [a11y-core](https://github.com/casoon/a11y-core), also MIT, and are
+The shared rule engine, document model, accessible name computation, report
+model and HTML conformance checker live in
+[barrierlab](https://github.com/casoon/barrierlab) (see
+[Shared libraries from barrierlab](#shared-libraries-from-barrierlab)) and are
 shared with [astro-post-audit](https://github.com/casoon/astro-post-audit) and
 [liveaudit](https://github.com/casoon/liveaudit) — the same rule IDs across
 build time, CI and the live page.
