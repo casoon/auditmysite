@@ -5,6 +5,37 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Technician-Modus: Einzelseiten-JSON zum Beheben statt Bericht zum Lesen, 2026-09-29 (Plan 67):**
+  Neu fuer Leute, die Befunde abarbeiten: `--sitemap URL --technician -o DIR/` (ebenso mit
+  `--url-file`/`--crawl`) schreibt pro Seite den regulaeren Einzelbericht als JSON und daneben zwei
+  flache Dateien. `index.json` fuehrt jede versuchte URL in Eingabereihenfolge — Dateiname oder
+  `null`, Status `ok`/`blocked`/`failed` mit Grund, Gesamt- und Barrierefreiheits-Score, Zahl der
+  Befunde und Vorkommen, `audit_quality`. Gesperrte (Bot-Wall, `AccessBlocked`) und
+  fehlgeschlagene Seiten stehen nur dort, ohne Platzhalterdatei; dafuer traegt `BatchError` jetzt
+  `blocked_reason` (nicht serialisiert, Batch-JSON unveraendert). `findings.jsonl` enthaelt eine
+  Zeile pro Vorkommen ueber alle Seiten (`url`, `source` wcag/journey/seo/html_conform, `rule_id`,
+  `wcag_criterion`, `level`, `severity`, `selector`, `location`, `message`, `fix_suggestion`,
+  `viewport_tags`), vollstaendig — die Seitendatei kappt ihre Beispiel-Vorkommen pro Befund auf
+  fuenf. Beide Dateien sind kanonisch Englisch (#406), Schemas unter
+  `docs/technician-index.schema.json` und `docs/technician-finding.schema.json`. Jeder Lauf mit
+  `--per-page-reports -f json` schreibt sie.
+
+  `--technician` steht fuer `--per-page-reports -f json --no-screen-reader-report --seo
+  --html-conform`: Barrierefreiheit (inkl. Tastatur-Journeys), HTML-Konformitaet und SEO, keine
+  gedrosselten Performance-Durchlaeufe, kein Mobile/Security/Tech-Stack. Jede Seitendatei nennt
+  diesen Umfang in `execution.scope`/`module_runs`. Ausdruecklich gesetzte Flags gewinnen: `-f`
+  ersetzt das Format, `--full`/`--performance`/`--mobile`/`--security` schalten ihre Module wie
+  gewohnt zu. Einzeln nutzbar sind die neuen Flags auch: `--include-path`/`--exclude-path`
+  (wiederholbar, Glob auf den dekodierten URL-Pfad: `*`/`?` innerhalb eines Segments, `**`
+  segmentuebergreifend, `/**/` auch als einzelnes `/`; wirkt vor `-m`; `sample.selection` wird
+  dann `path_filter`), `--no-screen-reader-report` (kein `*-screen-reader-audit.json`, auch im
+  Einzelmodus) und `--html-conform` (HTML-Konformitaet ohne `--full`).
+
+  Nicht in `findings.jsonl`: `accessibility_assessments` (Hinweise/manuelle Pruefpunkte, keine
+  Verstoesse). Die abgeleiteten Indikator-Module (UX, Journey, Commerce, Content Visibility, AI
+  Visibility, Source Quality, Dark Mode) laufen weiter, weil sie an `check_seo` bzw. fest an
+  `PipelineConfig` haengen; sie abzuschalten braeuchte neue `PipelineConfig`-Felder.
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu

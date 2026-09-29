@@ -1909,3 +1909,150 @@ async fn batch_retries_pool_timeouts_serially_body() {
         vec![1, 2, 3]
     );
 }
+
+/// Plan 67: a small `--url-file` run in technician mode, through the real
+/// binary. The path filter drops one URL before the run; an unreachable URL
+/// is a `failed` index entry without a file; every audited page gets a JSON
+/// report and its findings in `findings.jsonl`; no screen-reader sidecar;
+/// the per-page scope says which modules ran.
+#[test]
+#[ignore = "needs Chrome"]
+fn technician_mode_url_file_run_writes_index_and_findings() {
+    let (base, shutdown) = serve_fixture("many_violations.html");
+    let dir = tempfile::tempdir().unwrap();
+    let url_file = dir.path().join("urls.txt");
+    let out = dir.path().join("tech");
+    // Port 9 (discard) on loopback refuses the connection.
+    let down = "http://127.0.0.1:9/down".to_string();
+    std::fs::write(
+        &url_file,
+        format!("{base}/a\n{base}/skip/me\n{base}/b/\n{down}\n"),
+    )
+    .unwrap();
+
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_auditmysite"));
+    command
+        .current_dir(dir.path())
+        .arg("--url-file")
+        .arg(&url_file)
+        .arg("--technician")
+        .arg("--exclude-path")
+        .arg("/skip/**")
+        .arg("-o")
+        .arg(&out)
+        .args([
+            "--interactive",
+            "off",
+            "--concurrency",
+            "1",
+            "--report-mode",
+        ])
+        .args(["-q", "--progress", "never", "--timeout", "15"]);
+    if std::env::var("CI").is_ok() {
+        command.arg("--no-sandbox");
+    }
+    let output = command.output().expect("binary runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(
+        output.status.success(),
+        "exit {:?}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let read_json = |path: &std::path::Path| -> serde_json::Value {
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("{} must exist: {e}", path.display()));
+        serde_json::from_str(&text).unwrap()
+    };
+    let schema = |name: &str| {
+        let value = read_json(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs")
+                .join(name),
+        );
+        jsonschema::JSONSchema::compile(&value).expect("schema compiles")
+    };
+
+    let index = read_json(&out.join("index.json"));
+    if let Err(errors) = schema("technician-index.schema.json").validate(&index) {
+        panic!(
+            "index.json: {:?}",
+            errors.map(|e| e.to_string()).collect::<Vec<_>>()
+        );
+    }
+    let pages = index["pages"].as_array().unwrap();
+    let urls: Vec<&str> = pages.iter().map(|p| p["url"].as_str().unwrap()).collect();
+    assert_eq!(
+        urls,
+        vec![format!("{base}/a"), format!("{base}/b/"), down.clone()],
+        "input order, /skip/me filtered out"
+    );
+    for page in &pages[..2] {
+        assert_eq!(page["status"], "ok", "{page}");
+        let report = read_json(&out.join(page["file"].as_str().unwrap()));
+        let modules: Vec<&str> = find_key(&report, "requested_modules")
+            .and_then(|m| m.as_array())
+            .expect("scope recorded")
+            .iter()
+            .map(|m| m.as_str().unwrap())
+            .collect();
+        assert!(
+            modules.contains(&"seo") && modules.contains(&"html_conform"),
+            "{modules:?}"
+        );
+        assert!(!modules.contains(&"performance"), "{modules:?}");
+        assert!(page["occurrence_count"].as_u64().unwrap() > 0, "{page}");
+    }
+    assert_eq!(pages[2]["status"], "failed");
+    assert!(pages[2]["file"].is_null());
+    assert!(pages[2]["reason"].as_str().is_some_and(|r| !r.is_empty()));
+
+    let jsonl = std::fs::read_to_string(out.join("findings.jsonl")).unwrap();
+    let row_schema = schema("technician-finding.schema.json");
+    let mut per_url: std::collections::HashMap<String, u64> = Default::default();
+    for line in jsonl.lines() {
+        let row: serde_json::Value = serde_json::from_str(line).unwrap();
+        if let Err(errors) = row_schema.validate(&row) {
+            panic!(
+                "{line}: {:?}",
+                errors.map(|e| e.to_string()).collect::<Vec<_>>()
+            );
+        }
+        *per_url
+            .entry(row["url"].as_str().unwrap().to_string())
+            .or_default() += 1;
+    }
+    assert_eq!(
+        jsonl.lines().count() as u64,
+        index["totals"]["occurrences"].as_u64().unwrap()
+    );
+    for page in &pages[..2] {
+        assert_eq!(
+            per_url.get(page["url"].as_str().unwrap()).copied(),
+            page["occurrence_count"].as_u64(),
+            "{page}"
+        );
+    }
+
+    let sidecars: Vec<_> = std::fs::read_dir(&out)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.contains("screen-reader"))
+        .collect();
+    assert!(
+        sidecars.is_empty(),
+        "no screen-reader sidecar: {sidecars:?}"
+    );
+}
+
+fn find_key<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    match value {
+        serde_json::Value::Object(map) => map
+            .get(key)
+            .or_else(|| map.values().find_map(|v| find_key(v, key))),
+        serde_json::Value::Array(items) => items.iter().find_map(|v| find_key(v, key)),
+        _ => None,
+    }
+}

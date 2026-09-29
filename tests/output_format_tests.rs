@@ -293,3 +293,72 @@ fn test_studio_response_has_all_expected_fields() {
         assert!(obj.contains_key(field), "Missing required field: {}", field);
     }
 }
+
+/// Plan 67: `index.json` and every `findings.jsonl` line match their
+/// published schemas, including blocked/failed index entries and
+/// html-conform rows.
+#[test]
+fn test_technician_index_and_findings_match_schemas() {
+    use auditmysite::audit::BatchError;
+    use auditmysite::output::technician;
+    use std::collections::HashMap;
+
+    let mut report = create_test_report();
+    report.html_conform = Some(auditmysite::html_conform::HtmlConformAnalysis {
+        score: 90,
+        checked: true,
+        error_count: 1,
+        warning_count: 0,
+        info_count: 0,
+        distinct_defect_count: 1,
+        findings: vec![auditmysite::html_conform::HtmlConformFinding {
+            rule_id: "schema.html5".to_string(),
+            severity: "error".to_string(),
+            message: "Element div not allowed as child of element span".to_string(),
+            location: Some("3:7".to_string()),
+            byte_offset: None,
+        }],
+        raw_html: None,
+    });
+    let batch = BatchReport::from_reports(
+        vec![report.clone()],
+        vec![
+            BatchError {
+                url: "https://example.com/blocked".to_string(),
+                error: "blocked".to_string(),
+                blocked_reason: Some("the server answered HTTP 403".to_string()),
+            },
+            BatchError {
+                url: "https://example.com/failed".to_string(),
+                error: "Page load timeout".to_string(),
+                blocked_reason: None,
+            },
+        ],
+        100,
+    );
+
+    let normalized = normalize(&report).normalized;
+    let rows = technician::finding_rows(&report, &normalized);
+    assert_eq!(rows.len(), 2, "one wcag + one html_conform row");
+    let mut entries = HashMap::new();
+    entries.insert(
+        report.url.clone(),
+        technician::ok_entry(&report, &normalized, &rows, "example-com.json".to_string()),
+    );
+    let attempted = vec![
+        "https://example.com".to_string(),
+        "https://example.com/blocked".to_string(),
+        "https://example.com/failed".to_string(),
+    ];
+    let index = technician::build_index(&attempted, &batch, entries);
+    let index_json = serde_json::to_value(&index).unwrap();
+    assert_matches_schema(&index_json, "technician-index.schema.json");
+    assert_eq!(index_json["pages"][1]["status"], "blocked");
+    assert_eq!(index_json["pages"][2]["status"], "failed");
+
+    let jsonl = technician::to_jsonl(&rows).unwrap();
+    for line in jsonl.lines() {
+        let row: serde_json::Value = serde_json::from_str(line).unwrap();
+        assert_matches_schema(&row, "technician-finding.schema.json");
+    }
+}

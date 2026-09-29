@@ -36,6 +36,7 @@ src/
 │   ├── output_paths.rs  # File path generation for reports
 │   ├── plan.rs          # Pre-audit plan/banner printing
 │   ├── doctor.rs        # `auditmysite doctor` diagnostics
+│   ├── url_filter.rs    # --include-path/--exclude-path glob selection of batch URLs (plan 67)
 │   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
 │
 ├── browser/             # Chrome/Chromium management
@@ -136,6 +137,7 @@ src/
 │   ├── json.rs          # JSON reports (via NormalizedReport)
 │   ├── json/            # JSON detail/helper builders
 │   ├── sr_audit_json.rs # Standalone screen-reader audit JSON sidecar
+│   ├── technician.rs    # index.json + findings.jsonl next to per-page JSON reports (plan 67)
 │   ├── sarif.rs         # SARIF output format
 │   ├── builder/         # AuditReport → PDF ViewModel transformation
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
