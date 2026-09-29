@@ -432,6 +432,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "attempted_url_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "URLs the batch tried to audit. Scores and counts cover url_count of them; the rest could not be audited and are listed in errors."
+        },
         "violated_rule_count": {
           "type": "integer",
           "minimum": 0

@@ -1900,6 +1900,73 @@ mod tests {
         assert!(!typ.contains("recurring help mechanisms"));
     }
 
+    /// #651: pages that could not be audited must not silently vanish — the
+    /// batch PDF says how many URLs the scores cover and names the rest, in
+    /// the report language.
+    #[test]
+    fn batch_pdf_states_score_coverage_when_urls_failed() {
+        let batch = BatchReport::from_reports(
+            vec![
+                AuditReport::new(
+                    "https://example.com/a".to_string(),
+                    WcagLevel::AA,
+                    WcagResults::new(),
+                    100,
+                ),
+                AuditReport::new(
+                    "https://example.com/b".to_string(),
+                    WcagLevel::AA,
+                    WcagResults::new(),
+                    100,
+                ),
+            ],
+            vec![crate::audit::BatchError {
+                url: "https://example.com/heavy-webgl".to_string(),
+                error: "Browser pool timeout: no page available after 615 seconds".to_string(),
+            }],
+            300,
+        );
+
+        let de = unescape_typ(
+            &generate_batch_typ(&batch, &ReportConfig::default()).expect("batch Typst source"),
+        );
+        assert!(de.contains("2 von 3 URLs — 1 nicht auditierbar und in keinem Score enthalten"));
+        assert!(de.contains("Scores decken 2 von 3 URLs ab"));
+        assert!(de.contains("Eine URL konnte nicht auditiert werden."));
+        assert!(de.contains("https://example.com/heavy-webgl"));
+
+        let en = unescape_typ(
+            &generate_batch_typ(
+                &batch,
+                &ReportConfig {
+                    locale: "en".to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("batch Typst source"),
+        );
+        assert!(en.contains("2 of 3 URLs — 1 could not be audited and are not in any score"));
+        assert!(en.contains("Scores cover 2 of 3 URLs"));
+        assert!(en.contains("One URL could not be audited."));
+        assert!(en.contains("https://example.com/heavy-webgl"));
+
+        let complete = BatchReport::from_reports(
+            vec![AuditReport::new(
+                "https://example.com/a".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            )],
+            vec![],
+            100,
+        );
+        let complete = unescape_typ(
+            &generate_batch_typ(&complete, &ReportConfig::default()).expect("batch Typst source"),
+        );
+        assert!(!complete.contains("Bewertungsbasis"));
+        assert!(!complete.contains("Scores decken"));
+    }
+
     #[test]
     fn test_pdf_has_annotations() {
         // Renderreport emits link annotations for interactive constructs
