@@ -15,7 +15,12 @@ use auditmysite::cli::{Args, OutputFormat, ReportLevel};
 use auditmysite::error::{AuditError, Result};
 
 /// Write text content to `path` (or stdout when `path` is None).
-pub fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) -> Result<()> {
+pub(crate) fn output_text(
+    content: &str,
+    path: &Option<PathBuf>,
+    label: &str,
+    quiet: bool,
+) -> Result<()> {
     if let Some(path) = path {
         fs::create_dir_all(output_directory(path))?;
         atomic_write(path, content.as_bytes()).map_err(|e| AuditError::FileError {
@@ -38,7 +43,7 @@ pub fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bo
 
 /// Write binary content to `path`.
 #[cfg(feature = "pdf")]
-pub fn output_bytes(content: &[u8], path: &Path, label: &str, quiet: bool) -> Result<()> {
+pub(crate) fn output_bytes(content: &[u8], path: &Path, label: &str, quiet: bool) -> Result<()> {
     fs::create_dir_all(output_directory(path))?;
     atomic_write(path, content)?;
     if !quiet {
@@ -86,7 +91,7 @@ fn atomic_write(path: &Path, content: &[u8]) -> std::io::Result<()> {
 }
 
 /// Return the parent directory of `path`, defaulting to `"."`.
-pub fn output_directory(path: &Path) -> &Path {
+pub(crate) fn output_directory(path: &Path) -> &Path {
     match path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
@@ -94,12 +99,12 @@ pub fn output_directory(path: &Path) -> &Path {
 }
 
 /// Derive the companion `.json` path from a PDF output path.
-pub fn default_single_json_output_path(pdf_path: &Path) -> PathBuf {
+pub(crate) fn default_single_json_output_path(pdf_path: &Path) -> PathBuf {
     pdf_path.with_extension("json")
 }
 
 /// Derive the standalone screen-reader audit JSON sidecar path.
-pub fn default_screen_reader_json_output_path(primary_path: &Path) -> PathBuf {
+pub(crate) fn default_screen_reader_json_output_path(primary_path: &Path) -> PathBuf {
     let mut path = primary_path.to_path_buf();
     let stem = primary_path
         .file_stem()
@@ -110,7 +115,7 @@ pub fn default_screen_reader_json_output_path(primary_path: &Path) -> PathBuf {
 }
 
 /// Directory used for per-page batch output files.
-pub fn per_page_output_directory(args: &Args) -> PathBuf {
+pub(crate) fn per_page_output_directory(args: &Args) -> PathBuf {
     match args.output.as_ref() {
         Some(path) if path.extension().is_none() => path.clone(),
         Some(path) => output_directory(path).to_path_buf(),
@@ -120,7 +125,7 @@ pub fn per_page_output_directory(args: &Args) -> PathBuf {
 
 /// `reports/site.pdf` → `reports/site-calm.pdf`; a directory path without
 /// extension (per-page reports) gets the suffix appended (#653).
-pub fn with_display_suffix(path: &Path, mode: &str) -> PathBuf {
+pub(crate) fn with_display_suffix(path: &Path, mode: &str) -> PathBuf {
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -133,7 +138,7 @@ pub fn with_display_suffix(path: &Path, mode: &str) -> PathBuf {
 }
 
 /// Concrete output path for one page inside a per-page batch run.
-pub fn per_page_output_path(
+pub(crate) fn per_page_output_path(
     base_dir: &Path,
     url: &str,
     format: OutputFormat,
@@ -158,14 +163,14 @@ pub fn per_page_output_path(
 }
 
 /// Default PDF output path for a single-URL audit.
-pub fn default_single_pdf_output_path(url: &str, _report_level: ReportLevel) -> PathBuf {
+pub(crate) fn default_single_pdf_output_path(url: &str, _report_level: ReportLevel) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     let subject = report_subject_from_url(url);
     PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
 }
 
 /// Default PDF output path for a batch audit.
-pub fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
+pub(crate) fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     let kind = if args.sitemap.is_some() {
         "sitemap"
@@ -186,7 +191,7 @@ pub fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
 /// File-name subject for one page of a site: host and path as a slug
 /// (`casoon-de-blog-post`), plus a short hash of the query string when there
 /// is one, so two pages never share a file name.
-pub fn page_subject_from_url(url: &str) -> String {
+pub(crate) fn page_subject_from_url(url: &str) -> String {
     let host = report_subject_from_url(url);
     let Ok(parsed) = url::Url::parse(url) else {
         return host;
@@ -225,7 +230,7 @@ fn slugify(text: &str) -> String {
 }
 
 /// Derive a filename-safe domain slug from a URL (e.g. `"casoon.de"`).
-pub fn report_subject_from_url(url: &str) -> String {
+pub(crate) fn report_subject_from_url(url: &str) -> String {
     let fallback = "audit-report".to_string();
     let Ok(parsed) = url::Url::parse(url) else {
         return fallback;

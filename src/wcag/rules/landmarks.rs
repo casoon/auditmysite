@@ -23,7 +23,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for landmark region checks (2.4.1)
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "2.4.1",
     name: "Landmark Regions",
     level: WcagLevel::A,
@@ -35,7 +35,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for a missing navigation landmark (1.3.1, structural).
-pub const RULE_NAVIGATION_PRESENT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_NAVIGATION_PRESENT: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Landmark Regions",
     level: WcagLevel::A,
@@ -47,7 +47,7 @@ pub const RULE_NAVIGATION_PRESENT: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for a missing contentinfo landmark (1.3.1, structural).
-pub const RULE_CONTENTINFO_PRESENT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_CONTENTINFO_PRESENT: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Landmark Regions",
     level: WcagLevel::A,

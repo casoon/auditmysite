@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
-pub const IDENTIFY_PURPOSE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const IDENTIFY_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.6",
     name: "Identify Purpose",
     level: WcagLevel::AAA,

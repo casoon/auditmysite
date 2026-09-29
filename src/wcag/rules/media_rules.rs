@@ -14,7 +14,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for media accessibility (1.2.x)
-pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
     id: "1.2.1",
     name: "Audio-only and Video-only",
     level: WcagLevel::A,
@@ -27,7 +27,7 @@ pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for captions (1.2.2)
-pub const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
     id: "1.2.2",
     name: "Captions (Prerecorded)",
     level: WcagLevel::A,
@@ -39,7 +39,7 @@ pub const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for SVG/image accessibility (1.1.1)
-pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Non-text Content",
     level: WcagLevel::A,
@@ -51,7 +51,7 @@ pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for iframe accessible names (axe-core `frame-title`).
-pub const RULE_META_FRAME_TITLE: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_FRAME_TITLE: RuleMetadata = RuleMetadata {
     id: "2.4.1",
     name: "Frame title",
     level: WcagLevel::A,
@@ -519,7 +519,7 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
 }
 
 /// Rule metadata for frame-tested (axe-core `frame-tested`).
-pub const RULE_META_FRAME_TESTED: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_FRAME_TESTED: RuleMetadata = RuleMetadata {
     id: "frame-tested",
     name: "Frame tested",
     level: WcagLevel::A,

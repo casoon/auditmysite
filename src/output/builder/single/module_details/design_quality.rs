@@ -1,12 +1,13 @@
 use crate::audit::normalized::AuditContext;
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{DesignQualityFindingPresentation, DesignQualityPresentation};
 
 pub(super) fn build_design_quality_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
 ) -> Option<DesignQualityPresentation> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     normalized.raw_design_quality.map(|dq| {
         let warning_count = dq.warnings().count();
         let advisory_count = dq.advisories().count();

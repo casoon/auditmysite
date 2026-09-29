@@ -6,7 +6,7 @@ pub(in crate::output::pdf) fn render_search_experience(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let title = if en {
         "Search Experience"
     } else {
@@ -131,7 +131,7 @@ pub(in crate::output::pdf) fn render_budget_violations(
     // Metric names are stored in canonical English; re-localize the few
     // translatable ones for the PDF (#406). Acronyms (LCP, TBT, …) pass through.
     let localize_metric = |metric: &str| -> String {
-        if i18n.locale() == "en" {
+        if is_english(i18n) {
             return metric.to_string();
         }
         match metric {

@@ -46,7 +46,7 @@ pub(crate) fn is_skip_link_text(name: &str) -> bool {
     SKIP_KEYWORDS.iter().any(|k| lower.contains(k))
 }
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(crate) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Traverse from root in document order, collecting links.
     let mut links_in_order: Vec<&crate::accessibility::AXNode> = Vec::new();
     if let Some(root) = tree.root() {

@@ -53,7 +53,7 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let (aria, native) = triggers(tree);
     if !aria.is_empty() || !native.is_empty() {
         recognize(&aria, &native, out);

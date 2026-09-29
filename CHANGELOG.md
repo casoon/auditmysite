@@ -5,6 +5,15 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unveroeffentlicht — Refactoring API-Oberflaeche (Plan 66 WP8), 2026-09-29:** Reiner Umbau
+  ohne Aenderung an Ausgabe oder oeffentlicher Bibliotheks-API. Die 199 Stellen, die der Lint
+  `unreachable_pub` meldet (158 in der Bibliothek, 41 im Binary), sind nach Compiler-Vorschlag auf
+  `pub(super)` (140) bzw. `pub(crate)` (59) verengt — fuer Bibliotheksnutzer waren sie ohnehin
+  unsichtbar; erreichbare `pub`-Items bleiben unangetastet (Semver/Studio, 1.7). `lib.rs` und
+  `main.rs` setzen jetzt `#![warn(unreachable_pub)]`. Die 100 Vergleiche
+  `i18n.locale() == "en"` laufen ueber den vorhandenen Helfer `output::localized::is_english`;
+  dafuer ist `output::localized` nicht mehr an das Feature `pdf` gebunden (nur `pick` bleibt es).
+  Verifiziert: Golden-Harness vor/nach identisch, Clippy mit beiden Feature-Sets.
 - **Unveroeffentlicht — Refactoring `audit/pipeline.rs` (Plan 66 WP7), 2026-09-29:** Reine
   Verschiebung ohne Aenderung an Ablauf oder Ausgabe. `src/audit/pipeline.rs` ist jetzt das
   Verzeichnis `src/audit/pipeline/`: `mod.rs` behaelt `PipelineConfig`, `run_single_audit`,

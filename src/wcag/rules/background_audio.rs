@@ -12,7 +12,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const BACKGROUND_AUDIO_RULE: RuleMetadata = RuleMetadata {
+pub(super) const BACKGROUND_AUDIO_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.7",
     name: "Low or No Background Audio",
     level: WcagLevel::AAA,

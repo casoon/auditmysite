@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, Grid, KeyValueList, List, PageBreak, SectionHeaderSplit,
     TableOfContents,
@@ -105,7 +106,7 @@ pub(super) fn render_batch_cover(
         }
         // #653: the display mode every score in this report belongs to.
         {
-            let en = i18n.locale() == "en";
+            let en = is_english(i18n);
             let mode = batch
                 .reports
                 .first()
@@ -275,7 +276,7 @@ pub(super) fn render_batch_status_section(
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
             (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
         }),
-        i18n.locale() == "en",
+        is_english(i18n),
     ));
 
     // Key points
@@ -324,7 +325,7 @@ pub(super) fn render_batch_en301549_rollup(
 ) -> renderreport::engine::ReportBuilder {
     use crate::wcag::en301549::ClauseStatus;
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let (title, intro) = if en {
         (
             "EN 301 549 clause mapping",

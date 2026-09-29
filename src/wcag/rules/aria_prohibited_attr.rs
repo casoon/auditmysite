@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use tracing::warn;
 
 /// Rule metadata for ARIA prohibited attributes
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "aria-prohibited-attr",
     name: "ARIA Prohibited Attributes",
     level: WcagLevel::A,

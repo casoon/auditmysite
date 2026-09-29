@@ -9,7 +9,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
-pub const UNUSUAL_WORDS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const UNUSUAL_WORDS_RULE: RuleMetadata = RuleMetadata {
     id: "3.1.3",
     name: "Unusual Words",
     level: WcagLevel::AAA,

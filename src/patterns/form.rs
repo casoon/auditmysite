@@ -48,7 +48,7 @@ const SUBMIT_HINTS: &[&str] = &[
     "contact",
 ];
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Collect required form controls.
     let required_controls: Vec<_> = tree
         .iter()

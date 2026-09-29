@@ -14,14 +14,19 @@ use runemark::{
 use auditmysite::cli::ProgressPolicy;
 use auditmysite::util::truncate_url;
 
-pub struct BatchLifecyclePresenter {
+pub(crate) struct BatchLifecyclePresenter {
     sink: Box<dyn ProgressSink>,
 }
 
 impl BatchLifecyclePresenter {
     /// Builds the presenter for a real batch run. `--quiet` always wins over
     /// `--progress`, matching the existing `--quiet` contract.
-    pub fn new(progress: ProgressPolicy, quiet: bool, console: Console, is_terminal: bool) -> Self {
+    pub(crate) fn new(
+        progress: ProgressPolicy,
+        quiet: bool,
+        console: Console,
+        is_terminal: bool,
+    ) -> Self {
         Self::with_visible_sink(progress, quiet, |mode| {
             Box::new(TerminalProgress::stderr(mode, console, is_terminal))
         })
@@ -54,32 +59,32 @@ impl BatchLifecyclePresenter {
         Self { sink }
     }
 
-    pub fn start(&self, total: usize, stage: &str) {
+    pub(crate) fn start(&self, total: usize, stage: &str) {
         self.sink.start(total as u64, stage);
     }
 
     /// Advances to `completed` with the (truncated) URL just finished.
-    pub fn advance(&self, completed: usize, url: &str) {
+    pub(crate) fn advance(&self, completed: usize, url: &str) {
         self.sink.advance(completed as u64, &truncate_url(url, 50));
     }
 
     /// Surfaces a per-URL audit error without corrupting an active bar.
-    pub fn notice_error(&self, url: &str, err: &str) {
+    pub(crate) fn notice_error(&self, url: &str, err: &str) {
         self.sink.notice(Tone::Error, &format!("{url}: {err}"));
     }
 
     /// Surfaces a general lifecycle notice (e.g. a diagnostics one-liner).
-    pub fn notice(&self, message: &str) {
+    pub(crate) fn notice(&self, message: &str) {
         self.sink.notice(Tone::Info, message);
     }
 
-    pub fn finish(&self, verdict: Verdict, message: &str) {
+    pub(crate) fn finish(&self, verdict: Verdict, message: &str) {
         self.sink.finish(verdict, message);
     }
 
     /// Closes the lifecycle with AuditMySite's own batch verdict, mapped to
     /// Runemark's semantic outcome.
-    pub fn finish_verdict(&self, verdict: auditmysite::Verdict, message: &str) {
+    pub(crate) fn finish_verdict(&self, verdict: auditmysite::Verdict, message: &str) {
         let mapped = match verdict {
             auditmysite::Verdict::Pass => Verdict::Passed,
             auditmysite::Verdict::Warn => Verdict::Warning,
@@ -92,7 +97,7 @@ impl BatchLifecyclePresenter {
     /// order is fixed here rather than at each call site: rendering first
     /// lets an interactive bar redraw across report lines and makes a
     /// redirected stream print its verdict after the report.
-    pub fn finish_then_render<T>(
+    pub(crate) fn finish_then_render<T>(
         &self,
         verdict: auditmysite::Verdict,
         message: &str,

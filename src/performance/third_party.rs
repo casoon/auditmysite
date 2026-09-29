@@ -214,7 +214,7 @@ pub fn select_origins_to_isolate(
 
 /// Compute the isolated-impact delta for one origin's blocked-vs-baseline TBT
 /// measurement. Pure so the delta math is unit-testable without a browser.
-pub fn compute_isolated_impact(
+pub(super) fn compute_isolated_impact(
     origin: &str,
     blocked_url_pattern: &str,
     baseline_tbt_ms: f64,

@@ -17,7 +17,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const STATUS_MESSAGES_RULE: RuleMetadata = RuleMetadata {
+pub(super) const STATUS_MESSAGES_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.3",
     name: "Status Messages",
     level: WcagLevel::AA,

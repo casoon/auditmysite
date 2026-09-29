@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{KeyValueList, List, SectionHeaderSplit};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
@@ -47,7 +48,7 @@ pub(super) fn render_batch_action_plan_enhanced(
     plan: &ActionPlan,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let effort_col = if en { "Effort" } else { "Aufwand" };
     let role_col = if en { "Role" } else { "Rolle" };
     let scope_global = "global";
@@ -127,7 +128,7 @@ pub(super) fn render_next_steps_batch(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let intro = if en {
         "Concrete recommendation for implementation."
     } else {

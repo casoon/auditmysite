@@ -3,6 +3,8 @@
 //! Bootstrap, logging setup, and top-level command dispatch.
 //! Orchestration logic lives in the sibling modules declared below.
 
+#![warn(unreachable_pub)]
+
 #[path = "cli/batch_lifecycle.rs"]
 mod batch_lifecycle;
 #[path = "cli/commands.rs"]

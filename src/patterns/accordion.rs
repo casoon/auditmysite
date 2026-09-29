@@ -11,7 +11,7 @@ use crate::wcag::types::{Severity, Violation};
 use super::disclosure_menu::NATIVE_DISCLOSURE_ROLES;
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let mut triggers = 0usize;
     let mut with_controls = 0usize;
     let mut non_button_triggers = 0usize;

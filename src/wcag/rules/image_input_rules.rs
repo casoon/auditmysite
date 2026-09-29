@@ -16,7 +16,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Area Alternative Text",
     level: WcagLevel::A,
@@ -27,7 +27,7 @@ pub const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
 
-pub const RULE_INPUT_IMAGE_ALT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_INPUT_IMAGE_ALT: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Image Button Alternative Text",
     level: WcagLevel::A,
@@ -38,7 +38,7 @@ pub const RULE_INPUT_IMAGE_ALT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
 
-pub const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Object Alternative Text",
     level: WcagLevel::A,

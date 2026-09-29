@@ -1,6 +1,7 @@
 //! Shared helper functions for PDF rendering.
 
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::*;
 
 /// Concrete VoiceOver/NVDA self-verification instructions (plan/16) for the
@@ -246,7 +247,7 @@ pub(super) fn module_name_with_taxonomy_suffix(
     if !class.needs_suffix_qualifier() {
         return name.to_string();
     }
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let suffix = match class {
         ModuleTaxonomyClass::Optional => "Optional",
         _ => {

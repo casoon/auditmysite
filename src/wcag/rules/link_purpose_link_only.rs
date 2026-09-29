@@ -8,7 +8,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const LINK_PURPOSE_LINK_ONLY_RULE: RuleMetadata = RuleMetadata {
+pub(super) const LINK_PURPOSE_LINK_ONLY_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.9",
     name: "Link Purpose (Link Only)",
     level: WcagLevel::AAA,

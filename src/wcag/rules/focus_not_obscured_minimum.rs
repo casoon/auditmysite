@@ -54,7 +54,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const FOCUS_NOT_OBSCURED_MINIMUM_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUS_NOT_OBSCURED_MINIMUM_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.11",
     name: "Focus Not Obscured (Minimum)",
     level: WcagLevel::AA,

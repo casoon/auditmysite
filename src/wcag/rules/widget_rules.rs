@@ -9,7 +9,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for widget rules (4.1.2)
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value - Widgets",
     level: WcagLevel::A,

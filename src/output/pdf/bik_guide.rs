@@ -7,6 +7,7 @@
 //! Pure re-projection of already-computed findings — no new detection, see
 //! the module doc on `wcag::bik_guide`.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::SectionHeaderSplit;
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn, TagCloud};
@@ -36,7 +37,7 @@ pub(super) fn render_bik_guide_annex(
     accessibility_assessments: &[AccessibilityAssessment],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let (title, intro) = if en {
         (

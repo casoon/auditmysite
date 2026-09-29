@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const ABBREVIATIONS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ABBREVIATIONS_RULE: RuleMetadata = RuleMetadata {
     id: "3.1.4",
     name: "Abbreviations",
     level: WcagLevel::AAA,

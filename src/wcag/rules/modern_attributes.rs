@@ -6,7 +6,7 @@ use tracing::warn;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Evidence, RuleMetadata, Severity, Violation};
 
-pub const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
+pub(super) const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value - Modern Interaction Attributes",
     level: WcagLevel::A,

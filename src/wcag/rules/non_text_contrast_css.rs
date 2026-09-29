@@ -21,7 +21,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 use super::contrast::{Color, ContrastRule};
 
-pub const NON_TEXT_CONTRAST_CSS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const NON_TEXT_CONTRAST_CSS_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.11",
     name: "Non-text Contrast",
     level: WcagLevel::AA,

@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
-pub const MOTION_ACTUATION_RULE: RuleMetadata = RuleMetadata {
+pub(super) const MOTION_ACTUATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.4",
     name: "Motion Actuation",
     level: WcagLevel::A,

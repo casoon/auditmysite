@@ -9,7 +9,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.4
-pub const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.4",
     name: "Link Purpose (In Context)",
     level: WcagLevel::A,
@@ -27,7 +27,7 @@ pub const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
 /// manually") instead of falling back to `LINK_PURPOSE_RULE`'s generic text,
 /// which is written for the no-context case and reads as an unconditional
 /// rewrite instruction (#571).
-pub const LINK_PURPOSE_CONTEXT_RULE: RuleMetadata = RuleMetadata {
+pub(super) const LINK_PURPOSE_CONTEXT_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.4",
     name: "Link Purpose (In Context)",
     level: WcagLevel::A,

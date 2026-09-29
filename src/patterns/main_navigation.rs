@@ -7,7 +7,7 @@ use crate::accessibility::AXTree;
 
 use super::{PatternAnalysis, PatternConfidence};
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let nav_nodes = tree.nodes_with_role("navigation");
     if nav_nodes.is_empty() {
         return;

@@ -8,7 +8,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.10
-pub const SECTION_HEADINGS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const SECTION_HEADINGS_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.10",
     name: "Section Headings",
     level: WcagLevel::AAA,

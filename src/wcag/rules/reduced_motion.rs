@@ -13,7 +13,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const REDUCED_MOTION_RULE: RuleMetadata = RuleMetadata {
+pub(super) const REDUCED_MOTION_RULE: RuleMetadata = RuleMetadata {
     id: "2.3.3",
     name: "Animation from Interactions",
     level: WcagLevel::AAA,

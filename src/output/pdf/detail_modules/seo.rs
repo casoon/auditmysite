@@ -685,7 +685,7 @@ pub(in crate::output::pdf) fn render_seo_profile(
                 format!(
                     "{} {}",
                     profile.schema_count,
-                    match (profile.schema_count == 1, i18n.locale() == "en") {
+                    match (profile.schema_count == 1, is_english(i18n)) {
                         (true, true) => "schema",
                         (false, true) => "schemas",
                         (true, false) => "Schema",

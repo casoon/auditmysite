@@ -8,7 +8,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.1
-pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.1",
     name: "Bypass Blocks",
     level: WcagLevel::A,

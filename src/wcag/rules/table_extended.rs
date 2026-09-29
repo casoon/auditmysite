@@ -22,7 +22,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 // ── Rule metadata ──────────────────────────────────────────────────────────────
 
-pub const RULE_TD_HEADERS_ATTR: RuleMetadata = RuleMetadata {
+pub(super) const RULE_TD_HEADERS_ATTR: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Table Cell Headers Attribute",
     level: WcagLevel::A,
@@ -134,7 +134,7 @@ pub async fn check_table_headers_attr_with_page(page: &Page) -> Vec<Violation> {
         .collect()
 }
 
-pub const RULE_TH_HAS_DATA_CELLS: RuleMetadata = RuleMetadata {
+pub(super) const RULE_TH_HAS_DATA_CELLS: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Header Cell Has Data Cells",
     level: WcagLevel::A,

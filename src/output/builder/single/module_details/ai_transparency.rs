@@ -1,12 +1,13 @@
 use crate::audit::normalized::AuditContext;
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{AiTransparencyPresentation, ImageProvenanceFindingPresentation};
 
 pub(super) fn build_ai_transparency_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
 ) -> Option<AiTransparencyPresentation> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     normalized.raw_ai_transparency.map(|a| AiTransparencyPresentation {
         images_checked: a.images_checked,
         findings: a

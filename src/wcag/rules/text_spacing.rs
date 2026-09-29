@@ -19,7 +19,7 @@ use tracing::warn;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const TEXT_SPACING_RULE: RuleMetadata = RuleMetadata {
+pub(super) const TEXT_SPACING_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.12",
     name: "Text Spacing",
     level: WcagLevel::AA,

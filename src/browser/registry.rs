@@ -5,13 +5,13 @@
 use super::types::BrowserKind;
 
 /// An entry in the browser registry
-pub struct RegistryEntry {
+pub(super) struct RegistryEntry {
     pub kind: BrowserKind,
     pub path: &'static str,
 }
 
 /// Known browser paths for the current platform, in priority order
-pub fn system_browser_paths() -> Vec<RegistryEntry> {
+pub(super) fn system_browser_paths() -> Vec<RegistryEntry> {
     let mut entries = Vec::new();
 
     #[cfg(target_os = "macos")]
@@ -112,7 +112,7 @@ pub fn system_browser_paths() -> Vec<RegistryEntry> {
 }
 
 /// Search terms for `which`/`where` per BrowserKind
-pub fn which_names(kind: BrowserKind) -> &'static [&'static str] {
+pub(super) fn which_names(kind: BrowserKind) -> &'static [&'static str] {
     match kind {
         BrowserKind::Chrome => &["google-chrome", "google-chrome-stable"],
         BrowserKind::Edge => &["microsoft-edge", "microsoft-edge-stable"],
@@ -123,7 +123,7 @@ pub fn which_names(kind: BrowserKind) -> &'static [&'static str] {
 }
 
 /// Priority order for automatic browser search
-pub fn search_order() -> &'static [BrowserKind] {
+pub(super) fn search_order() -> &'static [BrowserKind] {
     &[
         BrowserKind::Chrome,
         BrowserKind::Edge,

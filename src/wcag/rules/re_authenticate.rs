@@ -8,7 +8,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
-pub const RE_AUTHENTICATE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const RE_AUTHENTICATE_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.5",
     name: "Re-authenticating",
     level: WcagLevel::AAA,

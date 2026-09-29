@@ -1,6 +1,7 @@
 //! Module-level score and context derivation helpers (accessibility, performance, SEO, security, mobile).
 
 use crate::audit::NormalizedReport;
+use crate::output::localized::is_english;
 use crate::wcag::Severity;
 
 use crate::i18n::I18n;
@@ -15,7 +16,7 @@ pub(super) fn derive_accessibility_lever(i18n: &I18n, normalized: &NormalizedRep
     {
         // Stored title is canonical English (#406); re-derive the localized
         // taxonomy title for non-English reports.
-        let title = if i18n.locale() == "en" {
+        let title = if is_english(i18n) {
             finding.title.clone()
         } else {
             crate::taxonomy::RuleLookup::by_id(&finding.rule_id)

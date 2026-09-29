@@ -3,6 +3,7 @@ use crate::audit::performance_interpretation::{
     append_performance_qualifiers_text, performance_gap_text,
 };
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{
     AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DuplicateAssetRow,
     MinificationPresentation, PerformancePresentation, PerformanceViewport, ThirdPartyImpactRow,
@@ -76,7 +77,7 @@ pub(super) fn build_performance_details(
             vitals: vitals.clone(),
         });
 
-        let en = i18n.locale() == "en";
+        let en = is_english(i18n);
         let mut additional = Vec::new();
         if let Some(heap) = p.vitals.js_heap_size {
             additional.push((

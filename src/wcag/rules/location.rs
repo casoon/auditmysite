@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const LOCATION_RULE: RuleMetadata = RuleMetadata {
+pub(super) const LOCATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.8",
     name: "Location",
     level: WcagLevel::AAA,

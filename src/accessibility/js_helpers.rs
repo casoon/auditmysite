@@ -23,7 +23,7 @@
 ///   real and excluded hits are capped separately, and the loop bound reads
 ///   the real count. Excluded hits are still returned, so the pipeline can
 ///   drop and count them like any other excluded finding.
-pub const CSS_SELECTOR_JS: &str = r#"
+pub(crate) const CSS_SELECTOR_JS: &str = r#"
 function __amsIsExcludedEl(el) {
   try {
     return !!(el && typeof window.__amsIsExcluded === 'function' && window.__amsIsExcluded(el));
@@ -95,7 +95,7 @@ function __amsCssSelector(el) {
 /// technology and serve a purely decorative role — they must be skipped.
 /// `role="presentation"` and `role="none"` on the element itself also signal
 /// decoration with no accessibility semantics.
-pub const IS_ARIA_HIDDEN_JS: &str = r#"
+pub(crate) const IS_ARIA_HIDDEN_JS: &str = r#"
 function __amsIsAriaHidden(el) {
   var cur = el;
   while (cur && cur !== document.documentElement) {
@@ -114,7 +114,7 @@ function __amsIsAriaHidden(el) {
 /// `clip-path: inset(50%/100%)`, and far off-screen positioned/indented text.
 /// WCAG contrast (1.4.3) does not apply to such elements — axe-core skips
 /// them too.
-pub const IS_VISUALLY_HIDDEN_JS: &str = r#"
+pub(crate) const IS_VISUALLY_HIDDEN_JS: &str = r#"
 function __amsIsVisuallyHidden(el) {
   var cur = el;
   for (var depth = 0; cur && cur.nodeType === 1 && depth < 12; depth++) {

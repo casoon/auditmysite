@@ -20,7 +20,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.3",
     name: "Focus Order",
     level: WcagLevel::A,

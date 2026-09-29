@@ -1,5 +1,6 @@
 //! Appendix and snapshot helper components for PDF reports.
 
+use crate::output::localized::is_english;
 use renderreport::components::{AuditTable, TableColumn};
 
 use super::cover::auditmysite_wordmark_path;
@@ -53,7 +54,7 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
         table = table.add_row(vec![row_module.clone(), module.name.clone(), value]);
     }
 
-    let occurrences_word = if i18n.locale() == "en" {
+    let occurrences_word = if is_english(i18n) {
         "occurrences"
     } else {
         "Vorkommen"

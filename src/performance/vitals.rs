@@ -417,7 +417,7 @@ fn parse_cls_shifts(val: &serde_json::Value) -> Vec<ClsShift> {
 /// definition) badly overcounts long-lived pages that shift repeatedly during
 /// lazy-loading — which is exactly what a headless audit observes. This matches
 /// Chrome's `web-vitals` library and Lighthouse.
-pub fn session_window_cls(shifts: &[ClsShift]) -> f64 {
+pub(super) fn session_window_cls(shifts: &[ClsShift]) -> f64 {
     let mut ordered: Vec<&ClsShift> = shifts.iter().collect();
     ordered.sort_by(|a, b| a.start_time_ms.total_cmp(&b.start_time_ms));
 
