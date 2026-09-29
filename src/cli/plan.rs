@@ -133,7 +133,7 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
 pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
     if args.per_page_reports {
         let dir = per_page_output_directory(args);
-        let mut outputs = vec![format!("{}/*", dir.display())];
+        let mut outputs = vec![dir.join("*").display().to_string()];
         if args.effective_format() == OutputFormat::Json {
             outputs.push(dir.join("index.json").display().to_string());
             outputs.push(dir.join("findings.jsonl").display().to_string());
@@ -213,6 +213,20 @@ mod tests {
                 "out/tech/findings.jsonl".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn planned_batch_outputs_trailing_slash_gives_no_double_slash() {
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "--url-file",
+            "urls.txt",
+            "--technician",
+            "-o",
+            "out/tech/",
+        ]);
+        args.apply_technician_preset();
+        assert_eq!(planned_batch_outputs(&args)[0], "out/tech/*");
     }
 
     #[test]
