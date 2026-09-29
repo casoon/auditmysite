@@ -18,6 +18,21 @@ short current-state summary. Newest entries first (unchanged order from before t
   `run_viewport_pass` bewusst nicht. Oeffentliche Pfade (`auditmysite::audit::{audit_page,
   run_single_audit, PipelineConfig}`) bleiben. Verifiziert: Golden-Harness vor/nach identisch,
   `integration_test` und `detection_corpus_test` (`--ignored`) gegen echtes Chrome.
+- **Refactoring: Modul-Details und Page Health als Verzeichnismodule (Plan 66 WP6), 2026-09-29:**
+  Reiner Umbau ohne Verhaltensaenderung. `output/builder/single/module_details.rs` (2.618 Zeilen)
+  ist jetzt ein Verzeichnismodul mit einer Datei je Modul, gespiegelt an `output/pdf/detail_modules/`:
+  `performance.rs`, `seo.rs`, `platform.rs` (Security, Mobile), `html_conform.rs`, `commerce.rs`,
+  `dark_mode.rs`, `design_quality.rs`, `ai_transparency.rs`, `experience.rs` (UX, Journey); die
+  Orchestrierung (`build_module_details_from_normalized`) bleibt in `module_details.rs`. Die
+  Inline-Berechnungen im `SeoPresentation`-Literal sind benannte Funktionen (`heading_summary`,
+  `social_summary`, `technical_summary_rows`, `tracking_summary_rows`,
+  `build_robots_presentation`, `build_image_efficiency_presentation`, `technical_issue_rows`).
+  `seo/page_health.rs` (3.128 Zeilen) behaelt Typen, Textfunktionen, `analyze_page_health` und die
+  URL-Analyse; neu sind `page_health/dom.rs` (DOM-Inspektion, lokale HTML-Validierung),
+  `page_health/probes.rs` (HTTP-Proben) und `page_health/issues.rs` (`collect_issues`). Alle
+  oeffentlichen Pfade bleiben (`seo::page_health::collect_issues` per `pub use`). Die Umbenennung
+  `run_w3c_html_validation` → `run_local_html_validation` war bereits mit WP9 erledigt.
+  Verifiziert mit dem Golden-Harness (WP0) gegen `main`: `diff -r` leer.
 
 - **Darstellungsmodi (`data-display`-Konvention), 2026-09-29 (#653):** Neues Modul `src/display/`
   und neue Option `--display calm|text|visual|all`. Ohne Option bleibt alles wie bisher (Voreinstellung

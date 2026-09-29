@@ -150,6 +150,8 @@ src/
 │   ├── builder/         # AuditReport → PDF ViewModel transformation
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
 │   │   └── single/      # Single-report builder (findings, etc.)
+│   │       └── module_details.rs + module_details/ # Per-module detail presentations,
+│   │                        # one file per module (mirrors pdf/detail_modules/)
 │   ├── pdf/             # PDF reports (via renderreport/Typst)
 │   │   ├── mod.rs, single_report.rs, batch_report.rs
 │   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
@@ -217,7 +219,9 @@ src/
 │   ├── schema_parity.rs # Conservative visible-content vs. JSON-LD comparison
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang
-│   ├── page_health.rs   # Aggregated issue collection (collect_issues)
+│   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
+│   ├── page_health/     # dom.rs (DOM inspection, local HTML validation), probes.rs
+│   │                    # (HTTP probes), issues.rs (collect_issues)
 │   ├── image_efficiency.rs # Image format and resolution analysis
 │   └── ...
 │
