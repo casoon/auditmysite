@@ -5,7 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
-- **Unveroeffentlicht — Refactoring API-Oberflaeche (Plan 66 WP8), 2026-09-29:** Reiner Umbau
+- **1.7.0, 2026-09-30:** Neue Funktionen: Techniker-Modus `--technician` (JSON je Seite plus
+  `index.json` und `findings.jsonl`, Pfadfilter `--include-path`/`--exclude-path`, Plan 67),
+  Darstellungsmodi `--display calm|text|visual|all` (#653), Ausschluss absichtlicher Beispiele ueber
+  `data-audit-exclude`/`--exclude-selector`, sichtbar im Bericht (#645), und vollstaendig
+  englische PDF-Berichte mit `--lang en`. Dazu die Fehlalarm-Korrekturen aus #638-#659 und
+  #673/#674 sowie der Umbau aus Plan 66 (WP0-WP8, Ausgabe per Golden-Harness unveraendert). Crate-
+  Metadaten: `documentation` zeigt auf https://casoon.github.io/auditmysite/, `homepage` auf
+  https://auditmysite.casoon.de/. Einzelheiten in den Eintraegen darunter.
+
+- **Refactoring API-Oberflaeche (Plan 66 WP8), 2026-09-29:** Reiner Umbau
   ohne Aenderung an Ausgabe oder oeffentlicher Bibliotheks-API. Die 199 Stellen, die der Lint
   `unreachable_pub` meldet (158 in der Bibliothek, 41 im Binary), sind nach Compiler-Vorschlag auf
   `pub(super)` (140) bzw. `pub(crate)` (59) verengt — fuer Bibliotheksnutzer waren sie ohnehin
@@ -14,7 +23,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   `i18n.locale() == "en"` laufen ueber den vorhandenen Helfer `output::localized::is_english`;
   dafuer ist `output::localized` nicht mehr an das Feature `pdf` gebunden (nur `pick` bleibt es).
   Verifiziert: Golden-Harness vor/nach identisch, Clippy mit beiden Feature-Sets.
-- **Unveroeffentlicht — Refactoring `audit/pipeline.rs` (Plan 66 WP7), 2026-09-29:** Reine
+- **Refactoring `audit/pipeline.rs` (Plan 66 WP7), 2026-09-29:** Reine
   Verschiebung ohne Aenderung an Ablauf oder Ausgabe. `src/audit/pipeline.rs` ist jetzt das
   Verzeichnis `src/audit/pipeline/`: `mod.rs` behaelt `PipelineConfig`, `run_single_audit`,
   `audit_page` mit beiden Viewport-Durchlaeufen, die Regellaeufe und die Artefakt-Persistenz;
