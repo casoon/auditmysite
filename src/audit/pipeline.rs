@@ -2111,6 +2111,25 @@ fn update_audit_quality(report: &mut AuditReport) {
     };
 }
 
+/// Undo a throttled pass whose page did not load, and report whether the tab
+/// answers again.
+///
+/// The page keeps loading under the CPU throttle after the navigation gave up.
+/// On www.deutschebahn.com (Slow3G, 6x) the renderer was then too busy to
+/// answer: every restore command waited out its 30 s CDP timeout, the next
+/// profiles did the same, and a 30 s audit ran past rankinglab's 12-minute
+/// limit. So the CPU throttle goes first and loading stops, each step gets a
+/// short limit, and a tab that does not come back ends the throttled passes.
+async fn recover_after_throttled_failure(page: &Page) -> bool {
+    use chromiumoxide::cdp::browser_protocol::page::StopLoadingParams;
+    let step = std::time::Duration::from_secs(5);
+    let cpu = tokio::time::timeout(step, throttle::disable_cpu_throttling(page)).await;
+    let _ = tokio::time::timeout(step, page.execute(StopLoadingParams::default())).await;
+    let network = tokio::time::timeout(step, throttle::disable_throttling(page)).await;
+    let cache = tokio::time::timeout(step, throttle::enable_cache(page)).await;
+    matches!(cpu, Ok(Ok(()))) && matches!(network, Ok(Ok(()))) && matches!(cache, Ok(Ok(())))
+}
+
 /// Run one performance-only page load per throttle profile and return the results.
 ///
 /// Uses the mobile viewport (most relevant for throttling scenarios).
@@ -2158,19 +2177,23 @@ async fn collect_throttled_performance(
             warn!("Cache disable failed for {:?}: {}", profile, e);
         }
 
-        if let Err(e) = prepare_vitals_collection(page).await {
-            warn!("Vitals injection failed for {:?}: {}", profile, e);
-            let _ = throttle::enable_cache(page).await;
-            let _ = throttle::disable_throttling(page).await;
-            let _ = throttle::disable_cpu_throttling(page).await;
-            continue;
-        }
-
-        if let Err(e) = browser.navigate(page, url).await {
-            warn!("Navigation failed for {:?}: {}", profile, e);
-            let _ = throttle::enable_cache(page).await;
-            let _ = throttle::disable_throttling(page).await;
-            let _ = throttle::disable_cpu_throttling(page).await;
+        let failure = match prepare_vitals_collection(page).await {
+            Err(e) => Some(format!("Vitals injection failed for {profile:?}: {e}")),
+            Ok(()) => browser
+                .navigate(page, url)
+                .await
+                .err()
+                .map(|e| format!("Navigation failed for {profile:?}: {e}")),
+        };
+        if let Some(failure) = failure {
+            warn!("{failure}");
+            if !recover_after_throttled_failure(page).await {
+                warn!(
+                    "Tab did not recover after the failed {:?} pass; skipping the remaining throttled profiles",
+                    profile
+                );
+                break;
+            }
             continue;
         }
 

@@ -84,27 +84,40 @@ async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
 /// Only fails on network-level errors (DNS, timeout, connection refused).
 /// Any HTTP response — including 4xx/5xx from bot-protection like Cloudflare —
 /// is treated as "server reachable"; Chrome handles auth and bot challenges itself.
-pub async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
+/// Waits as long as the page load may (`timeout_secs`, `-t`): www.ing.de takes
+/// 9–10 s for any answer and failed a fixed 10-second check.
+pub async fn check_url_reachable(url: &str, timeout_secs: u64, quiet: bool) -> Result<()> {
     if !quiet {
         println!("{} {}", "Checking:".dimmed(), url);
     }
 
-    let client = build_browser_client(10).map_err(|e| AuditError::ConfigError(e.to_string()))?;
+    let client =
+        build_browser_client(timeout_secs).map_err(|e| AuditError::ConfigError(e.to_string()))?;
 
     // Connection-level errors (TLS reset by Cloudflare, refused) are silently ignored —
     // Chrome uses a different TLS stack and often succeeds where reqwest fails.
     // Only abort on timeout: that means the host is genuinely unreachable.
-    match client.head(url).send().await {
-        Ok(_) => {}
-        Err(e) if e.is_timeout() => {
-            return Err(AuditError::ConfigError(format!(
-                "Domain unreachable (timeout): {}\n  Please check your internet connection and URL.",
-                url
-            )));
-        }
+    //
+    // A HEAD timeout alone is no proof: www.regierung-mv.de leaves HEAD
+    // unanswered (or answers after 17 s) while GET returns in 0.3 s, and the
+    // audit ended as "unreachable". GET decides; `send` returns once the
+    // headers are in, the body is never read.
+    let timed_out = match client.head(url).send().await {
+        Ok(_) => false,
+        Err(e) if e.is_timeout() => match client.get(url).send().await {
+            Ok(_) => false,
+            Err(e) => e.is_timeout(),
+        },
         Err(e) => {
             tracing::debug!("Preflight HEAD failed ({}); proceeding with Chrome", e);
+            false
         }
+    };
+    if timed_out {
+        return Err(AuditError::ConfigError(format!(
+            "Domain unreachable (timeout): {}\n  Please check your internet connection and URL.",
+            url
+        )));
     }
 
     Ok(())

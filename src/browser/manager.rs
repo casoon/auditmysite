@@ -41,6 +41,9 @@ pub struct BrowserOptions {
     pub verbose: bool,
     /// Override the user-agent string (None = use default browser simulation UA)
     pub user_agent_override: Option<String>,
+    /// Report every page as focused and visible (CDP focus emulation). Only
+    /// parallel batch pages need it; see [`BrowserManager::new_page`].
+    pub focus_emulation: bool,
 }
 
 impl Default for BrowserOptions {
@@ -55,6 +58,7 @@ impl Default for BrowserOptions {
             timeout_secs: 30,
             verbose: false,
             user_agent_override: None,
+            focus_emulation: false,
         }
     }
 }
@@ -325,11 +329,19 @@ impl BrowserManager {
         // emulation makes every tab focused and visible; an own window per
         // page did the same but stalled Chrome with several heavy sites
         // rendering at once (plan 62).
-        page.execute(SetFocusEmulationEnabledParams::new(true))
-            .await
-            .map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to enable focus emulation: {}", e),
-            })?;
+        //
+        // Only for parallel pages. A lone page is the active tab anyway, and
+        // with emulation a full Chrome on macOS stalled completely in 3 of 6
+        // single-URL audits of www.deutschebahn.com (every CDP command timed
+        // out, the audit ran past rankinglab's 12-minute limit); without it
+        // 6 of 6 finished with identical results (plan 65).
+        if self.options.focus_emulation {
+            page.execute(SetFocusEmulationEnabledParams::new(true))
+                .await
+                .map_err(|e| AuditError::BrowserLaunchFailed {
+                    reason: format!("Failed to enable focus emulation: {}", e),
+                })?;
+        }
 
         // Patch navigator.webdriver = undefined on every document load.
         // --disable-blink-features=AutomationControlled removes it at the Blink level,

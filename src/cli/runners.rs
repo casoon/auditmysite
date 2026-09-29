@@ -72,7 +72,7 @@ pub async fn run_single_mode(
     print_single_audit_plan(args, url);
 
     // Quick reachability check before spinning up a browser
-    check_url_reachable(url, args.quiet).await?;
+    check_url_reachable(url, args.effective_timeout(), args.quiet).await?;
 
     info!("Starting audit for: {}", url);
 
@@ -152,6 +152,8 @@ pub async fn run_single_mode(
         verbose: args.verbose,
         user_agent_override: (args.request_mode == RequestMode::Bot)
             .then(|| BOT_USER_AGENT.to_string()),
+        // One page, the active tab (see `BrowserManager::new_page`).
+        focus_emulation: false,
     };
 
     if !args.quiet {

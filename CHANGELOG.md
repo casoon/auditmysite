@@ -13,6 +13,22 @@ short current-state summary. Newest entries first (unchanged order from before t
   aus 0.3.0 mit: `img` ohne `alt`, interaktiver Inhalt in `a`, weitere Parserfehler; dazu `name`
   neben RDFa-`property` an `<meta>`). HTML-Konformitaetswerte koennen dadurch sinken.
 
+- **Abbrueche im rankinglab-Lauf, 2026-09-29:** Von 122 rankinglab-Seiten scheiterten 7; vier
+  davon liefen mit 1.3.1 problemlos. (1) Einzelaudits mit vollem Chrome unter macOS blieben mit
+  der CDP-Fokus-Emulation aus Plan 62 zeitweise ganz stehen: www.deutschebahn.com hing in 3 von 6
+  Laeufen (jeder CDP-Befehl lief 30 s in den Timeout, der Audit ueberschritt rankinglabs
+  12-Minuten-Grenze), ohne Emulation liefen 6 von 6 in 103-128 s mit gleichen Ergebnissen. Die
+  Emulation war fuer verborgene Tabs paralleler Batch-Seiten gedacht und gilt jetzt nur dort
+  (`BrowserOptions::focus_emulation`, gesetzt bei `--concurrency` > 1). (2) Scheitert ein
+  gedrosselter Performance-Aufruf, laedt die Seite unter der CPU-Drosselung weiter; die
+  Aufraeumbefehle warteten dann je 30 s. Jetzt loest die Pipeline zuerst die CPU-Drosselung,
+  stoppt das Laden, jeder Schritt mit 5 s, und laesst die uebrigen Profile aus, wenn der Tab nicht
+  antwortet. (3) Die Vorpruefung vor dem Browserstart brach bei einem HEAD-Timeout ab:
+  www.regierung-mv.de beantwortet HEAD gar nicht (GET in 0,3 s), www.ing.de braucht 9-10 s je
+  Antwort bei fest 10 s Wartezeit. Jetzt entscheidet ein GET, und gewartet wird so lange wie
+  `-t`. Keine Fehler bei uns: www.unito.it und www.douglas.de sperren (403), www.tu-berlin.de
+  drosselte voruebergehend (429).
+
 - **Berichtsgenauigkeit nach dem Abgleich mit dem rankinglab-Korpus, 2026-09-29:** Zwei
   Berichtskritiken (gov.uk, sachsen-anhalt.de) gegen 1.3.1 fanden Fehler, die Urteil und Zahlen
   verfaelschten; jeder ist am Code bzw. an den Daten nachgeprueft. (1) Die Zusammenfuehrung von

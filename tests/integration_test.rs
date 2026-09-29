@@ -1747,7 +1747,14 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 async fn parallel_pages_are_visible_and_focused() {
     use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 
-    let manager = ci_browser().await;
+    // Parallel batch pages get focus emulation (see `BatchConfig`).
+    let manager = BrowserManager::with_options(BrowserOptions {
+        no_sandbox: std::env::var("CI").is_ok(),
+        focus_emulation: true,
+        ..Default::default()
+    })
+    .await
+    .expect("Browser launch failed");
     let mut pages = Vec::new();
     for _ in 0..3 {
         pages.push(manager.new_page().await.expect("New page failed"));
