@@ -25,6 +25,12 @@ short current-state summary. Newest entries first (unchanged order from before t
   `landmark_header_in_main`, `landmark_aside_scoping` (echte Negative) und
   `landmark_aside_named_duplicate` (echtes Positiv); `table_headers_no_data` und
   `landmark_granular` sichern die bisherigen echten Positive.
+- **Englische PDFs ohne deutsche Tabellenbeschriftungen, 2026-09-29:** Mit `--lang en` standen in
+  den Tabellen zu Sicherheits-Headern („Vorhanden"/„Fehlt"), SSL („Gueltiges Zertifikat", „Laeuft
+  ab in … Tage", „Chain-Laenge"), Touch-Targets („Zu klein", „Zu eng beieinander") und Schrift
+  („Kleinste Schrift", „Lesbarer Text") deutsche Beschriftungen, gefunden an einem englischen
+  casoon.de-Bericht. Die Beschriftungen folgen jetzt der Laufsprache; ein Guard-Test mit den
+  Moduldaten dieses Laufs prueft die englische Ausgabe auf deutsche Begriffe.
 - **Cache-Rundreise und deterministische Reihenfolge, 2026-09-29:** Beim Aufbau des
   Golden-Render-Harness (Plan 66) fielen zwei Fehler auf. (1) `GraphEntity.properties` wurde mit
   `skip_serializing_if` weggelassen, trug aber kein `default`: Ein gecachter `report.json` mit einer
