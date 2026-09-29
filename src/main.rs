@@ -287,7 +287,32 @@ mod tests {
         let rendered = path.display().to_string();
         assert!(rendered.starts_with("reports/"));
         assert!(rendered.ends_with("-single-report.pdf"));
-        assert!(rendered.contains("in-punkto-com-"));
+        assert!(rendered.contains("in-punkto-com-leistungen-"));
+    }
+
+    #[test]
+    fn test_per_page_output_paths_differ_per_page() {
+        let path = |url: &str| {
+            per_page_output_path(
+                std::path::Path::new("reports"),
+                url,
+                OutputFormat::Json,
+                ReportLevel::Standard,
+            )
+        };
+        let pages = [
+            "https://www.casoon.de/",
+            "https://www.casoon.de/arbeitsweise/",
+            "https://www.casoon.de/blog/a11y-check",
+            "https://www.casoon.de/search?q=a",
+            "https://www.casoon.de/search?q=b",
+        ];
+        let paths: std::collections::HashSet<_> = pages.iter().map(|u| path(u)).collect();
+        assert_eq!(paths.len(), pages.len(), "{paths:?}");
+        assert!(path("https://www.casoon.de/")
+            .display()
+            .to_string()
+            .contains("reports/casoon-de-2"));
     }
 
     #[cfg(feature = "pdf")]
