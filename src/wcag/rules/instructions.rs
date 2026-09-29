@@ -32,7 +32,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
         let role_lower = node.role.as_deref().unwrap_or("").to_lowercase();
 
         // Check form inputs
-        if is_form_input(&role_lower) {
+        if is_form_input(&role_lower) && !in_native_date_time_input(node, tree) {
             let has_label = has_accessible_label(node);
             let has_instructions = has_instructions_or_hint(node);
 
@@ -156,6 +156,24 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// Chrome renders `<input type=date|time|month|week|datetime-local>` with
+/// internal day/month/year/hour fields exposed as `spinbutton`s below the
+/// input's own `Date`/`DateTime`/`InputTime` node. Those fields and their
+/// format belong to the browser, not the author (#656).
+fn in_native_date_time_input(node: &AXNode, tree: &AXTree) -> bool {
+    let mut current = node.parent_id.as_deref();
+    while let Some(parent) = current.and_then(|id| tree.get_node(id)) {
+        if matches!(
+            parent.role.as_deref(),
+            Some("Date" | "DateTime" | "InputTime")
+        ) {
+            return true;
+        }
+        current = parent.parent_id.as_deref();
+    }
+    false
 }
 
 /// Check if role is a form input
@@ -641,6 +659,30 @@ mod tests {
         assert!(needs("Tel."));
         assert!(needs("Reisepass"));
         assert!(needs("Geburtsdatum"));
+    }
+
+    /// #656: the day/month/year spinbuttons Chrome renders inside a native
+    /// date input are the browser's own fields, with the browser's format.
+    #[test]
+    fn test_native_date_time_subfields_are_not_checked() {
+        for native_role in ["Date", "DateTime", "InputTime"] {
+            let input = create_input("d", native_role, Some("Order date"));
+            let mut wrapper = create_input("w", "generic", None);
+            wrapper.parent_id = Some("d".into());
+            let mut day = create_input("s", "spinbutton", Some("Day"));
+            day.parent_id = Some("w".into());
+            let tree = AXTree::from_nodes(vec![input, wrapper, day]);
+            let results = check_instructions(&tree);
+            assert!(format_findings(&results).is_empty(), "{native_role}");
+            assert!(results.violations.is_empty(), "{native_role}");
+        }
+    }
+
+    /// A custom spinbutton still asks for format instructions.
+    #[test]
+    fn test_custom_spinbutton_still_needs_format_hint() {
+        let tree = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Quantity"))]);
+        assert_eq!(format_findings(&check_instructions(&tree)).len(), 1);
     }
 
     fn group_with_html_tag(id: &str, tag: &str, name: Option<&str>) -> AXNode {

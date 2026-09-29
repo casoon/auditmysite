@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Custom value widgets without aria-valuenow corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>Custom widgets without a current value</h1>
+        <div id="volume" role="slider" tabindex="0" aria-label="Volume"
+             aria-valuemin="0" aria-valuemax="10"></div>
+        <div id="quantity" role="spinbutton" tabindex="0" aria-label="Quantity"></div>
+        <div id="splitter" role="separator" tabindex="0" aria-label="Resize panes"></div>
+        <input id="text-slider" type="text" role="slider" aria-label="Brightness">
+    </main>
+</body>
+</html>

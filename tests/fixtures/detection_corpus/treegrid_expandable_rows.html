@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Expandable treegrid rows and tree items corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>Grouped orders</h1>
+        <!-- WAI-ARIA treegrid pattern: aria-expanded on a parent row is the
+             pattern's own state, not an accordion trigger (#655). -->
+        <table role="treegrid" aria-label="Orders">
+            <thead>
+                <tr><th>Country</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+                <tr aria-level="1" aria-expanded="true" tabindex="0">
+                    <td>Country: AT (2 rows)</td><td>300</td>
+                </tr>
+                <tr aria-level="2"><td>Vienna</td><td>100</td></tr>
+                <tr aria-level="2"><td>Graz</td><td>200</td></tr>
+                <tr aria-level="1" aria-expanded="false" tabindex="-1">
+                    <td>Country: CH (1 row)</td><td>50</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div role="grid" aria-label="Plain grid">
+            <div role="row" aria-expanded="false" tabindex="-1">
+                <div role="gridcell">Group row</div>
+            </div>
+        </div>
+
+        <ul role="tree" aria-label="Files">
+            <li role="treeitem" aria-expanded="false" tabindex="0">src</li>
+            <li role="treeitem" tabindex="-1">README.md</li>
+        </ul>
+    </main>
+</body>
+</html>

@@ -5,6 +5,37 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **4.1.2/3.3.2: aufklappbare Treegrid-Zeilen und native Wertfelder, 2026-09-29 (#655, #656):**
+  (1) Das Accordion-Muster hielt jedes Element mit `aria-expanded` fuer einen Accordion-Ausloeser
+  und meldete auf og-vanilla.casoon.dev/grouping jede Gruppenzeile des `role="treegrid"` als
+  „should be a button" (Medium, 12 Vorkommen). `aria-expanded` auf einer Zeile in `grid`/`treegrid`
+  und auf einem `treeitem` ist der Zustand des eigenen zusammengesetzten Widgets, dessen
+  Tastaturvertrag (Pfeiltasten, Enter) das Grid bzw. der Baum stellt; solche Knoten zaehlen nicht
+  mehr als Ausloeser. Eine aufklappbare Zeile ausserhalb eines Grids wird weiter gemeldet.
+
+  (2) `aria-required-attr` pruefte `aria-valuenow` ueber eine AX-Eigenschaft `valuenow`, die CDP
+  nicht kennt — der aktuelle Wert steht im `value` des Knotens, und Chrome erfindet einen (50 beim
+  Slider, 0 beim Spinbutton), wenn der Autor keinen setzt. Die Pruefung schlug deshalb bei jedem
+  `slider`/`spinbutton`/`meter`/fokussierbaren `separator` an, auch bei nativem
+  `<input type=range|number>` und den internen Tag/Monat/Jahr-Feldern von `<input type=date>`
+  (Critical; auf /filtering, /columns, /grouping, /theming 16 Vorkommen). Aus demselben Grund
+  meldete `check_slider_has_value` („Slider is missing accessible value") jeden Slider: Der
+  Extraktor liest nur Text-Werte, die Zahl des Sliders fiel weg. Die `aria-valuenow`-Pflicht
+  laeuft jetzt als DOM-Regel `check_value_now_with_page` (wie schon `aria-checked`): sie liest das
+  Attribut, durchlaeuft offene Shadow Roots, nimmt natives `range`/`number` und `<meter>` aus und
+  erreicht die User-Agent-Felder von Datumsfeldern gar nicht. Die Slider-Pruefung in
+  `widget_rules.rs` entfaellt; der eigene `role="slider"` ohne `aria-valuenow` bleibt ein Verstoss.
+
+  (3) Die 3.3.2-Heuristik „may require format instructions" uebergeht Knoten innerhalb der
+  Chrome-Rollen `Date`/`DateTime`/`InputTime` — deren Felder und Format stellt der Browser. Native
+  `<input type=number>` bleibt vorerst drin (die Heuristik wertet jeden `spinbutton` als
+  formatempfindlich).
+
+  Live nachgeprueft mit dem Release-Build gegen og-vanilla.casoon.dev: keine Accordion-, keine
+  `aria-valuenow`- und keine Slider-Wert-Befunde mehr; auf /filtering bleiben zwei
+  Format-Hinweise fuer die nativen Zahlenfelder. Neue Korpus-Fixtures `treegrid_expandable_rows`,
+  `value_widgets_native` (bestehen), `value_widgets_custom` und `value_widgets_shadow` (Verstoss);
+  `aria_and_widgets` erwartet den eigenen Slider jetzt unter `aria-required-attr`.
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
