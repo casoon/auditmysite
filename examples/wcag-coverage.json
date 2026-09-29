@@ -1,0 +1,8 @@
+{
+  "wcag_version": "2.2",
+  "level": "WCAG 2.2 AA",
+  "automated_criteria": 30,
+  "manual_review_criteria": 21,
+  "total_wcag_aa_criteria": 55,
+  "note": "Automated score covers detectable criteria only; context-dependent WCAG criteria require manual review."
+}
