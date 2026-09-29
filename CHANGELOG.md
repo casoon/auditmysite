@@ -31,6 +31,13 @@ short current-state summary. Newest entries first (unchanged order from before t
   `<ul><slot>` einer Web-Komponente stand leer da (sachsen-anhalt.de). (9) Beim Beenden meldete
   `BrowserManager::close` „Failed to close page: Session with given id not found" fuer die schon
   geschlossene Audit-Seite (5 von 15 Einzelaudits); das ist jetzt eine Debug-Meldung.
+  Nachkontrolle an neu erzeugten Berichten: (10) Blocker zaehlen Elemente, nicht Regeltreffer (drei
+  Namensregeln am selben Menue-Element auf sachsen-anhalt.de waren „3 Bedienelemente"), mit
+  Einzahl im Satz. (11) Die Checkliste „Alle Verstoesse" zeigt die geteilten Texte ebenfalls
+  deutsch. (12) Quellenqualitaet: Kartenfarben nach denselben Schwellen wie die Wortstufe (40
+  statt 60 fuer rot), und „alle Signale in Ordnung" nur, wenn jede Dimension gut ist (gov.uk: 80+
+  gesamt, Substanz 70). (13) Eine Landmark-Massnahme mit `aria-label` bekommt nicht mehr den
+  Titel „Interaktive Elemente (Buttons, Links) verstaendlich benennen".
 - **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die

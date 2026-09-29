@@ -295,11 +295,13 @@ impl ManagementRiskKind {
                 match (en, *blocking_issues) {
                     (true, 0) => format!("{critical} critical and {high} high findings."),
                     (true, n) => format!(
-                        "{critical} critical and {high} high findings; {n} controls without an accessible name or role, or not operable by keyboard — screen reader and keyboard use is obstructed at those points."
+                        "{critical} critical and {high} high findings; {n} {} without an accessible name or role, or not operable by keyboard — screen reader and keyboard use is obstructed at those points.",
+                        if n == 1 { "control" } else { "controls" }
                     ),
                     (false, 0) => format!("{critical} kritische und {high} hohe Befunde."),
                     (false, n) => format!(
-                        "{critical} kritische und {high} hohe Befunde; {n} Bedienelemente ohne zugänglichen Namen oder Rolle oder nicht per Tastatur bedienbar — Screenreader- und Tastaturnutzung ist an diesen Stellen behindert."
+                        "{critical} kritische und {high} hohe Befunde; {n} {} ohne zugänglichen Namen oder Rolle oder nicht per Tastatur bedienbar — Screenreader- und Tastaturnutzung ist an diesen Stellen behindert.",
+                        if n == 1 { "Bedienelement" } else { "Bedienelemente" }
                     ),
                 }
             }
@@ -329,8 +331,8 @@ impl ManagementRiskKind {
                     )
                 } else {
                     format!(
-                        "{base} {blocking_issues} Bedienelement{} lassen sich mit Hilfsmitteln nicht bedienen — Abläufe, die darüber führen, sind so nicht abschließbar.",
-                        if *blocking_issues == 1 { "" } else { "e" }
+                        "{base} {blocking_issues} {} mit Hilfsmitteln nicht bedienen — Abläufe, die darüber führen, sind so nicht abschließbar.",
+                        if *blocking_issues == 1 { "Bedienelement lässt sich" } else { "Bedienelemente lassen sich" }
                     )
                 }
             }

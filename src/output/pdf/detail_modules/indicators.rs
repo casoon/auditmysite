@@ -43,7 +43,13 @@ pub(in crate::output::pdf) fn render_source_quality(
         builder = builder.add_component(note);
     }
 
-    if sq.score >= 80 {
+    // "All signals fine" only when every dimension is: gov.uk scored 80+
+    // overall with Substanz at 70 and two failed signals, and the PDF said
+    // nothing needed doing.
+    if [&sq.substance, &sq.consistency, &sq.authority]
+        .iter()
+        .all(|dim| dim.score >= 75)
+    {
         return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
     }
 
@@ -65,7 +71,7 @@ pub(in crate::output::pdf) fn render_source_quality(
                 dim.score,
             )
             .with_description(&dim_label)
-            .with_thresholds(75, 60),
+            .with_thresholds(75, 40),
         );
 
         if !dim.signals.is_empty() {

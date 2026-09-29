@@ -61,18 +61,30 @@ pub(super) fn compute_risk_assessment(
     // control; counting them turned gov.uk's two empty status regions into
     // "controls not operable with assistive technology".
     // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
-    let blocking_issues = findings
-        .iter()
-        .filter(|f| {
-            (f.wcag_criterion == "2.1.1"
-                || (f.wcag_criterion == "4.1.2" && is_missing_name_or_role(&f.rule_id)))
-                && matches!(
-                    f.severity,
-                    Severity::Medium | Severity::High | Severity::Critical
-                )
-        })
-        .map(|f| f.occurrence_count)
-        .sum::<usize>();
+    // Counted per element: on sachsen-anhalt.de three name rules reported the
+    // same menu element, which read as "3 Bedienelemente". Occurrences are
+    // identified by node, or by selector where the node is a placeholder;
+    // occurrences a finding counts but does not list stay counted as distinct.
+    let mut blocking_elements = std::collections::HashSet::new();
+    let mut blocking_unlisted = 0usize;
+    for f in findings.iter().filter(|f| {
+        (f.wcag_criterion == "2.1.1"
+            || (f.wcag_criterion == "4.1.2" && is_missing_name_or_role(&f.rule_id)))
+            && matches!(
+                f.severity,
+                Severity::Medium | Severity::High | Severity::Critical
+            )
+    }) {
+        for o in &f.occurrences {
+            let key = match (o.node_id.as_str(), &o.selector) {
+                ("document", Some(selector)) => format!("sel:{selector}"),
+                (node, _) => format!("node:{node}"),
+            };
+            blocking_elements.insert(key);
+        }
+        blocking_unlisted += f.occurrence_count.saturating_sub(f.occurrences.len());
+    }
+    let blocking_issues = blocking_elements.len() + blocking_unlisted;
     let interactive_critical_issues = interactive_findings
         .iter()
         .filter(|f| f.severity == Severity::Critical)

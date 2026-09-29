@@ -200,7 +200,13 @@ fn derive_business_impact_base(
 
 pub(super) fn humanize_action_text(i18n: &I18n, action: &str) -> String {
     let lower = action.to_lowercase();
-    if lower.contains("aria-label") || lower.contains("aria_label") {
+    // Landmarks are named with aria-label too; the control wording
+    // ("Buttons, Links benennen") put a button action over a landmark
+    // finding on gov.uk.
+    if (lower.contains("aria-label") || lower.contains("aria_label"))
+        && !lower.contains("landmark")
+        && !lower.contains("region")
+    {
         return i18n.t("action-human-aria-label");
     }
     if (lower.contains("alt-text") || lower.contains("alt text") || lower.contains("alt-attribut"))

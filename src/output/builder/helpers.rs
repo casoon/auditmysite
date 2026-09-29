@@ -256,7 +256,7 @@ pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
     }
 }
 
-/// Replace shared-rule texts (occurrence message and fix) by their run-language
+/// Replace shared-rule texts (description, occurrence message and fix) by their run-language
 /// version. Findings keep canonical English (#406);
 /// `WcagResults::localized_texts` maps those texts for a German run, and only
 /// the PDF builders apply it.
@@ -273,6 +273,7 @@ pub(crate) fn localize_shared_texts(
         }
     };
     for finding in findings {
+        localize(&mut finding.description);
         for occurrence in &mut finding.occurrences {
             localize(&mut occurrence.message);
             if let Some(fix) = occurrence.fix_suggestion.as_mut() {
