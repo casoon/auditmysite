@@ -1,0 +1,8 @@
+{
+  "case": "form_heuristics_flagged",
+  "expectations": [
+    { "rule_id": "form-field-group", "verdict": "violation" },
+    { "rule_id": "label", "verdict": "needs_review" },
+    { "rule_id": "label", "verdict": "pass" }
+  ]
+}

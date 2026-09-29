@@ -867,6 +867,8 @@ fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
         }
     }
 
+    conflicts.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
+
     let mut findings = Vec::new();
     if !conflicts.is_empty() {
         findings.push(format!(
@@ -1310,5 +1312,50 @@ mod tests {
         let a = analyze(&batch).expect("batch ≥ 2");
         assert!(a.schema_graph.conflicts.is_empty());
         assert!(a.schema_graph.findings.is_empty());
+    }
+
+    #[test]
+    fn test_schema_graph_conflicts_sorted_by_entity_id() {
+        use crate::seo::schema::{JsonLdSchema, StructuredData};
+        use serde_json::json;
+
+        let ids = ["https://a.com/#z", "https://a.com/#a", "https://a.com/#m"];
+        let make_schema_report = |url: &str, schema_type: &str| {
+            let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+            report.discoverability.seo = Some(SeoAnalysis {
+                structured_data: StructuredData {
+                    json_ld: ids
+                        .iter()
+                        .map(|id| JsonLdSchema {
+                            schema_type: schema_type.to_string(),
+                            schema_types: vec![schema_type.to_string()],
+                            content: json!({ "@id": id, "@type": schema_type }),
+                            is_valid: true,
+                        })
+                        .collect(),
+                    has_structured_data: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report
+        };
+
+        let reports = vec![
+            make_schema_report("https://a.com/", "Organization"),
+            make_schema_report("https://a.com/about", "LocalBusiness"),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        let conflict_ids: Vec<&str> = a
+            .schema_graph
+            .conflicts
+            .iter()
+            .map(|c| c.entity_id.as_str())
+            .collect();
+        assert_eq!(
+            conflict_ids,
+            ["https://a.com/#a", "https://a.com/#m", "https://a.com/#z"]
+        );
     }
 }

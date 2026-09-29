@@ -39,7 +39,7 @@ async fn ci_browser() -> BrowserManager {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
     let (url, shutdown) = serve_fixture("svg_graphics_roles.html");
     let manager = ci_browser().await;
@@ -102,7 +102,7 @@ fn default_config() -> PipelineConfig {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_wcag_parity_gaps_on_stable_fixture() {
     let (url, shutdown) = serve_fixture("parity_gaps.html");
 
@@ -165,7 +165,7 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_perfect_page_scores_high() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
@@ -205,7 +205,7 @@ async fn test_perfect_page_scores_high() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_many_violations_page_scores_low() {
     let (url, shutdown) = serve_fixture("many_violations.html");
 
@@ -238,7 +238,7 @@ async fn test_many_violations_page_scores_low() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_full_audit_with_all_modules() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
@@ -293,7 +293,7 @@ async fn test_full_audit_with_all_modules() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_output_formats() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
@@ -337,7 +337,7 @@ async fn test_output_formats() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_mobile_issues_detected() {
     let (url, shutdown) = serve_fixture("mobile_issues.html");
 
@@ -390,7 +390,7 @@ async fn test_mobile_issues_detected() {
 /// opposite on both of these fixtures: tree order puts the heading first
 /// either way, so neither page could be told from the other.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
     async fn flagged(fixture: &'static str) -> bool {
         use auditmysite::journey::FrictionKind;
@@ -430,7 +430,7 @@ async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_modern_contrast_resolution() {
     let (url, shutdown) = serve_fixture("modern_contrast.html");
 
@@ -506,7 +506,7 @@ async fn test_modern_contrast_resolution() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_image_contrast_pixel_sampling() {
     let (url, shutdown) = serve_fixture("image_contrast.html");
 
@@ -622,7 +622,7 @@ async fn test_image_contrast_pixel_sampling() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_opacity_overlay_contrast_pixel_sampling() {
     // Regression for #527: an uncertain-background element (opacity stack,
     // translucent overlay sibling, or an actual <img> behind text) whose
@@ -705,7 +705,7 @@ async fn test_opacity_overlay_contrast_pixel_sampling() {
 
 /// #343 — catalog-driven audit produces a complete report structure.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_catalog_driven_audit_complete_structure() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
@@ -746,7 +746,7 @@ async fn test_catalog_driven_audit_complete_structure() {
 
 /// #345 — a page that causes a sub-analysis to fail does not abort the audit.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_partial_module_failure_does_not_abort_audit() {
     let (url, shutdown) = serve_fixture("many_violations.html");
 
@@ -780,7 +780,7 @@ async fn test_partial_module_failure_does_not_abort_audit() {
 
 /// #346 — auditing two URLs sequentially with the same BrowserManager succeeds.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_sequential_two_url_audit() {
     let (url1, shutdown1) = serve_fixture("perfect.html");
     let (url2, shutdown2) = serve_fixture("many_violations.html");
@@ -812,7 +812,7 @@ async fn test_sequential_two_url_audit() {
 
 /// #347 — JSON output from a catalog-driven audit validates against the v2.0 envelope.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_catalog_audit_json_envelope_v2() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
@@ -859,7 +859,7 @@ async fn test_catalog_audit_json_envelope_v2() {
 /// mismatch to a warning rather than an auto-confirmed violation, and must
 /// still catch a genuine label/name mismatch.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_label_in_name_false_positives() {
     let (url, shutdown) = serve_fixture("label_in_name.html");
 
@@ -947,7 +947,7 @@ async fn test_target_size_equivalent_link_exception() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_design_quality_module_findings_and_score_isolation() {
     // #528: the opt-in design_quality module must (a) actually detect each of
     // its rules against a real rendered page and (b) never change the
@@ -1039,7 +1039,7 @@ async fn test_design_quality_module_findings_and_score_isolation() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 #[cfg(feature = "ai-transparency")]
 async fn test_ai_transparency_module_ssrf_guard_and_score_isolation() {
     // The opt-in ai_transparency module must (a) never change the
@@ -1128,7 +1128,7 @@ async fn test_ai_transparency_module_ssrf_guard_and_score_isolation() {
 /// separate pages of the same browser complete well within that bound
 /// instead of being allowed to silently run unbounded.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_concurrent_wait_for_stable_stays_within_its_timeout_budget() {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
@@ -1179,7 +1179,7 @@ async fn test_concurrent_wait_for_stable_stays_within_its_timeout_budget() {
 // operability via the tab-walk journey.
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_video_caption_track_resolving_is_a_confirmed_pass() {
     let (url, shutdown) = serve_fixture("video_captions_resolving.html");
     let manager = ci_browser().await;
@@ -1208,7 +1208,7 @@ async fn test_video_caption_track_resolving_is_a_confirmed_pass() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_video_without_track_stays_manual_review() {
     let (url, shutdown) = serve_fixture("video_no_track.html");
     let manager = ci_browser().await;
@@ -1238,7 +1238,7 @@ async fn test_video_without_track_stays_manual_review() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_video_embed_iframe_gets_platform_specific_manual_review_message() {
     let (url, shutdown) = serve_fixture("video_embed_iframe.html");
     let manager = ci_browser().await;
@@ -1269,7 +1269,7 @@ async fn test_video_embed_iframe_gets_platform_specific_manual_review_message() 
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_media_alternative_enriches_message_with_nearby_transcript_link() {
     let (url, shutdown) = serve_fixture("video_transcript_link.html");
     let manager = ci_browser().await;
@@ -1302,7 +1302,7 @@ async fn test_media_alternative_enriches_message_with_nearby_transcript_link() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_media_alternative_default_message_without_transcript_link() {
     let (url, shutdown) = serve_fixture("video_no_track.html");
     let manager = ci_browser().await;
@@ -1327,7 +1327,7 @@ async fn test_media_alternative_default_message_without_transcript_link() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn test_video_controls_missing_name_flagged_during_tab_walk() {
     let (url, shutdown) = serve_fixture("video_controls_keyboard.html");
     let manager = ci_browser().await;
@@ -1372,7 +1372,7 @@ async fn test_video_controls_missing_name_flagged_during_tab_walk() {
 /// die Region Inhalt bekommen hat. Der Test pinnt beides — die Beobachtung
 /// greift, und der Fehlalarm bleibt aus.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn transiente_live_region_wird_beobachtet_und_erzeugt_keinen_fehlalarm() {
     use auditmysite::audit::normalized::InteractiveFindingKind;
     use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
@@ -1443,7 +1443,7 @@ async fn transiente_live_region_wird_beobachtet_und_erzeugt_keinen_fehlalarm() {
 /// Menü-Journey. Dieser Test hält beides fest: dass der Kandidat entsteht und
 /// dass ein korrektes Menü still bleibt.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn korrektes_menue_erzeugt_keine_befunde() {
     use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
 
@@ -1515,7 +1515,7 @@ async fn korrektes_menue_erzeugt_keine_befunde() {
 /// `hasPopup`-Fehler, und `patterns::modal_dialog` stieg aus, wenn beim Laden
 /// kein Dialog im Baum stand — bei einem geschlossenen `<dialog>` also immer.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn korrekter_modaler_dialog_erzeugt_keine_befunde() {
     use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
 
@@ -1606,7 +1606,7 @@ async fn korrekter_modaler_dialog_erzeugt_keine_befunde() {
 /// nächste Tab im Inhalt landet; und sie ließ einen Fokus durchgehen, der
 /// irgendwohin sprang, nur nicht zum Ziel.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn skip_link_journey_prueft_das_sprungziel() {
     use auditmysite::audit::normalized::InteractiveFindingKind;
     use auditmysite::patterns::{JourneyCandidate, JourneyKind, PatternKind};
@@ -1687,7 +1687,7 @@ async fn skip_link_journey_prueft_das_sprungziel() {
 /// `<details name>` trägt die Rolle `DisclosureTriangleGrouped`, die weder der
 /// Bereichsbestimmung noch dem Akkordeon bekannt war.
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn natives_details_erreicht_die_disclosure_journey() {
     use auditmysite::patterns::JourneyKind;
 
@@ -1788,7 +1788,7 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 /// focused like a single-URL run, or requestAnimationFrame never fires and
 /// focus-based checks measure something else (plan 62).
 #[tokio::test]
-#[ignore]
+#[ignore = "needs Chrome"]
 async fn parallel_pages_are_visible_and_focused() {
     use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 
@@ -1828,4 +1828,84 @@ async fn parallel_pages_are_visible_and_focused() {
         assert!(focused, "page {i} has no focus");
         assert!(matches!(frames, Ok(Ok(_))), "page {i}: no animation frame");
     }
+}
+
+/// #651: a page that gets no browser page in time is retried one at a time
+/// after the parallel phase instead of vanishing from the batch. One pool
+/// slot, two parallel workers and a 1 s pool wait make the second page time
+/// out on the pool for certain — the capacity shortfall heavy WebGL pages
+/// caused in production.
+///
+/// Runs on an 8 MiB thread like the CLI's main thread: in a debug build the
+/// batch future overflows the test harness's 2 MiB thread stack.
+#[test]
+#[ignore]
+fn batch_retries_pool_timeouts_serially() {
+    std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(batch_retries_pool_timeouts_serially_body())
+        })
+        .expect("test thread")
+        .join()
+        .expect("test body panicked");
+}
+
+async fn batch_retries_pool_timeouts_serially_body() {
+    use auditmysite::{run_concurrent_batch, Args, BatchConfig};
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("perfect.html");
+    let urls: Vec<String> = ["a", "b", "c"]
+        .iter()
+        .map(|path| format!("{url}/{path}"))
+        .collect();
+
+    let args = Args::parse_from(["auditmysite", "--url-file", "unused.txt", "-c", "2"]);
+    let mut config = BatchConfig::from(&args);
+    config.pool_config.max_pages = 1;
+    config.pool_config.acquire_timeout_secs = 1;
+    config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
+    config.pipeline.persist_artifacts = false;
+
+    let progress_calls = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let progress: auditmysite::audit::ProgressCallback = {
+        let calls = Arc::clone(&progress_calls);
+        Arc::new(move |current, total, url: &str, error: Option<&str>| {
+            calls.lock().unwrap().push((
+                current,
+                total,
+                url.to_string(),
+                error.map(str::to_string),
+            ));
+        })
+    };
+
+    let batch = run_concurrent_batch(urls.clone(), &config, Some(progress))
+        .await
+        .expect("batch runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(batch.errors.is_empty(), "errors: {:?}", batch.errors);
+    let audited: Vec<&str> = batch.reports.iter().map(|r| r.url.as_str()).collect();
+    assert_eq!(audited, urls.iter().map(String::as_str).collect::<Vec<_>>());
+
+    // Every page is reported exactly once and as a success: a deferred page
+    // is not announced as failed before its serial retry.
+    let calls = progress_calls.lock().unwrap();
+    assert_eq!(calls.len(), 3, "progress: {calls:?}");
+    assert!(calls
+        .iter()
+        .all(|(_, total, _, error)| *total == 3 && error.is_none()));
+    assert_eq!(
+        calls
+            .iter()
+            .map(|(current, ..)| *current)
+            .collect::<Vec<_>>(),
+        vec![1, 2, 3]
+    );
 }

@@ -1,0 +1,6 @@
+{
+  "case": "table_headers_tbody_ignored",
+  "expectations": [
+    { "rule_id": "th-has-data-cells", "verdict": "pass" }
+  ]
+}

@@ -661,7 +661,16 @@ fn clean_page_tree() -> AXTree {
         n
     };
     // Skip link before first landmark (satisfies 2.4.1 skip-link check)
-    let skip_link = focusable("skip", "link", Some("Skip to main content"));
+    let skip_link = {
+        // Chrome exposes the link target as `url`; region recognises the
+        // skip link by that same-page target, not by its text (#642).
+        let mut n = focusable("skip", "link", Some("Skip to main content"));
+        n.properties.push(AXProperty {
+            name: "url".to_string(),
+            value: AXValue::String("#main".to_string()),
+        });
+        n
+    };
     let banner = node_with_children("banner", "banner", None, vec!["logo-link"]);
     let logo_link = {
         let mut n = focusable("logo-link", "link", Some("Home"));
@@ -736,7 +745,16 @@ fn page_with_main_content(main_children: Vec<(&str, AXNode)>) -> AXTree {
         });
         n
     };
-    let skip_link = focusable("skip", "link", Some("Skip to main content"));
+    let skip_link = {
+        // Chrome exposes the link target as `url`; region recognises the
+        // skip link by that same-page target, not by its text (#642).
+        let mut n = focusable("skip", "link", Some("Skip to main content"));
+        n.properties.push(AXProperty {
+            name: "url".to_string(),
+            value: AXValue::String("#main".to_string()),
+        });
+        n
+    };
     let banner = node_with_children("banner", "banner", None, vec!["logo-link"]);
     let logo_link = {
         let mut n = focusable("logo-link", "link", Some("Home"));

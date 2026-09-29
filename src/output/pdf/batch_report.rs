@@ -4,9 +4,23 @@ use crate::i18n::I18n;
 use crate::output::builder::build_batch_presentation_with_locale;
 use crate::output::report_model::*;
 
-mod sections;
+mod actions;
+mod appendix;
+mod consistency;
+mod interactive;
+mod management;
+mod overview;
+mod portfolio;
+mod seo;
 
-use sections::*;
+use actions::*;
+use appendix::*;
+use consistency::*;
+use interactive::*;
+use management::*;
+use overview::*;
+use portfolio::*;
+use seo::*;
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
     let (engine, mut built_report) = build_batch_report(batch, config)?;
@@ -69,6 +83,7 @@ fn build_batch_report(
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_status_section(
         builder,
+        batch,
         &pres,
         &en301549_rollup,
         &failed_en_criteria,

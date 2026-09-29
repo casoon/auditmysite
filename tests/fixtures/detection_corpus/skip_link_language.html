@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Lien d'évitement en français</title>
+    <style>
+        .skip-link { position: absolute; left: -9999px; }
+        .skip-link:focus { left: 0; }
+    </style>
+</head>
+<body>
+    <!-- #642: a skip link is recognised by its same-page target placed before
+         the first regular link, not by its (here French) text. -->
+    <a href="#main" class="skip-link" id="skip">Aller au contenu</a>
+    <header>
+        <a href="/">Accueil</a>
+    </header>
+    <nav aria-label="Navigation principale">
+        <ul>
+            <li><a href="/apprendre/">Apprendre</a></li>
+            <li><a href="/outils/">Outils</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1>L'accessibilité numérique</h1>
+        <p>Le contenu principal de la page.</p>
+    </main>
+    <!-- Same text and target, but after the regular links and outside every
+         landmark: ordinary content, still reported. -->
+    <div>
+        <a href="#main" id="stray-link">Aller au contenu</a>
+    </div>
+    <footer>
+        <p>Pied de page</p>
+    </footer>
+</body>
+</html>

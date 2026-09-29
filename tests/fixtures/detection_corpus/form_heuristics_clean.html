@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Form heuristics: true negatives (#643)</title>
+</head>
+<body>
+    <main>
+        <h1>Booking form</h1>
+        <form>
+            <!-- Mode switch: radios correctly grouped -->
+            <fieldset>
+                <legend>Mode</legend>
+                <label><input type="radio" name="mode" value="broken" checked> Broken</label>
+                <label><input type="radio" name="mode" value="fixed"> Fixed</label>
+            </fieldset>
+
+            <!-- Date field with instructions via aria-describedby: the
+                 description counts as the format instruction -->
+            <label for="booking-date">Date</label>
+            <input type="text" id="booking-date" name="date" inputmode="numeric" aria-describedby="booking-date-hint">
+            <p id="booking-date-hint">Day of travel</p>
+
+            <!-- "passiert" contains "pass" but is no passport field -->
+            <label for="report-what">Was ist passiert?</label>
+            <textarea id="report-what" name="what" rows="4" aria-describedby="report-what-hint"></textarea>
+            <span id="report-what-hint">Was Sie erwartet haben und was stattdessen passiert ist</span>
+
+            <!-- A single checkbox, and a second one with a different name:
+                 neither is a group -->
+            <label><input type="checkbox" class="bill-sr"> Screen reader view</label>
+            <label><input type="checkbox" name="newsletter"> Send me the newsletter</label>
+
+            <button type="submit">Search</button>
+        </form>
+    </main>
+</body>
+</html>

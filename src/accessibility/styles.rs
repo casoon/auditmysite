@@ -34,6 +34,12 @@ impl ComputedStyles {
         self.get("color")
     }
 
+    /// Colour the glyphs are actually painted with: an explicitly set
+    /// `-webkit-text-fill-color` overrides `color`.
+    pub fn painted_text_color(&self) -> Option<&str> {
+        self.get("text-fill-color").or_else(|| self.color())
+    }
+
     /// Get background color
     pub fn background_color(&self) -> Option<&str> {
         self.get("background-color")
@@ -161,6 +167,30 @@ const STYLES_EXTRACT_JS: &str = r#"
         return false;
     }
 
+    // #640: `background-clip: text` (prefixed or not) on the element or an
+    // ancestor paints the glyphs with that element's background (typically a
+    // gradient), so the CSS `color` is not what is rendered.
+    function hasTextClippedBackground(el) {
+        let current = el;
+        while (current && current !== document.documentElement) {
+            const styles = window.getComputedStyle(current);
+            if (styles.backgroundClip === 'text' || styles.webkitBackgroundClip === 'text') {
+                return true;
+            }
+            current = current.parentElement;
+        }
+        return false;
+    }
+
+    // #640: a (near-)transparent text colour or text fill means the visible
+    // glyphs come from something other than `color` (background-clip,
+    // text-stroke) — compositing it would yield a fabricated ~1:1 ratio.
+    const NEAR_TRANSPARENT_ALPHA = 0.05;
+    function isNearTransparent(colorStr) {
+        const c = parseCssColor(colorStr);
+        return !c || c.a < NEAR_TRANSPARENT_ALPHA;
+    }
+
     function getEffectiveBackground(el) {
         let current = el;
         const layers = [];
@@ -251,6 +281,22 @@ const STYLES_EXTRACT_JS: &str = r#"
             finalFg = composite(fg, bgParsed);
         }
 
+        const foregroundUncertain = hasTextClippedBackground(el) ||
+            isNearTransparent(styles.color) ||
+            (styles.webkitTextFillColor !== undefined && isNearTransparent(styles.webkitTextFillColor));
+
+        // Browsers paint glyphs with -webkit-text-fill-color, not `color`;
+        // it only differs from `color` when set explicitly. Reported
+        // separately so the rule picks the painted colour.
+        let textFillColor = null;
+        const fill = styles.webkitTextFillColor !== undefined && styles.webkitTextFillColor !== styles.color
+            ? parseCssColor(styles.webkitTextFillColor)
+            : null;
+        if (fill && fill.a >= NEAR_TRANSPARENT_ALPHA) {
+            const fillFinal = fill.a < 1 ? composite(fill, bgParsed) : fill;
+            textFillColor = `rgb(${fillFinal.r}, ${fillFinal.g}, ${fillFinal.b})`;
+        }
+
         const rect = el.getBoundingClientRect();
 
         results.push({
@@ -258,8 +304,10 @@ const STYLES_EXTRACT_JS: &str = r#"
             snippet: el.outerHTML.substring(0, 200),
             index: idx++,
             color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,
+            textFillColor,
             backgroundColor: bg,
             backgroundUncertain: effectiveBackground.uncertain,
+            foregroundUncertain,
             fontSize: styles.fontSize,
             fontWeight: styles.fontWeight,
             visibility: styles.visibility,
@@ -309,6 +357,12 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 if let Some(color) = item.get("color").and_then(|v| v.as_str()) {
                                     properties.insert("color".to_string(), color.to_string());
                                 }
+                                if let Some(fill) =
+                                    item.get("textFillColor").and_then(|v| v.as_str())
+                                {
+                                    properties
+                                        .insert("text-fill-color".to_string(), fill.to_string());
+                                }
                                 if let Some(bg) =
                                     item.get("backgroundColor").and_then(|v| v.as_str())
                                 {
@@ -320,6 +374,14 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 {
                                     properties.insert(
                                         "background-uncertain".to_string(),
+                                        uncertain.to_string(),
+                                    );
+                                }
+                                if let Some(uncertain) =
+                                    item.get("foregroundUncertain").and_then(|v| v.as_bool())
+                                {
+                                    properties.insert(
+                                        "foreground-uncertain".to_string(),
                                         uncertain.to_string(),
                                     );
                                 }

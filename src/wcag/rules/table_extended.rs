@@ -219,7 +219,11 @@ fn collect_table_cells<'a>(
     }
     for child_id in &node.child_ids {
         if let Some(child) = tree.get_node(child_id) {
+            // An ignored node is not a cell itself, but Chrome routinely marks
+            // a plain <tbody> ignored while its rows stay exposed (#638), so
+            // descend through it instead of dropping the whole subtree.
             if child.ignored {
+                collect_table_cells(tree, child, header_cells, data_cells, depth + 1);
                 continue;
             }
             match child.role.as_deref() {
@@ -287,6 +291,35 @@ mod tests {
                 .iter()
                 .any(|v| v.rule_id.as_deref() == Some("th-has-data-cells")),
             "header without data cells should be flagged"
+        );
+    }
+
+    #[test]
+    fn test_data_cells_under_ignored_tbody_pass() {
+        // #638: Chrome exposes <thead> as rowgroup but marks <tbody> ignored;
+        // the body rows and their cells stay in the tree beneath it.
+        let mut table = node("t", "table", None, vec![]);
+        let mut thead = node("thead", "rowgroup", Some("t"), vec![]);
+        let mut hrow = node("hr", "row", Some("thead"), vec![]);
+        let header = node("h1", "columnheader", Some("hr"), vec![]);
+        let mut tbody = node("tbody", "none", Some("t"), vec![]);
+        tbody.ignored = true;
+        let mut brow = node("br", "row", Some("tbody"), vec![]);
+        let rowheader = node("rh", "rowheader", Some("br"), vec![]);
+        let data = node("d1", "cell", Some("br"), vec![]);
+        table.child_ids = vec!["thead".into(), "tbody".into()];
+        thead.child_ids = vec!["hr".into()];
+        hrow.child_ids = vec!["h1".into()];
+        tbody.child_ids = vec!["br".into()];
+        brow.child_ids = vec!["rh".into(), "d1".into()];
+        let tree = AXTree::from_nodes(vec![
+            table, thead, hrow, header, tbody, brow, rowheader, data,
+        ]);
+        let r = check_table_extended(&tree);
+        assert!(
+            r.violations.is_empty(),
+            "data cells beneath an ignored tbody must count: {:?}",
+            r.violations
         );
     }
 
