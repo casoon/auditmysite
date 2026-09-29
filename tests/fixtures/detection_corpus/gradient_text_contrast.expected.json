@@ -1,0 +1,10 @@
+{
+  "case": "gradient_text_contrast",
+  "expectations": [
+    { "rule_id": "color-contrast", "selector": "a#logo-main", "verdict": "pass" },
+    { "rule_id": "color-contrast", "selector": "a#logo-main", "verdict": "needs_review" },
+    { "rule_id": "color-contrast", "selector": "a#logo-module", "verdict": "pass" },
+    { "rule_id": "color-contrast", "selector": "a#logo-module", "verdict": "needs_review" },
+    { "rule_id": "color-contrast", "selector": "p#faint-text", "verdict": "violation" }
+  ]
+}

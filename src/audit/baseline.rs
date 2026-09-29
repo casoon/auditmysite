@@ -238,11 +238,11 @@ mod tests {
         let violations = vec![make_violation("1.1.1", "node-1")];
         let baseline = Baseline::from_violations("https://example.com", &violations);
 
-        let path = std::env::temp_dir().join("auditmysite_test_baseline.json");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("baseline.json");
         baseline.save(&path).expect("save should succeed");
         let loaded = Baseline::load(&path).expect("load should succeed");
         assert_eq!(loaded.url, baseline.url);
         assert_eq!(loaded.violations.len(), 1);
-        let _ = std::fs::remove_file(&path);
     }
 }

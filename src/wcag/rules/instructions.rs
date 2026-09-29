@@ -100,7 +100,9 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                 results.add_violation(violation);
             }
 
-            // Check for inputs with format requirements
+            // Check for inputs with format requirements. Guessed from the
+            // label wording alone, so it can only ask for review, never
+            // confirm a failure (#643).
             if needs_format_instructions(&role_lower, node) && !has_format_hint(node) {
                 let violation = Violation::new(
                     INSTRUCTIONS_RULE.id,
@@ -114,7 +116,8 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                 .with_name(node.name.clone())
                 .with_fix("Consider adding format instructions (e.g., 'DD/MM/YYYY' for dates)")
                 .with_help_url(INSTRUCTIONS_RULE.help_url)
-                .with_rule_id(INSTRUCTIONS_RULE.axe_id);
+                .with_rule_id(INSTRUCTIONS_RULE.axe_id)
+                .as_warning();
 
                 results.add_violation(violation);
             }
@@ -335,11 +338,38 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
         "pasaport",
     ];
 
-    format_sensitive.iter().any(|&term| name.contains(term)) || role == "spinbutton"
+    format_sensitive
+        .iter()
+        .any(|&term| contains_format_term(&name, term))
+        || role == "spinbutton"
 }
 
-/// Check if format hint is provided
+/// Terms shorter than five characters ("pass", "tel", "date", "zip", "plz",
+/// "ssn") only count as whole words: as substrings they fire on unrelated
+/// labels — "Was ist passiert?" is not a passport field, "Hotel" not a
+/// phone number (#643). Longer terms keep substring matching so compounds
+/// such as "Geburtsdatum" or "Telefonnummer" still count.
+fn contains_format_term(name: &str, term: &str) -> bool {
+    if term.chars().count() >= 5 {
+        return name.contains(term);
+    }
+    name.match_indices(term).any(|(start, _)| {
+        let before = name[..start].chars().next_back();
+        let after = name[start + term.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
+}
+
+/// Check if format hint is provided.
+///
+/// Any accessible description counts: `aria-describedby` is exactly how
+/// instructions are attached to a field, and whether its text spells out the
+/// format cannot be judged by keyword matching (#643).
 fn has_format_hint(node: &AXNode) -> bool {
+    if has_instructions_or_hint(node) {
+        return true;
+    }
+
     let format_patterns = [
         "format:",
         "example:",
@@ -378,13 +408,6 @@ fn has_format_hint(node: &AXNode) -> bool {
     if let Some(name) = &node.name {
         let name_lower = name.to_lowercase();
         if format_patterns.iter().any(|p| name_lower.contains(p)) {
-            return true;
-        }
-    }
-
-    if let Some(desc) = &node.description {
-        let desc_lower = desc.to_lowercase();
-        if format_patterns.iter().any(|p| desc_lower.contains(p)) {
             return true;
         }
     }
@@ -573,6 +596,51 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("Required field not clearly indicated")));
+    }
+
+    fn format_findings(results: &WcagResults) -> Vec<&Violation> {
+        results
+            .violations
+            .iter()
+            .chain(results.warnings.iter())
+            .filter(|v| v.message.contains("may require format instructions"))
+            .collect()
+    }
+
+    /// #643: a field without any instruction whose label asks for a date is
+    /// still reported — as needs-review, not as a confirmed violation.
+    #[test]
+    fn test_format_sensitive_field_without_hint_is_warning() {
+        let tree = AXTree::from_nodes(vec![create_input("1", "textbox", Some("Date"))]);
+        let results = check_instructions(&tree);
+        assert_eq!(format_findings(&results).len(), 1);
+        assert!(results.violations.is_empty());
+        assert_eq!(results.warnings.len(), 1);
+    }
+
+    /// #643: `aria-describedby` instructions count, whatever their wording
+    /// ("Day of travel" on barrierlab.eu's accessible-form pattern).
+    #[test]
+    fn test_described_field_needs_no_format_hint() {
+        let mut node = create_input("1", "textbox", Some("Date"));
+        node.description = Some("Day of travel".to_string());
+        let tree = AXTree::from_nodes(vec![node]);
+        assert!(format_findings(&check_instructions(&tree)).is_empty());
+    }
+
+    /// #643: "Was ist passiert?" contains "pass" but is no passport field.
+    #[test]
+    fn test_short_terms_match_whole_words_only() {
+        let needs = |name: &str| {
+            needs_format_instructions("textbox", &create_input("1", "textbox", Some(name)))
+        };
+        assert!(!needs("Was ist passiert?"));
+        assert!(!needs("Hotel"));
+        assert!(!needs("Last update"));
+        assert!(needs("Date of birth"));
+        assert!(needs("Tel."));
+        assert!(needs("Reisepass"));
+        assert!(needs("Geburtsdatum"));
     }
 
     fn group_with_html_tag(id: &str, tag: &str, name: Option<&str>) -> AXNode {

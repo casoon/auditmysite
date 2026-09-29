@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Redundant role and unstyled lists</title>
+    <style>
+        .plain { list-style: none; padding: 0; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Lists with explicit roles</h1>
+        <!-- #644: role="list" restores the list semantics WebKit/VoiceOver
+             drops for list-style: none lists. Not redundant. -->
+        <ul role="list" class="plain" id="plain-list">
+            <li>First</li>
+            <li>Second</li>
+        </ul>
+        <!-- Default list style keeps its semantics everywhere: the role only
+             restates the implicit one. -->
+        <ol role="list" id="numbered-list">
+            <li>One</li>
+            <li>Two</li>
+        </ol>
+        <button type="button" role="button" id="send-button">Send</button>
+    </main>
+</body>
+</html>

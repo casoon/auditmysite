@@ -33,6 +33,7 @@ use super::en301549::render_en301549_annex;
 use super::findings::render_finding_technical;
 use super::helpers::{
     manual_recheck_instruction, map_severity, priority_label_i18n, role_label_i18n,
+    truncate_with_ellipsis,
 };
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
@@ -1444,10 +1445,10 @@ fn render_findings_section(
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
                     wcag,
-                    truncate_title(&group.title, 48),
+                    truncate_with_ellipsis(&group.title, 48),
                     scope,
                     role_label_i18n(group.responsible_role, i18n),
-                    truncate_title(&group.recommendation, 72),
+                    truncate_with_ellipsis(&group.recommendation, 72),
                 ]);
             }
             builder = builder.add_component(table);
@@ -2095,21 +2096,6 @@ fn render_active_module_section(
     }
 
     (builder, false)
-}
-
-/// Shorten a finding title for inline display next to a letter code (chart
-/// labels, table cells) — same char-based ellipsis truncation pattern used
-/// elsewhere in the PDF layer.
-pub(super) fn truncate_title(value: &str, max_chars: usize) -> String {
-    let count = value.chars().count();
-    if count <= max_chars {
-        return value.to_string();
-    }
-    value
-        .chars()
-        .take(max_chars.saturating_sub(1))
-        .collect::<String>()
-        + "…"
 }
 
 #[cfg(test)]

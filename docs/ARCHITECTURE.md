@@ -109,7 +109,9 @@ src/
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
 │   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)
-│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
+│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
+│   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
+│   ├── finding_derive.rs # Derived finding fields: priority score, confidence, complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation
@@ -139,7 +141,10 @@ src/
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   ├── pdf/             # PDF reports (via renderreport/Typst)
-│   │   ├── mod.rs, single_report.rs, batch_report.rs, batch_report/
+│   │   ├── mod.rs, single_report.rs, batch_report.rs
+│   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
+│   │   │                 # management, portfolio, interactive, actions, seo,
+│   │   │                 # consistency, appendix (crawl links, commerce)
 │   │   ├── cover.rs, findings.rs, wcag_coverage.rs, en301549.rs
 │   │   ├── diagnosis.rs, appendix.rs, design.rs (4-color law)
 │   │   ├── problem_profile.rs # Problem concentration/breadth diagnosis

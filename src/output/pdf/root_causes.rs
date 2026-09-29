@@ -12,8 +12,9 @@ use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use super::design;
+use super::helpers::truncate_with_ellipsis;
 use super::problem_profile::build_overall_leverage_note;
-use super::single_report::{cross_module_measures, truncate_title};
+use super::single_report::cross_module_measures;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
@@ -167,7 +168,7 @@ pub(super) fn render_root_cause_analysis(
         // Repeat the clear-text title next to the letter — otherwise the chart
         // and table only carry "Ursache A", forcing readers to flip back to
         // the list above to remember what it refers to.
-        let short_title = truncate_title(&finding.title, 45);
+        let short_title = truncate_with_ellipsis(&finding.title, 45);
         table_rows.push(vec![
             format!("{letter} — {short_title}"),
             finding.occurrence_count.to_string(),
