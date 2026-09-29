@@ -173,6 +173,16 @@ batch-scope-full = Complete — all { $total } URLs ({ $source })
 batch-source-sitemap = sitemap
 batch-source-crawl = crawl
 batch-source-url_file = URL list
+batch-cover-frame-score-basis = Score basis
+batch-score-coverage = { $scored } of { $attempted } URLs — { $failed } could not be audited and are not in any score
+batch-unaudited-title = Scores cover { $scored } of { $attempted } URLs
+batch-unaudited-body =
+    { $failed ->
+        [one] One URL could not be audited. It is
+       *[other] { $failed } URLs could not be audited. They are
+    } not included in any score or count of this report; the JSON report lists the error per URL.
+batch-unaudited-list-title = Not audited
+batch-unaudited-more = … and { $count } more
 panel-modules-overview = Module overview
 section-tech-detail-metrics = Technical detail metrics
 column-action = Action

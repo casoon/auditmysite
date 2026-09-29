@@ -200,6 +200,11 @@ pub struct UnifiedSummary {
     pub occurrence_counts_scope: String,
     pub passed_url_count: usize,
     pub failed_url_count: usize,
+    /// Batch only: URLs the batch tried to audit. Scores and counts cover
+    /// `url_count` of them; the rest could not be audited and are listed in
+    /// `errors` (#651).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attempted_url_count: Option<usize>,
     /// Anzahl unterschiedlicher WCAG-Regeln, die irgendwo geprüfte URLs verletzt haben
     /// (über alle Pages dedupliziert).
     #[serde(default)]
@@ -1035,6 +1040,7 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
+            attempted_url_count: Some(batch_report.summary.total_urls + batch_report.errors.len()),
             violated_rule_count: batch_report.summary.violated_rule_count,
             top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
             template_clusters: batch_report.summary.template_clusters.clone(),
@@ -1220,6 +1226,7 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            attempted_url_count: None,
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
@@ -1336,6 +1343,7 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            attempted_url_count: None,
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),

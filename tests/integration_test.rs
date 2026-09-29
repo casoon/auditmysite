@@ -919,6 +919,51 @@ async fn test_label_in_name_false_positives() {
     );
 }
 
+/// #652: an undersized link passes 2.5.8 and 2.5.5 when another visible,
+/// non-inert, non-aria-hidden link to the same destination meets the size
+/// ("Equivalent" exception). A fragment into another document is ignored, one
+/// into the current page is not. Hidden, undersized and `href="#"` equivalents
+/// do not count.
+#[tokio::test]
+#[ignore]
+async fn test_target_size_equivalent_link_exception() {
+    let (url, shutdown) = serve_fixture("detection_corpus/target_size_equivalent.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let minimum = auditmysite::wcag::rules::check_target_size_minimum_with_page(&page).await;
+    let enhanced = auditmysite::wcag::rules::check_target_size_enhanced_with_page(&page).await;
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let selectors = |findings: &[auditmysite::Violation]| -> Vec<String> {
+        findings.iter().filter_map(|v| v.selector.clone()).collect()
+    };
+    assert_eq!(
+        selectors(&minimum),
+        [
+            "a#hidden-only",
+            "a#both-small",
+            "a#no-eq",
+            "a#page-fragment",
+            "a#hash"
+        ],
+        "2.5.8 findings: {minimum:?}"
+    );
+    let enhanced_selectors = selectors(&enhanced);
+    assert!(
+        !enhanced_selectors.contains(&"a#eq-small".to_string())
+            && enhanced_selectors.contains(&"a#hidden-only".to_string())
+            && enhanced_selectors.contains(&"a#no-eq".to_string()),
+        "2.5.5 findings: {enhanced:?}"
+    );
+}
+
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn test_design_quality_module_findings_and_score_isolation() {
@@ -1801,4 +1846,84 @@ async fn parallel_pages_are_visible_and_focused() {
         assert!(focused, "page {i} has no focus");
         assert!(matches!(frames, Ok(Ok(_))), "page {i}: no animation frame");
     }
+}
+
+/// #651: a page that gets no browser page in time is retried one at a time
+/// after the parallel phase instead of vanishing from the batch. One pool
+/// slot, two parallel workers and a 1 s pool wait make the second page time
+/// out on the pool for certain — the capacity shortfall heavy WebGL pages
+/// caused in production.
+///
+/// Runs on an 8 MiB thread like the CLI's main thread: in a debug build the
+/// batch future overflows the test harness's 2 MiB thread stack.
+#[test]
+#[ignore]
+fn batch_retries_pool_timeouts_serially() {
+    std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(batch_retries_pool_timeouts_serially_body())
+        })
+        .expect("test thread")
+        .join()
+        .expect("test body panicked");
+}
+
+async fn batch_retries_pool_timeouts_serially_body() {
+    use auditmysite::{run_concurrent_batch, Args, BatchConfig};
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("perfect.html");
+    let urls: Vec<String> = ["a", "b", "c"]
+        .iter()
+        .map(|path| format!("{url}/{path}"))
+        .collect();
+
+    let args = Args::parse_from(["auditmysite", "--url-file", "unused.txt", "-c", "2"]);
+    let mut config = BatchConfig::from(&args);
+    config.pool_config.max_pages = 1;
+    config.pool_config.acquire_timeout_secs = 1;
+    config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
+    config.pipeline.persist_artifacts = false;
+
+    let progress_calls = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let progress: auditmysite::audit::ProgressCallback = {
+        let calls = Arc::clone(&progress_calls);
+        Arc::new(move |current, total, url: &str, error: Option<&str>| {
+            calls.lock().unwrap().push((
+                current,
+                total,
+                url.to_string(),
+                error.map(str::to_string),
+            ));
+        })
+    };
+
+    let batch = run_concurrent_batch(urls.clone(), &config, Some(progress))
+        .await
+        .expect("batch runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(batch.errors.is_empty(), "errors: {:?}", batch.errors);
+    let audited: Vec<&str> = batch.reports.iter().map(|r| r.url.as_str()).collect();
+    assert_eq!(audited, urls.iter().map(String::as_str).collect::<Vec<_>>());
+
+    // Every page is reported exactly once and as a success: a deferred page
+    // is not announced as failed before its serial retry.
+    let calls = progress_calls.lock().unwrap();
+    assert_eq!(calls.len(), 3, "progress: {calls:?}");
+    assert!(calls
+        .iter()
+        .all(|(_, total, _, error)| *total == 3 && error.is_none()));
+    assert_eq!(
+        calls
+            .iter()
+            .map(|(current, ..)| *current)
+            .collect::<Vec<_>>(),
+        vec![1, 2, 3]
+    );
 }

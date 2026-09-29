@@ -14,6 +14,17 @@ use tracing::{debug, info, warn};
 use super::manager::{BrowserManager, BrowserOptions};
 use crate::error::{AuditError, Result};
 
+/// How long a returned page may take to reset to `about:blank` before it is
+/// discarded instead.
+const PAGE_RESET_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long closing a discarded page may take.
+const PAGE_CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Upper bound on how long a page's slot stays taken after its user has
+/// dropped it: reset, and on failure close (#651). A waiter that should
+/// outlast one in-flight page has to add this on top of that page's budget.
+pub(crate) const PAGE_RETURN_BUDGET_SECS: u64 =
+    PAGE_RESET_TIMEOUT.as_secs() + PAGE_CLOSE_TIMEOUT.as_secs();
+
 /// Configuration for the browser pool
 #[derive(Debug, Clone)]
 pub struct PoolConfig {
@@ -87,6 +98,8 @@ struct BrowserPoolInner {
     max_pages: usize,
     /// Acquire timeout
     acquire_timeout: Duration,
+    /// Upper bound for creating one new page (the browser's CDP timeout)
+    page_create_timeout: Duration,
 }
 
 impl BrowserPoolInner {
@@ -95,7 +108,7 @@ impl BrowserPoolInner {
         // Reset the page for reuse. Guard with a short timeout — some pages become
         // unresponsive after navigating to heavy sites and the goto call would hang
         // indefinitely, starving the semaphore.
-        let reset = tokio::time::timeout(Duration::from_secs(10), page.goto("about:blank")).await;
+        let reset = tokio::time::timeout(PAGE_RESET_TIMEOUT, page.goto("about:blank")).await;
 
         match reset {
             Ok(Ok(_)) => {
@@ -109,7 +122,10 @@ impl BrowserPoolInner {
                 self.discard_page(page).await;
             }
             Err(_) => {
-                warn!("Page reset timed out after 10s, discarding page");
+                warn!(
+                    "Page reset timed out after {}s, discarding page",
+                    PAGE_RESET_TIMEOUT.as_secs()
+                );
                 self.discard_page(page).await;
             }
         }
@@ -127,10 +143,13 @@ impl BrowserPoolInner {
     /// the bookkeeping happens either way so a hung close can't reintroduce
     /// the same exhaustion bug.
     async fn discard_page(&self, page: Page) {
-        match tokio::time::timeout(Duration::from_secs(5), page.close()).await {
+        match tokio::time::timeout(PAGE_CLOSE_TIMEOUT, page.close()).await {
             Ok(Ok(())) => {}
             Ok(Err(e)) => warn!("Failed to close discarded page: {}", e),
-            Err(_) => warn!("Closing discarded page timed out after 5s"),
+            Err(_) => warn!(
+                "Closing discarded page timed out after {}s",
+                PAGE_CLOSE_TIMEOUT.as_secs()
+            ),
         }
         self.pages_created.fetch_sub(1, Ordering::SeqCst);
         self.semaphore.add_permits(1);
@@ -154,6 +173,7 @@ impl BrowserPool {
     pub async fn new(config: PoolConfig) -> Result<Self> {
         info!("Creating browser pool with max {} pages", config.max_pages);
 
+        let page_create_timeout = Duration::from_secs(config.browser_options.timeout_secs);
         // Launch the browser
         let browser = BrowserManager::with_options(config.browser_options).await?;
 
@@ -164,6 +184,7 @@ impl BrowserPool {
             pages_created: AtomicUsize::new(0),
             max_pages: config.max_pages,
             acquire_timeout: Duration::from_secs(config.acquire_timeout_secs),
+            page_create_timeout,
         });
 
         Ok(Self { inner })
@@ -224,7 +245,32 @@ impl BrowserPool {
             current + 1,
             self.inner.max_pages
         );
-        let page = self.inner.browser.new_page().await?;
+        // The permit was forgotten and the slot counted above; a failed page
+        // creation has to give both back, or the pool shrinks by one slot for
+        // the rest of the run and later pages wait for a slot that never
+        // frees up (#651). Bounded, because a Chrome saturated by heavy pages
+        // can leave the page creation unanswered for good.
+        let created = tokio::time::timeout(
+            self.inner.page_create_timeout,
+            self.inner.browser.new_page(),
+        )
+        .await
+        .unwrap_or_else(|_| {
+            Err(AuditError::BrowserLaunchFailed {
+                reason: format!(
+                    "Failed to create new page: no answer after {} seconds",
+                    self.inner.page_create_timeout.as_secs()
+                ),
+            })
+        });
+        let page = match created {
+            Ok(page) => page,
+            Err(e) => {
+                self.inner.pages_created.fetch_sub(1, Ordering::SeqCst);
+                self.inner.semaphore.add_permits(1);
+                return Err(e);
+            }
+        };
 
         Ok(PooledPage {
             page: Some(page),

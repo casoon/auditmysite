@@ -24,6 +24,56 @@ short current-state summary. Newest entries first (unchanged order from before t
   `landmark_main_in_shadow_root` ist ein echtes Negativ. `parity_gaps.html` prueft die Anzahl im
   Integrationstest (1 fehlende `main`, 2 doppelte Navigationen).
 
+- **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
+  Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
+  auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
+  (`/atmosphere/de/kapitel/hebel/`) galt die 39×10 px kleine Absenderzeile des Modul-Logos
+  (`a.logo-main`, `href="/de/"`) als Verstoss, obwohl der Footer-Link „Alle Sphaeren im Ueberblick"
+  (`/de/#modules`, 141×161 px) dieselbe Startseite oeffnet. Jetzt besteht ein zu kleiner Link, wenn
+  ein anderer Link mit demselben Ziel mindestens 24×24 (2.5.5: 44×44) misst, gerendert und sichtbar
+  ist (`checkVisibility` inkl. `visibility`/`opacity`, nicht links/oberhalb der Seite verschoben),
+  Pointer-Events hat und nicht in einem `inert`- oder `aria-hidden="true"`-Teilbaum liegt.
+
+  Das Ziel ist die aufgeloeste absolute URL. Fuehrt der Link in ein anderes Dokument, zaehlt das
+  Fragment nicht — `/de/` und `/de/#modules` oeffnen dieselbe Seite, das Fragment setzt nur die
+  Scrollposition. Fuehrt er in die aktuelle Seite, zaehlt es: dort ist das Springen an die Stelle
+  die ganze Funktion, `#a` und `#b` sind verschieden. `href=""`, `href="#"` und `javascript:`
+  zaehlen nie — sie nennen kein Ziel. Ein ebenfalls zu kleiner Link ist kein Aequivalent, auch wenn
+  er selbst ueber die Abstands-Ausnahme besteht (bewusst konservativ). Buttons bleiben aussen vor,
+  ihre Funktion steht nicht im Markup. Der Baustein `hasEquivalentLink` liegt in
+  `TARGET_HELPERS_JS`, beide Regeln nutzen ihn. Die Regel fuehrt keine Pass-Liste, daher wird das
+  ausgleichende Element nicht vermerkt.
+
+  Neue Korpus-Fixture `target_size_equivalent` (besteht: kleiner Link mit grossem Aequivalent,
+  auch mit anderem Fragment in ein anderes Dokument; Verstoss: nur versteckte/inerte/unsichtbare/
+  verschobene Aequivalente, nur zu kleine, anderes Fragment in die eigene Seite, `href="#"`, ohne
+  Aequivalent) und ein Integrationstest, der beide Regeln direkt aufruft.
+- **Batch: Pool-Wartezeit und still fehlende Seiten (#651), 2026-09-29:** Ein Batch ueber
+  geographia.eu (`-c 2 -t 120`, WebGL-Seiten) verlor 46 von 312 Seiten mit „Browser pool timeout:
+  no page available after 60 seconds". Nachgestellt mit 1.6.0 auf 8 Kapitelseiten: 3 von 8
+  fehlten. Zwei Ursachen: (1) `BrowserPool::acquire` zaehlt den Slot, bevor die neue Seite
+  angelegt ist; schlug `new_page` fehl (Chrome unter der WebGL-Last, CDP-Anfrage laeuft ab),
+  gingen Semaphor-Genehmigung und Slot dauerhaft verloren — der Pool hatte fuer den Rest des Laufs
+  eine Seite weniger. Beides wird jetzt zurueckgegeben, und das Anlegen der Seite ist auf
+  `--timeout` begrenzt: Im Nachstellen unter Last blieb `new_page` ohne Antwort stehen, was 1.6.0
+  nur ueber das 480-s-Versuchsbudget abfing. (2) Die Wartezeit auf eine freie Seite war
+  fest 60 s, eine Seite in Arbeit darf aber `max(timeout, 30) * 4` Sekunden brauchen (480 s bei
+  `-t 120`); die wartende Seite gab auf, obwohl mit ihr nichts war, und verbrauchte dabei auch
+  ihren Wiederholungsversuch. Die Wartezeit folgt jetzt `--timeout` (Anlegen der Seite plus
+  Versuchsbudget plus 15 s fuer das Zuruecksetzen, 615 s bei `-t 120`), liegt ausserhalb des Versuchsbudgets der Seite
+  und verbraucht keinen Versuch. Seiten, die trotzdem keine Browser-Seite bekommen, werden nach
+  der parallelen Phase einzeln wiederholt, bevor der Bericht entsteht. Was dann noch scheitert,
+  steht wie bisher unter `errors`; neu sagt der Bericht, wie viele URLs die Scores abdecken: JSON
+  `summary.attempted_url_count` (additiv, neben `url_count`), PDF eine Zeile „Bewertungsbasis" im
+  Audit-Rahmen und ein Hinweis mit den nicht auditierten URLs im Statusabschnitt (de/en),
+  Terminal eine Scope-Zeile. Die Score-Berechnung ist unveraendert. Verifiziert mit Unit-Tests
+  (Ableitung der Wartezeit, nur Pool-Timeouts werden zurueckgestellt, Bericht in JSON/PDF/Terminal)
+  und dem Chrome-Integrationstest `batch_retries_pool_timeouts_serially` (ein Slot, zwei Worker,
+  1 s Wartezeit: alle drei Seiten auditiert, jede genau einmal gemeldet). Live mit denselben 8
+  Kapitelseiten und `-c 2 -t 120`: 1.6.0 verlor 3 (zwei Pool-Timeouts nach dem Slot-Verlust, ein
+  Audit-Timeout nach 480 s), der Fix auditierte 8 von 8 — allerdings bei geringerer Rechnerlast,
+  der Fehlerpfad selbst wurde dabei nicht beruehrt.
+
 - **Skip-Link und `role="list"`, 2026-09-29 (#642, #644):** (1) `region` (1.3.1) meldete den
   Skip-Link `<a href="#main">Aller au contenu</a>` auf allen franzoesischen Seiten von
   barrierlab.eu, auf den englischen, deutschen und spanischen nicht. Die Ausnahme hing am Linktext:

@@ -1,7 +1,8 @@
 //! WCAG 2.5.5 Target Size (Enhanced) (Level AAA)
 //!
 //! The size of the target for pointer inputs is at least 44 by 44 CSS pixels,
-//! except where the target is a link in a sentence or block of text.
+//! except where the target is a link in a sentence or block of text, or
+//! where an equivalent link on the same page meets the size.
 
 use chromiumoxide::Page;
 
@@ -37,8 +38,8 @@ const TARGET_SIZE_JS: &str = r#"
   for (var j = 0; j < elements.length && violations.length < 5; j++) {
     var el = elements[j];
     var rect = el.getBoundingClientRect();
-    // 2.5.5 has no spacing exception, only the inline one.
-    if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el)) {
+    // 2.5.5 has no spacing exception, only the inline and equivalent ones.
+    if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el) && !hasEquivalentLink(el, MIN_SIZE)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
       violations.push({
         selector: __amsCssSelector(el),

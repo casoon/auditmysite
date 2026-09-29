@@ -83,6 +83,7 @@ fn build_batch_report(
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_status_section(
         builder,
+        batch,
         &pres,
         &en301549_rollup,
         &failed_en_criteria,

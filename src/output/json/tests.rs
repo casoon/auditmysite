@@ -131,6 +131,45 @@ fn test_single_summary_fields_present() {
     assert_eq!(unified.summary.failed_url_count, 0);
 }
 
+/// #651: the batch summary says how many URLs the scores cover out of how
+/// many were attempted; single reports carry no such field.
+#[test]
+fn test_batch_summary_states_attempted_url_count() {
+    let batch = BatchReport::from_reports(
+        vec![AuditReport::new(
+            "https://example.com/a".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )],
+        vec![crate::audit::BatchError {
+            url: "https://example.com/b".to_string(),
+            error: "Browser pool timeout: no page available after 615 seconds".to_string(),
+        }],
+        200,
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
+    assert_eq!(json["summary"]["url_count"], 1);
+    assert_eq!(json["summary"]["attempted_url_count"], 2);
+    assert_eq!(json["errors"][0]["url"], "https://example.com/b");
+
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        500,
+    );
+    let normalized = normalize(&report);
+    let single: serde_json::Value = serde_json::from_str(
+        &UnifiedReport::single(&normalized, &report)
+            .to_json(false)
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(single["summary"].get("attempted_url_count").is_none());
+}
+
 #[test]
 fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
     use crate::taxonomy::Severity;
@@ -1126,6 +1165,7 @@ fn test_collection_errors_serialized_when_present() {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: 0,
             failed_url_count: 0,
+            attempted_url_count: None,
             violated_rule_count: 0,
             top_recurring_rules: vec![],
             template_clusters: vec![],

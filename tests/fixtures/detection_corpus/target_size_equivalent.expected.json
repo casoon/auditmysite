@@ -1,0 +1,15 @@
+{
+  "case": "target_size_equivalent",
+  "expectations": [
+    { "rule_id": "target-size-minimum", "selector": "a#eq-small", "verdict": "pass" },
+    { "rule_id": "target-size-minimum", "selector": "a#hidden-only", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "a#both-small", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "a#no-eq", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "a#doc-fragment", "verdict": "pass" },
+    { "rule_id": "target-size-minimum", "selector": "a#page-fragment", "verdict": "violation" },
+    { "rule_id": "target-size-minimum", "selector": "a#hash", "verdict": "violation" },
+    { "rule_id": "target-size", "selector": "a#eq-small", "verdict": "pass" },
+    { "rule_id": "target-size", "selector": "a#hidden-only", "verdict": "violation" },
+    { "rule_id": "target-size", "selector": "a#no-eq", "verdict": "violation" }
+  ]
+}
