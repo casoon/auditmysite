@@ -6,6 +6,6 @@
     { "rule_id": "landmark-no-duplicate-banner", "verdict": "violation" },
     { "rule_id": "landmark-no-duplicate-contentinfo", "verdict": "violation" },
     { "rule_id": "landmark-no-duplicate-main", "verdict": "violation" },
-    { "rule_id": "landmark-unique", "verdict": "violation" }
+    { "rule_id": "landmark-unique", "verdict": "violation", "occurrences": 11 }
   ]
 }

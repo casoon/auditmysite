@@ -5,6 +5,25 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
+  AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).
+  Beide meldeten dieselben Elemente mit unterschiedlich gebildeten Selektoren, sodass nichts
+  zusammengefuehrt wurde: Der Korpusfall `landmark_granular` kam auf 22 statt 11 Vorkommen,
+  `parity_gaps.html` auf 4 statt 2. Massgeblich ist jetzt allein die AX-Pruefung; sie arbeitet
+  mit Chromes berechneten Rollen und Namen und erfasst jede Landmark, die die DOM-Naeherung sieht
+  (dazu `<section>` mit Namen, `form`, und korrekte Rollen fuer verschachtelte `header`/`footer`/
+  `aside`). Dasselbe galt fuer `landmark-main-present`: Eine fehlende `main`-Landmark stand
+  zweimal im Bericht (`root` und `document`). Die DOM-Ergaenzung hatte dabei keine eigene
+  Abdeckung: Faellt der AX-Baum aus, bricht der ganze Audit ab; bei Mini-Seiten mit hoechstens
+  zwei AX-Knoten schweigt die AX-Pruefung absichtlich; und ein `<main>` in einem Shadow Root sah
+  nur Chrome, `querySelectorAll` nicht, sodass die DOM-Pruefung dort faelschlich meldete. Die
+  DOM-Ergaenzung (`check_landmarks_with_page`, Page-Regel `1.3.1/landmark-dom`) ist deshalb samt
+  Rollenableitung entfernt. Der Korpus kann jetzt per `occurrences` die genaue Anzahl pinnen:
+  `landmark_granular` 11, der neue Fall `landmark_unique_one_per_element` 4 (1.6.0: 6),
+  `landmark_aside_named_duplicate` 2, `missing_main_landmark` 1 (1.6.0: 2); der neue Fall
+  `landmark_main_in_shadow_root` ist ein echtes Negativ. `parity_gaps.html` prueft die Anzahl im
+  Integrationstest (1 fehlende `main`, 2 doppelte Navigationen).
+
 - **Page Health: HTML-Validierung im JSON kanonisch Englisch (#406, Plan 66 WP9), 2026-09-29:**
   `seo/page_health.rs` schrieb deutschen Text ins kanonische JSON: `html_validator_detail`
   („HTML5-Validierung lokal via html5ever") sowie `check`/`detail` aller `html_issues`
@@ -25,6 +44,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   Einlesen auf `kind` + `samples` zurueckgefuehrt. Verifiziert mit dem Golden-Harness (WP0) gegen
   `main`: Unterschiede nur in diesen Feldern im JSON und im englischen Typst, deutsches Typst und
   Batch-Ausgaben unveraendert; Guard-Test gegen Umlaute/deutsche Woerter in der EN-Ausgabe.
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
