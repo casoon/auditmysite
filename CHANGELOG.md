@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Kontrast bei Verlaufstext, #640, 2026-09-29:** `a11y.contrast.weak` meldete fuer die
+  Logo-Links auf geographia.eu (`background-clip: text` mit Verlauf, `color: transparent`) einen
+  Verstoss mit 1,00:1. Das war keine Messung: Die transparente Textfarbe wurde auf den Hintergrund
+  gerechnet und ergab den Hintergrund selbst. Die Stilerfassung setzt jetzt
+  `foreground-uncertain`, wenn das Element oder ein Vorfahr `background-clip: text` (auch
+  `-webkit-`) traegt oder `color`/`-webkit-text-fill-color` (nahezu) transparent ist. Solche Texte
+  gehen als Pruefhinweis (Warnung) ohne `contrast_ratio`-Beleg in den Bericht und werden nicht per
+  Pixelabtastung aufgeloest, weil diese die CSS-Textfarbe braucht. Zudem gilt eine gesetzte,
+  deckende `-webkit-text-fill-color` jetzt als Textfarbe (Kontrastrechnung und Pixelabtastung),
+  denn Browser malen die Glyphen damit, nicht mit `color` (Korpusfall `text_fill_color_contrast`:
+  helle Fuellfarbe bei dunklem `color` ist Verstoss, umgekehrt bestanden). Belegt mit Unit-Tests und dem
+  Korpusfall `gradient_text_contrast` (Verlaufstext Hinweis, grauer Fliesstext weiter Verstoss);
+  Live-Lauf gegen geographia.eu/atmosphere/de/kapitel/hebel/: beide 1,00:1-Verstoesse sind
+  Hinweise, weitere Kontrastbefunde gab es auf der Seite weder vorher noch nachher
+  (Barrierefreiheit 75 → 86, gesamt 74 → 79).
 - **Heuristische Formularbefunde, 2026-09-29 (#643):** Zwei Vermutungsregeln meldeten auf
   barrierlab.eu korrekt gebaute Formulare. (1) „Input may require format instructions" (3.3.2,
   `label`) liess eine Accessible Description nur gelten, wenn sie ein Formatwort wie „Format:"

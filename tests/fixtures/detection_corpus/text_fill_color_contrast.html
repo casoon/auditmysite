@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Text fill color contrast corpus case</title>
+    <style>
+        body { background-color: #ffffff; color: #111111; }
+        /* Glyphs are painted with -webkit-text-fill-color, not `color`. */
+        .fill-faint { color: #111111; -webkit-text-fill-color: #aaaaaa; }
+        .fill-dark { color: #aaaaaa; -webkit-text-fill-color: #111111; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Text fill color overrides color</h1>
+        <p id="fill-faint" class="fill-faint">
+            This paragraph declares dark text but paints its glyphs light gray
+            through -webkit-text-fill-color, below the required 4.5:1 ratio.
+        </p>
+        <p id="fill-dark" class="fill-dark">
+            This paragraph declares light gray text but paints its glyphs almost
+            black through -webkit-text-fill-color, which passes comfortably.
+        </p>
+    </main>
+</body>
+</html>
