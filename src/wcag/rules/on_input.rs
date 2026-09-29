@@ -78,24 +78,24 @@ const ON_INPUT_BODY: &str = r#"
 
   var issues = [];
   var controls = document.querySelectorAll('select, [role="combobox"], [role="listbox"], input[type="radio"], [role="radio"]');
-  for (var i = 0; i < controls.length && issues.length < CAP; i++) {
+  for (var i = 0; i < controls.length && __amsReal(issues) < CAP; i++) {
     var el = controls[i];
     var name = accessibleName(el);
     var nameLower = name.toLowerCase();
 
     if (isChangeControl(el) && el.hasAttribute('onchange')) {
-      issues.push({ kind: 'onchange', role: (el.getAttribute('role') || el.tagName.toLowerCase()), selector: __amsCssSelector(el) });
+      __amsPush(issues, el, { kind: 'onchange', role: (el.getAttribute('role') || el.tagName.toLowerCase()), selector: __amsCssSelector(el) }, CAP);
       continue;
     }
 
     if ((isChangeControl(el) || isRadio(el)) && !hasSubmitButton) {
       if (navigationHints.some(function(h) { return nameLower.indexOf(h) !== -1; })) {
-        issues.push({
+        __amsPush(issues, el, {
           kind: 'navigation',
           role: (el.getAttribute('role') || el.tagName.toLowerCase()),
           name: nameLower,
           selector: __amsCssSelector(el)
-        });
+        }, CAP);
       }
     }
   }

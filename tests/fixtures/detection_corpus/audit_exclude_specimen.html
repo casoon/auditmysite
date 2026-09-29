@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Excluded teaching specimen corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>A page that teaches accessibility with a broken-on-purpose specimen</h1>
+        <p>The specimen below is marked with <code>data-audit-exclude</code> (#645): its
+           defects are intentional and must not be reported. The same defects outside
+           the specimen are real and must still be reported.</p>
+
+        <!-- Excluded specimen: one defect per locating path (AX node, JS page rule, shared DOM rule). -->
+        <section data-audit-exclude aria-label="Specimen">
+            <div class="specimen-frame">
+                <img id="specimen-img" src="specimen.jpg">
+                <div id="specimen-click" onclick="console.log('specimen')">Specimen fake button</div>
+                <a id="specimen-tab" href="#specimen" tabindex="3">Specimen link</a>
+            </div>
+        </section>
+
+        <!-- Real defects outside the specimen. -->
+        <img id="real-img" src="real.jpg">
+        <div id="real-click" onclick="console.log('real')">Real fake button</div>
+        <a id="real-tab" href="#real" tabindex="2">Real link</a>
+    </main>
+</body>
+</html>

@@ -102,10 +102,10 @@ const TAB_SELECTED_STATE_CAP: usize = 250;
 const TAB_SELECTED_STATE_BODY: &str = r#"
   var issues = [];
   var elems = document.querySelectorAll('[role="tab"]');
-  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < elems.length && __amsReal(issues) < CAP; i++) {
     var el = elems[i];
     if (!el.hasAttribute('aria-selected')) {
-      issues.push({ selector: __amsCssSelector(el) });
+      __amsPush(issues, el, { selector: __amsCssSelector(el) }, CAP);
     }
   }
   return { issues: issues };

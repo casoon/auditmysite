@@ -33,7 +33,7 @@ pub const FAKE_NAVIGATION_LINK_RULE: RuleMetadata = RuleMetadata {
 const FAKE_NAVIGATION_LINK_JS: &str = r#"
   var findings = [];
   var links = document.querySelectorAll('a[onclick]');
-  for (var i = 0; i < links.length && findings.length < 20; i++) {
+  for (var i = 0; i < links.length && __amsReal(findings) < 20; i++) {
     var el = links[i];
     var href = (el.getAttribute('href') || '').trim();
     var isFragmentOnly = href === '#' || href === '';
@@ -41,7 +41,7 @@ const FAKE_NAVIGATION_LINK_JS: &str = r#"
     if (!isFragmentOnly && !isJsPseudoUrl) continue;
     var role = (el.getAttribute('role') || '').toLowerCase();
     if (role === 'button') continue;
-    findings.push(__amsCssSelector(el));
+    __amsPush(findings, el, __amsCssSelector(el), 20);
   }
   return findings;
 "#;
