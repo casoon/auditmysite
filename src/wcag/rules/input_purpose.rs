@@ -73,13 +73,79 @@ const AUTOCOMPLETE_TOKENS: &[&str] = &[
 /// Input types that typically collect user information
 const USER_INPUT_TYPES: &[&str] = &["text", "email", "tel", "url", "search", "password"];
 
-/// Label words that mark a field as collecting information about the user.
-/// "name" is not in this list: it names things as often as people and is
-/// classified word-aware by [`name_reference`] instead (#658).
-const USER_INFO_KEYWORDS: &[&str] = &[
-    "email", "phone", "tel", "address", "city", "zip", "postal", "country", "password", "username",
-    "first", "last", "birthday", "birth",
+/// Label words that mark a field as collecting information about the user,
+/// matched as whole words (see [`words`]) so short tokens don't fire inside
+/// other words ("Hotel" is no "tel"). "name" is not in these lists: it names
+/// things as often as people and is classified by [`name_reference`] (#658).
+/// English and German merged, independent of the output language.
+const USER_INFO_WORDS: &[&str] = &[
+    // English
+    "email",
+    "phone",
+    "telephone",
+    "tel",
+    "fax",
+    "address",
+    "city",
+    "zip",
+    "zipcode",
+    "postcode",
+    "postal",
+    "country",
+    "password",
+    "username",
+    "first",
+    "last",
+    "birthday",
+    "birth",
+    "dob",
+    // German
+    "telefon",
+    "handy",
+    "handynummer",
+    "mobilnummer",
+    "faxnummer",
+    "plz",
+    "postleitzahl",
+    "adresse",
+    "anschrift",
+    "strasse",
+    "straße",
+    "hausnummer",
+    "ort",
+    "wohnort",
+    "stadt",
+    "land",
+    "passwort",
+    "kennwort",
+    "geburtstag",
+    "geburtsdatum",
 ];
+
+/// Stems that start a closed compound about the user ("Telefonnummer",
+/// "phonenumber", "Emailadresse", "birthdate", "Geburtsort").
+const USER_INFO_PREFIXES: &[&str] = &[
+    "telefon", "phone", "email", "postal", "postleit", "password", "passwort", "birth", "geburts",
+];
+
+/// Heads that end a closed compound about the user ("Lieferadresse",
+/// "emailaddress", "Festnetztelefon", "Hauptstraße").
+const USER_INFO_SUFFIXES: &[&str] = &[
+    "adresse", "address", "telefon", "strasse", "straße", "passwort", "password", "kennwort",
+];
+
+/// Whether a label names a piece of information about the user.
+fn label_asks_for_user_info(label: &str) -> bool {
+    let words = words(label);
+    words.iter().enumerate().any(|(i, word)| {
+        let w = word.as_str();
+        USER_INFO_WORDS.contains(&w)
+            || USER_INFO_PREFIXES.iter().any(|p| w.starts_with(p))
+            || USER_INFO_SUFFIXES.iter().any(|s| w.ends_with(s))
+            // "E-Mail" splits into "e" + "mail"
+            || (w == "mail" && i > 0 && words[i - 1] == "e")
+    })
+}
 
 /// Single words (incl. closed compounds) that always mean a person's name.
 /// Detection vocabulary, not message text: English and German are merged
@@ -338,7 +404,7 @@ fn evaluate(candidates: &[InputCandidate]) -> Vec<Violation> {
 
         // Check if this looks like a user-info field based on its label
         let label_lower = c.label.to_lowercase();
-        if USER_INFO_KEYWORDS.iter().any(|k| label_lower.contains(k)) || asks_for_personal_name(c) {
+        if label_asks_for_user_info(&c.label) || asks_for_personal_name(c) {
             violations.push(
                 Violation::new(
                     INPUT_PURPOSE_RULE.id,
@@ -451,6 +517,79 @@ mod tests {
             evaluate(&[named_input("Name", "view-name", "fullName")]).len(),
             1
         );
+    }
+
+    /// Whole-word keywords, English and German, still fire.
+    #[test]
+    fn whole_word_keywords_flagged() {
+        for label in [
+            "Email",
+            "E-Mail",
+            "Phone",
+            "Tel.",
+            "Tel.-Nr.",
+            "Fax",
+            "Street address",
+            "City",
+            "ZIP code",
+            "Zip/Postal code",
+            "Country",
+            "Password",
+            "Username",
+            "First",
+            "Date of birth",
+            "PLZ",
+            "Ort",
+            "Straße",
+            "Land",
+            "Passwort",
+            "Geburtstag",
+        ] {
+            assert_eq!(evaluate(&[input(label, None)]).len(), 1, "{label}");
+        }
+    }
+
+    /// Closed compounds built on a keyword stem or head still fire.
+    #[test]
+    fn compound_keywords_flagged() {
+        for label in [
+            "Telefonnummer",
+            "Postleitzahl",
+            "Handynummer",
+            "E-Mail-Adresse",
+            "Emailadresse",
+            "EmailAddress",
+            "phoneNumber",
+            "Lieferadresse",
+            "Birthdate",
+            "Geburtsdatum",
+            "Festnetztelefon",
+            "Hauptstrasse",
+            "Neues Kennwort",
+        ] {
+            assert_eq!(evaluate(&[input(label, None)]).len(), 1, "{label}");
+        }
+    }
+
+    /// Short keywords no longer fire inside unrelated words.
+    #[test]
+    fn keywords_inside_other_words_not_flagged() {
+        for label in [
+            "Hotel name",
+            "Hotel",
+            "Title",
+            "Hostel",
+            "Zipper size",
+            "Cityscape",
+            "Lastly",
+            "Firstly",
+            "Countryside",
+            "Portal",
+            "Sorting",
+            "Landing page",
+        ] {
+            assert!(evaluate(&[input(label, None)]).is_empty(), "{label}");
+        }
     }
 
     #[test]

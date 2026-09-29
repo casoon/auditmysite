@@ -100,16 +100,10 @@ const ON_INPUT_BODY: &str = r#"
     return src;
   }
 
-  var submitHints = ['submit', 'send', 'go', 'search', 'absenden'];
-
-  var hasSubmitButton = false;
+  var buttonNames = [];
   var buttons = document.querySelectorAll('button, input[type="submit"], [role="button"]');
-  for (var b = 0; b < buttons.length; b++) {
-    var btnName = accessibleName(buttons[b]).toLowerCase();
-    if (submitHints.some(function(h) { return btnName.indexOf(h) !== -1; })) {
-      hasSubmitButton = true;
-      break;
-    }
+  for (var b = 0; b < buttons.length && buttonNames.length < CAP; b++) {
+    buttonNames.push(accessibleName(buttons[b]).toLowerCase());
   }
 
   var controls = [];
@@ -126,7 +120,7 @@ const ON_INPUT_BODY: &str = r#"
     }, CAP);
   }
 
-  return { has_submit_button: hasSubmitButton, controls: controls };
+  return { button_names: buttonNames, controls: controls };
 "#;
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -140,8 +134,23 @@ struct Control {
 
 #[derive(Debug, Clone, serde::Deserialize)]
 struct Scan {
-    has_submit_button: bool,
+    button_names: Vec<String>,
     controls: Vec<Control>,
+}
+
+/// Whole words in a button's accessible name that mark it as an explicit
+/// submit. Word-aware so "Google", "category" or "logo" don't count as "go".
+/// English and German merged, independent of the output language.
+const SUBMIT_WORDS: &[&str] = &[
+    "submit", "send", "go", "search", "absenden", "senden", "suchen",
+];
+
+/// Whether any button on the page is an explicit submit by its name.
+fn has_submit_button(button_names: &[String]) -> bool {
+    button_names.iter().any(|name| {
+        name.split(|c: char| !c.is_alphanumeric())
+            .any(|word| SUBMIT_WORDS.contains(&word))
+    })
 }
 
 pub async fn check_on_input_with_page(page: &Page) -> Vec<Violation> {
@@ -178,6 +187,7 @@ fn changes_context(handler: &str) -> bool {
 }
 
 fn evaluate(scan: &Scan) -> Vec<Violation> {
+    let submit_button = has_submit_button(&scan.button_names);
     scan.controls
         .iter()
         .filter_map(|c| {
@@ -219,7 +229,7 @@ fn evaluate(scan: &Scan) -> Vec<Violation> {
                 });
             }
 
-            if !scan.has_submit_button && NAVIGATION_HINTS.iter().any(|h| c.name.contains(h)) {
+            if !submit_button && NAVIGATION_HINTS.iter().any(|h| c.name.contains(h)) {
                 return Some(
                     finding(
                         Severity::Low,
@@ -254,9 +264,49 @@ mod tests {
 
     fn scan(controls: Vec<Control>) -> Scan {
         Scan {
-            has_submit_button: false,
+            button_names: Vec::new(),
             controls,
         }
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// "go" and friends count only as whole words: "Google", "category" and
+    /// "logo" are no submit buttons.
+    #[test]
+    fn submit_words_match_whole_words_only() {
+        for name in [
+            "go",
+            "go!",
+            "submit order",
+            "send message",
+            "search",
+            "jetzt absenden",
+            "suchen",
+        ] {
+            assert!(has_submit_button(&names(&[name])), "{name}");
+        }
+        for name in [
+            "google",
+            "sign in with google",
+            "category",
+            "logo",
+            "resend-code",
+            "research",
+            "gold",
+        ] {
+            assert!(!has_submit_button(&names(&[name])), "{name}");
+        }
+    }
+
+    /// A "Google" or "logo" button no longer hides a navigation-hinted select.
+    #[test]
+    fn non_submit_buttons_do_not_suppress_navigation_hint() {
+        let mut s = scan(vec![control("language", None)]);
+        s.button_names = names(&["sign in with google", "category", "logo"]);
+        assert_eq!(evaluate(&s).len(), 1);
     }
 
     #[test]
@@ -308,7 +358,7 @@ mod tests {
     #[test]
     fn navigation_hint_with_submit_button_is_not_reported() {
         let mut s = scan(vec![control("language", None)]);
-        s.has_submit_button = true;
+        s.button_names = names(&["go"]);
         assert!(evaluate(&s).is_empty());
     }
 }
