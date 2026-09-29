@@ -35,8 +35,6 @@ use super::helpers::{
     localized_report_subtitle, localized_report_title,
 };
 
-/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
-/// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
 /// Names the measurements that hit the stability budget, with what they were
 /// still seeing when it ran out.
 ///
@@ -87,6 +85,9 @@ fn exhausted_stability_measurements(
     parts.join(", ")
 }
 
+/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
+/// Cached audits take the same path: the stored report is rehydrated first
+/// (`audit::hydrate_cached_report`) and then rendered through this function.
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let localized;
     let normalized = if config.locale != "en" && !normalized.raw_wcag.localized_texts.is_empty() {
@@ -1101,6 +1102,34 @@ mod tests {
             None,
         ));
         report
+    }
+
+    /// The artifact cache persists `AuditReport` as `report.json` and reads it
+    /// back on a cache hit. Every field serialized with `skip_serializing_if`
+    /// must also carry `default`, or an entry whose field was skipped fails to
+    /// parse and the CLI silently re-audits. The fixture includes an entity
+    /// without properties, the case that broke 13 of 17 golden cache entries.
+    #[test]
+    fn cached_audit_report_round_trips_through_json() {
+        let mut report = report_with_all_report_areas();
+        report
+            .discoverability
+            .ai_visibility
+            .as_mut()
+            .expect("fixture has ai_visibility")
+            .knowledge_graph
+            .entities
+            .push(crate::ai_visibility::GraphEntity {
+                name: "Example".to_string(),
+                entity_type: "Organization".to_string(),
+                source: crate::ai_visibility::EntitySource::Heading,
+                properties: Vec::new(),
+            });
+
+        let json = serde_json::to_value(&report).unwrap();
+        let reparsed: AuditReport =
+            serde_json::from_value(json.clone()).expect("serialized AuditReport must deserialize");
+        assert_eq!(serde_json::to_value(&reparsed).unwrap(), json);
     }
 
     #[test]
