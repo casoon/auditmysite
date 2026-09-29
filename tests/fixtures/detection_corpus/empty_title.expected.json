@@ -1,6 +1,6 @@
 {
   "case": "empty_title",
   "expectations": [
-    { "rule_id": "document-title", "verdict": "violation" }
+    { "rule_id": "document-title", "verdict": "violation", "occurrences": 1 }
   ]
 }

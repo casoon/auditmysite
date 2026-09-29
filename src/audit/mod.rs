@@ -11,6 +11,7 @@ pub mod budget;
 pub mod catalog;
 mod crawl;
 pub mod duplicate;
+pub mod exclusion;
 mod finding_derive;
 mod interactive_finding;
 pub mod interpretation;

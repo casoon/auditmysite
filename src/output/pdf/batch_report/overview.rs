@@ -103,6 +103,17 @@ pub(super) fn render_batch_cover(
             };
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
         }
+        if let Some(note) = crate::audit::exclusion::BatchExclusionSummary::aggregate(
+            batch
+                .reports
+                .iter()
+                .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
+        )
+        .and_then(|summary| {
+            crate::audit::exclusion::batch_exclusion_note(&summary, batch.reports.len(), i18n)
+        }) {
+            cover_meta = cover_meta.add(i18n.t("exclusion-fact-label"), note);
+        }
         if !batch.errors.is_empty() {
             cover_meta = cover_meta.add(
                 i18n.t("batch-cover-frame-score-basis"),

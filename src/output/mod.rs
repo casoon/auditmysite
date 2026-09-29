@@ -18,6 +18,7 @@ pub mod search_experience;
 pub mod snapshot_export;
 pub mod sr_audit_json;
 pub mod summary;
+pub mod technician;
 pub mod terminal;
 
 pub use ai::format_ai_json;

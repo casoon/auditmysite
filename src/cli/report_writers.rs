@@ -3,6 +3,8 @@
 //! Converts AuditReport / BatchReport into the format the user requested and
 //! writes to a file or stdout. Extracted from main.rs.
 
+use std::collections::HashMap;
+
 use colored::Colorize;
 
 use auditmysite::audit::normalize;
@@ -11,6 +13,7 @@ use auditmysite::cli::{Args, OutputFormat};
 use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
+use auditmysite::output::technician;
 use auditmysite::output::{
     export_snapshot_yaml, export_sr_audit, format_ai_json, format_sarif, format_summary,
     UnifiedReport,
@@ -150,6 +153,9 @@ pub(crate) fn output_screen_reader_sidecar(
     report: &auditmysite::AuditReport,
     args: &Args,
 ) -> Result<()> {
+    if args.no_screen_reader_report {
+        return Ok(());
+    }
     let Some(sr_audit) = report.screen_reader_audit.as_ref() else {
         return Ok(());
     };
@@ -267,8 +273,12 @@ pub fn output_batch_report(
 pub fn output_batch_as_single_reports(
     batch_report: &auditmysite::audit::BatchReport,
     args: &Args,
+    attempted_urls: &[String],
 ) -> Result<()> {
     let base_dir = per_page_output_directory(args);
+    // JSON per-page reports get the technician aggregates next to them:
+    // index.json and findings.jsonl (plan 67).
+    let with_aggregates = args.effective_format() == OutputFormat::Json;
 
     if !args.quiet {
         println!(
@@ -279,18 +289,58 @@ pub fn output_batch_as_single_reports(
         );
     }
 
+    let mut index_entries = HashMap::new();
+    let mut rows = Vec::new();
     for report in &batch_report.reports {
         let mut single_args = args.clone();
         single_args.url = Some(report.url.clone());
         single_args.sitemap = None;
         single_args.url_file = None;
-        single_args.output = Some(per_page_output_path(
+        let path = per_page_output_path(
             &base_dir,
             &report.url,
             single_args.effective_format(),
             single_args.report_level,
-        ));
+        );
+        single_args.output = Some(path.clone());
         output_single_report(report, &single_args, None)?;
+
+        if with_aggregates {
+            let normalized = normalize(report).normalized;
+            let page_rows = technician::finding_rows(report, &normalized);
+            let file = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            index_entries.insert(
+                report.url.clone(),
+                technician::ok_entry(report, &normalized, &page_rows, file),
+            );
+            rows.extend(page_rows);
+        }
+    }
+
+    if with_aggregates {
+        let index = technician::build_index(attempted_urls, batch_report, index_entries);
+        let index_json =
+            serde_json::to_string_pretty(&index).map_err(|e| AuditError::OutputError {
+                reason: format!("index.json serialization failed: {e}"),
+            })?;
+        output_text(
+            &index_json,
+            &Some(base_dir.join("index.json")),
+            "Index JSON",
+            args.quiet,
+        )?;
+        let jsonl = technician::to_jsonl(&rows).map_err(|e| AuditError::OutputError {
+            reason: format!("findings.jsonl serialization failed: {e}"),
+        })?;
+        output_text(
+            &jsonl,
+            &Some(base_dir.join("findings.jsonl")),
+            "Findings JSONL",
+            args.quiet,
+        )?;
     }
 
     Ok(())

@@ -1068,3 +1068,30 @@ sr-state-tab-stop = focusable
 # Plan 09: easy-language ("Leichte Sprache") link-text markers, comma-separated,
 # merged with the German list regardless of report language (sites mix languages).
 easy-language-linktext-markers = easy language,easy-to-read,easy to read,plain language
+
+# Audit exclusions (#645): methodology note (single) and audit frame (batch).
+exclusion-fact-label = Excluded regions
+exclusion-selector-matched =
+    { $count ->
+        [one] { $selector }: 1 element excluded
+       *[other] { $selector }: { $count } elements excluded
+    }
+exclusion-selector-unmatched = { $selector }: matched no element, nothing excluded
+exclusion-selector-invalid = { $selector }: invalid selector, not applied
+exclusion-findings =
+    { $occurrences ->
+        [0] no finding was dropped
+        [one] 1 finding occurrence dropped, not scored
+       *[other] { $occurrences } finding occurrences from { $rules ->
+            [one] 1 rule
+           *[other] { $rules } rules
+        } dropped, not scored
+    }
+exclusion-interactive = , plus { $interactive } journey findings
+batch-exclusion-selector-matched = { $selector }: { $count } elements excluded on { $pages } of { $total } pages
+batch-exclusion-findings =
+    { $occurrences ->
+        [0] no finding was dropped
+        [one] 1 finding occurrence dropped, not scored
+       *[other] { $occurrences } finding occurrences dropped, not scored
+    }

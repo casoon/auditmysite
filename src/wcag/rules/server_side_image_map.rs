@@ -31,8 +31,8 @@ const SERVER_SIDE_IMAGE_MAP_CAP: usize = 250;
 const SERVER_SIDE_IMAGE_MAP_BODY: &str = r#"
   var issues = [];
   var images = document.querySelectorAll('img[ismap]');
-  for (var i = 0; i < images.length && issues.length < CAP; i++) {
-    issues.push({ selector: __amsCssSelector(images[i]) });
+  for (var i = 0; i < images.length && __amsReal(issues) < CAP; i++) {
+    __amsPush(issues, images[i], { selector: __amsCssSelector(images[i]) }, CAP);
   }
   return { issues: issues };
 "#;
