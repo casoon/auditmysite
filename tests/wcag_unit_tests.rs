@@ -11,7 +11,7 @@ use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
     check_aria_required_parent, check_aria_roles, check_focus_order, check_label_title_only,
-    check_link_purpose, check_page_titled, check_text_alternatives, Color, ContrastRule,
+    check_link_purpose, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -107,55 +107,6 @@ fn test_111_whitespace_only_name_treated_as_missing() {
     let results = check_text_alternatives(&tree);
     // Whitespace-only name is not a valid accessible name
     assert_eq!(results.violations.len(), 1);
-}
-
-// ---------------------------------------------------------------------------
-// 2.4.2 Page Titled — check_page_titled
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_242_page_with_good_title_passes() {
-    let tree = AXTree::from_nodes(vec![node(
-        "1",
-        "RootWebArea",
-        Some("Shopping Cart - Example Store"),
-    )]);
-    let results = check_page_titled(&tree);
-    assert!(results.violations.is_empty());
-    assert_eq!(results.passes, 1);
-}
-
-#[test]
-fn test_242_page_without_title_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", None)]);
-    let results = check_page_titled(&tree);
-    assert!(!results.violations.is_empty());
-    assert_eq!(results.violations[0].rule, "2.4.2");
-}
-
-#[test]
-fn test_242_generic_title_untitled_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", Some("Untitled"))]);
-    let results = check_page_titled(&tree);
-    assert!(!results.violations.is_empty());
-}
-
-#[test]
-fn test_242_generic_title_home_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", Some("home"))]);
-    let results = check_page_titled(&tree);
-    assert!(!results.violations.is_empty());
-}
-
-#[test]
-fn test_242_meaningful_title_passes() {
-    let tree = AXTree::from_nodes(vec![node(
-        "1",
-        "RootWebArea",
-        Some("Product Details - My Store"),
-    )]);
-    let results = check_page_titled(&tree);
-    assert!(results.violations.is_empty());
 }
 
 // ---------------------------------------------------------------------------

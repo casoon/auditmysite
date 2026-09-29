@@ -173,6 +173,11 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         "missing main must be reported once; raw {raw_rule_ids:?}"
     );
     assert_eq!(
+        count("document-title"),
+        1,
+        "missing title must be reported once; raw {raw_rule_ids:?}"
+    );
+    assert_eq!(
         count("landmark-unique"),
         2,
         "each duplicate nav must be reported once; raw {raw_rule_ids:?}"

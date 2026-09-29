@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`document-title` doppelt gezaehlt, 2026-09-29:** Ein fehlender oder leerer Seitentitel stand
+  zweimal im Bericht, einmal aus der AX-Pruefung `check_page_titled` (Knoten `document`, ohne
+  Selektor) und einmal aus der DOM-Pruefung `check_page_titled_with_page` (Selektor `head`).
+  Massgeblich ist jetzt allein die DOM-Pruefung: Den Namen des Wurzelknotens fuellt Chrome bei
+  fehlendem Titel mit der URL, die AX-Pruefung konnte diesen Fall deshalb selbst nicht
+  entscheiden und verwies schon bisher auf die DOM-Pruefung. Alles, was sie als Verstoss meldete
+  (leer, fehlend, generischer Titel), meldet die DOM-Pruefung ebenfalls; die AX-Pruefung ist
+  samt Tests entfernt (oeffentliche Funktion `wcag::rules::check_page_titled` entfaellt).
+  `empty_title` pinnt 1 Vorkommen, der Integrationstest auf `parity_gaps.html` ebenfalls.
+
 - **Tabellen: ignorierte und noch nicht gerenderte Zeilen (#654, #659), 2026-09-29:**
   (1) `aria-roles` meldete auf og-vanilla.casoon.dev (`/accessibility`, `table.keys`) „role 'table'
   is missing required child roles: row, rowgroup" fuer eine Tabelle mit `tbody > tr`. Chrome

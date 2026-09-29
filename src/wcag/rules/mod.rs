@@ -159,7 +159,7 @@ pub use on_focus::check_on_focus_with_page;
 pub use on_input::check_on_input_with_page;
 pub use orientation::check_orientation_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};
-pub use page_titled::{check_page_titled, check_page_titled_with_page};
+pub use page_titled::check_page_titled_with_page;
 pub use parsing::check_parsing;
 pub use pause_stop_hide::check_pause_stop_hide_with_page;
 pub use pointer_cancellation::check_pointer_cancellation_with_page;
