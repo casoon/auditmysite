@@ -1,0 +1,6 @@
+{
+  "case": "landmark_aside_scoping",
+  "expectations": [
+    { "rule_id": "landmark-unique", "verdict": "pass" }
+  ]
+}

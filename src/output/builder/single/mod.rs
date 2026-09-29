@@ -35,8 +35,6 @@ use super::helpers::{
     localized_report_subtitle, localized_report_title,
 };
 
-/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
-/// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
 /// Names the measurements that hit the stability budget, with what they were
 /// still seeing when it ran out.
 ///
@@ -87,6 +85,9 @@ fn exhausted_stability_measurements(
     parts.join(", ")
 }
 
+/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
+/// Cached audits take the same path: the stored report is rehydrated first
+/// (`audit::hydrate_cached_report`) and then rendered through this function.
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let localized;
     let normalized = if config.locale != "en" && !normalized.raw_wcag.localized_texts.is_empty() {
@@ -1364,6 +1365,78 @@ mod tests {
             missing_pdf,
             missing_pdf_hooks,
         );
+    }
+
+    /// The security and mobile tables printed German labels ("Vorhanden",
+    /// "Zu klein", "Gültiges Zertifikat") into English PDFs. Module data from
+    /// a real casoon.de audit.
+    #[test]
+    fn security_and_mobile_tables_en_have_no_german_labels() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/modules/security_mobile_casoon.json"
+        ))
+        .expect("fixture");
+        let mut report = AuditReport::new(
+            "https://www.casoon.de/".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1_500,
+        );
+        report.security =
+            Some(serde_json::from_value(fixture["security"].clone()).expect("security"));
+        report.experience.mobile =
+            Some(serde_json::from_value(fixture["mobile"].clone()).expect("mobile"));
+        let normalized = normalize(&report);
+        let config = ReportConfig {
+            locale: "en".to_string(),
+            ..ReportConfig::default()
+        };
+        let vm = build_view_model(&normalized, &config);
+
+        let sec = vm
+            .module_details
+            .security
+            .as_ref()
+            .expect("security presentation");
+        let mobile = vm
+            .module_details
+            .mobile
+            .as_ref()
+            .expect("mobile presentation");
+        let mut labels: Vec<&str> = Vec::new();
+        for (name, status, _, _) in &sec.headers {
+            labels.push(name);
+            labels.push(status);
+        }
+        for rows in [
+            &sec.ssl_info,
+            &mobile.viewport,
+            &mobile.touch_targets,
+            &mobile.font_analysis,
+            &mobile.content_sizing,
+        ] {
+            for (label, value) in rows {
+                labels.push(label);
+                labels.push(value);
+            }
+        }
+        for text in labels {
+            assert!(
+                !text.chars().any(|c| "äöüÄÖÜß".contains(c))
+                    && ![
+                        "Vorhanden",
+                        "Fehlt",
+                        "Zu klein",
+                        "Gesamt",
+                        "Tage",
+                        "Ja",
+                        "Nein"
+                    ]
+                    .iter()
+                    .any(|de| text.contains(de)),
+                "German label in English report: {text}"
+            );
+        }
     }
 
     #[test]
