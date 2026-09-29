@@ -5,6 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Sperrseiten werden nicht mehr bewertet, 2026-09-29:** Beim Abgleich mit dem rankinglab-Korpus
+  fiel auf, dass www.douglas.de automatisierten Browsern seit mindestens 1.3.1 eine Akamai-Seite
+  „Access Denied" mit HTTP 403 und rund 100 Knoten liefert; sie wurde mit 75 bewertet und als
+  vollstaendig gemeldet. Mit der headless-shell lieferte www.hornbach.de eine Fastly-„Client
+  Challenge" mit CAPTCHA (355 statt 12.942 Knoten, 85 statt 56). Neues Modul
+  `audit::access_block`: HTTP 401/403/407/429, eindeutige Challenge-Titel der Anbieter oder
+  Challenge-Ressourcen auf einer duennen Seite (< 300 Elemente; Cloudflare laedt
+  `/cdn-cgi/challenge-platform/` auch in regulaere Seiten) lassen das Audit der URL mit
+  `AccessBlocked` scheitern: Einzelaudit mit Exit-Code 3 und Grund, im Batch unter `errors`, ohne
+  Wiederholung. Die Pruefung laeuft direkt nach dem ersten Aufruf; Challenge-Seiten wechseln oft
+  sofort ihr Dokument, daher bis zu drei Versuche und ein zweiter Blick auf den Dokumentstatus
+  spaeter in der Pipeline. Geprueft: douglas.de 3 von 3 gesperrt, hornbach.de mit Chrome normal
+  und mit headless-shell gesperrt, Batch ueber 15 Vergleichsseiten ohne Fehlalarm.
 - **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die

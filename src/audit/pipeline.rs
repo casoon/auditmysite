@@ -760,6 +760,12 @@ pub async fn audit_page(
     let mut consent_result = handle_post_navigation(page, config.dismiss_consent).await;
     let desktop_stability =
         wait_for_page_stability(page, "desktop", config.stability_budget_ms).await;
+    if let Some(reason) = crate::audit::access_block::detect(page).await {
+        return Err(crate::error::AuditError::AccessBlocked {
+            url: url.to_string(),
+            reason,
+        });
+    }
     let consent_privacy = Some(build_consent_privacy_snapshot(
         consent_cookies_before,
         collect_consent_cookie_signals(page).await,
@@ -1014,6 +1020,20 @@ pub async fn audit_page(
         source: "live".to_string(),
     };
     report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    // Second look at the status, in case the early check could not read the
+    // page (see `access_block::detect`).
+    if let Some(reason) = crate::audit::access_block::blocking_status(
+        report
+            .accessibility
+            .execution
+            .navigation
+            .main_document_status,
+    ) {
+        return Err(crate::error::AuditError::AccessBlocked {
+            url: url.to_string(),
+            reason,
+        });
+    }
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
     report.accessibility.execution.navigation.meta_refresh =
         [("desktop", desktop_refresh), ("mobile", mobile_refresh)]
