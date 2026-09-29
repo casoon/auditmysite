@@ -133,7 +133,7 @@ const FOCUS_OBSCURED_JS: &str = r#"
             '[tabindex], [contenteditable=""], [contenteditable="true"]';
   var els = document.querySelectorAll(sel);
   var focusables = [];
-  for (var j = 0; j < els.length && focusables.length < 200; j++) {
+  for (var j = 0; j < els.length && __amsReal(focusables) < 200; j++) {
     var fel = els[j];
     if (fel.disabled) continue;
     if (typeof fel.tabIndex === 'number' && fel.tabIndex < 0) continue;
@@ -149,11 +149,11 @@ const FOCUS_OBSCURED_JS: &str = r#"
     }
     if (candidates.length === 0) continue;
 
-    focusables.push({
+    __amsPush(focusables, fel, {
       selector: __amsCssSelector(fel),
       x: frect.x, y: frect.y, w: frect.width, h: frect.height,
       overlayIndices: candidates
-    });
+    }, 200);
   }
 
   return { overlays: overlays, focusables: focusables };
@@ -289,11 +289,14 @@ async fn focus_walk_findings(page: &Page) -> Option<Vec<Violation>> {
               const originalX = scrollX, originalY = scrollY, original = document.activeElement;
               /*CSS_SELECTOR*/
               const selector = 'a[href],button,input:not([type="hidden"]),select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]';
-              const controls = [...document.querySelectorAll(selector)].filter(element => {
+              const controls = [];
+              for (const element of document.querySelectorAll(selector)) {
                 const style = getComputedStyle(element);
                 const rect = element.getBoundingClientRect();
-                return !element.disabled && style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 3 && rect.height > 3;
-              }).slice(0, 60);
+                if (element.disabled || style.display === 'none' || style.visibility === 'hidden' || rect.width <= 3 || rect.height <= 3) continue;
+                __amsPush(controls, element, element, 60);
+                if (__amsReal(controls) >= 60) break;
+              }
               const findings = [];
               for (const control of controls) {
                 control.focus({preventScroll: true});
@@ -316,8 +319,8 @@ async fn focus_walk_findings(page: &Page) -> Option<Vec<Violation>> {
                   }) || null;
                 });
                 if (blockers.every(Boolean)) {
-                  findings.push({control: __amsCssSelector(control), blocker: __amsCssSelector(blockers[0])});
-                  if (findings.length >= 5) break;
+                  __amsPush(findings, control, {control: __amsCssSelector(control), blocker: __amsCssSelector(blockers[0])}, 5);
+                  if (__amsReal(findings) >= 5) break;
                 }
               }
               scrollTo(originalX, originalY);

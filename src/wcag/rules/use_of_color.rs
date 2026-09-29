@@ -78,8 +78,8 @@ const USE_OF_COLOR_JS: &str = r#"
       const sameBackground = linkStyle.backgroundColor === parentStyle.backgroundColor;
 
       if (!hasUnderline && sameWeight && sameFontStyle && sameFontFamily && sameBorder && sameBackground) {
-        findings.push(__amsCssSelector(link));
-        if (findings.length >= 10) break;
+        __amsPush(findings, link, __amsCssSelector(link), 10);
+        if (__amsReal(findings) >= 10) break;
       }
     }
   } catch(e) {}

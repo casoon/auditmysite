@@ -54,26 +54,26 @@ const ON_FOCUS_BODY: &str = r#"
   var issues = [];
 
   var focusHandlerElems = document.querySelectorAll('[onfocus]');
-  for (var i = 0; i < focusHandlerElems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < focusHandlerElems.length && __amsReal(issues) < CAP; i++) {
     var el = focusHandlerElems[i];
     if (!isInteractive(el)) {
-      issues.push({
+      __amsPush(issues, el, {
         kind: 'onfocus',
         role: (el.getAttribute('role') || el.tagName.toLowerCase()),
         selector: __amsCssSelector(el)
-      });
+      }, CAP);
     }
   }
 
   var autofocusElems = document.querySelectorAll('[autofocus]');
-  for (var j = 0; j < autofocusElems.length && issues.length < CAP; j++) {
+  for (var j = 0; j < autofocusElems.length && __amsReal(issues) < CAP; j++) {
     var ael = autofocusElems[j];
     if (!isTextboxLike(ael)) {
-      issues.push({
+      __amsPush(issues, ael, {
         kind: 'autofocus',
         role: (ael.getAttribute('role') || ael.tagName.toLowerCase()),
         selector: __amsCssSelector(ael)
-      });
+      }, CAP);
     }
   }
 

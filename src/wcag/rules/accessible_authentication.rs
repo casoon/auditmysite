@@ -109,10 +109,13 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
   var blocked = [];
   try {
     var fields = document.querySelectorAll(AUTH_FIELD);
-    for (var i = 0; i < fields.length && i < 20; i++) {
+    // Probe and report caps count real and excluded (#645) fields separately.
+    var probed = [];
+    for (var i = 0; i < fields.length && __amsReal(probed) < 20; i++) {
       var f = fields[i];
       if (f.disabled || f.readOnly || !isVisible(f)) continue;
-      if (pasteBlocked(f)) blocked.push({ selector: __amsCssSelector(f), kind: kindOf(f) });
+      if (!__amsPush(probed, f, f, 20)) continue;
+      if (pasteBlocked(f)) __amsPush(blocked, f, { selector: __amsCssSelector(f), kind: kindOf(f) }, /*MAX_FINDINGS*/);
     }
   } finally {
     window.alert = savedAlert;
@@ -137,10 +140,10 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
     if (!form.querySelector(AUTH_FIELD)) continue;
     var widget = form.querySelector(CAPTCHA);
     if (!widget || !isVisible(widget)) continue;
-    captchas.push({
+    __amsPush(captchas, form, {
       form: __amsCssSelector(form),
       widget: __amsCssSelector(widget)
-    });
+    }, /*MAX_FINDINGS*/);
   }
 
   return { blocked: blocked, captchas: captchas };
@@ -151,10 +154,12 @@ pub async fn check_accessible_authentication_with_page(page: &Page) -> Vec<Viola
     let val = match crate::wcag::types::evaluate_or_fail(
         page,
         &ACCESSIBLE_AUTH_PASTE_RULE,
-        &ACCESSIBLE_AUTH_JS.replace(
-            "/*CSS_SELECTOR*/",
-            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
-        ),
+        &ACCESSIBLE_AUTH_JS
+            .replace(
+                "/*CSS_SELECTOR*/",
+                crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+            )
+            .replace("/*MAX_FINDINGS*/", &MAX_FINDINGS.to_string()),
     )
     .await
     {
@@ -174,7 +179,7 @@ pub async fn check_accessible_authentication_with_page(page: &Page) -> Vec<Viola
 
     let mut violations = Vec::new();
 
-    for field in blocked.iter().take(MAX_FINDINGS) {
+    for field in blocked {
         let (Some(selector), Some(kind)) = (
             field.get("selector").and_then(|v| v.as_str()),
             field.get("kind").and_then(|v| v.as_str()),
@@ -203,7 +208,7 @@ pub async fn check_accessible_authentication_with_page(page: &Page) -> Vec<Viola
         );
     }
 
-    for captcha in captchas.iter().take(MAX_FINDINGS) {
+    for captcha in captchas {
         let (Some(form), Some(widget)) = (
             captcha.get("form").and_then(|v| v.as_str()),
             captcha.get("widget").and_then(|v| v.as_str()),

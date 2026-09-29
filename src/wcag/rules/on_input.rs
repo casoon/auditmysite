@@ -114,16 +114,16 @@ const ON_INPUT_BODY: &str = r#"
 
   var controls = [];
   var nodes = document.querySelectorAll('select, [role="combobox"], [role="listbox"], input[type="radio"], [role="radio"]');
-  for (var i = 0; i < nodes.length && controls.length < CAP; i++) {
+  for (var i = 0; i < nodes.length && __amsReal(controls) < CAP; i++) {
     var el = nodes[i];
     var changeControl = isChangeControl(el);
-    controls.push({
+    __amsPush(controls, el, {
       role: (el.getAttribute('role') || el.tagName.toLowerCase()),
       name: accessibleName(el).toLowerCase(),
       selector: __amsCssSelector(el),
       change_control: changeControl,
       handler: changeControl ? handlerSource(el) : null
-    });
+    }, CAP);
   }
 
   return { has_submit_button: hasSubmitButton, controls: controls };

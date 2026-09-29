@@ -55,32 +55,32 @@ const IMAGE_INPUT_BODY: &str = r#"
   var issues = [];
 
   var areas = document.querySelectorAll('area[href]');
-  for (var i = 0; i < areas.length && issues.length < CAP; i++) {
+  for (var i = 0; i < areas.length && __amsReal(issues) < CAP; i++) {
     var area = areas[i];
     var alt = (area.getAttribute('alt') || '').trim();
     if (!alt) {
-      issues.push({ kind: 'area', selector: __amsCssSelector(area) });
+      __amsPush(issues, area, { kind: 'area', selector: __amsCssSelector(area) }, CAP);
     }
   }
 
   var inputImages = document.querySelectorAll('input[type="image"]');
-  for (var j = 0; j < inputImages.length && issues.length < CAP; j++) {
+  for (var j = 0; j < inputImages.length && __amsReal(issues) < CAP; j++) {
     var input = inputImages[j];
     var inputAlt = (input.getAttribute('alt') || '').trim();
     var ariaLabel = (input.getAttribute('aria-label') || '').trim();
     if (!inputAlt && !ariaLabel) {
-      issues.push({ kind: 'input-image', selector: __amsCssSelector(input) });
+      __amsPush(issues, input, { kind: 'input-image', selector: __amsCssSelector(input) }, CAP);
     }
   }
 
   var objects = document.querySelectorAll('object, embed');
-  for (var k = 0; k < objects.length && issues.length < CAP; k++) {
+  for (var k = 0; k < objects.length && __amsReal(issues) < CAP; k++) {
     var obj = objects[k];
     var text = (obj.textContent || '').trim();
     var objAriaLabel = (obj.getAttribute('aria-label') || '').trim();
     var title = (obj.getAttribute('title') || '').trim();
     if (!text && !objAriaLabel && !title) {
-      issues.push({ kind: 'object', selector: __amsCssSelector(obj) });
+      __amsPush(issues, obj, { kind: 'object', selector: __amsCssSelector(obj) }, CAP);
     }
   }
 

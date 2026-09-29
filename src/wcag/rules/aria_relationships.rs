@@ -111,7 +111,7 @@ const ARIA_RELATIONSHIPS_BODY: &str = r#"
   var selector = attrs.map(function(a) { return '[' + a + ']'; }).join(', ');
   var els = document.querySelectorAll(selector);
   var issues = [];
-  for (var i = 0; i < els.length && issues.length < CAP; i++) {
+  for (var i = 0; i < els.length && __amsReal(issues) < CAP; i++) {
     var el = els[i];
     for (var a = 0; a < attrs.length; a++) {
       var attr = attrs[a];
@@ -125,7 +125,7 @@ const ARIA_RELATIONSHIPS_BODY: &str = r#"
         if (broken) kind = 'broken';
       }
       if (kind) {
-        issues.push({ attr: attr, kind: kind, selector: __amsCssSelector(el) });
+        __amsPush(issues, el, { attr: attr, kind: kind, selector: __amsCssSelector(el) }, CAP);
       }
     }
   }

@@ -100,7 +100,7 @@ const FOCUS_OBSCURED_JS: &str = r#"
             '[tabindex], [contenteditable=""], [contenteditable="true"]';
   var els = document.querySelectorAll(sel);
   var focusables = [];
-  for (var j = 0; j < els.length && focusables.length < 200; j++) {
+  for (var j = 0; j < els.length && __amsReal(focusables) < 200; j++) {
     var fel = els[j];
     if (fel.disabled) continue;
     if (typeof fel.tabIndex === 'number' && fel.tabIndex < 0) continue;
@@ -116,11 +116,11 @@ const FOCUS_OBSCURED_JS: &str = r#"
     }
     if (candidates.length === 0) continue;
 
-    focusables.push({
+    __amsPush(focusables, fel, {
       selector: __amsCssSelector(fel),
       x: frect.x, y: frect.y, w: frect.width, h: frect.height,
       overlayIndices: candidates
-    });
+    }, 200);
   }
 
   return { overlays: overlays, focusables: focusables };

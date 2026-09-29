@@ -1,0 +1,108 @@
+---
+import {
+  Badge,
+  Badges,
+  BuildOutput,
+  CodeBlock,
+  Facts,
+  Features,
+  Hero,
+  Install,
+  Quickstart,
+  Terminal,
+} from '@casoon/pages-theme/components';
+import Base from '@casoon/pages-theme/layouts/Base.astro';
+import { fixture } from '../showcase';
+
+const quickstart = `# check which browser auditmysite will use
+auditmysite browser detect
+
+# full single-page audit: terminal summary, PDF and JSON in the current directory
+auditmysite https://example.com
+
+# machine-readable, for CI
+auditmysite https://example.com -f json -o report.json --quiet
+
+# domain-wide, aggregated
+auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
+---
+
+<Base>
+  <Hero
+    title="Accessibility audits of the page the browser actually renders."
+    lead="auditmysite loads each page in Chrome, reads Chrome's own accessibility tree over the DevTools Protocol and checks it against WCAG 2.2 AA. One binary, JSON for automation, PDF reports in German and English."
+  >
+    <Install
+      label="Install method"
+      commands={[
+        { label: 'installer', command: 'curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh | bash' },
+        { label: 'cargo', command: 'cargo install auditmysite' },
+      ]}
+    />
+    <Badges>
+      <Badge>MIT</Badge>
+      <Badge>JSON + PDF</Badge>
+      <Badge>WCAG 2.2 AA</Badge>
+      <Badge>macOS · Linux · Windows</Badge>
+    </Badges>
+    <Terminal
+      slot="output"
+      title="auditmysite https://www.casoon.de/ --format table --lang en"
+      dots
+      ansi={fixture('single-table.ansi')}
+    />
+  </Hero>
+
+  <Facts
+    items={[
+      { value: '55', label: 'WCAG 2.2 A/AA success criteria in scope' },
+      { value: '30', label: 'of them covered by automated checks' },
+      { value: '21', label: 'listed for manual review, never silently passed' },
+      { value: '4', label: 'prebuilt release targets (macOS arm64, Linux x64/arm64, Windows x64)' },
+    ]}
+  />
+
+  <Features
+    items={[
+      {
+        title: "Chrome's accessibility tree, not a static guess",
+        body: 'Pages are rendered in Chrome and audited through the DevTools Protocol, so JavaScript-rendered content, computed styles and the browser’s own accessible names are what gets checked.',
+      },
+      {
+        title: 'Honest WCAG coverage',
+        body: 'A criterion counts as automated only if a rule can report a violation. The numbers are frozen in docs/PARITY_CONTRACT.jsonc and guarded by a test; every report carries them in summary.wcag_coverage.',
+      },
+      {
+        title: 'JSON contract, PDF for people',
+        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in German or English (--lang de|en).',
+      },
+      {
+        title: 'Single pages and whole sites',
+        body: 'Audit one URL in depth, or a sitemap, a URL list or a same-domain crawl as one aggregated batch report with averages, ranking and recurring issues.',
+      },
+      {
+        title: 'Shared rules with barrierlab',
+        body: 'Common WCAG rules, accessible name computation and HTML conformance come from the barrierlab crates, so the same rule IDs apply in auditmysite, astro-post-audit and liveaudit.',
+      },
+    ]}
+  />
+
+  <BuildOutput
+    caption="Real output of auditmysite 1.6.0, recorded with examples/record.sh and rendered when this site is built. The showcase has the JSON coverage block and report-lint as well."
+    file="examples/plan.txt"
+    heading="What an audit will do"
+  >
+    <Terminal ansi={fixture('plan.txt')} />
+  </BuildOutput>
+
+  <Quickstart
+    lead="Install the binary, make sure a Chrome is available, point it at a URL. The documentation covers batch modes, reports and CI."
+    steps={[
+      'Install with the installer script, <code>cargo install auditmysite</code> or a release binary.',
+      'Run <code>auditmysite browser detect</code>. Without a system Chrome, <code>auditmysite browser install</code> fetches Chrome for Testing.',
+      'Run <code>auditmysite &lt;url&gt;</code> for a report, or <code>-f json</code> for automation.',
+    ]}
+  >
+    <CodeBlock code={quickstart} lang="sh" title="shell" label="Shell" />
+  </Quickstart>
+</Base>

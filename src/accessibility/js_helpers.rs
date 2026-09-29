@@ -11,7 +11,47 @@
 /// Never falls back to a bare tag name: walks up to 5 ancestors, prepends
 /// `:nth-of-type(n)` when same-tag siblings exist, and stops early at the
 /// nearest ancestor with an `id`.
+///
+/// The same snippet carries the audit-exclusion helpers (#645), so every
+/// DOM rule that locates elements has them without extra wiring:
+///
+/// - `__amsIsExcludedEl(el)` — true when `el` lies inside a subtree the
+///   exclusion step marked for this page load (`window.__amsIsExcluded`,
+///   installed by `audit::exclusion::resolve_scope`; absent → false).
+/// - `__amsPush(list, el, item, limit)` / `__amsReal(list)` — capped rules
+///   push through these so excluded elements never spend the rule's cap:
+///   real and excluded hits are capped separately, and the loop bound reads
+///   the real count. Excluded hits are still returned, so the pipeline can
+///   drop and count them like any other excluded finding.
 pub const CSS_SELECTOR_JS: &str = r#"
+function __amsIsExcludedEl(el) {
+  try {
+    return !!(el && typeof window.__amsIsExcluded === 'function' && window.__amsIsExcluded(el));
+  } catch (e) { return false; }
+}
+var __amsCapState;
+function __amsCapCounts(list) {
+  // Lazy: some rules call the helpers above the spot this snippet is spliced in.
+  if (!__amsCapState) __amsCapState = new WeakMap();
+  var s = __amsCapState.get(list);
+  if (!s) { s = { real: 0, excluded: 0 }; __amsCapState.set(list, s); }
+  return s;
+}
+function __amsPush(list, el, item, limit) {
+  var s = __amsCapCounts(list);
+  if (__amsIsExcludedEl(el)) {
+    if (s.excluded >= limit) return false;
+    s.excluded++;
+  } else {
+    if (s.real >= limit) return false;
+    s.real++;
+  }
+  list.push(item);
+  return true;
+}
+function __amsReal(list) {
+  return __amsCapCounts(list).real;
+}
 function __amsCssSelector(el) {
   if (!el || !el.tagName) return '';
   var esc = function(s) {
