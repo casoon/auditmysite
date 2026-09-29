@@ -76,9 +76,12 @@ pub struct PageHealthAnalysis {
     pub nested_interactive_count: u32,
     /// Structured list of HTML validation findings
     pub html_issues: Vec<HtmlValidationIssue>,
-    /// Status of W3C / Nu HTML validation: "executed", "skipped", or "failed"
+    /// Status of the local HTML5 validation: "executed", "skipped", or "failed"
     pub html_validator_status: String,
-    /// Additional detail about validator execution or skip reason
+    /// Additional detail about validator execution or skip reason. Canonical
+    /// English; for `"executed"` the PDF re-derives it via
+    /// [`html_validator_executed_text`] (#406).
+    #[serde(default, deserialize_with = "deserialize_html_validator_detail")]
     pub html_validator_detail: Option<String>,
 
     /// True when a valid HTML5 `<!DOCTYPE html>` declaration is present
@@ -293,13 +296,185 @@ pub struct UrlCanonicalizationCheck {
     pub http_to_https_missing: bool,
 }
 
-/// A single HTML validation finding
+/// Canonical kind of an HTML validation finding (#406).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HtmlValidationKind {
+    DuplicateIds,
+    ImagesWithoutAlt,
+    TablesWithoutHeaders,
+    EmptyHeadings,
+    NestedInteractive,
+    ParseErrors,
+}
+
+/// A single HTML validation finding. `check` and `detail` are canonical
+/// English; the PDF re-derives them from `kind`, `count` and `samples` via
+/// [`html_validation_check_text`] / [`html_validation_detail_text`] (#406).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "HtmlValidationIssueWire")]
 pub struct HtmlValidationIssue {
+    pub kind: HtmlValidationKind,
     pub check: String,
     pub count: u32,
     pub severity: String,
     pub detail: String,
+    /// Raw values behind `detail`: duplicate-ID samples or the first parse errors.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub samples: Vec<String>,
+}
+
+impl HtmlValidationIssue {
+    pub fn new(kind: HtmlValidationKind, count: u32, severity: &str, samples: Vec<String>) -> Self {
+        Self {
+            kind,
+            check: html_validation_check_text(kind, true).to_string(),
+            count,
+            severity: severity.to_string(),
+            detail: html_validation_detail_text(kind, count, &samples, true),
+            samples,
+        }
+    }
+}
+
+/// Label of an HTML validation check — the only source of this text.
+pub fn html_validation_check_text(kind: HtmlValidationKind, en: bool) -> &'static str {
+    match (kind, en) {
+        (HtmlValidationKind::DuplicateIds, true) => "Duplicate IDs",
+        (HtmlValidationKind::DuplicateIds, false) => "Doppelte IDs",
+        (HtmlValidationKind::ImagesWithoutAlt, true) => "Images without alt attribute",
+        (HtmlValidationKind::ImagesWithoutAlt, false) => "Bilder ohne alt-Attribut",
+        (HtmlValidationKind::TablesWithoutHeaders, true) => "Tables without header row",
+        (HtmlValidationKind::TablesWithoutHeaders, false) => "Tabellen ohne Kopfzeile",
+        (HtmlValidationKind::EmptyHeadings, true) => "Empty headings",
+        (HtmlValidationKind::EmptyHeadings, false) => "Leere Überschriften",
+        (HtmlValidationKind::NestedInteractive, true) => "Nested interactive elements",
+        (HtmlValidationKind::NestedInteractive, false) => "Verschachtelte interaktive Elemente",
+        (HtmlValidationKind::ParseErrors, true) => "HTML5 parsing errors",
+        (HtmlValidationKind::ParseErrors, false) => "HTML5-Parsing-Fehler",
+    }
+}
+
+/// Detail text of an HTML validation finding — the only source of this text.
+pub fn html_validation_detail_text(
+    kind: HtmlValidationKind,
+    count: u32,
+    samples: &[String],
+    en: bool,
+) -> String {
+    match kind {
+        HtmlValidationKind::DuplicateIds => match (samples.is_empty(), en) {
+            (true, true) => format!("{count} found"),
+            (true, false) => format!("{count} gefunden"),
+            (false, true) => format!("{count} (e.g. {})", samples.join(", ")),
+            (false, false) => format!("{count} (z.B. {})", samples.join(", ")),
+        },
+        HtmlValidationKind::ImagesWithoutAlt if en => format!("{count} <img> without alt"),
+        HtmlValidationKind::ImagesWithoutAlt => format!("{count} <img> ohne alt"),
+        HtmlValidationKind::TablesWithoutHeaders if en => {
+            format!("{count} <table> without <th> or <caption>")
+        }
+        HtmlValidationKind::TablesWithoutHeaders => {
+            format!("{count} <table> ohne <th> oder <caption>")
+        }
+        HtmlValidationKind::EmptyHeadings if en => format!("{count} empty h1–h6 elements"),
+        HtmlValidationKind::EmptyHeadings => format!("{count} leere h1–h6 Elemente"),
+        HtmlValidationKind::NestedInteractive => format!("{count} button/a in button/a"),
+        HtmlValidationKind::ParseErrors => {
+            let joined = samples.join(" | ");
+            let more = (count as usize).saturating_sub(samples.len());
+            match (more, en) {
+                (0, _) => joined,
+                (n, true) => format!("{joined} | +{n} more"),
+                (n, false) => format!("{joined} | +{n} weitere"),
+            }
+        }
+    }
+}
+
+/// Detail of an executed local HTML validation — the only source of this text.
+pub fn html_validator_executed_text(en: bool) -> &'static str {
+    if en {
+        "HTML5 validation run locally via html5ever"
+    } else {
+        "HTML5-Validierung lokal via html5ever"
+    }
+}
+
+/// Serialized shape of [`HtmlValidationIssue`]. Cache entries written before
+/// the #406 fix (same `v1.6.0` cache directory) carry German `check`/`detail`
+/// and no `kind`; they are mapped back to kind + samples here.
+#[derive(Deserialize)]
+struct HtmlValidationIssueWire {
+    #[serde(default)]
+    kind: Option<HtmlValidationKind>,
+    check: String,
+    count: u32,
+    severity: String,
+    detail: String,
+    #[serde(default)]
+    samples: Vec<String>,
+}
+
+impl TryFrom<HtmlValidationIssueWire> for HtmlValidationIssue {
+    type Error = String;
+
+    fn try_from(w: HtmlValidationIssueWire) -> std::result::Result<Self, Self::Error> {
+        if let Some(kind) = w.kind {
+            return Ok(Self {
+                kind,
+                check: w.check,
+                count: w.count,
+                severity: w.severity,
+                detail: w.detail,
+                samples: w.samples,
+            });
+        }
+        let kind = [
+            HtmlValidationKind::DuplicateIds,
+            HtmlValidationKind::ImagesWithoutAlt,
+            HtmlValidationKind::TablesWithoutHeaders,
+            HtmlValidationKind::EmptyHeadings,
+            HtmlValidationKind::NestedInteractive,
+            HtmlValidationKind::ParseErrors,
+        ]
+        .into_iter()
+        .find(|k| html_validation_check_text(*k, false) == w.check)
+        .ok_or_else(|| format!("unknown legacy HTML validation check: {}", w.check))?;
+        let samples = match kind {
+            HtmlValidationKind::DuplicateIds => w
+                .detail
+                .split_once(" (z.B. ")
+                .and_then(|(_, rest)| rest.strip_suffix(')'))
+                .map(|list| list.split(", ").map(str::to_string).collect())
+                .unwrap_or_default(),
+            HtmlValidationKind::ParseErrors => w
+                .detail
+                .split(" | ")
+                .filter(|part| !(part.starts_with('+') && part.ends_with(" weitere")))
+                .map(str::to_string)
+                .collect(),
+            _ => Vec::new(),
+        };
+        Ok(Self::new(kind, w.count, &w.severity, samples))
+    }
+}
+
+/// Maps the pre-#406 German "executed" detail of cached reports to English.
+fn deserialize_html_validator_detail<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let detail = Option::<String>::deserialize(deserializer)?;
+    Ok(detail.map(|d| {
+        if d == html_validator_executed_text(false) {
+            html_validator_executed_text(true).to_string()
+        } else {
+            d
+        }
+    }))
 }
 
 /// A resolved page health issue
@@ -328,11 +503,11 @@ pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAna
     // HTTP probes (reqwest, concurrent)
     run_http_probes(url, &mut analysis).await;
 
-    // W3C / Nu HTML validation (best effort)
-    if let Err(e) = run_w3c_html_validation(page, url, &mut analysis).await {
+    // Local HTML5 validation via html5ever (best effort)
+    if let Err(e) = run_local_html_validation(page, url, &mut analysis).await {
         analysis.html_validator_status = "failed".to_string();
         analysis.html_validator_detail = Some(e.to_string());
-        warn!("W3C HTML validation failed: {}", e);
+        warn!("Local HTML validation failed: {}", e);
     }
 
     // Aggregate issues — the stored report (and thus JSON) is always canonical
@@ -785,62 +960,55 @@ fn build_html_issues(
             .map(|arr| {
                 arr.iter()
                     .filter_map(|v| v.as_str())
+                    .map(str::to_string)
                     .collect::<Vec<_>>()
-                    .join(", ")
             })
             .unwrap_or_default();
-        html_issues.push(HtmlValidationIssue {
-            check: "Doppelte IDs".to_string(),
-            count: a.duplicate_id_count,
-            severity: "medium".to_string(),
-            detail: if samples.is_empty() {
-                format!("{} gefunden", a.duplicate_id_count)
-            } else {
-                format!("{} (z.B. {})", a.duplicate_id_count, samples)
-            },
-        });
+        html_issues.push(HtmlValidationIssue::new(
+            HtmlValidationKind::DuplicateIds,
+            a.duplicate_id_count,
+            "medium",
+            samples,
+        ));
     }
 
     if a.images_without_alt > 0 {
-        html_issues.push(HtmlValidationIssue {
-            check: "Bilder ohne alt-Attribut".to_string(),
-            count: a.images_without_alt,
-            severity: "high".to_string(),
-            detail: format!("{} <img> ohne alt", a.images_without_alt),
-        });
+        html_issues.push(HtmlValidationIssue::new(
+            HtmlValidationKind::ImagesWithoutAlt,
+            a.images_without_alt,
+            "high",
+            Vec::new(),
+        ));
     }
     if a.tables_without_headers > 0 {
-        html_issues.push(HtmlValidationIssue {
-            check: "Tabellen ohne Kopfzeile".to_string(),
-            count: a.tables_without_headers,
-            severity: "medium".to_string(),
-            detail: format!(
-                "{} <table> ohne <th> oder <caption>",
-                a.tables_without_headers
-            ),
-        });
+        html_issues.push(HtmlValidationIssue::new(
+            HtmlValidationKind::TablesWithoutHeaders,
+            a.tables_without_headers,
+            "medium",
+            Vec::new(),
+        ));
     }
     if a.empty_headings > 0 {
-        html_issues.push(HtmlValidationIssue {
-            check: "Leere Überschriften".to_string(),
-            count: a.empty_headings,
-            severity: "medium".to_string(),
-            detail: format!("{} leere h1–h6 Elemente", a.empty_headings),
-        });
+        html_issues.push(HtmlValidationIssue::new(
+            HtmlValidationKind::EmptyHeadings,
+            a.empty_headings,
+            "medium",
+            Vec::new(),
+        ));
     }
     if a.nested_interactive_count > 0 {
-        html_issues.push(HtmlValidationIssue {
-            check: "Verschachtelte interaktive Elemente".to_string(),
-            count: a.nested_interactive_count,
-            severity: "high".to_string(),
-            detail: format!("{} button/a in button/a", a.nested_interactive_count),
-        });
+        html_issues.push(HtmlValidationIssue::new(
+            HtmlValidationKind::NestedInteractive,
+            a.nested_interactive_count,
+            "high",
+            Vec::new(),
+        ));
     }
 
     html_issues
 }
 
-async fn run_w3c_html_validation(
+async fn run_local_html_validation(
     page: &Page,
     _url: &str,
     a: &mut PageHealthAnalysis,
@@ -849,7 +1017,7 @@ async fn run_w3c_html_validation(
     let issues = validate_html_locally(&html);
     a.html_issues.extend(issues);
     a.html_validator_status = "executed".to_string();
-    a.html_validator_detail = Some("HTML5-Validierung lokal via html5ever".to_string());
+    a.html_validator_detail = Some(html_validator_executed_text(true).to_string());
     Ok(())
 }
 
@@ -861,19 +1029,14 @@ fn validate_html_locally(html: &str) -> Vec<HtmlValidationIssue> {
         return Vec::new();
     }
 
-    let parts: Vec<String> = errors.iter().take(3).map(|e| e.to_string()).collect();
-    let detail = if errors.len() <= 3 {
-        parts.join(" | ")
-    } else {
-        format!("{} | +{} weitere", parts.join(" | "), errors.len() - 3)
-    };
+    let samples: Vec<String> = errors.iter().take(3).map(|e| e.to_string()).collect();
 
-    vec![HtmlValidationIssue {
-        check: "HTML5-Parsing-Fehler".to_string(),
-        count: errors.len() as u32,
-        severity: "high".to_string(),
-        detail,
-    }]
+    vec![HtmlValidationIssue::new(
+        HtmlValidationKind::ParseErrors,
+        errors.len() as u32,
+        "high",
+        samples,
+    )]
 }
 
 async fn extract_document_html(page: &Page) -> Result<String> {
@@ -2850,23 +3013,105 @@ mod tests {
         let issues = build_html_issues(&analysis, &parsed);
 
         assert!(issues.iter().any(|i| {
-            i.check == "Doppelte IDs"
+            i.kind == HtmlValidationKind::DuplicateIds
                 && i.count == 2
-                && i.detail.contains("hero")
-                && i.detail.contains("cta-button")
+                && i.samples == ["hero", "cta-button"]
+                && i.detail == "2 (e.g. hero, cta-button)"
         }));
         assert!(issues
             .iter()
-            .any(|i| i.check == "Bilder ohne alt-Attribut" && i.count == 3));
+            .any(|i| i.kind == HtmlValidationKind::ImagesWithoutAlt && i.count == 3));
         assert!(issues
             .iter()
-            .any(|i| i.check == "Tabellen ohne Kopfzeile" && i.count == 1));
+            .any(|i| i.kind == HtmlValidationKind::TablesWithoutHeaders && i.count == 1));
         assert!(issues
             .iter()
-            .any(|i| i.check == "Leere Überschriften" && i.count == 2));
+            .any(|i| i.kind == HtmlValidationKind::EmptyHeadings && i.count == 2));
         assert!(issues
             .iter()
-            .any(|i| i.check == "Verschachtelte interaktive Elemente" && i.count == 1));
+            .any(|i| i.kind == HtmlValidationKind::NestedInteractive && i.count == 1));
+    }
+
+    const ALL_HTML_VALIDATION_KINDS: [HtmlValidationKind; 6] = [
+        HtmlValidationKind::DuplicateIds,
+        HtmlValidationKind::ImagesWithoutAlt,
+        HtmlValidationKind::TablesWithoutHeaders,
+        HtmlValidationKind::EmptyHeadings,
+        HtmlValidationKind::NestedInteractive,
+        HtmlValidationKind::ParseErrors,
+    ];
+
+    #[test]
+    fn english_html_validation_text_has_no_german_chars() {
+        let samples = vec!["a".to_string(), "b".to_string()];
+        let mut texts = vec![html_validator_executed_text(true).to_string()];
+        for kind in ALL_HTML_VALIDATION_KINDS {
+            texts.push(html_validation_check_text(kind, true).to_string());
+            texts.push(html_validation_detail_text(kind, 5, &samples, true));
+            texts.push(html_validation_detail_text(kind, 5, &[], true));
+        }
+        for text in texts {
+            assert!(
+                !text.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
+                "German char in EN text: {text}"
+            );
+            for word in [
+                "gefunden",
+                "z.B.",
+                "weitere",
+                "ohne",
+                "Fehler",
+                "Validierung",
+            ] {
+                assert!(!text.contains(word), "German word in EN text: {text}");
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_german_html_issues_deserialize_to_canonical_english() {
+        let legacy = json!([
+            {"check": "Doppelte IDs", "count": 2, "severity": "medium",
+             "detail": "2 (z.B. hero-swiper, webshop-widget)"},
+            {"check": "Doppelte IDs", "count": 1, "severity": "medium", "detail": "1 gefunden"},
+            {"check": "HTML5-Parsing-Fehler", "count": 40, "severity": "high",
+             "detail": "No <p> tag to close | Unexpected token | No <p> tag to close | +37 weitere"},
+            {"check": "Leere Überschriften", "count": 10, "severity": "medium",
+             "detail": "10 leere h1–h6 Elemente"}
+        ]);
+        let issues: Vec<HtmlValidationIssue> = serde_json::from_value(legacy.clone()).unwrap();
+
+        assert_eq!(issues[0].kind, HtmlValidationKind::DuplicateIds);
+        assert_eq!(issues[0].check, "Duplicate IDs");
+        assert_eq!(issues[0].detail, "2 (e.g. hero-swiper, webshop-widget)");
+        assert_eq!(issues[1].detail, "1 found");
+        assert_eq!(issues[2].kind, HtmlValidationKind::ParseErrors);
+        assert_eq!(issues[2].samples.len(), 3);
+        assert_eq!(issues[3].check, "Empty headings");
+        // The German presentation reproduces the legacy text exactly.
+        for (issue, old) in issues.iter().zip(legacy.as_array().unwrap()) {
+            assert_eq!(html_validation_check_text(issue.kind, false), old["check"]);
+            assert_eq!(
+                html_validation_detail_text(issue.kind, issue.count, &issue.samples, false),
+                old["detail"]
+            );
+        }
+        // Round trip through the new shape is lossless.
+        let again: Vec<HtmlValidationIssue> =
+            serde_json::from_value(serde_json::to_value(&issues).unwrap()).unwrap();
+        assert_eq!(again[2].samples, issues[2].samples);
+        assert_eq!(again[0].detail, issues[0].detail);
+    }
+
+    #[test]
+    fn legacy_german_validator_detail_deserializes_to_english() {
+        let mut value = serde_json::to_value(PageHealthAnalysis::default()).unwrap();
+        value["html_validator_detail"] = json!("HTML5-Validierung lokal via html5ever");
+        let analysis: PageHealthAnalysis = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            analysis.html_validator_detail.as_deref(),
+            Some(html_validator_executed_text(true))
+        );
     }
 
     #[test]
@@ -2874,7 +3119,7 @@ mod tests {
         let issues = validate_html_locally("<!doctype html><html><head><p></head></html>");
 
         assert!(issues.iter().any(|issue| {
-            issue.check == "HTML5-Parsing-Fehler"
+            issue.kind == HtmlValidationKind::ParseErrors
                 && issue.count > 0
                 && issue.severity == "high"
                 && !issue.detail.is_empty()

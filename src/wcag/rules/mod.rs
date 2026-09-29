@@ -95,7 +95,9 @@ pub use aria_hidden_focus::check_aria_hidden_focus;
 pub use aria_naming_rules::check_aria_naming_rules;
 pub use aria_prohibited_attr::check_aria_prohibited_attr_with_page;
 pub use aria_relationships::{check_aria_relationships, check_aria_relationships_with_page};
-pub use aria_required_attr::{check_aria_required_attr, check_checked_state_with_page};
+pub use aria_required_attr::{
+    check_aria_required_attr, check_checked_state_with_page, check_value_now_with_page,
+};
 pub use aria_required_parent::check_aria_required_parent;
 pub use aria_roles::{
     check_aria_roles, check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
@@ -134,7 +136,7 @@ pub use landmark_granular::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks_with_page, check_skip_link,
+    check_landmark_unique, check_skip_link,
 };
 pub use landmarks::check_landmarks;
 pub use language_extended::check_language_extended_with_page;

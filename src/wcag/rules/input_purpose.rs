@@ -73,11 +73,154 @@ const AUTOCOMPLETE_TOKENS: &[&str] = &[
 /// Input types that typically collect user information
 const USER_INPUT_TYPES: &[&str] = &["text", "email", "tel", "url", "search", "password"];
 
-/// Label words that mark a field as collecting information about the user.
-const USER_INFO_KEYWORDS: &[&str] = &[
-    "name", "email", "phone", "tel", "address", "city", "zip", "postal", "country", "password",
-    "username", "first", "last", "birthday", "birth",
+/// Label words that mark a field as collecting information about the user,
+/// matched as whole words (see [`words`]) so short tokens don't fire inside
+/// other words ("Hotel" is no "tel"). "name" is not in these lists: it names
+/// things as often as people and is classified by [`name_reference`] (#658).
+/// English and German merged, independent of the output language.
+const USER_INFO_WORDS: &[&str] = &[
+    // English
+    "email",
+    "phone",
+    "telephone",
+    "tel",
+    "fax",
+    "address",
+    "city",
+    "zip",
+    "zipcode",
+    "postcode",
+    "postal",
+    "country",
+    "password",
+    "username",
+    "first",
+    "last",
+    "birthday",
+    "birth",
+    "dob",
+    // German
+    "telefon",
+    "handy",
+    "handynummer",
+    "mobilnummer",
+    "faxnummer",
+    "plz",
+    "postleitzahl",
+    "adresse",
+    "anschrift",
+    "strasse",
+    "straße",
+    "hausnummer",
+    "ort",
+    "wohnort",
+    "stadt",
+    "land",
+    "passwort",
+    "kennwort",
+    "geburtstag",
+    "geburtsdatum",
 ];
+
+/// Stems that start a closed compound about the user ("Telefonnummer",
+/// "phonenumber", "Emailadresse", "birthdate", "Geburtsort").
+const USER_INFO_PREFIXES: &[&str] = &[
+    "telefon", "phone", "email", "postal", "postleit", "password", "passwort", "birth", "geburts",
+];
+
+/// Heads that end a closed compound about the user ("Lieferadresse",
+/// "emailaddress", "Festnetztelefon", "Hauptstraße").
+const USER_INFO_SUFFIXES: &[&str] = &[
+    "adresse", "address", "telefon", "strasse", "straße", "passwort", "password", "kennwort",
+];
+
+/// Whether a label names a piece of information about the user.
+fn label_asks_for_user_info(label: &str) -> bool {
+    let words = words(label);
+    words.iter().enumerate().any(|(i, word)| {
+        let w = word.as_str();
+        USER_INFO_WORDS.contains(&w)
+            || USER_INFO_PREFIXES.iter().any(|p| w.starts_with(p))
+            || USER_INFO_SUFFIXES.iter().any(|s| w.ends_with(s))
+            // "E-Mail" splits into "e" + "mail"
+            || (w == "mail" && i > 0 && words[i - 1] == "e")
+    })
+}
+
+/// Single words (incl. closed compounds) that always mean a person's name.
+/// Detection vocabulary, not message text: English and German are merged
+/// because the rule runs regardless of the page language and sites mix both.
+const PERSONAL_NAME_WORDS: &[&str] = &[
+    "firstname",
+    "lastname",
+    "fullname",
+    "surname",
+    "givenname",
+    "familyname",
+    "middlename",
+    "username",
+    "nickname",
+    "vorname",
+    "nachname",
+    "familienname",
+    "benutzername",
+    "geburtsname",
+    "rufname",
+];
+
+/// Words that may precede a bare "name" without turning it into the name of a
+/// thing: they refer to the person ("your name", "first name", "Ihr Name") or
+/// are technical/form-context parts of an id ("input-name", "billing_name").
+/// Any other preceding word is a qualifier naming a thing ("view name", "file
+/// name", "project name", "company name") and rules the field out.
+const PERSON_OR_NEUTRAL_QUALIFIERS: &[&str] = &[
+    // the person
+    "your",
+    "my",
+    "full",
+    "first",
+    "last",
+    "given",
+    "family",
+    "middle",
+    "legal",
+    "maiden",
+    "user",
+    "contact",
+    "customer",
+    "person",
+    "member",
+    "guest",
+    "applicant",
+    "author",
+    "cardholder",
+    "ihr",
+    "ihren",
+    "dein",
+    "deinen",
+    "vollständiger",
+    "voller",
+    // form/id context
+    "input",
+    "field",
+    "form",
+    "fld",
+    "txt",
+    "inp",
+    "text",
+    "billing",
+    "shipping",
+    "account",
+    "profile",
+    "signup",
+    "register",
+    "registration",
+    "checkout",
+];
+
+/// Words after a bare "name" that introduce the thing being named ("Name of
+/// the view", "Name der Ansicht").
+const THING_NAME_FOLLOWERS: &[&str] = &["of", "for", "der", "des", "für", "von"];
 
 // Collects every rendered, non-hidden text-like input with its type, its
 // `autocomplete` attribute and a label approximating the accessible name
@@ -109,7 +252,9 @@ const INPUT_PURPOSE_JS: &str = r#"
       type: type,
       autocomplete: el.getAttribute('autocomplete'),
       label: label.replace(/\s+/g, ' ').trim(),
-      selector: selector
+      selector: selector,
+      id: el.id || '',
+      name_attr: el.getAttribute('name') || ''
     });
   }
   return out;
@@ -123,6 +268,88 @@ struct InputCandidate {
     autocomplete: Option<String>,
     label: String,
     selector: String,
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name_attr: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NameReference {
+    /// The text refers to a person's name ("Name", "Your name", "Vorname").
+    Person,
+    /// The text names a thing ("View name", "Dateiname", "Name of the view").
+    Thing,
+}
+
+/// Split into lower-case words at non-alphanumeric characters and camelCase
+/// boundaries (`viewName` → `view`, `name`).
+fn words(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let mut prev_lower = false;
+    for ch in text.chars() {
+        if !ch.is_alphanumeric() {
+            if !current.is_empty() {
+                out.push(std::mem::take(&mut current));
+            }
+            prev_lower = false;
+            continue;
+        }
+        if ch.is_uppercase() && prev_lower {
+            out.push(std::mem::take(&mut current));
+        }
+        prev_lower = ch.is_lowercase();
+        current.extend(ch.to_lowercase());
+    }
+    if !current.is_empty() {
+        out.push(current);
+    }
+    out
+}
+
+/// Classify what a label or id/name attribute says about "name"; `None` when
+/// it contains no name word. A person reading anywhere in the text wins over
+/// a thing reading.
+fn name_reference(text: &str) -> Option<NameReference> {
+    let words = words(text);
+    let mut result = None;
+    for (i, word) in words.iter().enumerate() {
+        if PERSONAL_NAME_WORDS.contains(&word.as_str()) {
+            return Some(NameReference::Person);
+        }
+        if word != "name" {
+            continue;
+        }
+        let qualifier = words[..i]
+            .iter()
+            .rev()
+            .find(|w| !w.chars().all(|c| c.is_ascii_digit()));
+        let qualified_by_thing =
+            qualifier.is_some_and(|q| !PERSON_OR_NEUTRAL_QUALIFIERS.contains(&q.as_str()));
+        let followed_by_thing = words
+            .get(i + 1)
+            .is_some_and(|next| THING_NAME_FOLLOWERS.contains(&next.as_str()));
+        if qualified_by_thing || followed_by_thing {
+            result = Some(NameReference::Thing);
+        } else {
+            return Some(NameReference::Person);
+        }
+    }
+    result
+}
+
+/// Whether the field asks for the user's name. The label is the positive
+/// evidence; a thing qualifier in the id or name attribute (`#view-name`
+/// labelled just "Name") rules it out unless the other attribute names the
+/// person.
+fn asks_for_personal_name(c: &InputCandidate) -> bool {
+    if name_reference(&c.label) != Some(NameReference::Person) {
+        return false;
+    }
+    let attr_refs = [name_reference(&c.id), name_reference(&c.name_attr)];
+    attr_refs.contains(&Some(NameReference::Person))
+        || !attr_refs.contains(&Some(NameReference::Thing))
 }
 
 pub async fn check_input_purpose_with_page(page: &Page) -> Vec<Violation> {
@@ -177,7 +404,7 @@ fn evaluate(candidates: &[InputCandidate]) -> Vec<Violation> {
 
         // Check if this looks like a user-info field based on its label
         let label_lower = c.label.to_lowercase();
-        if USER_INFO_KEYWORDS.iter().any(|k| label_lower.contains(k)) {
+        if label_asks_for_user_info(&c.label) || asks_for_personal_name(c) {
             violations.push(
                 Violation::new(
                     INPUT_PURPOSE_RULE.id,
@@ -213,7 +440,163 @@ mod tests {
             autocomplete: autocomplete.map(str::to_string),
             label: label.to_string(),
             selector: "#x".to_string(),
+            id: String::new(),
+            name_attr: String::new(),
         }
+    }
+
+    fn named_input(label: &str, id: &str, name_attr: &str) -> InputCandidate {
+        InputCandidate {
+            id: id.to_string(),
+            name_attr: name_attr.to_string(),
+            ..input(label, None)
+        }
+    }
+
+    /// #658: og-vanilla's saved-views form — `#view-name` labelled "Name" is
+    /// the name of a grid view, not the user's name.
+    #[test]
+    fn thing_qualifier_in_id_rules_out_bare_name_label() {
+        assert!(evaluate(&[named_input("Name", "view-name", "")]).is_empty());
+        assert!(evaluate(&[named_input("Name", "", "projectName")]).is_empty());
+    }
+
+    /// #658: labels naming a thing are no personal-data fields.
+    #[test]
+    fn thing_names_in_label_are_not_personal() {
+        for label in [
+            "View name",
+            "File name",
+            "Filename",
+            "Project name",
+            "Company name",
+            "Name of the view",
+            "Dateiname",
+            "Projektname",
+            "Name der Ansicht",
+            "Rename",
+        ] {
+            assert!(evaluate(&[input(label, None)]).is_empty(), "{label}");
+        }
+    }
+
+    /// Fields that clearly ask for the person's name still fire.
+    #[test]
+    fn personal_name_fields_still_flagged() {
+        for label in [
+            "Name",
+            "Your name",
+            "Full name",
+            "First name",
+            "Last Name *",
+            "Surname",
+            "Vorname",
+            "Nachname",
+            "Ihr Name",
+            "Benutzername",
+        ] {
+            assert_eq!(evaluate(&[input(label, None)]).len(), 1, "{label}");
+        }
+    }
+
+    /// Technical or person-referring id parts don't turn a person's name into
+    /// a thing's name.
+    #[test]
+    fn neutral_id_parts_keep_personal_name() {
+        assert_eq!(evaluate(&[named_input("Name", "input-name", "")]).len(), 1);
+        assert_eq!(
+            evaluate(&[named_input("Name", "billing_first_name", "")]).len(),
+            1
+        );
+        assert_eq!(
+            evaluate(&[named_input("Name", "field-2-name", "")]).len(),
+            1
+        );
+        // A person reading in one attribute outweighs a thing reading in the other.
+        assert_eq!(
+            evaluate(&[named_input("Name", "view-name", "fullName")]).len(),
+            1
+        );
+    }
+
+    /// Whole-word keywords, English and German, still fire.
+    #[test]
+    fn whole_word_keywords_flagged() {
+        for label in [
+            "Email",
+            "E-Mail",
+            "Phone",
+            "Tel.",
+            "Tel.-Nr.",
+            "Fax",
+            "Street address",
+            "City",
+            "ZIP code",
+            "Zip/Postal code",
+            "Country",
+            "Password",
+            "Username",
+            "First",
+            "Date of birth",
+            "PLZ",
+            "Ort",
+            "Straße",
+            "Land",
+            "Passwort",
+            "Geburtstag",
+        ] {
+            assert_eq!(evaluate(&[input(label, None)]).len(), 1, "{label}");
+        }
+    }
+
+    /// Closed compounds built on a keyword stem or head still fire.
+    #[test]
+    fn compound_keywords_flagged() {
+        for label in [
+            "Telefonnummer",
+            "Postleitzahl",
+            "Handynummer",
+            "E-Mail-Adresse",
+            "Emailadresse",
+            "EmailAddress",
+            "phoneNumber",
+            "Lieferadresse",
+            "Birthdate",
+            "Geburtsdatum",
+            "Festnetztelefon",
+            "Hauptstrasse",
+            "Neues Kennwort",
+        ] {
+            assert_eq!(evaluate(&[input(label, None)]).len(), 1, "{label}");
+        }
+    }
+
+    /// Short keywords no longer fire inside unrelated words.
+    #[test]
+    fn keywords_inside_other_words_not_flagged() {
+        for label in [
+            "Hotel name",
+            "Hotel",
+            "Title",
+            "Hostel",
+            "Zipper size",
+            "Cityscape",
+            "Lastly",
+            "Firstly",
+            "Countryside",
+            "Portal",
+            "Sorting",
+            "Landing page",
+        ] {
+            assert!(evaluate(&[input(label, None)]).is_empty(), "{label}");
+        }
+    }
+
+    #[test]
+    fn words_split_camel_case_and_separators() {
+        assert_eq!(words("viewName"), ["view", "name"]);
+        assert_eq!(words("billing_first-name"), ["billing", "first", "name"]);
+        assert_eq!(words("FIRSTNAME"), ["firstname"]);
     }
 
     #[test]

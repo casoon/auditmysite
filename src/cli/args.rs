@@ -245,6 +245,16 @@ pub struct Args {
     #[arg(long)]
     pub dismiss_consent: bool,
 
+    /// Exclude the subtree matched by a CSS selector from the findings
+    /// (repeatable), e.g. intentionally broken teaching specimens.
+    ///
+    /// The page is still audited; only findings whose element lies inside a
+    /// matched subtree are dropped. The report lists every selector, how many
+    /// elements it matched (also zero) and how many findings it removed.
+    /// `[data-audit-exclude]` is always honoured without this flag.
+    #[arg(long = "exclude-selector", value_name = "CSS")]
+    pub exclude_selector: Vec<String>,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
@@ -935,6 +945,7 @@ mod tests {
             html_conform: false,
             technician: false,
             dismiss_consent: false,
+            exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),

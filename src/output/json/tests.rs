@@ -1167,6 +1167,7 @@ fn test_collection_errors_serialized_when_present() {
             passed_url_count: 0,
             failed_url_count: 0,
             attempted_url_count: None,
+            exclusions: None,
             violated_rule_count: 0,
             top_recurring_rules: vec![],
             template_clusters: vec![],

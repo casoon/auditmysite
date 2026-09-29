@@ -510,6 +510,9 @@
           "items": {
             "$ref": "#/$defs/en301549BatchClauseRollup"
           }
+        },
+        "exclusions": {
+          "$ref": "#/$defs/batchExclusionSummary"
         }
       }
     },
@@ -671,6 +674,9 @@
         },
         "content_profile": {
           "type": "object"
+        },
+        "exclusions": {
+          "$ref": "#/$defs/exclusionReport"
         }
       }
     },
@@ -1127,6 +1133,158 @@
         },
         "classification": {
           "type": "string"
+        }
+      }
+    },
+    "exclusionReport": {
+      "type": "object",
+      "description": "Audit exclusions applied to this page (#645). Findings whose element lies inside a subtree matched by one of `selectors` were dropped before normalization and scoring; the page itself was audited. `[data-audit-exclude]` is always applied (builtin). Counts per rule are the larger of the two viewport passes. `rule_outcomes[].findings` count what remains after exclusion.",
+      "required": [
+        "selectors",
+        "excluded_occurrences",
+        "excluded_violations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exclusionSelector"
+          }
+        },
+        "excluded_occurrences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Excluded WCAG finding occurrences, all outcomes."
+        },
+        "excluded_violations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Of excluded_occurrences, confirmed violations (outcome fail)."
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "rule_id",
+              "wcag",
+              "occurrences",
+              "violations"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "rule_id": {
+                "type": "string"
+              },
+              "wcag": {
+                "type": "string"
+              },
+              "occurrences": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "violations": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "excluded_interactive_findings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Excluded Accessibility-Journey findings."
+        }
+      }
+    },
+    "exclusionSelector": {
+      "type": "object",
+      "required": [
+        "selector",
+        "builtin",
+        "matched_elements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "builtin": {
+          "type": "boolean",
+          "description": "True for the always-applied [data-audit-exclude]."
+        },
+        "matched_elements": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Roots of excluded subtrees; 0 means the selector excluded nothing. Larger count of the two viewport passes."
+        },
+        "invalid": {
+          "type": "boolean",
+          "description": "The browser rejected the selector; it excluded nothing."
+        }
+      }
+    },
+    "batchExclusionSummary": {
+      "type": "object",
+      "description": "Audit exclusions (#645) aggregated over all audited pages.",
+      "required": [
+        "selectors",
+        "pages_with_matches",
+        "excluded_occurrences",
+        "excluded_violations",
+        "excluded_interactive_findings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "selector",
+              "builtin",
+              "pages_matched",
+              "matched_elements"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "selector": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "pages_matched": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "matched_elements": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Summed over all pages."
+              },
+              "invalid": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "pages_with_matches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_occurrences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_violations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_interactive_findings": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }

@@ -32,7 +32,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
         let role_lower = node.role.as_deref().unwrap_or("").to_lowercase();
 
         // Check form inputs
-        if is_form_input(&role_lower) {
+        if is_form_input(&role_lower) && !in_native_date_time_input(node, tree) {
             let has_label = has_accessible_label(node);
             let has_instructions = has_instructions_or_hint(node);
 
@@ -103,7 +103,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
             // Check for inputs with format requirements. Guessed from the
             // label wording alone, so it can only ask for review, never
             // confirm a failure (#643).
-            if needs_format_instructions(&role_lower, node) && !has_format_hint(node) {
+            if needs_format_instructions(node) && !has_format_hint(node) {
                 let violation = Violation::new(
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
@@ -156,6 +156,24 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// Chrome renders `<input type=date|time|month|week|datetime-local>` with
+/// internal day/month/year/hour fields exposed as `spinbutton`s below the
+/// input's own `Date`/`DateTime`/`InputTime` node. Those fields and their
+/// format belong to the browser, not the author (#656).
+fn in_native_date_time_input(node: &AXNode, tree: &AXTree) -> bool {
+    let mut current = node.parent_id.as_deref();
+    while let Some(parent) = current.and_then(|id| tree.get_node(id)) {
+        if matches!(
+            parent.role.as_deref(),
+            Some("Date" | "DateTime" | "InputTime")
+        ) {
+            return true;
+        }
+        current = parent.parent_id.as_deref();
+    }
+    false
 }
 
 /// Check if role is a form input
@@ -267,8 +285,15 @@ fn indicates_required(node: &AXNode) -> bool {
     false
 }
 
-/// Check if input type typically needs format instructions
-fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
+/// Check if the label asks for data with a format the user has to know.
+///
+/// Decided from the label alone. The `spinbutton` role is no signal of its
+/// own: WCAG 3.3.2 asks for instructions where input must follow a format
+/// the user cannot infer, and a spinbutton — native `<input type=number>` or
+/// custom `role="spinbutton"` — holds a number the widget itself constrains
+/// and steps with the arrow keys. A spinbutton whose label asks for a
+/// format-sensitive value ("Postal code") is still caught by the label (#656).
+fn needs_format_instructions(node: &AXNode) -> bool {
     let name = node.name.as_deref().unwrap_or("").to_lowercase();
 
     let format_sensitive = [
@@ -341,7 +366,6 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
     format_sensitive
         .iter()
         .any(|&term| contains_format_term(&name, term))
-        || role == "spinbutton"
 }
 
 /// Terms shorter than five characters ("pass", "tel", "date", "zip", "plz",
@@ -631,9 +655,8 @@ mod tests {
     /// #643: "Was ist passiert?" contains "pass" but is no passport field.
     #[test]
     fn test_short_terms_match_whole_words_only() {
-        let needs = |name: &str| {
-            needs_format_instructions("textbox", &create_input("1", "textbox", Some(name)))
-        };
+        let needs =
+            |name: &str| needs_format_instructions(&create_input("1", "textbox", Some(name)));
         assert!(!needs("Was ist passiert?"));
         assert!(!needs("Hotel"));
         assert!(!needs("Last update"));
@@ -641,6 +664,33 @@ mod tests {
         assert!(needs("Tel."));
         assert!(needs("Reisepass"));
         assert!(needs("Geburtsdatum"));
+    }
+
+    /// #656: the day/month/year spinbuttons Chrome renders inside a native
+    /// date input are the browser's own fields, with the browser's format.
+    #[test]
+    fn test_native_date_time_subfields_are_not_checked() {
+        for native_role in ["Date", "DateTime", "InputTime"] {
+            let input = create_input("d", native_role, Some("Order date"));
+            let mut wrapper = create_input("w", "generic", None);
+            wrapper.parent_id = Some("d".into());
+            let mut day = create_input("s", "spinbutton", Some("Day"));
+            day.parent_id = Some("w".into());
+            let tree = AXTree::from_nodes(vec![input, wrapper, day]);
+            let results = check_instructions(&tree);
+            assert!(format_findings(&results).is_empty(), "{native_role}");
+            assert!(results.violations.is_empty(), "{native_role}");
+        }
+    }
+
+    /// #656: a spinbutton, native or custom, holds a number the widget
+    /// constrains — no format hint just for the role; the label still counts.
+    #[test]
+    fn test_spinbutton_needs_format_hint_only_by_label() {
+        let quantity = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Quantity"))]);
+        assert!(format_findings(&check_instructions(&quantity)).is_empty());
+        let postal = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Postal code"))]);
+        assert_eq!(format_findings(&check_instructions(&postal)).len(), 1);
     }
 
     fn group_with_html_tag(id: &str, tag: &str, name: Option<&str>) -> AXNode {

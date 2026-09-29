@@ -110,7 +110,7 @@ const TARGET_SIZE_JS: &str = r#"
   var selectors = 'button, a[href], [role="button"], [role="link"], input[type="submit"], input[type="button"], input[type="reset"]';
   var targets = [];
   var all = document.querySelectorAll(selectors);
-  for (var i = 0; i < all.length && targets.length < 1000; i++) {
+  for (var i = 0; i < all.length && __amsReal(targets) < 1000; i++) {
     var r = all[i].getBoundingClientRect();
     // A near-zero rect (commonly exactly 1x1) is the standard "visually
     // hidden until focus" CSS technique for things like skip links — not
@@ -118,8 +118,8 @@ const TARGET_SIZE_JS: &str = r#"
     // resting state. A genuinely too-small but real button/icon is virtually
     // never this tiny, so this threshold doesn't mask real violations.
     if (r.width <= 2 || r.height <= 2) continue;
-    targets.push({ el: all[i], rect: r, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
-                   small: r.width < MIN_SIZE || r.height < MIN_SIZE });
+    __amsPush(targets, all[i], { el: all[i], rect: r, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+                   small: r.width < MIN_SIZE || r.height < MIN_SIZE }, 1000);
   }
   function distToRect(x, y, r) {
     var dx = Math.max(r.left - x, 0, x - r.right);
@@ -138,17 +138,17 @@ const TARGET_SIZE_JS: &str = r#"
     return true;
   }
   var violations = [];
-  for (var j = 0; j < targets.length && violations.length < 5; j++) {
+  for (var j = 0; j < targets.length && __amsReal(violations) < 5; j++) {
     var t = targets[j];
     if (!t.small || isInlineInText(t.el) || spaced(t) || hasEquivalentLink(t.el, MIN_SIZE)) continue;
     var el = t.el;
     var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
-    violations.push({
+    __amsPush(violations, el, {
       selector: __amsCssSelector(el),
       label: desc,
       width: Math.round(t.rect.width),
       height: Math.round(t.rect.height)
-    });
+    }, 5);
   }
   return { violations: violations };
 })()

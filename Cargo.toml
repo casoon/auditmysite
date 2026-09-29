@@ -22,6 +22,8 @@ exclude = [
     "/docs/",
     "/scripts/",
     "/tests/",
+    "/site/",
+    "/examples/",
     "/WCAG-MANUAL-CHECKS.md",
     "/SCREEN-READER-AUDIT-LLM.md",
     "/rust-toolchain.toml",

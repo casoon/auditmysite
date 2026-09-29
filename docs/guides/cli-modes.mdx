@@ -1,0 +1,132 @@
+---
+title: CLI modes
+description: One URL in depth, or many URLs from a sitemap, a file or a crawl as one aggregated report or as one report per page.
+order: 1
+---
+
+```text
+auditmysite [OPTIONS] [URL] [COMMAND]
+```
+
+`auditmysite --help` lists every option of the installed version.
+
+## Single URL
+
+```sh
+auditmysite https://example.com
+```
+
+A detailed, page-specific audit. Without `-f` it writes a PDF, a JSON report and the
+screen-reader sidecar JSON into the current directory. Performance, SEO, security and mobile are
+part of the default single-page run (`--full` states it explicitly).
+
+When the URL is a site root, auditmysite probes `robots.txt` and common sitemap locations first
+and offers to switch to a sitemap audit. `--prefer-sitemap` switches without asking,
+`--no-sitemap-suggest` stays on the single page.
+
+## Sitemap
+
+```sh
+auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20
+```
+
+Sitemap indexes are followed and deduplicated. `--max-pages` takes the first N URLs in sitemap
+order; the report records how many were discovered and how many were audited.
+
+## URL file
+
+```sh
+auditmysite --url-file urls.txt
+```
+
+One URL per line.
+
+## Crawl
+
+```sh
+auditmysite https://example.com --crawl --crawl-depth 2 --max-pages 50
+```
+
+Discovers same-domain pages from a seed URL (breadth first, default depth 2). Crawling sends one
+extra HEAD/GET per discovered link, including external links up to 100 unique targets, so use it
+deliberately rather than in every CI run.
+
+## Batch reports
+
+Sitemap, URL-file and crawl runs produce one aggregated report for the whole set: average scores,
+strongest and weakest URLs, recurring issues, a URL matrix, and template clusters where one fix
+resolves the same finding on many pages. Without `-f` the result is printed as a table.
+
+```sh
+auditmysite --sitemap https://example.com/sitemap.xml -f pdf -o site-report.pdf
+auditmysite --sitemap https://example.com/sitemap.xml -f json -o site-report.json --quiet
+```
+
+Pages run in parallel (`--concurrency`, default 3). A page that cannot be audited is not scored;
+the report states how many URLs the scores cover and lists the failures.
+
+## Per-page reports
+
+```sh
+auditmysite --url-file urls.txt --per-page-reports --output reports/per-page/
+```
+
+Scans the list or sitemap but writes one single-page report per URL instead of the aggregated
+batch report. `-o` is the target directory.
+
+<Callout type="note">
+  In 1.6.0 the per-page file names contain only the host, so pages overwrite each other. The fix
+  (host plus path in the file name) is merged for the next release.
+</Callout>
+
+{/*
+TODO(1.7.0, not merged yet — keep hidden until released):
+- Technician mode (plan 67): per-page JSON for programmatic fixing — sitemap include/exclude
+  path filters, index.json + findings.jsonl next to the per-page files, a fast "fixable
+  findings only" module preset. Document flags once the CLI surface is decided.
+- Exclusions (#645): exclude intentional specimens from an audit (like axe `exclude`), visible
+  in the report. Document the flag/config key and how exclusions show up in JSON and PDF.
+- Display modes (#653): detect the data-display convention and audit per mode
+  (calm/text/visual). Document detection and how per-mode results are reported.
+*/}
+
+## Other commands
+
+| Command | Purpose |
+| --- | --- |
+| `auditmysite plan <url>` | Mode, modules and output paths of an audit, without running it |
+| `auditmysite browser detect\|install\|remove\|path` | Browser management, see [Browser setup](../browser-setup/) |
+| `auditmysite doctor` | Local diagnostics |
+| `auditmysite report-lint <report.json>` | Consistency checks on a JSON report, see [Reports](../reports/#report-lint) |
+| `auditmysite accname-diff <url>…` | Compares auditmysite's accessible-name computation with Chrome's; measures, never fails |
+
+## Output formats
+
+`-f` / `--format`: `pdf`, `json`, `table`, `ai` (task list for LLM-assisted fixing), `summary`
+(compact JSON for dashboards) and `sarif` (SARIF 2.1.0, for GitHub Code Scanning).
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Pass |
+| `1` | Warn |
+| `2` | Fail |
+| `3` | Technical error (browser, timeout, arguments, writing files), or `report-lint` at or above `--fail-on` |
+
+`--report-mode` returns `0` whenever the requested report files were written, whatever the
+verdict. The verdict itself still appears in the terminal, JSON and PDF.
+
+## Configuration file
+
+An optional `auditmysite.toml` in the working directory holds `[audit]`, `[rules]`,
+`[interactive]`, `[thresholds]` and `[budget]` sections, for example:
+
+```toml
+[rules]
+disabled = ["heading-order"]
+
+[interactive]
+mode = "full"             # off | basic | full
+journey_budget_ms = 8000
+```

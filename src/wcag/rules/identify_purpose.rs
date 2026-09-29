@@ -44,7 +44,10 @@ const IDENTIFY_PURPOSE_JS: &str = r#"
       name: el.getAttribute('name') || '',
       id: el.getAttribute('id') || '',
       type: type,
-      has_autocomplete: !!el.getAttribute('autocomplete')
+      has_autocomplete: !!el.getAttribute('autocomplete'),
+      // Its report names the input, not a CSS path, so the exclusion filter
+      // (#645) cannot locate it later; mark it here instead.
+      excluded: !!(typeof window.__amsIsExcluded === 'function' && window.__amsIsExcluded(el))
     });
   }
   return { candidates: candidates };
@@ -195,7 +198,7 @@ pub async fn check_identify_purpose_with_page(page: &Page) -> Vec<Violation> {
     };
 
     let candidates = val.get("candidates").and_then(|v| v.as_array());
-    let missing: Vec<String> = candidates
+    let missing: Vec<(String, bool)> = candidates
         .map(|arr| {
             arr.iter()
                 .filter_map(|c| {
@@ -217,7 +220,8 @@ pub async fn check_identify_purpose_with_page(page: &Page) -> Vec<Violation> {
                     } else {
                         input_type
                     };
-                    Some(desc.to_string())
+                    let excluded = c.get("excluded").and_then(|v| v.as_bool()) == Some(true);
+                    Some((desc.to_string(), excluded))
                 })
                 .collect()
         })
@@ -225,9 +229,12 @@ pub async fn check_identify_purpose_with_page(page: &Page) -> Vec<Violation> {
 
     let mut findings = vec![not_testable];
 
-    for name in missing.iter().take(5) {
-        findings.push(
-            Violation::new(
+    // Five per group: inputs inside an excluded subtree (#645) must not take
+    // the places of real ones; they are reported marked and dropped later.
+    let real = missing.iter().filter(|(_, excluded)| !excluded).take(5);
+    let excluded = missing.iter().filter(|(_, excluded)| *excluded).take(5);
+    for (name, in_excluded_subtree) in real.chain(excluded) {
+        let mut finding = Violation::new(
                 IDENTIFY_PURPOSE_RULE.id,
                 IDENTIFY_PURPOSE_RULE.name,
                 IDENTIFY_PURPOSE_RULE.level,
@@ -244,8 +251,9 @@ pub async fn check_identify_purpose_with_page(page: &Page) -> Vec<Violation> {
                  autocomplete=\"tel\", autocomplete=\"name\") to help users and assistive technologies.",
             )
             .with_rule_id(IDENTIFY_PURPOSE_RULE.axe_id)
-            .with_help_url(IDENTIFY_PURPOSE_RULE.help_url),
-        );
+            .with_help_url(IDENTIFY_PURPOSE_RULE.help_url);
+        finding.in_excluded_subtree = *in_excluded_subtree;
+        findings.push(finding);
     }
 
     findings

@@ -67,7 +67,7 @@ const REDUNDANT_ROLE_JS: &str = r#"
   ];
   var findings = [];
   var elements = document.querySelectorAll('[role]');
-  for (var i = 0; i < elements.length && findings.length < 20; i++) {
+  for (var i = 0; i < elements.length && __amsReal(findings) < 20; i++) {
     var el = elements[i];
     var tag = el.tagName.toLowerCase();
     var role = (el.getAttribute('role') || '').trim().toLowerCase();
@@ -76,7 +76,7 @@ const REDUNDANT_ROLE_JS: &str = r#"
       if (MAP[j][0] !== tag) continue;
       if (MAP[j][2] !== role) continue;
       if (!MAP[j][1](el)) continue;
-      findings.push({ selector: __amsCssSelector(el), role: role });
+      __amsPush(findings, el, { selector: __amsCssSelector(el), role: role }, 20);
       break;
     }
   }
