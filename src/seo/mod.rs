@@ -25,8 +25,8 @@ pub use headings::{analyze_heading_structure, HeadingInfo, HeadingIssue, Heading
 pub use image_efficiency::{analyze_image_efficiency, ImageEfficiencyAnalysis, OversizedImage};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
 pub use page_health::{
-    analyze_page_health, collect_issues, HtmlValidationIssue, PageHealthAnalysis, PageHealthIssue,
-    UrlCanonicalizationCheck, WwwConsolidation,
+    analyze_page_health, collect_issues, HtmlValidationIssue, HtmlValidationKind,
+    PageHealthAnalysis, PageHealthIssue, UrlCanonicalizationCheck, WwwConsolidation,
 };
 pub use profile::{build_content_profile, SeoContentProfile};
 pub use robots::{audit_robots_txt, infer_robots_policy, BotClass, RobotsAudit, RobotsGroup};
