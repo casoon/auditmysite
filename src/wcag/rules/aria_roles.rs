@@ -297,14 +297,7 @@ fn check_required_owned_elements(
         return;
     }
 
-    // Check if any direct or shallow children have the required role
-    let has_required_child = node.child_ids.iter().any(|child_id| {
-        tree.nodes
-            .get(child_id)
-            .and_then(|child| child.role.as_deref())
-            .map(|child_role| required_child_roles.contains(&child_role))
-            .unwrap_or(false)
-    });
+    let has_required_child = has_owned_role(tree, &node.child_ids, required_child_roles, 0);
 
     if !has_required_child && !node.child_ids.is_empty() {
         let violation = Violation::new(
@@ -339,6 +332,27 @@ fn check_required_owned_elements(
 
         results.add_violation(violation);
     }
+}
+
+const MAX_OWNED_DEPTH: usize = 4;
+
+/// Whether any owned child carries one of `roles`. An ignored child is not an
+/// owned element itself, but Chrome marks a plain `<tbody>` ignored while its
+/// rows stay exposed beneath it (#638, #659), so look through it.
+fn has_owned_role(tree: &AXTree, child_ids: &[String], roles: &[&str], depth: usize) -> bool {
+    child_ids.iter().any(|child_id| {
+        let Some(child) = tree.nodes.get(child_id) else {
+            return false;
+        };
+        let matches = child
+            .role
+            .as_deref()
+            .is_some_and(|child_role| roles.contains(&child_role));
+        matches
+            || (child.ignored
+                && depth < MAX_OWNED_DEPTH
+                && has_owned_role(tree, &child.child_ids, roles, depth + 1))
+    })
 }
 
 #[cfg(test)]
@@ -391,6 +405,47 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("listitem")));
+    }
+
+    #[test]
+    fn test_table_rows_under_ignored_tbody_pass() {
+        // #659: Chrome marks a plain <tbody> ignored; its rows stay exposed.
+        let mut tbody = make_node("3", "none", Some("2"), vec!["4"]);
+        tbody.ignored = true;
+        let nodes = vec![
+            make_node("1", "WebArea", None, vec!["2"]),
+            make_node("2", "table", Some("1"), vec!["3"]),
+            tbody,
+            make_node("4", "row", Some("3"), vec!["5"]),
+            make_node("5", "cell", Some("4"), vec![]),
+        ];
+        let results = check_aria_roles(&AXTree::from_nodes(nodes));
+        assert!(
+            !results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("missing required child")),
+            "rows beneath an ignored tbody must count: {:?}",
+            results.violations
+        );
+    }
+
+    #[test]
+    fn test_table_without_rows_still_flagged() {
+        // A table holding only a caption (e.g. still waiting for its data)
+        // has no row to own and stays reported.
+        let mut tbody = make_node("3", "none", Some("2"), vec![]);
+        tbody.ignored = true;
+        let nodes = vec![
+            make_node("1", "WebArea", None, vec!["2"]),
+            make_node("2", "table", Some("1"), vec!["4", "3"]),
+            make_node("4", "caption", Some("2"), vec![]),
+            tbody,
+        ];
+        let results = check_aria_roles(&AXTree::from_nodes(nodes));
+        assert!(results.violations.iter().any(|v| v
+            .message
+            .contains("missing required child roles: row, rowgroup")));
     }
 
     #[test]
