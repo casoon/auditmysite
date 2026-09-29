@@ -214,7 +214,7 @@ impl AccessibilityScorer {
     /// Thresholds follow the official grade bands (#449). The returned value is
     /// the canonical German token used as the lookup key for badge/colour; the
     /// display label is localized at render time (see
-    /// `cover::certificate_label_localized`).
+    /// `registry::certificate_label_localized`).
     ///
     /// - SEHR GUT: ≥90 (platinum)
     /// - GUT: ≥75 (gold)

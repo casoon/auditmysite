@@ -345,7 +345,7 @@ pub(in crate::output::pdf) fn render_page_health(
     }
 
     if let Some((status, detail)) = &ph.html_validator {
-        let validator_title = i18n.t("pdf-ph-w3c-title");
+        let validator_title = i18n.t("pdf-ph-html-validator-title");
         let callout = match status.as_str() {
             "Ausgeführt" => Callout::info(detail).with_title(&validator_title),
             "Fehlgeschlagen" => Callout::warning(detail).with_title(&validator_title),

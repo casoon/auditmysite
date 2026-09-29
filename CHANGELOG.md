@@ -5,6 +5,36 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Englischer Bericht: Fuellwoerter als Themen, irrefuehrender Validator-Titel, 2026-09-29:**
+  Befund aus einem Scan der englischen Typst-Ausgaben des Golden-Sets (17 Seiten).
+  (1) Der Batch-Bericht fuehrte unter „Dominant content topics" den Eintrag „nicht" („Present on
+  2 audited pages"). Ursache: `seo/topics.rs` filtert Seitentitel, Beschreibung, Ueberschriften und
+  Textauszug gegen `topic-stopwords` aus den FTL-Dateien, und diese Listen enthielten nur einen
+  Teil der Funktionswoerter — „nicht" (barrierlab.eu, casoon.de), „weitere" (berlin.de),
+  „dein"/„dich" (hornbach.de, otto.de) und „neue" (volkswagen.de) rutschten als Seitenthemen durch.
+  Beide Listen um gaengige Funktionswoerter (Negation, Hilfs- und Modalverben, Pronomen,
+  Konjunktionen, Praepositionen) mit mindestens vier Zeichen ergaenzt; kuerzere filtert der Code
+  ohnehin. Echte Themenwoerter bleiben. (2) Der Callout zur HTML-Validierung hiess „W3C HTML
+  validator"/„W3C HTML Validator", obwohl die Pruefung lokal mit html5ever laeuft und nie den
+  W3C-Dienst aufruft. Jetzt „HTML validation (local, html5ever)" bzw. „HTML-Validierung (lokal,
+  html5ever)"; der FTL-Schluessel heisst `pdf-ph-html-validator-title`. (3) Die deutschen Zeilen
+  der HTML-Validierungstabelle im englischen PDF waren bereits mit #671 behoben. (4) Die
+  Terminal-Ausgabe zeigte mit `--lang en` „Certificate: SEHR GUT". Das Zertifikat im JSON bleibt
+  bewusst das kanonische deutsche Token (#449: Schluessel fuer Badge/Farbe, per Enum im
+  Studio-Vertragsschema festgelegt, von report-lint geprueft und von rankinglab ausgewertet); nur
+  die Anzeige wird lokalisiert. `certificate_label_localized` liegt jetzt in `registry` statt im
+  PDF-Cover, damit auch das Terminal es nutzt: mit `--lang en` steht dort „EXCELLENT". Ebenso
+  zeigte die Zeile „Certificate" im Kasten „Audit scope" des englischen Batch-Berichts das
+  deutsche Token („AUSBAUFÄHIG"); sie nutzt jetzt dieselbe Funktion („INADEQUATE").
+
+  **Aendert die Ausgabe:** Seitenthemen (`topic_terms`, `top_terms`, Themen-Ueberschneidungen) im
+  JSON und in beiden PDF-Sprachen, wo eine Seite ein Funktionswort unter ihren fuenf Themen hatte;
+  Titel des Validator-Callouts in beiden Sprachen; Zertifikatszeile im englischen Terminal und im
+  englischen Batch-Kasten „Audit scope". Das JSON-Feld `certificate` bleibt unveraendert.
+  Verifiziert mit dem Golden-Harness gegen `main`: Unterschiede nur an diesen Stellen, deutsches
+  Typst bis auf Validator-Titel und Themenliste wortgleich. Unit-Tests gegen Funktionswoerter als
+  Themen und gegen Umlaute in den englischen Zertifikats-Labels.
+
 - **Page Health: HTML-Validierung im JSON kanonisch Englisch (#406, Plan 66 WP9), 2026-09-29:**
   `seo/page_health.rs` schrieb deutschen Text ins kanonische JSON: `html_validator_detail`
   („HTML5-Validierung lokal via html5ever") sowie `check`/`detail` aller `html_issues`

@@ -17,6 +17,7 @@ use crate::audit::{normalize, AuditReport, BatchReport};
 use crate::cli::{Args, ColorPolicy};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
+use crate::registry::certificate_label_localized;
 use crate::taxonomy::Severity;
 
 impl From<ColorPolicy> for ColorMode {
@@ -112,7 +113,10 @@ pub fn render_single_report_for(
             vm.summary.overall_score.to_string(),
         ))
         .add_metric(Metric::new("Grade", &vm.summary.grade))
-        .add_metric(Metric::new("Certificate", &vm.summary.certificate))
+        .add_metric(Metric::new(
+            "Certificate",
+            certificate_label_localized(&vm.summary.certificate, &args.lang),
+        ))
         .add_metric(Metric::new("Violations", vm.severity.total.to_string()))
         .add_metric(Metric::new("Duration", format!("{}ms", report.duration_ms)));
 
