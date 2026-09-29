@@ -1,0 +1,17 @@
+version: 1
+
+terminal:
+  title: auditmysite report-lint on a casoon.de report
+  cols: 100
+  rows: 8
+  theme: github-dark
+
+steps:
+  - run: auditmysite https://www.casoon.de/ -f json -o report.json --quiet --no-sitemap-suggest
+  - run: auditmysite report-lint report.json; echo "exit code $?"
+  - output:
+      raw: "\e[1;36mreport-lint:\e[0m \e[32mno findings\e[0m
+
+        exit code 0\n"
+    delay: 14
+  - wait: 3000

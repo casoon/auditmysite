@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Common errors, what causes them and what to do.
-order: 4
+order: 7
 ---
 
 ## No browser found

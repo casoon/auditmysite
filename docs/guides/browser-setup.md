@@ -1,7 +1,7 @@
 ---
 title: Browser setup
 description: auditmysite drives Chrome or Chromium over the DevTools Protocol. It never downloads a browser on its own; this page shows how it finds one and how to install one.
-order: 3
+order: 6
 ---
 
 ## Which browser is used
