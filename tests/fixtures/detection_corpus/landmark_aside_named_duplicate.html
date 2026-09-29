@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Named nested asides corpus case</title>
+</head>
+<body>
+    <!-- A named aside stays complementary even inside an article (HTML-AAM),
+         so two nested asides with the same name are indistinguishable
+         landmarks. -->
+    <main>
+        <h1>Two articles</h1>
+        <article>
+            <h2>First article</h2>
+            <aside aria-label="Related">Related to the first article</aside>
+        </article>
+        <article>
+            <h2>Second article</h2>
+            <aside title="Related">Related to the second article</aside>
+        </article>
+    </main>
+</body>
+</html>
