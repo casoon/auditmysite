@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -152,7 +152,7 @@ impl AccessibilityScorer {
         }
 
         // Group violations by rule ID and track severity
-        let mut rule_counts: HashMap<&str, (usize, Severity)> = HashMap::new();
+        let mut rule_counts: BTreeMap<&str, (usize, Severity)> = BTreeMap::new();
         for v in violations {
             let entry = rule_counts.entry(&v.rule).or_insert((0, v.severity));
             entry.0 += 1;
@@ -721,8 +721,9 @@ mod score_invariants {
         AccessibilityScorer::calculate_score(v)
     }
 
-    /// Per-rule penalties are summed in `HashMap` order, so the same set can
-    /// differ in the sixth decimal. The report shows whole points.
+    /// Per-rule penalties are summed in rule-id order, so adding a rule can
+    /// change the summation order and the sixth decimal. The report shows
+    /// whole points.
     const EPS: f32 = 1e-3;
 
     #[test]

@@ -506,6 +506,7 @@ tests/
 ├── report_consistency_tests.rs   # Score/finding consistency across formats
 ├── batch_consistency (see src/audit/batch_consistency.rs)
 ├── release_contract_tests.rs     # Release-gate invariants
+├── golden_render.rs              # Golden-render harness (ignored; scripts/golden-diff.sh)
 └── snapshot_tests.rs              # insta snapshot tests (snapshots/)
 
 src/*/tests (inline)               # Unit tests per module
@@ -514,6 +515,15 @@ src/*/tests (inline)               # Unit tests per module
 Run all tests:
 ```bash
 cargo test
+```
+
+Golden-render harness (`tests/golden_render.rs`, `#[ignore]`): renders single JSON, single
+Typst (de/en), batch JSON and batch Typst (de/en) from a frozen set of cached audits
+(`reports/golden/<site>/`, gitignored) through the same library calls the CLI uses on a cache
+hit. Refactoring PRs render on `main` and on the branch and require an empty diff:
+```bash
+git switch main      && scripts/golden-diff.sh /tmp/golden-main
+git switch <branch>  && scripts/golden-diff.sh /tmp/golden-branch /tmp/golden-main
 ```
 
 ## Performance

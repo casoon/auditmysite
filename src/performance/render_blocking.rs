@@ -9,6 +9,7 @@ use tracing::info;
 use url::Url;
 
 use crate::error::{AuditError, Result};
+use crate::util::truncate_ellipsis;
 
 /// A resource that blocks initial rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,7 +121,7 @@ pub async fn analyze_render_blocking(
         .iter()
         .filter_map(|v| v.as_str())
         .map(|url| BlockingResource {
-            url: truncate(url, 120),
+            url: truncate_ellipsis(url, 120),
             transfer_bytes: lookup_size(url),
             kind: "script".to_string(),
         })
@@ -132,7 +133,7 @@ pub async fn analyze_render_blocking(
         .iter()
         .filter_map(|v| v.as_str())
         .map(|url| BlockingResource {
-            url: truncate(url, 120),
+            url: truncate_ellipsis(url, 120),
             transfer_bytes: lookup_size(url),
             kind: "css".to_string(),
         })
@@ -277,20 +278,6 @@ pub fn render_blocking_suggestions(
     }
 
     s
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    let target = max.saturating_sub(3);
-    let boundary = s
-        .char_indices()
-        .take_while(|(i, _)| *i <= target)
-        .last()
-        .map(|(i, _)| i)
-        .unwrap_or(0);
-    format!("{}…", &s[..boundary])
 }
 
 #[cfg(test)]

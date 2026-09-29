@@ -25,6 +25,25 @@ short current-state summary. Newest entries first (unchanged order from before t
   `landmark_header_in_main`, `landmark_aside_scoping` (echte Negative) und
   `landmark_aside_named_duplicate` (echtes Positiv); `table_headers_no_data` und
   `landmark_granular` sichern die bisherigen echten Positive.
+- **Cache-Rundreise und deterministische Reihenfolge, 2026-09-29:** Beim Aufbau des
+  Golden-Render-Harness (Plan 66) fielen zwei Fehler auf. (1) `GraphEntity.properties` wurde mit
+  `skip_serializing_if` weggelassen, trug aber kein `default`: Ein gecachter `report.json` mit einer
+  Entitaet ohne Eigenschaften liess sich nicht mehr lesen („missing field `properties`"), und die
+  CLI auditierte stillschweigend neu. Betroffen waren 13 der 17 eingefrorenen Cache-Eintraege.
+  Dieselbe Luecke hatten `BatchReport.errors`, die vier Listen in `SitemapDiagnostics` und die
+  drei in `CrawlDiagnostics`; alle tragen jetzt `default`. Neue Rundreise-Tests serialisieren und
+  lesen einen vollstaendigen `AuditReport` und einen `BatchReport` mit leeren Listen. (2) Zwei
+  Laeufe ueber dieselbe Eingabe konnten verschiedene Berichte liefern, weil Ergebnisse aus
+  `HashMap`s ohne vollstaendige Sortierung kamen: Bei Gleichstand konnten sich Reihenfolge und
+  (nach dem Kuerzen auf 10) Inhalt von `top_recurring_rules` aendern; Schema-Konflikte im
+  Batch, die interaktiven Kategorien samt PDF-Tabelle „Befunde nach Kategorie", die dominante
+  Regel der Zusammenfassung, die Hauptrolle im Massnahmenplan, Template-Cluster, doppelte
+  Inhalte, Minifizierungs-Abweichungen und die Sitemap-HTTP-Befunde (Abschlussreihenfolge der
+  Anfragen) hatten dieselbe Luecke; die Strafpunkte des Accessibility-Scores wurden in
+  `HashMap`-Reihenfolge summiert. Jede Sortierung hat jetzt einen letzten eindeutigen Schluessel
+  (Regel-ID, Entitaets-ID, Kategorie, Selektor, URL), die Strafpunkte werden in Regel-ID-Reihenfolge
+  summiert. Tests fixieren die Reihenfolge bei Gleichstand. Geprueft: drei Golden-Render-Laeufe
+  ueber alle 17 Seiten, `diff -r` leer.
 
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen

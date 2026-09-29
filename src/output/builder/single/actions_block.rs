@@ -245,7 +245,9 @@ pub(super) fn build_actions_block(
         }
         role_counts
             .into_iter()
-            .max_by_key(|(_, c)| *c)
+            .max_by(|(a_role, a_count), (b_role, b_count)| {
+                a_count.cmp(b_count).then_with(|| b_role.cmp(a_role))
+            })
             .map(|(r, _)| r.to_string())
             .unwrap_or_default()
     };

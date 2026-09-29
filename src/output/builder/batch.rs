@@ -1,6 +1,5 @@
 //! Batch-report presentation builder.
 
-use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedFinding;
@@ -175,7 +174,11 @@ pub fn build_batch_presentation_with_normalized(
                         }
                     })
                     .collect();
-            categories.sort_by_key(|c| Reverse(c.affected_urls));
+            categories.sort_by(|a, b| {
+                b.affected_urls
+                    .cmp(&a.affected_urls)
+                    .then_with(|| a.category.cmp(&b.category))
+            });
             let pages_with_issues = normalized_reports
                 .iter()
                 .filter(|nr| !nr.interactive_findings.is_empty())
@@ -999,6 +1002,7 @@ fn build_duplicate_content(reports: &[crate::audit::AuditReport]) -> Vec<Duplica
             .cmp(&a.urls.len())
             .then_with(|| a.kind.cmp(&b.kind))
             .then_with(|| a.value.cmp(&b.value))
+            .then_with(|| a.urls.cmp(&b.urls))
     });
     out
 }
@@ -1312,6 +1316,7 @@ fn build_minification_inconsistencies(
         b.unminified_on_count
             .cmp(&a.unminified_on_count)
             .then_with(|| a.url.cmp(&b.url))
+            .then_with(|| a.kind.cmp(&b.kind))
     });
     out.truncate(30);
     out
@@ -2252,5 +2257,66 @@ mod redirect_chain_issue_tests {
     #[test]
     fn empty_batch_yields_empty_output() {
         assert!(build_redirect_chain_issues(&[]).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod interactive_summary_tests {
+    use super::*;
+    use crate::audit::normalized::{InteractiveFinding, InteractiveFindingKind};
+    use crate::audit::AuditReport;
+    use crate::cli::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    fn report_with_categories(url: &str, categories: &[&str]) -> AuditReport {
+        let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100);
+        for category in categories {
+            report.interactive_findings.push(InteractiveFinding {
+                category: category.to_string(),
+                kind: InteractiveFindingKind::SkipLinkFocusNotMoved,
+                maps_to_finding: None,
+                severity: Severity::Medium,
+                journey: "skip_link".to_string(),
+                before_snapshot_label: None,
+                after_snapshot_label: None,
+                message: String::new(),
+                fix_suggestion: None,
+                values: Default::default(),
+                uncertainty: None,
+            });
+        }
+        report
+    }
+
+    #[test]
+    fn categories_with_equal_counts_are_ordered_by_category() {
+        let batch = BatchReport::from_reports(
+            vec![
+                report_with_categories("https://x.test/a", &["TabOrder", "FocusTrap", "SkipLink"]),
+                report_with_categories("https://x.test/b", &["SkipLink", "MenuJourney"]),
+                report_with_categories("https://x.test/c", &["FormError"]),
+            ],
+            vec![],
+            0,
+        );
+
+        let summary = build_batch_presentation(&batch)
+            .interactive_summary
+            .expect("interactive summary");
+        let order: Vec<&str> = summary
+            .categories
+            .iter()
+            .map(|c| c.category.as_str())
+            .collect();
+        assert_eq!(
+            order,
+            [
+                "SkipLink",
+                "FocusTrap",
+                "FormError",
+                "MenuJourney",
+                "TabOrder"
+            ]
+        );
     }
 }
