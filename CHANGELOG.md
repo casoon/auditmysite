@@ -33,6 +33,19 @@ short current-state summary. Newest entries first (unchanged order from before t
   `media_alternative`), unabhaengig von der Ausgabesprache. Neue Korpus-Fixture
   `input_purpose_name`.
 
+  Nachzug derselben Fehlerklasse: Auch die uebrigen 1.3.5-Stichwoerter wurden als Teilstring
+  gesucht — „Hotel" galt wegen „tel" als Telefonfeld, „Sorting" haette „ort" enthalten. Sie gelten
+  jetzt nur als ganze Woerter (tel, zip, plz, fax, city, first, last …) oder als bekannte
+  Kompositum-Anfaenge bzw. -Enden (`telefon…`, `postleit…`, `birth…`, `geburts…`, `…adresse`,
+  `…address`, `…strasse`); „E-Mail" zaehlt als ein Wort. Deutsche Felder wie „Telefonnummer",
+  „Postleitzahl", „Straße", „Passwort" werden damit erstmals erkannt. Ebenso bei 3.2.2: die
+  seitenweite Suche nach einem Absende-Button fand „go" in „Google", „Category" oder „Logo" und
+  unterdrueckte dadurch die Pruefwarnung; die Button-Namen werden jetzt wortweise geprueft
+  (submit, send, go, search, absenden, senden, suchen), die Entscheidung liegt in Rust und ist
+  unit-getestet. Korpus: `#stay` („Hotel") besteht, „Telefonnummer"/„Postleitzahl" sind
+  Verstoesse; die On-Input-Fixture hat Google/Category/Logo-Buttons, der Sprach-Select bleibt
+  Pruefung.
+
 - **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
   AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).
   Beide meldeten dieselben Elemente mit unterschiedlich gebildeten Selektoren, sodass nichts
