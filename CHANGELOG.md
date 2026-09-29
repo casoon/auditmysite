@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Skip-Link und `role="list"`, 2026-09-29 (#642, #644):** (1) `region` (1.3.1) meldete den
+  Skip-Link `<a href="#main">Aller au contenu</a>` auf allen franzoesischen Seiten von
+  barrierlab.eu, auf den englischen, deutschen und spanischen nicht. Die Ausnahme hing am Linktext:
+  Die Pruefung auf `href="#…"` verglich mit `#`, Chrome liefert als `url` aber die aufgeloeste
+  Adresse (`https://barrierlab.eu/fr/#main`), also griff nur die Phrasenliste, und der fehlte das
+  Franzoesische. Jetzt zaehlt das Verhalten wie bei axe-cores `isSkipLink`: ein Link auf ein
+  Fragment derselben Seite (Adresse ohne Fragment gleich der `url` des Wurzelknotens), der vor dem
+  ersten gewoehnlichen Link steht. Die Phrasenliste ist entfallen; sie nahm auch jeden Link mit
+  „springen" im Text aus. (2) `redundant-role` (4.1.2) meldete `role="list"` an `<ul>`/`<ol>` mit
+  `list-style: none` (1.142 Vorkommen auf barrierlab.eu). WebKit/VoiceOver verwirft bei solchen
+  Listen die Listensemantik, die Rolle stellt sie wieder her. Bei berechnetem
+  `list-style-type: none` bleibt sie jetzt unerwaehnt; alle anderen redundanten Rollen werden
+  weiter gemeldet. Geprueft mit Unit-Tests, zwei neuen Faellen im Detection-Korpus
+  (`skip_link_language`, `redundant_role_list_style`, je mit weiter gemeldetem Gegenbeispiel) und
+  Live-Laeufen gegen barrierlab.eu/fr/ und /en/.
 - **Kontrast bei Verlaufstext, #640, 2026-09-29:** `a11y.contrast.weak` meldete fuer die
   Logo-Links auf geographia.eu (`background-clip: text` mit Verlauf, `color: transparent`) einen
   Verstoss mit 1,00:1. Das war keine Messung: Die transparente Textfarbe wurde auf den Hintergrund

@@ -1,0 +1,7 @@
+{
+  "case": "skip_link_language",
+  "expectations": [
+    { "rule_id": "region", "selector": "a#skip [href: #main]", "verdict": "pass" },
+    { "rule_id": "region", "selector": "a#stray-link [href: #main]", "verdict": "violation" }
+  ]
+}
