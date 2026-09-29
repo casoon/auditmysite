@@ -1683,7 +1683,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
 /// `aria-prohibited-attr`) carry their own slug in `Violation::rule` instead of
 /// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
 /// rule slug (plan 61).
-fn wcag_criterion_of(rule: &str) -> String {
+pub(crate) fn wcag_criterion_of(rule: &str) -> String {
     crate::taxonomy::criterion_for_rule(rule).unwrap_or_else(|| rule.to_string())
 }
 

@@ -38,13 +38,13 @@ const TD_HEADERS_ATTR_CAP: usize = 250;
 const TD_HEADERS_ATTR_BODY: &str = r#"
   var issues = [];
   var cells = document.querySelectorAll('[headers]');
-  for (var i = 0; i < cells.length && issues.length < CAP; i++) {
+  for (var i = 0; i < cells.length && __amsReal(issues) < CAP; i++) {
     var cell = cells[i];
     var table = cell.closest('table, [role="grid"], [role="table"], [role="treegrid"]');
     var refs = (cell.getAttribute('headers') || '').trim().split(/\s+/).filter(Boolean);
 
     if (refs.length === 0) {
-      issues.push({ selector: __amsCssSelector(cell), kind: 'empty' });
+      __amsPush(issues, cell, { selector: __amsCssSelector(cell), kind: 'empty' }, CAP);
       continue;
     }
 
@@ -60,7 +60,7 @@ const TD_HEADERS_ATTR_BODY: &str = r#"
       }
     }
     if (invalidRef) {
-      issues.push({ selector: __amsCssSelector(cell), kind: 'invalid', ref: invalidRef });
+      __amsPush(issues, cell, { selector: __amsCssSelector(cell), kind: 'invalid', ref: invalidRef }, CAP);
     }
   }
   return { issues: issues };

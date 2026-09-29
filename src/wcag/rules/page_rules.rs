@@ -36,7 +36,7 @@ use super::{
     check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
     check_image_input_rules_with_page, check_input_purpose_with_page,
     check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
-    check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
+    check_label_in_name_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
@@ -51,7 +51,7 @@ use super::{
     check_tab_selected_state_with_page, check_table_headers_attr_with_page,
     check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
     check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_use_of_color_with_page, check_value_now_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -160,12 +160,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_presentation_semantic_children_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "1.3.1/landmark-dom",
-        name: "landmark DOM",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_landmarks_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "1.3.2/meaningful-sequence",
         name: "meaningful-sequence (CSS order)",
         min_level: WcagLevel::A,
@@ -242,6 +236,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "checkbox/radio/switch checked state",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_checked_state_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "4.1.2/value-now",
+        name: "slider/spinbutton/meter aria-valuenow",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_value_now_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/aria-allowed-attr",
@@ -496,6 +496,10 @@ mod tests {
         //   im geteilten Bestand (siehe `wcag::shared`) = 36
         // + form-field-group for named checkbox sets: moved from the AX tree to
         //   the DOM, the tree carries no `name` attribute (#643) = 37
+        // - landmark-dom: duplicated the AX tree's landmark-unique and
+        //   landmark-main-present, each defect counted twice = 36
+        // + value-now: aria-valuenow moved from the AX tree to the DOM, CDP
+        //   has no `valuenow` property (#656) = 37
         assert_eq!(count, 37);
     }
 
@@ -527,6 +531,9 @@ mod tests {
         // + autocomplete-valid (1.3.5): moved from the AX tree to the DOM,
         //   the tree carries aria-autocomplete, not the HTML attribute = 48.
         // + form-field-group for named checkbox sets (#643, Level A) = 49.
+        // - landmark-dom: duplicated the AX tree's landmark-unique and
+        //   landmark-main-present, each defect counted twice = 48.
+        // + value-now (#656, Level A) = 49.
         assert_eq!(count, 49);
     }
 

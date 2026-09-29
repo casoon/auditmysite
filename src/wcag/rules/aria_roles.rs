@@ -108,12 +108,12 @@ const VALID_DOM_ARIA_ROLES_JS: &str = r#"
 const INVALID_ROLE_BODY: &str = r#"
   var issues = [];
   var elems = document.querySelectorAll('[role]');
-  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < elems.length && __amsReal(issues) < CAP; i++) {
     var el = elems[i];
     var roles = (el.getAttribute('role') || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
     for (var r = 0; r < roles.length; r++) {
       if (validRoles.indexOf(roles[r]) === -1) {
-        issues.push({ role: roles[r], selector: __amsCssSelector(el) });
+        __amsPush(issues, el, { role: roles[r], selector: __amsCssSelector(el) }, CAP);
         break;
       }
     }
@@ -203,15 +203,15 @@ const VALID_ARIA_ATTRIBUTES_JS: &str = r#"
 const INVALID_ATTR_NAME_BODY: &str = r#"
   var issues = [];
   var elems = document.querySelectorAll('*');
-  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < elems.length && __amsReal(issues) < CAP; i++) {
     var el = elems[i];
     var attrs = el.attributes;
     for (var a = 0; a < attrs.length; a++) {
       var name = attrs[a].name;
       if (name.indexOf('aria-') !== 0) continue;
       if (validAttrs.indexOf(name) === -1) {
-        issues.push({ attr: name, selector: __amsCssSelector(el) });
-        if (issues.length >= CAP) break;
+        __amsPush(issues, el, { attr: name, selector: __amsCssSelector(el) }, CAP);
+        if (__amsReal(issues) >= CAP) break;
       }
     }
   }

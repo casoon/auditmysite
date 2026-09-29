@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/casoon/auditmysite/docs/technician-index.schema.json",
+  "title": "auditmysite technician index (index.json)",
+  "description": "Written next to per-page JSON reports (--per-page-reports -f json, or --technician). Lists every attempted URL in input order. Canonical English. See README 'Technician mode'.",
+  "type": "object",
+  "required": ["schema_version", "tool_version", "totals", "pages"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "tool_version": { "type": "string" },
+    "totals": {
+      "type": "object",
+      "required": ["attempted", "ok", "blocked", "failed", "occurrences"],
+      "additionalProperties": false,
+      "properties": {
+        "attempted": { "type": "integer", "minimum": 0 },
+        "ok": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "occurrences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of lines in findings.jsonl."
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/page" }
+    }
+  },
+  "definitions": {
+    "nullable_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "url",
+        "file",
+        "status",
+        "reason",
+        "overall_score",
+        "accessibility_score",
+        "finding_count",
+        "occurrence_count",
+        "audit_quality"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string" },
+        "file": {
+          "type": ["string", "null"],
+          "description": "Per-page report file name inside the output directory; null when no report was written."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "blocked", "failed"],
+          "description": "ok: audited. blocked: bot wall, challenge or access denial instead of the page. failed: the audit did not complete."
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Why the page is blocked or failed; null for ok."
+        },
+        "overall_score": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Weighted over the modules that ran; see the page report's execution.module_runs."
+        },
+        "accessibility_score": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "finding_count": {
+          "$ref": "#/definitions/nullable_count",
+          "description": "Distinct (source, rule_id) pairs among this page's findings.jsonl lines."
+        },
+        "occurrence_count": {
+          "$ref": "#/definitions/nullable_count",
+          "description": "Number of this page's findings.jsonl lines."
+        },
+        "audit_quality": {
+          "type": ["string", "null"],
+          "enum": ["complete", "partial", "insufficient", null],
+          "description": "execution.quality.status of the page report."
+        }
+      }
+    }
+  }
+}

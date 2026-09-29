@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Input purpose: a person's name vs. the name of a thing (#658)</title>
+</head>
+<body>
+    <main>
+        <h1>Save the view</h1>
+
+        <!-- The name a user gives a saved grid view: not about the user -->
+        <form>
+            <label for="view-name">Name</label>
+            <input id="view-name" type="text" placeholder="My view">
+            <label for="project-title">Project name</label>
+            <input id="project-title" type="text">
+            <label for="upload-target">Dateiname</label>
+            <input id="upload-target" type="text">
+            <!-- "tel" inside "Hotel" is no phone field -->
+            <label for="stay">Hotel</label>
+            <input id="stay" type="text">
+            <button type="submit">Save the view</button>
+        </form>
+
+        <!-- Fields that ask for the person's name, without autocomplete -->
+        <form>
+            <label for="your-name">Your name</label>
+            <input id="your-name" type="text">
+            <label for="given">Vorname</label>
+            <input id="given" type="text">
+            <label for="phone-de">Telefonnummer</label>
+            <input id="phone-de" type="text">
+            <label for="zip-de">Postleitzahl</label>
+            <input id="zip-de" type="text">
+            <button type="submit">Send</button>
+        </form>
+    </main>
+</body>
+</html>

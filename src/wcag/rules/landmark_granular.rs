@@ -15,9 +15,6 @@
 
 use std::collections::HashMap;
 
-use chromiumoxide::Page;
-use tracing::warn;
-
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
@@ -474,197 +471,6 @@ pub fn check_landmark_main_present(tree: &AXTree) -> WcagResults {
     results
 }
 
-/// DOM supplement for landmark parity. Some headless pages expose less
-/// landmark structure through the AX tree than is visible in the DOM; this
-/// mirrors the two deterministic axe cases we care about here: missing main
-/// landmark and same-role landmarks with the same accessible name.
-pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
-    let js = [
-        "(function() {",
-        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
-        r#"
-        function isHidden(el) {
-          if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return true;
-          var cur = el;
-          while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
-            var s = window.getComputedStyle(cur);
-            if (s.display === 'none') return true;
-            if (s.visibility === 'hidden' || s.visibility === 'collapse') return true;
-            cur = cur.parentElement;
-          }
-          return false;
-        }
-        function nameFor(el) {
-          var label = (el.getAttribute('aria-label') || '').trim();
-          if (label) return label;
-          var labelledBy = (el.getAttribute('aria-labelledby') || '').trim();
-          if (labelledBy) {
-            var text = labelledBy.split(/\s+/).map(function(id) {
-              var ref = document.getElementById(id);
-              return ref ? ref.textContent.trim() : '';
-            }).join(' ').trim();
-            if (text) return text;
-          }
-          return (el.getAttribute('title') || '').trim();
-        }
-        // HTML-AAM: header/footer map to banner/contentinfo only when scoped
-        // to body; inside sectioning content or main they are generic, as in
-        // Chrome's AX tree (#639).
-        var SECTIONING_SCOPE =
-          'article, aside, main, nav, section, [role="article"], [role="complementary"], ' +
-          '[role="main"], [role="navigation"], [role="region"]';
-        // HTML-AAM: an aside inside sectioning content is complementary only
-        // when it has an accessible name, otherwise generic. Scope as Chrome
-        // computes it: role=region does not count, an unnamed <section> does.
-        var ASIDE_SCOPE =
-          'article, aside, nav, section, [role="article"], [role="complementary"], ' +
-          '[role="navigation"]';
-        function implicitRole(el) {
-          var tag = el.tagName.toLowerCase();
-          if (tag === 'main') return 'main';
-          if (tag === 'nav') return 'navigation';
-          if (tag === 'aside') {
-            if (el.parentElement && el.parentElement.closest(ASIDE_SCOPE) && !nameFor(el)) return '';
-            return 'complementary';
-          }
-          if (tag === 'header' || tag === 'footer') {
-            if (el.parentElement && el.parentElement.closest(SECTIONING_SCOPE)) return '';
-            return tag === 'header' ? 'banner' : 'contentinfo';
-          }
-          return '';
-        }
-
-        var results = [];
-        var landmarks = [];
-        var candidates = document.querySelectorAll(
-          'main, nav, aside, header, footer, [role="main"], [role="navigation"], ' +
-          '[role="banner"], [role="contentinfo"], [role="complementary"], [role="search"], [role="region"]'
-        );
-        for (var i = 0; i < candidates.length; i++) {
-          var el = candidates[i];
-          if (isHidden(el)) continue;
-          var role = (el.getAttribute('role') || implicitRole(el)).toLowerCase();
-          if (!role) continue;
-          landmarks.push({
-            role: role,
-            name: nameFor(el).toLowerCase(),
-            selector: __amsCssSelector(el),
-            snippet: el.outerHTML.substring(0, 200)
-          });
-        }
-
-        if (!landmarks.some(function(l) { return l.role === 'main'; })) {
-          results.push({ rule_id: 'landmark-main-present', selector: 'document', snippet: '' });
-        }
-
-        var byKey = {};
-        for (var j = 0; j < landmarks.length; j++) {
-          var l = landmarks[j];
-          var key = l.role + '\u0000' + l.name;
-          if (!byKey[key]) byKey[key] = [];
-          byKey[key].push(l);
-        }
-        Object.keys(byKey).forEach(function(key) {
-          var group = byKey[key];
-          if (group.length < 2) return;
-          for (var k = 0; k < group.length; k++) {
-            results.push({
-              rule_id: 'landmark-unique',
-              role: group[k].role,
-              selector: group[k].selector,
-              snippet: group[k].snippet
-            });
-          }
-        });
-
-        return results;
-        "#,
-        "})()",
-    ]
-    .concat();
-
-    let result = match page.evaluate(js.as_str()).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("landmark DOM JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for(
-                "landmarks-dom",
-                crate::cli::WcagLevel::A,
-                "page_evaluation_failed",
-            )];
-        }
-    };
-
-    let Some(value) = result.value() else {
-        return vec![crate::wcag::technical_rule_failure_for(
-            "landmarks-dom",
-            crate::cli::WcagLevel::A,
-            "missing_evaluation_value",
-        )];
-    };
-    let Some(items) = value.as_array() else {
-        return vec![];
-    };
-
-    items
-        .iter()
-        .filter_map(|item| {
-            let rule_id = item.get("rule_id")?.as_str()?;
-            let selector = item
-                .get("selector")
-                .and_then(|v| v.as_str())
-                .unwrap_or("document");
-            let (meta, message, fix) = match rule_id {
-                "landmark-main-present" => (
-                    &RULE_LANDMARK_MAIN_PRESENT,
-                    "Page has no main landmark — assistive technologies cannot skip to the primary content".to_string(),
-                    "Wrap the page's primary content in a <main> element (or add role=\"main\" to the container)".to_string(),
-                ),
-                "landmark-unique" => {
-                    let role = item
-                        .get("role")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("landmark");
-                    (
-                        &RULE_LANDMARK_UNIQUE,
-                        format!(
-                            "Multiple '{}' landmarks share the same accessible name; they cannot be distinguished",
-                            role
-                        ),
-                        format!(
-                            "Add a unique aria-label to each '{}' landmark so they can be told apart",
-                            role
-                        ),
-                    )
-                }
-                _ => return None,
-            };
-
-            let mut violation = Violation::new(
-                meta.id,
-                meta.name,
-                meta.level,
-                meta.severity,
-                message,
-                selector,
-            )
-            .with_selector(selector)
-            .with_rule_id(meta.axe_id)
-            .with_tags(meta.tags.iter().map(|s| s.to_string()).collect())
-            .with_fix(fix)
-            .with_help_url(meta.help_url);
-
-            if let Some(snippet) = item.get("snippet").and_then(|v| v.as_str()) {
-                if !snippet.is_empty() {
-                    violation = violation.with_html_snippet(snippet);
-                }
-            }
-
-            Some(violation)
-        })
-        .collect()
-}
-
 /// **skip-link** — page with a navigation landmark must have a skip-navigation link.
 pub fn check_skip_link(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
@@ -766,6 +572,27 @@ mod tests {
                 .any(|v| v.rule_id.as_deref() == Some("landmark-unique")),
             "Two navs with the same name should trigger a violation"
         );
+    }
+
+    #[test]
+    fn landmark_unique_reports_each_element_once() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("n1", "navigation", Some("Primary"), Some("root")),
+            node("n2", "navigation", Some("Primary"), Some("root")),
+            node("r1", "region", Some("Details"), Some("root")),
+            node("r2", "region", Some("Details"), Some("root")),
+            node("n3", "navigation", Some("Legal"), Some("root")),
+        ]);
+        let r = check_landmark_unique(&tree);
+        let mut ids: Vec<&str> = r
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some("landmark-unique"))
+            .map(|v| v.node_id.as_str())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, ["n1", "n2", "r1", "r2"]);
     }
 
     #[test]

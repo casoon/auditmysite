@@ -31,6 +31,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ) {
             continue;
         }
+        if is_expandable_composite_item(node, tree) {
+            continue;
+        }
 
         triggers += 1;
 
@@ -172,6 +175,26 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
                 required_journey: JourneyKind::AccordionToggle,
             });
         }
+    }
+}
+
+/// A tree item, or a row of a grid/treegrid, carries `aria-expanded` as part
+/// of its own composite widget: the tree or grid owns the keyboard contract
+/// (arrow keys, Enter), so the item is no accordion trigger (#655).
+fn is_expandable_composite_item(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
+    match node.role.as_deref() {
+        Some("treeitem") => true,
+        Some("row") => {
+            let mut current = node.parent_id.as_deref();
+            while let Some(parent) = current.and_then(|id| tree.get_node(id)) {
+                if matches!(parent.role.as_deref(), Some("grid" | "treegrid")) {
+                    return true;
+                }
+                current = parent.parent_id.as_deref();
+            }
+            false
+        }
+        _ => false,
     }
 }
 
@@ -343,6 +366,61 @@ mod tests {
             a.journey_candidates[0].required_journey,
             JourneyKind::AccordionToggle
         );
+    }
+
+    fn with_parent(mut n: AXNode, parent: &str) -> AXNode {
+        n.parent_id = Some(parent.into());
+        n
+    }
+
+    fn container(id: &str, role: &str, parent: Option<&str>) -> AXNode {
+        let mut n = trigger(id, role, None);
+        n.properties.clear();
+        n.parent_id = parent.map(Into::into);
+        n
+    }
+
+    /// A treegrid parent row marks its expanded state with aria-expanded,
+    /// exactly as the WAI-ARIA treegrid pattern prescribes (#655).
+    #[test]
+    fn expandable_row_in_treegrid_or_grid_is_no_accordion_trigger() {
+        for grid_role in ["treegrid", "grid"] {
+            let tree = AXTree::from_nodes(vec![
+                container("g", grid_role, None),
+                container("rg", "rowgroup", Some("g")),
+                with_parent(trigger("r", "row", None), "rg"),
+            ]);
+            let mut a = PatternAnalysis::default();
+            detect(&tree, &mut a);
+            assert!(a.violations.is_empty(), "{grid_role}: {:?}", a.violations);
+            assert!(a.recognized.is_empty(), "{grid_role}: {:?}", a.recognized);
+        }
+    }
+
+    #[test]
+    fn expandable_treeitem_is_no_accordion_trigger() {
+        let tree = AXTree::from_nodes(vec![
+            container("t", "tree", None),
+            with_parent(trigger("i", "treeitem", None), "t"),
+        ]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(a.violations.is_empty(), "{:?}", a.violations);
+    }
+
+    /// Outside a grid, an expandable row keeps being reported.
+    #[test]
+    fn expandable_row_outside_grid_is_still_flagged() {
+        let tree = AXTree::from_nodes(vec![
+            container("t", "table", None),
+            with_parent(trigger("r", "row", None), "t"),
+        ]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(a
+            .violations
+            .iter()
+            .any(|v| v.message.contains("should be a button")));
     }
 
     #[test]

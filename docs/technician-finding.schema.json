@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/casoon/auditmysite/docs/technician-finding.schema.json",
+  "title": "auditmysite technician finding row (one line of findings.jsonl)",
+  "description": "findings.jsonl holds one JSON object per line, one line per finding occurrence on one page, uncapped (the per-page report stores at most a few occurrences per finding). Canonical English. See README 'Technician mode'.",
+  "type": "object",
+  "required": [
+    "url",
+    "source",
+    "rule_id",
+    "wcag_criterion",
+    "level",
+    "severity",
+    "selector",
+    "location",
+    "message",
+    "fix_suggestion",
+    "viewport_tags"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "url": { "type": "string" },
+    "source": {
+      "type": "string",
+      "enum": ["wcag", "journey", "seo", "html_conform"],
+      "description": "wcag: WCAG rule violation. journey: keyboard/interaction journey finding. seo: heading-structure issue. html_conform: HTML5 conformance checker."
+    },
+    "rule_id": {
+      "type": "string",
+      "description": "wcag: taxonomy rule id, same as findings[].rule_id in the page report. journey: journey.<Kind>. seo: seo.headings.<issue>. html_conform: the checker's rule id."
+    },
+    "wcag_criterion": {
+      "type": ["string", "null"],
+      "description": "WCAG success criterion such as 1.1.1; null outside wcag."
+    },
+    "level": {
+      "type": ["string", "null"],
+      "enum": ["A", "AA", "AAA", null]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Severity of this occurrence. html_conform maps the checker's error/warning/info to high/medium/low."
+    },
+    "selector": {
+      "type": ["string", "null"],
+      "description": "CSS selector of the affected element, when known."
+    },
+    "location": {
+      "type": ["string", "null"],
+      "description": "line:column in the rendered HTML (html_conform only)."
+    },
+    "message": { "type": "string" },
+    "fix_suggestion": { "type": ["string", "null"] },
+    "viewport_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which viewport pass saw the occurrence: mobile-only, desktop-only, both-viewports (wcag only; empty when not recorded)."
+    }
+  }
+}
