@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
 use renderreport::components::{AuditTable, TableColumn};
 
@@ -14,7 +15,7 @@ pub(super) fn render_batch_consistency(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let title = if en {
         "Cross-page consistency"
     } else {

@@ -26,7 +26,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.2",
     name: "On Input",
     level: WcagLevel::A,

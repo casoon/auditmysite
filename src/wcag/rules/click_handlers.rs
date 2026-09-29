@@ -15,7 +15,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const CLICK_HANDLERS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const CLICK_HANDLERS_RULE: RuleMetadata = RuleMetadata {
     id: "2.1.1",
     name: "Keyboard",
     level: WcagLevel::A,

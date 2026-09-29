@@ -37,7 +37,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{evaluate_or_fail, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for ARIA relationship attribute checks
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "ARIA Relationships",
     level: WcagLevel::A,

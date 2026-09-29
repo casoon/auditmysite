@@ -11,7 +11,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const FOCUS_VISIBLE_CSS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUS_VISIBLE_CSS_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.7",
     name: "Focus Visible",
     level: WcagLevel::AA,

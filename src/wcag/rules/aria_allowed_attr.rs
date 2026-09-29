@@ -17,7 +17,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 /// Rule metadata for ARIA allowed attributes
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "ARIA Allowed Attributes",
     level: WcagLevel::A,

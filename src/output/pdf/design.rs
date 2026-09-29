@@ -19,24 +19,24 @@
 //! cards, and module sections. Do not re-derive thresholds locally.
 
 /// Hex color tokens used by the report design system.
-pub mod tokens {
+pub(crate) mod tokens {
     // ── The four status hues ────────────────────────────────────────────
     /// Green — good / above-target. Also the primary brand accent.
-    pub const SUCCESS: &str = "#0f766e";
+    pub(crate) const SUCCESS: &str = "#0f766e";
     /// Blue — information / neutral accent (links, "what is measured" notes).
-    pub const INFO: &str = "#2563eb";
+    pub(crate) const INFO: &str = "#2563eb";
     /// Orange — watch / needs improvement.
-    pub const WARN_DEEP: &str = "#d97706";
+    pub(crate) const WARN_DEEP: &str = "#d97706";
     /// Red — problem / critical.
-    pub const DANGER: &str = "#dc2626";
+    pub(crate) const DANGER: &str = "#dc2626";
 
     // ── Neutral scale ───────────────────────────────────────────────────
     /// Strong ink for headings / dominant numbers.
-    pub const INK: &str = "#0f172a";
+    pub(crate) const INK: &str = "#0f172a";
     /// Secondary metadata / body de-emphasis.
-    pub const NEUTRAL: &str = "#475569";
+    pub(crate) const NEUTRAL: &str = "#475569";
     /// Faint text / captions.
-    pub const MUTED: &str = "#94a3b8";
+    pub(crate) const MUTED: &str = "#94a3b8";
 }
 
 /// Map a 0–100 score to its status hue, aligned with the report's grade bands
@@ -44,7 +44,7 @@ pub mod tokens {
 /// orange, `Kritisch` < 40 → red). Not the only score-colour mapping: the
 /// module quality bands in `pdf/helpers.rs` (`score_quality_color`,
 /// 70/50) use their own thresholds.
-pub fn score_color(score: u8) -> &'static str {
+pub(crate) fn score_color(score: u8) -> &'static str {
     match score {
         75..=100 => tokens::SUCCESS,
         40..=74 => tokens::WARN_DEEP,
@@ -54,7 +54,7 @@ pub fn score_color(score: u8) -> &'static str {
 
 /// Map a coarse status keyword (`"good"` / `"warn"` / `"bad"`) to its hue.
 /// Used by checklist/diagnosis panels that carry a precomputed status.
-pub fn status_color(status: &str) -> &'static str {
+pub(crate) fn status_color(status: &str) -> &'static str {
     match status {
         "good" => tokens::SUCCESS,
         "warn" => tokens::WARN_DEEP,
@@ -65,7 +65,7 @@ pub fn status_color(status: &str) -> &'static str {
 
 /// Map a WCAG severity to its hue. Critical/High are problems (red), Medium is
 /// a watch state (orange), Low/everything else is informational (blue).
-pub fn severity_color(severity: crate::wcag::Severity) -> &'static str {
+pub(crate) fn severity_color(severity: crate::wcag::Severity) -> &'static str {
     use crate::wcag::Severity::*;
     match severity {
         Critical | High => tokens::DANGER,

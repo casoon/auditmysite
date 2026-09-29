@@ -9,7 +9,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const ERROR_ID_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ERROR_ID_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.1",
     name: "Error Identification",
     level: WcagLevel::A,

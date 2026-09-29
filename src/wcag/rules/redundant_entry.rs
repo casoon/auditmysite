@@ -43,7 +43,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const REDUNDANT_ENTRY_RULE: RuleMetadata = RuleMetadata {
+pub(super) const REDUNDANT_ENTRY_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.7",
     name: "Redundant Entry",
     level: WcagLevel::A,

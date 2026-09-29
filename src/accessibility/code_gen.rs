@@ -6,10 +6,10 @@
 
 /// Maximum length of the html_snippet stored on a Violation.
 /// Longer outer HTML is truncated with an ellipsis.
-pub const HTML_SNIPPET_MAX: usize = 500;
+pub(crate) const HTML_SNIPPET_MAX: usize = 500;
 
 /// Truncate outer HTML to [`HTML_SNIPPET_MAX`] characters.
-pub fn truncate_html(html: String) -> String {
+pub(crate) fn truncate_html(html: String) -> String {
     if html.len() <= HTML_SNIPPET_MAX {
         return html;
     }
@@ -29,7 +29,7 @@ pub fn truncate_html(html: String) -> String {
 /// * `html_snippet` – Outer HTML of the problematic element, if available.
 /// * `role` – Accessibility role of the node, if known.
 /// * `fix_suggestion` – Existing text-based fix from the rule, used as fallback.
-pub fn generate_suggested_code(
+pub(crate) fn generate_suggested_code(
     wcag_rule: &str,
     html_snippet: Option<&str>,
     role: Option<&str>,

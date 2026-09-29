@@ -9,6 +9,7 @@
 //! from outside `single_report.rs`, so only three functions had to widen from
 //! private to `pub(super)`. No logic changed in the move.
 
+use crate::output::localized::is_english;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -182,7 +183,7 @@ fn format_module_names(
     modules: &[&crate::audit::normalized::ModuleScoreEntry],
     i18n: &I18n,
 ) -> String {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let names: Vec<String> = modules
         .iter()
         .map(|m| {
@@ -223,7 +224,7 @@ fn build_problem_profile_description(
     kind: ProblemProfileKind,
     i18n: &I18n,
 ) -> String {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     // Only "Kritisch" (< 40) modules are named as "determining the need for
     // action" — same set `classify_problem_profile` tiers on, so the badge
     // text and the tier it's attached to can't silently diverge (feedback
@@ -306,7 +307,7 @@ pub(super) fn render_problem_profile(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let kind = classify_problem_profile(vm);
     let title_prefix = if en {
         "Problem profile"
@@ -346,7 +347,7 @@ pub(super) fn build_problem_concentration_note(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> Option<String> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let c = compute_problem_concentration(vm)?;
     if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
         return Some(if en {
@@ -380,7 +381,7 @@ pub(super) fn build_problem_concentration_note(
 /// "Die vier wichtigsten Ursachen erklären ca. 88 % der erkannten
 /// WCAG-Vorkommen").
 pub(super) fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> Option<String> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let c = compute_problem_concentration(vm)?;
     if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
         // Too few occurrences for a "top causes" leverage framing to be

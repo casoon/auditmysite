@@ -115,7 +115,7 @@ impl ContentWeight {
 }
 
 /// Format bytes as human-readable string
-pub fn format_bytes(bytes: u64) -> String {
+pub(super) fn format_bytes(bytes: u64) -> String {
     if bytes >= 1_000_000 {
         format!("{:.1} MB", bytes as f64 / 1_000_000.0)
     } else if bytes >= 1_000 {
@@ -372,7 +372,7 @@ fn generate_recommendations(
     recommendations
 }
 
-pub fn estimate_carbon(transfer_bytes: u64) -> CarbonEstimate {
+pub(super) fn estimate_carbon(transfer_bytes: u64) -> CarbonEstimate {
     // Conservative Sustainable Web Design-style transfer estimate:
     // 0.81 kWh / GB transfer × 442 gCO2e / kWh = 358.02 gCO2e / GB.
     const GRAMS_PER_GB: f64 = 0.81 * 442.0;

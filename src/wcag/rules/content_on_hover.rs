@@ -12,7 +12,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const CONTENT_ON_HOVER_RULE: RuleMetadata = RuleMetadata {
+pub(super) const CONTENT_ON_HOVER_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.13",
     name: "Content on Hover or Focus",
     level: WcagLevel::AA,

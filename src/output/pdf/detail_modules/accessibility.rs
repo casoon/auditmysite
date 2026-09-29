@@ -6,7 +6,7 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
     journey: Option<&crate::audit::normalized::AccessibilityJourney>,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     builder = builder.add_component(PageBreak::new()).add_component(
         Section::new(if en {
@@ -176,7 +176,7 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::screen_reader::BfsgVerdict;
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     builder = builder.add_component(PageBreak::new()).add_component(
         Section::new(if en {
@@ -293,7 +293,7 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
         &items,
         &sr.navigation_views,
         i18n.locale(),
-        i18n.locale() == "en",
+        is_english(i18n),
         has_disclosure_menu_pattern,
     );
 

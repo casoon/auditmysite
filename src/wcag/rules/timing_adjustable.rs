@@ -11,7 +11,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
-pub const TIMING_RULE: RuleMetadata = RuleMetadata {
+pub(super) const TIMING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.1",
     name: "Timing Adjustable",
     level: WcagLevel::A,
@@ -38,7 +38,7 @@ const META_REFRESH_JS: &str = r#"
 })()
 "#;
 
-pub const TIMEOUT_RULE: RuleMetadata = RuleMetadata {
+pub(super) const TIMEOUT_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.6",
     name: "Timeouts",
     level: WcagLevel::AAA,

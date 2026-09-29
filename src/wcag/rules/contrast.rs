@@ -16,7 +16,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 /// Rule metadata for 1.4.3
-pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
+pub(super) const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.3",
     name: "Contrast (Minimum)",
     level: WcagLevel::AA,
@@ -777,7 +777,7 @@ impl Color {
 /// background, negative means light text on a dark background, and the
 /// scale (roughly -108..108) is not directly comparable to the WCAG 1:1–21:1
 /// ratio.
-pub fn apca_contrast(text: &Color, background: &Color) -> f64 {
+pub(super) fn apca_contrast(text: &Color, background: &Color) -> f64 {
     const BLACK_THRESHOLD: f64 = 0.022;
     const BLACK_CLAMP: f64 = 1.414;
     const DELTA_Y_MIN: f64 = 0.0005;

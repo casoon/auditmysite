@@ -21,7 +21,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 // ── Rule metadata ──────────────────────────────────────────────────────────────
 
-pub const RULE_LANDMARK_UNIQUE: RuleMetadata = RuleMetadata {
+pub(super) const RULE_LANDMARK_UNIQUE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Landmark Unique",
     level: WcagLevel::A,
@@ -32,7 +32,7 @@ pub const RULE_LANDMARK_UNIQUE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_BANNER_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
+pub(super) const RULE_BANNER_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Banner Is Top Level",
     level: WcagLevel::A,
@@ -43,7 +43,7 @@ pub const RULE_BANNER_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_CONTENTINFO_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
+pub(super) const RULE_CONTENTINFO_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Contentinfo Is Top Level",
     level: WcagLevel::A,
@@ -54,7 +54,7 @@ pub const RULE_CONTENTINFO_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_MAIN_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
+pub(super) const RULE_MAIN_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Main Is Top Level",
     level: WcagLevel::A,
@@ -65,7 +65,7 @@ pub const RULE_MAIN_IS_TOP_LEVEL: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_NO_DUPLICATE_BANNER: RuleMetadata = RuleMetadata {
+pub(super) const RULE_NO_DUPLICATE_BANNER: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "No Duplicate Banner",
     level: WcagLevel::A,
@@ -76,7 +76,7 @@ pub const RULE_NO_DUPLICATE_BANNER: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_NO_DUPLICATE_CONTENTINFO: RuleMetadata = RuleMetadata {
+pub(super) const RULE_NO_DUPLICATE_CONTENTINFO: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "No Duplicate Contentinfo",
     level: WcagLevel::A,
@@ -87,7 +87,7 @@ pub const RULE_NO_DUPLICATE_CONTENTINFO: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
+pub(super) const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "No Duplicate Main",
     level: WcagLevel::A,
@@ -98,7 +98,7 @@ pub const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Landmark Banner Present",
     level: WcagLevel::A,
@@ -109,7 +109,7 @@ pub const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Landmark Main Present",
     level: WcagLevel::A,
@@ -120,7 +120,7 @@ pub const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
-pub const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
+pub(super) const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
     id: "2.4.1",
     name: "Skip Link",
     level: WcagLevel::A,

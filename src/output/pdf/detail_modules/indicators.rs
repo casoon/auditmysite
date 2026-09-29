@@ -13,7 +13,7 @@ pub(in crate::output::pdf) fn render_source_quality(
     };
 
     // The struct carries canonical English; re-derive everything in the run language.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let disclaimer = source_quality_disclaimer(en);
 
     let sq_title = i18n.t("pdf-sq-section-title");
@@ -105,7 +105,7 @@ pub(in crate::output::pdf) fn render_tech_stack(
     use crate::tech_stack::Confidence;
 
     let ts_title = i18n.t("pdf-ts-section-title");
-    let ts_takeaway = match (ts.detected.is_empty(), i18n.locale() == "en") {
+    let ts_takeaway = match (ts.detected.is_empty(), is_english(i18n)) {
         (true, true) => "No common technologies were detected.".to_string(),
         (true, false) => "Keine gängigen Technologien erkannt.".to_string(),
         (false, true) => format!("{} technologies detected.", ts.detected.len()),
@@ -153,7 +153,7 @@ pub(in crate::output::pdf) fn render_tech_stack(
         ])
         .with_title(i18n.t("pdf-ts-findings-title"));
 
-        let en = i18n.locale() == "en";
+        let en = is_english(i18n);
         for finding in &ts.findings {
             findings_table = findings_table.add_row(vec![
                 finding.title.clone(),
@@ -185,7 +185,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
     };
 
     // The struct carries canonical English; re-derive everything in the run language.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let disclaimer = ai_disclaimer(en);
 
     let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
@@ -429,7 +429,7 @@ pub(in crate::output::pdf) fn render_content_visibility(
     use crate::content_visibility::content_visibility_signal_text;
 
     // The struct carries canonical English; re-derive title/detail in the run language.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // Localize a signal's title/detail via its stored kind + values, falling back
     // to the canonical-English struct strings for any signal without a kind.
@@ -577,7 +577,7 @@ pub(in crate::output::pdf) fn render_best_practices(
 ) -> renderreport::engine::ReportBuilder {
     let bp_clean =
         bp.console_errors.error_count == 0 && !bp.vulnerable_libraries.has_vulnerabilities;
-    let bp_takeaway = match (bp_clean, i18n.locale() == "en") {
+    let bp_takeaway = match (bp_clean, is_english(i18n)) {
         (true, true) => "No console errors or known-vulnerable libraries detected.",
         (true, false) => "Keine Konsolenfehler oder bekannten verwundbaren Bibliotheken erkannt.",
         (false, true) => "Console errors or vulnerable libraries were detected — see below.",

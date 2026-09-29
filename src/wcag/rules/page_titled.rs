@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use tracing::warn;
 
 /// Rule metadata for 2.4.2
-pub const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
+pub(super) const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.2",
     name: "Page Titled",
     level: WcagLevel::A,

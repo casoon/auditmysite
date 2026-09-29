@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::SectionHeaderSplit;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -41,7 +42,7 @@ pub(super) fn render_batch_interactive_summary(
     total_urls: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let title = if en {
         "Keyboard Accessibility Journey"

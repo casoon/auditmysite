@@ -21,7 +21,7 @@ use crate::accessibility::AXTree;
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let Some(stepper) = tree
         .iter()
         .find(|n| n.role.as_deref() == Some("spinbutton"))

@@ -10,7 +10,7 @@ pub fn journey_dimension_score(penalties: &[f64], cap: f64) -> u32 {
 }
 
 /// Weighted average with intent-specific weights.
-pub fn weighted_average_with_intent(items: &[(u32, f64)]) -> u32 {
+pub(super) fn weighted_average_with_intent(items: &[(u32, f64)]) -> u32 {
     let total_weight: f64 = items.iter().map(|(_, w)| w).sum();
     if total_weight == 0.0 {
         return 0;

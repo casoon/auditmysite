@@ -10,6 +10,7 @@
 //! manual testing; it makes no statutory citation, conformity claim or
 //! harmonization claim.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{List, SectionHeaderSplit};
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn, TagCloud};
@@ -34,7 +35,7 @@ pub(super) fn render_en301549_annex(
     rule_outcomes: &[crate::wcag::RuleRun],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let (title, intro) = if en {
         (

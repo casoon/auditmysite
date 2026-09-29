@@ -1,5 +1,6 @@
 //! Finding renderers for PDF reports.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     Divider, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
 };
@@ -144,7 +145,7 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
 /// later card — readers who start at Chapter 02's first finding get the
 /// expansion, later cards stay compact (Rule B, plain-language report plan).
 fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> &'static str {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     if !*acronyms_expanded {
         *acronyms_expanded = true;
         return if en {
@@ -161,7 +162,7 @@ fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> &'static str {
 }
 
 fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     match (value, en) {
         ("very_high", true) => "Very high",
         ("very_high", false) => "Sehr hoch",
@@ -230,7 +231,7 @@ pub(super) fn render_finding_technical(
     evidence_seq: &mut usize,
     acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let severity_prefix = match group.severity {
         crate::wcag::Severity::Critical => {
             if en {
@@ -333,7 +334,7 @@ pub(super) fn render_finding_technical(
             )
             .with_accent(super::design::tokens::INK),
             MetricStripItem::new(
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Implementation priority"
                 } else {
                     "Umsetzungspriorität"
@@ -349,14 +350,14 @@ pub(super) fn render_finding_technical(
     // read on every finding — kept compact and visually subordinate (a small
     // caption, not a titled card) rather than continuing the primary strip's
     // weight.
-    builder = builder.add_component(section_caption(if i18n.locale() == "en" {
+    builder = builder.add_component(section_caption(if is_english(i18n) {
         "QA metadata"
     } else {
         "Prüfmetadaten"
     }));
     let mut meta_kv = KeyValueList::new()
         .add(
-            if i18n.locale() == "en" {
+            if is_english(i18n) {
                 "Detection confidence"
             } else {
                 "Erkennungssicherheit"
@@ -364,7 +365,7 @@ pub(super) fn render_finding_technical(
             report_code_label(&group.confidence, i18n),
         )
         .add(
-            if i18n.locale() == "en" {
+            if is_english(i18n) {
                 "False-positive risk"
             } else {
                 "Falschpositiv-Risiko"
@@ -404,7 +405,7 @@ pub(super) fn render_finding_technical(
     let recheck_instruction = manual_recheck_instruction(&group.wcag_criterion, en);
     if !expected_impact.is_empty() || !complexity_reason.is_empty() || recheck_instruction.is_some()
     {
-        builder = builder.add_component(section_caption(if i18n.locale() == "en" {
+        builder = builder.add_component(section_caption(if is_english(i18n) {
             "Action assessment"
         } else {
             "Maßnahmenbewertung"
@@ -412,7 +413,7 @@ pub(super) fn render_finding_technical(
         let mut assessment = KeyValueList::new();
         if !expected_impact.is_empty() {
             assessment = assessment.add(
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Expected effect"
                 } else {
                     "Erwartete Wirkung"
@@ -422,7 +423,7 @@ pub(super) fn render_finding_technical(
         }
         if !complexity_reason.is_empty() {
             assessment = assessment.add(
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Complexity reason"
                 } else {
                     "Komplexitätsgrund"
@@ -432,12 +433,12 @@ pub(super) fn render_finding_technical(
         }
         if group.verification == "manual_review_recommended" {
             assessment = assessment.add(
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Verification"
                 } else {
                     "Prüfung"
                 },
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Manual review recommended"
                 } else {
                     "Manuelle Prüfung empfohlen"
@@ -446,7 +447,7 @@ pub(super) fn render_finding_technical(
         }
         if let Some(instruction) = recheck_instruction {
             assessment = assessment.add(
-                if i18n.locale() == "en" {
+                if is_english(i18n) {
                     "Self-test"
                 } else {
                     "Selbsttest"
@@ -534,7 +535,7 @@ pub(super) fn render_finding_technical(
         }
         builder = builder.add_component(table);
 
-        let en = i18n.locale() == "en";
+        let en = is_english(i18n);
         let hidden = group.representative_occurrences.len().saturating_sub(3);
         for occ in group.representative_occurrences.iter().take(3) {
             let mut snapshot = SummaryBox::new(format!(
@@ -654,7 +655,7 @@ pub(super) fn render_finding_technical(
         // hardcoded English "Root Cause", unlocalized even in German
         // reports) and the callout text (`finding-structural-cause-*` in
         // report.ftl) must both read as a likelihood, not a certainty.
-        let en = i18n.locale() == "en";
+        let en = is_english(i18n);
         let label = if group.is_component_issue {
             if en {
                 "Likely root cause"

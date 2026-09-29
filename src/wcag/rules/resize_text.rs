@@ -54,7 +54,7 @@ fn is_viewport_restricted(content: &str, threshold: f64) -> bool {
     false
 }
 
-pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
+pub(super) const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.4",
     name: "Resize Text",
     level: WcagLevel::AA,

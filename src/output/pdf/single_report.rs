@@ -3,6 +3,7 @@
 //! Each function takes ownership of the builder, appends its section's
 //! components, and returns the builder for further chaining.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, Divider, List,
     MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
@@ -57,7 +58,7 @@ pub(super) fn render_part_divider(
     audience_body: &str,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let eyebrow = if en {
         if part_num == 3 {
             "PART 3 OF 3 · TECHNICAL APPENDIX".to_string()
@@ -102,7 +103,7 @@ pub(super) fn render_part_divider(
 /// plus a critical/high/medium breakdown. Zero counts read as "all clear"
 /// (green), non-zero counts carry their severity hue.
 fn build_severity_counter_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let count_accent = |n: u32, hue: &'static str| {
         if n > 0 {
             hue
@@ -169,7 +170,7 @@ fn render_module_split_dashboards(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     // plan/7-management-summary-consolidation.md ("lighter" option): the
     // weighted, "measured" modules (Accessibility/Performance/Security/
     // Mobile/SEO) are now covered by the score-driver table above with more
@@ -273,7 +274,7 @@ fn render_overall_rating(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::audit::verdict::Verdict;
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let rating = super::cover::certificate_label_localized(&vm.summary.certificate, i18n.locale());
     let verdict_word = match (vm.summary.ci_verdict, en) {
@@ -362,7 +363,7 @@ pub(super) fn render_risks_and_strengths(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // The dimensions come from `audit::management_risk`, the same derivation
     // the JSON publishes as `summary.management_risks`. This used to be a
@@ -618,7 +619,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
 }
 
 pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let list_title = if en {
         "5 Key Measures"
     } else {
@@ -696,7 +697,7 @@ pub(super) fn render_management_page(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mgt_title = if en {
         "Management Summary"
     } else {
@@ -917,7 +918,7 @@ pub(super) fn render_tech_details(
     report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // Technical modules overview DiagnosisPanel
     if !vm.modules.dashboard.is_empty() {
@@ -992,7 +993,7 @@ pub(super) fn render_appendix_full(
     config: &ReportConfig,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let (app_title, app_intro) = if en {
         (
             "Appendix & Methodology",
@@ -1104,7 +1105,7 @@ fn render_manual_only_criteria_note(
     builder: renderreport::engine::ReportBuilder,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let rows = if en {
         vec![
             ChecklistRow::new(
@@ -1175,7 +1176,7 @@ fn render_assessment_and_execution_notes(
     report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let wcag = &report.accessibility.wcag_results;
     if !wcag.warnings.is_empty() || !wcag.not_testables.is_empty() {
         let mut rows = Vec::new();
@@ -1633,7 +1634,7 @@ fn render_appendix_section(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     // Appendix — full violations list, conclusion of Part 2 (#246). Only render
     // the section header when there are violations to list; otherwise it
     // promises a list that never appears (#364).
@@ -1737,7 +1738,7 @@ fn render_positive_signals_section(
         builder = builder.add_component(PageBreak::new());
     }
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut rows = Vec::new();
     for signal in signals {
         let status = if signal.strong {
@@ -1785,7 +1786,7 @@ fn render_dual_viewport_summary_section(
         builder = builder.add_component(PageBreak::new());
     }
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     if report.page_screenshots.is_some() {
         builder = builder.add_component(
             DevicePreview::new(
@@ -1942,7 +1943,7 @@ pub(super) fn render_module_sections(
     // one "KI & Vertrauen" / "AI & Trust" chapter so the three trust- and
     // discoverability-indicator modules read as one section instead of three
     // fragmented ones. They render as level-3 sub-sections under one opener.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut ki_opened = false;
     let mut in_ki_chapter = false;
     for module in active_report_modules(report) {

@@ -15,7 +15,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 /// Rule metadata for role=presentation/none hiding semantic descendants.
-pub const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
+pub(super) const PRESENTATION_SEMANTIC_CHILDREN_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Info and Relationships",
     level: WcagLevel::A,

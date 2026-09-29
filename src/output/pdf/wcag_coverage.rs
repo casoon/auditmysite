@@ -1,5 +1,6 @@
 //! WCAG coverage section for PDF reports (issue #37).
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
 };
@@ -21,7 +22,7 @@ pub(super) fn render_wcag_coverage_section(
 ) -> renderreport::engine::ReportBuilder {
     use crate::wcag::coverage::{automated_criteria, coverage_stats, manual_review_criteria};
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // Principle coverage — informative secondary indicator (#99).
     let coverage =

@@ -18,7 +18,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 // ── Rule metadata ──────────────────────────────────────────────────────────────
 
-pub const RULE_COMMAND_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_COMMAND_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Command Accessible Name",
     level: WcagLevel::A,
@@ -30,7 +30,7 @@ pub const RULE_COMMAND_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
-pub const RULE_INPUT_FIELD_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_INPUT_FIELD_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Input Field Accessible Name",
     level: WcagLevel::A,
@@ -41,7 +41,7 @@ pub const RULE_INPUT_FIELD_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
-pub const RULE_METER_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_METER_NAME: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Meter Accessible Name",
     level: WcagLevel::A,
@@ -52,7 +52,7 @@ pub const RULE_METER_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.aria"],
 };
 
-pub const RULE_PROGRESSBAR_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_PROGRESSBAR_NAME: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Progressbar Accessible Name",
     level: WcagLevel::A,
@@ -63,7 +63,7 @@ pub const RULE_PROGRESSBAR_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.aria"],
 };
 
-pub const RULE_TOGGLE_FIELD_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_TOGGLE_FIELD_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Toggle Field Accessible Name",
     level: WcagLevel::A,
@@ -74,7 +74,7 @@ pub const RULE_TOGGLE_FIELD_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.forms"],
 };
 
-pub const RULE_DIALOG_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_DIALOG_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Dialog Accessible Name",
     level: WcagLevel::A,
@@ -85,7 +85,7 @@ pub const RULE_DIALOG_NAME: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
-pub const RULE_TREEITEM_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_TREEITEM_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Treeitem Accessible Name",
     level: WcagLevel::A,

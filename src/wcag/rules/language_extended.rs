@@ -24,7 +24,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const RULE_LANG_MISMATCH: RuleMetadata = RuleMetadata {
+pub(super) const RULE_LANG_MISMATCH: RuleMetadata = RuleMetadata {
     id: "3.1.1",
     name: "Language Attribute Mismatch",
     level: WcagLevel::A,

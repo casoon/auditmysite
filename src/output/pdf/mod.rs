@@ -22,6 +22,7 @@ mod wcag_coverage;
 
 pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, PageBreak, TableOfContents,
 };
@@ -112,7 +113,7 @@ fn build_single_report(
     builder = register_page_screenshot_assets(builder, report)?;
 
     // ── Cover Page (single composed component) ───────────────────────
-    let en = i18n.locale() == "en";
+    let en = is_english(&i18n);
     // The headline is the accessibility score — the subject of the report.
     // The weighted overall value across all six modules is a different
     // question and is reported as such, further in (plan 29, D1).
@@ -330,7 +331,7 @@ fn render_audit_confidence_notes(
     audit_flags: &[crate::audit::normalized::AuditFlag],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let base = if en {
         "Automated findings are reliable for detectable patterns, but context-dependent WCAG criteria, semantic content quality and user journeys still require manual verification. Indicator modules such as AI visibility, content visibility and UX are best-effort signals, not guarantees."
     } else {

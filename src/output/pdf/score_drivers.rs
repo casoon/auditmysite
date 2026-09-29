@@ -6,6 +6,7 @@
 //! `problem_profile.rs` in plan 27). Only visibility widened to `pub(super)`
 //! where `single_report.rs` calls in; no logic changed in the move.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::List;
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
@@ -31,7 +32,7 @@ pub(super) fn render_score_driver_table(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let contributing: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
         .modules
         .module_scores
@@ -176,7 +177,7 @@ fn render_weight_basis_note(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let basis: u32 = vm
         .modules
         .module_scores
@@ -249,7 +250,7 @@ fn render_overall_score_derivation(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let Some(sb) = vm.summary.score_breakdown.as_ref() else {
         return builder;
     };
@@ -333,7 +334,7 @@ pub(super) fn render_additional_score_drivers(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     if vm.summary.technical_overview.len() < 4 {
         return builder;
     }
@@ -363,7 +364,7 @@ pub(super) fn render_subcategory_breakdown(
     entries: &[(String, u32)],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     if entries.is_empty() {
         return builder;
     }

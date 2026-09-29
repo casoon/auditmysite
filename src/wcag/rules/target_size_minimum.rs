@@ -10,7 +10,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
+pub(super) const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.8",
     name: "Target Size (Minimum)",
     level: WcagLevel::AA,

@@ -1,13 +1,14 @@
 use crate::audit::normalized::AuditContext;
 use crate::dark_mode::dark_mode_issue_text;
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{DarkModePresentation, VisionDeficiencyModePresentation};
 
 pub(super) fn build_dark_mode_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
 ) -> Option<DarkModePresentation> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     normalized.raw_dark_mode.map(|dm| DarkModePresentation {
         supported: dm.supported,
         score: dm.score,

@@ -1,6 +1,7 @@
 use crate::audit::normalized::AuditContext;
 use crate::commerce::{commerce_finding_text, CommercePageKind};
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{CommercePresentation, CommerceProductRow};
 use crate::taxonomy::SeverityExt;
 
@@ -17,7 +18,7 @@ pub(super) fn build_commerce_details(
     i18n: &I18n,
 ) -> Option<CommercePresentation> {
     let c = normalized.raw_commerce?;
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let missing_trust_page = !c.trust_pages.impressum
         || !c.trust_pages.agb

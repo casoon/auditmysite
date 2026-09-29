@@ -73,7 +73,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const PAUSE_STOP_HIDE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const PAUSE_STOP_HIDE_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.2",
     name: "Pause, Stop, Hide",
     level: WcagLevel::A,

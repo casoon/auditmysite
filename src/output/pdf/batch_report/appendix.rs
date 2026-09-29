@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, PageBreak, SectionHeaderSplit,
 };
@@ -238,7 +239,7 @@ pub(super) fn render_batch_commerce(
         return builder;
     };
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(
             "Commerce",

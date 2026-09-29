@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
 };
@@ -79,11 +80,7 @@ fn render_seo_weakest_pages(
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
             let relevance =
                 super::super::business_relevance(Some(page_type.as_str()), url, i18n.locale());
-            let high_marker = if i18n.locale() == "en" {
-                "high"
-            } else {
-                "hoch"
-            };
+            let high_marker = if is_english(i18n) { "high" } else { "hoch" };
             let impact = if relevance == high_marker {
                 i18n.t("batch-seo-impact-ranking-loss")
             } else if *score < 30 {

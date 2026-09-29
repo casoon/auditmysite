@@ -7,7 +7,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
-pub const HELP_RULE: RuleMetadata = RuleMetadata {
+pub(super) const HELP_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.5",
     name: "Help",
     level: WcagLevel::AAA,

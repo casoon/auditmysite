@@ -30,7 +30,7 @@ use crate::output_paths::{
     per_page_output_directory, per_page_output_path,
 };
 
-pub fn output_single_report(
+pub(crate) fn output_single_report(
     report: &auditmysite::AuditReport,
     args: &Args,
     verdict: Option<&VerdictResult>,
@@ -176,7 +176,7 @@ pub(crate) fn output_screen_reader_sidecar(
     Ok(())
 }
 
-pub fn output_batch_report(
+pub(crate) fn output_batch_report(
     batch_report: &auditmysite::audit::BatchReport,
     args: &Args,
     verdict: Option<&VerdictResult>,
@@ -270,7 +270,7 @@ pub fn output_batch_report(
     Ok(())
 }
 
-pub fn output_batch_as_single_reports(
+pub(crate) fn output_batch_as_single_reports(
     batch_report: &auditmysite::audit::BatchReport,
     args: &Args,
     attempted_urls: &[String],

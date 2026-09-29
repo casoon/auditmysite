@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const TARGET_SIZE_ENHANCED_RULE: RuleMetadata = RuleMetadata {
+pub(super) const TARGET_SIZE_ENHANCED_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.5",
     name: "Target Size (Enhanced)",
     level: WcagLevel::AAA,

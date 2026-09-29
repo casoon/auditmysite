@@ -70,7 +70,7 @@ pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
 }
 
 /// Validate a browser binary at a given path
-pub fn validate_browser(
+pub(super) fn validate_browser(
     path: &PathBuf,
     kind: BrowserKind,
     source: BrowserSource,
@@ -95,7 +95,7 @@ pub fn validate_browser(
 }
 
 /// Verify that a binary is executable
-pub fn verify_executable(path: &PathBuf) -> Result<()> {
+pub(super) fn verify_executable(path: &PathBuf) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -111,7 +111,7 @@ pub fn verify_executable(path: &PathBuf) -> Result<()> {
 }
 
 /// Get browser version by running `--version`
-pub fn get_browser_version(path: &PathBuf) -> Option<String> {
+pub(super) fn get_browser_version(path: &PathBuf) -> Option<String> {
     Command::new(path)
         .arg("--version")
         .output()
