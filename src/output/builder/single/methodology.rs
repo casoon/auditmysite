@@ -279,6 +279,15 @@ pub(super) fn build_methodology(
                 key("WCAG-Level", "WCAG level"),
                 normalized.wcag_level.to_string(),
             ),
+            // #653: the mode the scores belong to, and what the page offers.
+            (
+                key("Darstellungsmodus", "Display mode"),
+                crate::display::audited_mode_text(normalized.execution.scope.display_mode, en),
+            ),
+            (
+                key("Darstellungsmodi der Seite", "Page display modes"),
+                crate::display::offered_modes_text(normalized.execution.display_modes.as_ref(), en),
+            ),
             (
                 key("Geprüfte Knoten", "Checked nodes"),
                 normalized.nodes_analyzed.to_string(),

@@ -118,6 +118,20 @@ pub fn per_page_output_directory(args: &Args) -> PathBuf {
     }
 }
 
+/// `reports/site.pdf` → `reports/site-calm.pdf`; a directory path without
+/// extension (per-page reports) gets the suffix appended (#653).
+pub fn with_display_suffix(path: &Path, mode: &str) -> PathBuf {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("audit-report");
+    let name = match path.extension().and_then(|e| e.to_str()) {
+        Some(ext) => format!("{stem}-{mode}.{ext}"),
+        None => format!("{stem}-{mode}"),
+    };
+    path.with_file_name(name)
+}
+
 /// Concrete output path for one page inside a per-page batch run.
 pub fn per_page_output_path(
     base_dir: &Path,
@@ -243,6 +257,18 @@ pub fn report_subject_from_url(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn display_suffix_goes_before_the_extension() {
+        assert_eq!(
+            with_display_suffix(Path::new("reports/geo-audit.pdf"), "calm"),
+            PathBuf::from("reports/geo-audit-calm.pdf")
+        );
+        assert_eq!(
+            with_display_suffix(Path::new("reports/per-page"), "text"),
+            PathBuf::from("reports/per-page-text")
+        );
+    }
 
     #[test]
     fn report_subject_strips_www() {

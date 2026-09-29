@@ -7,7 +7,7 @@ use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
 use crate::audit::PipelineConfig;
 use crate::error::Result;
 
-use super::analyze_dark_mode;
+use super::analyze_dark_mode_with_base_media;
 
 pub struct DarkModeModule;
 
@@ -26,7 +26,10 @@ impl AuditModule for DarkModeModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_dark_mode(ctx.page, ctx.pipeline_config.wcag_level).await {
+        let base = crate::display::media_features(ctx.pipeline_config.display_mode);
+        match analyze_dark_mode_with_base_media(ctx.page, ctx.pipeline_config.wcag_level, &base)
+            .await
+        {
             Ok(dm) => Ok(ModuleData::DarkMode(Box::new(dm))),
             Err(e) => {
                 warn!("Dark mode analysis failed: {}", e);

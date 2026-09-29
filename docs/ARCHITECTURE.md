@@ -79,7 +79,11 @@ src/
 │       ├── labels.rs             # 3.3.2
 │       ├── target_size_minimum.rs # 2.5.8
 │       ├── text_spacing.rs       # 1.4.12
+│       ├── display_modes.rs      # display/* checks of the data-display convention (#653, best-practice)
 │       └── ... (registered in rules/mod.rs)
+│
+├── display/             # Display modes (#653): --display pre-navigation setup (localStorage.display,
+│   └── mod.rs           # prefers-reduced-motion emulation, body observer) and per-page detection
 │
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs

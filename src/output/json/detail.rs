@@ -66,6 +66,7 @@ pub(super) fn build_page(
         accessibility_journey: normalized.accessibility_journey.clone(),
         screen_reader: normalized.screen_reader.clone(),
         content_profile: None,
+        display_modes: normalized.execution.display_modes.clone(),
         detail,
     }
 }

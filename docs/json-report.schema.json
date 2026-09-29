@@ -153,7 +153,8 @@
         "viewports",
         "dismiss_consent",
         "capture_screenshots",
-        "capture_element_evidence"
+        "capture_element_evidence",
+        "display_mode"
       ],
       "additionalProperties": false,
       "properties": {
@@ -193,6 +194,16 @@
         },
         "capture_element_evidence": {
           "type": "boolean"
+        },
+        "display_mode": {
+          "description": "Display mode the scores belong to (#653): site_default without --display.",
+          "type": "string",
+          "enum": [
+            "site_default",
+            "visual",
+            "calm",
+            "text"
+          ]
         }
       }
     },
@@ -509,7 +520,9 @@
         "wcag_version": {
           "description": "WCAG version the coverage ratio is scoped to. Absent in reports produced before the switch to WCAG 2.2, which were scoped to WCAG 2.1.",
           "type": "string",
-          "enum": ["2.2"]
+          "enum": [
+            "2.2"
+          ]
         },
         "level": {
           "type": "string"
@@ -749,6 +762,9 @@
         },
         "detail": {
           "$ref": "#/$defs/pageDetail"
+        },
+        "display_modes": {
+          "$ref": "#/$defs/displayModes"
         }
       }
     },
@@ -1086,7 +1102,9 @@
         },
         "derived_from": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Modules this one re-reads instead of measuring anything new. Absent when the module measures its own subject (plan 29, D3)."
         },
         "weight_pct": {
@@ -1458,6 +1476,68 @@
         },
         "summary": {
           "type": "string"
+        }
+      }
+    },
+    "displayModes": {
+      "description": "Display-mode convention (BarrierLab data-display, #653) detected on the page. Absent when the page neither sets html[data-display] nor contains a figure[data-viz].",
+      "type": "object",
+      "required": [
+        "offers_display_modes",
+        "toggle_present",
+        "reduced_motion"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "offers_display_modes": {
+          "type": "boolean",
+          "description": "html[data-display] carries visual, calm or text."
+        },
+        "offered_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "visual",
+              "calm",
+              "text"
+            ]
+          }
+        },
+        "active_mode": {
+          "type": "string",
+          "description": "Value of html[data-display] when the page was audited."
+        },
+        "set_before_body": {
+          "type": "boolean",
+          "description": "data-display was already set when <body> was parsed; absent when not observed."
+        },
+        "toggle_present": {
+          "type": "boolean"
+        },
+        "visualisations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "count"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "reduced_motion": {
+          "type": "boolean",
+          "description": "prefers-reduced-motion: reduce matched during the audit."
         }
       }
     }

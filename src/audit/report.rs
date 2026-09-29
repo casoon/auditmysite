@@ -73,6 +73,10 @@ pub struct AuditScope {
     pub dismiss_consent: bool,
     pub capture_screenshots: bool,
     pub capture_element_evidence: bool,
+    /// Display mode the scores belong to (#653). Reports from before
+    /// `--display` default to `site_default`, which is what they measured.
+    #[serde(default)]
+    pub display_mode: crate::display::AuditedDisplayMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +182,10 @@ pub struct AuditExecution {
     pub module_runs: Vec<ModuleRun>,
     #[serde(default)]
     pub quality: AuditQuality,
+    /// Display-mode convention detected on the page (#653). Absent when the
+    /// page neither sets `html[data-display]` nor has a `figure[data-viz]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_modes: Option<crate::display::DisplayModesInfo>,
 }
 
 /// Performance vitals measured under a single network throttle profile.

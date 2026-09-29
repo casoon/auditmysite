@@ -7,7 +7,7 @@ pub mod config;
 pub mod doctor;
 
 pub use args::{
-    AnnexKind, Args, BrowserAction, ColorPolicy, Command, InteractiveMode, OutputFormat,
-    ProgressPolicy, ReportLevel, ReportLintFailOn, RequestMode, WcagLevel,
+    AnnexKind, Args, BrowserAction, ColorPolicy, Command, DisplaySelection, InteractiveMode,
+    OutputFormat, ProgressPolicy, ReportLevel, ReportLintFailOn, RequestMode, WcagLevel,
 };
 pub use config::Config;

@@ -20,6 +20,7 @@ mod click_handlers;
 mod content_on_hover;
 mod contrast;
 mod dialog_rules;
+mod display_modes;
 mod error_identification;
 mod fake_navigation_link;
 mod focus_not_obscured_enhanced;
@@ -107,6 +108,10 @@ pub use click_handlers::check_click_handlers_with_page;
 pub use content_on_hover::check_content_on_hover_with_page;
 pub use contrast::{Color, ContrastRule};
 pub use dialog_rules::check_dialog_rules;
+pub use display_modes::{
+    check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
+    DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE, DISPLAY_TOGGLE_MISSING_RULE,
+};
 pub use error_identification::check_error_identification;
 pub use fake_navigation_link::check_fake_navigation_link_with_page;
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;

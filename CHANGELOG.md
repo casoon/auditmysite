@@ -5,6 +5,43 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Darstellungsmodi (`data-display`-Konvention), 2026-09-29 (#653):** Neues Modul `src/display/`
+  und neue Option `--display calm|text|visual|all`. Ohne Option bleibt alles wie bisher (Voreinstellung
+  der Seite). Mit einem Modus schreibt ein vor der Navigation injiziertes Skript
+  (`Page.addScriptToEvaluateOnNewDocument`) die Wahl nach `localStorage.display`; `calm` und `text`
+  emulieren zusaetzlich `prefers-reduced-motion: reduce` (`Emulation.setEmulatedMedia`), damit auch
+  Seiten ohne Konvention ihre reduzierte Variante zeigen. Weil `setEmulatedMedia` die ganze
+  Feature-Liste ersetzt, reicht die Dark-Mode-Analyse (Druck, Forced Colors, Dunkel-Kontrast) die
+  Grund-Features jetzt durch (`analyze_dark_mode_with_base_media`) — sonst haette sie die reduzierte
+  Bewegung fuer den Rest des Audits geloescht. JSON: `audit_scope.display_mode`
+  (`site_default|visual|calm|text`) und je Seite `pages[].display_modes` (angebotene Modi,
+  dargestellter Modus, `set_before_body`, Umschalter, Visualisierungen je Art, reduzierte Bewegung);
+  PDF: Zeilen „Darstellungsmodus"/„Darstellungsmodi der Seite" im Methodik-Anhang, im Batch auf dem
+  Deckblatt. `--display all` prueft jeden Modus als eigenen Lauf mit eigenem Bericht (Suffix
+  `-calm`/`-text`/`-visual`), nie ein gemischter Score; `visual` nur fuer Seiten mit
+  `figure[data-viz="3d|interactive"]` aus dem `calm`-Lauf, mit doppeltem Seiten-Timeout. Befunde
+  werden nicht als „in allen Modi" markiert — dafuer muessten die Laeufe zusammengefuehrt werden.
+
+  Neue Regelgruppe `display/*` (Best Practice, keine WCAG-Anforderung, verankert an 2.2.2 bzw.
+  1.1.1; eigene Taxonomie-Eintraege und Erklaerungen): `display/toggle-missing`,
+  `display/init-missing` (ueber einen Beobachter, der beim Einfuegen von `<body>` festhaelt, ob
+  `data-display` schon gesetzt war), `display/text-media-visible`, `display/text-not-visible`,
+  `display/text-hidden`. Die Textmodus-Pruefungen richten sich nach dem tatsaechlich dargestellten
+  Modus. Umzugskandidaten fuer barrierlab: die statischen Haelften von `toggle-missing` und
+  `text-hidden` (Attribut-Teil = `viz/text-hidden` des Entwurfs). Korpus-Fixtures
+  `display_modes_conforming`/`display_modes_violations`, Integrationstest
+  `display_text_sets_stored_choice_and_reduced_motion` (localStorage und `matchMedia` vor dem
+  ersten Skript und nach dem Audit).
+
+  Live gegen geographia.eu: `--sitemap .../sitemap-index.xml --display calm -m 10` 266 s, 10/10
+  Seiten, keine Pool-Timeouts (die ersten 10 URLs sind Textseiten ohne Visualisierung). Zehn Seiten
+  mit Visualisierungen per URL-Liste: `calm` 1151 s, 7/10, 0 Pool-Timeouts, aber 3 Seiten mit
+  `interactive` laufen in das 120-s-Audit-Limit; `text` 293 s, 10/10, 0 Timeouts. Befunde: auf allen
+  Seiten `display/toggle-missing` (kein `[data-display-toggle]` ausgeliefert); in `calm`/`visual`
+  `display/text-hidden`, weil `.viz-text { display: none }` die Textschicht ausserhalb von `text`
+  auch fuer Screenreader entfernt (im Browser bestaetigt); in `text` `display/text-not-visible` auf
+  Seiten ohne `[data-viz-text]` (Startseite 4, Erklaerungs-Labor 10).
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu

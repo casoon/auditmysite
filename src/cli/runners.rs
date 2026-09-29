@@ -54,10 +54,40 @@ fn check_ai_transparency_feature(args: &Args) -> Result<()> {
     Ok(())
 }
 
+/// What one audit run leaves behind for `--display all` (#653): its verdict
+/// and the audited URLs that only the `visual` mode can fully audit.
+pub struct RunOutcome {
+    pub verdict: Verdict,
+    pub visual_only_urls: Vec<String>,
+}
+
+impl RunOutcome {
+    fn verdict_only(verdict: Verdict) -> Self {
+        Self {
+            verdict,
+            visual_only_urls: Vec::new(),
+        }
+    }
+}
+
+/// Audited URLs whose page carries `figure[data-viz="3d|interactive"]`.
+fn visual_only_urls<'a>(
+    pages: impl Iterator<Item = (&'a str, Option<&'a auditmysite::display::DisplayModesInfo>)>,
+) -> Vec<String> {
+    pages
+        .filter(|(_, info)| info.is_some_and(|i| i.has_visual_only_content()))
+        .map(|(url, _)| url.to_string())
+        .collect()
+}
+
 pub async fn run_single_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
+    run_single(args, config).await.map(|o| o.verdict)
+}
+
+async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> Result<RunOutcome> {
     check_ai_transparency_feature(args)?;
 
     let url = args
@@ -66,7 +96,7 @@ pub async fn run_single_mode(
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
     if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
-        return Ok(batch_verdict);
+        return Ok(RunOutcome::verdict_only(batch_verdict));
     }
 
     print_single_audit_plan(args, url);
@@ -126,7 +156,13 @@ pub async fn run_single_mode(
                     }
                 }
                 print_verdict(&verdict_result, args.quiet);
-                return Ok(verdict_result.verdict);
+                return Ok(RunOutcome {
+                    verdict: verdict_result.verdict,
+                    visual_only_urls: visual_only_urls(std::iter::once((
+                        report.url.as_str(),
+                        report.accessibility.execution.display_modes.as_ref(),
+                    ))),
+                });
             }
             Some(_) if !args.quiet => {
                 println!(
@@ -222,7 +258,13 @@ pub async fn run_single_mode(
     let verdict_result = compute_verdict(&normalized, &verdict_cfg);
     output_single_report(&report, args, Some(&verdict_result))?;
     print_verdict(&verdict_result, args.quiet);
-    Ok(verdict_result.verdict)
+    Ok(RunOutcome {
+        verdict: verdict_result.verdict,
+        visual_only_urls: visual_only_urls(std::iter::once((
+            report.url.as_str(),
+            report.accessibility.execution.display_modes.as_ref(),
+        ))),
+    })
 }
 
 async fn maybe_offer_sitemap_scan(
@@ -349,6 +391,16 @@ pub async fn run_batch_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
+    run_batch(args, config, None).await.map(|o| o.verdict)
+}
+
+/// `urls_override`: audit exactly these URLs instead of the configured
+/// source — the `visual` pass of `--display all` (#653).
+async fn run_batch(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    urls_override: Option<Vec<String>>,
+) -> Result<RunOutcome> {
     check_ai_transparency_feature(args)?;
     if args.ai_transparency && !args.quiet {
         eprintln!(
@@ -360,7 +412,10 @@ pub async fn run_batch_mode(
     let mut crawl_result: Option<CrawlResult> = None;
 
     let url_source: &str;
-    let urls = if let Some(ref sitemap_url) = args.sitemap {
+    let urls = if let Some(urls) = urls_override {
+        url_source = "display_visual";
+        urls
+    } else if let Some(ref sitemap_url) = args.sitemap {
         url_source = "sitemap";
         if !args.quiet {
             eprintln!("{} {}", "Fetching sitemap:".cyan().bold(), sitemap_url);
@@ -407,7 +462,7 @@ pub async fn run_batch_mode(
         if !args.quiet {
             eprintln!("{} No URLs found to audit.", "Warning:".yellow().bold());
         }
-        return Ok(Verdict::Warn);
+        return Ok(RunOutcome::verdict_only(Verdict::Warn));
     }
 
     let total_discovered = urls.len();
@@ -532,17 +587,123 @@ pub async fn run_batch_mode(
     let verdict_result = compute_batch_verdict(&batch_report.summary, &verdict_cfg);
     let verdict_message = verdict_message_text(&verdict_result);
 
+    let outcome = RunOutcome {
+        verdict: verdict_result.verdict,
+        visual_only_urls: visual_only_urls(batch_report.reports.iter().map(|r| {
+            (
+                r.url.as_str(),
+                r.accessibility.execution.display_modes.as_ref(),
+            )
+        })),
+    };
+
     if args.per_page_reports {
         presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
             output_batch_as_single_reports(&batch_report, args)
         })?;
-        return Ok(verdict_result.verdict);
+        return Ok(outcome);
     }
 
     presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
         output_batch_report(&batch_report, args, Some(&verdict_result))
     })?;
-    Ok(verdict_result.verdict)
+    Ok(outcome)
+}
+
+/// `--display all` (#653): audit each display mode as its own run and write
+/// one report per mode — never a blended score. `calm` and `text` audit every
+/// page; `visual` only the pages the `calm` run found with 3D or interactive
+/// visualisations, with twice the page timeout.
+pub async fn run_display_all(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    is_batch: bool,
+) -> Result<Verdict> {
+    use auditmysite::cli::DisplaySelection;
+
+    let base_output = args.output.clone().or_else(|| {
+        (args.effective_format() == OutputFormat::Pdf).then(|| {
+            if is_batch {
+                crate::output_paths::default_batch_pdf_output_path(args)
+            } else {
+                crate::output_paths::default_single_pdf_output_path(
+                    args.url.as_deref().unwrap_or(""),
+                    args.report_level,
+                )
+            }
+        })
+    });
+    let mode_args = |selection: DisplaySelection| {
+        let mut a = args.clone();
+        a.display = Some(selection);
+        let suffix = selection.mode().map_or("all", |m| m.as_str());
+        a.output = base_output
+            .as_deref()
+            .map(|p| crate::output_paths::with_display_suffix(p, suffix));
+        // One URL stays one URL across all modes.
+        a.no_sitemap_suggest = true;
+        a.prefer_sitemap = false;
+        a
+    };
+    let announce = |selection: DisplaySelection| {
+        if !args.quiet {
+            eprintln!(
+                "\n{} {}",
+                "Display mode:".cyan().bold(),
+                selection.mode().map_or("all", |m| m.as_str())
+            );
+        }
+    };
+
+    let mut verdicts = Vec::new();
+    announce(DisplaySelection::Calm);
+    let calm_args = mode_args(DisplaySelection::Calm);
+    let calm = if is_batch {
+        run_batch(&calm_args, config, None).await?
+    } else {
+        run_single(&calm_args, config).await?
+    };
+    verdicts.push(calm.verdict);
+
+    announce(DisplaySelection::Text);
+    let text_args = mode_args(DisplaySelection::Text);
+    let text = if is_batch {
+        run_batch(&text_args, config, None).await?
+    } else {
+        run_single(&text_args, config).await?
+    };
+    verdicts.push(text.verdict);
+
+    if calm.visual_only_urls.is_empty() {
+        if !args.quiet {
+            eprintln!(
+                "\n{} no page has figure[data-viz=\"3d\"|\"interactive\"]; the visual pass is skipped.",
+                "Display mode visual:".cyan().bold()
+            );
+        }
+    } else {
+        announce(DisplaySelection::Visual);
+        let mut visual_args = mode_args(DisplaySelection::Visual);
+        visual_args.timeout = Some(args.effective_timeout() * 2);
+        let visual = if is_batch {
+            run_batch(&visual_args, config, Some(calm.visual_only_urls)).await?
+        } else {
+            run_single(&visual_args, config).await?
+        };
+        verdicts.push(visual.verdict);
+    }
+
+    Ok(worst_verdict(&verdicts))
+}
+
+fn worst_verdict(verdicts: &[Verdict]) -> Verdict {
+    if verdicts.contains(&Verdict::Fail) {
+        Verdict::Fail
+    } else if verdicts.contains(&Verdict::Warn) {
+        Verdict::Warn
+    } else {
+        Verdict::Pass
+    }
 }
 
 fn verdict_message_text(vr: &auditmysite::VerdictResult) -> String {

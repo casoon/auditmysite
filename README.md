@@ -234,6 +234,7 @@ Useful flags:
 - `--dns-check`: opt-in, score-neutral DNS configuration check (CAA presence, best-effort DNSSEC, SPF when an MX record exists); runs once per host, not once per page
 - `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires `--full` or `--performance`, single-URL mode only
 - `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
+- `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](#display-modes)
 - `--design-quality`: opt-in UX/readability heuristics, including alt-text quality checks (filename-like alt text, "image of" prefixes, overly long or redundant alt text); score-neutral and not part of `--full`
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
@@ -344,6 +345,20 @@ Heuristic (indicator scores — tendency, not measurements):
 - Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
 - Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.
+
+### Display modes
+
+Sites can offer display modes so that nobody depends on 3D, animation or visualisations. The BarrierLab `data-display` convention (draft v0) sets `<html data-display="visual|calm|text">` before the first paint, stores the visitor's choice in `localStorage` under the key `display`, marks each visualisation as `figure[data-viz="chart|diagram|3d|image|interactive"]` with a text layer `[data-viz-text]`, and puts a `[data-display-toggle]` control on every page with a visualisation.
+
+- **Detection (always on):** every page that sets `html[data-display]` or contains a `figure[data-viz]` reports `pages[].display_modes` in the JSON — offered modes, the mode it rendered in, whether the attribute was set before `<body>`, the toggle, and the visualisations per kind. The PDF shows it as "Page display modes: visual · calm · text".
+- **`--display calm|text|visual`:** before navigation the choice is stored in `localStorage.display` (`Page.addScriptToEvaluateOnNewDocument`), and `calm`/`text` also emulate `prefers-reduced-motion: reduce` (`Emulation.setEmulatedMedia`) — so sites without the convention that honour the media query get their reduced variant too. Without the flag the site default is audited, as before. `audit_scope.display_mode` in the JSON (`site_default`, `visual`, `calm`, `text`) and the PDF name the mode the scores belong to.
+- **`--display all`:** audits each mode as its own run and writes one report per mode (`report-calm.pdf`, `report-text.pdf`, `report-visual.pdf`; batches: one batch report per mode). There is never a blended score. `visual` runs only for pages with `figure[data-viz="3d|interactive"]`, with twice the page timeout. Findings are not cross-marked as "occurs in all modes" — compare the per-mode reports.
+- **Convention checks `display/*`** (best-practice, not WCAG requirements; anchored to 2.2.2 or 1.1.1): `display/toggle-missing` (visualisations without a toggle), `display/init-missing` (`data-display` missing or set only after `<body>` started, measured by an observer injected before navigation), `display/text-media-visible` (in `text` mode a visualisation still shows canvas/SVG/video/static picture), `display/text-not-visible` (in `text` mode a visualisation has no visible, non-empty `[data-viz-text]`), `display/text-hidden` (`[data-viz-text]` removed from assistive technology by `hidden`, `aria-hidden`, `inert` or CSS, in any mode). The text-mode checks key on the mode the page actually rendered in.
+
+```bash
+auditmysite --sitemap https://example.com/sitemap.xml --display calm --format pdf --output reports/example-calm.pdf
+auditmysite https://example.com/page --display all --output reports/example-page.pdf
+```
 
 ### Structured-data analysis
 

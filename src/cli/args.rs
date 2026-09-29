@@ -257,6 +257,20 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "full")]
     pub interactive: InteractiveMode,
 
+    /// Audit the page in one display mode of the data-display convention.
+    ///
+    /// Before navigation the choice is stored in `localStorage.display`, and
+    /// `calm`/`text` also emulate `prefers-reduced-motion: reduce` — so sites
+    /// without the convention that honour the media query render their
+    /// reduced variant too. Without this flag the site default is audited.
+    ///
+    /// `all` audits every mode separately and writes one report per mode
+    /// (file name suffix `-calm`, `-text`, `-visual`), never a blended score.
+    /// `visual` only runs for pages with `figure[data-viz="3d|interactive"]`,
+    /// with twice the page timeout. Needs `--output` unless the format is PDF.
+    #[arg(long, value_enum, value_name = "MODE")]
+    pub display: Option<DisplaySelection>,
+
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,
@@ -482,6 +496,28 @@ pub enum InteractiveMode {
 impl InteractiveMode {
     pub fn is_enabled(self) -> bool {
         !matches!(self, InteractiveMode::Off)
+    }
+}
+
+/// `--display`: one mode of the data-display convention, or `all` (#653).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[value(rename_all = "lowercase")]
+pub enum DisplaySelection {
+    Calm,
+    Text,
+    Visual,
+    All,
+}
+
+impl DisplaySelection {
+    /// The single mode to audit, `None` for `all`.
+    pub fn mode(self) -> Option<crate::display::DisplayMode> {
+        match self {
+            DisplaySelection::Calm => Some(crate::display::DisplayMode::Calm),
+            DisplaySelection::Text => Some(crate::display::DisplayMode::Text),
+            DisplaySelection::Visual => Some(crate::display::DisplayMode::Visual),
+            DisplaySelection::All => None,
+        }
     }
 }
 
@@ -735,6 +771,20 @@ impl Args {
             );
         }
 
+        // One report per mode: a single stdout stream cannot carry several
+        // JSON/SARIF documents. PDF derives a file name, table prints each.
+        if self.display == Some(DisplaySelection::All)
+            && self.output.is_none()
+            && !matches!(
+                self.effective_format(),
+                OutputFormat::Pdf | OutputFormat::Table
+            )
+        {
+            return Err(
+                "--display all writes one report per mode; pass --output <FILE>".to_string(),
+            );
+        }
+
         Ok(())
     }
 }
@@ -847,6 +897,7 @@ mod tests {
             per_page_reports: false,
             dismiss_consent: false,
             interactive: InteractiveMode::Off,
+            display: None,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             also_json: false,

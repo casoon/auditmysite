@@ -52,6 +52,7 @@
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
 //!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
 //!         lang: "de".to_string(),
+//!         display_mode: None,
 //!     };
 //!
 //!     // Run audit
@@ -106,6 +107,7 @@ pub mod commerce;
 pub mod content_visibility;
 pub mod dark_mode;
 pub mod design_quality;
+pub mod display;
 pub mod error;
 pub mod html_conform;
 pub mod i18n;
