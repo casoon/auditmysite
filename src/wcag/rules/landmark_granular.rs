@@ -507,13 +507,21 @@ pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
           }
           return '';
         }
+        // HTML-AAM: header/footer map to banner/contentinfo only when scoped
+        // to body; inside sectioning content or main they are generic, as in
+        // Chrome's AX tree (#639).
+        var SECTIONING_SCOPE =
+          'article, aside, main, nav, section, [role="article"], [role="complementary"], ' +
+          '[role="main"], [role="navigation"], [role="region"]';
         function implicitRole(el) {
           var tag = el.tagName.toLowerCase();
           if (tag === 'main') return 'main';
           if (tag === 'nav') return 'navigation';
           if (tag === 'aside') return 'complementary';
-          if (tag === 'header') return 'banner';
-          if (tag === 'footer') return 'contentinfo';
+          if (tag === 'header' || tag === 'footer') {
+            if (el.parentElement && el.parentElement.closest(SECTIONING_SCOPE)) return '';
+            return tag === 'header' ? 'banner' : 'contentinfo';
+          }
           return '';
         }
 

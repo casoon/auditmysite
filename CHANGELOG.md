@@ -5,6 +5,22 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Zwei Fehlalarme auf geographia.eu (#638, #639), 2026-09-29:** Auf
+  geographia.eu/atmosphere/de/kapitel/hebel/ meldete 1.6.0 zwei Verstoesse gegen 1.3.1, die keine
+  sind. (1) `th-has-data-cells` (8 Vorkommen, hoch): Chrome legt `<thead>` als `rowgroup` in den
+  AX-Baum, markiert das schlichte `<tbody>` aber als ignoriert; Zeilen und Zellen haengen trotzdem
+  darunter. Die Regel liess ignorierte Knoten samt Teilbaum aus, fand so keine einzige Datenzelle
+  und meldete jede Spaltenueberschrift. Leere Zellen und `aria-hidden`-Kinder spielten keine
+  Rolle. Jetzt steigt die Suche durch ignorierte Knoten hindurch, zaehlt sie aber selbst nicht.
+  (2) `landmark-unique` (2 Vorkommen, mittel): Die DOM-Ergaenzung zu den Landmark-Regeln leitete
+  die Rolle aus dem Tag ab und machte jedes `<header>` zum `banner`, auch das Kapitel-`<header>`
+  in `<main>`. Nach HTML-AAM (und in Chromes AX-Baum) sind `<header>`/`<footer>` in `article`,
+  `aside`, `main`, `nav`, `section` oder den entsprechenden Rollen generisch; die DOM-Ergaenzung
+  folgt dem jetzt. Belegt am Live-Lauf: beide Befunde weg, die uebrigen vier unveraendert,
+  Barrierefreiheitswert 75 auf 85. Neue Korpusfaelle `table_headers_tbody_ignored` und
+  `landmark_header_in_main` (echte Negative); `table_headers_no_data` und `landmark_granular`
+  sichern die echten Positive.
+
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
   darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,
