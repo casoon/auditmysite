@@ -1,0 +1,10 @@
+{
+  "case": "input_purpose_name",
+  "expectations": [
+    { "rule_id": "autocomplete-valid", "selector": "#view-name", "verdict": "pass" },
+    { "rule_id": "autocomplete-valid", "selector": "#project-title", "verdict": "pass" },
+    { "rule_id": "autocomplete-valid", "selector": "#upload-target", "verdict": "pass" },
+    { "rule_id": "autocomplete-valid", "selector": "#your-name", "verdict": "violation" },
+    { "rule_id": "autocomplete-valid", "selector": "#given", "verdict": "violation" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case": "on_input_context_change",
+  "expectations": [
+    { "rule_id": "input-no-context-change", "selector": "select#filter-preset", "verdict": "pass" },
+    { "rule_id": "input-no-context-change", "selector": "select#sort-preset", "verdict": "needs_review" },
+    { "rule_id": "input-no-context-change", "selector": "select#sort-preset", "verdict": "pass" },
+    { "rule_id": "input-no-context-change", "selector": "select#grid-language", "verdict": "needs_review" },
+    { "rule_id": "input-no-context-change", "selector": "select#grid-language", "verdict": "pass" },
+    { "rule_id": "input-no-context-change", "selector": "select#jump", "verdict": "violation" },
+    { "rule_id": "input-no-context-change", "selector": "select#per-page", "verdict": "violation" }
+  ]
+}

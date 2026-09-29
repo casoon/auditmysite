@@ -5,6 +5,34 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **3.2.2 On Input: nur echte Kontextwechsel sind Verstoesse, 2026-09-29 (#657):** Auf
+  og-vanilla.casoon.dev (`/filtering`, `/sorting`, `/localization`) meldete
+  `a11y.on_input.risk` Selects fuer Filter-Preset, Sortierung und Sprache als „may trigger
+  navigation", nur weil ihr Name „filter"/„sort"/„language" enthielt und die Seite keinen
+  Absende-Button hat. Die Selects aktualisieren aber nur das Grid daneben — eine Inhaltsaenderung
+  ist kein Kontextwechsel. Jetzt ist nur noch ein Verstoss, was der Inline-`onchange`-Handler
+  (oder die globale Funktion, die er direkt aufruft) sichtbar tut: Navigation (`location…`),
+  Formular absenden (`.submit(`/`.requestSubmit(`), neues Fenster (`window.open(`) oder
+  Fokusverschiebung (`.focus(`). Ein Handler, dessen Wirkung sich nicht ablesen laesst, und ein
+  Name, der nur nach Navigation klingt (language, country, region, navigate, redirect, go to),
+  werden zur Pruefwarnung statt zum Verstoss; „sort" und „filter" fallen als Hinweis ganz weg.
+  Die Einordnung liegt jetzt in Rust (`evaluate`) und ist unit-getestet. Neue Korpus-Fixture
+  `on_input_context_change` (besteht: Filter ohne Handler; Pruefung: inhaltsaendernder Handler,
+  Sprach-Select; Verstoss: Handler navigiert ueber aufgerufene Funktion, Handler sendet Formular).
+
+- **1.3.5 Identify Input Purpose: „Name" einer Sache ist kein Personenname, 2026-09-29 (#658):**
+  Auf og-vanilla.casoon.dev/saved-views galt `#view-name` (Label „Name", Name einer gespeicherten
+  Grid-Ansicht) als Feld fuer den Namen der Nutzerin, weil das Label „name" als Teilstring
+  enthielt. „name" wird jetzt wortweise eingeordnet (Trennung an Satzzeichen und camelCase): ein
+  vorangestelltes Wort, das keine Person und kein technisches Id-Praefix ist („view name",
+  „project name", „company name"), ein folgendes „of/for/der/des/für/von" („Name der Ansicht")
+  und Komposita wie „Dateiname"/„Filename" schliessen das Feld aus; „Name", „Your name",
+  „Full name", „Vorname", „Nachname", „Ihr Name" bleiben Treffer. Ein Sach-Qualifier in `id` oder
+  `name`-Attribut schliesst ein blosses „Name"-Label aus, sofern das andere Attribut nicht die
+  Person nennt. Die Erkennungswoerter sind Englisch und Deutsch zusammengefuehrt (wie bei
+  `media_alternative`), unabhaengig von der Ausgabesprache. Neue Korpus-Fixture
+  `input_purpose_name`.
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
