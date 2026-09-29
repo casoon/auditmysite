@@ -1,0 +1,149 @@
+{
+  "security": {
+    "band": "Excellent",
+    "grade": "A",
+    "headers": {
+      "access_control_allow_credentials": null,
+      "access_control_allow_origin": null,
+      "content_security_policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://chat.casoon.de https://insights.casoon.de; frame-src 'none'; object-src 'none'; base-uri 'self'",
+      "cross_origin_opener_policy": "same-origin",
+      "cross_origin_resource_policy": "cross-origin",
+      "permissions_policy": "camera=(), microphone=(), geolocation=()",
+      "referrer_policy": "strict-origin-when-cross-origin",
+      "strict_transport_security": "max-age=31536000; includeSubDomains; preload",
+      "x_content_type_options": "nosniff",
+      "x_frame_options": "SAMEORIGIN"
+    },
+    "issues": [
+      {
+        "header": "Content-Security-Policy",
+        "issue_type": "unsafe_inline_script",
+        "message": "CSP allows unsafe-inline scripts without nonce/hash protection",
+        "severity": "high",
+        "tier": "baseline"
+      },
+      {
+        "header": "Content-Security-Policy",
+        "issue_type": "unsafe_inline_style",
+        "message": "CSP allows unsafe-inline styles without nonce/hash protection",
+        "severity": "medium",
+        "tier": "baseline"
+      },
+      {
+        "header": "Content-Security-Policy",
+        "issue_type": "missing_frame-ancestors",
+        "message": "CSP missing frame-ancestors directive",
+        "severity": "medium",
+        "tier": "baseline",
+        "values": {
+          "csp_directive": "frame-ancestors"
+        }
+      }
+    ],
+    "protection": {
+      "has_cdn": true,
+      "has_waf": true,
+      "services": [
+        {
+          "is_cdn": true,
+          "is_waf": true,
+          "kind": "CDN + WAF",
+          "name": "Cloudflare"
+        }
+      ]
+    },
+    "recommendations": [
+      "Remove unsafe-inline from CSP or replace it with nonces/hashes for approved inline code",
+      "Harden CSP with object-src 'none', base-uri 'self', and frame-ancestors 'none' or a trusted origin"
+    ],
+    "score": 95,
+    "sourcemap_leaks": {
+      "assets_checked": 8
+    },
+    "ssl": {
+      "has_hsts": true,
+      "hsts_include_subdomains": true,
+      "hsts_max_age": 31536000,
+      "hsts_preload": true,
+      "https": true,
+      "valid_certificate": true
+    }
+  },
+  "mobile": {
+    "band": "Excellent",
+    "content_sizing": {
+      "fits_viewport": true,
+      "has_horizontal_scroll": false,
+      "uses_media_queries": true,
+      "uses_responsive_images": true
+    },
+    "font_sizes": {
+      "base_font_size": 16.0,
+      "legible_percentage": 96.95697784423828,
+      "small_interactive_count": 0,
+      "smallest_font_size": 11.0,
+      "uses_relative_units": true
+    },
+    "grade": "A",
+    "issues": [
+      {
+        "category": "touch_targets",
+        "impact": "Difficult to tap on mobile devices",
+        "issue_type": "small_targets",
+        "message": "1 touch targets are too small (<44x44px) (1 navigation) — e.g. a.inline-flex (37×44px)",
+        "severity": "low",
+        "values": {
+          "small_by_context": [
+            [
+              "navigation",
+              1
+            ]
+          ],
+          "small_target_count": 1,
+          "small_target_samples": [
+            "a.inline-flex (37×44px)"
+          ]
+        }
+      },
+      {
+        "category": "fonts",
+        "impact": "Sub-12px text appears to be decorative only (not on interactive elements) — lower risk",
+        "issue_type": "small_fonts",
+        "message": "Smallest font size is 11.0px (recommended: ≥12px)",
+        "severity": "low",
+        "values": {
+          "smallest_font_px": 11.0
+        }
+      }
+    ],
+    "score": 90,
+    "touch_targets": {
+      "adequate_targets": 158,
+      "crowded_targets": 0,
+      "small_by_context": [
+        [
+          "navigation",
+          1
+        ]
+      ],
+      "small_target_samples": [
+        {
+          "context": "navigation",
+          "height": 44,
+          "selector": "a.inline-flex",
+          "width": 37
+        }
+      ],
+      "small_targets": 1,
+      "total_targets": 159
+    },
+    "viewport": {
+      "has_initial_scale": true,
+      "has_viewport": true,
+      "is_properly_configured": true,
+      "is_scalable": true,
+      "uses_device_width": true,
+      "viewport_content": "width=device-width, initial-scale=1.0"
+    }
+  }
+}
