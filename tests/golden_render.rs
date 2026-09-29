@@ -22,6 +22,22 @@
 //! screenshots are stripped, so no temp screenshot paths (`ams-*-<ts>.png`)
 //! reach the Typst source.
 //!
+//! Known limitation (v1.6.0): two runs on identical input do not yet produce
+//! an empty diff. That needs the separate fix PR (branch
+//! `fix/deterministic-output`) for:
+//! - cache deserialisation: `KnowledgeEntity.properties`
+//!   (`ai_visibility/knowledge_graph.rs`) is `skip_serializing_if` without
+//!   `default`, so most cached `report.json` files fail to parse here (and are
+//!   silent cache misses in the CLI);
+//! - `summary.top_recurring_rules` (`compute_recurring_rules` in
+//!   `audit/report.rs`): HashMap order, sort without a rule_id tie-break, then
+//!   `truncate(10)`, so even the content varies;
+//! - schema entity conflicts (`audit/batch_consistency.rs`, JSON
+//!   `consistency.schema_graph.conflicts` / `structured_data.entity_conflicts`,
+//!   batch Typst "Schema entity identity conflicts"): unsorted HashMap order;
+//! - interactive categories (`interactive_summary.categories`, batch Typst
+//!   "Issues by Category"): unstable order of rows with equal counts.
+//!
 //! Usage (see also `scripts/golden-diff.sh`):
 //!   AUDITMYSITE_GOLDEN_DIR=reports/golden AUDITMYSITE_GOLDEN_OUT=/tmp/golden-main \
 //!     cargo test --release --all-features --test golden_render -- --ignored
