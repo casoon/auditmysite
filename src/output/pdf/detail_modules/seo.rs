@@ -46,7 +46,9 @@ pub(in crate::output::pdf) fn render_seo(
 
     let mut seo_strip = Vec::new();
     if let Some((_, title)) = seo.meta_tags.iter().find(|(key, _)| key == "Titel") {
-        seo_strip.push(MetricStripItem::new("Title", truncate(title, 42)).with_accent("#0f766e"));
+        seo_strip.push(
+            MetricStripItem::new("Title", truncate_with_ellipsis(title, 42)).with_accent("#0f766e"),
+        );
     }
     if let Some(profile) = &seo.profile {
         seo_strip.push(

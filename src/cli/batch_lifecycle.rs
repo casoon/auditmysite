@@ -22,21 +22,26 @@ impl BatchLifecyclePresenter {
     /// Builds the presenter for a real batch run. `--quiet` always wins over
     /// `--progress`, matching the existing `--quiet` contract.
     pub fn new(progress: ProgressPolicy, quiet: bool, console: Console, is_terminal: bool) -> Self {
+        Self::with_visible_sink(progress, quiet, |mode| {
+            Box::new(TerminalProgress::stderr(mode, console, is_terminal))
+        })
+    }
+
+    /// Applies the `--quiet` / `--progress` policy; `visible_sink` builds the
+    /// sink for the non-silent modes. Tests pass a buffer-backed sink here to
+    /// assert that the silent modes never reach it.
+    fn with_visible_sink(
+        progress: ProgressPolicy,
+        quiet: bool,
+        visible_sink: impl FnOnce(ProgressMode) -> Box<dyn ProgressSink>,
+    ) -> Self {
         let sink: Box<dyn ProgressSink> = if quiet {
             Box::new(SilentProgress)
         } else {
             match progress {
                 ProgressPolicy::Never => Box::new(SilentProgress),
-                ProgressPolicy::Auto => Box::new(TerminalProgress::stderr(
-                    ProgressMode::Auto,
-                    console,
-                    is_terminal,
-                )),
-                ProgressPolicy::Always => Box::new(TerminalProgress::stderr(
-                    ProgressMode::Always,
-                    console,
-                    is_terminal,
-                )),
+                ProgressPolicy::Auto => visible_sink(ProgressMode::Auto),
+                ProgressPolicy::Always => visible_sink(ProgressMode::Always),
             }
         };
         Self { sink }
@@ -185,31 +190,65 @@ mod tests {
         assert_eq!(buf_to_string(&buf), seen_at_render);
     }
 
-    #[test]
-    fn quiet_forces_silence_regardless_of_progress_policy() {
-        let presenter = BatchLifecyclePresenter::new(
-            ProgressPolicy::Always,
-            true,
-            Console::stdout(ColorMode::Never),
-            false,
-        );
-        // SilentProgress never touches any writer — calling every method must
-        // not panic and there is nothing to assert on beyond that.
+    /// Builds a presenter through the real policy, with every visible mode
+    /// writing to a shared buffer instead of stderr.
+    fn policy_presenter(
+        progress: ProgressPolicy,
+        quiet: bool,
+    ) -> (BatchLifecyclePresenter, Arc<Mutex<Vec<u8>>>) {
+        let buf = Arc::new(Mutex::new(Vec::new()));
+        let sink_buf = buf.clone();
+        let presenter = BatchLifecyclePresenter::with_visible_sink(progress, quiet, |_| {
+            Box::new(PlainProgress::new(
+                Console::stdout(ColorMode::Never),
+                SharedBuf(sink_buf),
+            ))
+        });
+        (presenter, buf)
+    }
+
+    fn drive_full_lifecycle(presenter: &BatchLifecyclePresenter) {
         presenter.start(1, "x");
         presenter.advance(1, "https://example.com");
         presenter.notice_error("https://example.com", "boom");
+        presenter.notice("info");
         presenter.finish(Verdict::Failed, "done");
     }
 
     #[test]
-    fn progress_never_forces_silence() {
-        let presenter = BatchLifecyclePresenter::new(
+    fn visible_policy_writes_to_the_sink() {
+        // Control for the silence tests below: the same lifecycle through a
+        // visible policy does reach the buffer.
+        let (presenter, buf) = policy_presenter(ProgressPolicy::Always, false);
+        drive_full_lifecycle(&presenter);
+        assert!(!buf_to_string(&buf).is_empty());
+    }
+
+    #[test]
+    fn quiet_forces_silence_regardless_of_progress_policy() {
+        for progress in [
+            ProgressPolicy::Always,
+            ProgressPolicy::Auto,
             ProgressPolicy::Never,
-            false,
-            Console::stdout(ColorMode::Never),
-            false,
+        ] {
+            let (presenter, buf) = policy_presenter(progress, true);
+            drive_full_lifecycle(&presenter);
+            let output = buf_to_string(&buf);
+            assert!(
+                output.is_empty(),
+                "--quiet must stay silent for {progress:?}: {output:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn progress_never_forces_silence() {
+        let (presenter, buf) = policy_presenter(ProgressPolicy::Never, false);
+        drive_full_lifecycle(&presenter);
+        let output = buf_to_string(&buf);
+        assert!(
+            output.is_empty(),
+            "--progress never must stay silent: {output:?}"
         );
-        presenter.start(1, "x");
-        presenter.finish(Verdict::Passed, "done");
     }
 }
