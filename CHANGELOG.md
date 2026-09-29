@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
+  AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).
+  Beide meldeten dieselben Elemente mit unterschiedlich gebildeten Selektoren, sodass nichts
+  zusammengefuehrt wurde: Der Korpusfall `landmark_granular` kam auf 22 statt 11 Vorkommen,
+  `parity_gaps.html` auf 4 statt 2. Massgeblich ist jetzt allein die AX-Pruefung; sie arbeitet
+  mit Chromes berechneten Rollen und Namen und erfasst jede Landmark, die die DOM-Naeherung sieht
+  (dazu `<section>` mit Namen, `form`, und korrekte Rollen fuer verschachtelte `header`/`footer`/
+  `aside`). Die DOM-Ergaenzung meldet nur noch `landmark-main-present`. Der Korpus kann jetzt
+  per `occurrences` die genaue Anzahl pinnen; `landmark_granular` erwartet 11, der neue Fall
+  `landmark_unique_one_per_element` 4 (1.6.0: 6).
+
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
   darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,

@@ -476,8 +476,12 @@ pub fn check_landmark_main_present(tree: &AXTree) -> WcagResults {
 
 /// DOM supplement for landmark parity. Some headless pages expose less
 /// landmark structure through the AX tree than is visible in the DOM; this
-/// mirrors the two deterministic axe cases we care about here: missing main
-/// landmark and same-role landmarks with the same accessible name.
+/// mirrors the deterministic axe case of a missing main landmark.
+///
+/// `landmark-unique` is deliberately not emitted here: `check_landmark_unique`
+/// already reports it from Chrome's computed roles and names, which cover
+/// every landmark this DOM approximation sees. Emitting it from both counted
+/// each landmark twice under different selectors.
 pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
     let js = [
         "(function() {",
@@ -540,26 +544,6 @@ pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
           results.push({ rule_id: 'landmark-main-present', selector: 'document', snippet: '' });
         }
 
-        var byKey = {};
-        for (var j = 0; j < landmarks.length; j++) {
-          var l = landmarks[j];
-          var key = l.role + '\u0000' + l.name;
-          if (!byKey[key]) byKey[key] = [];
-          byKey[key].push(l);
-        }
-        Object.keys(byKey).forEach(function(key) {
-          var group = byKey[key];
-          if (group.length < 2) return;
-          for (var k = 0; k < group.length; k++) {
-            results.push({
-              rule_id: 'landmark-unique',
-              role: group[k].role,
-              selector: group[k].selector,
-              snippet: group[k].snippet
-            });
-          }
-        });
-
         return results;
         "#,
         "})()",
@@ -603,23 +587,6 @@ pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
                     "Page has no main landmark — assistive technologies cannot skip to the primary content".to_string(),
                     "Wrap the page's primary content in a <main> element (or add role=\"main\" to the container)".to_string(),
                 ),
-                "landmark-unique" => {
-                    let role = item
-                        .get("role")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("landmark");
-                    (
-                        &RULE_LANDMARK_UNIQUE,
-                        format!(
-                            "Multiple '{}' landmarks share the same accessible name; they cannot be distinguished",
-                            role
-                        ),
-                        format!(
-                            "Add a unique aria-label to each '{}' landmark so they can be told apart",
-                            role
-                        ),
-                    )
-                }
                 _ => return None,
             };
 
@@ -749,6 +716,27 @@ mod tests {
                 .any(|v| v.rule_id.as_deref() == Some("landmark-unique")),
             "Two navs with the same name should trigger a violation"
         );
+    }
+
+    #[test]
+    fn landmark_unique_reports_each_element_once() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("n1", "navigation", Some("Primary"), Some("root")),
+            node("n2", "navigation", Some("Primary"), Some("root")),
+            node("r1", "region", Some("Details"), Some("root")),
+            node("r2", "region", Some("Details"), Some("root")),
+            node("n3", "navigation", Some("Legal"), Some("root")),
+        ]);
+        let r = check_landmark_unique(&tree);
+        let mut ids: Vec<&str> = r
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some("landmark-unique"))
+            .map(|v| v.node_id.as_str())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, ["n1", "n2", "r1", "r2"]);
     }
 
     #[test]
