@@ -126,16 +126,16 @@ cargo build --release
 
 ```bash
 auditmysite browser detect                    # show what's found
-auditmysite browser install --headless-shell  # recommended, especially on macOS
+auditmysite browser install --headless-shell  # smaller; fallback only (see below)
 auditmysite browser install                   # download Chrome for Testing (opt-in)
 ```
 
-An installed headless shell is preferred over any system browser (unless `--browser-path`,
-`AUDITMYSITE_BROWSER` or `--strict` say otherwise). On macOS a full Chrome runs the AppKit event
-loop even in headless mode; keyboard events a page does not consume go through it on the
-browser's main thread, and under batch concurrency that can stall every open page at once, so
-keyboard journeys time out. The headless shell has no such event loop. `doctor` and the audit
-start warn when a full browser is used on macOS.
+On macOS, batches with keyboard journeys audit one page at a time when a full browser is used:
+Chrome runs the AppKit event loop even in headless mode, and keyboard events a page does not
+consume go through it on the browser's main thread; with several pages at once that can stall
+the whole browser. `--concurrency` overrides this. The headless shell is not affected, but sites
+with bot protection may serve it a challenge page, so it is only used when no system browser is
+found.
 
 ## Quick Start
 
@@ -211,7 +211,7 @@ Primary commands:
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
 - `auditmysite browser detect`: show available browsers
-- `auditmysite browser install [--headless-shell]`: download and install Chrome for Testing or the headless shell into `~/.auditmysite/browsers/` (opt-in, never automatic; the headless shell is preferred once installed)
+- `auditmysite browser install [--headless-shell]`: download and install Chrome for Testing or the headless shell into `~/.auditmysite/browsers/` (opt-in, never automatic; used only when no system browser is found)
 - `auditmysite doctor`: run local diagnostics
 
 Useful flags:

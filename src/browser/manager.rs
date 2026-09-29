@@ -99,16 +99,6 @@ impl BrowserManager {
             resolved.browser.path.display(),
             resolved.browser.version.as_deref().unwrap_or("unknown")
         );
-        if resolver::stalls_on_keyboard_journeys(&resolved.browser) {
-            static WARNED: std::sync::Once = std::sync::Once::new();
-            WARNED.call_once(|| {
-                warn!(
-                    "{} on macOS can stall during keyboard journeys, most often in batch runs. \
-                     Install the headless shell once: auditmysite browser install --headless-shell",
-                    resolved.browser.kind.display_name()
-                );
-            });
-        }
 
         verify_executable(&resolved.browser.path)?;
 

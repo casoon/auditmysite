@@ -615,9 +615,19 @@ impl Args {
         self.timeout.unwrap_or(30)
     }
 
-    /// Returns the effective concurrency (CLI value or default 3).
+    /// Returns the effective concurrency: the CLI value, else 3 — or 1 when
+    /// journeys run on a browser that stalls under parallel keyboard
+    /// journeys (full browser on macOS, plan 65).
     pub fn effective_concurrency(&self) -> usize {
-        self.concurrency.unwrap_or(3)
+        self.concurrency.unwrap_or_else(|| {
+            if self.interactive.is_enabled()
+                && crate::browser::resolver::parallel_journeys_stall(self.chrome_path.as_deref())
+            {
+                1
+            } else {
+                3
+            }
+        })
     }
 
     pub fn effective_format(&self) -> OutputFormat {

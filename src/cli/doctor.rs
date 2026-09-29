@@ -51,10 +51,10 @@ pub fn run_doctor() {
             );
             if crate::browser::resolver::stalls_on_keyboard_journeys(&resolved.browser) {
                 print_check(
-                    "Journey stability",
+                    "Batch concurrency",
                     CheckStatus::Warning,
-                    "full browsers on macOS can stall during keyboard journeys; \
-                     install the headless shell: auditmysite browser install --headless-shell",
+                    "full browser on macOS: batches with journeys audit one page at a time \
+                     (parallel keyboard journeys can stall it); --concurrency overrides",
                 );
             }
         }
