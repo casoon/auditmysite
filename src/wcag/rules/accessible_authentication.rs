@@ -36,7 +36,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const ACCESSIBLE_AUTH_PASTE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ACCESSIBLE_AUTH_PASTE_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.8",
     name: "Accessible Authentication (Minimum)",
     level: WcagLevel::AA,
@@ -47,7 +47,7 @@ pub const ACCESSIBLE_AUTH_PASTE_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag22aa", "wcag338", "cat.forms"],
 };
 
-pub const ACCESSIBLE_AUTH_CAPTCHA_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ACCESSIBLE_AUTH_CAPTCHA_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.8",
     name: "Accessible Authentication (Minimum)",
     level: WcagLevel::AA,

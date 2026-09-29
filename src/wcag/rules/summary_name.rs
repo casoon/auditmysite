@@ -10,7 +10,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const RULE_SUMMARY_NAME: RuleMetadata = RuleMetadata {
+pub(super) const RULE_SUMMARY_NAME: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Summary Accessible Name",
     level: WcagLevel::A,

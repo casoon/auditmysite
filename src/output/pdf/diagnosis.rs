@@ -1,5 +1,6 @@
 //! Diagnosis section and scope helpers for PDF reports.
 
+use crate::output::localized::is_english;
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -12,7 +13,7 @@ pub(super) fn render_diagnosis_section(
     diagnosis: &DiagnosisBlock,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     builder = builder.add_component(Section::new(&diagnosis.section_title).with_level(2));
 
@@ -99,7 +100,7 @@ pub(super) fn render_diagnosis_section(
 }
 
 pub(super) fn output_scope_callout(i18n: &I18n) -> Callout {
-    if i18n.locale() == "en" {
+    if is_english(i18n) {
         Callout::info(
             "This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details and raw data are available in the technical appendix of this report.",
         )

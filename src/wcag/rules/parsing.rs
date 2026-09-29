@@ -27,7 +27,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 // programmatically determinable. That is also where axe-core maps its
 // `duplicate-id-aria` rule (plan 54 §2). It does not cause complete
 // inaccessibility, so this is High, not Critical.
-pub const PARSING_RULE: RuleMetadata = RuleMetadata {
+pub(super) const PARSING_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value",
     level: WcagLevel::A,

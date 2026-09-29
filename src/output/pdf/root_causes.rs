@@ -5,6 +5,7 @@
 //! `problem_profile.rs` in plan 27). Both sections share the letter
 //! assignment, so they move together. No logic changed in the move.
 
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{List, PageBreak, RecommendationCard, SectionHeaderSplit};
 use renderreport::components::charts::Chart;
 use renderreport::components::text::Label;
@@ -65,7 +66,7 @@ pub(super) fn render_root_cause_analysis(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let title = if en {
         "Root Cause Analysis"
     } else {
@@ -241,7 +242,7 @@ pub(super) fn render_timeframe_roadmap(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let title = if en { "Action Plan" } else { "Maßnahmenplan" };
     // Disclose the scope mismatch with the root-cause section above: this plan
     // also includes SEO/Optimization-tier actions, which are not part of the

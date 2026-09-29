@@ -14,7 +14,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
+pub(super) const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Server-side Image Map",
     level: WcagLevel::A,

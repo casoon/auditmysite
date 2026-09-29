@@ -8,7 +8,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.1.1
-pub const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
+pub(super) const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
     id: "2.1.1",
     name: "Keyboard",
     level: WcagLevel::A,
@@ -26,7 +26,7 @@ pub const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
 /// `KEYBOARD_RULE`'s generic 2.1.1 text, which is written around "add
 /// tabindex + a keydown handler" and does not fit here: the element is
 /// already focusable, what it lacks is a role (#571).
-pub const FOCUSABLE_NO_ROLE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUSABLE_NO_ROLE_RULE: RuleMetadata = RuleMetadata {
     id: "2.1.1",
     name: "Keyboard",
     level: WcagLevel::A,
@@ -38,7 +38,7 @@ pub const FOCUSABLE_NO_ROLE_RULE: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for 2.1.2
-pub const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {
+pub(super) const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {
     id: "2.1.2",
     name: "No Keyboard Trap",
     level: WcagLevel::A,

@@ -29,7 +29,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for SVG accessibility (1.1.1)
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Non-text Content - SVG",
     level: WcagLevel::A,

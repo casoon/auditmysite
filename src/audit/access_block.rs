@@ -42,7 +42,7 @@ const THIN_PAGE_ELEMENTS: u32 = 300;
 
 /// What the page shows, collected in one evaluation.
 #[derive(Debug, Default, Deserialize)]
-pub struct PageSignals {
+pub(super) struct PageSignals {
     pub status: Option<u16>,
     #[serde(default)]
     pub title: String,
@@ -54,7 +54,7 @@ pub struct PageSignals {
 }
 
 /// Why the page is not the site's content, or `None` for a regular page.
-pub fn classify(signals: &PageSignals) -> Option<String> {
+pub(super) fn classify(signals: &PageSignals) -> Option<String> {
     if let Some(reason) = blocking_status(signals.status) {
         return Some(reason);
     }
@@ -74,7 +74,7 @@ pub fn classify(signals: &PageSignals) -> Option<String> {
 }
 
 /// The status part of [`classify`], for callers that only know the status.
-pub fn blocking_status(status: Option<u16>) -> Option<String> {
+pub(super) fn blocking_status(status: Option<u16>) -> Option<String> {
     status
         .filter(|s| BLOCKING_STATUS.contains(s))
         .map(|s| format!("the server answered HTTP {s}"))
@@ -101,7 +101,7 @@ const SIGNALS_JS: &str = r#"(() => {
 /// evaluation then fails with "Cannot find context with specified id" (seen
 /// on www.douglas.de). Up to three attempts; if all fail the page counts as
 /// regular here, and the pipeline checks the document status again later.
-pub async fn detect(page: &Page) -> Option<String> {
+pub(super) async fn detect(page: &Page) -> Option<String> {
     for attempt in 0..3 {
         if attempt > 0 {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;

@@ -10,7 +10,7 @@ use crate::wcag::types::{Severity, Violation};
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Der Auslöser wird unabhängig davon angeboten, ob gerade ein Dialog im
     // Baum steht. Ein geschlossener `<dialog>` ist nicht gerendert und hat
     // damit keine Rolle — das ist der Normalfall beim Laden der Seite. Die

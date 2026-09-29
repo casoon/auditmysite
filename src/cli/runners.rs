@@ -57,7 +57,7 @@ fn check_ai_transparency_feature(args: &Args) -> Result<()> {
 
 /// What one audit run leaves behind for `--display all` (#653): its verdict
 /// and the audited URLs that only the `visual` mode can fully audit.
-pub struct RunOutcome {
+pub(crate) struct RunOutcome {
     pub verdict: Verdict,
     pub visual_only_urls: Vec<String>,
 }
@@ -81,7 +81,7 @@ fn visual_only_urls<'a>(
         .collect()
 }
 
-pub async fn run_single_mode(
+pub(crate) async fn run_single_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
@@ -374,7 +374,7 @@ async fn maybe_offer_sitemap_scan(
     Ok(None)
 }
 
-pub fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
+pub(crate) fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
     let mut batch_args = args.clone();
     batch_args.url = None;
     batch_args.sitemap = Some(sitemap_url);
@@ -388,7 +388,7 @@ pub fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
     batch_args
 }
 
-pub async fn run_batch_mode(
+pub(crate) async fn run_batch_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
@@ -644,7 +644,7 @@ async fn run_batch(
 /// one report per mode — never a blended score. `calm` and `text` audit every
 /// page; `visual` only the pages the `calm` run found with 3D or interactive
 /// visualisations, with twice the page timeout.
-pub async fn run_display_all(
+pub(crate) async fn run_display_all(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
     is_batch: bool,

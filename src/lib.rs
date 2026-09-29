@@ -95,6 +95,8 @@
 //! frozen in the
 //! [parity contract](https://github.com/casoon/auditmysite/blob/main/docs/PARITY_CONTRACT.md).
 
+#![warn(unreachable_pub)]
+
 pub mod a11y_journey;
 pub mod accessibility;
 pub mod ai_transparency;

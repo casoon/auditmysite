@@ -15,7 +15,7 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 /// Own id: axe-core has no rule for missing fieldset grouping. The id used to
 /// be `form-field-multiple-labels`, which in axe-core means a field with more
 /// than one `<label>` — a different defect (plan 56).
-pub const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Info and Relationships - Forms",
     level: WcagLevel::A,
@@ -27,7 +27,7 @@ pub const RULE_META_STRUCTURE: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for error identification rules (3.3.1)
-pub const RULE_META_ERROR: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_ERROR: RuleMetadata = RuleMetadata {
     id: "3.3.1",
     name: "Error Identification",
     level: WcagLevel::A,
@@ -39,7 +39,7 @@ pub const RULE_META_ERROR: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for labels/instructions (3.3.2)
-pub const RULE_META_LABELS: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_LABELS: RuleMetadata = RuleMetadata {
     id: "3.3.2",
     name: "Labels or Instructions",
     level: WcagLevel::A,
@@ -51,7 +51,7 @@ pub const RULE_META_LABELS: RuleMetadata = RuleMetadata {
 };
 
 /// Rule metadata for forms without an explicit submit control (H32).
-pub const RULE_META_FORM_NO_SUBMIT: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META_FORM_NO_SUBMIT: RuleMetadata = RuleMetadata {
     id: "3.2.2",
     name: "On Input",
     level: WcagLevel::A,

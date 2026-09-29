@@ -12,7 +12,7 @@ pub(in crate::output::pdf) fn render_dark_mode(
         i18n.t("pdf-dm-status-not-supported")
     };
     let dm_title = i18n.t("section-dark-mode");
-    let dm_takeaway = match (dm.supported, i18n.locale() == "en") {
+    let dm_takeaway = match (dm.supported, is_english(i18n)) {
         (true, true) => "The page supports a dark color scheme.",
         (true, false) => "Die Seite unterstützt ein dunkles Farbschema.",
         (false, true) => "No dark color scheme support was detected.",

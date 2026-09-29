@@ -74,7 +74,7 @@ fn is_visually_reordered(children: &[ChildOrder]) -> bool {
         .any(|(dom, visual)| dom.dom_index != visual.dom_index)
 }
 
-pub const MEANINGFUL_SEQUENCE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const MEANINGFUL_SEQUENCE_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.2",
     name: "Meaningful Sequence",
     level: WcagLevel::A,

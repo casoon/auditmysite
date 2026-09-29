@@ -9,14 +9,14 @@ pub fn saturating_penalty(count: f64, max_penalty: f64, pivot: f64) -> f64 {
 }
 
 /// Calculate a dimension score (100 minus capped penalties).
-pub fn dimension_score(penalties: &[f64], cap: f64) -> u32 {
+pub(super) fn dimension_score(penalties: &[f64], cap: f64) -> u32 {
     let sum: f64 = penalties.iter().sum();
     let capped = sum.min(cap);
     (100.0 - capped).max(0.0).round() as u32
 }
 
 /// Weighted average of dimension scores.
-pub fn weighted_average(items: &[(u32, f64)]) -> u32 {
+pub(super) fn weighted_average(items: &[(u32, f64)]) -> u32 {
     let total_weight: f64 = items.iter().map(|(_, w)| w).sum();
     if total_weight == 0.0 {
         return 0;

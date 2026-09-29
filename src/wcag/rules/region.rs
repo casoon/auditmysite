@@ -7,7 +7,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for region/landmark check
-pub const RULE_META: RuleMetadata = RuleMetadata {
+pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Region",
     level: WcagLevel::A,

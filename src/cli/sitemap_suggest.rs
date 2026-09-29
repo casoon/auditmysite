@@ -10,7 +10,7 @@ use auditmysite::audit::count_sitemap_entries_shallow;
 use auditmysite::error::{AuditError, Result};
 use auditmysite::util::build_browser_client;
 
-pub async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
+pub(crate) async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
     let mut candidates = sitemap_candidates(base_url)?;
     for robots_sitemap in sitemap_candidates_from_robots(base_url).await {
         if !candidates.contains(&robots_sitemap) {
@@ -27,7 +27,7 @@ pub async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String
     Ok(None)
 }
 
-pub fn sitemap_candidates(base_url: &str) -> Result<Vec<String>> {
+pub(crate) fn sitemap_candidates(base_url: &str) -> Result<Vec<String>> {
     let parsed = url::Url::parse(base_url).map_err(|e| AuditError::ConfigError(e.to_string()))?;
     let base = parsed
         .join("/")
@@ -86,7 +86,7 @@ async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
 /// is treated as "server reachable"; Chrome handles auth and bot challenges itself.
 /// Waits as long as the page load may (`timeout_secs`, `-t`): www.ing.de takes
 /// 9–10 s for any answer and failed a fixed 10-second check.
-pub async fn check_url_reachable(url: &str, timeout_secs: u64, quiet: bool) -> Result<()> {
+pub(crate) async fn check_url_reachable(url: &str, timeout_secs: u64, quiet: bool) -> Result<()> {
     if !quiet {
         println!("{} {}", "Checking:".dimmed(), url);
     }
@@ -123,7 +123,7 @@ pub async fn check_url_reachable(url: &str, timeout_secs: u64, quiet: bool) -> R
     Ok(())
 }
 
-pub fn looks_like_base_url(url: &str) -> bool {
+pub(crate) fn looks_like_base_url(url: &str) -> bool {
     let Ok(parsed) = url::Url::parse(url) else {
         return false;
     };

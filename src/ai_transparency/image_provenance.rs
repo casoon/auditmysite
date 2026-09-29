@@ -59,7 +59,7 @@ struct RawImageUrls {
 /// Run the ai-transparency analysis on the already-loaded page: collect
 /// `<img>` source URLs, fetch each (bounded, hardened), and check for a C2PA
 /// manifest asserting AI/algorithmic generation.
-pub async fn analyze_ai_transparency(page: &Page) -> Result<AiTransparencyAnalysis> {
+pub(super) async fn analyze_ai_transparency(page: &Page) -> Result<AiTransparencyAnalysis> {
     let js_code = format!("(() => {{ {EXTRACT_JS} }})();");
     let eval_result = page.evaluate(js_code.as_str()).await.map_err(|e| {
         AuditError::CdpError(format!("AI transparency image extraction failed: {e}"))

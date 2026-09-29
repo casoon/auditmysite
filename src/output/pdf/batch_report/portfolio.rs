@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{Grid, KeyValueList, SectionHeaderSplit};
 use renderreport::components::charts::{Gauge, GaugeThreshold};
 use renderreport::components::{AuditTable, BenchmarkRow, BenchmarkTable, TableColumn};
@@ -20,7 +21,7 @@ pub(super) fn render_batch_module_portfolio(
         return builder;
     }
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-module-portfolio-title"),
@@ -249,7 +250,7 @@ pub(super) fn render_batch_impact_summary(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let dist = &pres.portfolio_summary.severity_distribution;
     let a11y_avg = pres.portfolio_summary.average_score.round() as u32;
 

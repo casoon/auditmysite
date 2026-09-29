@@ -22,7 +22,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const FOCUS_NOT_OBSCURED_ENHANCED_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUS_NOT_OBSCURED_ENHANCED_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.12",
     name: "Focus Not Obscured (Enhanced)",
     level: WcagLevel::AAA,

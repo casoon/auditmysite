@@ -21,6 +21,7 @@ use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
 use super::helpers::localized_module_name;
+use crate::output::localized::is_english;
 
 use crate::audit::normalized::AuditContext;
 use crate::audit::summary::analyze_with_locale;
@@ -293,7 +294,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             dominant_issue_note: audit_summary.dominant_issue_note.clone(),
             audit_quality_note: {
                 use crate::audit::AuditQualityStatus;
-                let en = i18n.locale() == "en";
+                let en = is_english(&i18n);
                 match normalized.normalized.execution.quality.status {
                     AuditQualityStatus::Complete => None,
                     // Framed as a normal automated-audit coverage limitation, not

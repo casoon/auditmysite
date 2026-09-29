@@ -31,7 +31,7 @@ const ADD_TO_CART_HINTS: &[&str] = &[
     "add to bag",
 ];
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let trigger = tree
         .iter()
         .filter(|n| matches!(n.role.as_deref(), Some("button") | Some("link")))

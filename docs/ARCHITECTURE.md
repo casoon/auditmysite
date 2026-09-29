@@ -108,7 +108,10 @@ src/
 │
 ├── audit/               # Audit orchestration
 │   ├── mod.rs
-│   ├── pipeline.rs      # Single page audit flow
+│   ├── pipeline/        # Single page audit flow
+│   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
+│   │   ├── assembly.rs  # Sync post-processing: WCAG merge, viewport scores, report aggregation, module runs, audit quality
+│   │   └── throttled.rs # Throttled performance passes (single URL), tab recovery, canonical LhMobile adoption
 │   ├── batch.rs         # Sitemap/batch processing
 │   ├── access_block.rs  # Bot walls/access denials: blocked pages fail instead of being scored
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
@@ -147,6 +150,8 @@ src/
 │   ├── builder/         # AuditReport → PDF ViewModel transformation
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
 │   │   └── single/      # Single-report builder (findings, etc.)
+│   │       └── module_details.rs + module_details/ # Per-module detail presentations,
+│   │                        # one file per module (mirrors pdf/detail_modules/)
 │   ├── pdf/             # PDF reports (via renderreport/Typst)
 │   │   ├── mod.rs, single_report.rs, batch_report.rs
 │   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
@@ -214,7 +219,9 @@ src/
 │   ├── schema_parity.rs # Conservative visible-content vs. JSON-LD comparison
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang
-│   ├── page_health.rs   # Aggregated issue collection (collect_issues)
+│   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
+│   ├── page_health/     # dom.rs (DOM inspection, local HTML validation), probes.rs
+│   │                    # (HTTP probes), issues.rs (collect_issues)
 │   ├── image_efficiency.rs # Image format and resolution analysis
 │   └── ...
 │

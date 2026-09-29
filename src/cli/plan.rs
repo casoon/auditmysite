@@ -16,7 +16,7 @@ use crate::output_paths::{
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
 
-pub fn print_banner() {
+pub(crate) fn print_banner() {
     eprintln!(
         "{}",
         r#"
@@ -38,7 +38,7 @@ pub fn print_banner() {
 
 // ─── Plan display ─────────────────────────────────────────────────────────────
 
-pub fn print_single_audit_plan(args: &Args, url: &str) {
+pub(crate) fn print_single_audit_plan(args: &Args, url: &str) {
     if args.quiet {
         return;
     }
@@ -54,7 +54,7 @@ pub fn print_single_audit_plan(args: &Args, url: &str) {
     eprintln!();
 }
 
-pub fn print_batch_audit_plan(args: &Args, total_urls: usize) {
+pub(crate) fn print_batch_audit_plan(args: &Args, total_urls: usize) {
     if args.quiet {
         return;
     }
@@ -85,7 +85,7 @@ pub fn print_batch_audit_plan(args: &Args, total_urls: usize) {
 
 // ─── Planned output path lists ────────────────────────────────────────────────
 
-pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
+pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
     match args.effective_format() {
         OutputFormat::Pdf => {
             let path = args
@@ -130,10 +130,10 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
     }
 }
 
-pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
+pub(crate) fn planned_batch_outputs(args: &Args) -> Vec<String> {
     if args.per_page_reports {
         let dir = per_page_output_directory(args);
-        let mut outputs = vec![format!("{}/*", dir.display())];
+        let mut outputs = vec![dir.join("*").display().to_string()];
         if args.effective_format() == OutputFormat::Json {
             outputs.push(dir.join("index.json").display().to_string());
             outputs.push(dir.join("findings.jsonl").display().to_string());
@@ -164,7 +164,7 @@ pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
 
 // ─── Module label ─────────────────────────────────────────────────────────────
 
-pub fn active_modules_label(args: &Args) -> String {
+pub(crate) fn active_modules_label(args: &Args) -> String {
     PipelineConfig::from(args).active_module_labels().join(", ")
 }
 
@@ -213,6 +213,20 @@ mod tests {
                 "out/tech/findings.jsonl".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn planned_batch_outputs_trailing_slash_gives_no_double_slash() {
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "--url-file",
+            "urls.txt",
+            "--technician",
+            "-o",
+            "out/tech/",
+        ]);
+        args.apply_technician_preset();
+        assert_eq!(planned_batch_outputs(&args)[0], "out/tech/*");
     }
 
     #[test]

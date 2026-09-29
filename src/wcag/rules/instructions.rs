@@ -8,7 +8,7 @@ use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 3.3.2
-pub const INSTRUCTIONS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const INSTRUCTIONS_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.2",
     name: "Labels or Instructions",
     level: WcagLevel::A,

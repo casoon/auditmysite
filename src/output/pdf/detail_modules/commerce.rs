@@ -11,7 +11,7 @@ pub(in crate::output::pdf) fn render_commerce(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let title = i18n.t("section-commerce");
     let takeaway = if let Some(ref p) = c.product {
         if en {

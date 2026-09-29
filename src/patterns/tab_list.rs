@@ -13,7 +13,7 @@ use crate::wcag::types::{Severity, Violation};
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
-pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
+pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let tablists = tree.nodes_with_role("tablist");
     if tablists.is_empty() {
         return;

@@ -5,6 +5,53 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.7.0, 2026-09-30:** Neue Funktionen: Techniker-Modus `--technician` (JSON je Seite plus
+  `index.json` und `findings.jsonl`, Pfadfilter `--include-path`/`--exclude-path`, Plan 67),
+  Darstellungsmodi `--display calm|text|visual|all` (#653), Ausschluss absichtlicher Beispiele ueber
+  `data-audit-exclude`/`--exclude-selector`, sichtbar im Bericht (#645), und vollstaendig
+  englische PDF-Berichte mit `--lang en`. Dazu die Fehlalarm-Korrekturen aus #638-#659 und
+  #673/#674 sowie der Umbau aus Plan 66 (WP0-WP8, Ausgabe per Golden-Harness unveraendert). Crate-
+  Metadaten: `documentation` zeigt auf https://casoon.github.io/auditmysite/, `homepage` auf
+  https://auditmysite.casoon.de/. Einzelheiten in den Eintraegen darunter.
+
+- **Refactoring API-Oberflaeche (Plan 66 WP8), 2026-09-29:** Reiner Umbau
+  ohne Aenderung an Ausgabe oder oeffentlicher Bibliotheks-API. Die 199 Stellen, die der Lint
+  `unreachable_pub` meldet (158 in der Bibliothek, 41 im Binary), sind nach Compiler-Vorschlag auf
+  `pub(super)` (140) bzw. `pub(crate)` (59) verengt — fuer Bibliotheksnutzer waren sie ohnehin
+  unsichtbar; erreichbare `pub`-Items bleiben unangetastet (Semver/Studio, 1.7). `lib.rs` und
+  `main.rs` setzen jetzt `#![warn(unreachable_pub)]`. Die 100 Vergleiche
+  `i18n.locale() == "en"` laufen ueber den vorhandenen Helfer `output::localized::is_english`;
+  dafuer ist `output::localized` nicht mehr an das Feature `pdf` gebunden (nur `pick` bleibt es).
+  Verifiziert: Golden-Harness vor/nach identisch, Clippy mit beiden Feature-Sets.
+- **Refactoring `audit/pipeline.rs` (Plan 66 WP7), 2026-09-29:** Reine
+  Verschiebung ohne Aenderung an Ablauf oder Ausgabe. `src/audit/pipeline.rs` ist jetzt das
+  Verzeichnis `src/audit/pipeline/`: `mod.rs` behaelt `PipelineConfig`, `run_single_audit`,
+  `audit_page` mit beiden Viewport-Durchlaeufen, die Regellaeufe und die Artefakt-Persistenz;
+  `assembly.rs` nimmt die synchrone Nachbearbeitung auf (WCAG-Zusammenfuehrung, Viewport-Scores,
+  `aggregate_report`, Modul-Laeufe, Audit-Qualitaet); `throttled.rs` die gedrosselten
+  Performance-Durchlaeufe samt `recover_after_throttled_failure` und der Uebernahme des
+  LhMobile-Werts. In `audit_page` sind nur die wortgleichen Doppelungen herausgezogen (die drei
+  `prepare_*_collection`-Aufrufe je Durchlauf, der Screenshot-Match); Reihenfolge von
+  Ausschluessen (#645), Darstellungsmodi (#653) und Journeys unveraendert, ein gemeinsamer
+  `run_viewport_pass` bewusst nicht. Oeffentliche Pfade (`auditmysite::audit::{audit_page,
+  run_single_audit, PipelineConfig}`) bleiben. Verifiziert: Golden-Harness vor/nach identisch,
+  `integration_test` und `detection_corpus_test` (`--ignored`) gegen echtes Chrome.
+- **Refactoring: Modul-Details und Page Health als Verzeichnismodule (Plan 66 WP6), 2026-09-29:**
+  Reiner Umbau ohne Verhaltensaenderung. `output/builder/single/module_details.rs` (2.618 Zeilen)
+  ist jetzt ein Verzeichnismodul mit einer Datei je Modul, gespiegelt an `output/pdf/detail_modules/`:
+  `performance.rs`, `seo.rs`, `platform.rs` (Security, Mobile), `html_conform.rs`, `commerce.rs`,
+  `dark_mode.rs`, `design_quality.rs`, `ai_transparency.rs`, `experience.rs` (UX, Journey); die
+  Orchestrierung (`build_module_details_from_normalized`) bleibt in `module_details.rs`. Die
+  Inline-Berechnungen im `SeoPresentation`-Literal sind benannte Funktionen (`heading_summary`,
+  `social_summary`, `technical_summary_rows`, `tracking_summary_rows`,
+  `build_robots_presentation`, `build_image_efficiency_presentation`, `technical_issue_rows`).
+  `seo/page_health.rs` (3.128 Zeilen) behaelt Typen, Textfunktionen, `analyze_page_health` und die
+  URL-Analyse; neu sind `page_health/dom.rs` (DOM-Inspektion, lokale HTML-Validierung),
+  `page_health/probes.rs` (HTTP-Proben) und `page_health/issues.rs` (`collect_issues`). Alle
+  oeffentlichen Pfade bleiben (`seo::page_health::collect_issues` per `pub use`). Die Umbenennung
+  `run_w3c_html_validation` → `run_local_html_validation` war bereits mit WP9 erledigt.
+  Verifiziert mit dem Golden-Harness (WP0) gegen `main`: `diff -r` leer.
+
 - **Darstellungsmodi (`data-display`-Konvention), 2026-09-29 (#653):** Neues Modul `src/display/`
   und neue Option `--display calm|text|visual|all`. Ohne Option bleibt alles wie bisher (Voreinstellung
   der Seite). Mit einem Modus schreibt ein vor der Navigation injiziertes Skript

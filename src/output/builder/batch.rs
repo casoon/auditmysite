@@ -1,5 +1,6 @@
 //! Batch-report presentation builder.
 
+use crate::output::localized::is_english;
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedFinding;
@@ -92,7 +93,7 @@ pub fn build_batch_presentation_with_normalized(
         "batch presentation requires one normalized report per raw report"
     );
     let localized: Vec<NormalizedReport>;
-    let normalized_reports = if i18n.locale() == "en" {
+    let normalized_reports = if is_english(i18n) {
         normalized_reports
     } else {
         let texts: std::collections::HashMap<String, String> = batch
@@ -256,7 +257,7 @@ pub fn build_batch_presentation_with_normalized(
                         profile
                             .page_classification
                             .primary_type
-                            .label(i18n.locale() == "en")
+                            .label(is_english(i18n))
                             .to_string()
                     }),
                 page_attributes: r
@@ -277,13 +278,13 @@ pub fn build_batch_presentation_with_normalized(
                     .map(|g| g.title.clone())
                     .or_else(|| {
                         r.discoverability.seo.as_ref().and_then(|seo| {
-                            seo.content_profile.as_ref().map(|cp| {
-                                page_profile_optimization_note_text(cp, i18n.locale() == "en")
-                            })
+                            seo.content_profile
+                                .as_ref()
+                                .map(|cp| page_profile_optimization_note_text(cp, is_english(i18n)))
                         })
                     })
                     .unwrap_or_else(|| {
-                        if i18n.locale() == "en" {
+                        if is_english(i18n) {
                             "Maintain results".to_string()
                         } else {
                             "Ergebnisse stabil halten".to_string()
@@ -343,7 +344,7 @@ pub fn build_batch_presentation_with_normalized(
         }
     };
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut page_type_counts: HashMap<String, usize> = HashMap::new();
     let mut page_semantic_scores: Vec<(String, String, u32)> = Vec::new();
     let mut thin_pages = 0usize;
@@ -530,7 +531,7 @@ pub fn build_batch_presentation_with_normalized(
                 .iter()
                 .filter(|rb| rb.has_blocking())
                 .count();
-            let en = i18n.locale() == "en";
+            let en = is_english(i18n);
             let (
                 label_pages_analyzed,
                 label_pages_blocking,
@@ -705,7 +706,7 @@ pub fn build_batch_presentation_with_normalized(
         use crate::audit::normalized::RiskLevel;
         let worst = crate::audit::compute_worst_risk(normalized_reports);
         let level_str = worst.label_localized(i18n);
-        let en = i18n.locale() == "en";
+        let en = is_english(i18n);
         let summary = match (worst, en) {
             (RiskLevel::Low, true) => "The audited pages overall show a low accessibility risk.",
             (RiskLevel::Low, false) => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
@@ -745,7 +746,7 @@ pub fn build_batch_presentation_with_normalized(
     let grade =
         AccessibilityScorer::calculate_grade(average_accessibility_score as f32).to_string();
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let template_clusters: Vec<TemplateClusterView> = batch
         .summary
         .template_clusters

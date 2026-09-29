@@ -16,7 +16,7 @@ use auditmysite::taxonomy::Severity;
 
 use crate::plan::{print_banner, print_batch_audit_plan, print_single_audit_plan};
 
-pub async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
+pub(crate) async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
     match command {
         Command::Browser { action } => handle_browser_command(action).await,
         Command::Doctor => {
@@ -542,7 +542,7 @@ async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
     }
 }
 
-pub fn detect_chrome_command(args: &Args) -> Result<f64> {
+pub(crate) fn detect_chrome_command(args: &Args) -> Result<f64> {
     println!("{}", "Searching for Chrome/Chromium...".cyan().bold());
     println!();
 

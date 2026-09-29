@@ -13,7 +13,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const USE_OF_COLOR_RULE: RuleMetadata = RuleMetadata {
+pub(super) const USE_OF_COLOR_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.1",
     name: "Use of Color",
     level: WcagLevel::A,

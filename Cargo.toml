@@ -1,13 +1,13 @@
 [package]
 name = "auditmysite"
-version = "1.6.0"
+version = "1.7.0"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.2 AA Accessibility Checker in Rust"
 license = "MIT"
 repository = "https://github.com/casoon/auditmysite"
-homepage = "https://www.casoon.de"
-documentation = "https://auditmysite.casoon.dev/"
+homepage = "https://auditmysite.casoon.de/"
+documentation = "https://casoon.github.io/auditmysite/"
 keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
 categories = ["command-line-utilities", "web-programming"]
 readme = "README.md"

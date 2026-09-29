@@ -37,7 +37,7 @@ pub(in crate::output::pdf) fn render_ux(
         super::a11y_penalty_note(builder, ux.a11y_penalty, ux.score_before_a11y_penalty, i18n);
 
     // The struct carries canonical English; re-derive everything in the run language.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // Dimension scores as KeyValueList
     let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
@@ -117,7 +117,7 @@ pub(in crate::output::pdf) fn render_journey(
     );
 
     // The struct carries canonical English; re-derive everything in the run language.
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // Page intent
     let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));

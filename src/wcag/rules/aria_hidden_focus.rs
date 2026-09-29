@@ -10,7 +10,7 @@ use tracing::warn;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const ARIA_HIDDEN_FOCUS_RULE: RuleMetadata = RuleMetadata {
+pub(super) const ARIA_HIDDEN_FOCUS_RULE: RuleMetadata = RuleMetadata {
     id: "aria-hidden-focus",
     name: "aria-hidden-focus",
     level: WcagLevel::A,

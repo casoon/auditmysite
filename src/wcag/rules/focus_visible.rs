@@ -25,7 +25,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const FOCUS_VISIBLE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const FOCUS_VISIBLE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.7",
     name: "Focus Visible",
     level: WcagLevel::AA,

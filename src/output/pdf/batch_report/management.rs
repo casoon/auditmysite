@@ -1,3 +1,4 @@
+use crate::output::localized::is_english;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, KeyValueList, List};
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -83,7 +84,7 @@ pub(super) fn render_batch_audit_flags(
         return builder;
     }
 
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut rows = Vec::new();
     for summary in summaries {
         let pages = if en {
@@ -121,7 +122,7 @@ pub(super) fn build_batch_assessment(
     dist: &SeverityDistribution,
     i18n: &I18n,
 ) -> String {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let score = summary.average_score.round() as u32;
     // Score band is the primary signal; severity only refines wording within a
     // band. A low average must never yield a reassuring label (mirrors the
@@ -192,7 +193,7 @@ pub(super) fn render_batch_management_risks(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let dist = &pres.portfolio_summary.severity_distribution;
     let avg = pres.portfolio_summary.average_score.round() as u32;
     let seo = pres
@@ -328,7 +329,7 @@ pub(super) fn render_batch_internal_comparison(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     // The internal comparison and outlier detection only carry meaning across a
     // real sample. With one or two URLs "best vs weakest" is identical or
@@ -442,7 +443,7 @@ pub(super) fn render_batch_decision_actions(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut table = AuditTable::new(vec![
         TableColumn::new(if en {
             "Action / root cause"
@@ -518,7 +519,7 @@ pub(super) fn build_batch_key_points(
     dist: &SeverityDistribution,
     i18n: &I18n,
 ) -> Vec<String> {
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
     let mut points = Vec::with_capacity(3);
 
     // Point 1: Critical/high count across all URLs

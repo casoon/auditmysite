@@ -15,7 +15,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{evaluate_or_fail, RuleMetadata, Severity, Violation};
 
-pub const REDUNDANT_ROLE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const REDUNDANT_ROLE_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value",
     level: WcagLevel::A,

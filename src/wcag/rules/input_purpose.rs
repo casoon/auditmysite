@@ -17,7 +17,7 @@ use chromiumoxide::Page;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
-pub const INPUT_PURPOSE_RULE: RuleMetadata = RuleMetadata {
+pub(super) const INPUT_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.5",
     name: "Identify Input Purpose",
     level: WcagLevel::AA,

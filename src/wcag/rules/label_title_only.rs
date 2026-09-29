@@ -12,7 +12,7 @@ use crate::accessibility::{AXTree, NameSource};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
-pub const RULE_LABEL_TITLE_ONLY: RuleMetadata = RuleMetadata {
+pub(super) const RULE_LABEL_TITLE_ONLY: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Label Title Only",
     level: WcagLevel::A,

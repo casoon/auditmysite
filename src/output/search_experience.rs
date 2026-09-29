@@ -7,6 +7,7 @@
 use crate::assessment::AssessmentLevel;
 use crate::audit::normalized::AuditContext;
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{SearchExperienceComponent, SearchExperiencePresentation};
 use crate::seo::profile::PageType;
 
@@ -22,7 +23,7 @@ pub fn build_search_experience(
     i18n: &I18n,
 ) -> Option<SearchExperiencePresentation> {
     let seo = normalized.raw_seo?;
-    let en = i18n.locale() == "en";
+    let en = is_english(i18n);
 
     let mut components = Vec::new();
 
