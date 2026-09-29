@@ -25,9 +25,9 @@ use super::rules::{
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
-    check_media_rules, check_page_titled, check_parsing, check_region, check_section_headings,
-    check_skip_link, check_status_messages, check_summary_name, check_svg_rules,
-    check_table_extended, check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_media_rules, check_parsing, check_region, check_section_headings, check_skip_link,
+    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
+    check_text_alternatives, check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -140,8 +140,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 2.4.1 Bypass Blocks (Level A)
     run_if_allowed!(filter, "bypass", check_bypass_blocks, results, tree);
 
-    // 2.4.2 Page Titled (Level A)
-    run_if_allowed!(filter, "document-title", check_page_titled, results, tree);
+    // 2.4.2 Page Titled (Level A) runs only as the DOM page rule
+    // `check_page_titled_with_page`: the AX root name falls back to the URL
+    // when the title is missing, and a second check here counted it twice.
 
     // 2.4.4 Link Purpose (In Context) (Level A)
     run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
