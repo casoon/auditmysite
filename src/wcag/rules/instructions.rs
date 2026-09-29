@@ -103,7 +103,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
             // Check for inputs with format requirements. Guessed from the
             // label wording alone, so it can only ask for review, never
             // confirm a failure (#643).
-            if needs_format_instructions(&role_lower, node) && !has_format_hint(node) {
+            if needs_format_instructions(node) && !has_format_hint(node) {
                 let violation = Violation::new(
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
@@ -285,8 +285,15 @@ fn indicates_required(node: &AXNode) -> bool {
     false
 }
 
-/// Check if input type typically needs format instructions
-fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
+/// Check if the label asks for data with a format the user has to know.
+///
+/// Decided from the label alone. The `spinbutton` role is no signal of its
+/// own: WCAG 3.3.2 asks for instructions where input must follow a format
+/// the user cannot infer, and a spinbutton — native `<input type=number>` or
+/// custom `role="spinbutton"` — holds a number the widget itself constrains
+/// and steps with the arrow keys. A spinbutton whose label asks for a
+/// format-sensitive value ("Postal code") is still caught by the label (#656).
+fn needs_format_instructions(node: &AXNode) -> bool {
     let name = node.name.as_deref().unwrap_or("").to_lowercase();
 
     let format_sensitive = [
@@ -359,7 +366,6 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
     format_sensitive
         .iter()
         .any(|&term| contains_format_term(&name, term))
-        || role == "spinbutton"
 }
 
 /// Terms shorter than five characters ("pass", "tel", "date", "zip", "plz",
@@ -649,9 +655,8 @@ mod tests {
     /// #643: "Was ist passiert?" contains "pass" but is no passport field.
     #[test]
     fn test_short_terms_match_whole_words_only() {
-        let needs = |name: &str| {
-            needs_format_instructions("textbox", &create_input("1", "textbox", Some(name)))
-        };
+        let needs =
+            |name: &str| needs_format_instructions(&create_input("1", "textbox", Some(name)));
         assert!(!needs("Was ist passiert?"));
         assert!(!needs("Hotel"));
         assert!(!needs("Last update"));
@@ -678,11 +683,14 @@ mod tests {
         }
     }
 
-    /// A custom spinbutton still asks for format instructions.
+    /// #656: a spinbutton, native or custom, holds a number the widget
+    /// constrains — no format hint just for the role; the label still counts.
     #[test]
-    fn test_custom_spinbutton_still_needs_format_hint() {
-        let tree = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Quantity"))]);
-        assert_eq!(format_findings(&check_instructions(&tree)).len(), 1);
+    fn test_spinbutton_needs_format_hint_only_by_label() {
+        let quantity = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Quantity"))]);
+        assert!(format_findings(&check_instructions(&quantity)).is_empty());
+        let postal = AXTree::from_nodes(vec![create_input("s", "spinbutton", Some("Postal code"))]);
+        assert_eq!(format_findings(&check_instructions(&postal)).len(), 1);
     }
 
     fn group_with_html_tag(id: &str, tag: &str, name: Option<&str>) -> AXNode {

@@ -27,13 +27,15 @@ short current-state summary. Newest entries first (unchanged order from before t
   `widget_rules.rs` entfaellt; der eigene `role="slider"` ohne `aria-valuenow` bleibt ein Verstoss.
 
   (3) Die 3.3.2-Heuristik „may require format instructions" uebergeht Knoten innerhalb der
-  Chrome-Rollen `Date`/`DateTime`/`InputTime` — deren Felder und Format stellt der Browser. Native
-  `<input type=number>` bleibt vorerst drin (die Heuristik wertet jeden `spinbutton` als
-  formatempfindlich).
+  Chrome-Rollen `Date`/`DateTime`/`InputTime` — deren Felder und Format stellt der Browser. Die
+  Rolle `spinbutton` allein loest den Hinweis nicht mehr aus: 3.3.2 verlangt Anleitungen, wo die
+  Eingabe einem Format folgen muss, das man nicht erschliessen kann; ein Spinbutton — natives
+  `<input type=number>` wie eigenes `role="spinbutton"` — haelt eine Zahl, die das Widget selbst
+  begrenzt und mit den Pfeiltasten schrittweise aendert. Die Erkennung ueber die Beschriftung
+  („Date", „Postal code") gilt weiter fuer jede Rolle.
 
   Live nachgeprueft mit dem Release-Build gegen og-vanilla.casoon.dev: keine Accordion-, keine
-  `aria-valuenow`- und keine Slider-Wert-Befunde mehr; auf /filtering bleiben zwei
-  Format-Hinweise fuer die nativen Zahlenfelder. Neue Korpus-Fixtures `treegrid_expandable_rows`,
+  `aria-valuenow`-, keine Slider-Wert- und keine Spinbutton-Format-Befunde mehr. Neue Korpus-Fixtures `treegrid_expandable_rows`,
   `value_widgets_native` (bestehen), `value_widgets_custom` und `value_widgets_shadow` (Verstoss);
   `aria_and_widgets` erwartet den eigenen Slider jetzt unter `aria-required-attr`.
 - **Page Health: HTML-Validierung im JSON kanonisch Englisch (#406, Plan 66 WP9), 2026-09-29:**
