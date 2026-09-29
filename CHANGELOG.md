@@ -18,6 +18,24 @@ short current-state summary. Newest entries first (unchanged order from before t
   sofort ihr Dokument, daher bis zu drei Versuche und ein zweiter Blick auf den Dokumentstatus
   spaeter in der Pipeline. Geprueft: douglas.de 3 von 3 gesperrt, hornbach.de mit Chrome normal
   und mit headless-shell gesperrt, Batch ueber 15 Vergleichsseiten ohne Fehlalarm.
+- **Batch unter macOS mit vollem Browser seriell gegen haengende Journeys, 2026-09-29 (Plan 65):**
+  Im Referenz-Batch (gov.uk, bundesregierung.de, dm.de, berlin.de, `--full`, drei Worker) liefen
+  mit dem System-Chrome 154 in 4 von 4 Laeufen Journeys ins 10-s-Budget, zweimal blieb der
+  Browser ganz stehen (> 5 bzw. > 10 min). Alle offenen Seiten liefen in derselben Sekunde in den
+  Timeout, unabhaengig von der Journey. Eine Stichprobe des Browser-Prozesses zeigte den
+  Hauptthread in der AppKit-Tastaturverarbeitung (`performKeyEquivalent` → `SLSObscureCursor`,
+  wartend auf den WindowServer): Auch `--headless=new` faehrt unter macOS die Ereignisschleife.
+  Gegenproben: nur die Journeys seitenuebergreifend serialisieren half nicht (1-10 Timeouts); ohne
+  Fokus-Emulation kein Totalhaenger, aber wieder Tab-Walk-Timeouts in verborgenen Tabs (Plan 62);
+  ein Worker: 2 von 2 sauber (100-120 s statt 38 s); Einzelaudits 6 von 6 sauber;
+  `chrome-headless-shell`: 5 von 5 sauber, aber www.hornbach.de lieferte ihr eine Bot-Sperrseite
+  (355 statt 12.942 Knoten, bewertet mit 85 statt 56). Aenderung: Ohne `--concurrency` laufen
+  Batches mit Journeys unter macOS mit vollem Browser seitenweise; der Laufstart und `doctor`
+  sagen es. Nachher: 2 Referenz-Batches ohne `-c` in 97-111 s, einer sauber, im anderen ein
+  einzelner Modal-Test auf dm.de ueber 10 s (als `partial` ausgewiesen, kein Haenger). Die
+  Browserauswahl fand eine per `browser install --headless-shell` installierte Shell
+  bisher gar nicht; sie ist jetzt Rueckfall nach Chrome for Testing, wenn kein System-Browser da
+  ist. Messungen in `reports/p65/`.
 - **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die

@@ -214,7 +214,7 @@ impl BrowserInstaller {
         }
     }
 
-    fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
+    pub(crate) fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
         let platform = Self::platform_string();
 
         match target {

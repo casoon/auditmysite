@@ -5,8 +5,14 @@
 //! 2. AUDITMYSITE_BROWSER env var
 //! 3. CHROME_PATH env var (deprecated, backwards compat)
 //! 4. System scan (Chrome → Edge → Ungoogled Chromium → Chromium)
-//! 5. Managed install (~/.auditmysite/browsers/)
+//! 5. Managed install (~/.auditmysite/browsers/: Chrome for Testing, then
+//!    the headless shell)
 //! 6. Error with installation hints
+//!
+//! A full browser stays first on purpose. The headless shell never stalls
+//! (see [`parallel_journeys_stall`]), but sites with bot protection serve it
+//! a challenge page: www.hornbach.de gave it 355 nodes instead of 12,942, and
+//! the audit scored the challenge page (plan 65).
 
 use std::path::PathBuf;
 
@@ -15,6 +21,7 @@ use tracing::{debug, info, warn};
 use super::detection::{
     detect_all_browsers, get_browser_version, validate_browser, verify_executable,
 };
+use super::installer::BrowserInstaller;
 use super::types::*;
 use crate::error::{AuditError, Result};
 
@@ -140,6 +147,60 @@ pub fn resolve_browser(opts: &BrowserResolveOptions) -> Result<ResolvedBrowser> 
     Err(AuditError::ChromeNotFound)
 }
 
+/// Whether keyboard journeys on parallel pages can stall `browser`.
+///
+/// A full Chrome in `--headless=new` still runs the macOS event loop. Keyboard
+/// events a page does not consume go through AppKit on the browser's single
+/// main thread and wait on the WindowServer. With several pages audited at
+/// once that stalled the whole browser: every open page's journeys timed out
+/// in the same second, twice it never recovered (plan 65, reference batch
+/// with three workers: 4 of 4 runs affected). One page at a time: 2 of 2 clean,
+/// as were 6 of 6 single-URL runs. Serializing only the journeys did not help
+/// (1–10 timeouts). The headless shell has no event loop and is not affected.
+/// A headless shell passed via `--browser-path` is recognized by file name.
+pub fn stalls_on_keyboard_journeys(browser: &DetectedBrowser) -> bool {
+    let is_shell = browser.kind == BrowserKind::HeadlessShell
+        || browser
+            .path
+            .file_name()
+            .is_some_and(|name| name.to_string_lossy().starts_with("chrome-headless-shell"));
+    cfg!(target_os = "macos") && !is_shell
+}
+
+/// [`stalls_on_keyboard_journeys`] for the browser this run would use.
+/// Resolved once per process; `false` when no browser can be resolved (the
+/// run fails later with its own error).
+pub fn parallel_journeys_stall(browser_path: Option<&str>) -> bool {
+    static STALLS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *STALLS.get_or_init(|| {
+        let opts = BrowserResolveOptions {
+            browser_path: browser_path.map(str::to_string),
+            ..Default::default()
+        };
+        resolve_browser(&opts)
+            .map(|resolved| stalls_on_keyboard_journeys(&resolved.browser))
+            .unwrap_or(false)
+    })
+}
+
+/// Managed headless-shell under ~/.auditmysite/browsers/headless-shell/
+fn check_managed_headless_shell() -> Option<DetectedBrowser> {
+    let dir = dirs::home_dir()?
+        .join(".auditmysite")
+        .join("browsers")
+        .join("headless-shell");
+    let path = BrowserInstaller::binary_path(&dir, InstallTarget::HeadlessShell);
+    if !path.exists() || verify_executable(&path).is_err() {
+        return None;
+    }
+    Some(DetectedBrowser {
+        kind: BrowserKind::HeadlessShell,
+        path,
+        version: read_version_file(&dir),
+        source: BrowserSource::ManagedInstall,
+    })
+}
+
 /// Check for managed browser installs under ~/.auditmysite/browsers/
 fn check_managed_install() -> Option<DetectedBrowser> {
     let base = dirs::home_dir()?.join(".auditmysite").join("browsers");
@@ -153,6 +214,10 @@ fn check_managed_install() -> Option<DetectedBrowser> {
             version: read_version_file(&base.join("chrome-for-testing")),
             source: BrowserSource::ManagedInstall,
         });
+    }
+
+    if let Some(shell) = check_managed_headless_shell() {
+        return Some(shell);
     }
 
     // Check legacy location (~/.auditmysite/chromium/)
@@ -238,5 +303,34 @@ mod tests {
         let base = PathBuf::from("/home/user/.auditmysite/browsers");
         let path = managed_binary_path(&base, "chrome-for-testing");
         assert!(path.to_string_lossy().contains("chrome-for-testing"));
+    }
+
+    fn browser(kind: BrowserKind, path: &str) -> DetectedBrowser {
+        DetectedBrowser {
+            kind,
+            path: PathBuf::from(path),
+            version: None,
+            source: BrowserSource::SystemPath,
+        }
+    }
+
+    #[test]
+    fn headless_shell_never_counts_as_stalling() {
+        let managed = browser(BrowserKind::HeadlessShell, "/x/chrome-headless-shell");
+        let explicit = browser(BrowserKind::Custom, "/cache/chrome-headless-shell");
+        assert!(!stalls_on_keyboard_journeys(&managed));
+        assert!(!stalls_on_keyboard_journeys(&explicit));
+    }
+
+    #[test]
+    fn full_chrome_stalls_only_on_macos() {
+        let chrome = browser(
+            BrowserKind::Chrome,
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        );
+        assert_eq!(
+            stalls_on_keyboard_journeys(&chrome),
+            cfg!(target_os = "macos")
+        );
     }
 }
