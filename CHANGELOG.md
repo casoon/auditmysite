@@ -5,6 +5,13 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Englische PDFs ohne deutsche Tabellenbeschriftungen, 2026-09-29:** Mit `--lang en` standen in
+  den Tabellen zu Sicherheits-Headern („Vorhanden"/„Fehlt"), SSL („Gueltiges Zertifikat", „Laeuft
+  ab in … Tage", „Chain-Laenge"), Touch-Targets („Zu klein", „Zu eng beieinander") und Schrift
+  („Kleinste Schrift", „Lesbarer Text") deutsche Beschriftungen, gefunden an einem englischen
+  casoon.de-Bericht. Die Beschriftungen folgen jetzt der Laufsprache; ein Guard-Test mit den
+  Moduldaten dieses Laufs prueft die englische Ausgabe auf deutsche Begriffe.
+
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
   darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,
