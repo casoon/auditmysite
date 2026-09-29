@@ -1,0 +1,8 @@
+{
+  "case": "landmark_header_in_main",
+  "expectations": [
+    { "rule_id": "landmark-unique", "verdict": "pass" },
+    { "rule_id": "landmark-no-duplicate-banner", "verdict": "pass" },
+    { "rule_id": "landmark-no-duplicate-contentinfo", "verdict": "pass" }
+  ]
+}
