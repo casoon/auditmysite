@@ -565,10 +565,23 @@ const CHECK_SOURCE_QUALITY_SIGNAL_CONTRADICTS_FINDINGS: &str =
 /// paired with the `wcag_criterion` id(s) that back them. Used to cross-check
 /// a signal's `present` flag against the report's own `findings[]` for the
 /// same rule(s) — see [`check_source_quality_signals_match_findings`].
-const SOURCE_QUALITY_WCAG_BACKED_SIGNALS: &[(&str, &[&str])] = &[
-    ("ImageDescriptions", &["1.1.1"]),
-    ("NamedControls", &["4.1.2", "1.1.1"]),
+/// Whether a `findings[]` entry is evidence for a signal.
+type BacksSignal = fn(&Value) -> bool;
+
+const SOURCE_QUALITY_WCAG_BACKED_SIGNALS: &[(&str, BacksSignal)] = &[
+    ("ImageDescriptions", |f| criterion_is(f, "1.1.1")),
+    // Missing name or role only, as the signal counts it — not every 4.1.2
+    // finding (duplicate IDs, prohibited ARIA attributes).
+    ("NamedControls", |f| {
+        f.get("rule_id")
+            .and_then(Value::as_str)
+            .is_some_and(crate::taxonomy::is_missing_name_or_role)
+    }),
 ];
+
+fn criterion_is(finding: &Value, criterion: &str) -> bool {
+    finding.get("wcag_criterion").and_then(Value::as_str) == Some(criterion)
+}
 
 /// Finds a `source_quality` signal by `kind` across all of its dimension
 /// blocks (`substance`, `consistency`, `authority`).
@@ -588,18 +601,15 @@ fn find_source_quality_signal<'a>(source_quality: &'a Value, kind: &str) -> Opti
 }
 
 /// Sums `occurrence_count` across a page's `findings[]` for WCAG-category
-/// entries matching any of `rules`.
-fn wcag_finding_occurrences(page: &Value, rules: &[&str]) -> i64 {
+/// entries matching `backs_signal`.
+fn wcag_finding_occurrences(page: &Value, backs_signal: BacksSignal) -> i64 {
     page.get("findings")
         .and_then(Value::as_array)
         .map(|entries| {
             entries
                 .iter()
                 .filter(|f| {
-                    f.get("category").and_then(Value::as_str) == Some("wcag")
-                        && f.get("wcag_criterion")
-                            .and_then(Value::as_str)
-                            .is_some_and(|criterion| rules.contains(&criterion))
+                    f.get("category").and_then(Value::as_str) == Some("wcag") && backs_signal(f)
                 })
                 .filter_map(|f| f.get("occurrence_count").and_then(Value::as_i64))
                 .sum()
@@ -624,7 +634,7 @@ fn check_source_quality_signals_match_findings(
         let Some(source_quality) = page.pointer("/detail/modules/source_quality") else {
             continue;
         };
-        for (kind, rules) in SOURCE_QUALITY_WCAG_BACKED_SIGNALS {
+        for (kind, backs_signal) in SOURCE_QUALITY_WCAG_BACKED_SIGNALS {
             let Some(signal) = find_source_quality_signal(source_quality, kind) else {
                 continue;
             };
@@ -635,7 +645,7 @@ fn check_source_quality_signals_match_findings(
             if !present {
                 continue;
             }
-            let occurrences = wcag_finding_occurrences(page, rules);
+            let occurrences = wcag_finding_occurrences(page, *backs_signal);
             if occurrences > 0 {
                 findings_out.push(LintFinding {
                     check_id: CHECK_SOURCE_QUALITY_SIGNAL_CONTRADICTS_FINDINGS,
@@ -643,10 +653,10 @@ fn check_source_quality_signals_match_findings(
                         "pages[{i}].detail.modules.source_quality (signal {kind}) vs pages[{i}].findings"
                     ),
                     expected: format!(
-                        "signal {kind}.present=false, or 0 occurrences for {rules:?} in findings"
+                        "signal {kind}.present=false, or 0 occurrences of its backing findings"
                     ),
                     actual: format!(
-                        "signal {kind}.present=true but {occurrences} occurrence(s) of {rules:?} in findings"
+                        "signal {kind}.present=true but {occurrences} occurrence(s) of its backing findings"
                     ),
                     severity: Severity::High,
                 });
@@ -983,6 +993,36 @@ mod tests {
             }
         ]);
         report
+    }
+
+    fn named_controls_report(rule_id: &str) -> Value {
+        let mut report = clean_single_report();
+        report["pages"][0]["detail"] = json!({
+            "modules": {"source_quality": {"substance": {"signals": [
+                {"kind": "NamedControls", "present": true, "weight": 0.25,
+                 "detail": "...", "values": {"count": 0}}
+            ]}}}
+        });
+        report["pages"][0]["findings"] = json!([
+            {"category": "wcag", "rule_id": rule_id, "wcag_criterion": "4.1.2",
+             "occurrence_count": 4}
+        ]);
+        report
+    }
+
+    #[test]
+    fn named_controls_signal_is_contradicted_only_by_missing_names() {
+        let flags = |rule_id: &str| {
+            let mut findings = Vec::new();
+            run_all_checks(&named_controls_report(rule_id), &mut findings);
+            findings
+                .iter()
+                .any(|f| f.check_id == CHECK_SOURCE_QUALITY_SIGNAL_CONTRADICTS_FINDINGS)
+        };
+        assert!(flags("a11y.interactive_name.missing"));
+        // 4.1.2, but no missing name (5 rankinglab reports were flagged).
+        assert!(!flags("a11y.aria_prohibited_attr.invalid"));
+        assert!(!flags("a11y.aria_hidden_focus.invalid"));
     }
 
     #[test]

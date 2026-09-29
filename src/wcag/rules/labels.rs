@@ -142,38 +142,11 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
 
         results.add_violation(violation);
     } else {
-        // Check for generic link text
-        let name = node.name.as_deref().unwrap_or("").to_lowercase();
-        let generic_texts = [
-            "click here",
-            "here",
-            "read more",
-            "more",
-            "learn more",
-            "link",
-            "click",
-        ];
-
-        if generic_texts.iter().any(|&t| name == t) {
-            let violation = Violation::new(
-                "2.4.4", // Link Purpose (In Context)
-                "Link Purpose",
-                WcagLevel::A,
-                Severity::Medium,
-                format!("Link text '{}' is not descriptive", name),
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_name(node.name.clone())
-            .with_fix("Use descriptive link text that explains the destination")
-            .with_help_url(
-                "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
-            );
-
-            results.add_violation(violation);
-        } else {
-            results.passes += 1;
-        }
+        // Generic link text ("read more") is `link_purpose`'s job (2.4.4),
+        // with German stopwords and the context exception from #569. A second
+        // English-only check here reported the same links again as their own
+        // finding (deutschebahn.com: 7 + 5 occurrences of one rule).
+        results.passes += 1;
     }
 }
 
@@ -252,13 +225,18 @@ mod tests {
     }
 
     #[test]
-    fn test_link_with_generic_text() {
+    fn test_generic_link_text_is_left_to_link_purpose() {
         let nodes = vec![create_control_node("1", "link", Some("click here"))];
         let tree = AXTree::from_nodes(nodes);
-        let results = check_labels(&tree);
 
-        // Should flag generic link text
-        assert!(results.violations.iter().any(|v| v.rule == "2.4.4"));
+        // One rule per defect: labels checks names only, 2.4.4 is link_purpose's.
+        assert!(check_labels(&tree).violations.is_empty());
+        let purpose = crate::wcag::rules::link_purpose::check_link_purpose(&tree);
+        assert!(purpose
+            .violations
+            .iter()
+            .chain(&purpose.warnings)
+            .any(|v| v.rule == "2.4.4"));
     }
 
     #[test]

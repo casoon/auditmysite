@@ -69,7 +69,8 @@ pub(super) fn compute_risk_assessment(
     let mut blocking_unlisted = 0usize;
     for f in findings.iter().filter(|f| {
         (f.wcag_criterion == "2.1.1"
-            || (f.wcag_criterion == "4.1.2" && is_missing_name_or_role(&f.rule_id)))
+            || (f.wcag_criterion == "4.1.2"
+                && crate::taxonomy::is_missing_name_or_role(&f.rule_id)))
             && matches!(
                 f.severity,
                 Severity::Medium | Severity::High | Severity::Critical
@@ -300,17 +301,9 @@ pub(super) fn compute_risk_assessment(
     }
 }
 
-/// Taxonomy ids of "control without accessible name or role" findings:
-/// `a11y.<kind>_name.missing` (interactive, command, control, input field,
-/// toggle field, …) and `a11y.name_role.missing`.
-fn is_missing_name_or_role(rule_id: &str) -> bool {
-    rule_id == "a11y.name_role.missing"
-        || (rule_id.starts_with("a11y.") && rule_id.ends_with("_name.missing"))
-}
-
 #[cfg(test)]
 mod blocking_tests {
-    use super::is_missing_name_or_role;
+    use crate::taxonomy::is_missing_name_or_role;
 
     #[test]
     fn only_missing_names_and_roles_block() {

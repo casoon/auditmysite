@@ -973,11 +973,24 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
         ));
     }
 
-    // 2. All interactive elements named. Uses the same canonical per-rule
-    // count as the image-alt signal above (`WcagResults::count_by_rule`,
-    // #574) instead of a second independent filter over `violations`.
-    let unnamed_interactive = report.accessibility.wcag_results.count_by_rule("4.1.2")
-        + report.accessibility.wcag_results.count_by_rule("1.1.1");
+    // 2. All interactive elements named: violations whose taxonomy rule is a
+    // missing name or role, mapped the way the normalization maps them
+    // (#574: one definition, not a second filter). Counting all of 4.1.2 and
+    // 1.1.1 also counted duplicate IDs and images, and the JSON findings,
+    // which carry 4.1.2 for `aria-hidden-focus` since plan 61, then
+    // contradicted a "present" signal (report-lint on 5 rankinglab reports).
+    let unnamed_interactive = report
+        .accessibility
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| {
+            crate::taxonomy::RuleLookup::by_legacy_wcag_id(
+                crate::audit::normalized::wcag_group_key(v),
+            )
+            .is_some_and(|rule| crate::taxonomy::is_missing_name_or_role(rule.id))
+        })
+        .count();
     signals.push(QualitySignal::new(
         NamedControls,
         unnamed_interactive == 0,

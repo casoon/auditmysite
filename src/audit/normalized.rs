@@ -2258,7 +2258,7 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
         derive_bfsg_relevance(&f.category, &f.wcag_criterion, &f.wcag_level, f.severity);
 }
 
-fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
+pub(crate) fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
     // Prefer the violation's own axe/rule id as the group key whenever the
     // taxonomy has a dedicated entry for it. Several distinct checks share
     // one raw WCAG success criterion (e.g. many 4.1.2 checks: missing name,

@@ -13,6 +13,18 @@ short current-state summary. Newest entries first (unchanged order from before t
   aus 0.3.0 mit: `img` ohne `alt`, interaktiver Inhalt in `a`, weitere Parserfehler; dazu `name`
   neben RDFa-`property` an `<meta>`). HTML-Konformitaetswerte koennen dadurch sinken.
 
+- **Befunde der report-lint-Pruefung ueber 120 rankinglab-Berichte, 2026-09-29:** 8 Berichte fielen
+  durch. (1) Das Quellenqualitaets-Signal „Bedienelemente benannt" zaehlte alle rohen 4.1.2- und
+  1.1.1-Verstoesse, die Lint-Pruefung alle normalisierten; seit Plan 61 tragen
+  `aria-hidden-focus` und `aria-prohibited-attr` 4.1.2 nur normalisiert, und beide Zaehlungen
+  widersprachen sich (5 Berichte). Inhaltlich waren beide zu breit: Doppelte IDs oder verbotene
+  ARIA-Attribute sind kein fehlender Name. `taxonomy::is_missing_name_or_role` ist jetzt die eine
+  Definition fuer Blocker, Signal und Lint; das Signal bildet rohe Verstoesse wie die
+  Normalisierung auf die Taxonomie ab. (2) `labels::check_link` pruefte nebenbei generische
+  Linktexte (nur englisch, ohne die Kontext-Ausnahme aus #569) und meldete dieselben Links wie
+  `link_purpose` als zweite Zeile derselben Taxonomie-Regel (deutschebahn.com 7 + 5 Vorkommen,
+  `violated_rule_count` eins zu klein, 3 Berichte). Die Nebenpruefung ist entfernt.
+
 - **Abbrueche im rankinglab-Lauf, 2026-09-29:** Von 122 rankinglab-Seiten scheiterten 7; vier
   davon liefen mit 1.3.1 problemlos. (1) Einzelaudits mit vollem Chrome unter macOS blieben mit
   der CDP-Fokus-Emulation aus Plan 62 zeitweise ganz stehen: www.deutschebahn.com hing in 3 von 6
