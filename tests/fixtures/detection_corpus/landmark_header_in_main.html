@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Header and footer scoped to main corpus case</title>
+</head>
+<body>
+    <!-- #639: only the body-scoped header/footer are banner/contentinfo;
+         the ones inside main/article are generic per HTML-AAM. -->
+    <header class="site-header">
+        <nav aria-label="Main navigation"><a href="/">Home</a></nav>
+    </header>
+    <main id="main">
+        <div class="chapter">
+            <div class="content">
+                <header class="grid">
+                    <h1>Chapter title</h1>
+                    <p>Chapter introduction.</p>
+                </header>
+                <article>
+                    <header><h2>Article heading</h2></header>
+                    <p>Article text.</p>
+                    <footer>Article footer</footer>
+                </article>
+            </div>
+        </div>
+    </main>
+    <footer class="site-footer">Site footer</footer>
+</body>
+</html>

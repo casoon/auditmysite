@@ -192,6 +192,7 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
         b.affected_pages
             .cmp(&a.affected_pages)
             .then_with(|| a.rule_id.cmp(&b.rule_id))
+            .then_with(|| a.selector.cmp(&b.selector))
     });
     result
 }
