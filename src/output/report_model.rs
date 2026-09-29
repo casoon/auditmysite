@@ -1099,6 +1099,8 @@ pub struct SecurityPresentation {
     /// wording without moving the number, and the card must not then contradict
     /// the takeaway right below it (plan 33).
     pub band_label: String,
+    /// The representative score of that corrected band; colours the card.
+    pub band_score: u32,
     /// (header name, status, value, classification tier label) — the tier
     /// label distinguishes baseline hygiene from context-/architecture-
     /// dependent headers so a missing-header count doesn't read as uniformly

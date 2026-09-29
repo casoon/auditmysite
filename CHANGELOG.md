@@ -5,6 +5,39 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Berichtsgenauigkeit nach dem Abgleich mit dem rankinglab-Korpus, 2026-09-29:** Zwei
+  Berichtskritiken (gov.uk, sachsen-anhalt.de) gegen 1.3.1 fanden Fehler, die Urteil und Zahlen
+  verfaelschten; jeder ist am Code bzw. an den Daten nachgeprueft. (1) Die Zusammenfuehrung von
+  Desktop und Mobile paarte jeden Mobile-Befund mit dem ersten Desktop-Befund gleichen Selektors,
+  auch wenn der schon vergeben war: 18 leere Listen je Ansicht wurden 35 Vorkommen. Jetzt eins zu
+  eins. (2) `role="status"`/`alert` ohne Namen galt als 4.1.2-Verstoss; ARIA verlangt fuer diese
+  Rollen keinen Namen. Auf gov.uk trugen zwei leere Status-Regionen das „nicht bestanden".
+  (3) Die Combobox-Regel suchte die Optionsliste nur im Teilbaum; `aria-controls` und der
+  geschlossene Zustand zaehlen jetzt (APG-Autocomplete auf gov.uk). (4) „Bedienelemente ohne
+  Namen" zaehlte alle 4.1.2-Befunde ab mittel, auch doppelte IDs und unbenannte Dialoge; jetzt nur
+  fehlender Name/fehlende Rolle und 2.1.1. Der Satz „0 kritische und 0 hohe Befunde, davon 3 …"
+  nennt die Blocker nicht mehr als Teilmenge. (5) Sicherheitskarte und Modultabelle folgen der
+  korrigierten Wortstufe (Plan 33) auch in Farbe und Tabelle; die Quellenqualitaets-Karten nutzen
+  eine Skala statt drei; der Aufwand einer Massnahme steigt mit der Komplexitaet des Befunds
+  („Geringe Komplexitaet" neben „53 Vorkommen deuten auf ein Template-Problem"). (6) Kein
+  doppelter Punkt im Anhang, deutsche Bereichsnamen bei Touch-Targets, und die Zeile unter den
+  Zaehlern trennt Stellen zur Handpruefung von den nur manuell pruefbaren Kriterien. (7) JSON
+  bleibt kanonisch Englisch (#406): Seit #633 standen die Texte der geteilten Regeln in der
+  Laufsprache im JSON. Die Regeln laufen jetzt englisch; ein deutscher Lauf prueft zusaetzlich
+  auf Deutsch und legt die Texte in `WcagResults::localized_texts` ab (nicht serialisiert), die
+  PDF-Builder (Einzel und Batch) setzen sie ein. (8) Der DOM fuer die geteilten Regeln ist der
+  flache Baum: Per Slot zugewiesene Light-DOM-Knoten haengen unter ihrem `<slot>`, nicht
+  zugewiesene erscheinen nicht. Bisher hingen sie neben dem Shadow-Inhalt, und jede
+  `<ul><slot>` einer Web-Komponente stand leer da (sachsen-anhalt.de). (9) Beim Beenden meldete
+  `BrowserManager::close` „Failed to close page: Session with given id not found" fuer die schon
+  geschlossene Audit-Seite (5 von 15 Einzelaudits); das ist jetzt eine Debug-Meldung.
+  Nachkontrolle an neu erzeugten Berichten: (10) Blocker zaehlen Elemente, nicht Regeltreffer (drei
+  Namensregeln am selben Menue-Element auf sachsen-anhalt.de waren „3 Bedienelemente"), mit
+  Einzahl im Satz. (11) Die Checkliste „Alle Verstoesse" zeigt die geteilten Texte ebenfalls
+  deutsch. (12) Quellenqualitaet: Kartenfarben nach denselben Schwellen wie die Wortstufe (40
+  statt 60 fuer rot), und „alle Signale in Ordnung" nur, wenn jede Dimension gut ist (gov.uk: 80+
+  gesamt, Substanz 70). (13) Eine Landmark-Massnahme mit `aria-label` bekommt nicht mehr den
+  Titel „Interaktive Elemente (Buttons, Links) verstaendlich benennen".
 - **Sperrseiten werden nicht mehr bewertet, 2026-09-29:** Beim Abgleich mit dem rankinglab-Korpus
   fiel auf, dass www.douglas.de automatisierten Browsern seit mindestens 1.3.1 eine Akamai-Seite
   „Access Denied" mit HTTP 403 und rund 100 Knoten liefert; sie wurde mit 75 bewertet und als

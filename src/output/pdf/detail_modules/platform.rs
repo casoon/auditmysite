@@ -18,9 +18,19 @@ pub(in crate::output::pdf) fn render_security(
             // number stays, and labelling the card from the raw score printed
             // "95 — Sehr gut" above a takeaway reading "Verbesserungswürdig"
             // (plan 33).
-            ScoreCard::new(super::module_score_caption(i18n), sec.score)
-                .with_description(sec.band_label.as_str())
-                .with_thresholds(75, 40),
+            {
+                // Colour from the same corrected band as the label: a score
+                // of 77 printed green above "Verbesserungswürdig" on gov.uk.
+                let mut card = ScoreCard::new(super::module_score_caption(i18n), sec.score)
+                    .with_description(sec.band_label.as_str())
+                    .with_thresholds(75, 40);
+                card.status = Some(renderreport::components::ScoreStatus::from_score(
+                    sec.band_score,
+                    75,
+                    40,
+                ));
+                card
+            },
         )
         .add_component(module_customer_context(
             i18n,

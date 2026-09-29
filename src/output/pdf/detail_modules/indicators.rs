@@ -43,7 +43,13 @@ pub(in crate::output::pdf) fn render_source_quality(
         builder = builder.add_component(note);
     }
 
-    if sq.score >= 80 {
+    // "All signals fine" only when every dimension is: gov.uk scored 80+
+    // overall with Substanz at 70 and two failed signals, and the PDF said
+    // nothing needed doing.
+    if [&sq.substance, &sq.consistency, &sq.authority]
+        .iter()
+        .all(|dim| dim.score >= 75)
+    {
         return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
     }
 
@@ -53,12 +59,19 @@ pub(in crate::output::pdf) fn render_source_quality(
         builder = builder.add_component(Section::new(dim_name).with_level(3));
 
         builder = builder.add_component(
+            // Label and colour from the same five-level band: "Solide" in
+            // green above "Verbesserungswürdig" (70 on gov.uk) mixed three
+            // scales in one card.
             ScoreCard::new(
-                format!("{} · 0–100", score_quality_label(dim.score)),
+                if en {
+                    "Score · 0–100"
+                } else {
+                    "Wert · 0–100"
+                },
                 dim.score,
             )
             .with_description(&dim_label)
-            .with_thresholds(70, 50),
+            .with_thresholds(75, 40),
         );
 
         if !dim.signals.is_empty() {

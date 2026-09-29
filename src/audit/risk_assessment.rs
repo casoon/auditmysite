@@ -54,19 +54,37 @@ pub(super) fn compute_risk_assessment(
         }
     }
 
-    // Blocking issues: interactive elements without accessible names (4.1.2/2.1.1).
+    // Blocking issues: controls assistive technology cannot identify or a
+    // keyboard cannot operate — a missing name or role (4.1.2) or anything
+    // under 2.1.1. Other 4.1.2 findings (duplicate IDs, nameless dialogs,
+    // redundant roles, attribute values) are real defects but block no
+    // control; counting them turned gov.uk's two empty status regions into
+    // "controls not operable with assistive technology".
     // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
-    let blocking_issues = findings
-        .iter()
-        .filter(|f| {
-            (f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
-                && matches!(
-                    f.severity,
-                    Severity::Medium | Severity::High | Severity::Critical
-                )
-        })
-        .map(|f| f.occurrence_count)
-        .sum::<usize>();
+    // Counted per element: on sachsen-anhalt.de three name rules reported the
+    // same menu element, which read as "3 Bedienelemente". Occurrences are
+    // identified by node, or by selector where the node is a placeholder;
+    // occurrences a finding counts but does not list stay counted as distinct.
+    let mut blocking_elements = std::collections::HashSet::new();
+    let mut blocking_unlisted = 0usize;
+    for f in findings.iter().filter(|f| {
+        (f.wcag_criterion == "2.1.1"
+            || (f.wcag_criterion == "4.1.2" && is_missing_name_or_role(&f.rule_id)))
+            && matches!(
+                f.severity,
+                Severity::Medium | Severity::High | Severity::Critical
+            )
+    }) {
+        for o in &f.occurrences {
+            let key = match (o.node_id.as_str(), &o.selector) {
+                ("document", Some(selector)) => format!("sel:{selector}"),
+                (node, _) => format!("node:{node}"),
+            };
+            blocking_elements.insert(key);
+        }
+        blocking_unlisted += f.occurrence_count.saturating_sub(f.occurrences.len());
+    }
+    let blocking_issues = blocking_elements.len() + blocking_unlisted;
     let interactive_critical_issues = interactive_findings
         .iter()
         .filter(|f| f.severity == Severity::Critical)
@@ -279,5 +297,41 @@ pub(super) fn compute_risk_assessment(
         interactive_critical_issues,
         interactive_high_issues,
         summary,
+    }
+}
+
+/// Taxonomy ids of "control without accessible name or role" findings:
+/// `a11y.<kind>_name.missing` (interactive, command, control, input field,
+/// toggle field, …) and `a11y.name_role.missing`.
+fn is_missing_name_or_role(rule_id: &str) -> bool {
+    rule_id == "a11y.name_role.missing"
+        || (rule_id.starts_with("a11y.") && rule_id.ends_with("_name.missing"))
+}
+
+#[cfg(test)]
+mod blocking_tests {
+    use super::is_missing_name_or_role;
+
+    #[test]
+    fn only_missing_names_and_roles_block() {
+        for id in [
+            "a11y.interactive_name.missing",
+            "a11y.command_name.missing",
+            "a11y.control_name.missing",
+            "a11y.input_field_name.missing",
+            "a11y.toggle_field_name.missing",
+            "a11y.name_role.missing",
+        ] {
+            assert!(is_missing_name_or_role(id), "{id}");
+        }
+        for id in [
+            "a11y.parsing.invalid",
+            "a11y.dialog_missing_name.invalid",
+            "a11y.redundant_role.invalid",
+            "a11y.aria_valid_attr_value.invalid",
+            "a11y.combobox_options.missing",
+        ] {
+            assert!(!is_missing_name_or_role(id), "{id}");
+        }
     }
 }

@@ -508,8 +508,14 @@ impl BrowserManager {
 
         if let Ok(pages) = self.browser.pages().await {
             for page in pages {
-                if let Err(e) = page.close().await {
-                    warn!("Failed to close page: {}", e);
+                match page.close().await {
+                    Ok(_) => {}
+                    // The list can still hold a page closed a moment ago
+                    // (`run_single_audit` closes its own): already gone.
+                    Err(e) if e.to_string().contains("Session with given id not found") => {
+                        debug!("Page already closed: {}", e);
+                    }
+                    Err(e) => warn!("Failed to close page: {}", e),
                 }
             }
         }

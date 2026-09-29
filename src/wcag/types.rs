@@ -393,6 +393,11 @@ pub struct WcagResults {
     /// Befunden, damit sich beide Listen verbinden lassen.
     #[serde(default)]
     pub rule_outcomes: Vec<RuleRun>,
+    /// German texts of shared-rule findings, keyed by the canonical English
+    /// text (message or fix). Findings carry English (#406); the PDF looks the
+    /// run language up here. Filled only for a German run, never serialized.
+    #[serde(skip)]
+    pub localized_texts: std::collections::HashMap<String, String>,
 }
 
 /// Der Ausführungsvermerk kommt aus dem geteilten `a11y-report`-Crate.
@@ -451,6 +456,7 @@ impl WcagResults {
             incomplete: 0,
             nodes_checked: 0,
             rule_outcomes: Vec::new(),
+            localized_texts: Default::default(),
         }
     }
 
@@ -545,6 +551,7 @@ impl WcagResults {
         self.incomplete += other.incomplete;
         self.nodes_checked += other.nodes_checked;
         self.rule_outcomes.extend(other.rule_outcomes);
+        self.localized_texts.extend(other.localized_texts);
     }
 }
 

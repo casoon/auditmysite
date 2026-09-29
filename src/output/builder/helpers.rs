@@ -255,3 +255,30 @@ pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
         translated
     }
 }
+
+/// Replace shared-rule texts (description, occurrence message and fix) by their run-language
+/// version. Findings keep canonical English (#406);
+/// `WcagResults::localized_texts` maps those texts for a German run, and only
+/// the PDF builders apply it.
+pub(crate) fn localize_shared_texts(
+    findings: &mut [crate::audit::normalized::NormalizedFinding],
+    texts: &std::collections::HashMap<String, String>,
+) {
+    if texts.is_empty() {
+        return;
+    }
+    let localize = |text: &mut String| {
+        if let Some(localized) = texts.get(text.as_str()) {
+            *text = localized.clone();
+        }
+    };
+    for finding in findings {
+        localize(&mut finding.description);
+        for occurrence in &mut finding.occurrences {
+            localize(&mut occurrence.message);
+            if let Some(fix) = occurrence.fix_suggestion.as_mut() {
+                localize(fix);
+            }
+        }
+    }
+}

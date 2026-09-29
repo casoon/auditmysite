@@ -349,7 +349,34 @@ pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
     // Baeume beschreiben dieselben Elemente -- sie zu addieren zaehlte jedes
     // Element doppelt und machte die Zahl im Bericht unbrauchbar.
 
-    let report = a11y_rules::run_with_semantics_in(doc, locale_for(lang));
+    // Findings carry canonical English, like every other analysis result
+    // (#406). a11y-rules formats its texts per locale and exposes no message
+    // keys, so a German run checks the document a second time and pairs the
+    // two reports finding by finding. The rules are deterministic over the
+    // same document; a pair whose rule ids differ is skipped, not guessed.
+    let report = a11y_rules::run_with_semantics(doc);
+    if locale_for(lang) != Locale::En {
+        let localized = a11y_rules::run_with_semantics_in(doc, locale_for(lang));
+        if localized.findings.len() == report.findings.len() {
+            for (en, loc) in report.findings.iter().zip(&localized.findings) {
+                if en.rule_id != loc.rule_id {
+                    continue;
+                }
+                if en.message != loc.message {
+                    results
+                        .localized_texts
+                        .insert(en.message.clone(), loc.message.clone());
+                }
+                if let (Some(en_help), Some(loc_help)) = (&en.help, &loc.help) {
+                    if en_help != loc_help {
+                        results
+                            .localized_texts
+                            .insert(en_help.clone(), loc_help.clone());
+                    }
+                }
+            }
+        }
+    }
 
     for finding in &report.findings {
         let Some(rule) = shared_rule(&finding.rule_id) else {
@@ -425,26 +452,30 @@ mod tests {
         assert!(ids.contains(&"document/lang-missing"), "{ids:?}");
     }
 
-    /// Ein deutscher Bericht bekommt die Befundtexte des geteilten Bestands
-    /// auf Deutsch; die Kennung bleibt dieselbe.
+    /// Der Befund bleibt in jeder Laufsprache englisch (#406); ein deutscher
+    /// Lauf legt die deutsche Fassung zum englischen Text ab, fuer das PDF.
     #[test]
-    fn deutscher_lauf_liefert_deutsche_befundtexte() {
+    fn deutscher_lauf_legt_deutsche_befundtexte_daneben() {
         let doc = build_document(&seite(&[]), &AXTree::new()).unwrap();
-        let meldung = |lang: &str| {
-            run_shared_rules(&doc, lang)
-                .violations
-                .into_iter()
+        let en_text = "The <html> element has no lang attribute.";
+        let lauf = |lang: &str| run_shared_rules(&doc, lang);
+        let meldung = |r: &WcagResults| {
+            r.violations
+                .iter()
                 .find(|v| v.rule_id.as_deref() == Some("document/lang-missing"))
-                .map(|v| v.message)
+                .map(|v| v.message.clone())
         };
+
+        let de = lauf("de");
+        assert_eq!(meldung(&de).as_deref(), Some(en_text));
         assert_eq!(
-            meldung("de").as_deref(),
+            de.localized_texts.get(en_text).map(String::as_str),
             Some("Das <html>-Element hat kein lang-Attribut.")
         );
-        assert_eq!(
-            meldung("en").as_deref(),
-            Some("The <html> element has no lang attribute.")
-        );
+
+        let en = lauf("en");
+        assert_eq!(meldung(&en).as_deref(), Some(en_text));
+        assert!(en.localized_texts.is_empty());
     }
 
     /// Der Befund muss auditmysites Felder fuellen, sonst faellt er in der
