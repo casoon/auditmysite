@@ -1902,16 +1902,19 @@ mod tests {
 
     #[test]
     fn test_pdf_has_annotations() {
-        // Renderreport emits annotations for some interactive constructs
-        // (links, etc.). This is a smoke check that lopdf can parse the PDF
-        // and the structural pipeline is intact.
+        // Renderreport emits link annotations for interactive constructs
+        // (table-of-contents entries, etc.) and an outline per section.
         let report = pdf_fixture_report_rich();
         let pdf = generate_pdf(&report, &ReportConfig::default()).expect("standard PDF");
-        let _ = count_pdf_annotations(&pdf); // result not asserted; counts may be 0
-        let _ = pdf_outline_titles(&pdf);
         assert!(
-            lopdf::Document::load_mem(&pdf).is_ok(),
-            "PDF must parse via lopdf"
+            count_pdf_annotations(&pdf) > 0,
+            "rich report PDF must contain link annotations"
+        );
+        let titles = pdf_outline_titles(&pdf);
+        assert!(!titles.is_empty(), "rich report PDF must have an outline");
+        assert!(
+            titles.iter().all(|t| !t.trim().is_empty()),
+            "outline titles must not be blank: {titles:?}"
         );
     }
 
