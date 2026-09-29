@@ -132,6 +132,7 @@ pub struct NormalizedReport {
 /// by output builders. Distinct from `NormalizedReport`: a deserialized
 /// `NormalizedReport` is a complete, valid snapshot without raw data, whereas
 /// `AuditContext` always carries live module results alongside it.
+#[derive(Clone)]
 pub struct AuditContext<'a> {
     pub normalized: NormalizedReport,
     pub raw_dual_viewport: Option<&'a crate::audit::report::DualViewportResults>,

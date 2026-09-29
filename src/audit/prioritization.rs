@@ -60,7 +60,7 @@ impl Priority {
 }
 
 /// Effort estimate for a fix.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Effort {
     Quick,
     Medium,
@@ -68,6 +68,17 @@ pub enum Effort {
 }
 
 impl Effort {
+    /// Raise the per-occurrence estimate to what the finding's complexity
+    /// (`low`/`medium`/`high`, derived from the occurrence count) implies.
+    pub fn at_least_for_complexity(self, complexity: &str) -> Effort {
+        let floor = match complexity {
+            "high" => Effort::Structural,
+            "medium" => Effort::Medium,
+            _ => Effort::Quick,
+        };
+        self.max(floor)
+    }
+
     pub fn label(&self, en: bool) -> &'static str {
         match self {
             Effort::Quick => {

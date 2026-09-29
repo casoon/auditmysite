@@ -28,7 +28,6 @@ pub(super) fn finding_group_from_normalized(
         technical_note,
         role,
         effort,
-        execution_priority,
     ) = if let Some(expl) = explanation {
         (
             // The rule's own taxonomy title, as in the JSON — never the
@@ -51,7 +50,6 @@ pub(super) fn finding_group_from_normalized(
             expl.technical_note_for(locale).to_string(),
             expl.responsible_role,
             expl.effort_estimate,
-            derive_execution_priority(f.severity, expl.effort_estimate, f.dimension.as_str()),
         )
     } else {
         // JSON-stored title/user_impact are canonical English (#406); re-derive
@@ -83,9 +81,13 @@ pub(super) fn finding_group_from_normalized(
             String::new(),
             Role::Development,
             Effort::Medium,
-            derive_execution_priority(f.severity, Effort::Medium, f.dimension.as_str()),
         )
     };
+    // The rule's effort is for one occurrence; the finding's complexity also
+    // weighs how many there are. A card read "Aufwand: Geringe Komplexität"
+    // next to "53 Vorkommen deuten auf ein Template-Problem hin".
+    let effort = effort.at_least_for_complexity(&f.complexity);
+    let execution_priority = derive_execution_priority(f.severity, effort, f.dimension.as_str());
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
     let location_hints = build_location_hints(&f.occurrences);

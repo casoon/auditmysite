@@ -743,17 +743,21 @@ pub(super) fn render_management_page(
     // reader took "0" for "nothing found" while the journey, screen-reader and
     // manual-check sections listed findings further in.
     let evidence = &vm.findings.evidence;
+    // Page-level manual checks are not the criteria that are manual-only by
+    // nature: "5 manuell zu prüfende Kriterien" stood next to an appendix
+    // listing 21.
+    let manual_only = crate::wcag::coverage::manual_review_criteria().len();
     if evidence.warnings > 0 || evidence.manual_checks > 0 {
         builder = builder.add_component(
             Label::new(if en {
                 format!(
-                    "Counted here are confirmed WCAG violations only. In addition: {} heuristic accessibility warning(s) and {} criterion/criteria requiring manual review — documented, but not scored.",
-                    evidence.warnings, evidence.manual_checks
+                    "Counted here are confirmed WCAG violations only. In addition: {} heuristic accessibility warning(s) and {} point(s) on this page to confirm by hand — documented, but not scored. A further {} WCAG criteria can only be checked manually (appendix).",
+                    evidence.warnings, evidence.manual_checks, manual_only
                 )
             } else {
                 format!(
-                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Hinzu kommen {} heuristische Barrierefreiheits-Warnung(en) und {} manuell zu prüfende(s) Kriterium/Kriterien — dokumentiert, aber nicht in den Score eingerechnet.",
-                    evidence.warnings, evidence.manual_checks
+                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Hinzu kommen {} heuristische Barrierefreiheits-Warnung(en) und {} Stelle(n) auf dieser Seite, die von Hand zu bestätigen sind — dokumentiert, aber nicht in den Score eingerechnet. Weitere {} WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).",
+                    evidence.warnings, evidence.manual_checks, manual_only
                 )
             })
             .with_size("8.5pt")
@@ -1033,9 +1037,15 @@ fn render_score_driver_table(
         } else {
             translated
         };
+        // Security's wording band is corrected by open severe findings
+        // (plan 33); the row must say what its section and score card say.
+        let band = match vm.module_details.security.as_ref() {
+            Some(sec) if m.name == "Security" => sec.band_label.as_str(),
+            _ => score_band_label(m.score, i18n),
+        };
         table = table.add_row(vec![
             display_name,
-            format!("{} ({})", m.score, score_band_label(m.score, i18n)),
+            format!("{} ({})", m.score, band),
             format!("{}%", m.weight_pct),
             classify(m).to_string(),
         ]);

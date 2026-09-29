@@ -92,6 +92,25 @@ pub fn build_batch_presentation_with_normalized(
         normalized_reports.len(),
         "batch presentation requires one normalized report per raw report"
     );
+    let localized: Vec<NormalizedReport>;
+    let normalized_reports = if i18n.locale() == "en" {
+        normalized_reports
+    } else {
+        let texts: std::collections::HashMap<String, String> = batch
+            .reports
+            .iter()
+            .flat_map(|r| r.accessibility.wcag_results.localized_texts.clone())
+            .collect();
+        localized = normalized_reports
+            .iter()
+            .cloned()
+            .map(|mut report| {
+                super::helpers::localize_shared_texts(&mut report.findings, &texts);
+                report
+            })
+            .collect();
+        &localized
+    };
     // One group per rule across all pages, in the order the batch JSON's
     // `top_actions` lists them (plan 64).
     let top_issues: Vec<FindingGroup> =

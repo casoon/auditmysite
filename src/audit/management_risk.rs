@@ -289,14 +289,18 @@ impl ManagementRiskKind {
                         "Im automatisierten Prüfumfang keine blockierende Barriere für Screenreader- oder Tastaturnutzung erkannt.".to_string()
                     };
                 }
-                if en {
-                    format!(
-                        "{critical} critical and {high} high findings, {blocking_issues} of them controls without an accessible name or role — screen reader and keyboard use is obstructed at those points."
-                    )
-                } else {
-                    format!(
-                        "{critical} kritische und {high} hohe Befunde, davon {blocking_issues} Bedienelemente ohne zugänglichen Namen oder Rolle — Screenreader- und Tastaturnutzung ist an diesen Stellen behindert."
-                    )
+                // Blockers are counted per occurrence and can be medium
+                // findings, so they are no subset of the critical/high count
+                // ("0 critical and 0 high findings, 3 of them …" on gov.uk).
+                match (en, *blocking_issues) {
+                    (true, 0) => format!("{critical} critical and {high} high findings."),
+                    (true, n) => format!(
+                        "{critical} critical and {high} high findings; {n} controls without an accessible name or role, or not operable by keyboard — screen reader and keyboard use is obstructed at those points."
+                    ),
+                    (false, 0) => format!("{critical} kritische und {high} hohe Befunde."),
+                    (false, n) => format!(
+                        "{critical} kritische und {high} hohe Befunde; {n} Bedienelemente ohne zugänglichen Namen oder Rolle oder nicht per Tastatur bedienbar — Screenreader- und Tastaturnutzung ist an diesen Stellen behindert."
+                    ),
                 }
             }
             ManagementRiskKind::Conversion {

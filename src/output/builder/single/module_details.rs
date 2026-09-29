@@ -1575,21 +1575,18 @@ fn build_security_details(
             sec.ssl.certificate_error.as_deref(),
         );
 
+        let band_score =
+            crate::audit::interpretation::security_text_band(security_score as f32, &sec.issues)
+                .representative_score();
         SecurityPresentation {
             score: security_score,
             grade: normalized_module_grade(&normalized.normalized, "Security")
                 .unwrap_or_else(|| sec.grade.clone()),
             interpretation: module_interpretation(&normalized.normalized, "security", locale),
             band_label: crate::registry::FIVE_BAND
-                .label(
-                    crate::audit::interpretation::security_text_band(
-                        security_score as f32,
-                        &sec.issues,
-                    )
-                    .representative_score(),
-                    locale == "en",
-                )
+                .label(band_score, locale == "en")
                 .to_string(),
+            band_score: band_score.round() as u32,
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {
@@ -1878,10 +1875,12 @@ fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<Mo
                 .iter()
                 .take(3)
                 .map(|(ctx, count)| {
+                    // The raw key printed "im Bereich other" in German.
+                    let area = crate::mobile::mobile_context_label(ctx, en);
                     if en {
-                        format!("{} in {}", count, ctx)
+                        format!("{} in {}", count, area)
                     } else {
-                        format!("{} im Bereich {}", count, ctx)
+                        format!("{} im Bereich {}", count, area)
                     }
                 })
                 .collect();

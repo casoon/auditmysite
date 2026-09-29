@@ -432,15 +432,30 @@ fn local_name_of(node: &CdpNode) -> String {
 }
 
 /// Zustand beim Umkopieren des CDP-Baums in die Arena.
-struct Walk<'l> {
+struct Walk<'l, 'n> {
     builder: Option<a11y_dom::ArenaBuilder>,
     backend_ids: Vec<Option<i64>>,
     /// Wenn gesetzt, werden die Leerraum-Textknoten ergänzt, die
     /// `DOM.getDocument` auslässt (siehe [`LayoutStyles`]).
     layout: Option<&'l LayoutStyles>,
+    /// Jeder Knoten nach Backend-ID, damit ein `<slot>` die ihm zugewiesenen
+    /// Light-DOM-Knoten findet.
+    by_backend: HashMap<i64, &'n CdpNode>,
 }
 
-impl Walk<'_> {
+/// Merkt sich jeden Knoten des Dokuments einschließlich der Shadow-Roots
+/// nach seiner Backend-ID.
+fn index_nodes<'n>(node: &'n CdpNode, map: &mut HashMap<i64, &'n CdpNode>) {
+    map.insert(*node.backend_node_id.inner(), node);
+    for child in node.shadow_roots.iter().flatten() {
+        index_nodes(child, map);
+    }
+    for child in node.children.iter().flatten() {
+        index_nodes(child, map);
+    }
+}
+
+impl<'n> Walk<'_, 'n> {
     /// Jeder Push in die Arena wird hier gespiegelt, damit Arena-Index und
     /// `backend_ids`-Index nicht auseinanderlaufen.
     fn record(&mut self, backend: Option<i64>) {
@@ -467,15 +482,36 @@ impl Walk<'_> {
             }
         }
 
-        // Shadow-Roots zählen für die Barrierefreiheit zum Inhalt des Hosts;
-        // ihre Kinder werden deshalb unter den Host gehängt. Der Fragment-
-        // Knoten selbst bekommt kein Gegenstück — er hat keinen Tagnamen, den
-        // eine Regel sinnvoll prüfen könnte.
+        // Der flache Baum, wie ihn Browser und Assistenztechnik sehen: Die
+        // Kinder eines Shadow-Roots hängen unter dem Host, der Fragment-Knoten
+        // selbst bekommt kein Gegenstück. Die Light-DOM-Kinder des Hosts
+        // erscheinen nur dort, wo ein `<slot>` sie aufnimmt; ohne Slot werden
+        // sie nicht dargestellt. Hingen sie neben dem Shadow-Inhalt, stand auf
+        // sachsen-anhalt.de jede `<ul><slot>` leer da und jedes per Slot
+        // gelieferte `role="listitem"` ausserhalb einer Liste.
+        let mut is_host = false;
         for shadow in node.shadow_roots.iter().flatten() {
+            is_host = true;
             self.children(shadow);
         }
 
-        self.children(node);
+        let assigned: Vec<&'n CdpNode> = if name == "slot" {
+            node.distributed_nodes
+                .iter()
+                .flatten()
+                .filter_map(|b| self.by_backend.get(b.backend_node_id.inner()).copied())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if !assigned.is_empty() {
+            for child in assigned {
+                self.node(child);
+            }
+        } else if !is_host {
+            // Ein Slot ohne Zuweisung zeigt seinen Ersatzinhalt.
+            self.children(node);
+        }
         self.with(|b| b.close());
     }
 
@@ -551,10 +587,13 @@ fn build(root: &CdpNode, ax_tree: &AXTree, layout: Option<LayoutStyles>) -> Resu
         reason: "DOM enthält kein <html>-Element".to_string(),
     })?;
 
+    let mut by_backend = HashMap::new();
+    index_nodes(root, &mut by_backend);
     let mut walk = Walk {
         builder: Some(Arena::builder()),
         backend_ids: Vec::new(),
         layout: layout.as_ref(),
+        by_backend,
     };
     walk.node(html);
 
@@ -807,6 +846,96 @@ mod tests {
         let button = elements(&doc).find(|n| n.is_element("button")).unwrap();
         assert_eq!(doc.backend_node_id(button), Some(6));
         assert_eq!(button.parent().unwrap().local_name(), "my-card");
+    }
+
+    /// Muster von sachsen-anhalt.de: Die Liste liegt im Shadow-Root, die
+    /// Eintraege kommen per Slot aus dem Light-DOM des Hosts. Im flachen Baum
+    /// haengen sie unter dem `<slot>` in der `<ul>`; ein nicht zugewiesenes
+    /// Light-Kind erscheint gar nicht.
+    #[test]
+    fn slot_nimmt_die_zugewiesenen_light_kinder_auf() {
+        let slot = serde_json::json!({
+            "nodeId": 7, "backendNodeId": 7, "nodeType": 1,
+            "nodeName": "SLOT", "localName": "slot", "nodeValue": "", "children": [],
+            "distributedNodes": [
+                {"nodeType": 1, "nodeName": "MUSE-LINK", "backendNodeId": 10},
+                {"nodeType": 1, "nodeName": "MUSE-LINK", "backendNodeId": 11}
+            ]
+        });
+        let shadow = serde_json::json!({
+            "nodeId": 5, "backendNodeId": 5, "nodeType": 11,
+            "nodeName": "#document-fragment", "localName": "", "nodeValue": "",
+            "children": [element(6, "ul", &[], serde_json::json!([slot]))]
+        });
+        let light = serde_json::json!([
+            element(
+                10,
+                "muse-link",
+                &["role", "listitem"],
+                serde_json::json!([])
+            ),
+            element(
+                11,
+                "muse-link",
+                &["role", "listitem"],
+                serde_json::json!([])
+            ),
+            element(12, "span", &["slot", "unbenutzt"], serde_json::json!([]))
+        ]);
+        let list = serde_json::json!({
+            "nodeId": 4, "backendNodeId": 4, "nodeType": 1,
+            "nodeName": "MUSE-LINK-LIST", "localName": "muse-link-list", "nodeValue": "",
+            "children": light, "shadowRoots": [shadow]
+        });
+        let body = element(3, "body", &[], serde_json::json!([list]));
+        let host = cdp(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [element(2, "html", &[], serde_json::json!([body]))]
+        }));
+
+        let doc = build_document(&host, &leerer_ax()).unwrap();
+        let items: Vec<_> = elements(&doc)
+            .filter(|n| n.is_element("muse-link"))
+            .collect();
+        assert_eq!(items.len(), 2);
+        for item in items {
+            assert_eq!(item.parent().unwrap().local_name(), "slot");
+            assert_eq!(item.parent().unwrap().parent().unwrap().local_name(), "ul");
+        }
+        assert!(!elements(&doc).any(|n| n.is_element("span")));
+    }
+
+    /// Ein Slot ohne Zuweisung zeigt seinen Ersatzinhalt.
+    #[test]
+    fn slot_ohne_zuweisung_zeigt_ersatzinhalt() {
+        let host = cdp(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [
+                element(2, "html", &[], serde_json::json!([
+                    element(3, "body", &[], serde_json::json!([
+                        {
+                            "nodeId": 4, "backendNodeId": 4, "nodeType": 1,
+                            "nodeName": "MY-CARD", "localName": "my-card",
+                            "nodeValue": "", "children": [],
+                            "shadowRoots": [{
+                                "nodeId": 5, "backendNodeId": 5, "nodeType": 11,
+                                "nodeName": "#document-fragment", "localName": "",
+                                "nodeValue": "",
+                                "children": [element(6, "slot", &[], serde_json::json!([
+                                    element(8, "button", &[], serde_json::json!([]))
+                                ]))]
+                            }]
+                        }
+                    ]))
+                ]))
+            ]
+        }));
+
+        let doc = build_document(&host, &leerer_ax()).unwrap();
+        let button = elements(&doc).find(|n| n.is_element("button")).unwrap();
+        assert_eq!(button.parent().unwrap().local_name(), "slot");
     }
 
     fn ax_knoten(

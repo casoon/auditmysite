@@ -41,9 +41,10 @@ pub fn check_dialog_rules(tree: &AXTree) -> WcagResults {
                     check_dialog_modal_property(node, &mut results);
                 }
             }
-            "alert" | "status" => {
-                check_alert_has_name(node, &mut results);
-            }
+            // `alert` and `status` need no name: ARIA marks it optional for
+            // live regions, and axe does not ask for one. The former check
+            // made two empty `role="status"` regions on www.gov.uk the main
+            // reason for a failed verdict.
             _ => {}
         }
     }
@@ -90,28 +91,6 @@ fn check_dialog_modal_property(node: &AXNode, results: &mut WcagResults) {
         .with_name(node.name.clone())
         .with_fix("Add aria-modal=\"true\" to the dialog element so assistive technologies know to restrict focus")
         .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/")
-        .with_rule_id(RULE_META.axe_id);
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-    }
-}
-
-/// Alert and status regions benefit from having an accessible name
-fn check_alert_has_name(node: &AXNode, results: &mut WcagResults) {
-    if !node.has_name() {
-        let violation = Violation::new(
-            "4.1.2",
-            "Name, Role, Value - Alert Region",
-            WcagLevel::A,
-            Severity::Medium,
-            "Alert/status region has no accessible name",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_fix("Add aria-label or aria-labelledby to identify the alert or status region")
-        .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html")
         .with_rule_id(RULE_META.axe_id);
 
         results.add_violation(violation);
@@ -191,14 +170,14 @@ mod tests {
     }
 
     #[test]
-    fn test_alert_without_name_flagged() {
-        let nodes = vec![make_node("1", "alert", None)];
+    fn test_live_regions_without_name_pass() {
+        let nodes = vec![
+            make_node("1", "alert", None),
+            make_node("2", "status", None),
+        ];
         let tree = AXTree::from_nodes(nodes);
         let results = check_dialog_rules(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("no accessible name")));
+        assert!(results.violations.is_empty());
     }
 
     #[test]

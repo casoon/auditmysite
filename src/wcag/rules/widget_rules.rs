@@ -165,9 +165,17 @@ pub async fn check_tab_selected_state_with_page(page: &Page) -> Vec<Violation> {
         .collect()
 }
 
-/// combobox must have a descendant listbox or option
+/// An expanded combobox must own or control its popup.
+///
+/// ARIA 1.2 references the popup with `aria-controls` instead of nesting it,
+/// and a collapsed combobox needs no popup at all — the APG autocomplete on
+/// www.gov.uk keeps an empty listbox until the user types. Checking only the
+/// subtree flagged that pattern, although the fix text itself recommends
+/// `aria-controls`.
 fn check_combobox_has_options(node: &AXNode, tree: &AXTree, results: &mut WcagResults) {
-    let has_options = has_any_role_in_subtree(tree, node, &["listbox", "option"], MAX_DEPTH);
+    let has_options = has_any_role_in_subtree(tree, node, &["listbox", "option"], MAX_DEPTH)
+        || node.has_property("controls")
+        || node.get_property_bool("expanded") != Some(true);
 
     if !has_options {
         let violation = Violation::new(
@@ -264,6 +272,47 @@ mod tests {
             parent_id: parent_id.map(String::from),
             backend_dom_node_id: None,
         }
+    }
+
+    fn combobox(properties: Vec<(&str, AXValue)>) -> AXTree {
+        let mut node = make_node("c", "combobox", Some("Search"), None, vec![]);
+        node.properties = properties
+            .into_iter()
+            .map(|(name, value)| AXProperty {
+                name: name.to_string(),
+                value,
+            })
+            .collect();
+        AXTree::from_nodes(vec![node])
+    }
+
+    fn flags_missing_options(tree: &AXTree) -> bool {
+        check_widget_rules(tree)
+            .violations
+            .iter()
+            .any(|v| v.message.contains("no associated options list"))
+    }
+
+    #[test]
+    fn test_combobox_controlling_its_popup_passes() {
+        // APG autocomplete on www.gov.uk: listbox referenced, not nested.
+        let tree = combobox(vec![
+            ("expanded", AXValue::Bool(true)),
+            ("controls", AXValue::String("search__listbox".into())),
+        ]);
+        assert!(!flags_missing_options(&tree));
+    }
+
+    #[test]
+    fn test_collapsed_combobox_needs_no_popup() {
+        let tree = combobox(vec![("expanded", AXValue::Bool(false))]);
+        assert!(!flags_missing_options(&tree));
+    }
+
+    #[test]
+    fn test_expanded_combobox_without_popup_flagged() {
+        let tree = combobox(vec![("expanded", AXValue::Bool(true))]);
+        assert!(flags_missing_options(&tree));
     }
 
     #[test]

@@ -1288,7 +1288,15 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
 
     for mv in &mobile.violations {
         let mk = dedup_key(mv);
-        let match_idx = desktop.violations.iter().position(|dv| dedup_key(dv) == mk);
+        // Only an unmatched desktop entry can pair up: several elements can
+        // share a selector (18 × `ul.link-list__list` on sachsen-anhalt.de),
+        // and reusing the first match left the other 17 desktop entries to be
+        // appended as desktop-only — 35 occurrences for 18 elements.
+        let match_idx = desktop
+            .violations
+            .iter()
+            .enumerate()
+            .position(|(i, dv)| !desktop_matched[i] && dedup_key(dv) == mk);
 
         if let Some(idx) = match_idx {
             desktop_matched[idx] = true;
@@ -1359,6 +1367,12 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
             .iter()
             .chain(&mobile.rule_outcomes)
             .cloned()
+            .collect(),
+        localized_texts: desktop
+            .localized_texts
+            .iter()
+            .chain(&mobile.localized_texts)
+            .map(|(en, de)| (en.clone(), de.clone()))
             .collect(),
     }
 }
@@ -2785,6 +2799,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 100,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
         let mobile = WcagResults {
             violations: vec![
@@ -2798,6 +2813,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 90,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -2829,6 +2845,50 @@ journey_budget_ms = 1234
     }
 
     #[test]
+    fn test_merge_wcag_violations_repeated_selector_pairs_one_to_one() {
+        fn make_v(selector: &str) -> Violation {
+            let mut v = Violation::new(
+                "1.3.1",
+                "1.3.1",
+                WcagLevel::A,
+                Severity::Low,
+                "msg",
+                "document",
+            );
+            v.selector = Some(selector.to_string());
+            v
+        }
+        let results = |n: usize| WcagResults {
+            violations: (0..n).map(|_| make_v("ul.link-list__list")).collect(),
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 0,
+            incomplete: 0,
+            nodes_checked: 0,
+            rule_outcomes: vec![],
+            localized_texts: Default::default(),
+        };
+
+        let merged = merge_wcag_violations(&results(18), &results(18));
+        assert_eq!(merged.violations.len(), 18);
+        assert!(merged
+            .violations
+            .iter()
+            .all(|v| v.tags.contains(&"both-viewports".to_string())));
+
+        // One element more on desktop stays one desktop-only occurrence.
+        let merged = merge_wcag_violations(&results(3), &results(2));
+        assert_eq!(merged.violations.len(), 3);
+        let desktop_only = merged
+            .violations
+            .iter()
+            .filter(|v| v.tags.contains(&"desktop-only".to_string()))
+            .count();
+        assert_eq!(desktop_only, 1);
+    }
+
+    #[test]
     fn test_merge_wcag_violations_empty_desktop() {
         fn make_v(rule: &str, selector: &str) -> Violation {
             let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
@@ -2845,6 +2905,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 0,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
         let mobile = WcagResults {
             violations: vec![make_v("1.1.1", "#img1"), make_v("1.4.3", "#text1")],
@@ -2855,6 +2916,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 50,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -2884,6 +2946,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 80,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
         let mobile = WcagResults {
             violations: vec![],
@@ -2894,6 +2957,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 60,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -2939,6 +3003,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 0,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
         let mobile = WcagResults {
             violations: vec![mobile_v],
@@ -2949,6 +3014,7 @@ journey_budget_ms = 1234
             incomplete: 0,
             nodes_checked: 0,
             rule_outcomes: vec![],
+            localized_texts: Default::default(),
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);

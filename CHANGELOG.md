@@ -5,6 +5,32 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Berichtsgenauigkeit nach dem Abgleich mit dem rankinglab-Korpus, 2026-09-29:** Zwei
+  Berichtskritiken (gov.uk, sachsen-anhalt.de) gegen 1.3.1 fanden Fehler, die Urteil und Zahlen
+  verfaelschten; jeder ist am Code bzw. an den Daten nachgeprueft. (1) Die Zusammenfuehrung von
+  Desktop und Mobile paarte jeden Mobile-Befund mit dem ersten Desktop-Befund gleichen Selektors,
+  auch wenn der schon vergeben war: 18 leere Listen je Ansicht wurden 35 Vorkommen. Jetzt eins zu
+  eins. (2) `role="status"`/`alert` ohne Namen galt als 4.1.2-Verstoss; ARIA verlangt fuer diese
+  Rollen keinen Namen. Auf gov.uk trugen zwei leere Status-Regionen das „nicht bestanden".
+  (3) Die Combobox-Regel suchte die Optionsliste nur im Teilbaum; `aria-controls` und der
+  geschlossene Zustand zaehlen jetzt (APG-Autocomplete auf gov.uk). (4) „Bedienelemente ohne
+  Namen" zaehlte alle 4.1.2-Befunde ab mittel, auch doppelte IDs und unbenannte Dialoge; jetzt nur
+  fehlender Name/fehlende Rolle und 2.1.1. Der Satz „0 kritische und 0 hohe Befunde, davon 3 …"
+  nennt die Blocker nicht mehr als Teilmenge. (5) Sicherheitskarte und Modultabelle folgen der
+  korrigierten Wortstufe (Plan 33) auch in Farbe und Tabelle; die Quellenqualitaets-Karten nutzen
+  eine Skala statt drei; der Aufwand einer Massnahme steigt mit der Komplexitaet des Befunds
+  („Geringe Komplexitaet" neben „53 Vorkommen deuten auf ein Template-Problem"). (6) Kein
+  doppelter Punkt im Anhang, deutsche Bereichsnamen bei Touch-Targets, und die Zeile unter den
+  Zaehlern trennt Stellen zur Handpruefung von den nur manuell pruefbaren Kriterien. (7) JSON
+  bleibt kanonisch Englisch (#406): Seit #633 standen die Texte der geteilten Regeln in der
+  Laufsprache im JSON. Die Regeln laufen jetzt englisch; ein deutscher Lauf prueft zusaetzlich
+  auf Deutsch und legt die Texte in `WcagResults::localized_texts` ab (nicht serialisiert), die
+  PDF-Builder (Einzel und Batch) setzen sie ein. (8) Der DOM fuer die geteilten Regeln ist der
+  flache Baum: Per Slot zugewiesene Light-DOM-Knoten haengen unter ihrem `<slot>`, nicht
+  zugewiesene erscheinen nicht. Bisher hingen sie neben dem Shadow-Inhalt, und jede
+  `<ul><slot>` einer Web-Komponente stand leer da (sachsen-anhalt.de). (9) Beim Beenden meldete
+  `BrowserManager::close` „Failed to close page: Session with given id not found" fuer die schon
+  geschlossene Audit-Seite (5 von 15 Einzelaudits); das ist jetzt eine Debug-Meldung.
 - **JSON und PDF zeigen dieselben Befunde in derselben Reihenfolge, 2026-09-28 (Plaene 58-64):**
   Stabilitaetspruefung vor 1.6.0 an gov.uk, bundesregierung.de, dm.de und casoon.de, je zwei
   Laeufe. Scores waren stabil, die Berichte nicht deckungsgleich. (1) `top_actions` und die

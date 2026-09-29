@@ -37,9 +37,17 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
             if module.card_context.is_empty() || module.card_context == module.interpretation {
                 format!("{} / 100 — {}", module.score, module.interpretation)
             } else {
+                // The interpretation is a full sentence already; a second
+                // period printed "Optimierungsmöglichkeiten.. 5417 DOM-Knoten".
+                let sentence = module.interpretation.trim_end();
+                let stop = if sentence.ends_with(['.', '!', '?']) {
+                    ""
+                } else {
+                    "."
+                };
                 format!(
-                    "{} / 100 — {}. {}",
-                    module.score, module.interpretation, module.card_context
+                    "{} / 100 — {}{} {}",
+                    module.score, sentence, stop, module.card_context
                 )
             };
         table = table.add_row(vec![row_module.clone(), module.name.clone(), value]);
