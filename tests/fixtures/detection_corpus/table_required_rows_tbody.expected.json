@@ -1,0 +1,7 @@
+{
+  "case": "table_required_rows_tbody",
+  "expectations": [
+    { "rule_id": "aria-roles", "selector": "table#keys", "verdict": "pass" },
+    { "rule_id": "aria-roles", "selector": "table#empty", "verdict": "violation" }
+  ]
+}

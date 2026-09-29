@@ -5,6 +5,25 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Tabellen: ignorierte und noch nicht gerenderte Zeilen (#654, #659), 2026-09-29:**
+  (1) `aria-roles` meldete auf og-vanilla.casoon.dev (`/accessibility`, `table.keys`) „role 'table'
+  is missing required child roles: row, rowgroup" fuer eine Tabelle mit `tbody > tr`. Chrome
+  markiert ein schlichtes `<tbody>` als ignoriert, die Zeilen haengen darunter; die Pruefung der
+  geforderten Kind-Rollen sah nur direkte Kinder. Sie schaut jetzt durch ignorierte Knoten hindurch
+  (gleiches Muster wie #638). Eine Tabelle ohne Zeile (nur `caption`) bleibt gemeldet.
+  (2) `th-has-data-cells` meldete die Kopfzellen des `role="grid"`-Rasters in einer Shadow-Root
+  (`/columns`, `/accessibility`), obwohl jede Spalte Daten hat. Im Nachstellen per CDP lag die
+  Aufnahme vor dem Eintreffen der Daten: Das Raster haelt 40 Pool-Zeilen mit `display: none` im
+  DOM, bis der Worker liefert (rund 300-500 ms nach `load`); Chrome fuehrt sie als ignoriert mit
+  `notRendered`. Die Stabilitaetswartung sieht Mutationen in Shadow-Roots nicht und meldete die
+  Seite nach 255 ms stabil. Stehen in einer Tabelle ohne Datenzellen solche nicht gerenderten Zeilen
+  an Zeilenposition (direkt unter der Tabelle, unter einer rowgroup oder einem ignorierten
+  `<tbody>`), gilt das Ergebnis jetzt als unbestimmt (`incomplete`) statt als Verstoss. Versteckte
+  Inhalte innerhalb einer Kopfzelle zaehlen nicht; eine Tabelle nur mit Kopfzeile bleibt gemeldet.
+
+  Neue Korpus-Fixtures `table_required_rows_tbody` und `table_grid_rows_unrendered` (Shadow-DOM-
+  Raster mit wartenden bzw. gerenderten Zeilen, Tabelle nur mit Kopfzeile als Verstoss) und
+  Unit-Tests in beiden Regeln.
 - **Technician-Modus: Einzelseiten-JSON zum Beheben statt Bericht zum Lesen, 2026-09-29 (Plan 67):**
   Neu fuer Leute, die Befunde abarbeiten: `--sitemap URL --technician -o DIR/` (ebenso mit
   `--url-file`/`--crawl`) schreibt pro Seite den regulaeren Einzelbericht als JSON und daneben zwei

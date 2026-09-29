@@ -16,7 +16,7 @@
 
 use chromiumoxide::Page;
 
-use crate::accessibility::{AXNode, AXTree};
+use crate::accessibility::{AXNode, AXTree, AXValue};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
@@ -167,9 +167,13 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
         results.nodes_checked += 1;
 
         // Gather all cells (columnheader, rowheader, gridcell, cell) in this table
-        let mut header_cells: Vec<&AXNode> = Vec::new();
-        let mut data_cells: Vec<&AXNode> = Vec::new();
-        collect_table_cells(tree, node, &mut header_cells, &mut data_cells, 0);
+        let mut cells = TableCells::default();
+        collect_table_cells(tree, node, &mut cells, true, 0);
+        let TableCells {
+            header_cells,
+            data_cells,
+            unrendered_rows,
+        } = cells;
 
         // td-headers-attr now runs as a DOM page rule
         // (check_table_headers_attr_with_page) — see module docs.
@@ -178,7 +182,13 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
         // Each header cell should have at least one data cell in the same table.
         // Heuristic: flag header cells in tables that have zero data cells.
         if !header_cells.is_empty() {
-            if data_cells.is_empty() {
+            if data_cells.is_empty() && unrendered_rows {
+                // Rows are in the DOM but not rendered yet, typically a
+                // virtualized grid whose row pool still waits for its data
+                // (#654). Whether the headers get data cells is undetermined
+                // at snapshot time, not a failure.
+                results.incomplete += header_cells.len();
+            } else if data_cells.is_empty() {
                 for hcell in &header_cells {
                     results.add_violation(
                         Violation::new(
@@ -207,11 +217,22 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
 
 const MAX_DEPTH: usize = 12;
 
+#[derive(Default)]
+struct TableCells<'a> {
+    header_cells: Vec<&'a AXNode>,
+    data_cells: Vec<&'a AXNode>,
+    /// A row or row group of the table is in the DOM but not rendered.
+    unrendered_rows: bool,
+}
+
+/// `row_level` marks positions where rows live: directly under the table,
+/// under a rowgroup, or under an ignored node in such a position (a plain
+/// `<tbody>`).
 fn collect_table_cells<'a>(
     tree: &'a AXTree,
     node: &'a AXNode,
-    header_cells: &mut Vec<&'a AXNode>,
-    data_cells: &mut Vec<&'a AXNode>,
+    cells: &mut TableCells<'a>,
+    row_level: bool,
     depth: usize,
 ) {
     if depth > MAX_DEPTH {
@@ -223,17 +244,27 @@ fn collect_table_cells<'a>(
             // a plain <tbody> ignored while its rows stay exposed (#638), so
             // descend through it instead of dropping the whole subtree.
             if child.ignored {
-                collect_table_cells(tree, child, header_cells, data_cells, depth + 1);
+                if row_level && is_not_rendered(child) {
+                    cells.unrendered_rows = true;
+                }
+                collect_table_cells(tree, child, cells, row_level, depth + 1);
                 continue;
             }
             match child.role.as_deref() {
-                Some("columnheader") | Some("rowheader") => header_cells.push(child),
-                Some("gridcell") | Some("cell") => data_cells.push(child),
+                Some("columnheader") | Some("rowheader") => cells.header_cells.push(child),
+                Some("gridcell") | Some("cell") => cells.data_cells.push(child),
                 _ => {}
             }
-            collect_table_cells(tree, child, header_cells, data_cells, depth + 1);
+            let child_row_level = child.role.as_deref() == Some("rowgroup");
+            collect_table_cells(tree, child, cells, child_row_level, depth + 1);
         }
     }
+}
+
+fn is_not_rendered(node: &AXNode) -> bool {
+    node.ignored_reasons
+        .iter()
+        .any(|r| r.name == "notRendered" && matches!(r.value, AXValue::Bool(true)))
 }
 
 #[cfg(test)]
@@ -321,6 +352,55 @@ mod tests {
             "data cells beneath an ignored tbody must count: {:?}",
             r.violations
         );
+    }
+
+    fn not_rendered(mut n: AXNode) -> AXNode {
+        n.ignored = true;
+        n.ignored_reasons = vec![AXProperty {
+            name: "notRendered".into(),
+            value: AXValue::Bool(true),
+        }];
+        n
+    }
+
+    #[test]
+    fn test_unrendered_body_rows_are_undetermined() {
+        // #654: a virtualized grid's row pool is in the DOM but not rendered
+        // until its data arrives; Chrome exposes the rows as ignored
+        // (notRendered) nodes beneath the body rowgroup.
+        let mut grid = node("g", "grid", None, vec![]);
+        let mut head = node("head", "rowgroup", Some("g"), vec![]);
+        let mut hrow = node("hr", "row", Some("head"), vec![]);
+        let h1 = node("h1", "columnheader", Some("hr"), vec![]);
+        let h2 = node("h2", "columnheader", Some("hr"), vec![]);
+        let mut body = node("body", "rowgroup", Some("g"), vec![]);
+        let mut pooled = not_rendered(node("r1", "none", Some("body"), vec![]));
+        let pooled_cell = not_rendered(node("c1", "none", Some("r1"), vec![]));
+        grid.child_ids = vec!["head".into(), "body".into()];
+        head.child_ids = vec!["hr".into()];
+        hrow.child_ids = vec!["h1".into(), "h2".into()];
+        body.child_ids = vec!["r1".into()];
+        pooled.child_ids = vec!["c1".into()];
+        let tree = AXTree::from_nodes(vec![grid, head, hrow, h1, h2, body, pooled, pooled_cell]);
+        let r = check_table_extended(&tree);
+        assert!(r.violations.is_empty(), "{:?}", r.violations);
+        assert_eq!(r.incomplete, 2);
+    }
+
+    #[test]
+    fn test_hidden_content_inside_header_cell_still_flagged() {
+        // A not-rendered node inside a header cell (e.g. a hidden sort icon)
+        // is not a pending row: a header-only table stays reported.
+        let mut table = node("t", "table", None, vec![]);
+        let mut row = node("r", "row", Some("t"), vec![]);
+        let mut header = node("h1", "columnheader", Some("r"), vec![]);
+        let icon = not_rendered(node("i", "none", Some("h1"), vec![]));
+        table.child_ids = vec!["r".into()];
+        row.child_ids = vec!["h1".into()];
+        header.child_ids = vec!["i".into()];
+        let tree = AXTree::from_nodes(vec![table, row, header, icon]);
+        let r = check_table_extended(&tree);
+        assert_eq!(r.violations.len(), 1);
     }
 
     // td-headers-attr moved to the DOM-based check_table_headers_attr_with_page
