@@ -109,7 +109,9 @@ src/
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
 │   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)
-│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
+│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
+│   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
+│   ├── finding_derive.rs # Derived finding fields: priority score, confidence, complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation
