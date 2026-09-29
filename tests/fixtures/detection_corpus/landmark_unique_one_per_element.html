@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Landmark uniqueness counted once per element corpus case</title>
+</head>
+<body>
+    <!-- Two navigation landmarks and two region landmarks share a name each:
+         four offending elements, so exactly four landmark-unique
+         occurrences (not one per element per detection path). -->
+    <header>
+        <nav aria-label="Primary"><a href="/">Home</a></nav>
+    </header>
+    <main>
+        <h1>Landmark names</h1>
+        <nav aria-label="Primary"><a href="/docs">Docs</a></nav>
+        <section aria-label="Details"><p>First details block.</p></section>
+        <section aria-label="Details"><p>Second details block.</p></section>
+    </main>
+    <footer>
+        <nav aria-label="Legal"><a href="/imprint">Imprint</a></nav>
+    </footer>
+</body>
+</html>

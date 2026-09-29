@@ -38,6 +38,11 @@ pub struct Expectation {
     #[serde(default)]
     pub selector: Option<String>,
     pub verdict: Verdict,
+    /// Optional, `violation` only: the exact number of violations this rule
+    /// (and selector, if given) must produce — one per offending element, so
+    /// a rule reported twice for the same element shows up as a mismatch.
+    #[serde(default)]
+    pub occurrences: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
