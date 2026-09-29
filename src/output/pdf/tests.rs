@@ -1923,6 +1923,7 @@ mod tests {
             vec![crate::audit::BatchError {
                 url: "https://example.com/heavy-webgl".to_string(),
                 error: "Browser pool timeout: no page available after 615 seconds".to_string(),
+                blocked_reason: None,
             }],
             300,
         );

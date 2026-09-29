@@ -60,16 +60,15 @@ const ARIA_HIDDEN_FOCUS_BODY: &str = r#"
       var hidden = el.closest('[aria-hidden="true"]');
       if (!hidden) continue;
       if (!isReachable(el)) continue;
-      total++;
-      if (issues.length < CAP) {
-        issues.push({
-          selector: __amsCssSelector(el),
-          snippet: el.outerHTML.substring(0, 200)
-        });
-      }
+      // Excluded elements (#645) neither count nor spend the cap.
+      if (!__amsIsExcludedEl(el)) total++;
+      __amsPush(issues, el, {
+        selector: __amsCssSelector(el),
+        snippet: el.outerHTML.substring(0, 200)
+      }, CAP);
     }
   } catch(e) {}
-  return { count: total, returned: issues.length, truncated: total > issues.length, issues: issues };
+  return { count: total, returned: __amsReal(issues), truncated: total > __amsReal(issues), issues: issues };
 "#;
 
 pub async fn check_aria_hidden_focus(page: &Page) -> Vec<Violation> {

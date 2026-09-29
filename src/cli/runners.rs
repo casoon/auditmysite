@@ -18,6 +18,7 @@ use auditmysite::audit::{
     BatchConfig, CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
+use auditmysite::cli::url_filter::select_urls;
 use auditmysite::cli::{Args, OutputFormat, RequestMode};
 use auditmysite::error::{AuditError, Result};
 
@@ -466,10 +467,44 @@ async fn run_batch(
     }
 
     let total_discovered = urls.len();
-    let total_urls = if args.max_pages > 0 {
-        args.max_pages.min(total_discovered)
+
+    // Cloned before path filtering and before `urls` is moved into
+    // `run_concurrent_batch` below. Must stay the *full* discovered list, not
+    // just the audited selection: sitemap diagnostics compares it against
+    // crawled internal links, and a subset floods `linked_not_in_sitemap` with
+    // pages that are genuinely in the sitemap, just outside the selection (#514).
+    let full_sitemap_urls: Vec<String> = if url_source == "sitemap" {
+        urls.clone()
     } else {
-        total_discovered
+        Vec::new()
+    };
+
+    let path_filtered = !(args.include_path.is_empty() && args.exclude_path.is_empty());
+    let urls = select_urls(urls, &args.include_path, &args.exclude_path);
+    if path_filtered {
+        if !args.quiet {
+            eprintln!(
+                "{} {} of {} URLs match the path filters",
+                "Path filter:".cyan().bold(),
+                urls.len(),
+                total_discovered
+            );
+        }
+        if urls.is_empty() {
+            if !args.quiet {
+                eprintln!(
+                    "{} No URL matches --include-path/--exclude-path.",
+                    "Warning:".yellow().bold()
+                );
+            }
+            return Ok(RunOutcome::verdict_only(Verdict::Warn));
+        }
+    }
+
+    let total_urls = if args.max_pages > 0 {
+        args.max_pages.min(urls.len())
+    } else {
+        urls.len()
     };
 
     let sample = auditmysite::audit::SampleMetadata {
@@ -477,7 +512,9 @@ async fn run_batch(
         total_discovered,
         audited: total_urls,
         sample_limit: (args.max_pages > 0).then_some(args.max_pages),
-        selection: if total_urls < total_discovered {
+        selection: if path_filtered {
+            "path_filter".to_string()
+        } else if total_urls < total_discovered {
             "first_n".to_string()
         } else {
             "all".to_string()
@@ -485,16 +522,9 @@ async fn run_batch(
         is_sample: total_urls < total_discovered,
     };
 
-    // Cloned before `urls` is moved into `run_concurrent_batch` below. Must
-    // stay the *full* discovered list, not just the audited sample: sitemap
-    // diagnostics compares it against crawled internal links, and a sampled
-    // subset floods `linked_not_in_sitemap` with pages that are genuinely in
-    // the sitemap, just outside the sample (#514).
-    let full_sitemap_urls: Vec<String> = if url_source == "sitemap" {
-        urls.clone()
-    } else {
-        Vec::new()
-    };
+    // The pages actually attempted, in input order — the technician index
+    // lists every one of them, audited or not (plan 67).
+    let attempted_urls: Vec<String> = urls.iter().take(total_urls).cloned().collect();
 
     if !args.quiet {
         if sample.is_sample {
@@ -599,7 +629,7 @@ async fn run_batch(
 
     if args.per_page_reports {
         presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
-            output_batch_as_single_reports(&batch_report, args)
+            output_batch_as_single_reports(&batch_report, args, &attempted_urls)
         })?;
         return Ok(outcome);
     }

@@ -1,7 +1,7 @@
 {
   "case": "missing_main_landmark",
   "expectations": [
-    { "rule_id": "landmark-main-present", "verdict": "violation" },
+    { "rule_id": "landmark-main-present", "verdict": "violation", "occurrences": 1 },
     { "rule_id": "region", "verdict": "violation" },
     { "rule_id": "landmark-one-main", "verdict": "violation" },
     { "rule_id": "bypass", "verdict": "violation" },

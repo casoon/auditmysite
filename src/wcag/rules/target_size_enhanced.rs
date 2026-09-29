@@ -29,24 +29,24 @@ const TARGET_SIZE_JS: &str = r#"
 
   for (var s = 0; s < selectors.length; s++) {
     var els = document.querySelectorAll(selectors[s]);
-    for (var i = 0; i < els.length && elements.length < 50; i++) {
-      elements.push(els[i]);
+    for (var i = 0; i < els.length && __amsReal(elements) < 50; i++) {
+      __amsPush(elements, els[i], els[i], 50);
     }
   }
 
   /*TARGET_HELPERS*/
-  for (var j = 0; j < elements.length && violations.length < 5; j++) {
+  for (var j = 0; j < elements.length && __amsReal(violations) < 5; j++) {
     var el = elements[j];
     var rect = el.getBoundingClientRect();
     // 2.5.5 has no spacing exception, only the inline and equivalent ones.
     if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el) && !hasEquivalentLink(el, MIN_SIZE)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
-      violations.push({
+      __amsPush(violations, el, {
         selector: __amsCssSelector(el),
         label: desc,
         width: Math.round(rect.width),
         height: Math.round(rect.height)
-      });
+      }, 5);
     }
   }
 

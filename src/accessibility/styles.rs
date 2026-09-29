@@ -313,7 +313,8 @@ const STYLES_EXTRACT_JS: &str = r#"
             visibility: styles.visibility,
             display: styles.display,
             width: rect.width,
-            height: rect.height
+            height: rect.height,
+            excluded: __amsIsExcludedEl(el)
         });
     }
 
@@ -405,6 +406,9 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 }
                                 if let Some(height) = item.get("height").and_then(|v| v.as_f64()) {
                                     properties.insert("height".to_string(), height.to_string());
+                                }
+                                if item.get("excluded").and_then(|v| v.as_bool()) == Some(true) {
+                                    properties.insert("excluded".to_string(), "true".to_string());
                                 }
 
                                 let selector = item

@@ -276,6 +276,12 @@ pub async fn run_concurrent_batch(
         .map(|(_, url, error)| BatchError {
             url,
             error: error.to_string(),
+            blocked_reason: match &error {
+                BatchAuditError::Audit(AuditError::AccessBlocked { reason, .. }) => {
+                    Some(reason.clone())
+                }
+                _ => None,
+            },
         })
         .collect();
 

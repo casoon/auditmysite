@@ -226,7 +226,11 @@ Useful flags:
 - `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
 - `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
-- `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
+- `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory. With `-f json`, `index.json` and `findings.jsonl` are written next to the page files (see [Technician mode](#technician-mode))
+- `--technician`: fix-oriented batch preset, see [Technician mode](#technician-mode)
+- `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
+- `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
+- `--html-conform`: run the HTML-conformance module without `--full`
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
 - `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs)
@@ -236,6 +240,7 @@ Useful flags:
 - `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
 - `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](#display-modes)
 - `--design-quality`: opt-in UX/readability heuristics, including alt-text quality checks (filename-like alt text, "image of" prefixes, overly long or redundant alt text); score-neutral and not part of `--full`
+- `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](#excluding-intentional-specimens))
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
 For the full current interface, use:
@@ -418,6 +423,34 @@ disabled = ["heading-order", "landmark-one-main"]
 # enabled_only = ["image-alt", "label"]  # run only these rules
 ```
 
+### Excluding intentional specimens
+
+Sites that teach accessibility ship examples that are broken on purpose. Like axe-core's
+`exclude`, auditmysite can leave such regions out of the findings — never a page, never a rule:
+
+- **`data-audit-exclude`** is always honoured. Put it on an element and its whole subtree is
+  excluded: `<section data-audit-exclude>…specimen…</section>`.
+- **`--exclude-selector <CSS>`** (repeatable) excludes the subtree of every element the selector
+  matches, e.g. `--exclude-selector '[data-specimen]'`. The same list can live in
+  `auditmysite.toml`:
+
+  ```toml
+  [audit]
+  exclude_selectors = ["[data-specimen]"]
+  ```
+
+The page is still audited in full; only findings whose element lies inside an excluded subtree
+are dropped before scoring (WCAG violations and warnings, pattern findings, and journey findings
+that name their element). Page-level findings are never excluded, and a finding located only by
+a selector is dropped only when every element that selector matches lies inside an excluded
+subtree.
+
+Excluding never happens silently. The JSON report lists, per page, every applied selector with
+the number of elements it matched — including `0` and invalid selectors — and how many finding
+occurrences were dropped, per rule (`pages[].exclusions`; batch totals in
+`summary.exclusions`). The PDF names the selectors and counts in the methodology section (batch:
+in the audit frame on the cover).
+
 ### AI / LLM output format
 
 Export findings as a task-oriented JSON list for direct LLM processing:
@@ -582,6 +615,64 @@ auditmysite --url-file urls.txt --full
 
 # one PDF per URL instead of an aggregated batch report
 auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
+```
+
+### Technician mode
+
+For people who fix the issues rather than read a report: one JSON file per page plus two flat
+files to script against, no PDF.
+
+```bash
+auditmysite --sitemap https://example.com/sitemap.xml --technician -o reports/tech/
+auditmysite --url-file urls.txt --technician -o reports/tech/
+
+# only part of the site, before -m applies
+auditmysite --sitemap https://example.com/sitemap.xml --technician \
+  --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
+```
+
+`--technician` is shorthand for `--per-page-reports -f json --no-screen-reader-report --seo
+--html-conform`. It runs the modules that produce fixable findings — accessibility (including the
+keyboard journeys; `--interactive off` makes it faster), HTML conformance and SEO — and skips the
+throttled performance passes, mobile, security and tech-stack detection. Each page file records
+that partial scope in `execution.scope.requested_modules` and `execution.module_runs`. Flags you
+give explicitly win: `-f` replaces the format, and `--full`, `--performance`, `--mobile`,
+`--security` add their modules as usual.
+
+The output directory then holds:
+
+- one `<site>-<path>-<date>-single-report.json` per audited page (the regular single-page JSON),
+- `index.json`: every attempted URL in input order with `file` (or `null`), `status`
+  (`ok`, `blocked` for bot walls/access denials, `failed`), `reason`, `overall_score`,
+  `accessibility_score`, `finding_count`, `occurrence_count` and `audit_quality`
+  (schema: [`docs/technician-index.schema.json`](docs/technician-index.schema.json)),
+- `findings.jsonl`: one line per finding occurrence across all pages — `url`, `source`
+  (`wcag`, `journey`, `seo`, `html_conform`), `rule_id`, `wcag_criterion`, `level`, `severity`,
+  `selector`, `location`, `message`, `fix_suggestion`, `viewport_tags`
+  (schema: [`docs/technician-finding.schema.json`](docs/technician-finding.schema.json)).
+  Unlike the page files, which keep a few example occurrences per finding, this list is complete.
+
+Any `--per-page-reports -f json` run writes `index.json` and `findings.jsonl`; failed or blocked
+pages appear only in `index.json`, never as a page file. All text is canonical English.
+
+Path globs are matched against the whole, percent-decoded URL path (no host, no query): `*` and
+`?` stay within one path segment, `**` crosses segments, and `/**/` also matches a single `/`.
+`/blog/**` selects everything below `/blog/` but not `/blog` itself. A URL is audited when it
+matches any `--include-path` (or none is given) and no `--exclude-path`. With `--crawl`, the
+filters apply to the discovered pages; discovery itself is still capped by `-m`.
+
+```bash
+cd reports/tech
+# the worst rules across the site
+jq -r '"\(.severity)\t\(.rule_id)"' findings.jsonl | sort | uniq -c | sort -rn | head
+# every critical/high occurrence with page and selector
+jq -r 'select(.severity=="critical" or .severity=="high") | [.url, .rule_id, .selector // .location] | @tsv' findings.jsonl
+# all occurrences of one WCAG criterion
+jq -c 'select(.wcag_criterion=="1.4.3") | {url, selector, message}' findings.jsonl
+# pages that were not audited, and why
+jq -r '.pages[] | select(.status!="ok") | "\(.status)\t\(.url)\t\(.reason)"' index.json
+# pages by accessibility score, lowest first
+jq -r '.pages[] | select(.status=="ok") | "\(.accessibility_score)\t\(.occurrence_count)\t\(.url)"' index.json | sort -n
 ```
 
 ### Local development

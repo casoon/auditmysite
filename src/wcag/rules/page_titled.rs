@@ -3,9 +3,8 @@
 //! Web pages have titles that describe topic or purpose.
 //! Level A
 
-use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 use chromiumoxide::Page;
 use tracing::warn;
 
@@ -21,78 +20,10 @@ pub const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag242", "cat.text-alternatives"],
 };
 
-/// Check for proper page title
-pub fn check_page_titled(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-    results.nodes_checked += 1;
-
-    // Look for the root document node to check title
-    let has_title = tree.iter().any(|node| {
-        if let Some(ref role) = node.role {
-            let role_lower = role.to_lowercase();
-            // Check for RootWebArea which contains page title info
-            if role_lower == "rootwebarea" || role_lower == "document" {
-                if let Some(ref name) = node.name {
-                    let title = name.trim();
-                    // Check if title exists and is meaningful
-                    if !title.is_empty() && !is_generic_title(title) && !is_url_like_title(title) {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    });
-
-    if !has_title {
-        // Check if we found any document node
-        let found_document = tree.iter().any(|node| {
-            node.role.as_deref().map(|r| r.to_lowercase()) == Some("rootwebarea".to_string())
-                || node.role.as_deref().map(|r| r.to_lowercase()) == Some("document".to_string())
-        });
-
-        let url_fallback = tree.iter().any(|node| {
-            matches!(node.role.as_deref(), Some("RootWebArea") | Some("document"))
-                && node.name.as_deref().is_some_and(is_url_like_title)
-        });
-        if url_fallback {
-            results.add_not_testable(
-                Violation::new(
-                    PAGE_TITLED_RULE.id,
-                    PAGE_TITLED_RULE.name,
-                    PAGE_TITLED_RULE.level,
-                    Severity::Low,
-                    "The AXTree exposes a URL-like document name; the DOM title check is authoritative.",
-                    "document",
-                )
-                .with_kind(crate::wcag::types::Outcome::Untested)
-                .with_rule_id(PAGE_TITLED_RULE.axe_id),
-            );
-        } else if found_document {
-            let violation = Violation::new(
-                PAGE_TITLED_RULE.id,
-                PAGE_TITLED_RULE.name,
-                PAGE_TITLED_RULE.level,
-                Severity::High,
-                "Page has missing or non-descriptive title",
-                "document",
-            )
-            .with_fix("Add a descriptive <title> element that describes the page topic or purpose")
-            .with_help_url(PAGE_TITLED_RULE.help_url)
-            .with_rule_id(PAGE_TITLED_RULE.axe_id);
-
-            results.add_violation(violation);
-        }
-    } else {
-        results.passes += 1;
-    }
-
-    results
-}
-
-/// DOM supplement for document-title parity. Some pages expose the URL rather
-/// than the empty `<title>` state in the AX tree; `document.title` is the
-/// canonical signal for axe-core's `document-title` rule.
+/// Page title check against the DOM. This is the only `document-title`
+/// source: the AX tree's root name falls back to the URL when the `<title>`
+/// is missing or empty, so it cannot tell those cases apart, and a second,
+/// AX-based check reported every missing title twice.
 pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
     let result = match page
         .evaluate(
@@ -157,74 +88,14 @@ fn is_generic_title(title: &str) -> bool {
     generic_titles.iter().any(|&g| title_lower == g)
 }
 
-fn is_url_like_title(title: &str) -> bool {
-    let title = title.trim();
-    url::Url::parse(title).is_ok()
-        || (title.starts_with("www.") && !title.chars().any(char::is_whitespace))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::accessibility::AXNode;
-
-    fn create_document_node(id: &str, name: Option<&str>) -> AXNode {
-        AXNode {
-            node_id: id.to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("RootWebArea".to_string()),
-            name: name.map(String::from),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
 
     #[test]
     fn test_page_titled_rule_metadata() {
         assert_eq!(PAGE_TITLED_RULE.id, "2.4.2");
         assert_eq!(PAGE_TITLED_RULE.level, WcagLevel::A);
-    }
-
-    #[test]
-    fn test_page_with_good_title() {
-        let tree = AXTree::from_nodes(vec![create_document_node(
-            "1",
-            Some("Shopping Cart - Example Store"),
-        )]);
-        let results = check_page_titled(&tree);
-        assert!(results.violations.is_empty());
-        assert_eq!(results.passes, 1);
-    }
-
-    #[test]
-    fn test_page_with_generic_title() {
-        let tree = AXTree::from_nodes(vec![create_document_node("1", Some("Untitled"))]);
-        let results = check_page_titled(&tree);
-        assert!(!results.violations.is_empty());
-    }
-
-    #[test]
-    fn test_page_without_title() {
-        let tree = AXTree::from_nodes(vec![create_document_node("1", None)]);
-        let results = check_page_titled(&tree);
-        assert!(!results.violations.is_empty());
-    }
-
-    #[test]
-    fn url_like_axtree_name_is_not_accepted_as_a_page_title() {
-        let tree = AXTree::from_nodes(vec![create_document_node(
-            "1",
-            Some("https://example.com/path"),
-        )]);
-        let results = check_page_titled(&tree);
-        assert!(results.violations.is_empty());
-        assert_eq!(results.not_testables.len(), 1);
     }
 
     #[test]

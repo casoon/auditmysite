@@ -88,7 +88,7 @@ const ROLE_TABLES_JS: &str = r#"
 const ALLOWED_ATTR_BODY: &str = r#"
   var issues = [];
   var elems = document.querySelectorAll('[role]');
-  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < elems.length && __amsReal(issues) < CAP; i++) {
     var el = elems[i];
     var role = (el.getAttribute('role') || '').trim().toLowerCase().split(/\s+/)[0];
     if (!Object.prototype.hasOwnProperty.call(roleAttrs, role)) continue;
@@ -101,8 +101,8 @@ const ALLOWED_ATTR_BODY: &str = r#"
       if (globalAttrs.indexOf(attrName) !== -1) continue;
       if (allowed.indexOf(attrName) !== -1) continue;
 
-      issues.push({ attr: attrName, role: role, selector: __amsCssSelector(el) });
-      if (issues.length >= CAP) break;
+      __amsPush(issues, el, { attr: attrName, role: role, selector: __amsCssSelector(el) }, CAP);
+      if (__amsReal(issues) >= CAP) break;
     }
   }
   return { issues: issues };

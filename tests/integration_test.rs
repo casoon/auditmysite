@@ -95,6 +95,7 @@ fn default_config() -> PipelineConfig {
         capture_screenshots: false,
         capture_element_evidence: false,
         dismiss_consent: false,
+        exclude_selectors: Vec::new(),
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
@@ -158,6 +159,29 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
     assert!(
         axe_ids.contains("landmark-unique"),
         "duplicate navigation names should trigger landmark-unique; got {axe_ids:?}"
+    );
+    // One occurrence per defect: the missing main once, each of the two
+    // same-named navs once (the AX and a former DOM check both reported them).
+    let count = |id: &str| {
+        raw_rule_ids
+            .iter()
+            .filter(|(_, rule_id)| *rule_id == Some(id))
+            .count()
+    };
+    assert_eq!(
+        count("landmark-main-present"),
+        1,
+        "missing main must be reported once; raw {raw_rule_ids:?}"
+    );
+    assert_eq!(
+        count("document-title"),
+        1,
+        "missing title must be reported once; raw {raw_rule_ids:?}"
+    );
+    assert_eq!(
+        count("landmark-unique"),
+        2,
+        "each duplicate nav must be reported once; raw {raw_rule_ids:?}"
     );
     assert!(
         axe_ids.contains("aria-hidden-focus"),
@@ -1909,6 +1933,335 @@ async fn batch_retries_pool_timeouts_serially_body() {
             .collect::<Vec<_>>(),
         vec![1, 2, 3]
     );
+}
+
+/// Plan 67: a small `--url-file` run in technician mode, through the real
+/// binary. The path filter drops one URL before the run; an unreachable URL
+/// is a `failed` index entry without a file; every audited page gets a JSON
+/// report and its findings in `findings.jsonl`; no screen-reader sidecar;
+/// the per-page scope says which modules ran.
+#[test]
+#[ignore = "needs Chrome"]
+fn technician_mode_url_file_run_writes_index_and_findings() {
+    let (base, shutdown) = serve_fixture("many_violations.html");
+    let dir = tempfile::tempdir().unwrap();
+    let url_file = dir.path().join("urls.txt");
+    let out = dir.path().join("tech");
+    // Port 9 (discard) on loopback refuses the connection.
+    let down = "http://127.0.0.1:9/down".to_string();
+    std::fs::write(
+        &url_file,
+        format!("{base}/a\n{base}/skip/me\n{base}/b/\n{down}\n"),
+    )
+    .unwrap();
+
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_auditmysite"));
+    command
+        .current_dir(dir.path())
+        .arg("--url-file")
+        .arg(&url_file)
+        .arg("--technician")
+        .arg("--exclude-path")
+        .arg("/skip/**")
+        .arg("-o")
+        .arg(&out)
+        .args([
+            "--interactive",
+            "off",
+            "--concurrency",
+            "1",
+            "--report-mode",
+        ])
+        .args(["-q", "--progress", "never", "--timeout", "15"]);
+    if std::env::var("CI").is_ok() {
+        command.arg("--no-sandbox");
+    }
+    let output = command.output().expect("binary runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(
+        output.status.success(),
+        "exit {:?}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let read_json = |path: &std::path::Path| -> serde_json::Value {
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("{} must exist: {e}", path.display()));
+        serde_json::from_str(&text).unwrap()
+    };
+    let schema = |name: &str| {
+        let value = read_json(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs")
+                .join(name),
+        );
+        jsonschema::JSONSchema::compile(&value).expect("schema compiles")
+    };
+
+    let index = read_json(&out.join("index.json"));
+    if let Err(errors) = schema("technician-index.schema.json").validate(&index) {
+        panic!(
+            "index.json: {:?}",
+            errors.map(|e| e.to_string()).collect::<Vec<_>>()
+        );
+    }
+    let pages = index["pages"].as_array().unwrap();
+    let urls: Vec<&str> = pages.iter().map(|p| p["url"].as_str().unwrap()).collect();
+    assert_eq!(
+        urls,
+        vec![format!("{base}/a"), format!("{base}/b/"), down.clone()],
+        "input order, /skip/me filtered out"
+    );
+    for page in &pages[..2] {
+        assert_eq!(page["status"], "ok", "{page}");
+        let report = read_json(&out.join(page["file"].as_str().unwrap()));
+        let modules: Vec<&str> = find_key(&report, "requested_modules")
+            .and_then(|m| m.as_array())
+            .expect("scope recorded")
+            .iter()
+            .map(|m| m.as_str().unwrap())
+            .collect();
+        assert!(
+            modules.contains(&"seo") && modules.contains(&"html_conform"),
+            "{modules:?}"
+        );
+        assert!(!modules.contains(&"performance"), "{modules:?}");
+        assert!(page["occurrence_count"].as_u64().unwrap() > 0, "{page}");
+    }
+    assert_eq!(pages[2]["status"], "failed");
+    assert!(pages[2]["file"].is_null());
+    assert!(pages[2]["reason"].as_str().is_some_and(|r| !r.is_empty()));
+
+    let jsonl = std::fs::read_to_string(out.join("findings.jsonl")).unwrap();
+    let row_schema = schema("technician-finding.schema.json");
+    let mut per_url: std::collections::HashMap<String, u64> = Default::default();
+    for line in jsonl.lines() {
+        let row: serde_json::Value = serde_json::from_str(line).unwrap();
+        if let Err(errors) = row_schema.validate(&row) {
+            panic!(
+                "{line}: {:?}",
+                errors.map(|e| e.to_string()).collect::<Vec<_>>()
+            );
+        }
+        *per_url
+            .entry(row["url"].as_str().unwrap().to_string())
+            .or_default() += 1;
+    }
+    assert_eq!(
+        jsonl.lines().count() as u64,
+        index["totals"]["occurrences"].as_u64().unwrap()
+    );
+    for page in &pages[..2] {
+        assert_eq!(
+            per_url.get(page["url"].as_str().unwrap()).copied(),
+            page["occurrence_count"].as_u64(),
+            "{page}"
+        );
+    }
+
+    let sidecars: Vec<_> = std::fs::read_dir(&out)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.contains("screen-reader"))
+        .collect();
+    assert!(
+        sidecars.is_empty(),
+        "no screen-reader sidecar: {sidecars:?}"
+    );
+}
+
+fn find_key<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    match value {
+        serde_json::Value::Object(map) => map
+            .get(key)
+            .or_else(|| map.values().find_map(|v| find_key(v, key))),
+        serde_json::Value::Array(items) => items.iter().find_map(|v| find_key(v, key)),
+        _ => None,
+    }
+}
+
+async fn audit_with_cli_args(
+    manager: &BrowserManager,
+    url: &str,
+    extra: &[&str],
+) -> auditmysite::AuditReport {
+    use clap::Parser;
+    let mut argv = vec!["auditmysite", url, "--interactive", "off"];
+    argv.extend_from_slice(extra);
+    let args = auditmysite::cli::Args::parse_from(argv);
+    let mut config = PipelineConfig::from_args_and_config(&args, None);
+    config.persist_artifacts = false;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, url)
+        .await
+        .expect("Navigation failed");
+    let (report, _snapshot) = audit_page(&page, url, &config, manager)
+        .await
+        .expect("Audit failed");
+    report
+}
+
+/// #645 — `--exclude-selector` drops the findings inside the matched subtree,
+/// keeps the ones outside, and reports every selector with its match count
+/// (also zero, also invalid) and what was dropped.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn exclude_selector_drops_specimen_findings_and_reports_them() {
+    let (url, shutdown) = serve_fixture("exclude_selector_specimen.html");
+    let manager = ci_browser().await;
+
+    let baseline = audit_with_cli_args(&manager, &url, &[]).await;
+    let excluded = audit_with_cli_args(
+        &manager,
+        &url,
+        &[
+            "--exclude-selector",
+            ".specimen",
+            "--exclude-selector",
+            ".nothing-here",
+            "--exclude-selector",
+            "[[bad",
+        ],
+    )
+    .await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let has = |report: &auditmysite::AuditReport, rule: &str, prefix: &str| {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .any(|v| {
+                v.rule_id.as_deref() == Some(rule)
+                    && v.selector.as_deref().is_some_and(|s| s.starts_with(prefix))
+            })
+    };
+
+    // Without the flag the specimen's defects are reported ...
+    assert!(has(&baseline, "image-alt", "img#specimen-img"));
+    assert!(has(
+        &baseline,
+        "click-events-have-key-events",
+        "div#specimen-click"
+    ));
+    let base_ex = baseline
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    assert_eq!(base_ex.selectors.len(), 1, "only the built-in attribute");
+    assert_eq!(base_ex.selectors[0].matched_elements, 0);
+    assert_eq!(base_ex.excluded_occurrences, 0);
+
+    // ... with it they are gone, while the real defect outside stays.
+    assert!(!has(&excluded, "image-alt", "img#specimen-img"));
+    assert!(!has(
+        &excluded,
+        "click-events-have-key-events",
+        "div#specimen-click"
+    ));
+    assert!(has(&excluded, "image-alt", "img#real-img"));
+
+    let ex = excluded
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    let sel = |s: &str| {
+        ex.selectors
+            .iter()
+            .find(|r| r.selector == s)
+            .unwrap_or_else(|| panic!("selector {s} missing from {:?}", ex.selectors))
+    };
+    assert_eq!(sel(".specimen").matched_elements, 1);
+    assert_eq!(sel(".nothing-here").matched_elements, 0);
+    assert!(!sel(".nothing-here").invalid);
+    assert!(sel("[[bad").invalid);
+    assert!(sel("[data-audit-exclude]").builtin);
+    assert!(ex.excluded_occurrences >= 2, "{ex:?}");
+    assert!(ex.rules.iter().any(|r| r.rule_id == "image-alt"));
+    assert!(ex
+        .rules
+        .iter()
+        .any(|r| r.rule_id == "click-events-have-key-events"));
+    assert!(
+        excluded.accessibility.score >= baseline.accessibility.score,
+        "excluding defects must not lower the score"
+    );
+}
+
+/// #645 — excluded elements must not spend a capped JavaScript rule's cap:
+/// with more excluded hits than the cap ahead of it in DOM order, the one
+/// real hit is still reported, the excluded hits are dropped and counted
+/// (bounded by the same cap), and `rule_outcomes[].findings` counts what the
+/// report shows.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
+    let (url, shutdown) = serve_fixture("detection_corpus/audit_exclude_cap.html");
+    let manager = ci_browser().await;
+    let report = audit_with_cli_args(&manager, &url, &["--level", "aaa"]).await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let rule_selectors = |rule: &str| -> Vec<String> {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(rule))
+            .filter_map(|v| v.selector.clone())
+            .collect()
+    };
+    for (rule, real) in [
+        ("click-events-have-key-events", "div#real-click"),
+        ("link-as-button", "a#real-link"),
+        ("identify-purpose", "real-mail"),
+    ] {
+        let found = rule_selectors(rule);
+        assert!(
+            found.iter().any(|s| s == real),
+            "{rule}: real hit {real} missing, got {found:?}"
+        );
+        assert!(
+            found.iter().all(|s| !s.contains("specimen")),
+            "{rule}: specimen reported: {found:?}"
+        );
+    }
+
+    let ex = report
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    let excluded = |rule: &str| {
+        ex.rules
+            .iter()
+            .find(|r| r.rule_id == rule)
+            .map(|r| r.occurrences)
+            .unwrap_or(0)
+    };
+    assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
+    assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
+    assert_eq!(excluded("identify-purpose"), 5, "{ex:?}");
+
+    for viewport in ["desktop", "mobile"] {
+        let outcome = report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .iter()
+            .find(|o| o.rule_id == "2.1.1/click-handler" && o.viewport.as_deref() == Some(viewport))
+            .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
+        assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
+    }
 }
 
 /// What the probe page and the live page report about the display choice.

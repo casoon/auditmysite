@@ -1071,3 +1071,30 @@ sr-state-tab-stop = fokussierbar
 # Plan 09: easy-language ("Leichte Sprache") link-text markers, comma-separated,
 # merged with the English list regardless of report language (sites mix languages).
 easy-language-linktext-markers = leichte sprache,einfache sprache
+
+# Audit exclusions (#645): methodology note (single) and audit frame (batch).
+exclusion-fact-label = Ausgeschlossene Bereiche
+exclusion-selector-matched =
+    { $count ->
+        [one] { $selector }: 1 Element ausgeschlossen
+       *[other] { $selector }: { $count } Elemente ausgeschlossen
+    }
+exclusion-selector-unmatched = { $selector }: kein Element gefunden, nichts ausgeschlossen
+exclusion-selector-invalid = { $selector }: ungültiger Selektor, nicht angewendet
+exclusion-findings =
+    { $occurrences ->
+        [0] kein Befund entfiel
+        [one] 1 Befundvorkommen entfiel, nicht im Score
+       *[other] { $occurrences } Befundvorkommen aus { $rules ->
+            [one] 1 Regel
+           *[other] { $rules } Regeln
+        } entfielen, nicht im Score
+    }
+exclusion-interactive = , dazu { $interactive } Journey-Befunde
+batch-exclusion-selector-matched = { $selector }: { $count } Elemente auf { $pages } von { $total } Seiten ausgeschlossen
+batch-exclusion-findings =
+    { $occurrences ->
+        [0] kein Befund entfiel
+        [one] 1 Befundvorkommen entfiel, nicht im Score
+       *[other] { $occurrences } Befundvorkommen entfielen, nicht im Score
+    }

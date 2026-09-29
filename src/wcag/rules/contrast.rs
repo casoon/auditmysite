@@ -202,6 +202,11 @@ impl ContrastRule {
             if Self::flag(style, "foreground-uncertain") {
                 continue;
             }
+            // Text inside an excluded subtree (#645) must not take a sampling
+            // slot from real text; its finding is dropped later anyway.
+            if Self::flag(style, "excluded") {
+                continue;
+            }
             let is_large = style.is_large_text();
             let area = style
                 .get("width")

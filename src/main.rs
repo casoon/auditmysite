@@ -48,6 +48,7 @@ async fn main() {
     if let Some(ref cfg) = config {
         cfg.apply_to_args_with_sources(&mut args, interactive_from_cli);
     }
+    args.apply_technician_preset();
 
     let report_mode = args.report_mode;
     let run_result = tokio::select! {

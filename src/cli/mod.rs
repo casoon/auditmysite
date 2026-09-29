@@ -5,6 +5,7 @@
 mod args;
 pub mod config;
 pub mod doctor;
+pub mod url_filter;
 
 pub use args::{
     AnnexKind, Args, BrowserAction, ColorPolicy, Command, DisplaySelection, InteractiveMode,

@@ -244,6 +244,7 @@ mod tests {
             vec![BatchError {
                 url: "https://example.com/broken".to_string(),
                 error: "timeout".to_string(),
+                blocked_reason: None,
             }],
             1500,
         )

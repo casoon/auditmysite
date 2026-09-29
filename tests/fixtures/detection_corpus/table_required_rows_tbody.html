@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Table rows beneath a plain tbody corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>Keyboard shortcuts</h1>
+        <!-- #659: Chrome marks a plain <tbody> ignored; its rows stay exposed
+             beneath it and are the table's owned rows. -->
+        <table id="keys" aria-label="Keyboard shortcuts">
+            <tbody>
+                <tr><th scope="row"><kbd>Home</kbd> / <kbd>End</kbd></th><td>First / last cell of the row</td></tr>
+                <tr><th scope="row"><kbd>Page Up</kbd></th><td>Scroll one page up</td></tr>
+            </tbody>
+        </table>
+        <!-- Still a true positive: a table holding only its caption, e.g.
+             one still waiting for its data. -->
+        <table id="empty" aria-label="Customers by revenue"><caption>Customers by revenue</caption></table>
+    </main>
+</body>
+</html>

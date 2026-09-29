@@ -41,7 +41,7 @@ use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
-use crate::seo::SeoAnalysis;
+use crate::seo::{HtmlValidationKind, SeoAnalysis};
 use crate::ux::UxAnalysis;
 use crate::wcag::{self, Violation, WcagResults};
 
@@ -329,6 +329,11 @@ pub struct PipelineConfig {
     pub capture_element_evidence: bool,
     /// Attempt to dismiss cookie consent banners before auditing
     pub dismiss_consent: bool,
+    /// User-supplied exclusion selectors (`--exclude-selector` plus
+    /// `[audit] exclude_selectors`, #645). The built-in
+    /// `[data-audit-exclude]` is always applied on top — see
+    /// `exclusion::effective_selectors`.
+    pub exclude_selectors: Vec<String>,
     /// Accessibility-Journey-Layer mode (off/basic/full).
     pub interactive: crate::cli::InteractiveMode,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
@@ -378,14 +383,15 @@ impl PipelineConfig {
         // 15 for the network_dns module field (#545), 16 for the isolated
         // third-party impact field (#531), 17 for the SSR/hydration
         // content-gap check field (#534), 18 for the html_conform module field,
-        // 19 for the display-mode scope and detection fields (#653).
-        const CACHE_FMT: u8 = 19;
+        // 19 for the exclusions block in the execution record (#645).
+        // 20 for the display-mode scope and detection fields (#653).
+        const CACHE_FMT: u8 = 20;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};display={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -407,6 +413,7 @@ impl PipelineConfig {
             self.lang,
             disabled.join(","),
             enabled_only.join(","),
+            crate::audit::exclusion::effective_selectors(&self.exclude_selectors).join("\u{1f}"),
             self.display_mode.map_or("site_default", |m| m.as_str()),
         )
     }
@@ -484,7 +491,7 @@ impl PipelineConfig {
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             check_dark_mode: true,
             check_design_quality: args.design_quality,
-            check_html_conform: full_audit,
+            check_html_conform: full_audit || args.html_conform,
             // Single-URL mode only (`args.url.is_some()`, same condition as
             // `capture_element_evidence`) — a batch run would fetch+parse
             // every image on every page only to have `build_batch_detail()`
@@ -510,6 +517,12 @@ impl PipelineConfig {
             capture_element_evidence: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
             dismiss_consent: args.dismiss_consent,
+            exclude_selectors: toml_cfg
+                .map(|c| c.audit.exclude_selectors.clone())
+                .unwrap_or_default()
+                .into_iter()
+                .chain(args.exclude_selector.iter().cloned())
+                .collect(),
             interactive: args.interactive,
             journey_budget_ms,
             lang: args.lang.clone(),
@@ -793,15 +806,23 @@ pub async fn audit_page(
 
     let desktop_config = config.for_viewport(Viewport::Desktop);
     let desktop_snap = extract_snapshot(page, url, Viewport::Desktop, &desktop_config).await?;
-    let desktop_wcag = run_rules(
+    let exclusion_selectors =
+        crate::audit::exclusion::effective_selectors(&config.exclude_selectors);
+    let mut exclusion_tally = crate::audit::exclusion::ExclusionTally::default();
+    let desktop_exclusion =
+        crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
+    exclusion_tally.record_scope(&desktop_exclusion);
+    let (desktop_wcag, desktop_excluded) = run_rules(
         page,
         &desktop_snap,
         config,
         desktop_screenshot.as_ref(),
         "desktop",
         &mut evidence_budget,
+        &desktop_exclusion,
     )
     .await;
+    exclusion_tally.record_findings(crate::audit::exclusion::Pass::Desktop, &desktop_excluded);
 
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
@@ -836,15 +857,19 @@ pub async fn audit_page(
 
     let mobile_config = config.for_viewport(Viewport::Mobile);
     let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
-    let mut mobile_wcag = run_rules(
+    let mobile_exclusion = crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
+    exclusion_tally.record_scope(&mobile_exclusion);
+    let (mut mobile_wcag, mobile_excluded) = run_rules(
         page,
         &mobile_snap,
         config,
         mobile_screenshot.as_ref(),
         "mobile",
         &mut evidence_budget,
+        &mobile_exclusion,
     )
     .await;
+    exclusion_tally.record_findings(crate::audit::exclusion::Pass::Mobile, &mobile_excluded);
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile.
     // Filtered by the finding's own axe_id ("css-overflow-hidden", REFLOW_RULE.axe_id)
@@ -1005,7 +1030,14 @@ pub async fn audit_page(
     // Help mechanisms (WCAG 3.2.6) likewise need the DOM: landmark regions
     // and `mailto:`/`tel:` targets. Recorded per page, compared in the batch.
     crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis).await;
-    let mut pattern_violations = pattern_analysis.violations.clone();
+    let (mut pattern_violations, excluded_patterns) = crate::audit::exclusion::filter_findings(
+        page,
+        &mobile_exclusion,
+        &primary_snap.ax_tree,
+        pattern_analysis.violations.clone(),
+    )
+    .await;
+    exclusion_tally.record_findings(crate::audit::exclusion::Pass::Mobile, &excluded_patterns);
     enrich_violations_with_page(page, &mut pattern_violations, &primary_snap.ax_tree).await;
     let (kept_patterns, demoted_patterns): (Vec<_>, Vec<_>) = pattern_violations
         .into_iter()
@@ -1119,6 +1151,13 @@ pub async fn audit_page(
                 out.journey.execution.failed > 0 || out.journey.execution.budget_exhausted;
             report.accessibility_journey = Some(out.journey);
             report.interactive_findings = out.findings;
+            let dropped = crate::audit::exclusion::filter_interactive_findings(
+                page,
+                &mobile_exclusion,
+                &mut report.interactive_findings,
+            )
+            .await;
+            exclusion_tally.record_interactive(dropped);
             report
                 .accessibility
                 .execution
@@ -1153,6 +1192,7 @@ pub async fn audit_page(
     if config.interactive.is_enabled() {
         reset_tab_after_journeys(page).await;
     }
+    report.accessibility.execution.exclusions = Some(exclusion_tally.into_report());
 
     ensure_requested_module_runs(&mut report);
     report.accessibility.execution.module_runs =
@@ -1541,10 +1581,18 @@ async fn run_rules(
     screenshot: Option<&ViewportScreenshot>,
     viewport_label: &'static str,
     evidence_budget: &mut crate::accessibility::ElementEvidenceBudget,
-) -> WcagResults {
+    exclusion: &crate::audit::exclusion::ExclusionScope,
+) -> (WcagResults, Vec<Violation>) {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
-    let mut wcag_results =
-        wcag::check_all_with_config(&snapshot.ax_tree, config.wcag_level, &config.rule_filter);
+    // Audit exclusions (#645) are applied per rule, before each rule's
+    // outcome is counted — so `rule_outcomes[].findings` matches the report,
+    // and neither enrichment nor evidence capture is spent on them.
+    let (mut wcag_results, mut excluded) = wcag::check_all_excluding(
+        &snapshot.ax_tree,
+        config.wcag_level,
+        &config.rule_filter,
+        &|v| exclusion.excludes_located(v, &snapshot.ax_tree),
+    );
     for outcome in &mut wcag_results.rule_outcomes {
         outcome.viewport = Some(viewport_label.to_string());
     }
@@ -1561,6 +1609,26 @@ async fn run_rules(
             let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
+            }
+            // Shared findings carry their backend node id, so they are
+            // decided without the page. Their outcomes come counted from
+            // `a11y-rules` (all findings per rule id) — take the dropped ones
+            // back out.
+            for list in [&mut shared.violations, &mut shared.warnings] {
+                let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
+                    .into_iter()
+                    .partition(|v| exclusion.excludes_located(v, &snapshot.ax_tree));
+                *list = kept;
+                for v in &dropped {
+                    if let Some(outcome) = shared
+                        .rule_outcomes
+                        .iter_mut()
+                        .find(|o| Some(o.rule_id.as_str()) == v.rule_id.as_deref())
+                    {
+                        outcome.findings = outcome.findings.saturating_sub(1);
+                    }
+                }
+                excluded.extend(dropped);
             }
             wcag_results.merge(shared);
         }
@@ -1591,6 +1659,14 @@ async fn run_rules(
             screenshot,
         )
         .await;
+        let (contrast_violations, dropped) = crate::audit::exclusion::filter_findings(
+            page,
+            exclusion,
+            &snapshot.ax_tree,
+            contrast_violations,
+        )
+        .await;
+        excluded.extend(dropped);
         let (outcome, findings) = page_rule_outcome(
             "color-contrast",
             Some("1.4.3"),
@@ -1614,7 +1690,14 @@ async fn run_rules(
                 .rule_filter
                 .should_run(wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id)
             {
-                let raw_findings = wcag::rules::check_html_content_model(html, &hc.findings);
+                let (raw_findings, dropped) = crate::audit::exclusion::filter_findings(
+                    page,
+                    exclusion,
+                    &snapshot.ax_tree,
+                    wcag::rules::check_html_content_model(html, &hc.findings),
+                )
+                .await;
+                excluded.extend(dropped);
                 let (outcome, findings) = page_rule_outcome(
                     wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
                     Some(wcag::rules::HTML_CONTENT_MODEL_RULE.id),
@@ -1648,6 +1731,14 @@ async fn run_rules(
                     .is_none_or(|id| config.rule_filter.should_run(id))
             })
             .collect();
+        let (raw_findings, dropped) = crate::audit::exclusion::filter_findings(
+            page,
+            exclusion,
+            &snapshot.ax_tree,
+            raw_findings,
+        )
+        .await;
+        excluded.extend(dropped);
         let criterion = rule
             .rule_id
             .split('/')
@@ -1681,7 +1772,7 @@ async fn run_rules(
         .iter()
         .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
-    wcag_results
+    (wcag_results, excluded)
 }
 
 fn page_rule_outcome(
@@ -1819,7 +1910,7 @@ fn aggregate_report(
     report
 }
 
-/// Reconciles `page_health`'s "Bilder ohne alt-Attribut" HTML-validation
+/// Reconciles `page_health`'s "images without alt" HTML-validation
 /// entry with the canonical WCAG 1.1.1 violation count (#574).
 ///
 /// `page_health::analyze_url` computes `images_without_alt` from a raw DOM
@@ -1849,16 +1940,16 @@ fn reconcile_image_alt_count(report: &mut AuditReport) {
     page_health.images_without_alt = canonical;
     page_health
         .html_issues
-        .retain(|issue| issue.check != "Bilder ohne alt-Attribut");
+        .retain(|issue| issue.kind != HtmlValidationKind::ImagesWithoutAlt);
     if canonical > 0 {
         page_health
             .html_issues
-            .push(crate::seo::HtmlValidationIssue {
-                check: "Bilder ohne alt-Attribut".to_string(),
-                count: canonical,
-                severity: "high".to_string(),
-                detail: format!("{canonical} <img> ohne alt"),
-            });
+            .push(crate::seo::HtmlValidationIssue::new(
+                HtmlValidationKind::ImagesWithoutAlt,
+                canonical,
+                "high",
+                Vec::new(),
+            ));
     }
 }
 
@@ -2431,12 +2522,12 @@ mod tests {
         let seo = SeoAnalysis {
             page_health: Some(crate::seo::page_health::PageHealthAnalysis {
                 images_without_alt: 42,
-                html_issues: vec![crate::seo::HtmlValidationIssue {
-                    check: "Bilder ohne alt-Attribut".to_string(),
-                    count: 42,
-                    severity: "high".to_string(),
-                    detail: "42 <img> ohne alt".to_string(),
-                }],
+                html_issues: vec![crate::seo::HtmlValidationIssue::new(
+                    HtmlValidationKind::ImagesWithoutAlt,
+                    42,
+                    "high",
+                    Vec::new(),
+                )],
                 ..Default::default()
             }),
             ..Default::default()
@@ -2450,10 +2541,10 @@ mod tests {
         let issue = page_health
             .html_issues
             .iter()
-            .find(|i| i.check == "Bilder ohne alt-Attribut")
+            .find(|i| i.kind == HtmlValidationKind::ImagesWithoutAlt)
             .expect("html_issues entry should still be present");
         assert_eq!(issue.count, 3);
-        assert_eq!(issue.detail, "3 <img> ohne alt");
+        assert_eq!(issue.detail, "3 <img> without alt");
     }
 
     #[test]
@@ -2467,12 +2558,12 @@ mod tests {
         let seo = SeoAnalysis {
             page_health: Some(crate::seo::page_health::PageHealthAnalysis {
                 images_without_alt: 5,
-                html_issues: vec![crate::seo::HtmlValidationIssue {
-                    check: "Bilder ohne alt-Attribut".to_string(),
-                    count: 5,
-                    severity: "high".to_string(),
-                    detail: "5 <img> ohne alt".to_string(),
-                }],
+                html_issues: vec![crate::seo::HtmlValidationIssue::new(
+                    HtmlValidationKind::ImagesWithoutAlt,
+                    5,
+                    "high",
+                    Vec::new(),
+                )],
                 ..Default::default()
             }),
             ..Default::default()
@@ -2486,7 +2577,7 @@ mod tests {
         assert!(!page_health
             .html_issues
             .iter()
-            .any(|i| i.check == "Bilder ohne alt-Attribut"));
+            .any(|i| i.kind == HtmlValidationKind::ImagesWithoutAlt));
     }
 
     #[test]
@@ -2532,7 +2623,13 @@ mod tests {
             no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
+            include_path: Vec::new(),
+            exclude_path: Vec::new(),
+            no_screen_reader_report: false,
+            html_conform: false,
+            technician: false,
             dismiss_consent: false,
+            exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
@@ -2600,6 +2697,45 @@ mod tests {
         assert_eq!(config.active_module_labels(), expected);
     }
 
+    #[test]
+    fn technician_preset_runs_only_fixable_finding_modules() {
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+            "--technician",
+        ]);
+        args.apply_technician_preset();
+        let config = PipelineConfig::from_args_and_config(&args, None);
+        assert!(!config.full_audit);
+        assert!(!config.check_performance, "no throttled performance passes");
+        assert!(!config.check_mobile);
+        assert!(!config.check_security);
+        assert!(!config.check_stack);
+        assert!(config.check_seo);
+        assert!(config.check_html_conform);
+        let labels = config.active_module_labels();
+        assert!(labels.contains(&"Accessibility"));
+        assert!(labels.contains(&"HTML Conformance"));
+        assert!(labels.contains(&"SEO"));
+        assert!(!labels.contains(&"Performance"));
+        assert!(!labels.contains(&"Best Practices"));
+        assert!(!labels.contains(&"Tech Stack"));
+    }
+
+    #[test]
+    fn html_conform_flag_enables_the_module_without_full() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
+        assert!(!PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--seo",
+            "--html-conform",
+        ]);
+        assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+    }
+
     fn test_pipeline_config() -> PipelineConfig {
         PipelineConfig {
             wcag_level: WcagLevel::AA,
@@ -2624,6 +2760,7 @@ mod tests {
             capture_screenshots: false,
             capture_element_evidence: false,
             dismiss_consent: false,
+            exclude_selectors: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             lang: "de".to_string(),
@@ -2687,6 +2824,37 @@ mod tests {
         assert!(!config.rule_filter.should_run("color-contrast"));
         assert!(!config.rule_filter.should_run("css-overflow-hidden"));
         assert!(config.rule_filter.should_run("image-alt"));
+    }
+
+    #[test]
+    fn from_args_and_config_merges_exclude_selectors_from_toml_and_cli() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--exclude-selector",
+            "[data-specimen]",
+            "--exclude-selector",
+            ".demo",
+        ]);
+        let toml_cfg: crate::cli::config::Config = toml::from_str(
+            r#"
+[audit]
+exclude_selectors = [".from-config"]
+"#,
+        )
+        .unwrap();
+        let config = PipelineConfig::from_args_and_config(&args, Some(&toml_cfg));
+        assert_eq!(
+            config.exclude_selectors,
+            vec![".from-config", "[data-specimen]", ".demo"]
+        );
+
+        let without = PipelineConfig::from_args_and_config(
+            &Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
+        assert!(without.exclude_selectors.is_empty());
+        assert_ne!(config.audit_signature(), without.audit_signature());
     }
 
     #[test]

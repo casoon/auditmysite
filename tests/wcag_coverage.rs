@@ -21,8 +21,8 @@ use auditmysite::wcag::rules::{
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_landmarks, check_link_purpose, check_media_rules,
-    check_page_titled, check_section_headings, check_svg_rules, check_table_extended,
-    check_text_alternatives, check_widget_rules,
+    check_section_headings, check_svg_rules, check_table_extended, check_text_alternatives,
+    check_widget_rules,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -78,7 +78,6 @@ macro_rules! rule_smoke_test {
 rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
-rule_smoke_test!(smoke_check_page_titled, check_page_titled);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
 rule_smoke_test!(smoke_check_focus_order, check_focus_order);
@@ -208,7 +207,11 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
     // Ein Baum, der ohne Filter zwei Regeln verletzt: 1.1.1 (Bild ohne
-    // Alternativtext) und 2.4.2 (Dokument ohne Titel).
+    // Alternativtext) und landmark-main-present (keine main-Landmark auf einer
+    // Seite mit mehr als zwei Knoten).
+    //
+    // Davor war das zweite Beispiel 2.4.2 (Dokument ohne Titel); 2.4.2 laeuft
+    // inzwischen nur noch als DOM-Seitenregel (`check_page_titled_with_page`).
     //
     // Frueher war das zweite Beispiel 3.1.1 (fehlendes lang). Seit 3.1.1 als
     // geteilte Regel gegen den DOM laeuft (`document/lang-missing`, siehe
@@ -226,7 +229,7 @@ fn test_enabled_only_runs_exactly_those_rules() {
             description: None,
             value: None,
             properties: vec![],
-            child_ids: vec!["img1".to_string()],
+            child_ids: vec!["img1".to_string(), "p1".to_string()],
             parent_id: None,
             backend_dom_node_id: None,
         },
@@ -244,19 +247,36 @@ fn test_enabled_only_runs_exactly_those_rules() {
             parent_id: Some("root".to_string()),
             backend_dom_node_id: None,
         },
+        AXNode {
+            node_id: "p1".to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("paragraph".to_string()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec![],
+            parent_id: Some("root".to_string()),
+            backend_dom_node_id: None,
+        },
     ]);
 
     // Ohne Filter fallen beide an. Ohne diese Haelfte waere die Zusicherung
-    // unten tautologisch: Sie wuerde auch halten, wenn 2.4.2 hier gar nicht
-    // anschlaegt.
+    // unten tautologisch: Sie wuerde auch halten, wenn landmark-main-present
+    // hier gar nicht anschlaegt.
     let ungefiltert = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
     assert!(
         ungefiltert.violations.iter().any(|v| v.rule == "1.1.1"),
         "1.1.1 muss ohne Filter anfallen"
     );
     assert!(
-        ungefiltert.violations.iter().any(|v| v.rule == "2.4.2"),
-        "2.4.2 muss ohne Filter anfallen"
+        ungefiltert
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
+        "landmark-main-present muss ohne Filter anfallen"
     );
 
     // Mit enabled_only bleibt genau die eine Regel uebrig.
@@ -271,8 +291,11 @@ fn test_enabled_only_runs_exactly_those_rules() {
         "1.1.1 steht auf der enabled_only-Liste und muss laufen"
     );
     assert!(
-        !results.violations.iter().any(|v| v.rule == "2.4.2"),
-        "2.4.2 steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
+        !results
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
+        "landmark-main-present steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
     );
 }
 

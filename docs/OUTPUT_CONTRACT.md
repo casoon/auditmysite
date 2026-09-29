@@ -65,7 +65,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `total_discovered` — candidate URLs found before any limit was applied.
   - `audited` — URLs actually audited.
   - `sample_limit` — the `--max-pages` cap, when one applied (omitted otherwise).
-  - `selection` — `"first_n"` (discovery order) or `"all"`.
+  - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order).
   - `is_sample` — `true` when fewer URLs were audited than discovered.
 - The block is omitted when no sampling metadata was recorded (e.g. cached single reports).
 

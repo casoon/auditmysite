@@ -62,6 +62,7 @@ pub(super) fn build_page(
             .then(|| normalized.execution.navigation.clone()),
         consent: Some(normalized.execution.consent.clone()),
         consent_privacy: normalized.consent_privacy.clone(),
+        exclusions: normalized.execution.exclusions.clone(),
         interactive_findings: normalized.interactive_findings.clone(),
         accessibility_journey: normalized.accessibility_journey.clone(),
         screen_reader: normalized.screen_reader.clone(),

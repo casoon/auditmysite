@@ -25,11 +25,11 @@ use super::rules::{
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
-    check_media_rules, check_page_titled, check_parsing, check_region, check_section_headings,
-    check_skip_link, check_status_messages, check_summary_name, check_svg_rules,
-    check_table_extended, check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_media_rules, check_parsing, check_region, check_section_headings, check_skip_link,
+    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
+    check_text_alternatives, check_unusual_words, check_widget_rules,
 };
-use super::types::WcagResults;
+use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 
@@ -78,55 +78,91 @@ pub fn check_all_with_config(
     level: WcagLevel,
     filter: &RuleFilterConfig,
 ) -> WcagResults {
+    check_all_excluding(tree, level, filter, &|_| false).0
+}
+
+/// [`check_all_with_config`], dropping every finding `exclude` matches
+/// (audit exclusions, #645) per rule — before the rule's outcome is counted,
+/// so `rule_outcomes[].findings` describes what the report shows. Returns the
+/// kept results and the dropped findings.
+pub fn check_all_excluding(
+    tree: &AXTree,
+    level: WcagLevel,
+    filter: &RuleFilterConfig,
+    exclude: &dyn Fn(&Violation) -> bool,
+) -> (WcagResults, Vec<Violation>) {
     info!("Running WCAG checks at level {}", level);
 
-    let mut results = WcagResults::new();
-    results.nodes_checked = tree.len();
+    let mut run = TreeRun {
+        results: WcagResults::new(),
+        exclude,
+        excluded: Vec::new(),
+    };
+    run.results.nodes_checked = tree.len();
 
     // Run Level A rules
     debug!("Running Level A rules...");
-    run_level_a_rules(tree, &mut results, filter);
+    run_level_a_rules(tree, &mut run, filter);
 
     // Run Level AA rules if requested
     if matches!(level, WcagLevel::AA | WcagLevel::AAA) {
         debug!("Running Level AA rules...");
-        run_level_aa_rules(tree, &mut results, filter);
+        run_level_aa_rules(tree, &mut run, filter);
     }
 
     // Run Level AAA rules if requested
     if level == WcagLevel::AAA {
         debug!("Running Level AAA rules...");
-        run_level_aaa_rules(tree, &mut results, filter);
+        run_level_aaa_rules(tree, &mut run, filter);
     }
 
     info!(
         "WCAG check complete: {} violations found",
-        results.violations.len()
+        run.results.violations.len()
     );
 
-    results
+    (run.results, run.excluded)
+}
+
+/// Accumulates the tree rules' results, applying the exclusion per rule.
+struct TreeRun<'a> {
+    results: WcagResults,
+    exclude: &'a dyn Fn(&Violation) -> bool,
+    excluded: Vec<Violation>,
+}
+
+impl TreeRun<'_> {
+    fn record(&mut self, axe_id: &str, mut rule_results: WcagResults) {
+        for list in [&mut rule_results.violations, &mut rule_results.warnings] {
+            let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
+                .into_iter()
+                .partition(|v| (self.exclude)(v));
+            *list = kept;
+            self.excluded.extend(dropped);
+        }
+        let finding_count = rule_results.violations.len();
+        // Die Regel ist gelaufen -- ob sie etwas fand, steht in
+        // `findings`, und *wie sicher* die Aussage ist, am Befund.
+        let mut run = crate::wcag::RuleRun::ran(axe_id, finding_count);
+        if let Some(criterion) = crate::taxonomy::criterion_for_rule(axe_id) {
+            run = run.with_wcag([criterion]);
+        }
+        self.results.rule_outcomes.push(run);
+        self.results.merge(rule_results);
+    }
 }
 
 /// Merge rule results only if the filter allows the given axe_id
 macro_rules! run_if_allowed {
     ($filter:expr, $axe_id:expr, $check_fn:expr, $results:expr, $tree:expr) => {
         if $filter.should_run($axe_id) {
-            let rule_results = $check_fn($tree);
-            let finding_count = rule_results.violations.len();
-            // Die Regel ist gelaufen -- ob sie etwas fand, steht in
-            // `findings`, und *wie sicher* die Aussage ist, am Befund.
-            let mut run = crate::wcag::RuleRun::ran($axe_id, finding_count);
-            if let Some(criterion) = crate::taxonomy::criterion_for_rule($axe_id) {
-                run = run.with_wcag([criterion]);
-            }
-            $results.rule_outcomes.push(run);
-            $results.merge(rule_results);
+            $results.record($axe_id, $check_fn($tree));
         }
     };
 }
 
 /// Run all Level A rules
-fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
+fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
     // 1.1.1 Area / input[type=image] / object alternatives, and server-side
@@ -140,8 +176,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 2.4.1 Bypass Blocks (Level A)
     run_if_allowed!(filter, "bypass", check_bypass_blocks, results, tree);
 
-    // 2.4.2 Page Titled (Level A)
-    run_if_allowed!(filter, "document-title", check_page_titled, results, tree);
+    // 2.4.2 Page Titled (Level A) runs only as the DOM page rule
+    // `check_page_titled_with_page`: the AX root name falls back to the URL
+    // when the title is missing, and a second check here counted it twice.
 
     // 2.4.4 Link Purpose (In Context) (Level A)
     run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
@@ -360,7 +397,7 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
 }
 
 /// Run all Level AA rules
-fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
+fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
@@ -394,7 +431,7 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
 }
 
 /// Run all Level AAA rules
-fn run_level_aaa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
+fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
@@ -477,6 +514,28 @@ mod tests {
         // Should find the missing alt text
         assert!(!results.violations.is_empty());
         assert!(results.violations.iter().any(|v| v.rule == "1.1.1"));
+    }
+
+    #[test]
+    fn check_all_excluding_drops_per_rule_and_counts_what_remains() {
+        let tree = create_test_tree();
+        let full = check_all(&tree, WcagLevel::A);
+        let alt_run = |r: &WcagResults| {
+            r.rule_outcomes
+                .iter()
+                .find(|o| o.rule_id == "image-alt")
+                .map(|o| o.findings)
+        };
+        assert!(alt_run(&full).unwrap() > 0);
+
+        let (kept, dropped) =
+            check_all_excluding(&tree, WcagLevel::A, &RuleFilterConfig::default(), &|v| {
+                v.node_id == "2"
+            });
+        assert!(kept.violations.iter().all(|v| v.node_id != "2"));
+        assert!(dropped.iter().any(|v| v.rule == "1.1.1"));
+        // The outcome counts what the report shows, not the raw rule output.
+        assert_eq!(alt_run(&kept), Some(0));
     }
 
     #[test]

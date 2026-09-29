@@ -260,74 +260,86 @@ pub(super) fn build_methodology(
         )
     };
 
+    let mut audit_facts = vec![
+        (
+            key("Barrierefreiheits-Score", "Accessibility score"),
+            accessibility_score_value,
+        ),
+        (
+            key("Kombinierter technischer Wert", "Combined technical score"),
+            total_score_value,
+        ),
+        (key("Zählweise", "Counting method"), counting_value),
+        (
+            key("WCAG-Level", "WCAG level"),
+            normalized.wcag_level.to_string(),
+        ),
+        // #653: the mode the scores belong to, and what the page offers.
+        (
+            key("Darstellungsmodus", "Display mode"),
+            crate::display::audited_mode_text(normalized.execution.scope.display_mode, en),
+        ),
+        (
+            key("Darstellungsmodi der Seite", "Page display modes"),
+            crate::display::offered_modes_text(normalized.execution.display_modes.as_ref(), en),
+        ),
+        (
+            key("Geprüfte Knoten", "Checked nodes"),
+            normalized.nodes_analyzed.to_string(),
+        ),
+        (
+            key("Laufzeit", "Runtime"),
+            format!(
+                "{:.1} {}",
+                normalized.duration_ms as f64 / 1000.0,
+                runtime_unit
+            ),
+        ),
+        (key("Aktive Module", "Active modules"), active_modules),
+        (
+            key("Fehlgeschlagene Module", "Failed modules"),
+            if failed_modules.is_empty() {
+                key("Keine", "None")
+            } else {
+                failed_modules
+            },
+        ),
+        (
+            key("Audit-Qualität", "Audit quality"),
+            // Regression: `{:?}` leaked the raw English enum variant name
+            // ("Complete"/"Partial"/"Insufficient") unlocalized into
+            // German reports.
+            match normalized.execution.quality.status {
+                crate::audit::AuditQualityStatus::Complete => key("Vollständig", "Complete"),
+                crate::audit::AuditQualityStatus::Partial => key("Teilweise", "Partial"),
+                crate::audit::AuditQualityStatus::Insufficient => {
+                    key("Unzureichend", "Insufficient")
+                }
+            },
+        ),
+        (
+            key("Audit-Hinweise", "Audit notes"),
+            normalized.audit_flags.len().to_string(),
+        ),
+        (key("Vorschau", "Preview"), preview_value),
+    ];
+    // Audit exclusions (#645): never silent — selectors, matches (also
+    // zero) and what was dropped.
+    if let Some(note) = normalized
+        .execution
+        .exclusions
+        .as_ref()
+        .and_then(|report| crate::audit::exclusion::exclusion_note(report, i18n))
+    {
+        audit_facts.push((i18n.t("exclusion-fact-label"), note));
+    }
+
     MethodologyBlock {
         scope,
         method,
         limitations,
         disclaimer,
-        audit_facts: vec![
-            (
-                key("Barrierefreiheits-Score", "Accessibility score"),
-                accessibility_score_value,
-            ),
-            (
-                key("Kombinierter technischer Wert", "Combined technical score"),
-                total_score_value,
-            ),
-            (key("Zählweise", "Counting method"), counting_value),
-            (
-                key("WCAG-Level", "WCAG level"),
-                normalized.wcag_level.to_string(),
-            ),
-            // #653: the mode the scores belong to, and what the page offers.
-            (
-                key("Darstellungsmodus", "Display mode"),
-                crate::display::audited_mode_text(normalized.execution.scope.display_mode, en),
-            ),
-            (
-                key("Darstellungsmodi der Seite", "Page display modes"),
-                crate::display::offered_modes_text(normalized.execution.display_modes.as_ref(), en),
-            ),
-            (
-                key("Geprüfte Knoten", "Checked nodes"),
-                normalized.nodes_analyzed.to_string(),
-            ),
-            (
-                key("Laufzeit", "Runtime"),
-                format!(
-                    "{:.1} {}",
-                    normalized.duration_ms as f64 / 1000.0,
-                    runtime_unit
-                ),
-            ),
-            (key("Aktive Module", "Active modules"), active_modules),
-            (
-                key("Fehlgeschlagene Module", "Failed modules"),
-                if failed_modules.is_empty() {
-                    key("Keine", "None")
-                } else {
-                    failed_modules
-                },
-            ),
-            (
-                key("Audit-Qualität", "Audit quality"),
-                // Regression: `{:?}` leaked the raw English enum variant name
-                // ("Complete"/"Partial"/"Insufficient") unlocalized into
-                // German reports.
-                match normalized.execution.quality.status {
-                    crate::audit::AuditQualityStatus::Complete => key("Vollständig", "Complete"),
-                    crate::audit::AuditQualityStatus::Partial => key("Teilweise", "Partial"),
-                    crate::audit::AuditQualityStatus::Insufficient => {
-                        key("Unzureichend", "Insufficient")
-                    }
-                },
-            ),
-            (
-                key("Audit-Hinweise", "Audit notes"),
-                normalized.audit_flags.len().to_string(),
-            ),
-            (key("Vorschau", "Preview"), preview_value),
-        ],
+        audit_facts,
         confidence_summary: build_confidence_summary(locale, normalized),
         capabilities: build_capability_matrix(locale, normalized),
     }

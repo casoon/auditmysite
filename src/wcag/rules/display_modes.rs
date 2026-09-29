@@ -117,8 +117,9 @@ const DISPLAY_MODES_JS: &str = r#"
     if (el.checkVisibility && !el.checkVisibility({ checkVisibilityCSS: true })) return 'css';
     return null;
   }
+  // Capped through __amsPush so excluded specimens never spend the budget (#645).
   function push(id, el, detail) {
-    if (findings.length < MAX) findings.push({ id: id, selector: el === html ? 'html' : __amsCssSelector(el), detail: detail || '' });
+    __amsPush(findings, el, { id: id, selector: el === html ? 'html' : __amsCssSelector(el), detail: detail || '' }, MAX);
   }
 
   if (figs.length && !hasToggle) push('toggle', html, String(figs.length));
@@ -131,7 +132,7 @@ const DISPLAY_MODES_JS: &str = r#"
     }
   }
 
-  for (var i = 0; i < figs.length; i++) {
+  for (var i = 0; i < figs.length && __amsReal(findings) < MAX; i++) {
     var fig = figs[i];
     var texts = Array.prototype.slice.call(fig.querySelectorAll('[data-viz-text]'));
     var hiddenReported = false;

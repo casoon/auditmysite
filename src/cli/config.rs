@@ -49,6 +49,11 @@ pub struct AuditConfig {
     pub timeout: Option<u64>,
     /// Number of concurrent browser tabs
     pub concurrency: Option<usize>,
+    /// CSS selectors whose subtrees are excluded from the findings (#645),
+    /// in addition to `--exclude-selector` and the built-in
+    /// `[data-audit-exclude]`.
+    #[serde(default)]
+    pub exclude_selectors: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]

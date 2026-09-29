@@ -205,6 +205,9 @@ pub struct UnifiedSummary {
     /// `errors` (#651).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attempted_url_count: Option<usize>,
+    /// Batch only: audit exclusions (#645) aggregated over all pages.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusions: Option<crate::audit::exclusion::BatchExclusionSummary>,
     /// Anzahl unterschiedlicher WCAG-Regeln, die irgendwo geprüfte URLs verletzt haben
     /// (über alle Pages dedupliziert).
     #[serde(default)]
@@ -579,6 +582,10 @@ pub struct PageEntry {
     pub consent: Option<crate::audit::ConsentAuditState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consent_privacy: Option<crate::audit::ConsentPrivacySnapshot>,
+    /// Applied audit exclusions (#645): selectors, matched elements and the
+    /// findings they removed. Absent for reports that predate the feature.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclusions: Option<crate::audit::exclusion::ExclusionReport>,
     /// Findings produced by the Accessibility-Journey-Layer (phase 2+).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interactive_findings: Vec<crate::audit::normalized::InteractiveFinding>,
@@ -1045,6 +1052,12 @@ impl UnifiedReport {
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
             attempted_url_count: Some(batch_report.summary.total_urls + batch_report.errors.len()),
+            exclusions: crate::audit::exclusion::BatchExclusionSummary::aggregate(
+                batch_report
+                    .reports
+                    .iter()
+                    .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
+            ),
             violated_rule_count: batch_report.summary.violated_rule_count,
             top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
             template_clusters: batch_report.summary.template_clusters.clone(),
@@ -1231,6 +1244,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            exclusions: None,
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
@@ -1348,6 +1362,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            exclusions: None,
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),

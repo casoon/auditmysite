@@ -245,6 +245,16 @@ pub struct Args {
     #[arg(long)]
     pub dismiss_consent: bool,
 
+    /// Exclude the subtree matched by a CSS selector from the findings
+    /// (repeatable), e.g. intentionally broken teaching specimens.
+    ///
+    /// The page is still audited; only findings whose element lies inside a
+    /// matched subtree are dropped. The report lists every selector, how many
+    /// elements it matched (also zero) and how many findings it removed.
+    /// `[data-audit-exclude]` is always honoured without this flag.
+    #[arg(long = "exclude-selector", value_name = "CSS")]
+    pub exclude_selector: Vec<String>,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
@@ -267,7 +277,9 @@ pub struct Args {
     /// `all` audits every mode separately and writes one report per mode
     /// (file name suffix `-calm`, `-text`, `-visual`), never a blended score.
     /// `visual` only runs for pages with `figure[data-viz="3d|interactive"]`,
-    /// with twice the page timeout. Needs `--output` unless the format is PDF.
+    /// with twice the page timeout. Needs `--output` unless the format is PDF;
+    /// with per-page reports or `--technician` an output directory, which
+    /// becomes `<DIR>-calm`, `<DIR>-text`, `<DIR>-visual`.
     #[arg(long, value_enum, value_name = "MODE")]
     pub display: Option<DisplaySelection>,
 
@@ -297,6 +309,50 @@ pub struct Args {
     /// auditmysite still scans all URLs but writes individual reports per page.
     #[arg(long)]
     pub per_page_reports: bool,
+
+    /// Only audit batch URLs whose path matches this glob (repeatable).
+    ///
+    /// Applies to --sitemap, --url-file and --crawl, before -m/--max-pages.
+    /// Matched against the whole, percent-decoded URL path (no host, no
+    /// query): `*` and `?` stay within one path segment, `**` crosses
+    /// segments, `/**/` also matches a single `/`. Example: `/blog/**`
+    /// selects everything below /blog/ (but not /blog itself). With several
+    /// patterns a URL is kept when it matches any of them.
+    #[arg(long = "include-path", value_name = "GLOB")]
+    pub include_path: Vec<String>,
+
+    /// Skip batch URLs whose path matches this glob (repeatable).
+    ///
+    /// Same glob rules as --include-path; exclusion wins over inclusion.
+    /// Example: `--exclude-path '/tag/**' --exclude-path '/**/page/*'`.
+    #[arg(long = "exclude-path", value_name = "GLOB")]
+    pub exclude_path: Vec<String>,
+
+    /// Do not write the per-page screen-reader sidecar JSON
+    /// (`*-screen-reader-audit.json`).
+    ///
+    /// The screen-reader summary inside the main report stays.
+    #[arg(long)]
+    pub no_screen_reader_report: bool,
+
+    /// Enable the HTML-conformance module without --full.
+    #[arg(long)]
+    pub html_conform: bool,
+
+    /// Technician mode: per-page JSON for fixing, not a report to read.
+    ///
+    /// Batch inputs only. Shorthand for `--per-page-reports -f json
+    /// --no-screen-reader-report --seo --html-conform`: one JSON file per
+    /// page plus `index.json` (every attempted URL with status and counts)
+    /// and `findings.jsonl` (one line per finding occurrence) in the -o
+    /// directory. Runs only modules that produce fixable findings —
+    /// accessibility (incl. keyboard journeys), HTML conformance and SEO —
+    /// and no throttled performance passes; every file states that partial
+    /// scope in `execution.scope`/`module_runs`. Flags given explicitly win:
+    /// `-f` replaces the format, `--full`, `--performance`, `--mobile`,
+    /// `--security` or `--interactive` add or change modules as usual.
+    #[arg(long)]
+    pub technician: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum, global = true)]
@@ -675,6 +731,24 @@ impl Args {
         }
     }
 
+    /// Expand `--technician` into the flags it stands for.
+    ///
+    /// Only fills in what the user left open: an explicit `-f` stays, and
+    /// module flags are additive, so `--full`, `--performance`, `--mobile` or
+    /// `--security` given alongside still take effect.
+    pub fn apply_technician_preset(&mut self) {
+        if !self.technician {
+            return;
+        }
+        self.per_page_reports = true;
+        if self.format.is_none() {
+            self.format = Some(OutputFormat::Json);
+        }
+        self.no_screen_reader_report = true;
+        self.seo = true;
+        self.html_conform = true;
+    }
+
     pub fn full_audit_enabled(&self) -> bool {
         self.full
             || (!self.performance
@@ -752,6 +826,27 @@ impl Args {
             return Err("Concurrency cannot exceed 10".to_string());
         }
 
+        let is_batch = self.sitemap.is_some() || self.url_file.is_some() || self.crawl;
+        if self.technician && !is_batch {
+            return Err(
+                "--technician needs a batch input: --sitemap, --url-file or --crawl".to_string(),
+            );
+        }
+        if !is_batch && !(self.include_path.is_empty() && self.exclude_path.is_empty()) {
+            return Err(
+                "--include-path/--exclude-path need a batch input: --sitemap, --url-file or --crawl"
+                    .to_string(),
+            );
+        }
+        for pattern in self.include_path.iter().chain(&self.exclude_path) {
+            if !(pattern.starts_with('/') || pattern.starts_with('*')) {
+                return Err(format!(
+                    "Path pattern '{pattern}' must start with '/' or '*': it is matched \
+                     against the URL path, e.g. '/{pattern}'"
+                ));
+            }
+        }
+
         if self.crawl_depth == 0 {
             return Err("Crawl depth must be at least 1".to_string());
         }
@@ -782,6 +877,20 @@ impl Args {
         {
             return Err(
                 "--display all writes one report per mode; pass --output <FILE>".to_string(),
+            );
+        }
+
+        // Per-page reports (and --technician) write into a directory; each
+        // mode needs its own, or the modes overwrite each other's page files
+        // and index.json/findings.jsonl. `-o DIR` becomes `DIR-calm`, ...
+        if self.display == Some(DisplaySelection::All)
+            && self.per_page_reports
+            && self.output.as_ref().is_none_or(|p| p.extension().is_some())
+        {
+            return Err(
+                "--display all with per-page reports (or --technician) needs \
+                 --output <DIR> without a file extension; each mode writes to <DIR>-<mode>"
+                    .to_string(),
             );
         }
 
@@ -848,7 +957,8 @@ mod tests {
         assert!(help.contains(
             "Default single-URL behavior: generate a PDF report in the current directory."
         ));
-        assert!(!help.contains("html"));
+        // `--html-conform` is a module flag, not the removed html format.
+        assert!(!help.replace("--html-conform", "").contains("html"));
         assert!(!help.contains("markdown"));
         assert!(!help.contains("--urls"));
     }
@@ -895,7 +1005,13 @@ mod tests {
             no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
+            include_path: Vec::new(),
+            exclude_path: Vec::new(),
+            no_screen_reader_report: false,
+            html_conform: false,
+            technician: false,
             dismiss_consent: false,
+            exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             display: None,
             report_level: ReportLevel::Standard,
@@ -996,6 +1112,111 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.skip_mobile = true;
         assert!(!args.full_audit_enabled());
+    }
+
+    fn technician_args(extra: &[&str]) -> Args {
+        let mut argv = vec![
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+            "--technician",
+        ];
+        argv.extend_from_slice(extra);
+        let mut args = Args::parse_from(argv);
+        args.apply_technician_preset();
+        args
+    }
+
+    #[test]
+    fn technician_preset_expands_to_per_page_json_without_sidecar() {
+        let args = technician_args(&[]);
+        assert!(args.per_page_reports);
+        assert_eq!(args.effective_format(), OutputFormat::Json);
+        assert!(args.no_screen_reader_report);
+        assert!(args.seo);
+        assert!(args.html_conform);
+        assert!(!args.full_audit_enabled(), "a module selection, not --full");
+        assert!(!args.performance && !args.mobile && !args.security);
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn technician_preset_keeps_an_explicit_format() {
+        let args = technician_args(&["-f", "sarif"]);
+        assert_eq!(args.effective_format(), OutputFormat::Sarif);
+        assert!(args.per_page_reports);
+    }
+
+    #[test]
+    fn technician_preset_leaves_explicit_module_flags_in_place() {
+        let args = technician_args(&["--performance", "--full"]);
+        assert!(args.performance);
+        assert!(args.full_audit_enabled());
+    }
+
+    #[test]
+    fn without_technician_the_preset_changes_nothing() {
+        let mut args = Args::parse_from(["auditmysite", "--sitemap", "https://example.com/s.xml"]);
+        args.apply_technician_preset();
+        assert!(!args.per_page_reports && !args.seo && !args.html_conform);
+        assert!(!args.no_screen_reader_report);
+        assert!(args.format.is_none());
+    }
+
+    #[test]
+    fn display_all_with_per_page_reports_needs_an_output_directory() {
+        let mut args = technician_args(&["--display", "all"]);
+        args.output = None;
+        assert!(args.validate().unwrap_err().contains("--display all"));
+        args.output = Some(PathBuf::from("reports/geo.json"));
+        assert!(args.validate().unwrap_err().contains("--display all"));
+        args.output = Some(PathBuf::from("reports/geo-tech"));
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn technician_and_path_filters_need_a_batch_input() {
+        let mut args = test_args(Some("https://example.com"));
+        args.technician = true;
+        assert!(args.validate().unwrap_err().contains("--technician"));
+
+        let mut args = test_args(Some("https://example.com"));
+        args.include_path = vec!["/blog/**".to_string()];
+        assert!(args.validate().unwrap_err().contains("--include-path"));
+
+        let mut args = test_args(Some("https://example.com"));
+        args.crawl = true;
+        args.exclude_path = vec!["/tag/**".to_string()];
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn path_patterns_must_be_anchored() {
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        args.include_path = vec!["blog/*".to_string()];
+        let err = args.validate().unwrap_err();
+        assert!(err.contains("'/blog/*'"), "{err}");
+
+        args.include_path = vec!["**/feed".to_string(), "/blog/**".to_string()];
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn path_flags_are_repeatable() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+            "--include-path",
+            "/a/**",
+            "--include-path",
+            "/b/**",
+            "--exclude-path",
+            "/a/tag/**",
+        ]);
+        assert_eq!(args.include_path, vec!["/a/**", "/b/**"]);
+        assert_eq!(args.exclude_path, vec!["/a/tag/**"]);
     }
 
     #[test]
