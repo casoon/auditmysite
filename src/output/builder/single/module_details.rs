@@ -1534,7 +1534,7 @@ fn build_security_details(
         let mut ssl_info = vec![
             ("HTTPS".to_string(), yes_no(locale, sec.ssl.https)),
             (
-                "Gültiges Zertifikat".to_string(),
+                localized_label(locale, "Gültiges Zertifikat", "Valid certificate"),
                 yes_no(locale, sec.ssl.valid_certificate),
             ),
             ("HSTS".to_string(), yes_no(locale, sec.ssl.has_hsts)),
@@ -1546,7 +1546,7 @@ fn build_security_details(
                     .unwrap_or_else(|| "—".to_string()),
             ),
             (
-                "Subdomains".to_string(),
+                localized_label(locale, "Subdomains", "Subdomains"),
                 yes_no(locale, sec.ssl.hsts_include_subdomains),
             ),
             ("Preload".to_string(), yes_no(locale, sec.ssl.hsts_preload)),
@@ -1555,23 +1555,30 @@ fn build_security_details(
         push_optional_ssl_row(&mut ssl_info, "Cipher", sec.ssl.cipher.as_deref());
         push_optional_ssl_row(
             &mut ssl_info,
-            "Zertifikat Subject",
+            localized_label(locale, "Zertifikat Subject", "Certificate subject").as_str(),
             sec.ssl.certificate_subject.as_deref(),
         );
         push_optional_ssl_row(
             &mut ssl_info,
-            "Zertifikat Issuer",
+            localized_label(locale, "Zertifikat Issuer", "Certificate issuer").as_str(),
             sec.ssl.certificate_issuer.as_deref(),
         );
         if let Some(days) = sec.ssl.certificate_expires_in_days {
-            ssl_info.push(("Läuft ab in".to_string(), format!("{days} Tage")));
+            ssl_info.push(if locale == "en" {
+                ("Expires in".to_string(), format!("{days} days"))
+            } else {
+                ("Läuft ab in".to_string(), format!("{days} Tage"))
+            });
         }
         if let Some(chain_length) = sec.ssl.certificate_chain_length {
-            ssl_info.push(("Chain-Länge".to_string(), chain_length.to_string()));
+            ssl_info.push((
+                localized_label(locale, "Chain-Länge", "Chain length"),
+                chain_length.to_string(),
+            ));
         }
         push_optional_ssl_row(
             &mut ssl_info,
-            "Zertifikatsfehler",
+            localized_label(locale, "Zertifikatsfehler", "Certificate error").as_str(),
             sec.ssl.certificate_error.as_deref(),
         );
 
@@ -1591,8 +1598,11 @@ fn build_security_details(
                 .iter()
                 .map(|(name, value)| {
                     let (status, val) = match value {
-                        Some(v) => ("Vorhanden".to_string(), truncate_url(v, 50)),
-                        None => ("Fehlt".to_string(), "—".to_string()),
+                        Some(v) => (
+                            localized_label(locale, "Vorhanden", "Present"),
+                            truncate_url(v, 50),
+                        ),
+                        None => (localized_label(locale, "Fehlt", "Missing"), "—".to_string()),
                     };
                     let tier =
                         security_header_tier_label(locale, crate::security::header_tier(name));
@@ -1626,6 +1636,12 @@ fn build_security_details(
             has_cdn: sec.protection.has_cdn,
         }
     })
+}
+
+/// A table label in the run language; these tables printed German labels
+/// into English reports.
+fn localized_label(locale: &str, de: &str, en: &str) -> String {
+    if locale == "en" { en } else { de }.to_string()
 }
 
 fn push_optional_ssl_row(rows: &mut Vec<(String, String)>, label: &str, value: Option<&str>) {
@@ -1932,61 +1948,61 @@ fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<Mo
                     yes_no(locale, m.viewport.has_initial_scale),
                 ),
                 (
-                    "Skalierbar".to_string(),
+                    localized_label(locale, "Skalierbar", "Scalable"),
                     yes_no(locale, m.viewport.is_scalable),
                 ),
                 (
-                    "Korrekt konfiguriert".to_string(),
+                    localized_label(locale, "Korrekt konfiguriert", "Correctly configured"),
                     yes_no(locale, m.viewport.is_properly_configured),
                 ),
             ],
             touch_targets: vec![
                 (
-                    "Gesamt".to_string(),
+                    localized_label(locale, "Gesamt", "Total"),
                     m.touch_targets.total_targets.to_string(),
                 ),
                 (
-                    "Ausreichend (≥44px)".to_string(),
+                    localized_label(locale, "Ausreichend (≥44px)", "Adequate (≥44px)"),
                     m.touch_targets.adequate_targets.to_string(),
                 ),
                 (
-                    "Zu klein".to_string(),
+                    localized_label(locale, "Zu klein", "Too small"),
                     m.touch_targets.small_targets.to_string(),
                 ),
                 (
-                    "Zu eng beieinander".to_string(),
+                    localized_label(locale, "Zu eng beieinander", "Too close together"),
                     m.touch_targets.crowded_targets.to_string(),
                 ),
             ],
             font_analysis: vec![
                 (
-                    "Basis-Schriftgröße".to_string(),
+                    localized_label(locale, "Basis-Schriftgröße", "Base font size"),
                     format!("{:.0}px", m.font_sizes.base_font_size),
                 ),
                 (
-                    "Kleinste Schrift".to_string(),
+                    localized_label(locale, "Kleinste Schrift", "Smallest font"),
                     format!("{:.0}px", m.font_sizes.smallest_font_size),
                 ),
                 (
-                    "Lesbarer Text".to_string(),
+                    localized_label(locale, "Lesbarer Text", "Legible text"),
                     format!("{:.0}%", m.font_sizes.legible_percentage),
                 ),
                 (
-                    "Relative Einheiten".to_string(),
+                    localized_label(locale, "Relative Einheiten", "Relative units"),
                     yes_no(locale, m.font_sizes.uses_relative_units),
                 ),
             ],
             content_sizing: vec![
                 (
-                    "Passt in Viewport".to_string(),
+                    localized_label(locale, "Passt in Viewport", "Fits viewport"),
                     yes_no(locale, m.content_sizing.fits_viewport),
                 ),
                 (
-                    "Kein hor. Scrollen".to_string(),
+                    localized_label(locale, "Kein hor. Scrollen", "No horizontal scroll"),
                     yes_no(locale, !m.content_sizing.has_horizontal_scroll),
                 ),
                 (
-                    "Responsive Bilder".to_string(),
+                    localized_label(locale, "Responsive Bilder", "Responsive images"),
                     yes_no(locale, m.content_sizing.uses_responsive_images),
                 ),
                 (

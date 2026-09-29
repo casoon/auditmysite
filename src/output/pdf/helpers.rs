@@ -55,14 +55,6 @@ pub(super) fn manual_recheck_instruction(wcag_criterion: &str, en: bool) -> Opti
     }
 }
 
-pub(super) fn extract_domain(url: &str) -> String {
-    let without_scheme = url
-        .trim_start_matches("https://")
-        .trim_start_matches("http://");
-    let host = without_scheme.split('/').next().unwrap_or(without_scheme);
-    host.trim_start_matches("www.").to_string()
-}
-
 const SECTION_HEADER_SPLIT_TEMPLATE: &str = include_str!("templates/section_header_split.typ");
 const METRIC_STRIP_TEMPLATE: &str = include_str!("templates/metric_strip.typ");
 
@@ -216,11 +208,24 @@ pub(super) fn score_quality_label(score: u32) -> &'static str {
 pub(super) fn score_quality_color(score: u32) -> &'static str {
     use super::design::tokens;
     match score {
-        85..=100 => tokens::SUCCESS,
-        70..=84 => tokens::SUCCESS,
+        70..=100 => tokens::SUCCESS,
         50..=69 => tokens::WARN_DEEP,
         _ => tokens::DANGER,
     }
+}
+
+/// Truncates `value` to at most `max_chars` characters (not bytes), replacing
+/// the last kept character with `…` when it is cut.
+pub(super) fn truncate_with_ellipsis(value: &str, max_chars: usize) -> String {
+    let count = value.chars().count();
+    if count <= max_chars {
+        return value.to_string();
+    }
+    value
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>()
+        + "…"
 }
 
 /// Appends a non-normative qualifier to a module's display name wherever it

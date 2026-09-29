@@ -32,6 +32,7 @@ use super::en301549::render_en301549_annex;
 use super::findings::render_finding_technical;
 use super::helpers::{
     manual_recheck_instruction, map_severity, priority_label_i18n, role_label_i18n,
+    truncate_with_ellipsis,
 };
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
@@ -1859,10 +1860,10 @@ fn render_findings_section(
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
                     wcag,
-                    truncate_title(&group.title, 48),
+                    truncate_with_ellipsis(&group.title, 48),
                     scope,
                     role_label_i18n(group.responsible_role, i18n),
-                    truncate_title(&group.recommendation, 72),
+                    truncate_with_ellipsis(&group.recommendation, 72),
                 ]);
             }
             builder = builder.add_component(table);
@@ -2533,18 +2534,6 @@ fn mandatory_root_causes(vm: &ReportViewModel) -> Vec<&FindingGroup> {
 /// Shorten a finding title for inline display next to a letter code (chart
 /// labels, table cells) — same char-based ellipsis truncation pattern used
 /// elsewhere in the PDF layer.
-fn truncate_title(value: &str, max_chars: usize) -> String {
-    let count = value.chars().count();
-    if count <= max_chars {
-        return value.to_string();
-    }
-    value
-        .chars()
-        .take(max_chars.saturating_sub(1))
-        .collect::<String>()
-        + "…"
-}
-
 /// `rule_id -> (letter, occurrence_count, share_pct)` for the top
 /// `ROOT_CAUSE_SHOWN` mandatory root causes. Used by `render_timeframe_roadmap`
 /// to tag systemic actions with the root cause they resolve, so the two
@@ -2677,7 +2666,7 @@ pub(super) fn render_root_cause_analysis(
         // Repeat the clear-text title next to the letter — otherwise the chart
         // and table only carry "Ursache A", forcing readers to flip back to
         // the list above to remember what it refers to.
-        let short_title = truncate_title(&finding.title, 45);
+        let short_title = truncate_with_ellipsis(&finding.title, 45);
         table_rows.push(vec![
             format!("{letter} — {short_title}"),
             finding.occurrence_count.to_string(),

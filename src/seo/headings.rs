@@ -8,6 +8,7 @@ use tracing::info;
 
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
+use crate::util::truncate_url;
 
 /// Heading structure analysis
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -157,7 +158,7 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
                     "Heading level skipped: H{} to H{} (\"{}\")",
                     prev_level,
                     heading.level,
-                    truncate(&heading.text, 40)
+                    truncate_url(&heading.text, 40)
                 ),
                 severity: Severity::Medium,
             });
@@ -193,7 +194,7 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
                     "H{} is too long ({} chars): \"{}...\"",
                     heading.level,
                     heading.length,
-                    truncate(&heading.text, 30)
+                    truncate_url(&heading.text, 30)
                 ),
                 severity: Severity::Medium,
             });
@@ -214,20 +215,6 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
         headings,
         issues,
     }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    let target = max.saturating_sub(3);
-    let boundary = s
-        .char_indices()
-        .take_while(|(i, _)| *i <= target)
-        .last()
-        .map(|(i, _)| i)
-        .unwrap_or(0);
-    format!("{}...", &s[..boundary])
 }
 
 #[cfg(test)]

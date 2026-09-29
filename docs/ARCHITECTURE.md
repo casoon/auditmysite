@@ -109,7 +109,9 @@ src/
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
 │   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)
-│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
+│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
+│   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
+│   ├── finding_derive.rs # Derived finding fields: priority score, confidence, complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation
@@ -139,7 +141,10 @@ src/
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   ├── pdf/             # PDF reports (via renderreport/Typst)
-│   │   ├── mod.rs, single_report.rs, batch_report.rs, batch_report/
+│   │   ├── mod.rs, single_report.rs, batch_report.rs
+│   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
+│   │   │                 # management, portfolio, interactive, actions, seo,
+│   │   │                 # consistency, appendix (crawl links, commerce)
 │   │   ├── cover.rs, findings.rs, wcag_coverage.rs, en301549.rs
 │   │   ├── diagnosis.rs, appendix.rs, design.rs (4-color law)
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
@@ -506,6 +511,7 @@ tests/
 ├── report_consistency_tests.rs   # Score/finding consistency across formats
 ├── batch_consistency (see src/audit/batch_consistency.rs)
 ├── release_contract_tests.rs     # Release-gate invariants
+├── golden_render.rs              # Golden-render harness (ignored; scripts/golden-diff.sh)
 └── snapshot_tests.rs              # insta snapshot tests (snapshots/)
 
 src/*/tests (inline)               # Unit tests per module
@@ -514,6 +520,15 @@ src/*/tests (inline)               # Unit tests per module
 Run all tests:
 ```bash
 cargo test
+```
+
+Golden-render harness (`tests/golden_render.rs`, `#[ignore]`): renders single JSON, single
+Typst (de/en), batch JSON and batch Typst (de/en) from a frozen set of cached audits
+(`reports/golden/<site>/`, gitignored) through the same library calls the CLI uses on a cache
+hit. Refactoring PRs render on `main` and on the branch and require an empty diff:
+```bash
+git switch main      && scripts/golden-diff.sh /tmp/golden-main
+git switch <branch>  && scripts/golden-diff.sh /tmp/golden-branch /tmp/golden-main
 ```
 
 ## Performance

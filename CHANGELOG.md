@@ -22,6 +22,56 @@ short current-state summary. Newest entries first (unchanged order from before t
   sichtbaren Checkboxen gleichen Namens wird ein `fieldset`/`role=group`-Vorfahr verlangt. Radios
   bleiben unveraendert im Baum (ein Radio braucht immer eine Gruppe). Neue Korpusfaelle
   `form_heuristics_clean` und `form_heuristics_flagged`.
+- **`--per-page-reports`: eine Datei je Seite, 2026-09-29:** Die Dateinamen der Einzelberichte
+  kamen nur aus dem Host (`casoon-de-<datum>-single-report.json`); jede Seite einer Website
+  ueberschrieb die vorige, aus einer Sitemap mit drei Seiten blieb eine Datei. Der Name enthaelt
+  jetzt Host und Pfad (`casoon-de-arbeitsweise-…`), bei Query-Strings einen kurzen stabilen Hash.
+  Gilt fuer alle Formate; Einzelaudits ohne `--per-page-reports` behalten ihren Namen.
+- **Zwei Fehlalarme auf geographia.eu (#638, #639), 2026-09-29:** Auf
+  geographia.eu/atmosphere/de/kapitel/hebel/ meldete 1.6.0 zwei Verstoesse gegen 1.3.1, die keine
+  sind. (1) `th-has-data-cells` (8 Vorkommen, hoch): Chrome legt `<thead>` als `rowgroup` in den
+  AX-Baum, markiert das schlichte `<tbody>` aber als ignoriert; Zeilen und Zellen haengen trotzdem
+  darunter. Die Regel liess ignorierte Knoten samt Teilbaum aus, fand so keine einzige Datenzelle
+  und meldete jede Spaltenueberschrift. Leere Zellen und `aria-hidden`-Kinder spielten keine
+  Rolle. Jetzt steigt die Suche durch ignorierte Knoten hindurch, zaehlt sie aber selbst nicht.
+  (2) `landmark-unique` (2 Vorkommen, mittel): Die DOM-Ergaenzung zu den Landmark-Regeln leitete
+  die Rolle aus dem Tag ab und machte jedes `<header>` zum `banner`, auch das Kapitel-`<header>`
+  in `<main>`. Nach HTML-AAM (und in Chromes AX-Baum) sind `<header>`/`<footer>` in `article`,
+  `aside`, `main`, `nav`, `section` oder den entsprechenden Rollen generisch; die DOM-Ergaenzung
+  folgt dem jetzt. Dasselbe galt fuer `<aside>`: Innerhalb von `article`, `aside`, `nav` oder
+  `section` (bzw. den Rollen `article`, `complementary`, `navigation`) ist es nur mit
+  zugaenglichem Namen `complementary`, sonst generisch; `role=region` zaehlt dabei nicht, ein
+  unbenanntes `<section>` schon (so rechnet Chrome). Die DOM-Ergaenzung beruecksichtigt dafuer
+  auch `title` als Namen. Belegt am Live-Lauf: beide Befunde weg, die uebrigen vier unveraendert,
+  Barrierefreiheitswert 75 auf 85. Neue Korpusfaelle `table_headers_tbody_ignored` und
+  `landmark_header_in_main`, `landmark_aside_scoping` (echte Negative) und
+  `landmark_aside_named_duplicate` (echtes Positiv); `table_headers_no_data` und
+  `landmark_granular` sichern die bisherigen echten Positive.
+- **Englische PDFs ohne deutsche Tabellenbeschriftungen, 2026-09-29:** Mit `--lang en` standen in
+  den Tabellen zu Sicherheits-Headern („Vorhanden"/„Fehlt"), SSL („Gueltiges Zertifikat", „Laeuft
+  ab in … Tage", „Chain-Laenge"), Touch-Targets („Zu klein", „Zu eng beieinander") und Schrift
+  („Kleinste Schrift", „Lesbarer Text") deutsche Beschriftungen, gefunden an einem englischen
+  casoon.de-Bericht. Die Beschriftungen folgen jetzt der Laufsprache; ein Guard-Test mit den
+  Moduldaten dieses Laufs prueft die englische Ausgabe auf deutsche Begriffe.
+- **Cache-Rundreise und deterministische Reihenfolge, 2026-09-29:** Beim Aufbau des
+  Golden-Render-Harness (Plan 66) fielen zwei Fehler auf. (1) `GraphEntity.properties` wurde mit
+  `skip_serializing_if` weggelassen, trug aber kein `default`: Ein gecachter `report.json` mit einer
+  Entitaet ohne Eigenschaften liess sich nicht mehr lesen („missing field `properties`"), und die
+  CLI auditierte stillschweigend neu. Betroffen waren 13 der 17 eingefrorenen Cache-Eintraege.
+  Dieselbe Luecke hatten `BatchReport.errors`, die vier Listen in `SitemapDiagnostics` und die
+  drei in `CrawlDiagnostics`; alle tragen jetzt `default`. Neue Rundreise-Tests serialisieren und
+  lesen einen vollstaendigen `AuditReport` und einen `BatchReport` mit leeren Listen. (2) Zwei
+  Laeufe ueber dieselbe Eingabe konnten verschiedene Berichte liefern, weil Ergebnisse aus
+  `HashMap`s ohne vollstaendige Sortierung kamen: Bei Gleichstand konnten sich Reihenfolge und
+  (nach dem Kuerzen auf 10) Inhalt von `top_recurring_rules` aendern; Schema-Konflikte im
+  Batch, die interaktiven Kategorien samt PDF-Tabelle „Befunde nach Kategorie", die dominante
+  Regel der Zusammenfassung, die Hauptrolle im Massnahmenplan, Template-Cluster, doppelte
+  Inhalte, Minifizierungs-Abweichungen und die Sitemap-HTTP-Befunde (Abschlussreihenfolge der
+  Anfragen) hatten dieselbe Luecke; die Strafpunkte des Accessibility-Scores wurden in
+  `HashMap`-Reihenfolge summiert. Jede Sortierung hat jetzt einen letzten eindeutigen Schluessel
+  (Regel-ID, Entitaets-ID, Kategorie, Selektor, URL), die Strafpunkte werden in Regel-ID-Reihenfolge
+  summiert. Tests fixieren die Reihenfolge bei Gleichstand. Geprueft: drei Golden-Render-Laeufe
+  ueber alle 17 Seiten, `diff -r` leer.
 
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
