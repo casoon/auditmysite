@@ -4,7 +4,6 @@
 //! directly to renderreport components. Zero data transformation here.
 
 mod appendix;
-mod batch;
 mod batch_report;
 mod bik_guide;
 mod cover;
