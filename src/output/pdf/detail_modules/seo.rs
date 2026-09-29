@@ -346,12 +346,7 @@ pub(in crate::output::pdf) fn render_page_health(
 
     if let Some((status, detail)) = &ph.html_validator {
         let validator_title = i18n.t("pdf-ph-html-validator-title");
-        let callout = match status.as_str() {
-            "Ausgeführt" => Callout::info(detail).with_title(&validator_title),
-            "Fehlgeschlagen" => Callout::warning(detail).with_title(&validator_title),
-            _ => Callout::info(detail).with_title(&validator_title),
-        };
-        builder = builder.add_component(callout);
+        builder = builder.add_component(html_validator_callout(status, detail, &validator_title));
     }
 
     // www consolidation
@@ -389,6 +384,15 @@ pub(in crate::output::pdf) fn render_page_health(
     }
 
     builder
+}
+
+/// A failed validation is a warning in every report language: `status` is the
+/// canonical `html_validator_status`, not a localized label.
+fn html_validator_callout(status: &str, detail: &str, title: &str) -> Callout {
+    match status {
+        "failed" => Callout::warning(detail).with_title(title),
+        _ => Callout::info(detail).with_title(title),
+    }
 }
 
 fn render_robots(
@@ -751,4 +755,17 @@ pub(in crate::output::pdf) fn render_seo_profile(
     builder = builder.add_component(maturity);
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_html_validation_is_a_warning_in_english() {
+        let failed = html_validator_callout("failed", "Parser error", "HTML validation");
+        assert_eq!(failed.callout_type, Callout::warning("x").callout_type);
+        let executed = html_validator_callout("executed", "ok", "HTML validation");
+        assert_eq!(executed.callout_type, Callout::info("x").callout_type);
+    }
 }

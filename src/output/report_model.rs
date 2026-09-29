@@ -1008,7 +1008,7 @@ pub struct PageHealthPresentation {
     pub url_info: Vec<(String, String)>,
     /// (check, count, severity, detail)
     pub html_issues: Vec<(String, u32, String, String)>,
-    /// (status, detail)
+    /// (canonical status `executed`/`failed`/`skipped`, localized detail)
     pub html_validator: Option<(String, String)>,
     /// (www_status_label, non_www_label, is_consolidated)
     pub www_status: Option<(String, String, bool)>,

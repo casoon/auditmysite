@@ -22,7 +22,10 @@ short current-state summary. Newest entries first (unchanged order from before t
   Terminal-Ausgabe zeigte mit `--lang en` „Certificate: SEHR GUT". Das Zertifikat im JSON bleibt
   bewusst das kanonische deutsche Token (#449: Schluessel fuer Badge/Farbe, per Enum im
   Studio-Vertragsschema festgelegt, von report-lint geprueft und von rankinglab ausgewertet); nur
-  die Anzeige wird lokalisiert. `certificate_label_localized` liegt jetzt in `registry` statt im
+  die Anzeige wird lokalisiert. (5) Der Validator-Callout verglich den lokalisierten Status mit
+  „Fehlgeschlagen"; im englischen PDF („Failed") wurde eine fehlgeschlagene Validierung deshalb
+  als Info statt als Warnung gezeigt. Die Praesentation traegt jetzt den kanonischen Status
+  (`executed`/`failed`/`skipped`), der Callout entscheidet darueber. `certificate_label_localized` liegt jetzt in `registry` statt im
   PDF-Cover, damit auch das Terminal es nutzt: mit `--lang en` steht dort „EXCELLENT". Ebenso
   zeigte die Zeile „Certificate" im Kasten „Audit scope" des englischen Batch-Berichts das
   deutsche Token („AUSBAUFÄHIG"); sie nutzt jetzt dieselbe Funktion („INADEQUATE").
