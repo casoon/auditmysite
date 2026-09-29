@@ -2,6 +2,7 @@
 //!
 //! Coordinates the audit pipeline from URL input to report output.
 
+mod access_block;
 pub mod artifacts;
 pub mod baseline;
 mod batch;

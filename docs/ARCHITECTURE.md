@@ -105,6 +105,7 @@ src/
 │   ├── mod.rs
 │   ├── pipeline.rs      # Single page audit flow
 │   ├── batch.rs         # Sitemap/batch processing
+│   ├── access_block.rs  # Bot walls/access denials: blocked pages fail instead of being scored
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
 │   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)

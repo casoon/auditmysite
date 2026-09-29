@@ -742,9 +742,13 @@ async fn audit_url_with_pool(
                     outcome: Ok(report),
                 };
             }
-            Err(e @ (AuditError::AuditTimeout { .. } | AuditError::PageLoadTimeout { .. })) => {
+            Err(
+                e @ (AuditError::AuditTimeout { .. }
+                | AuditError::PageLoadTimeout { .. }
+                | AuditError::AccessBlocked { .. }),
+            ) => {
                 // Timeouts are not transient — retrying the same URL with the same
-                // budget is unlikely to succeed. Bail immediately.
+                // budget is unlikely to succeed. Neither is a bot wall. Bail immediately.
                 return BatchResult {
                     url: url.to_string(),
                     outcome: Err(BatchAuditError::Audit(e)),

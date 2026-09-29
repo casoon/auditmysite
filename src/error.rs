@@ -28,6 +28,11 @@ pub enum AuditError {
     #[error("Failed to navigate to '{url}': {reason}")]
     NavigationFailed { url: String, reason: String },
 
+    /// The server did not serve the site's content: an access denial or a
+    /// bot challenge. Auditing it would score the block page.
+    #[error("Access to '{url}' was blocked: {reason}. That page is not the site's content and was not audited")]
+    AccessBlocked { url: String, reason: String },
+
     /// Page load timeout
     #[error("Page load timeout for '{url}' after {timeout_secs} seconds")]
     PageLoadTimeout { url: String, timeout_secs: u64 },

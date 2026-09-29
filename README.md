@@ -694,6 +694,7 @@ It validates:
 ## Troubleshooting
 
 - Browser not found: run `auditmysite browser detect` or install a managed browser with `auditmysite browser install`
+- "Access to '…' was blocked": the site answered HTTP 401/403/407/429 or served a bot challenge (Cloudflare, Fastly, Akamai, DataDome, Imperva, HUMAN). That page is not the site's content, so the URL is not scored; in a batch it is listed under `errors`. Ask the site owner to allow the auditing machine
 - Running in Docker or as root: use `--no-sandbox`
 - Need raw output for scripts: prefer `-f json -o report.json`
 - Unsure about the full CLI surface: run `auditmysite --help`
