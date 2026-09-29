@@ -12,7 +12,10 @@ short current-state summary. Newest entries first (unchanged order from before t
   `foreground-uncertain`, wenn das Element oder ein Vorfahr `background-clip: text` (auch
   `-webkit-`) traegt oder `color`/`-webkit-text-fill-color` (nahezu) transparent ist. Solche Texte
   gehen als Pruefhinweis (Warnung) ohne `contrast_ratio`-Beleg in den Bericht und werden nicht per
-  Pixelabtastung aufgeloest, weil diese die CSS-Textfarbe braucht. Belegt mit Unit-Tests und dem
+  Pixelabtastung aufgeloest, weil diese die CSS-Textfarbe braucht. Zudem gilt eine gesetzte,
+  deckende `-webkit-text-fill-color` jetzt als Textfarbe (Kontrastrechnung und Pixelabtastung),
+  denn Browser malen die Glyphen damit, nicht mit `color` (Korpusfall `text_fill_color_contrast`:
+  helle Fuellfarbe bei dunklem `color` ist Verstoss, umgekehrt bestanden). Belegt mit Unit-Tests und dem
   Korpusfall `gradient_text_contrast` (Verlaufstext Hinweis, grauer Fliesstext weiter Verstoss);
   Live-Lauf gegen geographia.eu/atmosphere/de/kapitel/hebel/: beide 1,00:1-Verstoesse sind
   Hinweise, weitere Kontrastbefunde gab es auf der Seite weder vorher noch nachher

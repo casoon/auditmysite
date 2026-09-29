@@ -187,7 +187,7 @@ impl ContrastRule {
     fn build_sample_tasks(styles: &[ComputedStyles], level: WcagLevel) -> Vec<serde_json::Value> {
         let mut candidates: Vec<(f64, serde_json::Value)> = Vec::new();
         for style in styles {
-            let fg_str = match style.color() {
+            let fg_str = match style.painted_text_color() {
                 Some(c) => c,
                 None => continue,
             };
@@ -448,7 +448,7 @@ impl ContrastRule {
             return None;
         }
 
-        let fg_str = style.color()?;
+        let fg_str = style.painted_text_color()?;
         let bg_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
         let bg_uncertain = Self::flag(style, "background-uncertain");
         let fg_uncertain = Self::flag(style, "foreground-uncertain");
@@ -1265,5 +1265,48 @@ mod tests {
             .properties
             .insert("foreground-uncertain".to_string(), "true".to_string());
         assert!(ContrastRule::build_sample_tasks(&[style], WcagLevel::AA).is_empty());
+    }
+
+    fn fill_color_style(color: &str, fill: &str) -> ComputedStyles {
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("color".to_string(), color.to_string());
+        properties.insert("text-fill-color".to_string(), fill.to_string());
+        properties.insert(
+            "background-color".to_string(),
+            "rgb(255, 255, 255)".to_string(),
+        );
+        ComputedStyles {
+            node_id: 1,
+            selector: Some("p#fill".to_string()),
+            html_snippet: None,
+            properties,
+        }
+    }
+
+    #[test]
+    fn opaque_text_fill_color_overrides_color() {
+        // Browsers paint glyphs with -webkit-text-fill-color, not `color`.
+        let poor_fill = fill_color_style("rgb(0, 0, 0)", "rgb(200, 200, 200)");
+        assert!(
+            ContrastRule::evaluate_style(&poor_fill, WcagLevel::AA, &SampledVerdicts::new())
+                .is_some(),
+            "low-contrast fill must be a violation despite a dark `color`"
+        );
+        let good_fill = fill_color_style("rgb(200, 200, 200)", "rgb(0, 0, 0)");
+        assert!(
+            ContrastRule::evaluate_style(&good_fill, WcagLevel::AA, &SampledVerdicts::new())
+                .is_none(),
+            "dark fill must pass despite a light `color`"
+        );
+    }
+
+    #[test]
+    fn sample_tasks_use_text_fill_color() {
+        let mut style = fill_color_style("rgb(0, 0, 0)", "rgb(200, 200, 200)");
+        style
+            .properties
+            .insert("background-uncertain".to_string(), "true".to_string());
+        let tasks = ContrastRule::build_sample_tasks(&[style], WcagLevel::AA);
+        assert_eq!(tasks[0]["fgColor"], "rgb(200, 200, 200)");
     }
 }
