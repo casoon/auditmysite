@@ -99,6 +99,7 @@ fn default_config() -> PipelineConfig {
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
+        display_mode: None,
     }
 }
 
@@ -2261,4 +2262,94 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
         assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
     }
+}
+
+/// What the probe page and the live page report about the display choice.
+async fn display_probe(page: &chromiumoxide::Page) -> serde_json::Value {
+    let raw: String = page
+        .evaluate(
+            "JSON.stringify({ \
+               reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, \
+               stored: localStorage.getItem('display'), \
+               active: document.documentElement.dataset.display, \
+               seenAtLoad: window.__seenAtLoad })",
+        )
+        .await
+        .expect("probe evaluation")
+        .into_value()
+        .expect("probe value");
+    serde_json::from_str(&raw).expect("probe JSON")
+}
+
+/// #653: `--display text` stores the choice in `localStorage.display` and
+/// emulates `prefers-reduced-motion: reduce` before the page's first script
+/// runs, keeps both through the whole audit (the dark-mode analysis re-sets
+/// emulated media on the same page), and the report names the mode.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn display_text_sets_stored_choice_and_reduced_motion() {
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("display_mode_probe.html");
+    let manager = ci_browser().await;
+
+    let args = auditmysite::Args::parse_from(["auditmysite", &url, "--display", "text"]);
+    let mut config = PipelineConfig::from_args_and_config(&args, None);
+    config.interactive = auditmysite::cli::InteractiveMode::Off;
+    config.persist_artifacts = false;
+    assert_eq!(
+        config.display_mode,
+        Some(auditmysite::display::DisplayMode::Text)
+    );
+
+    let page = manager.new_page().await.expect("New page failed");
+    let (report, _) = audit_page(&page, &url, &config, &manager)
+        .await
+        .expect("audit");
+    let probe = display_probe(&page).await;
+    assert_eq!(probe["seenAtLoad"]["stored"], "text", "{probe}");
+    assert_eq!(probe["seenAtLoad"]["reducedMotion"], true, "{probe}");
+    assert_eq!(probe["stored"], "text", "{probe}");
+    assert_eq!(probe["reducedMotion"], true, "after the audit: {probe}");
+    assert_eq!(probe["active"], "text", "{probe}");
+
+    let execution = &report.accessibility.execution;
+    assert_eq!(
+        execution.scope.display_mode,
+        auditmysite::display::AuditedDisplayMode::Text
+    );
+    let info = execution
+        .display_modes
+        .as_ref()
+        .expect("convention detected");
+    assert!(info.offers_display_modes);
+    assert_eq!(info.active_mode.as_deref(), Some("text"));
+    assert_eq!(info.set_before_body, Some(true));
+    assert!(info.toggle_present);
+    assert!(info.reduced_motion);
+
+    // Control: without --display nothing is stored or emulated. A fresh
+    // browser, because localStorage is per origin and outlives the page.
+    let default_config = PipelineConfig {
+        display_mode: None,
+        ..config.clone()
+    };
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    let (report, _) = audit_page(&page, &url, &default_config, &manager)
+        .await
+        .expect("audit");
+    let probe = display_probe(&page).await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(
+        probe["seenAtLoad"]["stored"],
+        serde_json::Value::Null,
+        "{probe}"
+    );
+    assert_eq!(probe["reducedMotion"], false, "{probe}");
+    assert_eq!(probe["active"], "visual", "{probe}");
+    assert_eq!(
+        report.accessibility.execution.scope.display_mode,
+        auditmysite::display::AuditedDisplayMode::SiteDefault
+    );
 }

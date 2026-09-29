@@ -30,13 +30,13 @@ use super::{
     check_aria_prohibited_attr_with_page, check_aria_relationships_with_page,
     check_aria_valid_attr_value_with_page, check_background_audio_with_page,
     check_checkbox_group_with_page, check_checked_state_with_page,
-    check_content_on_hover_with_page, check_fake_navigation_link_with_page,
-    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_focus_visible_css_with_page, check_form_no_submit_with_page,
-    check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
-    check_image_input_rules_with_page, check_input_purpose_with_page,
-    check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
-    check_label_in_name_with_page, check_language_extended_with_page,
+    check_content_on_hover_with_page, check_display_modes_with_page,
+    check_fake_navigation_link_with_page, check_focus_not_obscured_enhanced_with_page,
+    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
+    check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
+    check_identify_purpose_with_page, check_image_input_rules_with_page,
+    check_input_purpose_with_page, check_invalid_aria_attribute_name_with_page,
+    check_invalid_role_with_page, check_label_in_name_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
@@ -273,6 +273,15 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_fake_navigation_link_with_page(p)),
     },
+    // Display-mode convention (#653): all five `display/*` ids from one
+    // DOM pass. Best-practice rules, not WCAG requirements; no-op on pages
+    // without `figure[data-viz]`/`html[data-display]`.
+    PageRuleEntry {
+        rule_id: "display/modes",
+        name: "display-mode convention",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_display_modes_with_page(p)),
+    },
     // 2.5.1-2.5.4 are official WCAG 2.1 Level A criteria (only 2.5.5/2.5.6 are
     // AAA) — previously misclassified as AAA here and in each rule's own
     // RULE_META, which meant they silently never ran at the default AA level.
@@ -500,7 +509,8 @@ mod tests {
         //   landmark-main-present, each defect counted twice = 36
         // + value-now: aria-valuenow moved from the AX tree to the DOM, CDP
         //   has no `valuenow` property (#656) = 37
-        assert_eq!(count, 37);
+        // + display-mode convention (`display/*`, #653, best-practice) = 38
+        assert_eq!(count, 38);
     }
 
     #[test]
@@ -534,7 +544,8 @@ mod tests {
         // - landmark-dom: duplicated the AX tree's landmark-unique and
         //   landmark-main-present, each defect counted twice = 48.
         // + value-now (#656, Level A) = 49.
-        assert_eq!(count, 49);
+        // + display-mode convention (#653, Level A) = 50.
+        assert_eq!(count, 50);
     }
 
     #[test]

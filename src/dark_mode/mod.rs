@@ -12,9 +12,9 @@ pub mod module;
 pub use module::DarkModeModule;
 
 use chromiumoxide::cdp::browser_protocol::emulation::{
-    MediaFeature, SetEmulatedVisionDeficiencyParams, SetEmulatedVisionDeficiencyType,
+    MediaFeature, SetEmulatedMediaParams, SetEmulatedVisionDeficiencyParams,
+    SetEmulatedVisionDeficiencyType,
 };
-use chromiumoxide::page::MediaTypeParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -436,13 +436,28 @@ fn selector_suffix(selectors: &[String], en: bool) -> String {
 /// 3. Build per-element contrast violation list with mode classification.
 /// 4. Build score and issue list.
 pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<DarkModeAnalysis> {
+    analyze_dark_mode_with_base_media(page, wcag_level, &[]).await
+}
+
+/// [`analyze_dark_mode`] on a page that already emulates media features —
+/// the reduced motion of a `--display` mode (#653). Every emulation step here
+/// replaces the page's whole feature list, so each one carries `base` along
+/// and restores to it, instead of silently dropping the mode's preference
+/// for the rest of the audit.
+pub async fn analyze_dark_mode_with_base_media(
+    page: &Page,
+    wcag_level: WcagLevel,
+    base: &[MediaFeature],
+) -> Result<DarkModeAnalysis> {
     // ── 1. Static detection ─────────────────────────────────────────────────
     let static_info = detect_static_support(page).await?;
-    let print = analyze_print_stylesheet(page).await.unwrap_or_else(|e| {
-        warn!("Print stylesheet analysis failed: {e}");
-        PrintStylesheetAnalysis::default()
-    });
-    let forced_colors = analyze_forced_colors(page).await.unwrap_or_else(|e| {
+    let print = analyze_print_stylesheet(page, base)
+        .await
+        .unwrap_or_else(|e| {
+            warn!("Print stylesheet analysis failed: {e}");
+            PrintStylesheetAnalysis::default()
+        });
+    let forced_colors = analyze_forced_colors(page, base).await.unwrap_or_else(|e| {
         warn!("Forced-colors analysis failed: {e}");
         ForcedColorsAnalysis::default()
     });
@@ -457,7 +472,7 @@ pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<Dar
     let (light_viols, dark_viols) = if static_info.has_dark_media_query
         && matches!(wcag_level, WcagLevel::AA | WcagLevel::AAA)
     {
-        compare_contrast(page, wcag_level).await
+        compare_contrast(page, wcag_level, base).await
     } else {
         (Vec::new(), Vec::new())
     };
@@ -939,14 +954,36 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
     })
 }
 
-async fn analyze_print_stylesheet(page: &Page) -> Result<PrintStylesheetAnalysis> {
+/// `Emulation.setEmulatedMedia` with `base` plus `extra` — the one place the
+/// dark-mode analysis changes emulated media.
+async fn emulate_media(
+    page: &Page,
+    media: &str,
+    base: &[MediaFeature],
+    extra: Option<MediaFeature>,
+) -> std::result::Result<(), chromiumoxide::error::CdpError> {
+    let features: Vec<MediaFeature> = base.iter().cloned().chain(extra).collect();
+    page.execute(
+        SetEmulatedMediaParams::builder()
+            .media(media)
+            .features(features)
+            .build(),
+    )
+    .await
+    .map(|_| ())
+}
+
+async fn analyze_print_stylesheet(
+    page: &Page,
+    base: &[MediaFeature],
+) -> Result<PrintStylesheetAnalysis> {
     let stylesheet_detected = detect_print_stylesheet(page).await?;
     let mut analysis = PrintStylesheetAnalysis {
         stylesheet_detected,
         ..Default::default()
     };
 
-    if let Err(e) = page.emulate_media_type(MediaTypeParams::Print).await {
+    if let Err(e) = emulate_media(page, "print", base, None).await {
         warn!("Could not emulate print media: {e}");
         return Ok(analysis);
     }
@@ -961,14 +998,14 @@ async fn analyze_print_stylesheet(page: &Page) -> Result<PrintStylesheetAnalysis
     analysis.content_not_clipped = metrics.clipped_elements == 0;
     analysis.clipped_elements = metrics.clipped_elements;
 
-    if let Err(e) = page.emulate_media_type(MediaTypeParams::Screen).await {
+    if let Err(e) = emulate_media(page, "screen", base, None).await {
         warn!("Could not restore screen media: {e}");
     }
 
     Ok(analysis)
 }
 
-async fn analyze_forced_colors(page: &Page) -> Result<ForcedColorsAnalysis> {
+async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<ForcedColorsAnalysis> {
     let stylesheet_detected = detect_forced_colors_stylesheet(page).await?;
     let mut analysis = ForcedColorsAnalysis {
         stylesheet_detected,
@@ -980,7 +1017,7 @@ async fn analyze_forced_colors(page: &Page) -> Result<ForcedColorsAnalysis> {
         name: "forced-colors".to_string(),
         value: "active".to_string(),
     };
-    if let Err(e) = page.emulate_media_features(vec![feature]).await {
+    if let Err(e) = emulate_media(page, "", base, Some(feature)).await {
         warn!("Could not emulate forced colors: {e}");
         return Ok(analysis);
     }
@@ -994,7 +1031,7 @@ async fn analyze_forced_colors(page: &Page) -> Result<ForcedColorsAnalysis> {
     analysis.active_matches = metrics.active_matches;
     analysis.focus_indicators_visible = metrics.focus_indicators_visible;
 
-    if let Err(e) = page.emulate_media_features(Vec::new()).await {
+    if let Err(e) = emulate_media(page, "", base, None).await {
         warn!("Could not restore media features after forced-colors check: {e}");
     }
 
@@ -1270,7 +1307,11 @@ async fn eval_json(page: &Page, js: &str, context: &str) -> Result<serde_json::V
 
 /// Runs contrast checks in light mode (current state) and dark mode (after CDP emulation).
 /// Returns `(light_violations, dark_violations)` as full Violation objects.
-async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec<Violation>) {
+async fn compare_contrast(
+    page: &Page,
+    level: WcagLevel,
+    base: &[MediaFeature],
+) -> (Vec<Violation>, Vec<Violation>) {
     let light_violations =
         ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)
             .await;
@@ -1279,7 +1320,7 @@ async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec
         name: "prefers-color-scheme".to_string(),
         value: "dark".to_string(),
     };
-    if let Err(e) = page.emulate_media_features(vec![dark_feature]).await {
+    if let Err(e) = emulate_media(page, "", base, Some(dark_feature)).await {
         warn!("Could not emulate dark mode: {e}");
         return (light_violations, Vec::new());
     }
@@ -1296,7 +1337,7 @@ async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec
         name: "prefers-color-scheme".to_string(),
         value: "light".to_string(),
     };
-    if let Err(e) = page.emulate_media_features(vec![light_feature]).await {
+    if let Err(e) = emulate_media(page, "", base, Some(light_feature)).await {
         warn!("Could not restore light mode: {e}");
     }
 

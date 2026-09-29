@@ -103,6 +103,38 @@ pub(super) fn render_batch_cover(
             };
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
         }
+        // #653: the display mode every score in this report belongs to.
+        {
+            let en = i18n.locale() == "en";
+            let mode = batch
+                .reports
+                .first()
+                .map(|r| r.accessibility.execution.scope.display_mode)
+                .unwrap_or_default();
+            let mut value = crate::display::audited_mode_text(mode, en);
+            let offering = batch
+                .reports
+                .iter()
+                .filter(|r| {
+                    r.accessibility
+                        .execution
+                        .display_modes
+                        .as_ref()
+                        .is_some_and(|d| d.offers_display_modes)
+                })
+                .count();
+            if offering > 0 {
+                value.push_str(" — ");
+                value.push_str(&i18n.t_args(
+                    "batch-display-offered",
+                    &[
+                        ("count", offering as i64),
+                        ("total", batch.reports.len() as i64),
+                    ],
+                ));
+            }
+            cover_meta = cover_meta.add(i18n.t("batch-cover-frame-display"), value);
+        }
         if let Some(note) = crate::audit::exclusion::BatchExclusionSummary::aggregate(
             batch
                 .reports

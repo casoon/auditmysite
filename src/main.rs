@@ -20,7 +20,7 @@ mod sitemap_suggest;
 
 use commands::{detect_chrome_command, handle_command};
 use plan::print_banner;
-use runners::{run_batch_mode, run_single_mode};
+use runners::{run_batch_mode, run_display_all, run_single_mode};
 
 use std::io::{self, IsTerminal};
 
@@ -200,7 +200,9 @@ async fn run(
 
     let is_batch = args.sitemap.is_some() || args.url_file.is_some() || args.crawl;
 
-    if is_batch {
+    if args.display == Some(auditmysite::cli::DisplaySelection::All) {
+        run_display_all(&args, _config, is_batch).await
+    } else if is_batch {
         run_batch_mode(&args, _config).await
     } else {
         run_single_mode(&args, _config).await

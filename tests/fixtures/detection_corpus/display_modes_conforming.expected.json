@@ -1,0 +1,10 @@
+{
+  "case": "display_modes_conforming",
+  "expectations": [
+    { "rule_id": "display/toggle-missing", "verdict": "pass" },
+    { "rule_id": "display/init-missing", "verdict": "pass" },
+    { "rule_id": "display/text-media-visible", "verdict": "pass" },
+    { "rule_id": "display/text-not-visible", "verdict": "pass" },
+    { "rule_id": "display/text-hidden", "verdict": "pass" }
+  ]
+}

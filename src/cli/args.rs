@@ -267,6 +267,22 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "full")]
     pub interactive: InteractiveMode,
 
+    /// Audit the page in one display mode of the data-display convention.
+    ///
+    /// Before navigation the choice is stored in `localStorage.display`, and
+    /// `calm`/`text` also emulate `prefers-reduced-motion: reduce` — so sites
+    /// without the convention that honour the media query render their
+    /// reduced variant too. Without this flag the site default is audited.
+    ///
+    /// `all` audits every mode separately and writes one report per mode
+    /// (file name suffix `-calm`, `-text`, `-visual`), never a blended score.
+    /// `visual` only runs for pages with `figure[data-viz="3d|interactive"]`,
+    /// with twice the page timeout. Needs `--output` unless the format is PDF;
+    /// with per-page reports or `--technician` an output directory, which
+    /// becomes `<DIR>-calm`, `<DIR>-text`, `<DIR>-visual`.
+    #[arg(long, value_enum, value_name = "MODE")]
+    pub display: Option<DisplaySelection>,
+
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,
@@ -536,6 +552,28 @@ pub enum InteractiveMode {
 impl InteractiveMode {
     pub fn is_enabled(self) -> bool {
         !matches!(self, InteractiveMode::Off)
+    }
+}
+
+/// `--display`: one mode of the data-display convention, or `all` (#653).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[value(rename_all = "lowercase")]
+pub enum DisplaySelection {
+    Calm,
+    Text,
+    Visual,
+    All,
+}
+
+impl DisplaySelection {
+    /// The single mode to audit, `None` for `all`.
+    pub fn mode(self) -> Option<crate::display::DisplayMode> {
+        match self {
+            DisplaySelection::Calm => Some(crate::display::DisplayMode::Calm),
+            DisplaySelection::Text => Some(crate::display::DisplayMode::Text),
+            DisplaySelection::Visual => Some(crate::display::DisplayMode::Visual),
+            DisplaySelection::All => None,
+        }
     }
 }
 
@@ -828,6 +866,34 @@ impl Args {
             );
         }
 
+        // One report per mode: a single stdout stream cannot carry several
+        // JSON/SARIF documents. PDF derives a file name, table prints each.
+        if self.display == Some(DisplaySelection::All)
+            && self.output.is_none()
+            && !matches!(
+                self.effective_format(),
+                OutputFormat::Pdf | OutputFormat::Table
+            )
+        {
+            return Err(
+                "--display all writes one report per mode; pass --output <FILE>".to_string(),
+            );
+        }
+
+        // Per-page reports (and --technician) write into a directory; each
+        // mode needs its own, or the modes overwrite each other's page files
+        // and index.json/findings.jsonl. `-o DIR` becomes `DIR-calm`, ...
+        if self.display == Some(DisplaySelection::All)
+            && self.per_page_reports
+            && self.output.as_ref().is_none_or(|p| p.extension().is_some())
+        {
+            return Err(
+                "--display all with per-page reports (or --technician) needs \
+                 --output <DIR> without a file extension; each mode writes to <DIR>-<mode>"
+                    .to_string(),
+            );
+        }
+
         Ok(())
     }
 }
@@ -947,6 +1013,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
+            display: None,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             also_json: false,
@@ -1094,6 +1161,17 @@ mod tests {
         assert!(!args.per_page_reports && !args.seo && !args.html_conform);
         assert!(!args.no_screen_reader_report);
         assert!(args.format.is_none());
+    }
+
+    #[test]
+    fn display_all_with_per_page_reports_needs_an_output_directory() {
+        let mut args = technician_args(&["--display", "all"]);
+        args.output = None;
+        assert!(args.validate().unwrap_err().contains("--display all"));
+        args.output = Some(PathBuf::from("reports/geo.json"));
+        assert!(args.validate().unwrap_err().contains("--display all"));
+        args.output = Some(PathBuf::from("reports/geo-tech"));
+        assert!(args.validate().is_ok());
     }
 
     #[test]

@@ -598,6 +598,10 @@ pub struct PageEntry {
     pub screen_reader: Option<crate::screen_reader::ScreenReaderSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_profile: Option<BatchContentProfile>,
+    /// Display-mode convention on this page (#653): "offers display modes:
+    /// visual · calm · text". Absent for pages without the convention.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_modes: Option<crate::display::DisplayModesInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }

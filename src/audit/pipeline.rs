@@ -340,6 +340,9 @@ pub struct PipelineConfig {
     pub journey_budget_ms: u64,
     /// Report locale ("de" / "en") — used for i18n stopword loading.
     pub lang: String,
+    /// Display mode of the data-display convention to audit in (#653).
+    /// `None` audits the site default, the behaviour before `--display`.
+    pub display_mode: Option<crate::display::DisplayMode>,
 }
 
 impl PipelineConfig {
@@ -381,13 +384,14 @@ impl PipelineConfig {
         // third-party impact field (#531), 17 for the SSR/hydration
         // content-gap check field (#534), 18 for the html_conform module field,
         // 19 for the exclusions block in the execution record (#645).
-        const CACHE_FMT: u8 = 19;
+        // 20 for the display-mode scope and detection fields (#653).
+        const CACHE_FMT: u8 = 20;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -410,6 +414,7 @@ impl PipelineConfig {
             disabled.join(","),
             enabled_only.join(","),
             crate::audit::exclusion::effective_selectors(&self.exclude_selectors).join("\u{1f}"),
+            self.display_mode.map_or("site_default", |m| m.as_str()),
         )
     }
 }
@@ -521,6 +526,7 @@ impl PipelineConfig {
             interactive: args.interactive,
             journey_budget_ms,
             lang: args.lang.clone(),
+            display_mode: args.display.and_then(|d| d.mode()),
         }
     }
 }
@@ -744,6 +750,11 @@ pub async fn audit_page(
     if config.dismiss_consent {
         inject_consent_cookies(page, url).await;
     }
+
+    // ── Pre-navigation: display mode (#653) ───────────────────────────────────
+    // Stored choice + reduced motion for `--display`, and the body observer
+    // behind `display/init-missing`. Persists across both viewport passes.
+    crate::display::prepare_page(page, config.display_mode).await;
 
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
@@ -1067,6 +1078,8 @@ pub async fn audit_page(
         });
     }
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
+    // Before the journeys: they may operate the display toggle.
+    report.accessibility.execution.display_modes = crate::display::detect(page).await;
     report.accessibility.execution.navigation.meta_refresh =
         [("desktop", desktop_refresh), ("mobile", mobile_refresh)]
             .into_iter()
@@ -2023,6 +2036,7 @@ fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope 
         dismiss_consent: config.dismiss_consent,
         capture_screenshots: config.capture_screenshots,
         capture_element_evidence: config.capture_element_evidence,
+        display_mode: config.display_mode.into(),
     }
 }
 
@@ -2619,6 +2633,7 @@ mod tests {
             interactive: crate::cli::InteractiveMode::Off,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
+            display: None,
             also_json: false,
             logo: None,
             debug_typ: false,
@@ -2749,6 +2764,7 @@ mod tests {
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             lang: "de".to_string(),
+            display_mode: None,
         }
     }
 

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#653) broken the ways real pages break it:
+     data-display is only set by a script at the end of <body> (late), there
+     is no [data-display-toggle], the first chart keeps its static picture in
+     text mode and hides its text layer from assistive technology, the second
+     visualisation has no text layer at all and shows its canvas. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display modes: broken page</title>
+</head>
+<body>
+  <main>
+    <h1>Sea level</h1>
+    <figure id="f1" data-viz="chart">
+      <div id="st1" data-viz-static>
+        <svg width="300" height="120" viewBox="0 0 300 120" aria-hidden="true">
+          <rect width="300" height="120" fill="#4575b4"></rect>
+        </svg>
+      </div>
+      <div id="t1" data-viz-text aria-hidden="true">
+        <p>Sea level rose by about 20 centimetres since 1900.</p>
+      </div>
+      <figcaption>Global mean sea level</figcaption>
+    </figure>
+    <figure id="f2" data-viz="diagram">
+      <canvas id="c2" width="300" height="150" aria-label="Water cycle"></canvas>
+      <figcaption>The water cycle</figcaption>
+    </figure>
+  </main>
+  <script>document.documentElement.dataset.display = 'text';</script>
+</body>
+</html>

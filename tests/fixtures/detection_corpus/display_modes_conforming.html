@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#653) followed correctly, rendered in text mode:
+     data-display is set by a blocking script in <head>, the toggle exists,
+     the visualisation's media is hidden in text mode and its text layer is
+     visible. Expect no display/* finding. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display modes: conforming page</title>
+  <script>document.documentElement.dataset.display = 'text';</script>
+  <style>
+    html[data-display="text"] [data-viz-static],
+    html[data-display="text"] [data-viz-live] { display: none; }
+    html:not([data-display="text"]) [data-viz-text] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual">Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text" selected>Text</option>
+      </select>
+    </nav>
+  </header>
+  <main>
+    <h1>Temperature since 1850</h1>
+    <figure id="f1" data-viz="chart">
+      <div data-viz-static>
+        <svg role="img" aria-label="Warming stripes" width="300" height="120" viewBox="0 0 300 120">
+          <rect width="150" height="120" fill="#4575b4"></rect>
+          <rect x="150" width="150" height="120" fill="#d73027"></rect>
+        </svg>
+      </div>
+      <div data-viz-text>
+        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>
+        <table>
+          <caption>Temperature anomaly</caption>
+          <tr><th scope="col">Year</th><th scope="col">Anomaly</th></tr>
+          <tr><td>1850</td><td>0.0</td></tr>
+          <tr><td>2025</td><td>1.3</td></tr>
+        </table>
+        <p>Source: example data.</p>
+      </div>
+      <figcaption>Global temperature anomaly</figcaption>
+    </figure>
+  </main>
+</body>
+</html>

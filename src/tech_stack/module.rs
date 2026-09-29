@@ -71,6 +71,7 @@ mod tests {
             interactive: InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             lang: "de".to_string(),
+            display_mode: None,
         }
     }
 

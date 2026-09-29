@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- #653: records, before the first paint, what the page saw of the visitor's
+     display choice — the stored localStorage.display and the reduced-motion
+     preference — and applies it the way the data-display convention does. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display mode probe</title>
+  <script>
+    (function () {
+      var stored = null;
+      try { stored = window.localStorage.getItem('display'); } catch (e) { stored = 'blocked'; }
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.__seenAtLoad = { stored: stored, reducedMotion: reduced };
+      document.documentElement.dataset.display = stored || (reduced ? 'calm' : 'visual');
+    })();
+  </script>
+</head>
+<body>
+  <main>
+    <h1>Display mode probe</h1>
+    <button type="button" data-display-toggle>Display</button>
+    <figure data-viz="chart">
+      <div data-viz-text><p>Values rose from 1 to 2.</p></div>
+      <figcaption>Probe chart</figcaption>
+    </figure>
+  </main>
+</body>
+</html>

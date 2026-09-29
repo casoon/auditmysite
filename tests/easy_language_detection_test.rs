@@ -69,6 +69,7 @@ fn default_config() -> PipelineConfig {
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
+        display_mode: None,
     }
 }
 
