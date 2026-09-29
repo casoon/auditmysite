@@ -1,0 +1,82 @@
+---
+title: Reports
+description: JSON is the automation contract and always canonical English. The PDF is for people, tagged for accessibility and rendered in German or English.
+order: 2
+---
+
+## JSON: the contract
+
+```sh
+auditmysite https://example.com -f json -o report.json
+```
+
+The JSON report is treated as a compatibility surface: new fields may be added, existing required
+fields are not removed or renamed without a versioned contract change. Schemas and the contract
+live in the repository:
+
+- [docs/OUTPUT_CONTRACT.md](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md) — stability rules, score and count semantics, metric definitions
+- [docs/json-report.schema.json](https://github.com/casoon/auditmysite/blob/main/docs/json-report.schema.json) — single-page report
+- [docs/json-batch-report.schema.json](https://github.com/casoon/auditmysite/blob/main/docs/json-batch-report.schema.json) — batch report
+
+A few fields worth knowing:
+
+| Field | Content |
+| --- | --- |
+| `verdict`, `verdict_reasons` | `pass`, `warn` or `fail`, and the reasons behind it |
+| `summary.accessibility_score` | The headline score; in a dual-viewport audit 70% mobile, 30% desktop |
+| `summary.wcag_coverage` | 55 WCAG 2.2 A/AA criteria: 30 automated, 21 for manual review |
+| `audit_quality`, `pages[].detail.module_runs` | Complete, partial, failed or skipped checks, so a measurement failure never reads as a clean result |
+| `pages[].detail.rule_outcomes` | One entry per rule and viewport; a rule that could not run is never reported as passing |
+| `pages[].detail.en301549_annex` | Findings mapped to EN 301 549 chapter 9 clauses |
+| `tool_version`, `build_id` | The binary that produced the report |
+
+Rule IDs are stable across releases and carry `tags` and an `impact` field. Performance values
+are lab data from the local headless Chrome, never field data.
+
+### Always English
+
+The JSON never depends on `--lang`. Every text the analysis writes into it is canonical English;
+language-dependent detection (for example generic link texts) follows the language of the audited
+page, not the report language.
+
+## PDF
+
+```sh
+auditmysite https://example.com --lang en -o report.pdf
+```
+
+- Languages: German (default) and English, `--lang de|en`.
+- Depth: `--report-level executive|standard|technical`.
+- Accessible output: tagged PDF/UA-1 with structure tree, document language, title and
+  bookmarks. Rendering stops with a diagnostic rather than write a non-conformant PDF.
+- Single-page reports are detailed and page-specific; batch reports are aggregated and
+  domain-wide.
+- `--also-json` writes the JSON next to the PDF from the same run.
+- `--annex en301549` or `--annex bik` adds an appendix that maps findings to EN 301 549 clauses
+  or to the chapters of the „BIK für Alle“ guide. It is a building block for an accessibility
+  statement, not a statement.
+
+## Screen-reader sidecar
+
+Whenever screen-reader data is available, a `…-screen-reader-audit.json` is written next to the
+main report. It models what a screen reader would typically announce, node by node, from name,
+role and state. It is rule-based, not a recording of NVDA, JAWS or VoiceOver.
+
+## Other formats
+
+- `-f ai` — findings as a task list (`task_id`, `rule_id`, `impact`, `wcag`, `selector`, `fix` …),
+  sorted by impact, for LLM-assisted fixing.
+- `-f summary` — compact JSON with score, grade and top findings for dashboards.
+- `-f sarif` — SARIF 2.1.0 for GitHub Code Scanning and other SARIF consumers.
+
+## report-lint
+
+```sh
+auditmysite report-lint report.json --fail-on high
+```
+
+Deterministic consistency checks on a finished JSON report (single or batch): scores, grades and
+count sums that must agree. No network, no Chrome. The default `--fail-on` is `high`; a finding
+at or above it exits with code `3`. With `--typst-source <file.typ>` (the PDF's Typst source,
+written by the hidden `--debug-typ` flag) it also checks that the certificate shown in the PDF
+traces back to the report.

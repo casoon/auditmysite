@@ -41,7 +41,7 @@ use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
-use crate::seo::SeoAnalysis;
+use crate::seo::{HtmlValidationKind, SeoAnalysis};
 use crate::ux::UxAnalysis;
 use crate::wcag::{self, Violation, WcagResults};
 
@@ -1806,7 +1806,7 @@ fn aggregate_report(
     report
 }
 
-/// Reconciles `page_health`'s "Bilder ohne alt-Attribut" HTML-validation
+/// Reconciles `page_health`'s "images without alt" HTML-validation
 /// entry with the canonical WCAG 1.1.1 violation count (#574).
 ///
 /// `page_health::analyze_url` computes `images_without_alt` from a raw DOM
@@ -1836,16 +1836,16 @@ fn reconcile_image_alt_count(report: &mut AuditReport) {
     page_health.images_without_alt = canonical;
     page_health
         .html_issues
-        .retain(|issue| issue.check != "Bilder ohne alt-Attribut");
+        .retain(|issue| issue.kind != HtmlValidationKind::ImagesWithoutAlt);
     if canonical > 0 {
         page_health
             .html_issues
-            .push(crate::seo::HtmlValidationIssue {
-                check: "Bilder ohne alt-Attribut".to_string(),
-                count: canonical,
-                severity: "high".to_string(),
-                detail: format!("{canonical} <img> ohne alt"),
-            });
+            .push(crate::seo::HtmlValidationIssue::new(
+                HtmlValidationKind::ImagesWithoutAlt,
+                canonical,
+                "high",
+                Vec::new(),
+            ));
     }
 }
 
@@ -2417,12 +2417,12 @@ mod tests {
         let seo = SeoAnalysis {
             page_health: Some(crate::seo::page_health::PageHealthAnalysis {
                 images_without_alt: 42,
-                html_issues: vec![crate::seo::HtmlValidationIssue {
-                    check: "Bilder ohne alt-Attribut".to_string(),
-                    count: 42,
-                    severity: "high".to_string(),
-                    detail: "42 <img> ohne alt".to_string(),
-                }],
+                html_issues: vec![crate::seo::HtmlValidationIssue::new(
+                    HtmlValidationKind::ImagesWithoutAlt,
+                    42,
+                    "high",
+                    Vec::new(),
+                )],
                 ..Default::default()
             }),
             ..Default::default()
@@ -2436,10 +2436,10 @@ mod tests {
         let issue = page_health
             .html_issues
             .iter()
-            .find(|i| i.check == "Bilder ohne alt-Attribut")
+            .find(|i| i.kind == HtmlValidationKind::ImagesWithoutAlt)
             .expect("html_issues entry should still be present");
         assert_eq!(issue.count, 3);
-        assert_eq!(issue.detail, "3 <img> ohne alt");
+        assert_eq!(issue.detail, "3 <img> without alt");
     }
 
     #[test]
@@ -2453,12 +2453,12 @@ mod tests {
         let seo = SeoAnalysis {
             page_health: Some(crate::seo::page_health::PageHealthAnalysis {
                 images_without_alt: 5,
-                html_issues: vec![crate::seo::HtmlValidationIssue {
-                    check: "Bilder ohne alt-Attribut".to_string(),
-                    count: 5,
-                    severity: "high".to_string(),
-                    detail: "5 <img> ohne alt".to_string(),
-                }],
+                html_issues: vec![crate::seo::HtmlValidationIssue::new(
+                    HtmlValidationKind::ImagesWithoutAlt,
+                    5,
+                    "high",
+                    Vec::new(),
+                )],
                 ..Default::default()
             }),
             ..Default::default()
@@ -2472,7 +2472,7 @@ mod tests {
         assert!(!page_health
             .html_issues
             .iter()
-            .any(|i| i.check == "Bilder ohne alt-Attribut"));
+            .any(|i| i.kind == HtmlValidationKind::ImagesWithoutAlt));
     }
 
     #[test]

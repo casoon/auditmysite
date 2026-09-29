@@ -1,0 +1,6 @@
+{
+  "case": "landmark_unique_one_per_element",
+  "expectations": [
+    { "rule_id": "landmark-unique", "verdict": "violation", "occurrences": 4 }
+  ]
+}

@@ -36,6 +36,9 @@ Cargo.lock
 !tests/fixtures/reference_sites.json
 !tests/fixtures/axe_divergence_baseline.json
 !scripts/package-lock.json
+# Project site (GitHub Pages) and its recorded example output
+!site/**/*.json
+!examples/*.json
 
 # Logs
 *.log

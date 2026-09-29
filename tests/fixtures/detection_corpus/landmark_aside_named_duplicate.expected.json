@@ -1,6 +1,6 @@
 {
   "case": "landmark_aside_named_duplicate",
   "expectations": [
-    { "rule_id": "landmark-unique", "verdict": "violation" }
+    { "rule_id": "landmark-unique", "verdict": "violation", "occurrences": 2 }
   ]
 }

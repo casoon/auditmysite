@@ -158,6 +158,24 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         axe_ids.contains("landmark-unique"),
         "duplicate navigation names should trigger landmark-unique; got {axe_ids:?}"
     );
+    // One occurrence per defect: the missing main once, each of the two
+    // same-named navs once (the AX and a former DOM check both reported them).
+    let count = |id: &str| {
+        raw_rule_ids
+            .iter()
+            .filter(|(_, rule_id)| *rule_id == Some(id))
+            .count()
+    };
+    assert_eq!(
+        count("landmark-main-present"),
+        1,
+        "missing main must be reported once; raw {raw_rule_ids:?}"
+    );
+    assert_eq!(
+        count("landmark-unique"),
+        2,
+        "each duplicate nav must be reported once; raw {raw_rule_ids:?}"
+    );
     assert!(
         axe_ids.contains("aria-hidden-focus"),
         "focusable element in aria-hidden subtree should trigger aria-hidden-focus; got {axe_ids:?}"
