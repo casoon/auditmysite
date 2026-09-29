@@ -5,6 +5,47 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Absichtlich kaputte Beispiele vom Audit ausnehmen, sichtbar im Bericht, 2026-09-29 (#645):**
+  Seiten, die Barrierefreiheit lehren, zeigen bewusst fehlerhafte Beispiele (barrierlab.eu,
+  `/tasks/ticket/`: unbeschriftete Felder, ein `div` als Button). auditmysite meldete sie als
+  eigene Verstoesse der Seite. Neu, nach dem Vorbild von axe-cores `exclude`:
+  `--exclude-selector <CSS>` (wiederholbar), `[audit] exclude_selectors` in `auditmysite.toml`,
+  und das immer beachtete Attribut `[data-audit-exclude]`. Ausgenommen wird nie eine Seite und
+  nie eine Regel, sondern nur Befunde, deren Element in einem ausgeschlossenen Teilbaum liegt —
+  die Seite selbst wird vollstaendig geprueft, seitenweite Befunde bleiben immer.
+
+  Umsetzung (`src/audit/exclusion.rs`): je Viewport-Durchgang zaehlt ein `Runtime.evaluate` die
+  Treffer jedes Selektors (ungueltige Selektoren werden erkannt); nur bei Treffern holt
+  `DOM.getDocument` + `DOM.querySelectorAll` die Backend-Node-IDs aller Knoten der getroffenen
+  Teilbaeume (inkl. Shadow Roots, Frame- und Template-Inhalt). Gefiltert wird am Ende von
+  `run_rules`, vor Anreicherung und Element-Screenshots: Befunde aus dem AX-Baum ueber die
+  Backend-ID ihres AX-Knotens, Befunde der geteilten DOM-Regeln ueber die neu mitgefuehrte
+  Backend-ID (`Violation::backend_node_id`, nur im Speicher; gesetzt im Adapter
+  `wcag/shared.rs`, am Regelcode von barrierlab aendert sich nichts), JavaScript-Seitenregeln,
+  Kontrast und Journey-Befunde ueber ihren Selektor — ausgenommen nur, wenn er mindestens ein
+  Element trifft und **jedes** davon im ausgeschlossenen Teilbaum liegt; ein mehrdeutiger oder
+  nicht parsebarer Selektor behaelt den Befund. Muster-Befunde laufen durch denselben Filter.
+
+  Sichtbarkeit: Das JSON fuehrt je Seite `pages[].exclusions` (angewandte Selektoren mit
+  Trefferzahl — auch 0 und ungueltig —, ausgeschlossene Vorkommen und bestaetigte Verstoesse
+  gesamt und je Regel, ausgeschlossene Journey-Befunde; je Regel der groessere Wert der beiden
+  Viewports), der Batch zusaetzlich `summary.exclusions` als Summe. Das PDF nennt Selektoren und
+  Zahlen im Methodik-Teil, der Batch im Audit-Rahmen des Deckblatts (de/en ueber Fluent). Ein
+  Standardlauf ohne `data-audit-exclude` auf der Seite bleibt im PDF still, das JSON listet den
+  eingebauten Selektor mit 0 Treffern. Cache-Format 19; die Selektoren gehen in die
+  Audit-Signatur ein.
+
+  Nicht abgedeckt: `rule_outcomes[].findings` zaehlt weiter die Regelausgabe vor dem Ausschluss
+  (im Schema dokumentiert). JavaScript-Regeln mit eigener Obergrenze an Fundstellen (etwa 10 bei
+  `click-events-have-key-events`) zaehlen Beispiele vor dem Filter mit, sodass bei sehr vielen
+  Beispiel-Treffern echte Treffer jenseits der Obergrenze fehlen koennen.
+
+  Tests: Unit-Tests fuer Filter, Zaehlung und PDF-Text (EN ohne Umlaute), neue Korpus-Fixture
+  `audit_exclude_specimen` (je ein Fehler pro Ortungsweg — AX-Knoten, JS-Seitenregel, geteilte
+  DOM-Regel — innerhalb von `[data-audit-exclude]` nicht gemeldet, derselbe Fehler ausserhalb
+  gemeldet) und ein Integrationstest fuer `--exclude-selector` samt 0-Treffer- und
+  ungueltigem Selektor.
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu

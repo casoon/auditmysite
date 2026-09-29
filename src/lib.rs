@@ -49,6 +49,7 @@
 //!         capture_screenshots: false,
 //!         capture_element_evidence: false,
 //!         dismiss_consent: false,
+//!         exclude_selectors: Vec::new(),
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
 //!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
 //!         lang: "de".to_string(),

@@ -235,6 +235,7 @@ Useful flags:
 - `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires `--full` or `--performance`, single-URL mode only
 - `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
 - `--design-quality`: opt-in UX/readability heuristics, including alt-text quality checks (filename-like alt text, "image of" prefixes, overly long or redundant alt text); score-neutral and not part of `--full`
+- `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](#excluding-intentional-specimens))
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
 For the full current interface, use:
@@ -402,6 +403,34 @@ Rules can be selectively disabled or filtered via `auditmysite.toml`:
 disabled = ["heading-order", "landmark-one-main"]
 # enabled_only = ["image-alt", "label"]  # run only these rules
 ```
+
+### Excluding intentional specimens
+
+Sites that teach accessibility ship examples that are broken on purpose. Like axe-core's
+`exclude`, auditmysite can leave such regions out of the findings — never a page, never a rule:
+
+- **`data-audit-exclude`** is always honoured. Put it on an element and its whole subtree is
+  excluded: `<section data-audit-exclude>…specimen…</section>`.
+- **`--exclude-selector <CSS>`** (repeatable) excludes the subtree of every element the selector
+  matches, e.g. `--exclude-selector '[data-specimen]'`. The same list can live in
+  `auditmysite.toml`:
+
+  ```toml
+  [audit]
+  exclude_selectors = ["[data-specimen]"]
+  ```
+
+The page is still audited in full; only findings whose element lies inside an excluded subtree
+are dropped before scoring (WCAG violations and warnings, pattern findings, and journey findings
+that name their element). Page-level findings are never excluded, and a finding located only by
+a selector is dropped only when every element that selector matches lies inside an excluded
+subtree.
+
+Excluding never happens silently. The JSON report lists, per page, every applied selector with
+the number of elements it matched — including `0` and invalid selectors — and how many finding
+occurrences were dropped, per rule (`pages[].exclusions`; batch totals in
+`summary.exclusions`). The PDF names the selectors and counts in the methodology section (batch:
+in the audit frame on the cover).
 
 ### AI / LLM output format
 

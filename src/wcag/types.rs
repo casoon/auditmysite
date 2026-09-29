@@ -94,6 +94,11 @@ pub struct Violation {
     /// used to label the crop's caption in the PDF. In-memory only.
     #[serde(skip)]
     pub evidence_viewport: Option<&'static str>,
+    /// Backend DOM node id of the element, when the rule knows it directly
+    /// (shared DOM rules — their element may be absent from the AX tree).
+    /// Used to honour audit exclusions (#645). In-memory only.
+    #[serde(skip)]
+    pub backend_node_id: Option<i64>,
 }
 
 impl Violation {
@@ -129,6 +134,7 @@ impl Violation {
             evidence: Vec::new(),
             evidence_screenshot: None,
             evidence_viewport: None,
+            backend_node_id: None,
         }
     }
 
