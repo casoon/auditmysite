@@ -330,3 +330,20 @@ jobs:
           CI: "true"
         run: cargo test --test easy_language_detection_test -- --ignored --nocapture --test-threads=1
 
+      # Help-mechanism inventory (WCAG 3.2.6, plan 54) and score calibration
+      # bands (plan 47): real-Chrome `#[ignore]`-gated binaries that were not
+      # run in CI before (plan 66, WP2).
+      - name: Help mechanisms detection
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test help_mechanisms_detection_test -- --ignored --nocapture --test-threads=1
+
+      - name: Score calibration bands
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test score_calibration_test -- --ignored --nocapture --test-threads=1
+

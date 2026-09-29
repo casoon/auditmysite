@@ -309,12 +309,13 @@ pub async fn analyze_sitemap_diagnostics(
         .build()
         .unwrap_or_else(|_| Client::new());
 
-    let http_issues: Vec<SitemapHttpIssue> = futures::stream::iter(sitemap_urls.iter())
+    let mut http_issues: Vec<SitemapHttpIssue> = futures::stream::iter(sitemap_urls.iter())
         .map(|url| check_sitemap_url(&client, url))
         .buffer_unordered(8)
         .filter_map(|issue| async move { issue })
         .collect()
         .await;
+    http_issues.sort_by(|a, b| a.url.cmp(&b.url).then_with(|| a.kind.cmp(&b.kind)));
 
     let sitemap_set: HashSet<String> = sitemap_urls
         .iter()

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Data table with thead and tbody corpus case</title>
+    <style>
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+        .bar { display: inline-block; width: 4rem; height: .5rem; background: #ddd; }
+        .bar > span { display: block; height: 100%; background: #333; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Levers by sector</h1>
+        <!-- #638: Chrome exposes <thead> as rowgroup but marks <tbody> ignored;
+             its rows and cells (some empty, some starting with an aria-hidden
+             child) are still the header cells' data cells. -->
+        <div class="scroll" role="region" aria-label="Lever map" tabindex="0">
+            <table class="map">
+                <caption class="sr-only">Lever map: sectors and the levers that apply</caption>
+                <thead>
+                    <tr><th scope="col">Sector</th><th scope="col" class="num">Share</th><th scope="col">Generate clean</th><th scope="col">Electrify</th></tr>
+                </thead>
+                <tbody>
+                    <tr><th scope="row">Power and heat</th><td class="num"><span class="bar" aria-hidden="true"><span style="width:81.8%"></span></span>33 %</td><td><span aria-hidden="true">●</span><span class="sr-only">applies</span></td><td></td></tr>
+                    <tr><th scope="row">Transport</th><td class="num"><span class="bar" aria-hidden="true"><span style="width:40.8%"></span></span>16 %</td><td></td><td><span aria-hidden="true">●</span><span class="sr-only">applies</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

@@ -11,6 +11,8 @@ pub mod budget;
 pub mod catalog;
 mod crawl;
 pub mod duplicate;
+mod finding_derive;
+mod interactive_finding;
 pub mod interpretation;
 pub mod management_risk;
 pub mod module;

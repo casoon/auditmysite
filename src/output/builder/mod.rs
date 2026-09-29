@@ -16,12 +16,11 @@ pub use batch::{
 };
 pub use single::build_view_model;
 
+#[cfg(feature = "pdf")]
+pub(crate) use helpers::extract_domain;
+
 #[cfg(test)]
-#[allow(
-    clippy::items_after_test_module,
-    clippy::too_many_arguments,
-    clippy::field_reassign_with_default
-)]
+#[allow(clippy::too_many_arguments, clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::audit::{normalize, AuditReport, BatchReport};

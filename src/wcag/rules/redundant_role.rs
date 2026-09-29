@@ -31,7 +31,14 @@ pub const REDUNDANT_ROLE_RULE: RuleMetadata = RuleMetadata {
 // Selector uses the shared `__amsCssSelector` helper (never a bare tag name,
 // see `js_helpers::CSS_SELECTOR_JS`) so two same-tag elements without an
 // id/class remain distinguishable in the report.
+//
+// `role="list"` on a `<ul>`/`<ol>` styled `list-style: none` is not
+// redundant: WebKit/VoiceOver drops the list semantics of such lists, and
+// the explicit role is the established fix that restores them (#644).
 const REDUNDANT_ROLE_JS: &str = r#"
+  function keepsListSemantics(el) {
+    return getComputedStyle(el).listStyleType !== 'none';
+  }
   var MAP = [
     ['button', function(el) { return true; }, 'button'],
     ['a', function(el) { return el.hasAttribute('href'); }, 'link'],
@@ -52,8 +59,8 @@ const REDUNDANT_ROLE_JS: &str = r#"
     ['h4', function(el) { return true; }, 'heading'],
     ['h5', function(el) { return true; }, 'heading'],
     ['h6', function(el) { return true; }, 'heading'],
-    ['ul', function(el) { return true; }, 'list'],
-    ['ol', function(el) { return true; }, 'list'],
+    ['ul', keepsListSemantics, 'list'],
+    ['ol', keepsListSemantics, 'list'],
     ['li', function(el) { return true; }, 'listitem'],
     ['table', function(el) { return true; }, 'table'],
     ['img', function(el) { return el.hasAttribute('alt') && el.getAttribute('alt') !== ''; }, 'img']

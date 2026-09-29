@@ -14,6 +14,7 @@ use crate::output::report_model::*;
 
 use super::helpers::{
     manual_recheck_instruction, map_severity, score_quality_color, score_quality_label,
+    truncate_with_ellipsis,
 };
 
 mod accessibility;
@@ -312,18 +313,6 @@ fn vital_rating_label(rating: &str, en: bool) -> &'static str {
 
 fn vital_color(rating: &str) -> &'static str {
     crate::output::pdf::design::status_color(vital_status(rating))
-}
-
-fn truncate(value: &str, max_chars: usize) -> String {
-    let count = value.chars().count();
-    if count <= max_chars {
-        return value.to_string();
-    }
-    value
-        .chars()
-        .take(max_chars.saturating_sub(1))
-        .collect::<String>()
-        + "…"
 }
 
 fn journey_category_label(category: &str, i18n: &I18n) -> String {
