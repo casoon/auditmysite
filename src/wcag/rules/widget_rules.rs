@@ -54,7 +54,10 @@ pub fn check_widget_rules(tree: &AXTree) -> WcagResults {
             // presence-checking can never observe the missing-attribute case
             // (#QA-031, confirmed via live fixture).
             "combobox" => check_combobox_has_options(node, tree, &mut results),
-            "slider" => check_slider_has_value(node, &mut results),
+            // "slider" value validation lives in aria_required_attr.rs
+            // (check_value_now_with_page, DOM-based): Chrome synthesizes a
+            // value for every slider and CDP has no `valuenow` property, so
+            // the AX tree cannot tell a missing aria-valuenow apart (#656).
             // "treeitem" required-ancestor validation lives exclusively in
             // aria_required_parent.rs — this file used to duplicate it via
             // check_treeitem_in_tree (#QA-009 cleanup, same class as #QA-033).
@@ -200,34 +203,6 @@ fn check_combobox_has_options(node: &AXNode, tree: &AXTree, results: &mut WcagRe
     }
 }
 
-/// slider must have an accessible value via value property or aria-valuenow
-fn check_slider_has_value(node: &AXNode, results: &mut WcagResults) {
-    let has_value =
-        node.value.as_ref().is_some_and(|v| !v.trim().is_empty()) || node.has_property("valuenow");
-
-    if !has_value {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::High,
-            "Slider is missing accessible value",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_name(node.name.clone())
-        .with_fix(
-            "Add aria-valuenow (current), aria-valuemin (minimum), and aria-valuemax (maximum) attributes to the slider",
-        )
-        .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/slider/")
-        .with_rule_id(RULE_META.axe_id);
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-    }
-}
-
 /// Check if any of the given roles exist in the subtree (depth-limited)
 fn has_any_role_in_subtree(tree: &AXTree, node: &AXNode, roles: &[&str], depth: usize) -> bool {
     if depth == 0 {
@@ -347,30 +322,4 @@ mod tests {
     // check_tab_selected_state_with_page (tab aria-selected) is DOM-based
     // and needs a live Page — not unit-tested here; covered by live
     // verification instead (see plans/quality-audit-backlog.md, #QA-031).
-
-    #[test]
-    fn test_slider_without_value_flagged() {
-        let nodes = vec![make_node("s", "slider", Some("Volume"), None, vec![])];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_widget_rules(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("missing accessible value")));
-    }
-
-    #[test]
-    fn test_slider_with_value_passes() {
-        let mut node = make_node("s", "slider", Some("Volume"), None, vec![]);
-        node.properties.push(AXProperty {
-            name: "valuenow".to_string(),
-            value: AXValue::Int(50),
-        });
-        let tree = AXTree::from_nodes(vec![node]);
-        let results = check_widget_rules(&tree);
-        assert!(!results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("missing accessible value")));
-    }
 }

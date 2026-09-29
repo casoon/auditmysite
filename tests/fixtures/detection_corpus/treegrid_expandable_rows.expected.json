@@ -1,0 +1,6 @@
+{
+  "case": "treegrid_expandable_rows",
+  "expectations": [
+    { "rule_id": "accordion-trigger-not-button", "verdict": "pass" }
+  ]
+}

@@ -188,8 +188,13 @@ fn convert_json_node(json: &serde_json::Value) -> Result<AXNode> {
     // Extract description
     let description = json["description"]["value"].as_str().map(String::from);
 
-    // Extract value
-    let value = json["value"]["value"].as_str().map(String::from);
+    // Extract value. Sliders, spinbuttons, progressbars and meters carry a
+    // number here, not a string; keep it in its string form (#656).
+    let value = match &json["value"]["value"] {
+        serde_json::Value::String(s) => Some(s.clone()),
+        v @ (serde_json::Value::Number(_) | serde_json::Value::Bool(_)) => Some(v.to_string()),
+        _ => None,
+    };
 
     // Convert properties
     let properties = json["properties"]
@@ -311,6 +316,25 @@ mod tests {
         assert!(!node.ignored);
         assert_eq!(node.role, Some("image".to_string()));
         assert_eq!(node.name, Some("Test Image".to_string()));
+    }
+
+    /// Chrome sends a slider's, spinbutton's or progressbar's value as a
+    /// JSON number; it used to be dropped (#656).
+    #[test]
+    fn numeric_and_boolean_values_are_kept_as_strings() {
+        let value_of = |value: serde_json::Value| {
+            let json = serde_json::json!({
+                "nodeId": "1",
+                "role": {"value": "slider"},
+                "value": {"type": "number", "value": value},
+            });
+            convert_json_node(&json).unwrap().value
+        };
+        assert_eq!(value_of(serde_json::json!(50)), Some("50".into()));
+        assert_eq!(value_of(serde_json::json!(0.25)), Some("0.25".into()));
+        assert_eq!(value_of(serde_json::json!(true)), Some("true".into()));
+        assert_eq!(value_of(serde_json::json!("Apple")), Some("Apple".into()));
+        assert_eq!(value_of(serde_json::Value::Null), None);
     }
 
     #[test]
