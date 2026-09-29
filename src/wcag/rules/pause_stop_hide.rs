@@ -173,6 +173,8 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
   var all = document.querySelectorAll('*');
   for (var i = 0; i < all.length && animated.length < 5; i++) {
     var el = all[i];
+    // Excluded subtrees (#645) cannot raise this page-level finding.
+    if (__amsIsExcludedEl(el)) continue;
     var cs = getComputedStyle(el);
     var iterationCount = cs.animationIterationCount || '';
     if (iterationCount.indexOf('infinite') === -1) continue;
@@ -192,11 +194,11 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
     const interval = parseFloat(widget.getAttribute('data-interval') || widget.getAttribute('data-bs-interval') || widget.getAttribute('data-update-interval') || '0');
     const explicitRunning = widget.matches('.swiper-autoplay-running, [data-autoplay="true"], [data-ride="carousel"], [data-bs-ride="carousel"]');
     if (!explicitRunning && interval <= 5000) continue;
-    autoWidgets.push({
+    __amsPush(autoWidgets, widget, {
       selector: __amsCssSelector(widget),
       interval_ms: interval || null
-    });
-    if (autoWidgets.length >= 5) break;
+    }, 5);
+    if (__amsReal(autoWidgets) >= 5) break;
   }
 
   return {

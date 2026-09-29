@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Excluded specimens beyond a rule's cap</title>
+</head>
+<body>
+    <main>
+        <h1>Specimens must not spend a rule's cap (#645)</h1>
+        <p>JavaScript rules cap how many elements they report. The excluded specimen below has
+           more defects than each cap; the one real defect after it must still be reported.</p>
+
+        <!-- 12 fake buttons (cap 10), 22 fake links (cap 20), 6 e-mail fields without
+             autocomplete (cap 5) — all excluded, and all before the real ones in DOM order. -->
+        <section data-audit-exclude aria-label="Specimen">
+            <div class="specimen-frame">
+                <div id="specimen-click-1" onclick="void 0">Specimen fake button 1</div>
+                <div id="specimen-click-2" onclick="void 0">Specimen fake button 2</div>
+                <div id="specimen-click-3" onclick="void 0">Specimen fake button 3</div>
+                <div id="specimen-click-4" onclick="void 0">Specimen fake button 4</div>
+                <div id="specimen-click-5" onclick="void 0">Specimen fake button 5</div>
+                <div id="specimen-click-6" onclick="void 0">Specimen fake button 6</div>
+                <div id="specimen-click-7" onclick="void 0">Specimen fake button 7</div>
+                <div id="specimen-click-8" onclick="void 0">Specimen fake button 8</div>
+                <div id="specimen-click-9" onclick="void 0">Specimen fake button 9</div>
+                <div id="specimen-click-10" onclick="void 0">Specimen fake button 10</div>
+                <div id="specimen-click-11" onclick="void 0">Specimen fake button 11</div>
+                <div id="specimen-click-12" onclick="void 0">Specimen fake button 12</div>
+                <a id="specimen-link-1" href="#" onclick="return false">Specimen fake link 1</a>
+                <a id="specimen-link-2" href="#" onclick="return false">Specimen fake link 2</a>
+                <a id="specimen-link-3" href="#" onclick="return false">Specimen fake link 3</a>
+                <a id="specimen-link-4" href="#" onclick="return false">Specimen fake link 4</a>
+                <a id="specimen-link-5" href="#" onclick="return false">Specimen fake link 5</a>
+                <a id="specimen-link-6" href="#" onclick="return false">Specimen fake link 6</a>
+                <a id="specimen-link-7" href="#" onclick="return false">Specimen fake link 7</a>
+                <a id="specimen-link-8" href="#" onclick="return false">Specimen fake link 8</a>
+                <a id="specimen-link-9" href="#" onclick="return false">Specimen fake link 9</a>
+                <a id="specimen-link-10" href="#" onclick="return false">Specimen fake link 10</a>
+                <a id="specimen-link-11" href="#" onclick="return false">Specimen fake link 11</a>
+                <a id="specimen-link-12" href="#" onclick="return false">Specimen fake link 12</a>
+                <a id="specimen-link-13" href="#" onclick="return false">Specimen fake link 13</a>
+                <a id="specimen-link-14" href="#" onclick="return false">Specimen fake link 14</a>
+                <a id="specimen-link-15" href="#" onclick="return false">Specimen fake link 15</a>
+                <a id="specimen-link-16" href="#" onclick="return false">Specimen fake link 16</a>
+                <a id="specimen-link-17" href="#" onclick="return false">Specimen fake link 17</a>
+                <a id="specimen-link-18" href="#" onclick="return false">Specimen fake link 18</a>
+                <a id="specimen-link-19" href="#" onclick="return false">Specimen fake link 19</a>
+                <a id="specimen-link-20" href="#" onclick="return false">Specimen fake link 20</a>
+                <a id="specimen-link-21" href="#" onclick="return false">Specimen fake link 21</a>
+                <a id="specimen-link-22" href="#" onclick="return false">Specimen fake link 22</a>
+                <label>Specimen mail 1 <input type="email" name="specimen-mail-1"></label>
+                <label>Specimen mail 2 <input type="email" name="specimen-mail-2"></label>
+                <label>Specimen mail 3 <input type="email" name="specimen-mail-3"></label>
+                <label>Specimen mail 4 <input type="email" name="specimen-mail-4"></label>
+                <label>Specimen mail 5 <input type="email" name="specimen-mail-5"></label>
+                <label>Specimen mail 6 <input type="email" name="specimen-mail-6"></label>
+            </div>
+        </section>
+
+        <div id="real-click" onclick="void 0">Real fake button</div>
+        <p><a id="real-link" href="#" onclick="return false">Real fake link</a></p>
+        <label>Your e-mail <input type="email" name="real-mail"></label>
+    </main>
+</body>
+</html>

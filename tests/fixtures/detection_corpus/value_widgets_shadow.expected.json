@@ -1,0 +1,6 @@
+{
+  "case": "value_widgets_shadow",
+  "expectations": [
+    { "rule_id": "aria-required-attr", "selector": "div#shadow-volume", "verdict": "violation" }
+  ]
+}

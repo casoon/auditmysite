@@ -178,6 +178,9 @@ pub struct AuditExecution {
     pub module_runs: Vec<ModuleRun>,
     #[serde(default)]
     pub quality: AuditQuality,
+    /// Applied audit exclusions and what they removed (#645).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclusions: Option<crate::audit::exclusion::ExclusionReport>,
 }
 
 /// Performance vitals measured under a single network throttle profile.

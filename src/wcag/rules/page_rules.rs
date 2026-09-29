@@ -51,7 +51,7 @@ use super::{
     check_tab_selected_state_with_page, check_table_headers_attr_with_page,
     check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
     check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_use_of_color_with_page, check_value_now_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -236,6 +236,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "checkbox/radio/switch checked state",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_checked_state_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "4.1.2/value-now",
+        name: "slider/spinbutton/meter aria-valuenow",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_value_now_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/aria-allowed-attr",
@@ -492,7 +498,9 @@ mod tests {
         //   the DOM, the tree carries no `name` attribute (#643) = 37
         // - landmark-dom: duplicated the AX tree's landmark-unique and
         //   landmark-main-present, each defect counted twice = 36
-        assert_eq!(count, 36);
+        // + value-now: aria-valuenow moved from the AX tree to the DOM, CDP
+        //   has no `valuenow` property (#656) = 37
+        assert_eq!(count, 37);
     }
 
     #[test]
@@ -525,7 +533,8 @@ mod tests {
         // + form-field-group for named checkbox sets (#643, Level A) = 49.
         // - landmark-dom: duplicated the AX tree's landmark-unique and
         //   landmark-main-present, each defect counted twice = 48.
-        assert_eq!(count, 48);
+        // + value-now (#656, Level A) = 49.
+        assert_eq!(count, 49);
     }
 
     #[test]

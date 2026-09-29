@@ -127,6 +127,7 @@ src/
 │   ├── budget.rs        # Concurrency/rate budgeting
 │   ├── crawl.rs         # Link crawling (html5ever-based)
 │   ├── duplicate.rs     # Duplicate-page detection
+│   ├── exclusion.rs     # Audit exclusions (--exclude-selector, [data-audit-exclude]) and their report block
 │   ├── artifacts.rs     # Cache artifact persistence (--reuse-cache)
 │   └── performance_interpretation.rs # Performance-specific interpretation texts
 │

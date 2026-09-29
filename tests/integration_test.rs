@@ -95,6 +95,7 @@ fn default_config() -> PipelineConfig {
         capture_screenshots: false,
         capture_element_evidence: false,
         dismiss_consent: false,
+        exclude_selectors: Vec::new(),
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
@@ -1931,4 +1932,186 @@ async fn batch_retries_pool_timeouts_serially_body() {
             .collect::<Vec<_>>(),
         vec![1, 2, 3]
     );
+}
+
+async fn audit_with_cli_args(
+    manager: &BrowserManager,
+    url: &str,
+    extra: &[&str],
+) -> auditmysite::AuditReport {
+    use clap::Parser;
+    let mut argv = vec!["auditmysite", url, "--interactive", "off"];
+    argv.extend_from_slice(extra);
+    let args = auditmysite::cli::Args::parse_from(argv);
+    let mut config = PipelineConfig::from_args_and_config(&args, None);
+    config.persist_artifacts = false;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, url)
+        .await
+        .expect("Navigation failed");
+    let (report, _snapshot) = audit_page(&page, url, &config, manager)
+        .await
+        .expect("Audit failed");
+    report
+}
+
+/// #645 — `--exclude-selector` drops the findings inside the matched subtree,
+/// keeps the ones outside, and reports every selector with its match count
+/// (also zero, also invalid) and what was dropped.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn exclude_selector_drops_specimen_findings_and_reports_them() {
+    let (url, shutdown) = serve_fixture("exclude_selector_specimen.html");
+    let manager = ci_browser().await;
+
+    let baseline = audit_with_cli_args(&manager, &url, &[]).await;
+    let excluded = audit_with_cli_args(
+        &manager,
+        &url,
+        &[
+            "--exclude-selector",
+            ".specimen",
+            "--exclude-selector",
+            ".nothing-here",
+            "--exclude-selector",
+            "[[bad",
+        ],
+    )
+    .await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let has = |report: &auditmysite::AuditReport, rule: &str, prefix: &str| {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .any(|v| {
+                v.rule_id.as_deref() == Some(rule)
+                    && v.selector.as_deref().is_some_and(|s| s.starts_with(prefix))
+            })
+    };
+
+    // Without the flag the specimen's defects are reported ...
+    assert!(has(&baseline, "image-alt", "img#specimen-img"));
+    assert!(has(
+        &baseline,
+        "click-events-have-key-events",
+        "div#specimen-click"
+    ));
+    let base_ex = baseline
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    assert_eq!(base_ex.selectors.len(), 1, "only the built-in attribute");
+    assert_eq!(base_ex.selectors[0].matched_elements, 0);
+    assert_eq!(base_ex.excluded_occurrences, 0);
+
+    // ... with it they are gone, while the real defect outside stays.
+    assert!(!has(&excluded, "image-alt", "img#specimen-img"));
+    assert!(!has(
+        &excluded,
+        "click-events-have-key-events",
+        "div#specimen-click"
+    ));
+    assert!(has(&excluded, "image-alt", "img#real-img"));
+
+    let ex = excluded
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    let sel = |s: &str| {
+        ex.selectors
+            .iter()
+            .find(|r| r.selector == s)
+            .unwrap_or_else(|| panic!("selector {s} missing from {:?}", ex.selectors))
+    };
+    assert_eq!(sel(".specimen").matched_elements, 1);
+    assert_eq!(sel(".nothing-here").matched_elements, 0);
+    assert!(!sel(".nothing-here").invalid);
+    assert!(sel("[[bad").invalid);
+    assert!(sel("[data-audit-exclude]").builtin);
+    assert!(ex.excluded_occurrences >= 2, "{ex:?}");
+    assert!(ex.rules.iter().any(|r| r.rule_id == "image-alt"));
+    assert!(ex
+        .rules
+        .iter()
+        .any(|r| r.rule_id == "click-events-have-key-events"));
+    assert!(
+        excluded.accessibility.score >= baseline.accessibility.score,
+        "excluding defects must not lower the score"
+    );
+}
+
+/// #645 — excluded elements must not spend a capped JavaScript rule's cap:
+/// with more excluded hits than the cap ahead of it in DOM order, the one
+/// real hit is still reported, the excluded hits are dropped and counted
+/// (bounded by the same cap), and `rule_outcomes[].findings` counts what the
+/// report shows.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
+    let (url, shutdown) = serve_fixture("detection_corpus/audit_exclude_cap.html");
+    let manager = ci_browser().await;
+    let report = audit_with_cli_args(&manager, &url, &["--level", "aaa"]).await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let rule_selectors = |rule: &str| -> Vec<String> {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(rule))
+            .filter_map(|v| v.selector.clone())
+            .collect()
+    };
+    for (rule, real) in [
+        ("click-events-have-key-events", "div#real-click"),
+        ("link-as-button", "a#real-link"),
+        ("identify-purpose", "real-mail"),
+    ] {
+        let found = rule_selectors(rule);
+        assert!(
+            found.iter().any(|s| s == real),
+            "{rule}: real hit {real} missing, got {found:?}"
+        );
+        assert!(
+            found.iter().all(|s| !s.contains("specimen")),
+            "{rule}: specimen reported: {found:?}"
+        );
+    }
+
+    let ex = report
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    let excluded = |rule: &str| {
+        ex.rules
+            .iter()
+            .find(|r| r.rule_id == rule)
+            .map(|r| r.occurrences)
+            .unwrap_or(0)
+    };
+    assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
+    assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
+    assert_eq!(excluded("identify-purpose"), 5, "{ex:?}");
+
+    for viewport in ["desktop", "mobile"] {
+        let outcome = report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .iter()
+            .find(|o| o.rule_id == "2.1.1/click-handler" && o.viewport.as_deref() == Some(viewport))
+            .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
+        assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
+    }
 }

@@ -15,6 +15,165 @@ short current-state summary. Newest entries first (unchanged order from before t
   samt Tests entfernt (oeffentliche Funktion `wcag::rules::check_page_titled` entfaellt).
   `empty_title` pinnt 1 Vorkommen, der Integrationstest auf `parity_gaps.html` ebenfalls.
 
+- **3.2.2 On Input: nur echte Kontextwechsel sind Verstoesse, 2026-09-29 (#657):** Auf
+  og-vanilla.casoon.dev (`/filtering`, `/sorting`, `/localization`) meldete
+  `a11y.on_input.risk` Selects fuer Filter-Preset, Sortierung und Sprache als „may trigger
+  navigation", nur weil ihr Name „filter"/„sort"/„language" enthielt und die Seite keinen
+  Absende-Button hat. Die Selects aktualisieren aber nur das Grid daneben — eine Inhaltsaenderung
+  ist kein Kontextwechsel. Jetzt ist nur noch ein Verstoss, was der Inline-`onchange`-Handler
+  (oder die globale Funktion, die er direkt aufruft) sichtbar tut: Navigation (`location…`),
+  Formular absenden (`.submit(`/`.requestSubmit(`), neues Fenster (`window.open(`) oder
+  Fokusverschiebung (`.focus(`). Ein Handler, dessen Wirkung sich nicht ablesen laesst, und ein
+  Name, der nur nach Navigation klingt (language, country, region, navigate, redirect, go to),
+  werden zur Pruefwarnung statt zum Verstoss; „sort" und „filter" fallen als Hinweis ganz weg.
+  Die Einordnung liegt jetzt in Rust (`evaluate`) und ist unit-getestet. Neue Korpus-Fixture
+  `on_input_context_change` (besteht: Filter ohne Handler; Pruefung: inhaltsaendernder Handler,
+  Sprach-Select; Verstoss: Handler navigiert ueber aufgerufene Funktion, Handler sendet Formular).
+
+- **1.3.5 Identify Input Purpose: „Name" einer Sache ist kein Personenname, 2026-09-29 (#658):**
+  Auf og-vanilla.casoon.dev/saved-views galt `#view-name` (Label „Name", Name einer gespeicherten
+  Grid-Ansicht) als Feld fuer den Namen der Nutzerin, weil das Label „name" als Teilstring
+  enthielt. „name" wird jetzt wortweise eingeordnet (Trennung an Satzzeichen und camelCase): ein
+  vorangestelltes Wort, das keine Person und kein technisches Id-Praefix ist („view name",
+  „project name", „company name"), ein folgendes „of/for/der/des/für/von" („Name der Ansicht")
+  und Komposita wie „Dateiname"/„Filename" schliessen das Feld aus; „Name", „Your name",
+  „Full name", „Vorname", „Nachname", „Ihr Name" bleiben Treffer. Ein Sach-Qualifier in `id` oder
+  `name`-Attribut schliesst ein blosses „Name"-Label aus, sofern das andere Attribut nicht die
+  Person nennt. Die Erkennungswoerter sind Englisch und Deutsch zusammengefuehrt (wie bei
+  `media_alternative`), unabhaengig von der Ausgabesprache. Neue Korpus-Fixture
+  `input_purpose_name`.
+- **Absichtlich kaputte Beispiele vom Audit ausnehmen, sichtbar im Bericht, 2026-09-29 (#645):**
+  Seiten, die Barrierefreiheit lehren, zeigen bewusst fehlerhafte Beispiele (barrierlab.eu,
+  `/tasks/ticket/`: unbeschriftete Felder, ein `div` als Button). auditmysite meldete sie als
+  eigene Verstoesse der Seite. Neu, nach dem Vorbild von axe-cores `exclude`:
+  `--exclude-selector <CSS>` (wiederholbar), `[audit] exclude_selectors` in `auditmysite.toml`,
+  und das immer beachtete Attribut `[data-audit-exclude]`. Ausgenommen wird nie eine Seite und
+  nie eine Regel, sondern nur Befunde, deren Element in einem ausgeschlossenen Teilbaum liegt —
+  die Seite selbst wird vollstaendig geprueft, seitenweite Befunde bleiben immer.
+
+  Umsetzung (`src/audit/exclusion.rs`): je Viewport-Durchgang zaehlt ein `Runtime.evaluate` die
+  Treffer jedes Selektors (ungueltige Selektoren werden erkannt); nur bei Treffern holt
+  `DOM.getDocument` + `DOM.querySelectorAll` die Backend-Node-IDs aller Knoten der getroffenen
+  Teilbaeume (inkl. Shadow Roots, Frame- und Template-Inhalt). Gefiltert wird je Regel in
+  `run_rules`, bevor ihr Ausfuehrungsvermerk gezaehlt wird, und vor Anreicherung und
+  Element-Screenshots: Befunde aus dem AX-Baum ueber die
+  Backend-ID ihres AX-Knotens, Befunde der geteilten DOM-Regeln ueber die neu mitgefuehrte
+  Backend-ID (`Violation::backend_node_id`, nur im Speicher; gesetzt im Adapter
+  `wcag/shared.rs`, am Regelcode von barrierlab aendert sich nichts), JavaScript-Seitenregeln,
+  Kontrast und Journey-Befunde ueber ihren Selektor — ausgenommen nur, wenn er mindestens ein
+  Element trifft und **jedes** davon im ausgeschlossenen Teilbaum liegt; ein mehrdeutiger oder
+  nicht parsebarer Selektor behaelt den Befund. Muster-Befunde laufen durch denselben Filter.
+
+  Sichtbarkeit: Das JSON fuehrt je Seite `pages[].exclusions` (angewandte Selektoren mit
+  Trefferzahl — auch 0 und ungueltig —, ausgeschlossene Vorkommen und bestaetigte Verstoesse
+  gesamt und je Regel, ausgeschlossene Journey-Befunde; je Regel der groessere Wert der beiden
+  Viewports), der Batch zusaetzlich `summary.exclusions` als Summe. Das PDF nennt Selektoren und
+  Zahlen im Methodik-Teil, der Batch im Audit-Rahmen des Deckblatts (de/en ueber Fluent). Ein
+  Standardlauf ohne `data-audit-exclude` auf der Seite bleibt im PDF still, das JSON listet den
+  eingebauten Selektor mit 0 Treffern. Cache-Format 19; die Selektoren gehen in die
+  Audit-Signatur ein.
+
+  Obergrenzen der JavaScript-Regeln: Viele Seitenregeln melden hoechstens N Fundstellen (10 bei
+  `click-events-have-key-events`, 20 bei `link-as-button`, 250 bei den ARIA-Regeln, 5 bei
+  Zielgroesse, verdeckt fokussierten Elementen, Sprachwechseln u. a.). Ohne Gegenmassnahme haetten
+  Beispiel-Treffer die Obergrenze aufgebraucht und echte Treffer dahinter still verschwinden
+  lassen — genau das, was die Funktion ausschliessen soll. Deshalb legt der Ausschluss-Schritt je
+  Durchgang `window.__amsIsExcluded(el)` in die Seite (die getroffenen Wurzeln in einem
+  `WeakSet` im Closure, kein DOM-Attribut, keine fuer andere Regeln sichtbare Aenderung). Der
+  gemeinsame Baustein `CSS_SELECTOR_JS`, den jede lokalisierende Regel einbindet, bringt
+  `__amsIsExcludedEl`, `__amsPush` und `__amsReal` mit: Echte und ausgeschlossene Treffer werden
+  getrennt gedeckelt, die Schleifengrenze liest nur die echten. Ausgeschlossene Treffer kommen
+  weiter zurueck und werden wie alle anderen gefiltert und gezaehlt (je Regel hoechstens bis zur
+  selben Obergrenze). Umgestellt: `aria_allowed_attr`, `aria_hidden_focus` (deren Gesamtzahl
+  zaehlt Ausgeschlossene nicht mehr mit), `aria_relationships`, `aria_roles` (2),
+  `aria_required_attr`, `image_input_rules`, `on_focus`, `on_input`, `server_side_image_map`,
+  `table_extended`, `widget_rules`, `click_handlers`, `content_on_hover`, `fake_navigation_link`,
+  `redundant_role`, `use_of_color`, `language_of_parts`, `meaningful_sequence`,
+  `target_size_minimum`/`_enhanced` (auch die Kandidatenlisten), `focus_not_obscured_minimum`/
+  `_enhanced` (Fokus-Kandidaten, die 60 geprueften Bedienelemente, die 5 Befunde),
+  `pause_stop_hide` (Widgets; die seitenweite Animations-Meldung ignoriert ausgeschlossene
+  Elemente ganz) und `accessible_authentication` (Obergrenze von Rust ins Skript verlegt).
+  `identify_purpose` meldet einen Feldnamen statt eines CSS-Pfads — das Skript markiert
+  ausgeschlossene Felder selbst (`Violation::in_excluded_subtree`, nur im Speicher), die
+  Obergrenze 5 gilt getrennt. Kontrast: Text in ausgeschlossenen Teilbaeumen belegt keinen der 60
+  Plaetze fuer die Pixelprobe mehr.
+
+  `rule_outcomes[].findings` zaehlt jetzt, was im Bericht steht: Die Baum-Regeln filtern je Regel
+  in `wcag::check_all_excluding` (neu; `check_all_with_config` bleibt als Huelle), die
+  Seitenregeln, Kontrast und HTML-Inhaltsmodell vor `page_rule_outcome`; bei den geteilten
+  Regeln wird der aus `a11y-rules` uebernommene Zaehler um die entfallenen Befunde derselben
+  Kennung verringert.
+
+  Bleibt offen: Regeln, deren gemeldeter „Selektor" kein CSS-Pfad ist und die ihr Element nicht
+  selbst markieren, koennen ausgeschlossene Treffer nicht verlieren (bekannt und behoben:
+  `identify_purpose`). Obergrenzen, die nur Kandidaten fuer eine seitenweite Aussage deckeln
+  (Overlay-Suche in `focus_not_obscured_*`, Felder je Formular in `redundant_entry`), sind
+  unveraendert.
+
+  Tests: Unit-Tests fuer Filter, Zaehlung und PDF-Text (EN ohne Umlaute), neue Korpus-Fixture
+  `audit_exclude_specimen` (je ein Fehler pro Ortungsweg — AX-Knoten, JS-Seitenregel, geteilte
+  DOM-Regel — innerhalb von `[data-audit-exclude]` nicht gemeldet, derselbe Fehler ausserhalb
+  gemeldet) und ein Integrationstest fuer `--exclude-selector` samt 0-Treffer- und
+  ungueltigem Selektor. Dazu Korpus-Fixture `audit_exclude_cap`: 12/22/6 ausgeschlossene Treffer
+  vor je einem echten (Obergrenzen 10/20/5) — der echte wird gemeldet, und
+  `excluded_hits_do_not_spend_a_capped_rules_budget` prueft dasselbe samt Ausschluss-Zaehlung und
+  `rule_outcomes[].findings == 1`. Gegenprobe: mit abgeschaltetem `__amsIsExcludedEl` faellt der
+  Test (`div#real-click` fehlt).
+
+- **4.1.2/3.3.2: aufklappbare Treegrid-Zeilen und native Wertfelder, 2026-09-29 (#655, #656):**
+  (1) Das Accordion-Muster hielt jedes Element mit `aria-expanded` fuer einen Accordion-Ausloeser
+  und meldete auf og-vanilla.casoon.dev/grouping jede Gruppenzeile des `role="treegrid"` als
+  „should be a button" (Medium, 12 Vorkommen). `aria-expanded` auf einer Zeile in `grid`/`treegrid`
+  und auf einem `treeitem` ist der Zustand des eigenen zusammengesetzten Widgets, dessen
+  Tastaturvertrag (Pfeiltasten, Enter) das Grid bzw. der Baum stellt; solche Knoten zaehlen nicht
+  mehr als Ausloeser. Eine aufklappbare Zeile ausserhalb eines Grids wird weiter gemeldet.
+
+  (2) `aria-required-attr` pruefte `aria-valuenow` ueber eine AX-Eigenschaft `valuenow`, die CDP
+  nicht kennt — der aktuelle Wert steht im `value` des Knotens, und Chrome erfindet einen (50 beim
+  Slider, 0 beim Spinbutton), wenn der Autor keinen setzt. Die Pruefung schlug deshalb bei jedem
+  `slider`/`spinbutton`/`meter`/fokussierbaren `separator` an, auch bei nativem
+  `<input type=range|number>` und den internen Tag/Monat/Jahr-Feldern von `<input type=date>`
+  (Critical; auf /filtering, /columns, /grouping, /theming 16 Vorkommen). Aus demselben Grund
+  meldete `check_slider_has_value` („Slider is missing accessible value") jeden Slider: Der
+  Extraktor liest nur Text-Werte, die Zahl des Sliders fiel weg. Die `aria-valuenow`-Pflicht
+  laeuft jetzt als DOM-Regel `check_value_now_with_page` (wie schon `aria-checked`): sie liest das
+  Attribut, durchlaeuft offene Shadow Roots, nimmt natives `range`/`number` und `<meter>` aus und
+  erreicht die User-Agent-Felder von Datumsfeldern gar nicht. Die Slider-Pruefung in
+  `widget_rules.rs` entfaellt; der eigene `role="slider"` ohne `aria-valuenow` bleibt ein Verstoss.
+
+  (3) Die 3.3.2-Heuristik „may require format instructions" uebergeht Knoten innerhalb der
+  Chrome-Rollen `Date`/`DateTime`/`InputTime` — deren Felder und Format stellt der Browser. Die
+  Rolle `spinbutton` allein loest den Hinweis nicht mehr aus: 3.3.2 verlangt Anleitungen, wo die
+  Eingabe einem Format folgen muss, das man nicht erschliessen kann; ein Spinbutton — natives
+  `<input type=number>` wie eigenes `role="spinbutton"` — haelt eine Zahl, die das Widget selbst
+  begrenzt und mit den Pfeiltasten schrittweise aendert. Die Erkennung ueber die Beschriftung
+  („Date", „Postal code") gilt weiter fuer jede Rolle.
+
+  (4) Der AX-Extraktor las `value` nur als Zeichenkette; Chrome schickt den Wert von Slider,
+  Spinbutton, Progressbar und Meter als Zahl, der damit verloren ging. Zahlen und Wahrheitswerte
+  bleiben jetzt in Textform erhalten. Keine WCAG-Regel liest `AXNode.value` mehr (die einzige,
+  `check_slider_has_value`, ist oben entfallen); Folge hat es nur fuer die Screenreader-Linearisierung
+  (`a11y-perception`): Wertelemente ohne Namen tragen jetzt ihren Wert und zaehlen in der
+  Ansage-Wuesten-Messung als angesagter Inhalt, was sie beim Vorlesen auch sind.
+
+  Live nachgeprueft mit dem Release-Build gegen og-vanilla.casoon.dev: keine Accordion-, keine
+  `aria-valuenow`-, keine Slider-Wert- und keine Spinbutton-Format-Befunde mehr. Neue Korpus-Fixtures `treegrid_expandable_rows`,
+  `value_widgets_native` (bestehen), `value_widgets_custom` und `value_widgets_shadow` (Verstoss);
+  `aria_and_widgets` erwartet den eigenen Slider jetzt unter `aria-required-attr`.
+
+  Nachzug derselben Fehlerklasse: Auch die uebrigen 1.3.5-Stichwoerter wurden als Teilstring
+  gesucht — „Hotel" galt wegen „tel" als Telefonfeld, „Sorting" haette „ort" enthalten. Sie gelten
+  jetzt nur als ganze Woerter (tel, zip, plz, fax, city, first, last …) oder als bekannte
+  Kompositum-Anfaenge bzw. -Enden (`telefon…`, `postleit…`, `birth…`, `geburts…`, `…adresse`,
+  `…address`, `…strasse`); „E-Mail" zaehlt als ein Wort. Deutsche Felder wie „Telefonnummer",
+  „Postleitzahl", „Straße", „Passwort" werden damit erstmals erkannt. Ebenso bei 3.2.2: die
+  seitenweite Suche nach einem Absende-Button fand „go" in „Google", „Category" oder „Logo" und
+  unterdrueckte dadurch die Pruefwarnung; die Button-Namen werden jetzt wortweise geprueft
+  (submit, send, go, search, absenden, senden, suchen), die Entscheidung liegt in Rust und ist
+  unit-getestet. Korpus: `#stay` („Hotel") besteht, „Telefonnummer"/„Postleitzahl" sind
+  Verstoesse; die On-Input-Fixture hat Google/Category/Logo-Buttons, der Sprach-Select bleibt
+  Pruefung.
+
 - **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
   AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).
   Beide meldeten dieselben Elemente mit unterschiedlich gebildeten Selektoren, sodass nichts
