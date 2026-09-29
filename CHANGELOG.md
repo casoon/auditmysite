@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
+  (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
+  darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,
+  `a11y-dom`, `a11y-report`, `accname` 0.12.2 (Listenregeln sehen durch `<slot>`,
+  `<ul role=listbox>` ist keine Liste) und `html-conform` 0.3.1 (bringt die vnu-naeheren Pruefungen
+  aus 0.3.0 mit: `img` ohne `alt`, interaktiver Inhalt in `a`, weitere Parserfehler; dazu `name`
+  neben RDFa-`property` an `<meta>`). HTML-Konformitaetswerte koennen dadurch sinken.
+
 - **Berichtsgenauigkeit nach dem Abgleich mit dem rankinglab-Korpus, 2026-09-29:** Zwei
   Berichtskritiken (gov.uk, sachsen-anhalt.de) gegen 1.3.1 fanden Fehler, die Urteil und Zahlen
   verfaelschten; jeder ist am Code bzw. an den Daten nachgeprueft. (1) Die Zusammenfuehrung von
