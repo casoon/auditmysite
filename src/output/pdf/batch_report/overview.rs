@@ -17,6 +17,7 @@ use crate::util::truncate_url;
 
 use super::super::cover::{
     batch_certificate_label, build_batch_cover_score_row, certificate_badge_path,
+    certificate_label_localized,
 };
 use super::super::helpers::score_quality_color;
 use super::actions::build_batch_quick_actions;
@@ -73,7 +74,7 @@ pub(super) fn render_batch_cover(
             )
             .add(
                 i18n.t("batch-cover-frame-certificate"),
-                &pres.portfolio_summary.certificate,
+                certificate_label_localized(&pres.portfolio_summary.certificate, i18n.locale()),
             )
             .add(i18n.t("batch-cover-frame-modules"), &modules_str)
             .add(

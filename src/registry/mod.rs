@@ -13,8 +13,8 @@ mod metrics;
 mod paths;
 
 pub use bands::{
-    BandSet, BAR_COLOR_BAND, CERTIFICATE, COVER_PHRASE, FIVE_BAND, FIVE_BAND_LETTERS, LETTER_GRADE,
-    MEDAL, SCORE_RANGE, SECURITY_GRADE, SEO_BAND,
+    certificate_label_localized, BandSet, BAR_COLOR_BAND, CERTIFICATE, COVER_PHRASE, FIVE_BAND,
+    FIVE_BAND_LETTERS, LETTER_GRADE, MEDAL, SCORE_RANGE, SECURITY_GRADE, SEO_BAND,
 };
 pub use metrics::REGISTRY;
 pub use paths::json_path_candidates;
