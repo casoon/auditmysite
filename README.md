@@ -193,6 +193,14 @@ auditmysite --url-file urls.txt --per-page-reports --output reports/per-page/
 auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
 ```
 
+Pages run in parallel (`--concurrency`). A page waiting for a free browser page waits as long as
+one page in flight may take (creating the page, four times `--timeout` with a two-minute
+minimum, and the page reset), so heavy pages ahead of it no longer push it out. A page that
+still gets no browser page in time is retried one at a time after the parallel phase. Pages that cannot be audited at all are not
+part of any score: the report says how many URLs the scores cover (JSON:
+`summary.url_count` of `summary.attempted_url_count`, failures under `errors`; PDF: cover and
+status section).
+
 ### Browser selection
 
 ```bash

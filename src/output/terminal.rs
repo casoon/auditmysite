@@ -179,6 +179,17 @@ pub fn render_batch_report(batch_report: &BatchReport, args: &Args) -> String {
             )],
         ));
     }
+    if !batch_report.errors.is_empty() {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            "Score basis",
+            vec![format!(
+                "Scores cover {} of {} URLs; {} could not be audited",
+                p.total_urls,
+                p.total_urls + batch_report.errors.len(),
+                batch_report.errors.len()
+            )],
+        ));
+    }
 
     let mut group =
         RmFindingGroup::new("Top recurring rules").with_total_count(presentation.top_issues.len());
@@ -307,6 +318,14 @@ mod tests {
         let output = render_batch_report(&batch, &args);
         assert!(!has_ansi(&output));
         assert!(output.contains("example.com"));
+    }
+
+    #[test]
+    fn batch_report_states_score_coverage_when_urls_failed() {
+        let batch = fixture_batch();
+        let args = test_args();
+        let output = render_batch_report(&batch, &args);
+        assert!(output.contains("Scores cover 1 of 2 URLs; 1 could not be audited"));
     }
 
     #[test]

@@ -1579,6 +1579,12 @@ pub(super) fn render_batch_cover(
             };
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
         }
+        if !batch.errors.is_empty() {
+            cover_meta = cover_meta.add(
+                i18n.t("batch-cover-frame-score-basis"),
+                i18n.t_args("batch-score-coverage", &unaudited_args(batch)),
+            );
+        }
         builder = builder.add_component(cover_meta);
     }
 
@@ -1617,8 +1623,57 @@ pub(super) fn render_batch_cover(
     Ok(builder)
 }
 
+/// At most this many unaudited URLs are listed by name; the count is always
+/// complete.
+const MAX_LISTED_UNAUDITED_URLS: usize = 20;
+
+/// Fluent arguments for the score-coverage texts: scored, attempted and
+/// unaudited URL counts (#651).
+fn unaudited_args(batch: &BatchReport) -> [(&'static str, i64); 3] {
+    let scored = batch.summary.total_urls as i64;
+    let failed = batch.errors.len() as i64;
+    [
+        ("scored", scored),
+        ("attempted", scored + failed),
+        ("failed", failed),
+    ]
+}
+
+/// Pages that could not be audited are not in any score — say so next to the
+/// scores and name them, instead of letting the batch silently shrink (#651).
+pub(super) fn render_batch_unaudited_urls(
+    builder: renderreport::engine::ReportBuilder,
+    batch: &BatchReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if batch.errors.is_empty() {
+        return builder;
+    }
+    let args = unaudited_args(batch);
+    let mut list = List::new().with_title(i18n.t("batch-unaudited-list-title"));
+    for error in batch.errors.iter().take(MAX_LISTED_UNAUDITED_URLS) {
+        list = list.add_item(truncate_url(&error.url, 90));
+    }
+    if batch.errors.len() > MAX_LISTED_UNAUDITED_URLS {
+        list = list.add_item(i18n.t_args(
+            "batch-unaudited-more",
+            &[(
+                "count",
+                (batch.errors.len() - MAX_LISTED_UNAUDITED_URLS) as i64,
+            )],
+        ));
+    }
+    builder
+        .add_component(
+            Callout::warning(i18n.t_args("batch-unaudited-body", &args))
+                .with_title(i18n.t_args("batch-unaudited-title", &args)),
+        )
+        .add_component(list)
+}
+
 pub(super) fn render_batch_status_section(
     mut builder: renderreport::engine::ReportBuilder,
+    batch: &BatchReport,
     pres: &BatchPresentation,
     en301549_rollup: &[crate::wcag::en301549::BatchClauseRollup],
     failed_en_criteria: &std::collections::BTreeSet<String>,
@@ -1641,6 +1696,7 @@ pub(super) fn render_batch_status_section(
     builder = builder
         .add_component(Section::new(i18n.t("batch-section-status")).with_level(1))
         .add_component(callout);
+    builder = render_batch_unaudited_urls(builder, batch, i18n);
 
     // Score overview cards
     let score = pres.portfolio_summary.average_score.round() as u32;

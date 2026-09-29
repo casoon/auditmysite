@@ -21,7 +21,7 @@ use super::report::{
     AuditReport, BatchError, BatchReport, CrawlDepthDiagnostics, CrawlDepthEntry,
     RobotsSitemapConflict, SitemapDiagnostics, SitemapHttpIssue,
 };
-use crate::browser::{BrowserOptions, BrowserPool, PoolConfig};
+use crate::browser::{BrowserOptions, BrowserPool, PoolConfig, PAGE_RETURN_BUDGET_SECS};
 use crate::cli::{Args, RequestMode};
 use crate::error::{AuditError, Result};
 use crate::seo::{BotClass, RobotsAudit};
@@ -62,7 +62,7 @@ impl From<&Args> for BatchConfig {
                 }),
                 ..BrowserOptions::default()
             },
-            ..PoolConfig::default()
+            acquire_timeout_secs: pool_acquire_timeout_secs(args.effective_timeout()),
         };
 
         Self {
@@ -157,24 +157,15 @@ pub async fn run_concurrent_batch(
                      total: usize| {
         async move {
             let result = audit_url_with_pool(&pool, &url, &config).await;
-            let current = completed.fetch_add(1, Ordering::SeqCst) + 1;
-            match &result.outcome {
-                Ok(report) => {
-                    info!(
-                        "[{}/{}] Completed: {} (score: {})",
-                        current, total, url, report.accessibility.score
-                    );
-                    if let Some(ref cb) = progress {
-                        cb(current, total, &url, None);
-                    }
-                }
-                Err(e) => {
-                    let msg = e.to_string();
-                    warn!("[{}/{}] Failed: {} - {}", current, total, url, msg);
-                    if let Some(ref cb) = progress {
-                        cb(current, total, &url, Some(&msg));
-                    }
-                }
+            if is_pool_timeout(&result) {
+                // Not counted as done yet: the page gets its serial retry
+                // after the parallel phase (#651).
+                warn!(
+                    "Deferred: {} - no browser page free in time, retrying after the parallel phase",
+                    url
+                );
+            } else {
+                report_progress(&completed, total, &result, progress.as_ref());
             }
             (index, result)
         }
@@ -197,10 +188,16 @@ pub async fn run_concurrent_batch(
     let mut reports = Vec::with_capacity(total_urls);
     let mut errors = Vec::new();
 
+    let mut deferred = Vec::new();
+
     while let Some((index, batch_result)) = in_flight.next().await {
-        match batch_result.outcome {
-            Ok(report) => reports.push((index, report)),
-            Err(e) => errors.push((index, batch_result.url, e)),
+        if is_pool_timeout(&batch_result) {
+            deferred.push((index, batch_result.url));
+        } else {
+            match batch_result.outcome {
+                Ok(report) => reports.push((index, report)),
+                Err(e) => errors.push((index, batch_result.url, e)),
+            }
         }
         if let Some((index, url)) = url_iter.next() {
             in_flight.push(make_task(
@@ -212,6 +209,25 @@ pub async fn run_concurrent_batch(
                 progress.clone(),
                 total_urls,
             ));
+        }
+    }
+
+    // A pool timeout means the pool had no free page in time — a capacity
+    // problem of the parallel phase, not a problem of the page. Retry those
+    // pages one at a time, with every other page finished, before the
+    // report is built (#651).
+    if !deferred.is_empty() {
+        warn!(
+            "Retrying {} page(s) one at a time after browser pool timeouts",
+            deferred.len()
+        );
+    }
+    for (index, url) in deferred {
+        let result = audit_url_with_pool(&pool, &url, &pipeline_config).await;
+        report_progress(&completed, total_urls, &result, progress.as_ref());
+        match result.outcome {
+            Ok(report) => reports.push((index, report)),
+            Err(e) => errors.push((index, result.url, e)),
         }
     }
 
@@ -706,19 +722,41 @@ async fn audit_url_with_pool(
     config: &PipelineConfig,
 ) -> BatchResult {
     let mut last_error: Option<AuditError> = None;
-    // Total budget per attempt: generous multiple of the navigation timeout so that
-    // a hung page (browser tab unresponsive, CDP stream frozen) cannot block the
-    // whole batch forever via in_flight.next().await.
-    let per_attempt_timeout = Duration::from_secs(config.timeout_secs.max(30) * 4);
+    let per_attempt_timeout = per_attempt_timeout(config.timeout_secs);
 
     for attempt in 0..2 {
         if attempt > 0 {
-            warn!("Retrying audit for {} (attempt {})", url, attempt + 1);
+            if let Some(e) = &last_error {
+                warn!(
+                    "Retrying audit for {} (attempt {}): {}",
+                    url,
+                    attempt + 1,
+                    e
+                );
+            }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
 
+        // Waiting for a free page is bounded by the pool's own acquire
+        // timeout, not by this page's audit budget: time spent queueing
+        // behind a heavy page is not this page's fault (#651). A pool
+        // timeout returns at once without spending the retry — the batch
+        // retries such pages serially after the parallel phase.
+        let pooled_page = match pool.acquire().await {
+            Ok(pooled_page) => pooled_page,
+            Err(e @ AuditError::PoolTimeout { .. }) => {
+                return BatchResult {
+                    url: url.to_string(),
+                    outcome: Err(BatchAuditError::Audit(e)),
+                };
+            }
+            Err(e) => {
+                last_error = Some(e);
+                continue;
+            }
+        };
+
         let result = tokio::time::timeout(per_attempt_timeout, async {
-            let pooled_page = pool.acquire().await?;
             let page = pooled_page.page()?;
             // audit_page handles viewport switching and navigation internally
             let (report, snapshot) = audit_page(page, url, config, pool.browser()).await?;
@@ -768,6 +806,60 @@ async fn audit_url_with_pool(
             Some(e) => BatchAuditError::Audit(e),
             None => BatchAuditError::Other("Unknown error".to_string()),
         }),
+    }
+}
+
+/// Budget for one audit attempt of one page: a generous multiple of the
+/// navigation timeout, so that a hung page (tab unresponsive, CDP stream
+/// frozen) cannot block the whole batch forever via `in_flight.next().await`.
+fn per_attempt_timeout(timeout_secs: u64) -> Duration {
+    Duration::from_secs(timeout_secs.max(30) * 4)
+}
+
+/// How long a batch page waits for a free browser page (#651).
+///
+/// A waiting page must be able to outlast one page in flight: creating that
+/// page (bounded by the browser timeout), its full attempt budget, and the
+/// time its slot takes to come back to the pool. A fixed wait shorter than
+/// that dropped heavy pages whenever the page ahead of them legitimately took
+/// longer.
+pub(crate) fn pool_acquire_timeout_secs(timeout_secs: u64) -> u64 {
+    timeout_secs + per_attempt_timeout(timeout_secs).as_secs() + PAGE_RETURN_BUDGET_SECS
+}
+
+fn is_pool_timeout(result: &BatchResult) -> bool {
+    matches!(
+        result.outcome,
+        Err(BatchAuditError::Audit(AuditError::PoolTimeout { .. }))
+    )
+}
+
+/// Count one page as done and report it to the log and the progress callback.
+fn report_progress(
+    completed: &AtomicUsize,
+    total: usize,
+    result: &BatchResult,
+    progress: Option<&ProgressCallback>,
+) {
+    let current = completed.fetch_add(1, Ordering::SeqCst) + 1;
+    let url = &result.url;
+    match &result.outcome {
+        Ok(report) => {
+            info!(
+                "[{}/{}] Completed: {} (score: {})",
+                current, total, url, report.accessibility.score
+            );
+            if let Some(cb) = progress {
+                cb(current, total, url, None);
+            }
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            warn!("[{}/{}] Failed: {} - {}", current, total, url, msg);
+            if let Some(cb) = progress {
+                cb(current, total, url, Some(&msg));
+            }
+        }
     }
 }
 
@@ -1002,6 +1094,56 @@ pub fn read_url_file(path: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #651: a page waiting for a pool slot must outlast one page in flight —
+    /// its whole attempt budget plus the slot's return — instead of giving
+    /// up after a fixed 60 s.
+    #[test]
+    fn pool_acquire_timeout_outlasts_one_page_in_flight() {
+        for timeout_secs in [0, 10, 30, 120, 600] {
+            let wait = pool_acquire_timeout_secs(timeout_secs);
+            assert!(
+                wait >= timeout_secs
+                    + per_attempt_timeout(timeout_secs).as_secs()
+                    + PAGE_RETURN_BUDGET_SECS,
+                "-t {timeout_secs}: wait {wait}s"
+            );
+        }
+        // -t 120 as in the issue: 120 s page creation + 480 s attempt budget
+        // + 15 s page return.
+        assert_eq!(pool_acquire_timeout_secs(120), 615);
+    }
+
+    #[test]
+    fn batch_config_derives_pool_wait_from_timeout() {
+        use clap::Parser;
+        let args = Args::parse_from(["auditmysite", "https://example.com", "-c", "2", "-t", "120"]);
+        let config = BatchConfig::from(&args);
+        assert_eq!(config.pool_config.acquire_timeout_secs, 615);
+
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let config = BatchConfig::from(&args);
+        assert_eq!(
+            config.pool_config.acquire_timeout_secs,
+            pool_acquire_timeout_secs(30)
+        );
+    }
+
+    #[test]
+    fn only_pool_timeouts_are_deferred_to_the_serial_retry() {
+        let result = |error: AuditError| BatchResult {
+            url: "https://example.com".to_string(),
+            outcome: Err(BatchAuditError::Audit(error)),
+        };
+        assert!(is_pool_timeout(&result(AuditError::PoolTimeout {
+            timeout_secs: 615
+        })));
+        assert!(!is_pool_timeout(&result(AuditError::AuditTimeout {
+            url: "https://example.com".to_string(),
+            timeout_secs: 480,
+        })));
+        assert!(!is_pool_timeout(&result(AuditError::PoolExhausted)));
+    }
 
     #[test]
     fn test_extract_all_loc_values() {
