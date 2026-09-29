@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Heuristische Formularbefunde, 2026-09-29 (#643):** Zwei Vermutungsregeln meldeten auf
+  barrierlab.eu korrekt gebaute Formulare. (1) „Input may require format instructions" (3.3.2,
+  `label`) liess eine Accessible Description nur gelten, wenn sie ein Formatwort wie „Format:"
+  oder „z.B." enthielt; das Datumsfeld des Musterformulars mit `aria-describedby` („Day of
+  travel") fiel durch. Ausserdem traf der Begriff „pass" (Reisepass) per Teilstring das Label „Was
+  ist passiert?" der Kontakt-Textarea. Jetzt zaehlt jede Beschreibung als Anleitung, Begriffe unter
+  fuenf Zeichen (`pass`, `tel`, `date`, `zip`, `plz`, `ssn`) zaehlen nur als ganzes Wort, und der
+  Befund ist ein Pruefhinweis (`as_warning`) statt eines Verstosses, weil der Formatbedarf nur aus
+  dem Labeltext geraten ist. (2) „Grouped form controls may be missing a fieldset/legend" (1.3.1,
+  `form-field-group`) verlangte fuer jede Checkbox eine Gruppe, sobald die Seite irgendwo zwei
+  Radio-/Checkbox-Elemente hatte — auf /tasks/bill/ und /tasks/appointment/ traf das die einzelne
+  Checkbox neben einer korrekt gruppierten Radio-Umschaltung. Zusammengehoerig sind Checkboxen
+  ueber ein gemeinsames `name` im selben Formular; das traegt der AX-Baum nicht. Die Pruefung fuer
+  Checkboxen laeuft deshalb als DOM-Seitenregel (`check_checkbox_group_with_page`): erst ab zwei
+  sichtbaren Checkboxen gleichen Namens wird ein `fieldset`/`role=group`-Vorfahr verlangt. Radios
+  bleiben unveraendert im Baum (ein Radio braucht immer eine Gruppe). Neue Korpusfaelle
+  `form_heuristics_clean` und `form_heuristics_flagged`.
 - **`--per-page-reports`: eine Datei je Seite, 2026-09-29:** Die Dateinamen der Einzelberichte
   kamen nur aus dem Host (`casoon-de-<datum>-single-report.json`); jede Seite einer Website
   ueberschrieb die vorige, aus einer Sitemap mit drei Seiten blieb eine Datei. Der Name enthaelt
