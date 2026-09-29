@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.12.0"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abfad8937bc7a129aa6b23572d36e8f78d68c6b6b48cc6cb1c56eb4f0616bb27"
+checksum = "c7cc6bf61fd1894be3636357e1b992ea18e5d7e35aad10b45fe910d08301dc23"
 
 [[package]]
 name = "a11y-perception"
@@ -19,18 +19,18 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.12.0"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10fe5d9b3c61f2e2b1b4c6ace2b8ad676a35265576f402f94d7037f666a541a9"
+checksum = "d6b78e4ec62d832df1f6f531484f79e6b39cecef236d14283ca2ca2a72845e81"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.12.0"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8806d52a741b5e8ffe6b9c4b4be4f0c5f64d88abdb3509b06df55b75bea3da8b"
+checksum = "65e7e0a269b20aac8e8bb36e1f9bd1dbae4321a75f5e928792e8e72b61c3cf70"
 dependencies = [
  "a11y-dom",
  "a11y-report",
@@ -57,9 +57,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.12.0"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9977f382fdd62d07a727a0d5d8679dd4889b2a46d9890b9a3594160ad0d7660"
+checksum = "36a318b80ed86e1dd0757339febc2634b59df526174dbd316e6326e9c8e9a254"
 dependencies = [
  "a11y-dom",
 ]
@@ -338,7 +338,7 @@ checksum = "239d25181cb40f1955529367ee495e35d03aab4e578028f41e7abc8b21c367a8"
 
 [[package]]
 name = "auditmysite"
-version = "1.5.1"
+version = "1.6.0"
 dependencies = [
  "a11y-dom",
  "a11y-perception",
@@ -2499,9 +2499,9 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.2.1"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8755f1547ad4959342195d330f9d986272e8fa8a8909fa5894e6a2860e71906a"
+checksum = "561deac238454531cedaedb7af0b79cef7d85c10d1b20f691c43a53f6949fdb4"
 dependencies = [
  "csp-parse",
  "encoding_rs",
@@ -2517,9 +2517,9 @@ dependencies = [
 
 [[package]]
 name = "html5-parser"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b851f35c29d28aaba06e9b0022d2110e5339bf34b343766821e5d65dc49be2c"
+checksum = "2813e1598b78703c3339b10ee9ea6e55c41935cba69129046a13653c0c856d84"
 
 [[package]]
 name = "html5ever"

@@ -45,6 +45,8 @@ impl From<&Args> for BatchConfig {
         let pool_config = PoolConfig {
             max_pages: args.effective_concurrency(),
             browser_options: BrowserOptions {
+                // Parallel pages share one window; only then are tabs hidden.
+                focus_emulation: args.effective_concurrency() > 1,
                 chrome_path: args.chrome_path.clone(),
                 no_sandbox: args.no_sandbox,
                 disable_images: args.disable_images,

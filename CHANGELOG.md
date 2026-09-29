@@ -5,6 +5,42 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
+  (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
+  darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,
+  `a11y-dom`, `a11y-report`, `accname` 0.12.2 (Listenregeln sehen durch `<slot>`,
+  `<ul role=listbox>` ist keine Liste) und `html-conform` 0.3.1 (bringt die vnu-naeheren Pruefungen
+  aus 0.3.0 mit: `img` ohne `alt`, interaktiver Inhalt in `a`, weitere Parserfehler; dazu `name`
+  neben RDFa-`property` an `<meta>`). HTML-Konformitaetswerte koennen dadurch sinken.
+
+- **Befunde der report-lint-Pruefung ueber 120 rankinglab-Berichte, 2026-09-29:** 8 Berichte fielen
+  durch. (1) Das Quellenqualitaets-Signal „Bedienelemente benannt" zaehlte alle rohen 4.1.2- und
+  1.1.1-Verstoesse, die Lint-Pruefung alle normalisierten; seit Plan 61 tragen
+  `aria-hidden-focus` und `aria-prohibited-attr` 4.1.2 nur normalisiert, und beide Zaehlungen
+  widersprachen sich (5 Berichte). Inhaltlich waren beide zu breit: Doppelte IDs oder verbotene
+  ARIA-Attribute sind kein fehlender Name. `taxonomy::is_missing_name_or_role` ist jetzt die eine
+  Definition fuer Blocker, Signal und Lint; das Signal bildet rohe Verstoesse wie die
+  Normalisierung auf die Taxonomie ab. (2) `labels::check_link` pruefte nebenbei generische
+  Linktexte (nur englisch, ohne die Kontext-Ausnahme aus #569) und meldete dieselben Links wie
+  `link_purpose` als zweite Zeile derselben Taxonomie-Regel (deutschebahn.com 7 + 5 Vorkommen,
+  `violated_rule_count` eins zu klein, 3 Berichte). Die Nebenpruefung ist entfernt.
+
+- **Abbrueche im rankinglab-Lauf, 2026-09-29:** Von 122 rankinglab-Seiten scheiterten 7; vier
+  davon liefen mit 1.3.1 problemlos. (1) Einzelaudits mit vollem Chrome unter macOS blieben mit
+  der CDP-Fokus-Emulation aus Plan 62 zeitweise ganz stehen: www.deutschebahn.com hing in 3 von 6
+  Laeufen (jeder CDP-Befehl lief 30 s in den Timeout, der Audit ueberschritt rankinglabs
+  12-Minuten-Grenze), ohne Emulation liefen 6 von 6 in 103-128 s mit gleichen Ergebnissen. Die
+  Emulation war fuer verborgene Tabs paralleler Batch-Seiten gedacht und gilt jetzt nur dort
+  (`BrowserOptions::focus_emulation`, gesetzt bei `--concurrency` > 1). (2) Scheitert ein
+  gedrosselter Performance-Aufruf, laedt die Seite unter der CPU-Drosselung weiter; die
+  Aufraeumbefehle warteten dann je 30 s. Jetzt loest die Pipeline zuerst die CPU-Drosselung,
+  stoppt das Laden, jeder Schritt mit 5 s, und laesst die uebrigen Profile aus, wenn der Tab nicht
+  antwortet. (3) Die Vorpruefung vor dem Browserstart brach bei einem HEAD-Timeout ab:
+  www.regierung-mv.de beantwortet HEAD gar nicht (GET in 0,3 s), www.ing.de braucht 9-10 s je
+  Antwort bei fest 10 s Wartezeit. Jetzt entscheidet ein GET, und gewartet wird so lange wie
+  `-t`. Keine Fehler bei uns: www.unito.it und www.douglas.de sperren (403), www.tu-berlin.de
+  drosselte voruebergehend (429).
+
 - **Berichtsgenauigkeit nach dem Abgleich mit dem rankinglab-Korpus, 2026-09-29:** Zwei
   Berichtskritiken (gov.uk, sachsen-anhalt.de) gegen 1.3.1 fanden Fehler, die Urteil und Zahlen
   verfaelschten; jeder ist am Code bzw. an den Daten nachgeprueft. (1) Die Zusammenfuehrung von
