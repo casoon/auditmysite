@@ -1,8 +1,9 @@
 //! WCAG 2.5.8 Target Size (Minimum) (Level AA, WCAG 2.2)
 //!
 //! The size of the target for pointer inputs is at least 24 by 24 CSS pixels,
-//! except where the target is a link in a sentence or block of text, or where
-//! it is spaced so that a 24 px circle around it touches no other target.
+//! except where the target is a link in a sentence or block of text, where
+//! it is spaced so that a 24 px circle around it touches no other target, or
+//! where an equivalent link on the same page meets the minimum.
 
 use chromiumoxide::Page;
 
@@ -28,6 +29,19 @@ pub const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
 /// wrong — a skip link directly under `<body>` counted as "in running text"
 /// because the body holds the whole page, and links side by side in a `<nav>`
 /// counted each other's labels as surrounding text.
+///
+/// Also shared: the "Equivalent" exception both criteria grant, for links only
+/// (#652). An undersized link passes when another link on the page leads to
+/// the same destination and itself meets the size (`minSize`), is rendered and
+/// visible, has pointer events, and sits outside `inert` and
+/// `aria-hidden="true"` subtrees. The destination is the resolved absolute
+/// URL. For a link into another document the fragment is dropped: `/de/` and
+/// `/de/#modules` both open the start page, the fragment only sets the scroll
+/// position. For a link into the current page the fragment is kept, because
+/// scrolling to that spot is all the link does — `#a` and `#b` differ.
+/// `href=""`, `href="#"` and `javascript:` links never count — they name no
+/// destination, so equal hrefs say nothing about equal function. Buttons are
+/// out of scope: their function is not visible in the markup.
 pub(super) const TARGET_HELPERS_JS: &str = r#"
 function isInlineInText(el) {
   if (getComputedStyle(el).display !== 'inline') return false;
@@ -48,12 +62,46 @@ function isInlineInText(el) {
   return text.replace(/\s+/g, '').length > 0;
 }
 
+var linksByHref = null;
+function linkDestination(el) {
+  if (el.tagName !== 'A' || !el.hasAttribute('href')) return null;
+  var raw = el.getAttribute('href').trim();
+  if (raw === '' || raw === '#' || /^javascript:/i.test(raw)) return null;
+  var doc = el.href.split('#')[0];
+  return doc === location.href.split('#')[0] ? el.href : doc;
+}
+function hasEquivalentLink(el, minSize) {
+  var dest = linkDestination(el);
+  if (!dest) return false;
+  if (!linksByHref) {
+    linksByHref = {};
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var d = linkDestination(links[i]);
+      if (d) (linksByHref[d] = linksByHref[d] || []).push(links[i]);
+    }
+  }
+  var same = linksByHref[dest] || [];
+  for (var k = 0; k < same.length; k++) {
+    var o = same[k];
+    if (o === el || o.contains(el) || el.contains(o)) continue;
+    if (o.closest('[inert], [aria-hidden="true"]')) continue;
+    if (!o.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+    if (getComputedStyle(o).pointerEvents === 'none') continue;
+    var r = o.getBoundingClientRect();
+    if (r.right + window.scrollX <= 0 || r.bottom + window.scrollY <= 0) continue;
+    if (r.width >= minSize && r.height >= minSize) return true;
+  }
+  return false;
+}
+
 "#;
 
 /// Undersized targets pass when the spacing exception holds: a 24 px circle
 /// centred on the target intersects no other target and no other undersized
 /// target's circle. Before, every lone small button and every link in running
-/// text was reported — neither is a 2.5.8 failure.
+/// text was reported — neither is a 2.5.8 failure. Undersized links also pass
+/// when an equivalent same-destination link meets 24×24 (`hasEquivalentLink`).
 const TARGET_SIZE_JS: &str = r#"
 (function() {
   var MIN_SIZE = 24;
@@ -92,7 +140,7 @@ const TARGET_SIZE_JS: &str = r#"
   var violations = [];
   for (var j = 0; j < targets.length && violations.length < 5; j++) {
     var t = targets[j];
-    if (!t.small || isInlineInText(t.el) || spaced(t)) continue;
+    if (!t.small || isInlineInText(t.el) || spaced(t) || hasEquivalentLink(t.el, MIN_SIZE)) continue;
     var el = t.el;
     var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
     violations.push({

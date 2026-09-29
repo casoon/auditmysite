@@ -901,6 +901,51 @@ async fn test_label_in_name_false_positives() {
     );
 }
 
+/// #652: an undersized link passes 2.5.8 and 2.5.5 when another visible,
+/// non-inert, non-aria-hidden link to the same destination meets the size
+/// ("Equivalent" exception). A fragment into another document is ignored, one
+/// into the current page is not. Hidden, undersized and `href="#"` equivalents
+/// do not count.
+#[tokio::test]
+#[ignore]
+async fn test_target_size_equivalent_link_exception() {
+    let (url, shutdown) = serve_fixture("detection_corpus/target_size_equivalent.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let minimum = auditmysite::wcag::rules::check_target_size_minimum_with_page(&page).await;
+    let enhanced = auditmysite::wcag::rules::check_target_size_enhanced_with_page(&page).await;
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let selectors = |findings: &[auditmysite::Violation]| -> Vec<String> {
+        findings.iter().filter_map(|v| v.selector.clone()).collect()
+    };
+    assert_eq!(
+        selectors(&minimum),
+        [
+            "a#hidden-only",
+            "a#both-small",
+            "a#no-eq",
+            "a#page-fragment",
+            "a#hash"
+        ],
+        "2.5.8 findings: {minimum:?}"
+    );
+    let enhanced_selectors = selectors(&enhanced);
+    assert!(
+        !enhanced_selectors.contains(&"a#eq-small".to_string())
+            && enhanced_selectors.contains(&"a#hidden-only".to_string())
+            && enhanced_selectors.contains(&"a#no-eq".to_string()),
+        "2.5.5 findings: {enhanced:?}"
+    );
+}
+
 #[tokio::test]
 #[ignore]
 async fn test_design_quality_module_findings_and_score_isolation() {

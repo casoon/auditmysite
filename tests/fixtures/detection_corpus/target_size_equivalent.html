@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Target size equivalent-link corpus case</title>
+    <style>
+        .tight { display: flex; gap: 0; }
+        .tight a { display: block; width: 16px; overflow: hidden; font-size: 10px; line-height: 10px; padding: 0; margin: 0; }
+        .big { display: block; width: 48px; height: 48px; margin: 48px 0; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Undersized links and their same-destination equivalents</h1>
+        <!-- Tightly packed 16x10 px links: their 24 px circles overlap, and they are no inline text,
+             so neither the spacing nor the inline exception applies. -->
+        <nav class="tight" aria-label="Compact">
+            <!-- pass: a visible 48x48 link to the same destination exists below (Equivalent exception) -->
+            <a id="eq-small" href="/home">Home</a>
+            <!-- violation: every other same-destination link is aria-hidden, inert, invisible or off-screen -->
+            <a id="hidden-only" href="/about">About</a>
+            <!-- violation: the only other same-destination link is undersized as well -->
+            <a id="both-small" href="/contact">Contact</a>
+            <!-- violation: no other link leads to this destination -->
+            <a id="no-eq" href="/imprint">Imprint</a>
+            <!-- pass: the large link opens the same other document; its fragment only scrolls -->
+            <a id="doc-fragment" href="/guide#setup">Setup</a>
+            <!-- violation: in-page links, the fragment is the whole function and differs -->
+            <a id="page-fragment" href="#setup">Setup here</a>
+            <!-- violation: href="#" names no destination, so equal hrefs prove nothing -->
+            <a id="hash" href="#">Top</a>
+        </nav>
+
+        <a id="eq-large" class="big" href="/home">Home</a>
+
+        <div aria-hidden="true"><a class="big" href="/about" tabindex="-1">About</a></div>
+        <div inert><a class="big" href="/about">About</a></div>
+        <a class="big" href="/about" style="visibility:hidden">About</a>
+        <a class="big" href="/about" style="position:absolute;left:-9999px;top:0">About</a>
+
+        <a class="big" href="/guide#faq">Guide FAQ</a>
+        <a class="big" href="#faq">FAQ here</a>
+        <a class="big" href="#">Back to top</a>
+
+        <!-- The other /contact link: spaced, but itself below 24x24, so it is no equivalent -->
+        <p style="margin:48px 0;"><a id="contact-lone" href="/contact" style="display:inline-block;font-size:10px;line-height:10px;">Contact</a></p>
+    </main>
+</body>
+</html>

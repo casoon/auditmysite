@@ -5,6 +5,31 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
+  Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
+  auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
+  (`/atmosphere/de/kapitel/hebel/`) galt die 39×10 px kleine Absenderzeile des Modul-Logos
+  (`a.logo-main`, `href="/de/"`) als Verstoss, obwohl der Footer-Link „Alle Sphaeren im Ueberblick"
+  (`/de/#modules`, 141×161 px) dieselbe Startseite oeffnet. Jetzt besteht ein zu kleiner Link, wenn
+  ein anderer Link mit demselben Ziel mindestens 24×24 (2.5.5: 44×44) misst, gerendert und sichtbar
+  ist (`checkVisibility` inkl. `visibility`/`opacity`, nicht links/oberhalb der Seite verschoben),
+  Pointer-Events hat und nicht in einem `inert`- oder `aria-hidden="true"`-Teilbaum liegt.
+
+  Das Ziel ist die aufgeloeste absolute URL. Fuehrt der Link in ein anderes Dokument, zaehlt das
+  Fragment nicht — `/de/` und `/de/#modules` oeffnen dieselbe Seite, das Fragment setzt nur die
+  Scrollposition. Fuehrt er in die aktuelle Seite, zaehlt es: dort ist das Springen an die Stelle
+  die ganze Funktion, `#a` und `#b` sind verschieden. `href=""`, `href="#"` und `javascript:`
+  zaehlen nie — sie nennen kein Ziel. Ein ebenfalls zu kleiner Link ist kein Aequivalent, auch wenn
+  er selbst ueber die Abstands-Ausnahme besteht (bewusst konservativ). Buttons bleiben aussen vor,
+  ihre Funktion steht nicht im Markup. Der Baustein `hasEquivalentLink` liegt in
+  `TARGET_HELPERS_JS`, beide Regeln nutzen ihn. Die Regel fuehrt keine Pass-Liste, daher wird das
+  ausgleichende Element nicht vermerkt.
+
+  Neue Korpus-Fixture `target_size_equivalent` (besteht: kleiner Link mit grossem Aequivalent,
+  auch mit anderem Fragment in ein anderes Dokument; Verstoss: nur versteckte/inerte/unsichtbare/
+  verschobene Aequivalente, nur zu kleine, anderes Fragment in die eigene Seite, `href="#"`, ohne
+  Aequivalent) und ein Integrationstest, der beide Regeln direkt aufruft.
+
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen
   darunter). Abhaengigkeiten auf die dabei veroeffentlichten Stande gehoben: `a11y-rules`,
