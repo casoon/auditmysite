@@ -139,7 +139,10 @@ src/
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   ├── pdf/             # PDF reports (via renderreport/Typst)
-│   │   ├── mod.rs, single_report.rs, batch_report.rs, batch_report/
+│   │   ├── mod.rs, single_report.rs, batch_report.rs
+│   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
+│   │   │                 # management, portfolio, interactive, actions, seo,
+│   │   │                 # consistency, appendix (crawl links, commerce)
 │   │   ├── cover.rs, findings.rs, wcag_coverage.rs, en301549.rs
 │   │   ├── diagnosis.rs, appendix.rs, design.rs (4-color law)
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
