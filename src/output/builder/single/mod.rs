@@ -35,8 +35,6 @@ use super::helpers::{
     localized_report_subtitle, localized_report_title,
 };
 
-/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
-/// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
 /// Names the measurements that hit the stability budget, with what they were
 /// still seeing when it ran out.
 ///
@@ -87,6 +85,9 @@ fn exhausted_stability_measurements(
     parts.join(", ")
 }
 
+/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
+/// Cached audits take the same path: the stored report is rehydrated first
+/// (`audit::hydrate_cached_report`) and then rendered through this function.
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let localized;
     let normalized = if config.locale != "en" && !normalized.raw_wcag.localized_texts.is_empty() {
