@@ -70,26 +70,28 @@
 //!
 //! ## Modules
 //!
-//! - [`browser`]: Chrome/Chromium detection and management
-//! - [`accessibility`]: Accessibility Tree extraction and structures
-//! - [`wcag`]: WCAG rule checking engine
-//! - [`audit`]: Audit pipeline and reporting
-//! - [`output`]: Report formatters (JSON, table, PDF)
-//! - [`cli`]: Command-line interface
-//! - [`error`]: Error types
+//! - Browser and capture: [`browser`], [`accessibility`] (AXTree extraction),
+//!   [`interaction`], [`a11y_journey`]
+//! - Accessibility checks: [`wcag`] (rule engine), [`screen_reader`],
+//!   [`html_conform`], [`patterns`]
+//! - Further analysis modules: [`performance`], [`seo`], [`security`],
+//!   [`mobile`], [`best_practices`], [`dark_mode`], [`design_quality`],
+//!   [`journey`], [`ux`], [`content_visibility`], [`ai_visibility`],
+//!   [`ai_transparency`], [`source_quality`], [`tech_stack`], [`commerce`],
+//!   [`network`]
+//! - Orchestration and scoring: [`audit`] (pipeline, batch, normalization),
+//!   [`taxonomy`], [`assessment`], [`registry`]
+//! - Output: [`output`] (JSON, table, PDF), [`lint`] (report-lint),
+//!   [`studio`] (types shared with auditmysite_studio), [`i18n`]
+//! - Entry points and support: [`cli`], [`error`], [`util`]
 //!
-//! ## WCAG Rules Implemented
+//! See `docs/ARCHITECTURE.md` for the full module structure.
 //!
-//! | Code | Name | Level |
-//! |------|------|-------|
-//! | 1.1.1 | Non-text Content | A |
-//! | 1.4.3 | Contrast (Minimum) | AA |
-//! | 2.1.1 | Keyboard | A |
-//! | 2.4.1 | Bypass Blocks | A |
-//! | 2.4.4 | Link Purpose (In Context) | A |
-//! | 2.4.6 | Headings and Labels | AA |
-//! | 3.3.2 | Labels or Instructions | A |
-//! | 4.1.2 | Name, Role, Value | A |
+//! ## WCAG coverage
+//!
+//! Which WCAG 2.2 A/AA criteria are automated and which need manual review is
+//! frozen in the
+//! [parity contract](https://github.com/casoon/auditmysite/blob/main/docs/PARITY_CONTRACT.md).
 
 pub mod a11y_journey;
 pub mod accessibility;

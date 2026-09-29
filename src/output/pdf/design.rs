@@ -37,18 +37,13 @@ pub mod tokens {
     pub const NEUTRAL: &str = "#475569";
     /// Faint text / captions.
     pub const MUTED: &str = "#94a3b8";
-    #[allow(dead_code)]
-    /// Hairline borders and dividers.
-    pub const BORDER: &str = "#e2e8f0";
-    #[allow(dead_code)]
-    /// Subtle card / panel background.
-    pub const SURFACE: &str = "#f8fafc";
 }
 
 /// Map a 0–100 score to its status hue, aligned with the report's grade bands
 /// (`Gut`/`Sehr gut` ≥ 75 → green, `Verbesserungswürdig`/`Ausbaufähig` 40–74 →
-/// orange, `Kritisch` < 40 → red). This is the only place score thresholds for
-/// color live.
+/// orange, `Kritisch` < 40 → red). Not the only score-colour mapping: the
+/// module quality bands in `pdf/helpers.rs` (`score_quality_color`,
+/// 70/50) use their own thresholds.
 pub fn score_color(score: u8) -> &'static str {
     match score {
         75..=100 => tokens::SUCCESS,

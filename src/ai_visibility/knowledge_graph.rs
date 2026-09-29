@@ -33,7 +33,7 @@ pub struct GraphEntity {
     /// Source of extraction
     pub source: EntitySource,
     /// Additional properties extracted
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub properties: Vec<(String, String)>,
 }
 
