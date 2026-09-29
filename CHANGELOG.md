@@ -5,6 +5,11 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **`--per-page-reports`: eine Datei je Seite, 2026-09-29:** Die Dateinamen der Einzelberichte
+  kamen nur aus dem Host (`casoon-de-<datum>-single-report.json`); jede Seite einer Website
+  ueberschrieb die vorige, aus einer Sitemap mit drei Seiten blieb eine Datei. Der Name enthaelt
+  jetzt Host und Pfad (`casoon-de-arbeitsweise-…`), bei Query-Strings einen kurzen stabilen Hash.
+  Gilt fuer alle Formate; Einzelaudits ohne `--per-page-reports` behalten ihren Namen.
 - **Zwei Fehlalarme auf geographia.eu (#638, #639), 2026-09-29:** Auf
   geographia.eu/atmosphere/de/kapitel/hebel/ meldete 1.6.0 zwei Verstoesse gegen 1.3.1, die keine
   sind. (1) `th-has-data-cells` (8 Vorkommen, hoch): Chrome legt `<thead>` als `rowgroup` in den

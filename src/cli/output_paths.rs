@@ -123,12 +123,14 @@ pub fn per_page_output_path(
     base_dir: &Path,
     url: &str,
     format: OutputFormat,
-    report_level: ReportLevel,
+    _report_level: ReportLevel,
 ) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
-    let subject = report_subject_from_url(url);
+    // Host and path: every page of one site shares the host, and with the
+    // host alone each page overwrote the previous one's file.
+    let subject = page_subject_from_url(url);
     let filename = match format {
-        OutputFormat::Pdf => default_single_pdf_output_path(url, report_level),
+        OutputFormat::Pdf => PathBuf::from(format!("{subject}-{date}-single-report.pdf")),
         OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
         OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
         OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
@@ -165,6 +167,47 @@ pub fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
         .unwrap_or("");
     let subject = report_subject_from_url(source_url);
     PathBuf::from(format!("{subject}-{date}-{kind}-report.pdf"))
+}
+
+/// File-name subject for one page of a site: host and path as a slug
+/// (`casoon-de-blog-post`), plus a short hash of the query string when there
+/// is one, so two pages never share a file name.
+pub fn page_subject_from_url(url: &str) -> String {
+    let host = report_subject_from_url(url);
+    let Ok(parsed) = url::Url::parse(url) else {
+        return host;
+    };
+    let path = slugify(parsed.path());
+    let mut subject = if path.is_empty() {
+        host
+    } else {
+        format!("{host}-{path}")
+    };
+    if let Some(query) = parsed.query().filter(|q| !q.is_empty()) {
+        // FNV-1a: stable across builds, unlike `DefaultHasher`.
+        let hash = query.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)
+        });
+        subject.push_str(&format!("-q{:08x}", hash as u32));
+    }
+    subject
+}
+
+fn slugify(text: &str) -> String {
+    let slug: String = text
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    slug.split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 /// Derive a filename-safe domain slug from a URL (e.g. `"casoon.de"`).
