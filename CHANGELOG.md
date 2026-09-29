@@ -16,10 +16,15 @@ short current-state summary. Newest entries first (unchanged order from before t
   die Rolle aus dem Tag ab und machte jedes `<header>` zum `banner`, auch das Kapitel-`<header>`
   in `<main>`. Nach HTML-AAM (und in Chromes AX-Baum) sind `<header>`/`<footer>` in `article`,
   `aside`, `main`, `nav`, `section` oder den entsprechenden Rollen generisch; die DOM-Ergaenzung
-  folgt dem jetzt. Belegt am Live-Lauf: beide Befunde weg, die uebrigen vier unveraendert,
+  folgt dem jetzt. Dasselbe galt fuer `<aside>`: Innerhalb von `article`, `aside`, `nav` oder
+  `section` (bzw. den Rollen `article`, `complementary`, `navigation`) ist es nur mit
+  zugaenglichem Namen `complementary`, sonst generisch; `role=region` zaehlt dabei nicht, ein
+  unbenanntes `<section>` schon (so rechnet Chrome). Die DOM-Ergaenzung beruecksichtigt dafuer
+  auch `title` als Namen. Belegt am Live-Lauf: beide Befunde weg, die uebrigen vier unveraendert,
   Barrierefreiheitswert 75 auf 85. Neue Korpusfaelle `table_headers_tbody_ignored` und
-  `landmark_header_in_main` (echte Negative); `table_headers_no_data` und `landmark_granular`
-  sichern die echten Positive.
+  `landmark_header_in_main`, `landmark_aside_scoping` (echte Negative) und
+  `landmark_aside_named_duplicate` (echtes Positiv); `table_headers_no_data` und
+  `landmark_granular` sichern die bisherigen echten Positive.
 
 - **1.6.0, 2026-09-29:** Sammelversion der Stabilitaets- und Genauigkeitsarbeit seit 1.5.1
   (Plaene 58-65, Sperrseiten, Abgleich mit dem rankinglab-Korpus; Einzelheiten in den Eintraegen

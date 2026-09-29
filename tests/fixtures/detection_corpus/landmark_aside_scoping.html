@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Aside scoping corpus case</title>
+</head>
+<body>
+    <!-- HTML-AAM: an aside inside article/aside/nav/section is complementary
+         only with an accessible name; otherwise it is generic. So this page
+         has exactly two complementary landmarks: the unnamed top-level aside
+         and the named aside inside the article, with distinct names. -->
+    <main>
+        <h1>Aside scoping</h1>
+        <article>
+            <h2>Article with a note</h2>
+            <p>Article text.</p>
+            <aside>Unnamed aside in an article (generic)</aside>
+            <aside aria-label="Related reading">Named aside in an article (complementary)</aside>
+        </article>
+        <section aria-label="Background">
+            <p>Section text.</p>
+            <aside>Unnamed aside in a section (generic)</aside>
+        </section>
+    </main>
+    <aside>Unnamed top-level aside (complementary)</aside>
+</body>
+</html>

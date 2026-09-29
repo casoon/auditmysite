@@ -505,7 +505,7 @@ pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
             }).join(' ').trim();
             if (text) return text;
           }
-          return '';
+          return (el.getAttribute('title') || '').trim();
         }
         // HTML-AAM: header/footer map to banner/contentinfo only when scoped
         // to body; inside sectioning content or main they are generic, as in
@@ -513,11 +513,20 @@ pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
         var SECTIONING_SCOPE =
           'article, aside, main, nav, section, [role="article"], [role="complementary"], ' +
           '[role="main"], [role="navigation"], [role="region"]';
+        // HTML-AAM: an aside inside sectioning content is complementary only
+        // when it has an accessible name, otherwise generic. Scope as Chrome
+        // computes it: role=region does not count, an unnamed <section> does.
+        var ASIDE_SCOPE =
+          'article, aside, nav, section, [role="article"], [role="complementary"], ' +
+          '[role="navigation"]';
         function implicitRole(el) {
           var tag = el.tagName.toLowerCase();
           if (tag === 'main') return 'main';
           if (tag === 'nav') return 'navigation';
-          if (tag === 'aside') return 'complementary';
+          if (tag === 'aside') {
+            if (el.parentElement && el.parentElement.closest(ASIDE_SCOPE) && !nameFor(el)) return '';
+            return 'complementary';
+          }
           if (tag === 'header' || tag === 'footer') {
             if (el.parentElement && el.parentElement.closest(SECTIONING_SCOPE)) return '';
             return tag === 'header' ? 'banner' : 'contentinfo';
