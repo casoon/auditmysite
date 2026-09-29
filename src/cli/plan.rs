@@ -96,11 +96,13 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
             if args.also_json || args.output.is_none() {
                 outputs.push(default_single_json_output_path(&path).display().to_string());
             }
-            outputs.push(
-                default_screen_reader_json_output_path(&path)
-                    .display()
-                    .to_string(),
-            );
+            if !args.no_screen_reader_report {
+                outputs.push(
+                    default_screen_reader_json_output_path(&path)
+                        .display()
+                        .to_string(),
+                );
+            }
             outputs
         }
         OutputFormat::Json
@@ -116,11 +118,13 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
                 .output
                 .clone()
                 .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
-            outputs.push(
-                default_screen_reader_json_output_path(&primary_path)
-                    .display()
-                    .to_string(),
-            );
+            if !args.no_screen_reader_report {
+                outputs.push(
+                    default_screen_reader_json_output_path(&primary_path)
+                        .display()
+                        .to_string(),
+                );
+            }
             outputs
         }
     }
@@ -128,7 +132,13 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
 
 pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
     if args.per_page_reports {
-        return vec![format!("{}/*", per_page_output_directory(args).display())];
+        let dir = per_page_output_directory(args);
+        let mut outputs = vec![format!("{}/*", dir.display())];
+        if args.effective_format() == OutputFormat::Json {
+            outputs.push(dir.join("index.json").display().to_string());
+            outputs.push(dir.join("findings.jsonl").display().to_string());
+        }
+        return outputs;
     }
     match args.effective_format() {
         OutputFormat::Pdf => {
@@ -182,6 +192,42 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
         let expected = "Accessibility, Accessibility Journey, Best Practices, Dark Mode, HTML Conformance, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, Commerce, UX, Source Quality, Content Visibility".to_string();
         assert_eq!(active_modules_label(&args), expected);
+    }
+
+    #[test]
+    fn planned_batch_outputs_per_page_json_lists_the_aggregates() {
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "--url-file",
+            "urls.txt",
+            "--technician",
+            "-o",
+            "out/tech",
+        ]);
+        args.apply_technician_preset();
+        assert_eq!(
+            planned_batch_outputs(&args),
+            vec![
+                "out/tech/*".to_string(),
+                "out/tech/index.json".to_string(),
+                "out/tech/findings.jsonl".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn planned_single_outputs_skip_the_sidecar_when_suppressed() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "-f",
+            "json",
+            "--no-screen-reader-report",
+        ]);
+        assert_eq!(
+            planned_single_outputs(&args, "https://example.com"),
+            vec!["stdout"]
+        );
     }
 
     #[test]

@@ -145,6 +145,7 @@ fn test_batch_summary_states_attempted_url_count() {
         vec![crate::audit::BatchError {
             url: "https://example.com/b".to_string(),
             error: "Browser pool timeout: no page available after 615 seconds".to_string(),
+            blocked_reason: None,
         }],
         200,
     );

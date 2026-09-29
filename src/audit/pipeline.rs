@@ -486,7 +486,7 @@ impl PipelineConfig {
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             check_dark_mode: true,
             check_design_quality: args.design_quality,
-            check_html_conform: full_audit,
+            check_html_conform: full_audit || args.html_conform,
             // Single-URL mode only (`args.url.is_some()`, same condition as
             // `capture_element_evidence`) — a batch run would fetch+parse
             // every image on every page only to have `build_batch_detail()`
@@ -2609,6 +2609,11 @@ mod tests {
             no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
+            include_path: Vec::new(),
+            exclude_path: Vec::new(),
+            no_screen_reader_report: false,
+            html_conform: false,
+            technician: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
@@ -2675,6 +2680,45 @@ mod tests {
             "Source Quality",
         ];
         assert_eq!(config.active_module_labels(), expected);
+    }
+
+    #[test]
+    fn technician_preset_runs_only_fixable_finding_modules() {
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+            "--technician",
+        ]);
+        args.apply_technician_preset();
+        let config = PipelineConfig::from_args_and_config(&args, None);
+        assert!(!config.full_audit);
+        assert!(!config.check_performance, "no throttled performance passes");
+        assert!(!config.check_mobile);
+        assert!(!config.check_security);
+        assert!(!config.check_stack);
+        assert!(config.check_seo);
+        assert!(config.check_html_conform);
+        let labels = config.active_module_labels();
+        assert!(labels.contains(&"Accessibility"));
+        assert!(labels.contains(&"HTML Conformance"));
+        assert!(labels.contains(&"SEO"));
+        assert!(!labels.contains(&"Performance"));
+        assert!(!labels.contains(&"Best Practices"));
+        assert!(!labels.contains(&"Tech Stack"));
+    }
+
+    #[test]
+    fn html_conform_flag_enables_the_module_without_full() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
+        assert!(!PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--seo",
+            "--html-conform",
+        ]);
+        assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
     }
 
     fn test_pipeline_config() -> PipelineConfig {

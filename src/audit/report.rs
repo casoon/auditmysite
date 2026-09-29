@@ -721,8 +721,10 @@ pub struct SampleMetadata {
     /// The `--max-pages` limit, when one capped the audited set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_limit: Option<usize>,
-    /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order)
-    /// or `"all"` when every discovered URL was audited.
+    /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order),
+    /// `"all"` when every discovered URL was audited, or `"path_filter"` when
+    /// `--include-path`/`--exclude-path` narrowed the set (then possibly also
+    /// capped by `sample_limit`, in discovery order).
     pub selection: String,
     /// True when fewer URLs were audited than discovered — i.e. this is a sample,
     /// not full coverage.
@@ -897,6 +899,12 @@ pub struct BatchError {
     pub url: String,
     /// Error message
     pub error: String,
+    /// Set when the page was a bot wall, challenge or access denial rather
+    /// than the site's content (`AuditError::AccessBlocked`): why it counts as
+    /// blocked. Lets per-page consumers tell "blocked" from "failed" without
+    /// parsing `error` (plan 67). Not part of the batch JSON contract.
+    #[serde(skip)]
+    pub blocked_reason: Option<String>,
 }
 
 /// One WCAG rule that recurred across multiple pages in a batch audit.
