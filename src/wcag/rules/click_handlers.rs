@@ -48,8 +48,8 @@ const CLICK_HANDLERS_JS: &str = r#"
       const tabindex = el.getAttribute('tabindex');
       const focusable = tabindex !== null && parseInt(tabindex, 10) >= 0;
       if (focusable) continue;
-      findings.push(__amsCssSelector(el));
-      if (findings.length >= 10) break;
+      __amsPush(findings, el, __amsCssSelector(el), 10);
+      if (__amsReal(findings) >= 10) break;
     }
   } catch(e) {}
   return { count: findings.length, selectors: findings };

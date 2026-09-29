@@ -99,7 +99,7 @@ const MEANINGFUL_SEQUENCE_JS: &str = r#"
     return s;
   }
 
-  for (var c = 0; c < containers.length && results.length < 5; c++) {
+  for (var c = 0; c < containers.length && __amsReal(results) < 5; c++) {
     var container = containers[c];
     var cs = getComputedStyle(container);
     if (cs.display !== 'flex' && cs.display !== 'inline-flex') continue;
@@ -119,10 +119,10 @@ const MEANINGFUL_SEQUENCE_JS: &str = r#"
     }
     if (children.length < 2) continue;
 
-    results.push({
+    __amsPush(results, container, {
       selector: __amsCssSelector(container),
       children: children
-    });
+    }, 5);
   }
 
   return { results: results };

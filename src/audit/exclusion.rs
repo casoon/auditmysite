@@ -220,7 +220,47 @@ pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope 
         }
     }
     scope.matches = matches;
+    install_in_page_marker(page, &scope).await;
     scope
+}
+
+/// Expose the excluded subtree roots to the page's own rule scripts as
+/// `window.__amsIsExcluded(el)`, so capped JavaScript rules do not spend
+/// their cap on excluded elements (see `CSS_SELECTOR_JS`). The roots live in
+/// a closure-held `WeakSet` — no DOM attribute is written, so no other rule
+/// sees a changed document. The marker lives until the next navigation; each
+/// viewport pass reloads the page and installs it afresh.
+async fn install_in_page_marker(page: &Page, scope: &ExclusionScope) {
+    let active = scope.active_selectors();
+    if active.is_empty() {
+        return;
+    }
+    let js = format!(
+        r#"(function(excl) {{
+  var roots = new WeakSet();
+  excl.forEach(function(s) {{
+    try {{ document.querySelectorAll(s).forEach(function(el) {{ roots.add(el); }}); }} catch (e) {{}}
+  }});
+  var isExcluded = function(el) {{
+    var cur = el;
+    while (cur) {{
+      if (roots.has(cur)) return true;
+      if (cur.parentElement) {{ cur = cur.parentElement; continue; }}
+      var root = cur.getRootNode ? cur.getRootNode() : null;
+      cur = (root && root.host) ? root.host : null;
+    }}
+    return false;
+  }};
+  Object.defineProperty(window, '__amsIsExcluded', {{
+    value: isExcluded, configurable: true, writable: true, enumerable: false
+  }});
+  return true;
+}})({})"#,
+        serde_json::to_string(&active).unwrap_or_else(|_| "[]".to_string())
+    );
+    if let Err(e) = page.evaluate(js).await {
+        warn!("Exclusion: installing the in-page marker failed: {e}");
+    }
 }
 
 /// Match count per selector; `None` for a selector the browser rejects.
@@ -283,10 +323,15 @@ fn collect_subtree(node: &CdpNode, out: &mut HashSet<i64>) {
 enum Locator<'a> {
     Backend(i64),
     Selector(&'a str),
+    /// The rule's own script found the element inside an excluded subtree.
+    MarkedInPage,
     PageLevel,
 }
 
 fn locate<'a>(finding: &'a Violation, ax_tree: &AXTree) -> Locator<'a> {
+    if finding.in_excluded_subtree {
+        return Locator::MarkedInPage;
+    }
     if let Some(id) = finding.backend_node_id.or_else(|| {
         ax_tree
             .get_node(&finding.node_id)
@@ -297,6 +342,20 @@ fn locate<'a>(finding: &'a Violation, ax_tree: &AXTree) -> Locator<'a> {
     match finding.selector.as_deref().map(str::trim) {
         Some(sel) if !sel.is_empty() => Locator::Selector(sel),
         _ => Locator::PageLevel,
+    }
+}
+
+impl ExclusionScope {
+    /// Decide without asking the page: true for a finding located — by
+    /// backend node id or by its rule's in-page mark — inside an excluded
+    /// subtree. Selector-only findings answer false here; they go through
+    /// [`filter_findings`].
+    pub fn excludes_located(&self, finding: &Violation, ax_tree: &AXTree) -> bool {
+        match locate(finding, ax_tree) {
+            Locator::Backend(id) => self.contains(id),
+            Locator::MarkedInPage => true,
+            Locator::Selector(_) | Locator::PageLevel => false,
+        }
     }
 }
 
@@ -313,6 +372,7 @@ fn partition_findings(
         .partition(|f| match locate(f, ax_tree) {
             Locator::Backend(id) => !scope.contains(id),
             Locator::Selector(sel) => !selector_inside.get(sel).copied().unwrap_or(false),
+            Locator::MarkedInPage => false,
             Locator::PageLevel => true,
         })
 }

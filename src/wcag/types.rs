@@ -99,6 +99,12 @@ pub struct Violation {
     /// Used to honour audit exclusions (#645). In-memory only.
     #[serde(skip)]
     pub backend_node_id: Option<i64>,
+    /// Set by a page rule whose own script found the element inside an
+    /// excluded subtree (`__amsIsExcludedEl`), for findings whose selector is
+    /// not a locatable CSS path. Honoured by the exclusion filter (#645).
+    /// In-memory only.
+    #[serde(skip)]
+    pub in_excluded_subtree: bool,
 }
 
 impl Violation {
@@ -135,6 +141,7 @@ impl Violation {
             evidence_screenshot: None,
             evidence_viewport: None,
             backend_node_id: None,
+            in_excluded_subtree: false,
         }
     }
 

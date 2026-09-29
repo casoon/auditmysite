@@ -17,8 +17,9 @@ short current-state summary. Newest entries first (unchanged order from before t
   Umsetzung (`src/audit/exclusion.rs`): je Viewport-Durchgang zaehlt ein `Runtime.evaluate` die
   Treffer jedes Selektors (ungueltige Selektoren werden erkannt); nur bei Treffern holt
   `DOM.getDocument` + `DOM.querySelectorAll` die Backend-Node-IDs aller Knoten der getroffenen
-  Teilbaeume (inkl. Shadow Roots, Frame- und Template-Inhalt). Gefiltert wird am Ende von
-  `run_rules`, vor Anreicherung und Element-Screenshots: Befunde aus dem AX-Baum ueber die
+  Teilbaeume (inkl. Shadow Roots, Frame- und Template-Inhalt). Gefiltert wird je Regel in
+  `run_rules`, bevor ihr Ausfuehrungsvermerk gezaehlt wird, und vor Anreicherung und
+  Element-Screenshots: Befunde aus dem AX-Baum ueber die
   Backend-ID ihres AX-Knotens, Befunde der geteilten DOM-Regeln ueber die neu mitgefuehrte
   Backend-ID (`Violation::backend_node_id`, nur im Speicher; gesetzt im Adapter
   `wcag/shared.rs`, am Regelcode von barrierlab aendert sich nichts), JavaScript-Seitenregeln,
@@ -35,16 +36,52 @@ short current-state summary. Newest entries first (unchanged order from before t
   eingebauten Selektor mit 0 Treffern. Cache-Format 19; die Selektoren gehen in die
   Audit-Signatur ein.
 
-  Nicht abgedeckt: `rule_outcomes[].findings` zaehlt weiter die Regelausgabe vor dem Ausschluss
-  (im Schema dokumentiert). JavaScript-Regeln mit eigener Obergrenze an Fundstellen (etwa 10 bei
-  `click-events-have-key-events`) zaehlen Beispiele vor dem Filter mit, sodass bei sehr vielen
-  Beispiel-Treffern echte Treffer jenseits der Obergrenze fehlen koennen.
+  Obergrenzen der JavaScript-Regeln: Viele Seitenregeln melden hoechstens N Fundstellen (10 bei
+  `click-events-have-key-events`, 20 bei `link-as-button`, 250 bei den ARIA-Regeln, 5 bei
+  Zielgroesse, verdeckt fokussierten Elementen, Sprachwechseln u. a.). Ohne Gegenmassnahme haetten
+  Beispiel-Treffer die Obergrenze aufgebraucht und echte Treffer dahinter still verschwinden
+  lassen — genau das, was die Funktion ausschliessen soll. Deshalb legt der Ausschluss-Schritt je
+  Durchgang `window.__amsIsExcluded(el)` in die Seite (die getroffenen Wurzeln in einem
+  `WeakSet` im Closure, kein DOM-Attribut, keine fuer andere Regeln sichtbare Aenderung). Der
+  gemeinsame Baustein `CSS_SELECTOR_JS`, den jede lokalisierende Regel einbindet, bringt
+  `__amsIsExcludedEl`, `__amsPush` und `__amsReal` mit: Echte und ausgeschlossene Treffer werden
+  getrennt gedeckelt, die Schleifengrenze liest nur die echten. Ausgeschlossene Treffer kommen
+  weiter zurueck und werden wie alle anderen gefiltert und gezaehlt (je Regel hoechstens bis zur
+  selben Obergrenze). Umgestellt: `aria_allowed_attr`, `aria_hidden_focus` (deren Gesamtzahl
+  zaehlt Ausgeschlossene nicht mehr mit), `aria_relationships`, `aria_roles` (2),
+  `aria_required_attr`, `image_input_rules`, `on_focus`, `on_input`, `server_side_image_map`,
+  `table_extended`, `widget_rules`, `click_handlers`, `content_on_hover`, `fake_navigation_link`,
+  `redundant_role`, `use_of_color`, `language_of_parts`, `meaningful_sequence`,
+  `target_size_minimum`/`_enhanced` (auch die Kandidatenlisten), `focus_not_obscured_minimum`/
+  `_enhanced` (Fokus-Kandidaten, die 60 geprueften Bedienelemente, die 5 Befunde),
+  `pause_stop_hide` (Widgets; die seitenweite Animations-Meldung ignoriert ausgeschlossene
+  Elemente ganz) und `accessible_authentication` (Obergrenze von Rust ins Skript verlegt).
+  `identify_purpose` meldet einen Feldnamen statt eines CSS-Pfads — das Skript markiert
+  ausgeschlossene Felder selbst (`Violation::in_excluded_subtree`, nur im Speicher), die
+  Obergrenze 5 gilt getrennt. Kontrast: Text in ausgeschlossenen Teilbaeumen belegt keinen der 60
+  Plaetze fuer die Pixelprobe mehr.
+
+  `rule_outcomes[].findings` zaehlt jetzt, was im Bericht steht: Die Baum-Regeln filtern je Regel
+  in `wcag::check_all_excluding` (neu; `check_all_with_config` bleibt als Huelle), die
+  Seitenregeln, Kontrast und HTML-Inhaltsmodell vor `page_rule_outcome`; bei den geteilten
+  Regeln wird der aus `a11y-rules` uebernommene Zaehler um die entfallenen Befunde derselben
+  Kennung verringert.
+
+  Bleibt offen: Regeln, deren gemeldeter „Selektor" kein CSS-Pfad ist und die ihr Element nicht
+  selbst markieren, koennen ausgeschlossene Treffer nicht verlieren (bekannt und behoben:
+  `identify_purpose`). Obergrenzen, die nur Kandidaten fuer eine seitenweite Aussage deckeln
+  (Overlay-Suche in `focus_not_obscured_*`, Felder je Formular in `redundant_entry`), sind
+  unveraendert.
 
   Tests: Unit-Tests fuer Filter, Zaehlung und PDF-Text (EN ohne Umlaute), neue Korpus-Fixture
   `audit_exclude_specimen` (je ein Fehler pro Ortungsweg — AX-Knoten, JS-Seitenregel, geteilte
   DOM-Regel — innerhalb von `[data-audit-exclude]` nicht gemeldet, derselbe Fehler ausserhalb
   gemeldet) und ein Integrationstest fuer `--exclude-selector` samt 0-Treffer- und
-  ungueltigem Selektor.
+  ungueltigem Selektor. Dazu Korpus-Fixture `audit_exclude_cap`: 12/22/6 ausgeschlossene Treffer
+  vor je einem echten (Obergrenzen 10/20/5) — der echte wird gemeldet, und
+  `excluded_hits_do_not_spend_a_capped_rules_budget` prueft dasselbe samt Ausschluss-Zaehlung und
+  `rule_outcomes[].findings == 1`. Gegenprobe: mit abgeschaltetem `__amsIsExcludedEl` faellt der
+  Test (`div#real-click` fehlt).
 
 - **`landmark-unique` doppelt gezaehlt, 2026-09-29:** Die Regel lief zweimal, einmal ueber den
   AX-Baum (`check_landmark_unique`) und einmal in der DOM-Ergaenzung (`check_landmarks_with_page`).

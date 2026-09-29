@@ -1571,8 +1571,15 @@ async fn run_rules(
     exclusion: &crate::audit::exclusion::ExclusionScope,
 ) -> (WcagResults, Vec<Violation>) {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
-    let mut wcag_results =
-        wcag::check_all_with_config(&snapshot.ax_tree, config.wcag_level, &config.rule_filter);
+    // Audit exclusions (#645) are applied per rule, before each rule's
+    // outcome is counted — so `rule_outcomes[].findings` matches the report,
+    // and neither enrichment nor evidence capture is spent on them.
+    let (mut wcag_results, mut excluded) = wcag::check_all_excluding(
+        &snapshot.ax_tree,
+        config.wcag_level,
+        &config.rule_filter,
+        &|v| exclusion.excludes_located(v, &snapshot.ax_tree),
+    );
     for outcome in &mut wcag_results.rule_outcomes {
         outcome.viewport = Some(viewport_label.to_string());
     }
@@ -1589,6 +1596,26 @@ async fn run_rules(
             let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
+            }
+            // Shared findings carry their backend node id, so they are
+            // decided without the page. Their outcomes come counted from
+            // `a11y-rules` (all findings per rule id) — take the dropped ones
+            // back out.
+            for list in [&mut shared.violations, &mut shared.warnings] {
+                let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
+                    .into_iter()
+                    .partition(|v| exclusion.excludes_located(v, &snapshot.ax_tree));
+                *list = kept;
+                for v in &dropped {
+                    if let Some(outcome) = shared
+                        .rule_outcomes
+                        .iter_mut()
+                        .find(|o| Some(o.rule_id.as_str()) == v.rule_id.as_deref())
+                    {
+                        outcome.findings = outcome.findings.saturating_sub(1);
+                    }
+                }
+                excluded.extend(dropped);
             }
             wcag_results.merge(shared);
         }
@@ -1619,6 +1646,14 @@ async fn run_rules(
             screenshot,
         )
         .await;
+        let (contrast_violations, dropped) = crate::audit::exclusion::filter_findings(
+            page,
+            exclusion,
+            &snapshot.ax_tree,
+            contrast_violations,
+        )
+        .await;
+        excluded.extend(dropped);
         let (outcome, findings) = page_rule_outcome(
             "color-contrast",
             Some("1.4.3"),
@@ -1642,7 +1677,14 @@ async fn run_rules(
                 .rule_filter
                 .should_run(wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id)
             {
-                let raw_findings = wcag::rules::check_html_content_model(html, &hc.findings);
+                let (raw_findings, dropped) = crate::audit::exclusion::filter_findings(
+                    page,
+                    exclusion,
+                    &snapshot.ax_tree,
+                    wcag::rules::check_html_content_model(html, &hc.findings),
+                )
+                .await;
+                excluded.extend(dropped);
                 let (outcome, findings) = page_rule_outcome(
                     wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
                     Some(wcag::rules::HTML_CONTENT_MODEL_RULE.id),
@@ -1676,6 +1718,14 @@ async fn run_rules(
                     .is_none_or(|id| config.rule_filter.should_run(id))
             })
             .collect();
+        let (raw_findings, dropped) = crate::audit::exclusion::filter_findings(
+            page,
+            exclusion,
+            &snapshot.ax_tree,
+            raw_findings,
+        )
+        .await;
+        excluded.extend(dropped);
         let criterion = rule
             .rule_id
             .split('/')
@@ -1688,21 +1738,6 @@ async fn run_rules(
         }
         wcag_results.rule_outcomes.push(outcome);
         wcag_results.extend_findings(findings);
-    }
-
-    // Audit exclusions (#645): drop findings inside excluded subtrees before
-    // enrichment and evidence capture, so neither is spent on them.
-    let mut excluded = Vec::new();
-    for list in [&mut wcag_results.violations, &mut wcag_results.warnings] {
-        let (kept, dropped) = crate::audit::exclusion::filter_findings(
-            page,
-            exclusion,
-            &snapshot.ax_tree,
-            std::mem::take(list),
-        )
-        .await;
-        *list = kept;
-        excluded.extend(dropped);
     }
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;

@@ -1,0 +1,11 @@
+{
+  "case": "audit_exclude_cap",
+  "expectations": [
+    { "rule_id": "click-events-have-key-events", "selector": "div#real-click", "verdict": "violation" },
+    { "rule_id": "click-events-have-key-events", "selector": "div#specimen-click-1", "verdict": "pass" },
+    { "rule_id": "link-as-button", "selector": "a#real-link", "verdict": "violation" },
+    { "rule_id": "link-as-button", "selector": "a#specimen-link-1", "verdict": "pass" },
+    { "rule_id": "identify-purpose", "selector": "real-mail", "verdict": "violation" },
+    { "rule_id": "identify-purpose", "selector": "specimen-mail-1", "verdict": "pass" }
+  ]
+}

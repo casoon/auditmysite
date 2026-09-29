@@ -2042,3 +2042,71 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
         "excluding defects must not lower the score"
     );
 }
+
+/// #645 — excluded elements must not spend a capped JavaScript rule's cap:
+/// with more excluded hits than the cap ahead of it in DOM order, the one
+/// real hit is still reported, the excluded hits are dropped and counted
+/// (bounded by the same cap), and `rule_outcomes[].findings` counts what the
+/// report shows.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
+    let (url, shutdown) = serve_fixture("detection_corpus/audit_exclude_cap.html");
+    let manager = ci_browser().await;
+    let report = audit_with_cli_args(&manager, &url, &["--level", "aaa"]).await;
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let rule_selectors = |rule: &str| -> Vec<String> {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(rule))
+            .filter_map(|v| v.selector.clone())
+            .collect()
+    };
+    for (rule, real) in [
+        ("click-events-have-key-events", "div#real-click"),
+        ("link-as-button", "a#real-link"),
+        ("identify-purpose", "real-mail"),
+    ] {
+        let found = rule_selectors(rule);
+        assert!(
+            found.iter().any(|s| s == real),
+            "{rule}: real hit {real} missing, got {found:?}"
+        );
+        assert!(
+            found.iter().all(|s| !s.contains("specimen")),
+            "{rule}: specimen reported: {found:?}"
+        );
+    }
+
+    let ex = report
+        .accessibility
+        .execution
+        .exclusions
+        .as_ref()
+        .expect("exclusions block is always recorded");
+    let excluded = |rule: &str| {
+        ex.rules
+            .iter()
+            .find(|r| r.rule_id == rule)
+            .map(|r| r.occurrences)
+            .unwrap_or(0)
+    };
+    assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
+    assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
+    assert_eq!(excluded("identify-purpose"), 5, "{ex:?}");
+
+    for viewport in ["desktop", "mobile"] {
+        let outcome = report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .iter()
+            .find(|o| o.rule_id == "2.1.1/click-handler" && o.viewport.as_deref() == Some(viewport))
+            .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
+        assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
+    }
+}

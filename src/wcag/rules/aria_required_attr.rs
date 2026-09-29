@@ -110,14 +110,14 @@ const CHECKED_STATE_BODY: &str = r#"
   var elems = document.querySelectorAll(
     'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], [role="switch"]'
   );
-  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+  for (var i = 0; i < elems.length && __amsReal(issues) < CAP; i++) {
     var el = elems[i];
     var isNativeCheckable = el.tagName === 'INPUT' &&
       (el.getAttribute('type') === 'checkbox' || el.getAttribute('type') === 'radio');
     if (isNativeCheckable) continue; // native checked state, no aria-checked required
     if (!el.hasAttribute('aria-checked')) {
       var role = (el.getAttribute('role') || '').toLowerCase();
-      issues.push({ role: role, selector: __amsCssSelector(el) });
+      __amsPush(issues, el, { role: role, selector: __amsCssSelector(el) }, CAP);
     }
   }
   return { issues: issues };

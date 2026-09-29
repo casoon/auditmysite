@@ -31,7 +31,7 @@ const LANGUAGE_OF_PARTS_JS: &str = r#"
   /*CSS_SELECTOR*/
   const candidates = [];
   for (const element of document.querySelectorAll('p, li, dd, td, figcaption')) {
-    if (candidates.length >= 5 || element.closest('code, pre, address, blockquote, [translate="no"]')) continue;
+    if (__amsReal(candidates) >= 5 || element.closest('code, pre, address, blockquote, [translate="no"]')) continue;
     const text = (element.innerText || '').replace(/\s+/g, ' ').trim();
     const words = (text.toLowerCase().match(/[\p{L}]+/gu) || []);
     if (text.length < 100 || words.length < 16) continue;
@@ -41,7 +41,7 @@ const LANGUAGE_OF_PARTS_JS: &str = r#"
     const en = words.filter(word => markers.en.has(word)).length;
     const detected = de >= 5 && en <= 1 ? 'de' : en >= 5 && de <= 1 ? 'en' : null;
     if (detected && detected !== documentLanguage) {
-      candidates.push({ selector: __amsCssSelector(element), detected, sample: text.slice(0, 120) });
+      __amsPush(candidates, element, { selector: __amsCssSelector(element), detected, sample: text.slice(0, 120) }, 5);
     }
   }
   return { supported: true, documentLanguage, candidates };

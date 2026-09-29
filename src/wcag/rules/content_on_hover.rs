@@ -51,8 +51,8 @@ const CONTENT_ON_HOVER_JS: &str = r#"
       const textContent = (el.textContent || '').trim();
       // If accessible name comes from text/aria, title is supplemental — fine.
       if (hasAriaLabel || hasAriaLabelledby || textContent.length > 0) continue;
-      titleOnly.push(__amsCssSelector(el));
-      if (titleOnly.length >= 10) break;
+      __amsPush(titleOnly, el, __amsCssSelector(el), 10);
+      if (__amsReal(titleOnly) >= 10) break;
     }
 
     // Detect orphan role="tooltip" elements.
@@ -60,9 +60,9 @@ const CONTENT_ON_HOVER_JS: &str = r#"
     for (const tip of Array.from(tooltips)) {
       const id = tip.id;
       if (!id || !describedTargets.has(id)) {
-        orphanTooltips.push('#' + (id || '(no-id)'));
+        __amsPush(orphanTooltips, tip, '#' + (id || '(no-id)'), 10);
       }
-      if (orphanTooltips.length >= 10) break;
+      if (__amsReal(orphanTooltips) >= 10) break;
     }
   } catch(e) {}
   return { titleOnly, orphanTooltips };
