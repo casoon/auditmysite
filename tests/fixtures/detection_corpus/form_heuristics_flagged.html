@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Form heuristics: true positives (#643)</title>
+</head>
+<body>
+    <main>
+        <h1>Registration form</h1>
+        <form>
+            <!-- Date field without any instruction: still reported, but as
+                 needs review (the format requirement is guessed from the
+                 label), never as a confirmed violation -->
+            <label for="dob">Date of birth</label>
+            <input type="text" id="dob" name="dob">
+
+            <!-- Two related checkboxes (same name) without fieldset/legend -->
+            <p>Interests</p>
+            <label><input type="checkbox" name="interests" value="news"> News</label>
+            <label><input type="checkbox" name="interests" value="events"> Events</label>
+
+            <button type="submit">Register</button>
+        </form>
+    </main>
+</body>
+</html>

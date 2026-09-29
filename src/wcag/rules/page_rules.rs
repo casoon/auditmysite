@@ -29,14 +29,15 @@ use super::{
     check_aria_allowed_attr_with_page, check_aria_hidden_focus,
     check_aria_prohibited_attr_with_page, check_aria_relationships_with_page,
     check_aria_valid_attr_value_with_page, check_background_audio_with_page,
-    check_checked_state_with_page, check_content_on_hover_with_page,
-    check_fake_navigation_link_with_page, check_focus_not_obscured_enhanced_with_page,
-    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
-    check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_identify_purpose_with_page, check_image_input_rules_with_page,
-    check_input_purpose_with_page, check_invalid_aria_attribute_name_with_page,
-    check_invalid_role_with_page, check_label_in_name_with_page, check_landmarks_with_page,
-    check_language_extended_with_page, check_language_of_parts_with_page, check_location_with_page,
+    check_checkbox_group_with_page, check_checked_state_with_page,
+    check_content_on_hover_with_page, check_fake_navigation_link_with_page,
+    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
+    check_focus_visible_css_with_page, check_form_no_submit_with_page,
+    check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
+    check_image_input_rules_with_page, check_input_purpose_with_page,
+    check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
+    check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
+    check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -133,6 +134,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "form-no-submit",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_form_no_submit_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "1.3.1/form-field-group",
+        name: "form-field-group (checkbox)",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_checkbox_group_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.3.7/redundant-entry",
@@ -487,7 +494,9 @@ mod tests {
         // - parsing (duplicate-id) und positive-tabindex: laufen seit der
         //   Umstellung als `ids/duplicate` bzw. `keyboard/positive-tabindex`
         //   im geteilten Bestand (siehe `wcag::shared`) = 36
-        assert_eq!(count, 36);
+        // + form-field-group for named checkbox sets: moved from the AX tree to
+        //   the DOM, the tree carries no `name` attribute (#643) = 37
+        assert_eq!(count, 37);
     }
 
     #[test]
@@ -517,7 +526,8 @@ mod tests {
         // + accessible-authentication (3.3.8, WCAG 2.2 AA, plan 54 §3) = 47.
         // + autocomplete-valid (1.3.5): moved from the AX tree to the DOM,
         //   the tree carries aria-autocomplete, not the HTML attribute = 48.
-        assert_eq!(count, 48);
+        // + form-field-group for named checkbox sets (#643, Level A) = 49.
+        assert_eq!(count, 49);
     }
 
     #[test]

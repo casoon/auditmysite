@@ -175,41 +175,128 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
         .collect()
 }
 
-/// Check that grouped radio/checkbox controls have a group ancestor.
+/// DOM check for related checkboxes without a group ancestor (1.3.1).
+///
+/// A single checkbox ("I accept the terms") is not a group. Checkboxes are
+/// related when they share a `name` within the same form owner — the HTML
+/// signal for "several answers to one question". Only such a set of two or
+/// more rendered checkboxes needs a `<fieldset>` or `role="group"` ancestor
+/// carrying the question (#643; the tree-only check used to demand one for
+/// every checkbox as soon as the page had two radio/checkbox controls
+/// anywhere).
+pub async fn check_checkbox_group_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        function rendered(el) {
+          if (el.closest('[hidden], [aria-hidden="true"]')) return false;
+          if (el.getClientRects().length === 0) return false;
+          var style = window.getComputedStyle(el);
+          return !(style && style.visibility === 'hidden');
+        }
+        var forms = Array.prototype.slice.call(document.forms);
+        var sets = new Map();
+        var boxes = document.querySelectorAll('input[type="checkbox"][name]');
+        for (var i = 0; i < boxes.length; i++) {
+          var box = boxes[i];
+          var name = box.name.trim();
+          if (!name || !rendered(box)) continue;
+          var key = forms.indexOf(box.form) + '\u0000' + name;
+          if (!sets.has(key)) sets.set(key, []);
+          sets.get(key).push(box);
+        }
+        var issues = [];
+        sets.forEach(function(set) {
+          if (set.length < 2) return;
+          for (var j = 0; j < set.length; j++) {
+            if (set[j].closest('fieldset, [role="group"], [role="radiogroup"]')) continue;
+            issues.push({
+              selector: __amsCssSelector(set[j]),
+              snippet: set[j].outerHTML.substring(0, 200)
+            });
+          }
+        });
+        return issues;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("form-field-group DOM JS failed: {}", e);
+            return vec![crate::wcag::technical_rule_failure_for(
+                RULE_META_STRUCTURE.axe_id,
+                RULE_META_STRUCTURE.level,
+                "page_evaluation_failed",
+            )];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![crate::wcag::technical_rule_failure_for(
+            RULE_META_STRUCTURE.axe_id,
+            RULE_META_STRUCTURE.level,
+            "missing_evaluation_value",
+        )];
+    };
+    let Some(issues) = value.as_array() else {
+        return vec![];
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let mut violation = Violation::new(
+                RULE_META_STRUCTURE.id,
+                RULE_META_STRUCTURE.name,
+                RULE_META_STRUCTURE.level,
+                Severity::Medium,
+                "Grouped form controls may be missing a fieldset/legend",
+                &selector,
+            )
+            .with_selector(&selector)
+            .with_role(Some("checkbox".to_string()))
+            .with_fix(
+                "Wrap related radio buttons or checkboxes in a <fieldset> with a <legend>, or use role=\"group\" with aria-labelledby",
+            )
+            .with_help_url(RULE_META_STRUCTURE.help_url)
+            .with_rule_id(RULE_META_STRUCTURE.axe_id);
+
+            if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {
+                violation = violation.with_html_snippet(snippet);
+            }
+
+            Some(violation)
+        })
+        .collect()
+}
+
+/// Check that radio buttons have a group ancestor.
 ///
 /// A radio button always needs one: it only makes sense as one option of a
-/// set, and the question the set answers lives in the group's name. A
-/// checkbox can stand alone ("I accept the terms"), so it is only checked
-/// once the page has more than one radio/checkbox control.
+/// set, and the question the set answers lives in the group's name.
+/// Checkboxes are checked by [`check_checkbox_group_with_page`]: whether two
+/// checkboxes belong together is decided by their shared `name` attribute,
+/// which the AX tree does not carry (#643).
 ///
 /// Also covers what `info_relationships` checked as `radio-group` (radio whose
 /// *direct* parent is not a group) — that check flagged the same radio a
 /// second time, and falsely whenever a `<label>` sat between radio and
 /// `<fieldset>` (plan 56).
 fn check_grouped_controls(tree: &AXTree, results: &mut WcagResults) {
-    let grouped_roles = ["radio", "checkbox"];
-
     let grouped_nodes: Vec<&AXNode> = tree
         .nodes
         .values()
-        .filter(|n| {
-            !n.ignored
-                && n.role
-                    .as_deref()
-                    .map(|r| grouped_roles.contains(&r))
-                    .unwrap_or(false)
-        })
+        .filter(|n| !n.ignored && n.role.as_deref() == Some("radio"))
         .collect();
 
     results.nodes_checked += grouped_nodes.len();
 
-    let several = grouped_nodes.len() >= 2;
     for node in &grouped_nodes {
-        let needs_group = several || node.role.as_deref() == Some("radio");
-        if !needs_group {
-            results.passes += 1;
-            continue;
-        }
         let has_group = has_ancestor_with_role(node, &["group", "radiogroup"], tree);
         if !has_group {
             let violation = Violation::new(
@@ -441,6 +528,21 @@ mod tests {
 
         let checkbox = AXTree::from_nodes(vec![make_node("1", "checkbox", Some("Accept"), None)]);
         assert!(check_form_rules(&checkbox).violations.is_empty());
+    }
+
+    /// #643: radios elsewhere on the page do not turn a lone checkbox into a
+    /// group. Related checkboxes are identified by their shared `name` in the
+    /// DOM rule (`check_checkbox_group_with_page`), not here.
+    #[test]
+    fn test_lone_checkbox_next_to_grouped_radios_not_flagged() {
+        let nodes = vec![
+            make_node("g", "group", Some("Mode"), None),
+            make_node("1", "radio", Some("Broken"), Some("g")),
+            make_node("2", "radio", Some("Fixed"), Some("g")),
+            make_node("3", "checkbox", Some("Screen reader view"), None),
+        ];
+        let tree = AXTree::from_nodes(nodes);
+        assert!(check_form_rules(&tree).violations.is_empty());
     }
 
     /// The group may be any ancestor, not just the direct parent: a `<label>`
