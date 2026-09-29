@@ -5,6 +5,20 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unveroeffentlicht — Refactoring `audit/pipeline.rs` (Plan 66 WP7), 2026-09-29:** Reine
+  Verschiebung ohne Aenderung an Ablauf oder Ausgabe. `src/audit/pipeline.rs` ist jetzt das
+  Verzeichnis `src/audit/pipeline/`: `mod.rs` behaelt `PipelineConfig`, `run_single_audit`,
+  `audit_page` mit beiden Viewport-Durchlaeufen, die Regellaeufe und die Artefakt-Persistenz;
+  `assembly.rs` nimmt die synchrone Nachbearbeitung auf (WCAG-Zusammenfuehrung, Viewport-Scores,
+  `aggregate_report`, Modul-Laeufe, Audit-Qualitaet); `throttled.rs` die gedrosselten
+  Performance-Durchlaeufe samt `recover_after_throttled_failure` und der Uebernahme des
+  LhMobile-Werts. In `audit_page` sind nur die wortgleichen Doppelungen herausgezogen (die drei
+  `prepare_*_collection`-Aufrufe je Durchlauf, der Screenshot-Match); Reihenfolge von
+  Ausschluessen (#645), Darstellungsmodi (#653) und Journeys unveraendert, ein gemeinsamer
+  `run_viewport_pass` bewusst nicht. Oeffentliche Pfade (`auditmysite::audit::{audit_page,
+  run_single_audit, PipelineConfig}`) bleiben. Verifiziert: Golden-Harness vor/nach identisch,
+  `integration_test` und `detection_corpus_test` (`--ignored`) gegen echtes Chrome.
+
 - **Darstellungsmodi (`data-display`-Konvention), 2026-09-29 (#653):** Neues Modul `src/display/`
   und neue Option `--display calm|text|visual|all`. Ohne Option bleibt alles wie bisher (Voreinstellung
   der Seite). Mit einem Modus schreibt ein vor der Navigation injiziertes Skript

@@ -108,7 +108,10 @@ src/
 │
 ├── audit/               # Audit orchestration
 │   ├── mod.rs
-│   ├── pipeline.rs      # Single page audit flow
+│   ├── pipeline/        # Single page audit flow
+│   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
+│   │   ├── assembly.rs  # Sync post-processing: WCAG merge, viewport scores, report aggregation, module runs, audit quality
+│   │   └── throttled.rs # Throttled performance passes (single URL), tab recovery, canonical LhMobile adoption
 │   ├── batch.rs         # Sitemap/batch processing
 │   ├── access_block.rs  # Bot walls/access denials: blocked pages fail instead of being scored
 │   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
