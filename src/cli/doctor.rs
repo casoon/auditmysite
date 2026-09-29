@@ -49,6 +49,14 @@ pub fn run_doctor() {
                     resolved.browser.source,
                 ),
             );
+            if crate::browser::resolver::stalls_on_keyboard_journeys(&resolved.browser) {
+                print_check(
+                    "Batch concurrency",
+                    CheckStatus::Warning,
+                    "full browser on macOS: batches with journeys audit one page at a time \
+                     (parallel keyboard journeys can stall it); --concurrency overrides",
+                );
+            }
         }
         Err(_) => {
             print_check(

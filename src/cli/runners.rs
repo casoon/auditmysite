@@ -456,6 +456,13 @@ pub async fn run_batch_mode(
             total_urls,
             args.effective_concurrency()
         );
+        if args.concurrency.is_none() && args.effective_concurrency() == 1 {
+            eprintln!(
+                "{} one page at a time: keyboard journeys on parallel pages can stall a full \
+                 browser on macOS. --concurrency overrides.\n",
+                "Note:".yellow().bold()
+            );
+        }
         print_batch_audit_plan(args, total_urls);
     }
 
