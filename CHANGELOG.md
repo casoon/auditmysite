@@ -24,6 +24,27 @@ short current-state summary. Newest entries first (unchanged order from before t
   `landmark_main_in_shadow_root` ist ein echtes Negativ. `parity_gaps.html` prueft die Anzahl im
   Integrationstest (1 fehlende `main`, 2 doppelte Navigationen).
 
+- **Page Health: HTML-Validierung im JSON kanonisch Englisch (#406, Plan 66 WP9), 2026-09-29:**
+  `seo/page_health.rs` schrieb deutschen Text ins kanonische JSON: `html_validator_detail`
+  („HTML5-Validierung lokal via html5ever") sowie `check`/`detail` aller `html_issues`
+  („Doppelte IDs", „3 (z.B. …)", „HTML5-Parsing-Fehler", „+37 weitere", „Leere Ueberschriften"
+  usw.). `reconcile_image_alt_count` in `audit/pipeline.rs` verglich sogar gegen den deutschen
+  String „Bilder ohne alt-Attribut". Jetzt nach dem #406-Muster: `HtmlValidationIssue` traegt ein
+  `kind` (`HtmlValidationKind`) und die Rohwerte in `samples` (Beispiel-IDs bzw. die ersten
+  Parser-Fehler); `html_validation_check_text`/`html_validation_detail_text`/
+  `html_validator_executed_text` sind die einzige Textquelle, die Analyse ruft sie mit `en=true`,
+  der PDF-Builder (`builder/single/serp.rs`) mit der Lauf-Sprache. Vergleiche laufen ueber `kind`.
+  Die private `run_w3c_html_validation` heisst jetzt `run_local_html_validation` (sie ruft nie den
+  W3C-Validator auf).
+
+  **Aendert die JSON-Ausgabe:** `html_issues[].check`/`detail` und `html_validator_detail` sind
+  englisch, jeder Eintrag hat neu `kind`, Eintraege mit Rohwerten zusaetzlich `samples`. Das
+  deutsche PDF bleibt wortgleich; das englische PDF zeigt dort jetzt englischen Text statt des
+  bisherigen deutschen. Cache-Eintraege derselben Version mit altem deutschem Text werden beim
+  Einlesen auf `kind` + `samples` zurueckgefuehrt. Verifiziert mit dem Golden-Harness (WP0) gegen
+  `main`: Unterschiede nur in diesen Feldern im JSON und im englischen Typst, deutsches Typst und
+  Batch-Ausgaben unveraendert; Guard-Test gegen Umlaute/deutsche Woerter in der EN-Ausgabe.
+
 - **2.5.8/2.5.5 Target Size: Ausnahme „Equivalent" fuer Links, 2026-09-29 (#652):** Beide
   Kriterien nehmen ein zu kleines Ziel aus, wenn dieselbe Funktion ueber ein anderes Bedienelement
   auf derselben Seite erreichbar ist, das die Groesse erfuellt. Das fehlte: auf geographia.eu
