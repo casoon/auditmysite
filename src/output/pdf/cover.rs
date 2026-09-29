@@ -8,6 +8,7 @@ use renderreport::prelude::Image;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
+pub(super) use crate::registry::certificate_label_localized;
 
 use super::design::tokens;
 
@@ -105,26 +106,6 @@ pub(super) fn auditmysite_wordmark_path() -> anyhow::Result<String> {
         include_str!("../../../assets/brand/auditmysite-wordmark.svg"),
     )?;
     Ok(path.to_string_lossy().to_string())
-}
-
-/// Localize the canonical (German) certificate token for display. The token
-/// stays German internally so badge/colour lookups remain locale-independent;
-/// only the rendered label is translated (#449).
-pub(super) fn certificate_label_localized(canonical: &str, locale: &str) -> String {
-    if locale != "en" {
-        return canonical.to_string();
-    }
-    match canonical {
-        "SEHR GUT" => "EXCELLENT",
-        "GUT" => "GOOD",
-        "STABIL" => "STABLE",
-        "AUSBAUFÄHIG" => "INADEQUATE",
-        "UNGENÜGEND" => "FAILED",
-        "EINGESCHRÄNKT" => "RESTRICTED",
-        "NICHT BESTANDEN" => "NOT PASSED",
-        other => other,
-    }
-    .to_string()
 }
 
 pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {

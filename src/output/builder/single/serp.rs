@@ -98,14 +98,7 @@ pub(super) fn build_page_health_presentation(
         .collect();
 
     let html_validator = Some((
-        match (ph.html_validator_status.as_str(), en) {
-            ("executed", true) => "Executed".to_string(),
-            ("executed", false) => "Ausgeführt".to_string(),
-            ("failed", true) => "Failed".to_string(),
-            ("failed", false) => "Fehlgeschlagen".to_string(),
-            (_, true) => "Skipped".to_string(),
-            (_, false) => "Übersprungen".to_string(),
-        },
+        ph.html_validator_status.clone(),
         match (ph.html_validator_status.as_str(), &ph.html_validator_detail) {
             ("executed", _) => html_validator_executed_text(en).to_string(),
             (_, Some(detail)) => detail.clone(),

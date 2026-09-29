@@ -146,3 +146,30 @@ fn top_terms_from_segments(segments: &[(String, usize)], limit: usize) -> Vec<St
         .map(|(term, _)| term)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Function words must not surface as "dominant content topics" (a batch
+    /// report listed "nicht" as a topic).
+    #[test]
+    fn function_words_are_not_topics() {
+        let segments = vec![
+            (
+                "Barrierefreiheit ist nicht optional, wenn Barrierefreiheit noch fehlt".to_string(),
+                4,
+            ),
+            (
+                "Accessibility they will have when accessibility matters".to_string(),
+                4,
+            ),
+        ];
+        let terms = top_terms_from_segments(&segments, 10);
+        assert!(terms.contains(&"barrierefreiheit".to_string()));
+        assert!(terms.contains(&"accessibility".to_string()));
+        for word in ["nicht", "wenn", "noch", "they", "will", "have", "when"] {
+            assert!(!terms.contains(&word.to_string()), "{word} in {terms:?}");
+        }
+    }
+}
