@@ -19,7 +19,14 @@ use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig};
 use clap::Parser;
 use common::fixture_server::serve_html;
 
-const CLEAN: &[&str] = &["wcag_fixtures/perfect.html"];
+// `table_missing_caption` sat in the Level-A band because the implicit
+// `<tbody>` under `<table><tr>` hid the rows from the required-children check
+// (a false 4.1.2 high, #659/#674). With that fixed it only carries the caption
+// review hint, so it is a practically clean page.
+const CLEAN: &[&str] = &[
+    "wcag_fixtures/perfect.html",
+    "fixtures/detection_corpus/table_missing_caption.html",
+];
 
 const ONE_LEVEL_A_HIGH: &[&str] = &[
     "wcag_fixtures/missing_image_alt.html",
@@ -28,7 +35,6 @@ const ONE_LEVEL_A_HIGH: &[&str] = &[
     "fixtures/detection_corpus/frame_missing_title.html",
     "fixtures/detection_corpus/meta_refresh_present.html",
     "fixtures/detection_corpus/empty_title.html",
-    "fixtures/detection_corpus/table_missing_caption.html",
     "fixtures/detection_corpus/summary_empty.html",
     "wcag_fixtures/invalid_aria.html",
     "fixtures/detection_corpus/aria_invalid_attr_value.html",

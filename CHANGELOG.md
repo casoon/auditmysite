@@ -5,6 +5,12 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Score-Kalibrierung: `table_missing_caption` ist eine saubere Seite, 2026-09-30:** Das Fixture
+  stand im Band „genau ein Level-A-High"; dieser Befund war der Fehlalarm aus #659/#674 (implizites
+  `<tbody>` unter `<table><tr>` verdeckte die Zeilen vor der Pflicht-Kind-Pruefung). Seit #680
+  traegt die Seite nur noch den Caption-Pruefhinweis und liegt mit 95 im Band ≥ 95; der Tag-Lauf
+  von v1.7.0 war daran gescheitert.
+
 - **1.7.0, 2026-09-30:** Neue Funktionen: Techniker-Modus `--technician` (JSON je Seite plus
   `index.json` und `findings.jsonl`, Pfadfilter `--include-path`/`--exclude-path`, Plan 67),
   Darstellungsmodi `--display calm|text|visual|all` (#653), Ausschluss absichtlicher Beispiele ueber
