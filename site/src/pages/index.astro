@@ -12,7 +12,7 @@ import {
   Terminal,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
-import { fixture } from '../showcase';
+import { castDemo, fixture } from '../showcase';
 
 const quickstart = `# check which browser auditmysite will use
 auditmysite browser detect
@@ -45,11 +45,9 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       <Badge>WCAG 2.2 AA</Badge>
       <Badge>macOS · Linux · Windows</Badge>
     </Badges>
-    <Terminal
+    <Fragment
       slot="output"
-      title="auditmysite https://www.casoon.de/ --format table --lang en"
-      dots
-      ansi={fixture('single-table.ansi')}
+      set:html={castDemo('single-table', 'cw-hero', 'auditmysite https://www.casoon.de/ --format table --lang en --request-mode browser')}
     />
   </Hero>
 
@@ -78,7 +76,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         title: 'Single pages and whole sites',
-        body: 'Audit one URL in depth, or a sitemap, a URL list or a same-domain crawl as one aggregated batch report with averages, ranking and recurring issues.',
+        body: 'Audit one URL in depth, or a sitemap, a URL list or a same-domain crawl as one aggregated batch report with averages, ranking and recurring issues. Technician mode writes one JSON per page plus a flat findings.jsonl instead.',
       },
       {
         title: 'Shared rules with barrierlab',
@@ -88,7 +86,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
   />
 
   <BuildOutput
-    caption="Real output of auditmysite 1.6.0, recorded with examples/record.sh and rendered when this site is built. The showcase has the JSON coverage block and report-lint as well."
+    caption="Real output of auditmysite, recorded against casoon.de with examples/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
     file="examples/plan.txt"
     heading="What an audit will do"
   >

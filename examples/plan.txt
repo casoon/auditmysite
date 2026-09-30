@@ -6,12 +6,12 @@
 /_/   \_\__,_|\__,_|_|\__|_|  |_|\__, |____/|_|\__\___|
                                  |___/
 
-  AuditMySite v1.6.0 - WCAG 2.2 AA Accessibility Checker
+  AuditMySite v1.7.0 - WCAG 2.2 AA Accessibility Checker
 
 Audit plan
   Mode: Single URL
   Format: pdf
   Report level: standard
   Modules: Accessibility, Accessibility Journey, Best Practices, Dark Mode, HTML Conformance, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, Commerce, UX, Source Quality, Content Visibility
-  Output: casoon-de-2026-09-29-single-report.pdf, casoon-de-2026-09-29-single-report.json, casoon-de-2026-09-29-single-report-screen-reader-audit.json
+  Output: casoon-de-2026-09-30-single-report.pdf, casoon-de-2026-09-30-single-report.json, casoon-de-2026-09-30-single-report-screen-reader-audit.json
 

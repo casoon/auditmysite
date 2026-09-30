@@ -28,6 +28,8 @@ A few fields worth knowing:
 | `audit_quality`, `pages[].detail.module_runs` | Complete, partial, failed or skipped checks, so a measurement failure never reads as a clean result |
 | `pages[].detail.rule_outcomes` | One entry per rule and viewport; a rule that could not run is never reported as passing |
 | `pages[].detail.en301549_annex` | Findings mapped to EN 301 549 chapter 9 clauses |
+| `pages[].exclusions`, `summary.exclusions` | Applied exclusion selectors, matched elements and dropped occurrences; see [Excluding specimens](../excluding-specimens/) |
+| `audit_scope.display_mode`, `pages[].display_modes` | The display mode the scores belong to, and the modes a page offers; see [Display modes](../display-modes/) |
 | `tool_version`, `build_id` | The binary that produced the report |
 
 Rule IDs are stable across releases and carry `tags` and an `impact` field. Performance values
@@ -45,7 +47,10 @@ page, not the report language.
 auditmysite https://example.com --lang en -o report.pdf
 ```
 
-- Languages: German (default) and English, `--lang de|en`.
+- Languages: German (default) and English, `--lang de|en`. With `--lang en` the report is
+  English throughout, including module tables (security headers, SSL, touch targets, fonts), the
+  HTML-validation callout and the certificate label; the terminal summary shows the certificate
+  in English as well. The JSON field `certificate` keeps its canonical token.
 - Depth: `--report-level executive|standard|technical`.
 - Accessible output: tagged PDF/UA-1 with structure tree, document language, title and
   bookmarks. Rendering stops with a diagnostic rather than write a non-conformant PDF.
