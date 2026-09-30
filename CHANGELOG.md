@@ -5,7 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
-- **Unreleased — Regeln laufen in iframes (#715):** Ein `role="dialog"` ohne Namen in einem
+- **1.7.2, 2026-09-30:** Fehlalarm-Korrekturen und Luecken aus dem axe-Gegencheck der
+  barrierlab.eu-Erhebung (21 EU-Portale) und aus geographia.eu: Zielgroesse nur fuer sichtbare
+  Ziele im fertigen Layout (#705, #706), Ausschluesse auch in der Screenreader-Schicht und im Cache
+  (#703, #708), Darstellungsregeln ohne Rechtsurteil (#704), `main` und Sprunglink hinter offenem
+  Dialog bzw. Cookie-Banner (#709, a11y-* 0.13.5), Linkfarbe nur im Fliesstext (#710), Bewegung nur
+  mit Beleg (#712), title-only und doppelte Beschreibung als Best Practice (#711, #713). Neu:
+  Kontrast in Shadow DOM und ueber Float-Containern (#716), Regel `scrollable-region-focusable`
+  (#717), elementbezogene Regeln in iframes samt Frame-Abdeckung im JSON (#715, teilweise; Frames
+  in fremden Prozessen folgen in #720), geringeres Gewicht fuer `zoom/viewport-missing` (#702).
+  Referenzlauf (`reference_sites_test`) und Detection-Corpus gruen. Einzelheiten in den Eintraegen
+  darunter.
+
+- **Regeln laufen in iframes (#715):** Ein `role="dialog"` ohne Namen in einem
   iframe (gov.cy) blieb unentdeckt, weil `getFullAXTree` und die geteilten DOM-Regeln nur das
   Hauptdokument sahen; axe prueft jeden Frame. Neu ist ein Frame-Durchgang (`audit::frames`):
   Fuer jedes im Prozess der Seite gerenderte iframe (auch verschachtelt) holt er den AX-Baum per
@@ -30,14 +42,14 @@ short current-state summary. Newest entries first (unchanged order from before t
   ein Public Suffix): Er steht jetzt als `cross_origin` uebersprungen im Bericht, geprueft wird er
   erst mit einer eigenen CDP-Sitzung je Out-of-Process-Frame.
 
-- **Unreleased — Screenreader-Ausschluesse ueberleben den Cache (#708):** Bei `--reuse-cache`
+- **Screenreader-Ausschluesse ueberleben den Cache (#708):** Bei `--reuse-cache`
   wird der Screenreader-Bericht aus dem gespeicherten AX-Baum neu gebaut; die in #703
   ausgeschlossenen Knoten standen danach wieder im Sidecar und im PDF. Die ausgeschlossenen
   Knoten-IDs liegen jetzt im Cache-Eintrag (`snapshot.json`,
   `screen_reader_excluded_node_ids`) und werden beim Wiederaufbau erneut angewendet. Aeltere
   Eintraege ohne das Feld verhalten sich wie bisher.
 
-- **Unreleased — Kontrast in Shadow DOM und ueber Float-Containern (#716):** Zwei Luecken
+- **Kontrast in Shadow DOM und ueber Float-Containern (#716):** Zwei Luecken
   gegenueber axe. (1) Die Kontrastpruefung lief nur ueber den Light DOM; Text in Webkomponenten
   (Cookie-Banner `p-cookie-banner` auf verwaltung.bund.de, 3,17:1) fehlte. Sie geht jetzt durch
   offene Shadow Roots, der Hintergrund wird ueber den zusammengesetzten Baum bestimmt (Slot,
@@ -55,20 +67,20 @@ short current-state summary. Newest entries first (unchanged order from before t
   Datenschutz-Link und den weissen Hero-Text ueber dem Foto (Pixelprobe 3,64:1), slovensko.sk den
   Link. Neuer Detection-Corpus-Fall `contrast_shadow_and_inline`.
 
-- **Unreleased — Scrollbare Bereiche ohne Tastaturzugang (#717):** Neue Regel
+- **Scrollbare Bereiche ohne Tastaturzugang (#717):** Neue Regel
   `scrollable-region-focusable` (2.1.1, A) → `a11y.scrollable_region_focus.missing`: ein
   sichtbares Element mit `overflow: auto|scroll`, das mehr als 13 px ueberlaeuft (wie axe),
   Text enthaelt und weder selbst noch ueber einen Nachfahren per Tastatur fokussierbar ist.
   Chrome macht solche Bereiche seit Version 130 selbst fokussierbar, andere Browser nicht —
   deshalb bleibt es ein Befund. Neuer Detection-Corpus-Fall `scrollable_region_focusable`.
 
-- **Unreleased — Gewicht von `zoom/viewport-missing` (#702):** Desktop-Browser ignorieren das
+- **Gewicht von `zoom/viewport-missing` (#702):** Desktop-Browser ignorieren das
   viewport-Meta-Tag, Zoomen per Geste bleibt moeglich; die Folge trifft nur Mobilgeraete. Der
   Score-Abzug sinkt von 2,5/5 auf 1,5/3, Bericht und Erklaerung nennen die Folge (Desktop-Breite,
   verkleinert, waagerechtes Scrollen beim Vergroessern). Befundstufe (FAIL) und Schwere kommen
   weiter aus `a11y-rules`; ob es dort ein Pruefhinweis sein sollte, ist eine Frage an barrierlab.
 
-- **Unreleased — Farbe als Linkmerkmal nur im Fliesstext, Bewegung nur mit Beleg (#710, #712):**
+- **Farbe als Linkmerkmal nur im Fliesstext, Bewegung nur mit Beleg (#710, #712):**
   `link-in-text-block` (1.4.1) prueft einen Link nur noch, wenn er im Fliesstext steht — wie
   axe `isInTextBlock`: Der Abschnitt seines Blocks (begrenzt durch `<br>`/`<hr>`) muss mehr
   Nicht-Link-Text als Link-Text enthalten, und zwar mindestens zwei Woerter. Links in `nav`
@@ -86,7 +98,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   `reduced_motion_transform`, `reduced_motion_override`. Gezaehlt wird nur Bewegung, deren Selektor ein dargestelltes Element der Seite trifft
   (bundesregierung.de: Keyframes eines nie eingebundenen Player-Spinners).
 
-- **Unreleased — title-only und doppelte Beschreibung als eigene Best-Practice-Regeln (#711,
+- **title-only und doppelte Beschreibung als eigene Best-Practice-Regeln (#711,
   #713):** Das `title`-Attribut als einzige Beschreibung eines interaktiven Elements stand als
   `a11y.hover.content_visibility` unter 1.4.13, obwohl der Browser-Tooltip dort ausgenommen ist;
   es ist jetzt `title-only-description` → `a11y.title_only_description.weak`. Ein Element, dessen
@@ -100,7 +112,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   Elemente ohne aussagekraeftigen Namen. Neuer Detection-Corpus-Fall
   `name_description_best_practice`, `forms_and_misc` um einen verwaisten Tooltip ergaenzt.
 
-- **Unreleased — a11y-rules 0.13.5 (#709):** Der Sprunglink wird auch hinter den Links eines
+- **a11y-rules 0.13.5 (#709):** Der Sprunglink wird auch hinter den Links eines
   Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
   casoon/barrierlab#26). Ist ein modaler Dialog offen (etwa ein Consent-Dialog, der `<main>` per
   `aria-hidden` ausblendet), ist `landmarks/main-missing` ein Pruefhinweis „gemessen hinter einem
@@ -109,7 +121,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   einem offenen Dialog zum Pruefhinweis. Referenzband gov.ie neu bewertet (80–98): die bis 1.7.1
   gezaehlten zehn Linkfarben-Befunde waren freistehende Listenlinks, Fehlalarme nach #710.
 
-- **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
+- **Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
   `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,
   wenn es sichtbar und anklickbar ist: nicht `checkVisibility()`-verborgen (mit
   `opacityProperty`, `visibilityProperty`; bewusst ohne `contentVisibilityAuto`, damit Abschnitte
@@ -129,7 +141,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   schlagen `a#beside-details` und `a#slow` fehl. Geprueft mit `cargo test`, Clippy und dem
   Detection-Corpus (Chrome).
 
-- **Unreleased — Darstellungsregeln entscheiden kein Rechtsurteil mehr (#704):**
+- **Darstellungsregeln entscheiden kein Rechtsurteil mehr (#704):**
   `display/text-hidden` meldet ein per CSS, `hidden` oder `aria-hidden` verstecktes
   `[data-viz-text]` nicht mehr als Verstoss, wenn ein gerendertes, erreichbares Element derselben
   `figure[data-viz]` (oder die figure selbst) es per `aria-describedby`/`aria-details` referenziert:
@@ -145,7 +157,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   gefunden" statt zu behaupten, man koenne nicht umschalten. Belegt am Fall geographia.eu
   (Detection-Corpus `display_modes_described_text`).
 
-- **Unreleased — Ausschluesse gelten auch fuer die Screenreader-Schicht (#703):** Knoten in
+- **Ausschluesse gelten auch fuer die Screenreader-Schicht (#703):** Knoten in
   `--exclude-selector`/`[data-audit-exclude]`-Teilbaeumen (#645) fallen jetzt auch aus
   `screen_reader.issues` und damit aus `bfsg_compliance` und dem daraus abgeleiteten
   `risk.legal_flags` (#484). Verortet wird ueber die Backend-Knoten-ID des AX-Knotens, wie bei den
