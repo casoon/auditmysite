@@ -70,8 +70,18 @@ const CONTENT_ON_HOVER_JS: &str = r#"
       const hasAriaLabel = !!(el.getAttribute('aria-label') || '').trim();
       const hasAriaLabelledby = !!(el.getAttribute('aria-labelledby') || '').trim();
       const textContent = (el.textContent || '').trim();
+      // Weitere Namensquellen vor `title` (accname 1.2): ein zugeordnetes
+      // <label>, der Wert eines Buttons und das alt eines Bildes im Element.
+      // Ohne sie galt ein <input title> mit echtem <label> als title-only (#711).
+      const hasLabel = !!(el.labels && Array.from(el.labels).some(l => (l.textContent || '').trim()));
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      const hasValueName = el.localName === 'input' &&
+        ['submit', 'button', 'reset'].includes(type) && !!(el.getAttribute('value') || '').trim();
+      const hasImgAlt = Array.from(el.querySelectorAll('img[alt]')).some(i => i.getAttribute('alt').trim()) ||
+        (el.localName === 'input' && type === 'image' && !!(el.getAttribute('alt') || '').trim());
       // If accessible name comes from text/aria, title is supplemental — fine.
-      if (hasAriaLabel || hasAriaLabelledby || textContent.length > 0) continue;
+      if (hasAriaLabel || hasAriaLabelledby || hasLabel || hasValueName || hasImgAlt ||
+          textContent.length > 0) continue;
       __amsPush(titleOnly, el, __amsCssSelector(el), 10);
       if (__amsReal(titleOnly) >= 10) break;
     }

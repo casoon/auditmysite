@@ -18,6 +18,10 @@
 
         <!-- neither: title adds information beyond the name -->
         <button type="button" title="Opens the help page in a new window">Help</button>
+        <!-- neither: a real <label> names the field, title only adds a hint (#711) -->
+        <label for="kw">Keywords</label>
+        <input id="kw" type="search" title="Search the whole portal">
+        <input type="submit" value="Search" title="Start the search">
     </main>
 </body>
 </html>
