@@ -30,17 +30,22 @@ const TARGET_SIZE_JS: &str = r#"
   for (var s = 0; s < selectors.length; s++) {
     var els = document.querySelectorAll(selectors[s]);
     for (var i = 0; i < els.length && __amsReal(elements) < 50; i++) {
-      __amsPush(elements, els[i], els[i], 50);
+      if (isPointerTarget(els[i])) __amsPush(elements, els[i], els[i], 50);
     }
   }
 
   /*TARGET_HELPERS*/
+  var animating = [];
   for (var j = 0; j < elements.length && __amsReal(violations) < 5; j++) {
     var el = elements[j];
     var rect = el.getBoundingClientRect();
     // 2.5.5 has no spacing exception, only the inline and equivalent ones.
     if ((rect.width < MIN_SIZE || rect.height < MIN_SIZE) && !isInlineInText(el) && !hasEquivalentLink(el, MIN_SIZE)) {
       var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
+      if (isAnimating(el)) {
+        __amsPush(animating, el, { selector: __amsCssSelector(el), label: desc }, 5);
+        continue;
+      }
       __amsPush(violations, el, {
         selector: __amsCssSelector(el),
         label: desc,
@@ -50,7 +55,7 @@ const TARGET_SIZE_JS: &str = r#"
     }
   }
 
-  return { violations: violations };
+  return { violations: violations, animating: animating };
 })()
 "#;
 
@@ -83,38 +88,38 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
         }
     };
 
-    violations
-        .iter()
-        .map(|item| {
-            let selector = item
-                .get("selector")
-                .and_then(|v| v.as_str())
-                .unwrap_or("element");
-            let label = item
-                .get("label")
-                .and_then(|v| v.as_str())
-                .unwrap_or("element");
-            let width = item.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
-            let height = item.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
+    let mut findings =
+        super::target_size_minimum::animating_findings(&TARGET_SIZE_ENHANCED_RULE, &val);
+    findings.extend(violations.iter().map(|item| {
+        let selector = item
+            .get("selector")
+            .and_then(|v| v.as_str())
+            .unwrap_or("element");
+        let label = item
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("element");
+        let width = item.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
+        let height = item.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
 
-            Violation::new(
-                TARGET_SIZE_ENHANCED_RULE.id,
-                TARGET_SIZE_ENHANCED_RULE.name,
-                TARGET_SIZE_ENHANCED_RULE.level,
-                Severity::Medium,
-                format!(
-                    "Interactive target '{}' is {}×{} CSS pixels, below the 44×44 minimum.",
-                    label, width, height
-                ),
-                selector,
-            )
-            .with_selector(selector)
-            .with_fix(
-                "Increase the target size to at least 44×44 CSS pixels using padding, \
+        Violation::new(
+            TARGET_SIZE_ENHANCED_RULE.id,
+            TARGET_SIZE_ENHANCED_RULE.name,
+            TARGET_SIZE_ENHANCED_RULE.level,
+            Severity::Medium,
+            format!(
+                "Interactive target '{}' is {}×{} CSS pixels, below the 44×44 minimum.",
+                label, width, height
+            ),
+            selector,
+        )
+        .with_selector(selector)
+        .with_fix(
+            "Increase the target size to at least 44×44 CSS pixels using padding, \
                  min-width/min-height, or by enlarging the element.",
-            )
-            .with_rule_id(TARGET_SIZE_ENHANCED_RULE.axe_id)
-            .with_help_url(TARGET_SIZE_ENHANCED_RULE.help_url)
-        })
-        .collect()
+        )
+        .with_rule_id(TARGET_SIZE_ENHANCED_RULE.axe_id)
+        .with_help_url(TARGET_SIZE_ENHANCED_RULE.help_url)
+    }));
+    findings
 }

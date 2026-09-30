@@ -50,7 +50,7 @@ use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::DarkModeAnalysis;
 use crate::design_quality::DesignQualityAnalysis;
 use crate::error::Result;
-use crate::interaction::stability::{settle, wait_for_page_stability};
+use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
@@ -760,6 +760,8 @@ pub async fn audit_page(
         collect_consent_cookie_signals(page).await,
     ));
 
+    settle_animations(page, "desktop", config.stability_budget_ms).await;
+
     // Capture desktop screenshot
     let desktop_screenshot = capture_pass_screenshot(page, "Desktop").await;
 
@@ -796,6 +798,8 @@ pub async fn audit_page(
     let mobile_stability =
         wait_for_page_stability(page, "mobile", config.stability_budget_ms).await;
     consent_result.merge(mobile_consent);
+
+    settle_animations(page, "mobile", config.stability_budget_ms).await;
 
     // Capture mobile screenshot
     let mobile_screenshot = capture_pass_screenshot(page, "Mobile").await;
@@ -1582,6 +1586,18 @@ async fn run_rules(
         .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
     (wcag_results, excluded)
+}
+
+/// Size-based rules measure the settled layout (#706): wait for finite
+/// animations and transitions, bounded by the page-stability budget.
+async fn settle_animations(page: &Page, viewport: &str, budget_ms: u64) {
+    let settle = wait_for_finite_animations(page, budget_ms).await;
+    if !settle.settled {
+        info!(
+            "{viewport}: {} animation(s) still running after {} ms; target-size rules skip animating targets",
+            settle.running, settle.waited_ms
+        );
+    }
 }
 
 fn page_rule_outcome(

@@ -5,6 +5,25 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
+  `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,
+  wenn es sichtbar und anklickbar ist: nicht `checkVisibility()`-verborgen (mit
+  `contentVisibilityAuto`, `opacityProperty`, `visibilityProperty`), nicht in `[inert]`, ohne
+  `pointer-events: none` — wie schon beim gleichwertigen Link. Das gilt fuer das gemessene Ziel
+  und fuer die Nachbarn der Abstandspruefung; Links in einem geschlossenen `<details>` (Chrome
+  behaelt ihre Box, verbirgt sie per `content-visibility: hidden`) machten auf geographia.eu drei
+  Links im Footer und in einer Liste zum Befund. Ohne `checkVisibility` bleibt es beim bisherigen
+  Groessenfilter. Ausserdem wartet jeder Viewport-Durchgang nach der Stabilitaetspruefung auf
+  laufende endliche CSS-Animationen und -Transitions (`document.getAnimations()`, unendliche
+  werden ignoriert), begrenzt durch ein zweites `--stability-budget-ms`; eine Animation, deren
+  Restzeit das Budget uebersteigt, wird gar nicht erst abgewartet. Ein Ziel, das danach selbst
+  oder ueber einen Vorfahren noch animiert, meldet die Regel als nicht gemessen (`untested`)
+  statt mit seiner Zwischengroesse: Das Logo-Intro auf geographia.eu/atmosphere/ stand als 3×39
+  px im Bericht, fertig misst es 147×39 px. Neue Detection-Corpus-Faelle
+  `target_size_hidden_neighbours` und `target_size_animation`; gegen den Stand vor dem Fix
+  schlagen `a#beside-details` und `a#slow` fehl. Geprueft mit `cargo test`, Clippy und dem
+  Detection-Corpus (Chrome).
+
 - **1.7.1, 2026-09-30:** Erster Schritt des Regelumzugs nach barrierlab (casoon/barrierlab#13):
   21 Kennungen kommen aus `a11y-rules` 0.13.2, die abgeloesten eigenen Regeln sind geloescht (#690,
   B0). Neue Befunde `zoom/viewport-missing` (Gewichtung folgt in #702) und `images/alt-suspicious`;

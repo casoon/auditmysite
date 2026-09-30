@@ -27,7 +27,8 @@ use the headless shell, try a full Chrome first.
 ## Timeouts
 
 `--timeout` sets the page-load timeout in seconds (default 30). Slow pages may also need a larger
-`--stability-budget-ms` for late hydration (default 1500). `--disable-images` loads faster but
+`--stability-budget-ms` for late hydration (default 1500); the same budget bounds the wait for
+finite CSS animations before target sizes are measured. `--disable-images` loads faster but
 skips the contrast check.
 
 ## Docker or root

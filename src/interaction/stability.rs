@@ -170,6 +170,100 @@ pub async fn wait_for_page_stability(
     }
 }
 
+/// Result of [`wait_for_finite_animations`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AnimationSettle {
+    /// No finite animation or transition was running when the wait ended.
+    pub settled: bool,
+    pub waited_ms: u64,
+    /// Finite animations still running when the wait ended.
+    pub running: u64,
+}
+
+impl AnimationSettle {
+    /// Anything unreadable counts as not settled; the target-size rules then
+    /// still check each target for a running animation themselves.
+    fn from_value(value: &serde_json::Value) -> Self {
+        let running = value
+            .get("running")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        Self {
+            settled: value.get("settled").and_then(serde_json::Value::as_bool) == Some(true)
+                && running == 0,
+            waited_ms: value
+                .get("waited_ms")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            running,
+        }
+    }
+}
+
+/// Wait until running finite CSS animations and transitions have finished,
+/// so size-based rules measure the settled layout (#706). A logo intro that
+/// grows from `max-width: 0` was measured at 3×39 px instead of its final
+/// 147×39 px — the audit browser starts a fresh session each time, so a
+/// once-per-session intro always runs.
+///
+/// Infinite animations (spinners, marquees) are ignored: they never finish.
+/// An animation whose remaining time exceeds the remaining budget is not
+/// waited for — that would only burn the budget. After each batch finishes,
+/// two animation frames pass before looking again, so animations chained on
+/// `animationend` are caught too. Without `document.getAnimations` this
+/// returns at once.
+///
+/// Whatever still runs afterwards is left to the rules: the target-size
+/// helpers (`isAnimating`) report such a target as not measured instead of
+/// reporting its mid-animation size.
+pub async fn wait_for_finite_animations(page: &Page, budget_ms: u64) -> AnimationSettle {
+    let budget_ms = budget_ms.clamp(200, 10_000);
+    let expression = format!(
+        r#"new Promise(resolve => {{
+            if (typeof document.getAnimations !== 'function') {{
+                resolve({{ settled: true, waited_ms: 0, running: 0 }});
+                return;
+            }}
+            const started = performance.now();
+            const remaining = a => {{
+                const t = a.effect.getComputedTiming();
+                return (t.endTime - (t.localTime || 0)) / Math.abs(a.playbackRate || 1);
+            }};
+            const step = () => {{
+                const elapsed = performance.now() - started;
+                const running = document.getAnimations().filter(a =>
+                    a.playState === 'running' && a.effect && isFinite(a.effect.getComputedTiming().endTime));
+                const left = {budget_ms} - elapsed;
+                const waitable = running.filter(a => remaining(a) <= left);
+                if (running.length === 0 || waitable.length === 0 || left <= 0) {{
+                    resolve({{ settled: running.length === 0, waited_ms: Math.round(elapsed), running: running.length }});
+                    return;
+                }}
+                Promise.race([
+                    Promise.all(waitable.map(a => a.finished.catch(() => null))),
+                    new Promise(r => setTimeout(r, left))
+                ]).then(() => requestAnimationFrame(() => requestAnimationFrame(step)));
+            }};
+            step();
+        }})"#
+    );
+    let params = match EvaluateParams::builder()
+        .expression(expression)
+        .await_promise(true)
+        .return_by_value(true)
+        .build()
+    {
+        Ok(params) => params,
+        Err(_) => return AnimationSettle::from_value(&serde_json::Value::Null),
+    };
+    match tokio::time::timeout(Duration::from_millis(budget_ms + 500), page.execute(params)).await {
+        Ok(Ok(result)) => {
+            AnimationSettle::from_value(&result.result.result.value.clone().unwrap_or_default())
+        }
+        _ => AnimationSettle::from_value(&serde_json::Value::Null),
+    }
+}
+
 /// Wait for the page to settle after an interaction.
 ///
 /// Runs a JS promise that resolves after two animation frames, which flushes
@@ -232,4 +326,39 @@ pub const JOURNEY_SETTLE_BUDGET_MS: u64 = 600;
 /// allerdings die falsche Seite.
 pub async fn settle_after_action(page: &Page) -> StabilityProvenance {
     wait_for_page_stability(page, "journey", JOURNEY_SETTLE_BUDGET_MS).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AnimationSettle;
+    use serde_json::json;
+
+    #[test]
+    fn animation_settle_reads_settled_result() {
+        let settle = AnimationSettle::from_value(
+            &json!({ "settled": true, "waited_ms": 812, "running": 0 }),
+        );
+        assert_eq!(
+            settle,
+            AnimationSettle {
+                settled: true,
+                waited_ms: 812,
+                running: 0
+            }
+        );
+    }
+
+    #[test]
+    fn animation_settle_with_running_animations_is_not_settled() {
+        let settle = AnimationSettle::from_value(
+            &json!({ "settled": false, "waited_ms": 1500, "running": 2 }),
+        );
+        assert!(!settle.settled);
+        assert_eq!(settle.running, 2);
+    }
+
+    #[test]
+    fn animation_settle_without_result_is_not_settled() {
+        assert!(!AnimationSettle::from_value(&serde_json::Value::Null).settled);
+    }
 }

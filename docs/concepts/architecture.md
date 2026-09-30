@@ -13,8 +13,11 @@ CLI → Browser manager → Chrome (CDP) → Accessibility tree → WCAG engine 
 1. **Browser.** auditmysite starts Chrome or Chromium headless as a child process and talks to
    it over the Chrome DevTools Protocol, a WebSocket on localhost.
 2. **Capture.** The page loads in a tab. Capture waits within a bounded stability budget and
-   records whether the DOM became quiet, a ready signal was seen or the budget ran out. Consent
-   banners are detected and reported; `--dismiss-consent` tries to dismiss them first.
+   records whether the DOM became quiet, a ready signal was seen or the budget ran out. Then,
+   bounded by a budget of the same size, it waits for finite CSS animations and transitions to
+   end, so target sizes are measured on the settled layout; a target still animating is
+   reported as not measured. Consent banners are detected and reported; `--dismiss-consent`
+   tries to dismiss them first.
 3. **Accessibility tree.** Chrome's native accessibility tree is read together with computed
    styles. That is what makes JavaScript-rendered content, contrast after the cascade and the
    browser's own accessible names available.

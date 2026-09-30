@@ -128,7 +128,8 @@ pub struct Args {
     #[arg(short = 't', long, value_name = "SECS")]
     pub timeout: Option<u64>,
 
-    /// Maximum wait for late hydration and DOM stabilization after navigation.
+    /// Maximum wait for late hydration and DOM stabilization after navigation;
+    /// the same budget again bounds the wait for finite CSS animations to end.
     #[arg(long, default_value = "1500", value_name = "MS", global = true)]
     pub stability_budget_ms: u64,
 

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Target size during animation corpus case</title>
+    <style>
+        .row { display: flex; gap: 4px; margin: 48px 0; align-items: flex-start; }
+        .row a { display: block; flex: none; height: 48px; overflow: hidden; white-space: nowrap; line-height: 48px; }
+        .big { width: 48px; }
+        /* A logo intro that grows from nothing, like geographia.eu's module name (#706). */
+        @keyframes grow { from { width: 0; } to { width: 120px; } }
+        #intro { width: 120px; animation: grow 1s ease-in; }
+        @keyframes grow-slow { from { width: 12px; } to { width: 120px; } }
+        #slow { width: 120px; animation: grow-slow 60s linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 16px; height: 16px; border: 2px solid; animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Targets measured while they animate (#706)</h1>
+        <!-- An infinite animation never settles; it must not hold up or suppress anything. -->
+        <div class="spinner" aria-hidden="true"></div>
+
+        <!-- pass: grows from 0 to 120x48 over 1 s; the audit waits for the animation to finish
+             and measures the final size. Measured mid-animation it would be undersized, with a
+             neighbour 4 px away. -->
+        <div class="row">
+            <a id="intro" href="/intro">Atmosphere</a>
+            <a class="big" href="/intro-next">Next</a>
+        </div>
+
+        <!-- pass (not failed, needs review): still growing after the settle budget, so its size is
+             reported as not measured instead of as a violation -->
+        <div class="row">
+            <a id="slow" href="/slow">Slow intro</a>
+            <a class="big" href="/slow-next">Next</a>
+        </div>
+    </main>
+</body>
+</html>
