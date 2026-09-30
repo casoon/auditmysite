@@ -367,6 +367,12 @@ impl ExclusionScope {
         }
     }
 
+    /// True for a DOM node inside an excluded subtree — an iframe there is
+    /// not audited at all (#715).
+    pub fn excludes_backend(&self, backend_id: i64) -> bool {
+        self.contains(backend_id)
+    }
+
     /// True for an AX node whose DOM node lies inside an excluded subtree —
     /// the locating path of the screen-reader issues (#703).
     pub fn excludes_ax_node(&self, node_id: &str, ax_tree: &AXTree) -> bool {

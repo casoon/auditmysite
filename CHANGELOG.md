@@ -5,6 +5,31 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Regeln laufen in iframes (#715):** Ein `role="dialog"` ohne Namen in einem
+  iframe (gov.cy) blieb unentdeckt, weil `getFullAXTree` und die geteilten DOM-Regeln nur das
+  Hauptdokument sahen; axe prueft jeden Frame. Neu ist ein Frame-Durchgang (`audit::frames`):
+  Fuer jedes im Prozess der Seite gerenderte iframe (auch verschachtelt) holt er den AX-Baum per
+  `frameId` und baut aus dem `content_document` desselben `DOM.getDocument`-Abrufs ein eigenes
+  Dokument, dann laufen dort die **elementbezogenen** Baum- und geteilten Regeln (Namen von
+  Dialogen, Bildern, Links, Buttons, Formularfeldern; Rollen samt geforderten Eltern/Kindern;
+  Listen- und Tabellenstruktur; referenzierte doppelte IDs; `aria-hidden`-Fokus u. a.) — per
+  expliziter Positivliste. Seitenbezogene Regeln (Landmarks, `h1`, Titel, Viewport, Sprunglink,
+  `bypass`, `region`) bleiben wie bei axe dem Hauptdokument vorbehalten. Befunde tragen den
+  Selektor `"{iframe} [frame] {element}"` und eine `frame:`-Knotenkennung, Ausschluesse (#645)
+  gelten auch hier. Uebersprungen werden verborgene Frames (`hidden`, `aria-hidden`,
+  `role=none`, unsichtbar, hoechstens 1 px, im AX-Baum ignoriert), ausgeschlossene und
+  prozessfremde (cross-origin) Frames; `execution.frames` im JSON fuehrt geprueft und
+  uebersprungen samt Grund (`cross_origin`, `hidden`, `excluded`, `ax_tree_failed`,
+  `document_unavailable`) je Viewport. Der JavaScript-Scan `iframe/same-origin-content` prueft
+  nur noch `html-has-lang`, seine uebrigen Pruefungen deckt der Durchgang ab. Neuer
+  Detection-Corpus-Fall `iframe_widget_rules` und ein Chrome-Integrationstest, der auch belegt,
+  dass keine Seitenregel im Frame meldet. Offen bleibt die Tablist aus `ul`/`li`
+  (magyarorszag.hu): Chrome glaettet das `li` zwischen Tablist und Tab im AX-Baum, die
+  baumbasierten Regeln sehen dort — auch im Hauptdokument — eine gueltige Struktur. Live auf
+  gov.cy liegt der Dialog in einem prozessfremden Frame (`digital-assistant.gov.cy`, `gov.cy` ist
+  ein Public Suffix): Er steht jetzt als `cross_origin` uebersprungen im Bericht, geprueft wird er
+  erst mit einer eigenen CDP-Sitzung je Out-of-Process-Frame.
+
 - **Unreleased — Screenreader-Ausschluesse ueberleben den Cache (#708):** Bei `--reuse-cache`
   wird der Screenreader-Bericht aus dem gespeicherten AX-Baum neu gebaut; die in #703
   ausgeschlossenen Knoten standen danach wieder im Sidecar und im PDF. Die ausgeschlossenen

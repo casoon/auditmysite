@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Iframe widget rules corpus case</title>
+</head>
+<body>
+    <main>
+        <h1>Widgets inside a same-origin iframe (#715)</h1>
+        <!-- Like gov.cy and magyarorszag.hu: a consent/dialog widget rendered
+             in an iframe. The dialog has no name, the tablist is built from a
+             list, so its tabs sit in list items instead of the tablist. The
+             frame document has no main landmark, no h1 and no skip link on
+             purpose: those are page-level rules and must not be reported for
+             a frame. -->
+        <iframe id="widget" title="Consent widget" style="width:600px;height:400px;border:0"
+            srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Widget</title></head><body>
+<div role=&quot;dialog&quot; id=&quot;consent-dialog&quot;><p>We use cookies.</p><button type=&quot;button&quot;>Accept</button></div>
+<ul role=&quot;tablist&quot; id=&quot;tabs&quot;><li><a role=&quot;tab&quot; href=&quot;#one&quot; id=&quot;tab-one&quot;>One</a></li><li><a role=&quot;tab&quot; href=&quot;#two&quot; id=&quot;tab-two&quot;>Two</a></li></ul>
+</body></html>"></iframe>
+        <!-- Hidden from assistive technology: not audited. -->
+        <iframe id="hidden-widget" title="Hidden widget" aria-hidden="true" style="width:300px;height:100px;border:0"
+            srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Hidden</title></head><body><div role=&quot;dialog&quot; id=&quot;hidden-dialog&quot;></div></body></html>"></iframe>
+    </main>
+</body>
+</html>

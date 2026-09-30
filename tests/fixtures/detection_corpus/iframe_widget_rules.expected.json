@@ -1,0 +1,9 @@
+{
+  "case": "iframe_widget_rules",
+  "expectations": [
+    { "rule_id": "dialog-name", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation" },
+    { "rule_id": "aria-dialog-name", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "aria-tablist-tabpanel", "selector": "iframe#widget [frame] ul#tabs", "verdict": "violation" },
+    { "rule_id": "aria-dialog-name", "selector": "iframe#hidden-widget [frame] div#hidden-dialog", "verdict": "pass" }
+  ]
+}

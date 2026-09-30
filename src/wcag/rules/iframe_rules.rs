@@ -1,16 +1,15 @@
-//! WCAG 1.1.1, 1.3.1, 2.4.4, 3.1.1, 4.1.2 — same-origin iframe content.
+//! WCAG 3.1.1 — language of same-origin iframe documents.
 //!
-//! Runs a set of focused WCAG checks inside each same-origin iframe by
-//! executing JavaScript against `contentDocument`. Cross-origin iframes are
+//! Checks by JavaScript against `contentDocument` whether the `<html>` of
+//! each same-origin iframe carries a `lang`. Cross-origin iframes are
 //! skipped (they are handled by `frame-tested`).
 //!
-//! Checks performed inside each accessible iframe:
-//! - 1.1.1 / image-alt      — images without alt attribute
-//! - 2.4.4 / link-name      — links without accessible text
-//! - 4.1.2 / button-name    — buttons without accessible name
-//! - 1.3.1 / label          — form inputs without associated label
-//! - 4.1.2 / duplicate-id   — referenced duplicate IDs within the iframe document
-//! - 3.1.1 / html-has-lang  — missing lang on the iframe's html element
+//! The element-level checks this scan used to carry (image-alt, link-name,
+//! button-name, label, duplicate-id) run since #715 as the full frame pass in
+//! `audit::frames`: the tree and shared rules against each frame's own AX
+//! tree and DOM. The document-level `lang` stays here — the frame pass runs
+//! element-level rules only, and `document/lang-missing` is one of the
+//! page-level rules it leaves out.
 
 use chromiumoxide::Page;
 use tracing::warn;
@@ -24,34 +23,6 @@ use crate::wcag::types::{Severity, Violation};
 /// `cur !== document.documentElement` simply never fires for iframe nodes,
 /// and the 5-iteration cap keeps selectors reasonably short).
 const IFRAME_SCAN_JS: &str = r#"
-  function __iframeAccessibleName(el, doc) {
-    var label = (el.getAttribute('aria-label') || '').trim();
-    if (label) return label;
-    var lbId = (el.getAttribute('aria-labelledby') || '').trim();
-    if (lbId) {
-      var text = lbId.split(/\s+/).map(function(id) {
-        var ref = doc.getElementById(id);
-        return ref ? ref.textContent.trim() : '';
-      }).join(' ').trim();
-      if (text) return text;
-    }
-    var elId = el.id;
-    if (elId) {
-      var safeId = elId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      var labelEl = doc.querySelector('label[for="' + safeId + '"]');
-      if (labelEl && labelEl.textContent.trim()) return labelEl.textContent.trim();
-    }
-    var p = el.parentElement;
-    while (p) {
-      if (p.tagName && p.tagName.toLowerCase() === 'label') {
-        var t = p.textContent.trim();
-        if (t) return t;
-      }
-      p = p.parentElement;
-    }
-    return (el.getAttribute('title') || '').trim();
-  }
-
   var iframes = document.querySelectorAll('iframe, frame');
   var results = [];
 
@@ -76,114 +47,6 @@ const IFRAME_SCAN_JS: &str = r#"
 
     var ifSel = __amsCssSelector(iframe);
     var ifSrc = iframe.getAttribute('src') || '';
-
-    // 1.1.1 image-alt
-    var imgs = iframeDoc.querySelectorAll('img');
-    for (var ii = 0; ii < imgs.length; ii++) {
-      var img = imgs[ii];
-      var imgRole = (img.getAttribute('role') || '').toLowerCase();
-      if (imgRole === 'none' || imgRole === 'presentation') continue;
-      if (img.getAttribute('aria-hidden') === 'true') continue;
-      if (img.getAttribute('alt') === null) {
-        results.push({
-          rule_id: 'image-alt', rule: '1.1.1', severity: 'high',
-          message: 'Image inside iframe is missing an alt attribute',
-          iframe_selector: ifSel, iframe_src: ifSrc,
-          selector: __amsCssSelector(img),
-          snippet: img.outerHTML.substring(0, 200)
-        });
-      }
-    }
-
-    // 4.1.2 button-name
-    var btns = iframeDoc.querySelectorAll('button, [role="button"]');
-    for (var bi = 0; bi < btns.length; bi++) {
-      var btn = btns[bi];
-      if (btn.getAttribute('aria-hidden') === 'true') continue;
-      if (__iframeAccessibleName(btn, iframeDoc)) continue;
-      if ((btn.textContent || '').trim()) continue;
-      results.push({
-        rule_id: 'button-name', rule: '4.1.2', severity: 'critical',
-        message: 'Button inside iframe is missing an accessible name',
-        iframe_selector: ifSel, iframe_src: ifSrc,
-        selector: __amsCssSelector(btn),
-        snippet: btn.outerHTML.substring(0, 200)
-      });
-    }
-
-    // 2.4.4 link-name
-    var links = iframeDoc.querySelectorAll('a[href]');
-    for (var li = 0; li < links.length; li++) {
-      var link = links[li];
-      if (link.getAttribute('aria-hidden') === 'true') continue;
-      if (__iframeAccessibleName(link, iframeDoc)) continue;
-      if ((link.textContent || '').trim()) continue;
-      var imgWithAlt = link.querySelector('img[alt]');
-      if (imgWithAlt && (imgWithAlt.getAttribute('alt') || '').trim()) continue;
-      results.push({
-        rule_id: 'link-name', rule: '2.4.4', severity: 'high',
-        message: 'Link inside iframe is missing accessible text',
-        iframe_selector: ifSel, iframe_src: ifSrc,
-        selector: __amsCssSelector(link),
-        snippet: link.outerHTML.substring(0, 200)
-      });
-    }
-
-    // 1.3.1 label
-    var inputs = iframeDoc.querySelectorAll(
-      'input:not([type="hidden"]):not([type="submit"]):not([type="button"])' +
-      ':not([type="reset"]):not([type="image"]), select, textarea'
-    );
-    for (var ini = 0; ini < inputs.length; ini++) {
-      var input = inputs[ini];
-      if (input.getAttribute('aria-hidden') === 'true') continue;
-      if (__iframeAccessibleName(input, iframeDoc)) continue;
-      results.push({
-        rule_id: 'label', rule: '1.3.1', severity: 'critical',
-        message: 'Form input inside iframe is missing an associated label',
-        iframe_selector: ifSel, iframe_src: ifSrc,
-        selector: __amsCssSelector(input),
-        snippet: input.outerHTML.substring(0, 200)
-      });
-    }
-
-    // 4.1.2 duplicate-id — nur referenzierte IDs, siehe `wcag::shared`
-    var idrefAttrs = ['for', 'form', 'list', 'headers', 'aria-labelledby',
-      'aria-describedby', 'aria-controls', 'aria-owns', 'aria-activedescendant',
-      'aria-details', 'aria-errormessage', 'aria-flowto'];
-    var referencedIds = {};
-    for (var ri = 0; ri < idrefAttrs.length; ri++) {
-      var refEls = iframeDoc.querySelectorAll('[' + idrefAttrs[ri] + ']');
-      for (var rj = 0; rj < refEls.length; rj++) {
-        var refVal = (refEls[rj].getAttribute(idrefAttrs[ri]) || '').trim();
-        if (!refVal) continue;
-        var refParts = refVal.split(/\s+/);
-        for (var rk = 0; rk < refParts.length; rk++) {
-          if (refParts[rk]) referencedIds[refParts[rk]] = true;
-        }
-      }
-    }
-    var allIdEls = iframeDoc.querySelectorAll('[id]');
-    var seenIds = {};
-    var reportedIds = {};
-    for (var di = 0; di < allIdEls.length; di++) {
-      var idVal = allIdEls[di].id;
-      if (!idVal) continue;
-      if (idVal in seenIds) {
-        if (!(idVal in reportedIds) && referencedIds[idVal] === true) {
-          results.push({
-            rule_id: 'duplicate-id', rule: '4.1.2', severity: 'critical',
-            message: 'Referenced id "' + idVal + '" is assigned more than once inside iframe',
-            iframe_selector: ifSel, iframe_src: ifSrc,
-            selector: __amsCssSelector(allIdEls[di]),
-            snippet: allIdEls[di].outerHTML.substring(0, 200)
-          });
-          reportedIds[idVal] = true;
-        }
-      } else {
-        seenIds[idVal] = true;
-      }
-    }
 
     // 3.1.1 html-has-lang
     var iframeHtmlEl = iframeDoc.documentElement;
@@ -268,50 +131,6 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
         .unwrap_or("Accessibility issue in iframe content");
 
     let (rule, name, level, severity, fix, help_url) = match rule_id {
-        "image-alt" => (
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Add a descriptive alt attribute. Use alt=\"\" for decorative images.",
-            "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
-        ),
-        "button-name" => (
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::Critical,
-            "Add visible text, aria-label, or aria-labelledby to the button.",
-            "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
-        ),
-        "link-name" => (
-            "2.4.4",
-            "Link Purpose (In Context)",
-            WcagLevel::A,
-            Severity::High,
-            "Add descriptive text inside the link, or use aria-label to describe its destination.",
-            "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
-        ),
-        "label" => (
-            "1.3.1",
-            "Info and Relationships",
-            WcagLevel::A,
-            Severity::Critical,
-            "Associate a <label> element using for/id, or use aria-label on the input.",
-            "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-        ),
-        // Wie bei `html-has-lang`: Der Befund im Hauptdokument heisst seit der
-        // Umstellung `ids/duplicate`; `duplicate-id` erzeugt nur noch diese
-        // Pruefung, und zwar fuer das Dokument *im* iframe -- ein anderer
-        // Befund an einem anderen Dokument.
-        "duplicate-id" => (
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::Critical,
-            "Ensure all id attributes are unique within the iframe document, so for/headers/aria-* references resolve to exactly one element.",
-            "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
-        ),
         IFRAME_HTML_HAS_LANG_AXE_ID => (
             "3.1.1",
             "Language of Page",

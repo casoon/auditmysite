@@ -37,10 +37,28 @@ pub type ChromeNameSources = HashMap<i64, String>;
 /// DOM node — from the same `getFullAXTree` response, no second round trip.
 pub async fn extract_ax_tree_with_name_sources(page: &Page) -> Result<(AXTree, ChromeNameSources)> {
     info!("Extracting Accessibility Tree...");
+    fetch_ax_tree(page, GetFullAxTreeParams::default()).await
+}
 
+/// The AX tree of one child frame's document.
+///
+/// `getFullAXTree` without `frameId` returns the main frame only; the content
+/// of an iframe is a separate tree. Works for frames rendered in the page's
+/// own process — an out-of-process (site-isolated) frame is not reachable
+/// through the page session.
+pub async fn extract_frame_ax_tree(page: &Page, frame_id: &str) -> Result<AXTree> {
+    let params = GetFullAxTreeParams::builder()
+        .frame_id(frame_id.to_string())
+        .build();
+    Ok(fetch_ax_tree(page, params).await?.0)
+}
+
+async fn fetch_ax_tree(
+    page: &Page,
+    params: GetFullAxTreeParams,
+) -> Result<(AXTree, ChromeNameSources)> {
     // Request the full AX tree via CDP.
     // Some pages (WAF challenges, heavy SPAs) never respond to getFullAXTree — cap at 60s.
-    let params = GetFullAxTreeParams::default();
     let response = tokio::time::timeout(Duration::from_secs(60), page.execute(params))
         .await
         .map_err(|_| AuditError::AXTreeExtractionFailed {

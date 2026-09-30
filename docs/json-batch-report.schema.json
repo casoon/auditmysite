@@ -693,6 +693,9 @@
         },
         "display_modes": {
           "$ref": "#/$defs/displayModes"
+        },
+        "frames": {
+          "$ref": "#/$defs/frameCoverage"
         }
       }
     },
@@ -1376,6 +1379,59 @@
         "reduced_motion": {
           "type": "boolean",
           "description": "prefers-reduced-motion: reduce matched during the audit."
+        }
+      }
+    },
+    "frameCoverage": {
+      "description": "Iframes on the page (#715). `audited`: rendered in the page's own process and checked with the element-level WCAG rules (page-level rules such as landmarks, h1, title, viewport and skip link run on the top document only). `skipped`: not audited, with the reason. Findings inside a frame carry the selector `\"{iframe} [frame] {element}\"`.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "audited": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frameEntry"
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frameEntry"
+          }
+        }
+      }
+    },
+    "frameEntry": {
+      "type": "object",
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "The iframe element; nested frames as \"{outer} [frame] {inner}\"."
+        },
+        "url": {
+          "type": "string",
+          "description": "The frame document's URL, or the src attribute."
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "cross_origin",
+            "hidden",
+            "excluded",
+            "ax_tree_failed",
+            "document_unavailable"
+          ],
+          "description": "Why the frame was skipped (skipped frames only). cross_origin: rendered out of process (site isolation), see frame-tested; hidden: not perceivable (hidden, aria-hidden, role none/presentation, not rendered, at most 1px, or ignored in the accessibility tree); excluded: inside an audit exclusion."
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

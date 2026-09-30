@@ -2365,3 +2365,139 @@ async fn display_text_sets_stored_choice_and_reduced_motion() {
         auditmysite::display::AuditedDisplayMode::SiteDefault
     );
 }
+
+/// #715: element-level rules run inside same-process iframes, page-level
+/// rules do not, and the report says which frames were audited or skipped.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
+    use auditmysite::audit::frames::FrameSkipReason;
+
+    let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/detection_corpus/iframe_widget_rules.html");
+    let html = std::fs::read_to_string(corpus).expect("fixture");
+    // A cross-site frame (localhost vs. 127.0.0.1) is rendered out of process
+    // under site isolation and must be listed as skipped, not as clean.
+    let remote = common::fixture_server::serve_html(
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Remote</title></head><body><div role=\"dialog\"></div></body></html>"
+            .to_string(),
+    );
+    let remote_url = remote.url.replace("127.0.0.1", "localhost");
+    let html = html.replace(
+        "</main>",
+        &format!(
+            "<iframe id=\"remote\" title=\"Remote\" style=\"width:300px;height:100px\" src=\"{remote_url}/\"></iframe></main>"
+        ),
+    );
+    let fixture = common::fixture_server::serve_html(html);
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &fixture.url)
+        .await
+        .expect("Navigation failed");
+    let config = default_config();
+    let (report, _) = audit_page(&page, &fixture.url, &config, &manager)
+        .await
+        .expect("Audit failed");
+    fixture.stop();
+    remote.stop();
+
+    let wcag = &report.accessibility.wcag_results;
+    let in_frame: Vec<_> = wcag
+        .violations
+        .iter()
+        .chain(&wcag.warnings)
+        .filter(|v| v.selector.as_deref().is_some_and(|s| s.contains("[frame]")))
+        .collect();
+    let summary: Vec<_> = in_frame
+        .iter()
+        .map(|v| {
+            format!(
+                "{} @ {}",
+                v.rule_id.as_deref().unwrap_or(&v.rule),
+                v.selector.as_deref().unwrap_or("")
+            )
+        })
+        .collect();
+    eprintln!("frame findings: {summary:#?}");
+
+    let has = |rule: &str, selector: &str| {
+        in_frame
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some(rule) && v.selector.as_deref() == Some(selector))
+    };
+    assert!(
+        has("dialog-name", "iframe#widget [frame] div#consent-dialog"),
+        "{summary:#?}"
+    );
+    assert!(
+        has(
+            "aria-dialog-name",
+            "iframe#widget [frame] div#consent-dialog"
+        ),
+        "{summary:#?}"
+    );
+    // The widget rules reach the tablist in the frame. Chrome's AX tree
+    // flattens the `<li>` between tablist and tab, so the tree-based
+    // required-parent/children rules see a valid structure there -- the same
+    // on the top document; that is a rule question, not a frame one.
+    assert!(
+        has("aria-tablist-tabpanel", "iframe#widget [frame] ul#tabs"),
+        "{summary:#?}"
+    );
+
+    // The main document's AX tree does not reach into the frame, so nothing
+    // is reported twice.
+    assert!(
+        !wcag.violations.iter().chain(&wcag.warnings).any(|v| v
+            .selector
+            .as_deref()
+            .is_some_and(|s| s.starts_with("div#consent-dialog"))),
+        "frame element reported without its frame"
+    );
+
+    // Page-level rules stay on the top document.
+    let page_level = |id: &str| {
+        matches!(
+            id,
+            "bypass" | "region" | "heading-order" | "focus-visible" | "html-has-lang"
+        ) || id.starts_with("landmark")
+            || id.starts_with("document/")
+            || id.starts_with("headings/h1")
+            || id.starts_with("zoom/")
+            || id == "keyboard/skip-link-missing"
+    };
+    let leaked: Vec<_> = in_frame
+        .iter()
+        .filter(|v| v.rule_id.as_deref().is_some_and(page_level))
+        .map(|v| v.rule_id.clone())
+        .collect();
+    assert!(leaked.is_empty(), "page-level rules in frame: {leaked:?}");
+    // Nothing from the aria-hidden frame.
+    assert!(
+        !in_frame.iter().any(|v| v
+            .selector
+            .as_deref()
+            .is_some_and(|s| s.starts_with("iframe#hidden-widget"))),
+        "{summary:#?}"
+    );
+
+    let frames = report
+        .accessibility
+        .execution
+        .frames
+        .as_ref()
+        .expect("frame coverage recorded");
+    eprintln!("frame coverage: {frames:#?}");
+    assert!(frames.audited.iter().any(|f| f.selector == "iframe#widget"));
+    let skipped = |selector: &str, reason: FrameSkipReason| {
+        frames
+            .skipped
+            .iter()
+            .any(|f| f.selector == selector && f.reason == Some(reason))
+    };
+    assert!(skipped("iframe#hidden-widget", FrameSkipReason::Hidden));
+    assert!(skipped("iframe#remote", FrameSkipReason::CrossOrigin));
+}

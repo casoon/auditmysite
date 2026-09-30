@@ -28,6 +28,7 @@
 //! ignorierten Knoten auseinanderlaufen.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use a11y_dom::{
     Arena, ArenaNode, ComputedStyle, Document, NameSource as SharedNameSource, Node, NodeKind,
@@ -80,8 +81,10 @@ pub struct CdpDocument {
     /// Native AX-Werte, über die Backend-Node-ID verschlüsselt.
     ax: HashMap<i64, AxFacts>,
     /// Berechnete Layout-Stile, sofern mit [`fetch_dom_document_with_layout`]
-    /// gebaut. Nur dann erfüllt [`CdpDocument::rendered`] Tier 3.
-    layout: Option<LayoutStyles>,
+    /// gebaut. Nur dann erfüllt [`CdpDocument::rendered`] Tier 3. Geteilt,
+    /// weil ein Snapshot alle Dokumente der Seite abdeckt und jedes
+    /// iframe-Dokument daraus sein eigenes [`CdpDocument`] baut.
+    layout: Option<Arc<LayoutStyles>>,
 }
 
 impl CdpDocument {
@@ -147,7 +150,7 @@ impl CdpDocument {
     pub fn rendered(&self) -> Option<RenderedCdpDocument<'_>> {
         Some(RenderedCdpDocument {
             doc: self,
-            styles: self.layout.as_ref()?,
+            styles: self.layout.as_deref()?,
         })
     }
 
@@ -597,8 +600,8 @@ impl<'n> Walk<'_, 'n> {
             // `content_document` (Inhalt von iframes) und `template_content`
             // werden bewusst nicht betreten: Ein iframe bringt ein eigenes
             // Dokument mit eigenem `lang` und `title` mit, das als Teil dieses
-            // Baums falsche Befunde erzeugen würde. Dafür gibt es in
-            // auditmysite die eigenen iframe-Regeln.
+            // Baums falsche Befunde erzeugen würde. Jedes iframe-Dokument
+            // bekommt ein eigenes `CdpDocument` (`audit::frames`, #715).
             _ => {}
         }
     }
@@ -628,7 +631,11 @@ pub fn build_document(root: &CdpNode, ax_tree: &AXTree) -> Result<CdpDocument> {
     build(root, ax_tree, None)
 }
 
-fn build(root: &CdpNode, ax_tree: &AXTree, layout: Option<LayoutStyles>) -> Result<CdpDocument> {
+fn build(
+    root: &CdpNode,
+    ax_tree: &AXTree,
+    layout: Option<Arc<LayoutStyles>>,
+) -> Result<CdpDocument> {
     let html = find_html(root).ok_or_else(|| AuditError::AXTreeExtractionFailed {
         reason: "DOM enthält kein <html>-Element".to_string(),
     })?;
@@ -638,7 +645,7 @@ fn build(root: &CdpNode, ax_tree: &AXTree, layout: Option<LayoutStyles>) -> Resu
     let mut walk = Walk {
         builder: Some(Arena::builder()),
         backend_ids: Vec::new(),
-        layout: layout.as_ref(),
+        layout: layout.as_deref(),
         by_backend,
     };
     walk.node(html);
@@ -678,7 +685,46 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
 pub async fn fetch_dom_document_with_layout(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
     let root = get_document(page).await?;
     let layout = fetch_layout_styles(page).await?;
-    build(&root, ax_tree, Some(layout))
+    build(&root, ax_tree, Some(Arc::new(layout)))
+}
+
+/// Der rohe CDP-Dokumentbaum der Seite samt Layout-Stilen, einmal geholt.
+///
+/// Aus demselben Abruf entstehen das [`CdpDocument`] des Hauptdokuments und
+/// je eines für jedes im Prozess der Seite gerenderte iframe: Dessen Inhalt
+/// steht als `content_document` am iframe-Element, und der `DOMSnapshot`
+/// deckt alle Dokumente ab (über die Backend-ID verschlüsselt).
+pub struct DomCapture {
+    pub root: CdpNode,
+    /// `None`, wenn der `DOMSnapshot` scheiterte -- dann laufen die Regeln
+    /// ohne Stile statt gar nicht.
+    layout: Option<Arc<LayoutStyles>>,
+}
+
+impl DomCapture {
+    /// Das Hauptdokument, verbunden mit dessen AXTree.
+    pub fn document(&self, ax_tree: &AXTree) -> Result<CdpDocument> {
+        self.document_at(&self.root, ax_tree)
+    }
+
+    /// Das Dokument unter `root` -- etwa der `content_document` eines
+    /// iframes --, verbunden mit dem AXTree genau dieses Dokuments.
+    pub fn document_at(&self, root: &CdpNode, ax_tree: &AXTree) -> Result<CdpDocument> {
+        build(root, ax_tree, self.layout.clone())
+    }
+}
+
+/// Holt [`DomCapture`]. Scheitert nur der Snapshot, fehlen die Stile.
+pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
+    let root = get_document(page).await?;
+    let layout = match fetch_layout_styles(page).await {
+        Ok(layout) => Some(Arc::new(layout)),
+        Err(e) => {
+            warn!("DOMSnapshot fuer die geteilten Regeln fehlgeschlagen: {e}");
+            None
+        }
+    };
+    Ok(DomCapture { root, layout })
 }
 
 async fn get_document(page: &Page) -> Result<CdpNode> {
