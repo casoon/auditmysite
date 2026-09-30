@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#653), rendered in visual mode (#704). Figure f1
+     hides its text layer with display:none outside text mode, but the chart
+     and the figure's stage reference it by aria-describedby: accname 1.2
+     computes the description from the hidden node, so the statement still
+     reaches assistive technology. Expect a low review note, no violation.
+     Figure f2 hides its text layer the same way without any reference:
+     that stays a display/text-hidden violation. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display modes: text layer delivered as description</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    html:not([data-display="text"]) [data-viz-text] { display: none; }
+    html[data-display="text"] [data-viz-static] { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main>
+    <h1>Atmosphere layers</h1>
+    <figure id="f1" data-viz="diagram">
+      <div data-viz-static>
+        <svg role="img" aria-label="Layers of the atmosphere" aria-describedby="layers-desc"
+             width="300" height="120" viewBox="0 0 300 120">
+          <rect width="300" height="60" fill="#4575b4"></rect>
+          <rect y="60" width="300" height="60" fill="#91bfdb"></rect>
+        </svg>
+        <div role="application" aria-label="Layer explorer" aria-describedby="layers-desc"
+             tabindex="0" style="width: 300px; height: 40px;">Explore</div>
+      </div>
+      <div id="layers-desc" data-viz-text>
+        <p>The troposphere reaches about 12 km, the stratosphere about 50 km.</p>
+      </div>
+      <figcaption>Layers of the atmosphere</figcaption>
+    </figure>
+    <figure id="f2" data-viz="chart">
+      <div data-viz-static>
+        <svg role="img" aria-label="Pressure by altitude" width="300" height="120" viewBox="0 0 300 120">
+          <rect width="300" height="120" fill="#d73027"></rect>
+        </svg>
+      </div>
+      <div id="pressure-text" data-viz-text>
+        <p>Air pressure halves about every 5.5 km of altitude.</p>
+      </div>
+      <figcaption>Pressure by altitude</figcaption>
+    </figure>
+  </main>
+</body>
+</html>

@@ -1091,6 +1091,7 @@ exclusion-findings =
         } entfielen, nicht im Score
     }
 exclusion-interactive = , dazu { $interactive } Journey-Befunde
+exclusion-screen-reader = , dazu { $issues } Screenreader-Befunde
 batch-exclusion-selector-matched = { $selector }: { $count } Elemente auf { $pages } von { $total } Seiten ausgeschlossen
 batch-exclusion-findings =
     { $occurrences ->

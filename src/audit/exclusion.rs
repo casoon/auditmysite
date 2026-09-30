@@ -17,6 +17,10 @@
 //!   subtree; an ambiguous or unparseable selector keeps the finding.
 //!
 //! Findings without either (page-level findings) are never excluded.
+//!
+//! The screen-reader layer (#703) reports AX node ids; they are located by
+//! backend DOM node id like the AX-tree rules (see
+//! [`ExclusionScope::excludes_ax_node`]).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -65,6 +69,11 @@ pub struct ExclusionReport {
     /// Excluded Accessibility-Journey findings.
     #[serde(default)]
     pub excluded_interactive_findings: usize,
+    /// Screen-reader issues dropped because every node they name lies in an
+    /// excluded subtree (#703). An issue naming excluded and other nodes
+    /// stays, with only the other nodes.
+    #[serde(default)]
+    pub excluded_screen_reader_issues: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -357,6 +366,15 @@ impl ExclusionScope {
             Locator::Selector(_) | Locator::PageLevel => false,
         }
     }
+
+    /// True for an AX node whose DOM node lies inside an excluded subtree —
+    /// the locating path of the screen-reader issues (#703).
+    pub fn excludes_ax_node(&self, node_id: &str, ax_tree: &AXTree) -> bool {
+        ax_tree
+            .get_node(node_id)
+            .and_then(|n| n.backend_dom_node_id)
+            .is_some_and(|id| self.contains(id))
+    }
 }
 
 /// Split `findings` into (kept, excluded). `selector_inside` answers, per
@@ -496,6 +514,7 @@ pub struct ExclusionTally {
     desktop: BTreeMap<(String, String), (usize, usize)>,
     mobile: BTreeMap<(String, String), (usize, usize)>,
     interactive: usize,
+    screen_reader: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -539,6 +558,10 @@ impl ExclusionTally {
         self.interactive += count;
     }
 
+    pub fn record_screen_reader(&mut self, count: usize) {
+        self.screen_reader += count;
+    }
+
     pub fn into_report(self) -> ExclusionReport {
         let mut keys: Vec<&(String, String)> =
             self.desktop.keys().chain(self.mobile.keys()).collect();
@@ -572,6 +595,7 @@ impl ExclusionTally {
             excluded_violations: rules.iter().map(|r| r.violations).sum(),
             rules,
             excluded_interactive_findings: self.interactive,
+            excluded_screen_reader_issues: self.screen_reader,
         }
     }
 }
@@ -587,6 +611,8 @@ pub struct BatchExclusionSummary {
     pub excluded_occurrences: usize,
     pub excluded_violations: usize,
     pub excluded_interactive_findings: usize,
+    #[serde(default)]
+    pub excluded_screen_reader_issues: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -614,6 +640,7 @@ impl BatchExclusionSummary {
             s.excluded_occurrences += page.excluded_occurrences;
             s.excluded_violations += page.excluded_violations;
             s.excluded_interactive_findings += page.excluded_interactive_findings;
+            s.excluded_screen_reader_issues += page.excluded_screen_reader_issues;
             for sel in &page.selectors {
                 let entry = match s
                     .selectors
@@ -693,6 +720,7 @@ pub fn batch_exclusion_note(
         summary.excluded_occurrences,
         None,
         summary.excluded_interactive_findings,
+        summary.excluded_screen_reader_issues,
     ));
     Some(parts.join("; "))
 }
@@ -702,6 +730,7 @@ fn findings_text(
     occurrences: usize,
     rules: Option<usize>,
     interactive: usize,
+    screen_reader: usize,
 ) -> String {
     let mut text = match rules {
         Some(rules) => i18n.t_args(
@@ -717,6 +746,12 @@ fn findings_text(
         text.push_str(&i18n.t_args(
             "exclusion-interactive",
             &[("interactive", interactive as i64)],
+        ));
+    }
+    if screen_reader > 0 {
+        text.push_str(&i18n.t_args(
+            "exclusion-screen-reader",
+            &[("issues", screen_reader as i64)],
         ));
     }
     text
@@ -755,6 +790,7 @@ pub fn exclusion_note(report: &ExclusionReport, i18n: &crate::i18n::I18n) -> Opt
         report.excluded_occurrences,
         Some(report.rules.len()),
         report.excluded_interactive_findings,
+        report.excluded_screen_reader_issues,
     ));
     Some(parts.join("; "))
 }
@@ -967,12 +1003,14 @@ mod tests {
                 violations: 4,
             }],
             excluded_interactive_findings: 0,
+            excluded_screen_reader_issues: 1,
         };
         let en = exclusion_note(&report, &crate::i18n::I18n::new("en").unwrap()).unwrap();
         assert!(en.contains(".nothing"), "{en}");
         assert!(en.contains("[data-specimen]"), "{en}");
         assert!(!en.contains(BUILTIN_EXCLUDE_SELECTOR), "{en}");
         assert!(en.contains('5'), "{en}");
+        assert!(en.contains("1 screen-reader findings"), "{en}");
         assert!(
             !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
             "EN note must not contain German: {en}"

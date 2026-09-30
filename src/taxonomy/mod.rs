@@ -33,3 +33,14 @@ pub fn is_missing_name_or_role(rule_id: &str) -> bool {
     rule_id == "a11y.name_role.missing"
         || (rule_id.starts_with("a11y.") && rule_id.ends_with("_name.missing"))
 }
+
+/// Whether a taxonomy rule id checks the BarrierLab display-mode convention
+/// (`display/*`, #653) rather than a WCAG requirement. Such a rule is only
+/// anchored to a criterion, so it must neither count as BFSG-relevant nor
+/// raise a legal flag (#704): the page's own conformance to that criterion
+/// decides that. Scoped to the display rules on purpose — the other
+/// `best-practice`-tagged rules (`region`, `link-as-button`,
+/// `redundant-role`, …) keep their current classification.
+pub fn is_convention_rule(rule_id: &str) -> bool {
+    rule_id.starts_with("a11y.display_")
+}

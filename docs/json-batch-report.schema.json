@@ -1215,6 +1215,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Excluded Accessibility-Journey findings."
+        },
+        "excluded_screen_reader_issues": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Screen-reader issues dropped because every node they name lies in an excluded subtree."
         }
       }
     },
@@ -1303,6 +1308,10 @@
           "minimum": 0
         },
         "excluded_interactive_findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_screen_reader_issues": {
           "type": "integer",
           "minimum": 0
         }

@@ -5,6 +5,33 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Darstellungsregeln entscheiden kein Rechtsurteil mehr (#704):**
+  `display/text-hidden` meldet ein per CSS, `hidden` oder `aria-hidden` verstecktes
+  `[data-viz-text]` nicht mehr als Verstoss, wenn ein gerendertes, erreichbares Element derselben
+  `figure[data-viz]` (oder die figure selbst) es per `aria-describedby`/`aria-details` referenziert:
+  accname 1.2 berechnet die Beschreibung auch aus verstecktem, direkt referenziertem Inhalt (ARIA15
+  genuegt 1.1.1). Stattdessen ein Pruefhinweis mit Schwere niedrig („nur als Beschreibung,
+  visually-hidden empfohlen"). `inert` bleibt ein Verstoss. Alle `display/*`-Regeln sind
+  Best Practice der Darstellungs-Konvention: Sie setzen `bfsg_relevance` hoechstens auf `low` und
+  zaehlen nicht mehr als `legal_flags` (Seiten- und Batch-Urteil, `passed` im JSON); ein
+  gemeinsames `NormalizedFinding::is_legal_flag` ersetzt die gleichlautenden Filter. Bewusst
+  nur fuer `display/*` (`taxonomy::is_convention_rule`), nicht generisch ueber das
+  `best-practice`-Tag — `region`, `link-as-button` und `redundant-role` behalten ihre Einordnung.
+  `display/toggle-missing` sagt jetzt „kein mit `[data-display-toggle]` markierter Umschalter
+  gefunden" statt zu behaupten, man koenne nicht umschalten. Belegt am Fall geographia.eu
+  (Detection-Corpus `display_modes_described_text`).
+
+- **Unreleased — Ausschluesse gelten auch fuer die Screenreader-Schicht (#703):** Knoten in
+  `--exclude-selector`/`[data-audit-exclude]`-Teilbaeumen (#645) fallen jetzt auch aus
+  `screen_reader.issues` und damit aus `bfsg_compliance` und dem daraus abgeleiteten
+  `risk.legal_flags` (#484). Verortet wird ueber die Backend-Knoten-ID des AX-Knotens, wie bei den
+  Baum-Regeln (`ExclusionScope::excludes_ax_node`). Ein Befund faellt nur weg, wenn alle seine
+  Knoten ausgeschlossen sind; sonst bleibt er mit den uebrigen Knoten. Befunde ohne Knoten
+  (seitenweit) bleiben immer. Gezaehlt in `exclusions.excluded_screen_reader_issues` (auch im
+  Batch-Aggregat und im PDF-Hinweis); das PDF, das die Befunde in der Laufsprache neu ableitet,
+  laesst dieselben Knoten weg. Belegt an barrierlab.eu `/tasks/ticket/` (Detection-Corpus
+  `audit_exclude_screen_reader`, der dafuer `screen_reader_bfsg_verdict` pruefen kann).
+
 - **1.7.1, 2026-09-30:** Erster Schritt des Regelumzugs nach barrierlab (casoon/barrierlab#13):
   21 Kennungen kommen aus `a11y-rules` 0.13.2, die abgeloesten eigenen Regeln sind geloescht (#690,
   B0). Neue Befunde `zoom/viewport-missing` (Gewichtung folgt in #702) und `images/alt-suspicious`;

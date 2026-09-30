@@ -359,13 +359,16 @@ pub(super) fn derive_expected_impact(
 /// such as 2.5.8) is not covered by EN 301 549 V3.2.1 and returns "low"
 /// regardless of level/severity, rather than "medium" purely from its level
 /// string matching "A"/"AA".
+///
+/// A convention rule (`display/*`) is never more than "low" (#704).
 pub(super) fn derive_bfsg_relevance(
+    rule_id: &str,
     category: &str,
     wcag_criterion: &str,
     wcag_level: &str,
     severity: Severity,
 ) -> String {
-    if category != "wcag" {
+    if category != "wcag" || crate::taxonomy::is_convention_rule(rule_id) {
         return "low".to_string();
     }
     if !crate::wcag::en301549::EN301549_WEB_CLAUSES

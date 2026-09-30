@@ -1211,13 +1211,7 @@ impl UnifiedReport {
     }
 
     fn wrap_single(ctx: &AuditContext<'_>, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| {
-            f.wcag_level == "A"
-                && matches!(
-                    f.severity,
-                    crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
-                )
-        });
+        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
         // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
         // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
@@ -1330,13 +1324,7 @@ impl UnifiedReport {
 
     /// Wrap a single page (cached/from-normalized path — no raw module data available).
     fn wrap_single_from_normalized(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| {
-            f.wcag_level == "A"
-                && matches!(
-                    f.severity,
-                    crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
-                )
-        });
+        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
         // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
         // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
