@@ -1,0 +1,9 @@
+{
+  "case": "name_description_best_practice",
+  "expectations": [
+    { "rule_id": "title-only-description", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "aria-label", "verdict": "pass" },
+    { "rule_id": "content-on-hover-focus", "verdict": "pass" }
+  ]
+}

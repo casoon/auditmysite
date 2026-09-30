@@ -8,7 +8,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
 
 pub(super) const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.8",
@@ -42,6 +42,19 @@ pub(super) const TARGET_SIZE_MINIMUM_RULE: RuleMetadata = RuleMetadata {
 /// `href=""`, `href="#"` and `javascript:` links never count — they name no
 /// destination, so equal hrefs say nothing about equal function. Buttons are
 /// out of scope: their function is not visible in the markup.
+///
+/// Also shared: which elements count as targets at all (#705). A target that
+/// cannot be seen or clicked is neither measured nor a neighbour: hidden per
+/// `checkVisibility` (a closed `<details>` keeps its content's boxes but hides
+/// it via `content-visibility: hidden` — geographia.eu got three 2.5.8 findings
+/// from such neighbours), inside `inert`, or with `pointer-events: none`.
+/// Browsers without `checkVisibility` keep the size-only filter.
+///
+/// And: whether a target is still animating (#706). The pipeline waits for
+/// finite animations first (`wait_for_finite_animations`); a target whose
+/// element or ancestor still runs a finite animation or transition after that
+/// is reported as not measured instead of with its mid-animation size.
+/// Infinite animations are ignored, they never settle.
 pub(super) const TARGET_HELPERS_JS: &str = r#"
 function isInlineInText(el) {
   if (getComputedStyle(el).display !== 'inline') return false;
@@ -95,6 +108,35 @@ function hasEquivalentLink(el, minSize) {
   return false;
 }
 
+function isPointerTarget(el) {
+  if (el.closest('[inert]')) return false;
+  if (typeof el.checkVisibility === 'function' &&
+      // Ohne contentVisibilityAuto: Abschnitte mit `content-visibility: auto`
+      // ausserhalb des Viewports sind da und bedienbar, sie wuerden sonst
+      // nicht gemessen. Das geschlossene <details> faengt checkVisibility
+      // auch so ab (::details-content ist `content-visibility: hidden`).
+      !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+  return getComputedStyle(el).pointerEvents !== 'none';
+}
+
+var animatingRoots = null;
+function isAnimating(el) {
+  if (!animatingRoots) {
+    animatingRoots = [];
+    var anims = typeof document.getAnimations === 'function' ? document.getAnimations() : [];
+    for (var i = 0; i < anims.length; i++) {
+      var a = anims[i];
+      if (a.playState !== 'running' || !a.effect || !a.effect.target) continue;
+      if (!isFinite(a.effect.getComputedTiming().endTime)) continue;
+      animatingRoots.push(a.effect.target);
+    }
+  }
+  for (var k = 0; k < animatingRoots.length; k++) {
+    if (animatingRoots[k].contains(el)) return true;
+  }
+  return false;
+}
+
 "#;
 
 /// Undersized targets pass when the spacing exception holds: a 24 px circle
@@ -117,7 +159,7 @@ const TARGET_SIZE_JS: &str = r#"
     // actually laid out/visible, or intentionally not a pointer target in its
     // resting state. A genuinely too-small but real button/icon is virtually
     // never this tiny, so this threshold doesn't mask real violations.
-    if (r.width <= 2 || r.height <= 2) continue;
+    if (r.width <= 2 || r.height <= 2 || !isPointerTarget(all[i])) continue;
     __amsPush(targets, all[i], { el: all[i], rect: r, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
                    small: r.width < MIN_SIZE || r.height < MIN_SIZE }, 1000);
   }
@@ -138,11 +180,16 @@ const TARGET_SIZE_JS: &str = r#"
     return true;
   }
   var violations = [];
+  var animating = [];
   for (var j = 0; j < targets.length && __amsReal(violations) < 5; j++) {
     var t = targets[j];
     if (!t.small || isInlineInText(t.el) || spaced(t) || hasEquivalentLink(t.el, MIN_SIZE)) continue;
     var el = t.el;
     var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
+    if (isAnimating(el)) {
+      __amsPush(animating, el, { selector: __amsCssSelector(el), label: desc }, 5);
+      continue;
+    }
     __amsPush(violations, el, {
       selector: __amsCssSelector(el),
       label: desc,
@@ -150,7 +197,7 @@ const TARGET_SIZE_JS: &str = r#"
       height: Math.round(t.rect.height)
     }, 5);
   }
-  return { violations: violations };
+  return { violations: violations, animating: animating };
 })()
 "#;
 
@@ -183,7 +230,49 @@ pub async fn check_target_size_minimum_with_page(page: &Page) -> Vec<Violation> 
         }
     };
 
-    violations
+    let mut findings = animating_findings(&TARGET_SIZE_MINIMUM_RULE, &val);
+    findings.extend(violations.iter().map(|item| {
+        let selector = item
+            .get("selector")
+            .and_then(|v| v.as_str())
+            .unwrap_or("element");
+        let label = item
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("element");
+        let width = item.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
+        let height = item.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
+
+        Violation::new(
+            TARGET_SIZE_MINIMUM_RULE.id,
+            TARGET_SIZE_MINIMUM_RULE.name,
+            TARGET_SIZE_MINIMUM_RULE.level,
+            Severity::Medium,
+            format!(
+                "Interactive target '{}' is {}×{} CSS pixels, below the 24×24 minimum.",
+                label, width, height
+            ),
+            selector,
+        )
+        .with_selector(selector)
+        .with_fix(
+            "Increase the target size to at least 24×24 CSS pixels using padding, \
+                 min-width/min-height, or by enlarging the element.",
+        )
+        .with_rule_id(TARGET_SIZE_MINIMUM_RULE.axe_id)
+        .with_help_url(TARGET_SIZE_MINIMUM_RULE.help_url)
+    }));
+    findings
+}
+
+/// Undersized targets that were still animating when measured (#706): the
+/// size is a snapshot of the animation, not the target's, so they come back
+/// as `Untested` rather than as a failure — "not measured" is not "passed".
+pub(super) fn animating_findings(rule: &RuleMetadata, val: &serde_json::Value) -> Vec<Violation> {
+    let Some(items) = val.get("animating").and_then(|v| v.as_array()) else {
+        return Vec::new();
+    };
+    items
         .iter()
         .map(|item| {
             let selector = item
@@ -194,27 +283,56 @@ pub async fn check_target_size_minimum_with_page(page: &Page) -> Vec<Violation> 
                 .get("label")
                 .and_then(|v| v.as_str())
                 .unwrap_or("element");
-            let width = item.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
-            let height = item.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-
             Violation::new(
-                TARGET_SIZE_MINIMUM_RULE.id,
-                TARGET_SIZE_MINIMUM_RULE.name,
-                TARGET_SIZE_MINIMUM_RULE.level,
-                Severity::Medium,
+                rule.id,
+                rule.name,
+                rule.level,
+                Severity::Low,
                 format!(
-                    "Interactive target '{}' is {}×{} CSS pixels, below the 24×24 minimum.",
-                    label, width, height
+                    "Size of interactive target '{}' was not measured: it was still animating \
+                     when the check ran.",
+                    label
                 ),
                 selector,
             )
             .with_selector(selector)
             .with_fix(
-                "Increase the target size to at least 24×24 CSS pixels using padding, \
-                 min-width/min-height, or by enlarging the element.",
+                "Check the target's size once its animation has finished, or audit with \
+                 prefers-reduced-motion: reduce if the page skips the animation then.",
             )
-            .with_rule_id(TARGET_SIZE_MINIMUM_RULE.axe_id)
-            .with_help_url(TARGET_SIZE_MINIMUM_RULE.help_url)
+            .with_rule_id(rule.axe_id)
+            .with_help_url(rule.help_url)
+            .with_kind(Outcome::Untested)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn animating_targets_are_untested_not_failed() {
+        let val = json!({
+            "violations": [],
+            "animating": [{ "selector": "a.logo-module", "label": "Atmosphere" }]
+        });
+        let findings = animating_findings(&TARGET_SIZE_MINIMUM_RULE, &val);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].kind, Outcome::Untested);
+        assert_eq!(findings[0].selector.as_deref(), Some("a.logo-module"));
+        assert_eq!(
+            findings[0].rule_id.as_deref(),
+            Some(TARGET_SIZE_MINIMUM_RULE.axe_id)
+        );
+        assert!(findings[0].message.contains("Atmosphere"));
+    }
+
+    #[test]
+    fn missing_animating_list_yields_nothing() {
+        assert!(
+            animating_findings(&TARGET_SIZE_MINIMUM_RULE, &json!({ "violations": [] })).is_empty()
+        );
+    }
 }

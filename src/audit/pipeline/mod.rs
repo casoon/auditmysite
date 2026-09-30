@@ -50,7 +50,7 @@ use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::DarkModeAnalysis;
 use crate::design_quality::DesignQualityAnalysis;
 use crate::error::Result;
-use crate::interaction::stability::{settle, wait_for_page_stability};
+use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
@@ -760,6 +760,8 @@ pub async fn audit_page(
         collect_consent_cookie_signals(page).await,
     ));
 
+    settle_animations(page, "desktop", config.stability_budget_ms).await;
+
     // Capture desktop screenshot
     let desktop_screenshot = capture_pass_screenshot(page, "Desktop").await;
 
@@ -796,6 +798,8 @@ pub async fn audit_page(
     let mobile_stability =
         wait_for_page_stability(page, "mobile", config.stability_budget_ms).await;
     consent_result.merge(mobile_consent);
+
+    settle_animations(page, "mobile", config.stability_budget_ms).await;
 
     // Capture mobile screenshot
     let mobile_screenshot = capture_pass_screenshot(page, "Mobile").await;
@@ -998,6 +1002,14 @@ pub async fn audit_page(
         pattern_analysis,
         start_time.elapsed().as_millis() as u64,
     );
+    // The screen-reader layer reads the mobile pass's tree, so the mobile
+    // scope decides (#703) — before normalization derives the risk from it.
+    if let Some(sr) = report.screen_reader_audit.as_mut() {
+        let dropped = sr.apply_exclusion(|node_id| {
+            mobile_exclusion.excludes_ax_node(node_id, &primary_snap.ax_tree)
+        });
+        exclusion_tally.record_screen_reader(dropped);
+    }
     report.consent_banner_detected = consent_result.banner_detected;
     report.consent_banner_cmp = consent_result.cmp_name;
     report.consent_banner_dismissed = consent_result.dismissed;
@@ -1582,6 +1594,18 @@ async fn run_rules(
         .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
     (wcag_results, excluded)
+}
+
+/// Size-based rules measure the settled layout (#706): wait for finite
+/// animations and transitions, bounded by the page-stability budget.
+async fn settle_animations(page: &Page, viewport: &str, budget_ms: u64) {
+    let settle = wait_for_finite_animations(page, budget_ms).await;
+    if !settle.settled {
+        info!(
+            "{viewport}: {} animation(s) still running after {} ms; target-size rules skip animating targets",
+            settle.running, settle.waited_ms
+        );
+    }
 }
 
 fn page_rule_outcome(

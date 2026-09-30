@@ -1,0 +1,17 @@
+{
+  "case": "link_in_text_block_context",
+  "expectations": [
+    { "rule_id": "link-in-text-block", "selector": "a#inline-link", "verdict": "violation" },
+    { "rule_id": "link-in-text-block", "selector": "a#logo-link", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#header-help", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#header-contact", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#nav-home", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#nav-services", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#list-link", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#list-link-2", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#footer-imprint", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#footer-privacy", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#footer-a11y", "verdict": "pass" },
+    { "rule_id": "link-in-text-block", "selector": "a#footer-list-link", "verdict": "pass" }
+  ]
+}

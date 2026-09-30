@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Reduced motion: transform animation without override</title>
+    <style>
+        /* #712: motion (transform) that prefers-reduced-motion does not reduce */
+        .card { transition: transform 0.3s ease; }
+        .card:hover { transform: translateY(-4px); }
+        .slide-in { animation: slide-in 1s ease-out; }
+        @keyframes slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Transform animation</h1>
+        <div class="card">Card that lifts on hover</div>
+        <div class="slide-in">Panel sliding in</div>
+    </main>
+</body>
+</html>

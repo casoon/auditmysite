@@ -1,0 +1,6 @@
+{
+  "case": "reduced_motion_override",
+  "expectations": [
+    { "rule_id": "prefers-reduced-motion", "verdict": "pass" }
+  ]
+}

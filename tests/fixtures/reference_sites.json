@@ -13,11 +13,11 @@
     {
       "url": "https://www.gov.ie/",
       "expected": {
-        "min": 75,
-        "max": 92
+        "min": 80,
+        "max": 98
       },
-      "reviewed": "2026-09-27",
-      "notes": "Only medium findings (links by colour, text spacing)."
+      "reviewed": "2026-09-30",
+      "notes": "Only medium findings (text spacing). The 10 'links by colour' findings until 1.7.1 were standalone list links (li.home-list-item > a.home-list-link), false positives per #710."
     },
     {
       "url": "https://www.casoon.de/",

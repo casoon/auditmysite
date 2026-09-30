@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Link in text block: only running text counts</title>
+    <style>
+        body { color: #222; font-family: sans-serif; }
+        a { color: #0050a0; text-decoration: none; }
+        ul { list-style: none; padding: 0; }
+    </style>
+</head>
+<body>
+    <!-- #710: standalone links, identified by position rather than colour -->
+    <header>
+        <div class="logo"><a id="logo-link" href="/">Government Portal</a></div>
+        <div class="header-links"><a id="header-help" href="/help">Help</a> | <a id="header-contact" href="/contact">Contact</a></div>
+        <nav>
+            <ul>
+                <li><a id="nav-home" href="/">Home</a></li>
+                <li><a id="nav-services" href="/services">Services</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <h1>Link in text block</h1>
+        <ul class="exposed-links">
+            <li><a id="list-link" href="/topics">Topics</a></li>
+            <li><a id="list-link-2" href="/news">News</a></li>
+        </ul>
+        <!-- true positive: inline link inside running text, distinguished only by colour -->
+        <p>Please read our <a id="inline-link" href="/policy">privacy policy</a> before you submit the form.</p>
+    </main>
+    <footer>
+        <div id="footer-links"><a id="footer-imprint" href="/imprint">Imprint</a> · <a id="footer-privacy" href="/privacy">Privacy</a> · <a id="footer-a11y" href="/accessibility">Accessibility</a></div>
+        <ul>
+            <li><a id="footer-list-link" href="/sitemap">Sitemap</a></li>
+        </ul>
+    </footer>
+</body>
+</html>

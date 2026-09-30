@@ -1,0 +1,10 @@
+{
+  "case": "target_size_animation",
+  "expectations": [
+    { "rule_id": "target-size-minimum", "selector": "a#intro", "verdict": "pass" },
+    { "rule_id": "target-size", "selector": "a#intro", "verdict": "pass" },
+    { "rule_id": "target-size-minimum", "selector": "a#slow", "verdict": "pass" },
+    { "rule_id": "target-size-minimum", "selector": "a#slow", "verdict": "needs_review" },
+    { "rule_id": "target-size", "selector": "a#slow", "verdict": "pass" }
+  ]
+}

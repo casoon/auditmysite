@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Target size hidden-neighbour corpus case</title>
+    <style>
+        .row { display: flex; gap: 0; margin: 48px 0; align-items: flex-start; }
+        .row a { display: block; flex: none; width: 16px; height: 16px; overflow: hidden; font-size: 10px; line-height: 16px; }
+        .row a.n { width: 48px; height: 48px; }
+        details, summary { display: block; flex: none; margin: 0; padding: 0; }
+        summary { width: 0; height: 0; overflow: hidden; list-style: none; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Undersized links next to targets that cannot be seen or clicked (#705)</h1>
+        <!-- Each row: a 16x16 link and, directly to its right, a 48x48 neighbour. The 24 px circle
+             around the small link touches the neighbour, so a visible neighbour makes it fail.
+             The neighbours meet the size themselves, so none of them spends the rule's cap. -->
+
+        <!-- violation (control): the neighbour is visible and clickable -->
+        <div class="row">
+            <a id="control" href="/control">C</a>
+            <a class="n" href="/control-next">N</a>
+        </div>
+
+        <!-- pass: the neighbour sits in a closed <details>; Chrome keeps its box but hides it
+             via ::details-content { content-visibility: hidden } (geographia.eu) -->
+        <div class="row">
+            <a id="beside-details" href="/details">D</a>
+            <details class="more">
+                <summary>More</summary>
+                <a class="n" href="/details-a">A</a>
+            </details>
+        </div>
+
+        <!-- pass: the neighbour is inert -->
+        <div class="row">
+            <a id="beside-inert" href="/inert">I</a>
+            <div inert><a class="n" href="/inert-next">N</a></div>
+        </div>
+
+        <!-- pass: the neighbour has pointer-events: none -->
+        <div class="row">
+            <a id="beside-no-pointer" href="/no-pointer">P</a>
+            <a class="n" href="/no-pointer-next" style="pointer-events: none">N</a>
+        </div>
+    </main>
+</body>
+</html>

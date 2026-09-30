@@ -228,6 +228,8 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.dialog_name.missing", Aria),
     ("a11y.frame_tested.cross_origin", Aria),
     ("a11y.interactive_name.missing", Aria),
+    ("a11y.title_only_description.weak", Aria),
+    ("a11y.description_duplicates_name.redundant", Aria),
     ("a11y.link_as_button.invalid", Aria),
     ("a11y.modern_attributes.invalid", Aria),
     ("a11y.name_role.missing", Aria),

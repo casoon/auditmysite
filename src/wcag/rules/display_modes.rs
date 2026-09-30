@@ -117,6 +117,20 @@ const DISPLAY_MODES_JS: &str = r#"
     if (el.checkVisibility && !el.checkVisibility({ checkVisibilityCSS: true })) return 'css';
     return null;
   }
+  // A text layer that a rendered, reachable element of the same figure
+  // (the figure itself included) references by aria-describedby or
+  // aria-details (#704).
+  function describedIn(fig, el) {
+    if (!el.id) return false;
+    var refs = [fig].concat(Array.prototype.slice.call(fig.querySelectorAll('[aria-describedby], [aria-details]')));
+    for (var i = 0; i < refs.length; i++) {
+      var r = refs[i];
+      if (r === el || el.contains(r)) continue;
+      var ids = ((r.getAttribute('aria-describedby') || '') + ' ' + (r.getAttribute('aria-details') || '')).split(/\s+/);
+      if (ids.indexOf(el.id) >= 0 && rendered(r) && !hiddenFromAt(r)) return true;
+    }
+    return false;
+  }
   // Capped through __amsPush so excluded specimens never spend the budget (#645).
   function push(id, el, detail) {
     __amsPush(findings, el, { id: id, selector: el === html ? 'html' : __amsCssSelector(el), detail: detail || '' }, MAX);
@@ -141,8 +155,19 @@ const DISPLAY_MODES_JS: &str = r#"
       // A text hidden only by CSS inside a figure that is itself not rendered
       // (closed <details>, collapsed tab) is not a convention breach.
       if (reason && (reason !== 'css' || rendered(fig))) {
-        push('hidden', texts[t], reason);
-        hiddenReported = true;
+        // accname 1.2 computes a description from a directly referenced
+        // node even when it is hidden — by CSS, `hidden` or aria-hidden
+        // alike (ARIA15 is a sufficient technique for 1.1.1). The statement
+        // then still reaches assistive technology, flattened into a
+        // description, so this is a note, not a breach. `inert` is outside
+        // accname's notion of hidden; HTML lets user agents drop inert
+        // content from the accessibility tree altogether, so it stays one.
+        if (!texts[t].closest('[inert]') && describedIn(fig, texts[t])) {
+          push('described', texts[t], reason);
+        } else {
+          push('hidden', texts[t], reason);
+          hiddenReported = true;
+        }
       }
     }
     if (mode !== 'text') continue;
@@ -201,9 +226,8 @@ fn violation_for(id: &str, selector: &str, detail: &str) -> Option<Violation> {
         "toggle" => (
             &DISPLAY_TOGGLE_MISSING_RULE,
             format!(
-                "The page contains {detail} visualisation(s) (figure[data-viz]) but no \
-                 [data-display-toggle] control, so visitors cannot switch to a calm or text \
-                 display."
+                "The page contains {detail} visualisation(s) (figure[data-viz]), but no \
+                 toggle marked [data-display-toggle] was found."
             ),
             "Add a reachable, operable control marked [data-display-toggle] that switches \
              html[data-display] between visual, calm and text and stores the choice in \
@@ -255,23 +279,42 @@ fn violation_for(id: &str, selector: &str, detail: &str) -> Option<Violation> {
             "Never put hidden, aria-hidden=\"true\" or inert on [data-viz-text] or its \
              ancestors; to hide it visually in visual/calm mode use a visually-hidden class.",
         ),
+        "described" => (
+            &DISPLAY_TEXT_HIDDEN_RULE,
+            format!(
+                "The visualisation's text layer [data-viz-text] is hidden ({detail}), but a \
+                 rendered element of the figure references it by aria-describedby or \
+                 aria-details, so screen readers still get the statement, only as a \
+                 description with its structure flattened."
+            ),
+            "Hide [data-viz-text] with a visually-hidden class instead, so it stays in the \
+             reading order with its structure (tables, lists).",
+        ),
         _ => return None,
     };
-    Some(
-        Violation::new(
-            rule.id,
-            rule.name,
-            rule.level,
-            rule.severity,
-            message,
-            selector,
-        )
-        .with_selector(selector)
-        .with_rule_id(rule.axe_id)
-        .with_tags(rule.tags.iter().map(|s| s.to_string()).collect())
-        .with_fix(fix)
-        .with_help_url(rule.help_url),
+    let violation = Violation::new(
+        rule.id,
+        rule.name,
+        rule.level,
+        rule.severity,
+        message,
+        selector,
     )
+    .with_selector(selector)
+    .with_rule_id(rule.axe_id)
+    .with_tags(rule.tags.iter().map(|s| s.to_string()).collect())
+    .with_fix(fix)
+    .with_help_url(rule.help_url);
+    // Description-only delivery is a note for review, not a breach (#704).
+    Some(if id == "described" {
+        Violation {
+            severity: Severity::Low,
+            ..violation
+        }
+        .as_warning()
+    } else {
+        violation
+    })
 }
 
 #[cfg(test)]
@@ -297,10 +340,34 @@ mod tests {
 
     #[test]
     fn messages_are_canonical_english() {
-        for key in ["toggle", "init", "media", "text", "hidden"] {
+        for key in ["toggle", "init", "media", "text", "hidden", "described"] {
             let v = violation_for(key, "figure", "never").unwrap();
             let text = format!("{} {}", v.message, v.fix_suggestion.unwrap_or_default());
             assert!(!text.chars().any(|c| "äöüÄÖÜß".contains(c)), "{text}");
         }
+    }
+
+    #[test]
+    fn a_text_layer_delivered_as_description_is_a_low_review_note() {
+        // #704: CSS-hidden [data-viz-text] referenced by aria-describedby.
+        let v = violation_for("described", "div#layers-home-desc", "css").unwrap();
+        assert_eq!(v.rule_id.as_deref(), Some("display/text-hidden"));
+        assert_eq!(v.kind, crate::wcag::types::Outcome::Review);
+        assert_eq!(v.severity, Severity::Low);
+        let hidden = violation_for("hidden", "div#layers-home-desc", "css").unwrap();
+        assert_eq!(hidden.kind, crate::wcag::types::Outcome::Fail);
+        assert_eq!(hidden.severity, Severity::High);
+    }
+
+    #[test]
+    fn toggle_message_reports_the_missing_marker_not_a_missing_ability() {
+        let v = violation_for("toggle", "html", "2").unwrap();
+        assert!(
+            v.message
+                .contains("no toggle marked [data-display-toggle] was found"),
+            "{}",
+            v.message
+        );
+        assert!(!v.message.contains("cannot switch"), "{}", v.message);
     }
 }

@@ -1044,9 +1044,9 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             customer_title_en: "Suboptimal or inaccessible hover/focus content (tooltips)",
             customer_description:
                 "Zusatzinhalte, die erst bei Hover (Mauszeiger) oder Fokus (Tastatur) erscheinen \
-                 (wie Tooltips oder native title-Attribute), sind nicht barrierefrei zugänglich oder unvollständig verknüpft.",
+                 (wie Tooltips), sind nicht barrierefrei zugänglich oder unvollständig verknüpft.",
             customer_description_en:
-                "Additional content appearing on hover or focus (such as tooltips or native title attributes) \
+                "Additional content appearing on hover or focus (such as tooltips) \
                  is not accessible or not properly linked in the HTML code.",
             user_impact:
                 "Nutzer von Screenreadern hören diese Inhalte gar nicht, Tastaturnutzer können sie oft nicht schließen, \
@@ -1055,11 +1055,10 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                 "Screen reader users do not hear tooltips, keyboard users cannot dismiss them, \
                  and they are often completely unusable on touch devices.",
             typical_cause:
-                "Verwendung des nativen HTML title-Attributs als einzige Beschriftung, unvollständige \
-                 Zuweisung per aria-describedby oder fehlende Tastaturbedienbarkeit bei Custom-Tooltips.",
+                "Unvollständige Zuweisung per aria-describedby oder fehlende Tastaturbedienbarkeit bei \
+                 Custom-Tooltips.",
             typical_cause_en:
-                "Using the native HTML title attribute for important information, missing aria-describedby \
-                 associations, or lack of keyboard control on custom tooltips.",
+                "Missing aria-describedby associations, or lack of keyboard control on custom tooltips.",
             recommendation:
                 "Verwende eine sichtbare Beschriftung oder moderne, barrierefreie Tooltips (schließbar mit Escape, \
                  verknüpft über aria-describedby und hoverbar).",
@@ -1074,7 +1073,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Associate tooltips carrying role=\"tooltip\" with their trigger via aria-describedby.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Medium,
-            example_bad: Some("<button title=\"More info\">...</button>\n<div role=\"tooltip\">Help text</div>"),
+            example_bad: Some("<button>More info</button>\n<div role=\"tooltip\">Help text</div>"),
             example_good: Some(
                 "<button aria-describedby=\"tip1\">More info</button>\n<div id=\"tip1\" role=\"tooltip\">Help text</div>"
             ),
@@ -2839,6 +2838,50 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
+        "title-only-description",
+        RuleExplanation {
+            customer_title: "Natives title-Attribut als einzige Beschreibung",
+            customer_title_en: "Native title attribute as the only description",
+            customer_description: "Ein interaktives Element wird nur über das native title-Attribut beschrieben. Das ist Best Practice, kein Verstoß gegen WCAG 4.1.2: title zählt als zugänglicher Name.",
+            customer_description_en: "An interactive element is described only by the native title attribute. This is best practice, not a WCAG 4.1.2 failure: title counts as an accessible name.",
+            user_impact: "Der Tooltip erscheint nur bei Mauszeiger-Hover; per Tastatur und auf Touchgeräten bleibt der Zweck des Elements unsichtbar.",
+            user_impact_en: "The tooltip only appears on mouse hover; with a keyboard and on touch devices the element's purpose stays invisible.",
+            typical_cause: "Icon-Buttons, Logo-Links oder Suchfelder ohne sichtbaren Text, bei denen title als Beschriftung dient.",
+            typical_cause_en: "Icon buttons, logo links or search fields without visible text, where title serves as the label.",
+            recommendation: "Eine sichtbare Beschriftung ergänzen oder den Namen über aria-label/aria-labelledby bzw. ein <label> setzen; title nur für ergänzende Hinweise verwenden.",
+            recommendation_en: "Add a visible label, or set the name via aria-label/aria-labelledby or a <label>; use title only for supplementary hints.",
+            technical_note: "Best Practice, verankert an WCAG 4.1.2. Nicht 1.4.13: Der Browser-Tooltip des title-Attributs wird vom User Agent gesteuert und ist dort ausgenommen. Geprüft werden button, a[href] und input mit title, ohne Textinhalt, aria-label und aria-labelledby.",
+            technical_note_en: "Best practice, anchored to WCAG 4.1.2. Not 1.4.13: the browser tooltip of the title attribute is controlled by the user agent and exempt there. Checks button, a[href] and input with title and without text content, aria-label and aria-labelledby.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button title=\"Search\"><svg aria-hidden=\"true\"></svg></button>"),
+            example_good: Some("<button aria-label=\"Search\"><svg aria-hidden=\"true\"></svg></button>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "description-duplicates-name",
+        RuleExplanation {
+            customer_title: "Beschreibung wiederholt den Namen",
+            customer_title_en: "Description repeats the name",
+            customer_description: "Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist Best Practice, kein fehlender Name.",
+            customer_description_en: "An element's accessible name and accessible description are identical. The element has a name; the repeated announcement is best practice, not a missing name.",
+            user_impact: "Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.",
+            user_impact_en: "Screen readers announce the same text twice without adding information.",
+            typical_cause: "title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title=\"Schließen\" an einem Button „Schließen\".",
+            typical_cause_en: "title or aria-describedby repeats the visible text or the aria-label, e.g. title=\"Close\" on a \"Close\" button.",
+            recommendation: "Die Beschreibung entfernen oder mit einer Information füllen, die über den Namen hinausgeht.",
+            recommendation_en: "Remove the description, or fill it with information that goes beyond the name.",
+            technical_note: "Best Practice, verankert an WCAG 4.1.2. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.",
+            technical_note_en: "Best practice, anchored to WCAG 4.1.2. Compares name and description from the browser's accessibility tree.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button title=\"Close\">Close</button>"),
+            example_good: Some("<button>Close</button>"),
+            example_decorative: None,
+        },
+    ),
+    (
         "aria-required-children",
         RuleExplanation {
             customer_title: "Erforderliche Kindelemente einer ARIA-Rolle fehlen",
@@ -3449,10 +3492,10 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         RuleExplanation {
             customer_title: "Kein Umschalter für Darstellungsmodi",
             customer_title_en: "No display-mode toggle",
-            customer_description: "Die Seite zeigt Visualisierungen, bietet aber keinen Umschalter, mit dem man auf eine ruhige oder reine Textdarstellung wechseln kann.",
-            customer_description_en: "The page shows visualisations but offers no control to switch to a calm or text-only display.",
-            user_impact: "Wer Bewegung, 3D oder Grafiken nicht verträgt, bleibt an die volle Darstellung gebunden.",
-            user_impact_en: "Visitors who cannot cope with motion, 3D or graphics are stuck with the full display.",
+            customer_description: "Die Seite zeigt Visualisierungen, aber es wurde kein mit [data-display-toggle] markierter Umschalter gefunden.",
+            customer_description_en: "The page shows visualisations, but no toggle marked [data-display-toggle] was found.",
+            user_impact: "Fehlt der Umschalter tatsächlich, bleibt an die volle Darstellung gebunden, wer Bewegung, 3D oder Grafiken nicht verträgt.",
+            user_impact_en: "If there really is no toggle, visitors who cannot cope with motion, 3D or graphics are stuck with the full display.",
             typical_cause: "Visualisierungen nach der Konvention ausgezeichnet, der Umschalter aber nicht eingebaut oder nicht mit [data-display-toggle] markiert.",
             typical_cause_en: "Visualisations marked up per the convention, but the toggle was not added or not marked with [data-display-toggle].",
             recommendation: "Auf jeder Seite mit Visualisierungen einen bedienbaren Umschalter anbieten, der zwischen visual, calm und text wechselt und die Wahl speichert.",

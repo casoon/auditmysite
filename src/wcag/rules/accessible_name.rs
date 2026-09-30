@@ -19,6 +19,21 @@ pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
+/// Beschreibung wiederholt den Namen (#713): eigene Best-Practice-Regel statt
+/// `aria-label`, weil das Element einen Namen *hat* -- die doppelte Ansage ist
+/// redundant, aber kein fehlender Name. Verankert an 4.1.2, dem Kriterium fuer
+/// Name und Beschreibung, ohne es zu verletzen.
+pub(super) const DESCRIPTION_DUPLICATES_NAME_META: RuleMetadata = RuleMetadata {
+    id: "4.1.2",
+    name: "Accessible Name - Redundant Description",
+    level: WcagLevel::A,
+    severity: Severity::Low,
+    description: "An accessible description should add information beyond the accessible name",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    axe_id: "description-duplicates-name",
+    tags: &["best-practice", "wcag412", "cat.aria"],
+};
+
 /// Roles considered interactive and requiring an accessible name
 const INTERACTIVE_ROLES: &[&str] = &[
     "button",
@@ -146,10 +161,10 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
         if let (Some(name), Some(desc)) = (node.name.as_deref(), node.description.as_deref()) {
             if !name.trim().is_empty() && name.trim() == desc.trim() {
                 let violation = Violation::new(
-                    RULE_META.id,
-                    "Accessible Name - Redundant Description",
-                    RULE_META.level,
-                    Severity::Low,
+                    DESCRIPTION_DUPLICATES_NAME_META.id,
+                    DESCRIPTION_DUPLICATES_NAME_META.name,
+                    DESCRIPTION_DUPLICATES_NAME_META.level,
+                    DESCRIPTION_DUPLICATES_NAME_META.severity,
                     format!(
                         "Element's accessible name and description are identical: '{}'",
                         name.trim()
@@ -161,8 +176,15 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
                 .with_fix(
                     "The accessible description should provide additional information beyond the name",
                 )
-                .with_help_url(RULE_META.help_url)
-            .with_rule_id(RULE_META.axe_id);
+                .with_help_url(DESCRIPTION_DUPLICATES_NAME_META.help_url)
+                .with_rule_id(DESCRIPTION_DUPLICATES_NAME_META.axe_id)
+                .with_tags(
+                    DESCRIPTION_DUPLICATES_NAME_META
+                        .tags
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                );
 
                 results.add_violation(violation);
                 continue;
@@ -293,10 +315,22 @@ mod tests {
         node.description = Some("Search".to_string());
         let tree = AXTree::from_nodes(vec![node]);
         let results = check_accessible_name(&tree);
-        assert!(results
+        let redundant: Vec<_> = results
             .violations
             .iter()
-            .any(|v| v.message.contains("identical")));
+            .filter(|v| v.message.contains("identical"))
+            .collect();
+        assert_eq!(redundant.len(), 1);
+        // Eigene Kennung, nicht `aria-label` (#713): das Element hat einen Namen.
+        assert_eq!(
+            redundant[0].rule_id.as_deref(),
+            Some("description-duplicates-name")
+        );
+        assert!(redundant[0].tags.iter().any(|t| t == "best-practice"));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("aria-label")));
     }
 
     #[test]

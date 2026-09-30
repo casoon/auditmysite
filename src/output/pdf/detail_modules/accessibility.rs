@@ -289,13 +289,15 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
         sr.reading_sequence.iter().map(|a| a.item.clone()).collect();
     let has_disclosure_menu_pattern =
         patterns.is_some_and(|patterns| patterns.has_recognized("DisclosureMenu"));
-    let localized_issues = crate::screen_reader::analyze_reading_sequence(
+    let mut localized_issues = crate::screen_reader::analyze_reading_sequence(
         &items,
         &sr.navigation_views,
         i18n.locale(),
         is_english(i18n),
         has_disclosure_menu_pattern,
     );
+    // Same audit exclusions as the stored issues (#703).
+    crate::screen_reader::drop_excluded_nodes(&mut localized_issues, &sr.excluded_node_ids);
 
     if !localized_issues.is_empty() {
         // Collapse identical messages into one row with an occurrence count.

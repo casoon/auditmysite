@@ -7,8 +7,17 @@
 //! This check inspects links inside paragraph-like containers and flags
 //! those that have no underline, no font-weight delta, and no other visual
 //! marker compared to their parent.
+//!
+//! Nur Links im Fliesstext zaehlen (#710), wie bei axe `link-in-text-block`
+//! (`isInTextBlock`): Der Abschnitt des umgebenden Blocks (begrenzt durch
+//! `<br>`/`<hr>`) muss mehr Nicht-Link-Text enthalten als Link-/Widget-Text,
+//! und dieser Text muss aus mindestens zwei Woertern bestehen — Trenner wie
+//! `|` oder `·` zwischen Footer-Links sind kein Fliesstext. Links in `nav`
+//! bzw. Menues und Logo-Links (Bild/SVG im Link, Logo-Container) werden
+//! nicht geprueft. Die Entscheidung faellt in Rust (`is_in_running_text`).
 
 use chromiumoxide::Page;
+use serde::Deserialize;
 
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
@@ -24,34 +33,66 @@ pub(super) const USE_OF_COLOR_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag141", "cat.color"],
 };
 
-// Scans for inline links (inside p, li, span, td) whose computed style
-// shows no text-decoration: underline and no font-weight delta vs. the
-// parent. Returns up to 10 selectors. Skips links inside <nav> elements
-// where the surrounding context (menu, button-like styling) typically
-// distinguishes them visually.
+// Scans for inline links whose computed style shows no
+// text-decoration: underline and no font-weight delta vs. the parent.
+// Liefert Kandidaten mit dem Text ihres Blocks; ob der Link im Fliesstext
+// steht, entscheidet `is_in_running_text`.
 const USE_OF_COLOR_JS: &str = r#"
 (function() {
   /*CSS_SELECTOR*/
-  const findings = [];
+  const LIMIT = 300;
+  const candidates = [];
+  const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const isBlock = (el) => {
+    const d = window.getComputedStyle(el).display || '';
+    return d !== 'inline' && d !== 'contents';
+  };
+  const isWidget = (el) => {
+    const tag = el.tagName.toLowerCase();
+    if ((tag === 'a' && el.hasAttribute('href')) ||
+        ['button', 'input', 'select', 'textarea'].includes(tag)) return true;
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    return ['link', 'button', 'menuitem', 'tab', 'checkbox', 'radio', 'switch', 'option'].includes(role);
+  };
+  // Nach axe `isInTextBlock`: Text des Blockabschnitts um den Link, getrennt
+  // in Widget-Text (Links, Buttons, der Link selbst) und uebrigen Text.
+  const blockTexts = (link) => {
+    let block = link.parentElement;
+    while (block && block !== document.body && !isBlock(block)) block = block.parentElement;
+    if (!block) return null;
+    let other = '';
+    let widget = '';
+    let state = 0; // 0 vor dem Link, 1 danach, 2 Abschnitt zu Ende
+    const walk = (node) => {
+      for (const child of Array.from(node.childNodes)) {
+        if (state === 2) return;
+        if (child.nodeType === 3) { other += child.nodeValue; continue; }
+        if (child.nodeType !== 1) continue;
+        const tag = child.tagName.toLowerCase();
+        if (tag === 'br' || tag === 'hr') {
+          if (state === 0) { other = ''; widget = ''; } else { state = 2; }
+          continue;
+        }
+        if (child === link) { state = 1; widget += ' ' + (child.textContent || ''); continue; }
+        if (['script', 'style', 'template', 'noscript'].includes(tag)) continue;
+        const cs = window.getComputedStyle(child);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        if (cs.float !== 'none' || (cs.position !== 'static' && cs.position !== 'relative')) continue;
+        if (isWidget(child)) { widget += ' ' + (child.textContent || ''); continue; }
+        // Verschachtelte Bloecke (Unterliste, Ueberschrift) sind eigene Zeilen.
+        if (isBlock(child)) continue;
+        walk(child);
+      }
+    };
+    walk(block);
+    return { other: clean(other), widget: clean(widget) };
+  };
   try {
     const links = document.querySelectorAll('a[href]');
     for (const link of Array.from(links)) {
-      // Skip links inside nav/header/aside menus where context disambiguates.
-      let inNav = false;
-      let p = link.parentElement;
-      while (p) {
-        const tag = p.tagName.toLowerCase();
-        if (tag === 'nav') { inNav = true; break; }
-        if (tag === 'body') break;
-        p = p.parentElement;
-      }
-      if (inNav) continue;
-
+      if (candidates.length >= LIMIT) break;
       const parent = link.parentElement;
       if (!parent) continue;
-      const parentTag = parent.tagName.toLowerCase();
-      // Only consider links embedded in textual containers.
-      if (!['p', 'li', 'span', 'td', 'div', 'figcaption', 'blockquote'].includes(parentTag)) continue;
       // Skip empty links or links whose only child is an image/icon.
       if (link.children.length === 1 && ['img', 'svg', 'i'].includes(link.children[0].tagName.toLowerCase())) continue;
       if (!link.textContent || !link.textContent.trim()) continue;
@@ -78,14 +119,79 @@ const USE_OF_COLOR_JS: &str = r#"
       const sameBackground = linkStyle.backgroundColor === parentStyle.backgroundColor;
 
       if (!hasUnderline && sameWeight && sameFontStyle && sameFontFamily && sameBorder && sameBackground) {
-        __amsPush(findings, link, __amsCssSelector(link), 10);
-        if (__amsReal(findings) >= 10) break;
+        const texts = blockTexts(link);
+        if (!texts) continue;
+        candidates.push({
+          selector: __amsCssSelector(link),
+          other_text: texts.other.slice(0, 200),
+          link_text_len: texts.widget.length,
+          in_nav: !!link.closest('nav, [role="navigation"], [role="menubar"], [role="menu"]'),
+          logo: !!(link.querySelector('img, svg') ||
+                   link.closest('[class*="logo" i], [id*="logo" i]')),
+          excluded: __amsIsExcludedEl(link),
+        });
       }
     }
   } catch(e) {}
-  return { count: findings.length, selectors: findings };
+  return { candidates };
 })()
 "#;
+
+/// Hoechstzahl gemeldeter Links, getrennt fuer echte und ausgeschlossene
+/// Treffer (wie `__amsPush`).
+const MAX_FINDINGS: usize = 10;
+
+/// Mindestzahl an Woertern im Nicht-Link-Text des Blocks.
+const MIN_RUNNING_TEXT_WORDS: usize = 2;
+
+/// Ein Link ohne nicht-farbliches Merkmal, mit dem Text seines Blocks.
+#[derive(Debug, Default, Deserialize)]
+struct LinkCandidate {
+    selector: String,
+    /// Nicht-Link-Text im Blockabschnitt des Links (bereinigt, gekuerzt).
+    #[serde(default)]
+    other_text: String,
+    /// Laenge des Link-/Widget-Texts im selben Abschnitt.
+    #[serde(default)]
+    link_text_len: usize,
+    #[serde(default)]
+    in_nav: bool,
+    #[serde(default)]
+    logo: bool,
+    #[serde(default)]
+    excluded: bool,
+}
+
+/// Steht der Link im Fliesstext? Wie axe `isInTextBlock`: mehr uebriger Text
+/// als Link-Text, zusaetzlich mindestens zwei Woerter — Trenner zwischen
+/// Footer-Links oder ein einzelnes Wort sind kein Fliesstext.
+fn is_in_running_text(c: &LinkCandidate) -> bool {
+    if c.in_nav || c.logo {
+        return false;
+    }
+    let words = c
+        .other_text
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|w| w.chars().any(char::is_alphabetic))
+        .count();
+    words >= MIN_RUNNING_TEXT_WORDS && c.other_text.chars().count() > c.link_text_len
+}
+
+/// Links im Fliesstext, begrenzt auf je `MAX_FINDINGS` echte und
+/// ausgeschlossene Treffer.
+fn select_findings(candidates: Vec<LinkCandidate>) -> Vec<String> {
+    let (mut real, mut excluded) = (0, 0);
+    candidates
+        .into_iter()
+        .filter(is_in_running_text)
+        .filter(|c| {
+            let count = if c.excluded { &mut excluded } else { &mut real };
+            *count += 1;
+            *count <= MAX_FINDINGS
+        })
+        .map(|c| c.selector)
+        .collect()
+}
 
 pub async fn check_use_of_color_with_page(page: &Page) -> Vec<Violation> {
     let val = match crate::wcag::types::evaluate_or_fail(
@@ -102,22 +208,13 @@ pub async fn check_use_of_color_with_page(page: &Page) -> Vec<Violation> {
         Err(violations) => return violations,
     };
 
-    let count = val.get("count").and_then(|v| v.as_u64()).unwrap_or(0);
-    if count == 0 {
-        return vec![];
-    }
-
-    let selectors: Vec<String> = val
-        .get("selectors")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|s| s.as_str().map(String::from))
-                .collect()
-        })
+    let candidates: Vec<LinkCandidate> = val
+        .get("candidates")
+        .cloned()
+        .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
 
-    selectors
+    select_findings(candidates)
         .into_iter()
         .map(|sel| {
             Violation::new(
@@ -138,4 +235,78 @@ pub async fn check_use_of_color_with_page(page: &Page) -> Vec<Violation> {
             .with_help_url(USE_OF_COLOR_RULE.help_url)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(other_text: &str, link_text: &str) -> LinkCandidate {
+        LinkCandidate {
+            selector: "a".into(),
+            other_text: other_text.into(),
+            link_text_len: link_text.chars().count(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn link_in_paragraph_is_running_text() {
+        assert!(is_in_running_text(&candidate(
+            "Read our for details.",
+            "privacy policy"
+        )));
+    }
+
+    #[test]
+    fn list_item_with_only_the_link_is_not_running_text() {
+        assert!(!is_in_running_text(&candidate("", "Kontakt")));
+    }
+
+    #[test]
+    fn separators_between_footer_links_are_not_running_text() {
+        assert!(!is_in_running_text(&candidate(
+            "| |",
+            "Impressum Datenschutz Barrierefreiheit"
+        )));
+        assert!(!is_in_running_text(&candidate("· ·", "A B C")));
+    }
+
+    #[test]
+    fn link_text_longer_than_surrounding_text_is_not_running_text() {
+        assert!(!is_in_running_text(&candidate(
+            "Mehr zu",
+            "Barrierefreiheit und Datenschutz"
+        )));
+    }
+
+    #[test]
+    fn nav_and_logo_links_are_never_running_text() {
+        let mut c = candidate("Welcome to the official portal of the ministry.", "Home");
+        assert!(is_in_running_text(&c));
+        c.in_nav = true;
+        assert!(!is_in_running_text(&c));
+        c.in_nav = false;
+        c.logo = true;
+        assert!(!is_in_running_text(&c));
+    }
+
+    #[test]
+    fn cap_counts_real_and_excluded_separately() {
+        let mut candidates: Vec<LinkCandidate> = (0..12)
+            .map(|i| LinkCandidate {
+                selector: format!("a#r{i}"),
+                ..candidate("some running text here", "x")
+            })
+            .collect();
+        candidates.push(LinkCandidate {
+            selector: "a#ex".into(),
+            excluded: true,
+            ..candidate("some running text here", "x")
+        });
+        candidates.push(candidate("", "Menu"));
+        let found = select_findings(candidates);
+        assert_eq!(found.len(), MAX_FINDINGS + 1);
+        assert!(found.contains(&"a#ex".to_string()));
+    }
 }

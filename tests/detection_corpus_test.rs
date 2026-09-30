@@ -128,6 +128,18 @@ async fn detection_corpus_matches_real_audit_run() {
             }
         }
 
+        if let Some(expected) = &case.screen_reader_bfsg_verdict {
+            let found = report
+                .screen_reader_audit
+                .as_ref()
+                .map(|sr| serde_json::to_value(sr.bfsg_compliance.verdict).unwrap_or_default());
+            if found.as_ref().and_then(|v| v.as_str()) != Some(expected.as_str()) {
+                false_positives.push(format!(
+                    "screen_reader.bfsg_compliance.verdict: expected {expected}, found {found:?}"
+                ));
+            }
+        }
+
         if !false_negatives.is_empty() || !false_positives.is_empty() {
             diffs.push(CaseDiff {
                 case: case.case.clone(),

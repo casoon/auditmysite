@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Reduced motion: colour and opacity transitions only</title>
+    <style>
+        /* #712: colour/opacity fades are no motion in the sense of 2.3.3 */
+        a { color: #0050a0; transition: color 0.3s ease, background-color 0.3s ease; }
+        a:hover { color: #003070; background-color: #eef; }
+        .fade { transition: opacity 0.2s; }
+        .fade:hover { opacity: 0.8; }
+        button { transition: all 0.2s; }
+        button:focus { outline: 3px solid #003070; box-shadow: 0 0 0 2px #fff; }
+        .pulse { animation: pulse 2s ease-in-out 3; }
+        @keyframes pulse { from { opacity: 1; } to { opacity: 0.6; } }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Colour transitions only</h1>
+        <p>A <a href="/x">link</a> with a colour fade and a <span class="fade">fading box</span>.</p>
+        <p class="pulse">Pulsing notice</p>
+        <button type="button">Button</button>
+    </main>
+</body>
+</html>

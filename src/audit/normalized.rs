@@ -335,6 +335,17 @@ pub struct NormalizedFinding {
     pub occurrences: Vec<OccurrenceDetail>,
 }
 
+impl NormalizedFinding {
+    /// Raises a legal flag: a WCAG Level-A finding of High or Critical
+    /// severity. A convention rule (`display/*`) never does (#704) — it is
+    /// only anchored to a criterion, it does not test it.
+    pub fn is_legal_flag(&self) -> bool {
+        self.wcag_level == "A"
+            && matches!(self.severity, Severity::Critical | Severity::High)
+            && !crate::taxonomy::is_convention_rule(&self.rule_id)
+    }
+}
+
 /// Strukturierte Darstellung des Score-Impacts für JSON/API-Verbraucher
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoreImpactData {
@@ -853,6 +864,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             );
             let expected_impact = expected_impact_text(&expected_impact_kind, true);
             let bfsg_relevance = derive_bfsg_relevance(
+                &tax_id,
                 "wcag",
                 &wcag_criterion_of(&first.rule),
                 first.level.to_string().as_str(),
@@ -989,8 +1001,13 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     f.expected_impact_kind = derive_expected_impact(f.severity, count, &f.category, &f.wcag_level);
     f.expected_impact = expected_impact_text(&f.expected_impact_kind, true);
     f.remediation_priority = derive_remediation_priority(f.severity, count, &f.complexity);
-    f.bfsg_relevance =
-        derive_bfsg_relevance(&f.category, &f.wcag_criterion, &f.wcag_level, f.severity);
+    f.bfsg_relevance = derive_bfsg_relevance(
+        &f.rule_id,
+        &f.category,
+        &f.wcag_criterion,
+        &f.wcag_level,
+        f.severity,
+    );
 }
 
 pub(crate) fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
@@ -1131,7 +1148,7 @@ fn aggregate_seo_findings(
         let expected_impact_kind =
             derive_expected_impact(first.severity, occurrence_count, "seo", "");
         let expected_impact = expected_impact_text(&expected_impact_kind, true);
-        let bfsg_relevance = derive_bfsg_relevance("seo", "", "", first.severity);
+        let bfsg_relevance = derive_bfsg_relevance("", "seo", "", "", first.severity);
         let remediation_priority =
             derive_remediation_priority(first.severity, occurrence_count, &complexity);
         findings.push(NormalizedFinding {
@@ -1699,6 +1716,104 @@ mod tests {
     fn slug_page_rules_normalize_to_their_criterion() {
         for slug in ["aria-prohibited-attr", "aria-hidden-focus", "frame-tested"] {
             assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
+        }
+    }
+
+    /// #704: a display-convention rule is only anchored to 1.1.1; it must
+    /// not raise a legal flag or count as highly BFSG-relevant, while a real
+    /// 1.1.1 finding of the same severity still does.
+    #[test]
+    fn display_convention_rules_are_not_legal_flags() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Display modes: text layer reachable",
+                WcagLevel::A,
+                Severity::High,
+                "hidden",
+                "div#desc",
+            )
+            .with_rule_id("display/text-hidden")
+            .with_tags(vec!["best-practice".into()]),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let norm = normalize(&report).normalized;
+        let finding = &norm.findings[0];
+        assert_eq!(finding.rule_id, "a11y.display_text_layer.hidden");
+        assert_eq!(finding.bfsg_relevance, "low");
+        assert!(!finding.is_legal_flag());
+        assert_eq!(norm.risk.legal_flags, 0);
+
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        ));
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let norm = normalize(&report).normalized;
+        assert_eq!(norm.findings[0].bfsg_relevance, "high");
+        assert_eq!(norm.risk.legal_flags, 1);
+    }
+
+    /// #712: `reduced_motion` (2.3.3) ist AAA — ausserhalb von EN 301 549,
+    /// also weder rechtliches Signal noch hohe BFSG-Relevanz, auch bei
+    /// hoher Schwere.
+    #[test]
+    fn aaa_reduced_motion_is_not_a_legal_flag() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "2.3.3",
+                "Animation from Interactions",
+                WcagLevel::AAA,
+                Severity::High,
+                "motion",
+                "stylesheet",
+            )
+            .with_rule_id("prefers-reduced-motion"),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AAA, results, 1);
+        let norm = normalize(&report).normalized;
+        let finding = &norm.findings[0];
+        assert_eq!(finding.rule_id, "a11y.motion.reduced_motion");
+        assert_eq!(finding.wcag_level, "AAA");
+        assert_eq!(finding.bfsg_relevance, "low");
+        assert!(!finding.is_legal_flag());
+        assert_eq!(norm.risk.legal_flags, 0);
+    }
+
+    /// #711, #713: `title`-only description and a description that repeats
+    /// the name land in their own taxonomy rules, not in 1.4.13 or
+    /// `interactive_name.missing`, and as best practice they raise no legal
+    /// flag even at High severity.
+    #[test]
+    fn best_practice_name_rules_have_own_taxonomy_and_no_legal_flag() {
+        for (axe_id, taxonomy_id) in [
+            ("title-only-description", "a11y.title_only_description.weak"),
+            (
+                "description-duplicates-name",
+                "a11y.description_duplicates_name.redundant",
+            ),
+        ] {
+            let mut results = WcagResults::new();
+            results.add_violation(
+                Violation::new("4.1.2", "x", WcagLevel::A, Severity::High, "x", "n1")
+                    .with_rule_id(axe_id)
+                    .with_tags(vec!["best-practice".into()]),
+            );
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let norm = normalize(&report).normalized;
+            let finding = &norm.findings[0];
+            assert_eq!(finding.rule_id, taxonomy_id, "{axe_id}");
+            assert_eq!(finding.wcag_criterion, "4.1.2", "{axe_id}");
+            assert_eq!(finding.bfsg_relevance, "low", "{axe_id}");
+            assert!(!finding.is_legal_flag(), "{axe_id}");
+            assert_eq!(norm.risk.legal_flags, 0, "{axe_id}");
         }
     }
 

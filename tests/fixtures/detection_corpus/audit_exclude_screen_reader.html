@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Excluded specimen in the screen-reader layer</title>
+</head>
+<body>
+    <main>
+        <h1>Unlabelled form fields as a teaching specimen</h1>
+        <p>The fields below are unlabelled on purpose and sit inside
+           <code>data-audit-exclude</code> (#645). Neither the main pass nor the
+           screen-reader layer may report them, and the screen-reader BFSG
+           verdict must not fail on them (#703).</p>
+        <section data-audit-exclude aria-label="Specimen">
+            <input id="specimen-name" type="text">
+            <input id="specimen-mail" type="text">
+        </section>
+    </main>
+</body>
+</html>

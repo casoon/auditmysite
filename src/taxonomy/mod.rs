@@ -33,3 +33,23 @@ pub fn is_missing_name_or_role(rule_id: &str) -> bool {
     rule_id == "a11y.name_role.missing"
         || (rule_id.starts_with("a11y.") && rule_id.ends_with("_name.missing"))
 }
+
+/// Best-practice rules outside the display convention that are likewise only
+/// anchored to a criterion: the `title` attribute as only description (#711)
+/// and a description that repeats the name (#713). Both were split off rules
+/// that do test their criterion (1.4.13, 4.1.2 `aria-label`).
+const BEST_PRACTICE_RULES: &[&str] = &[
+    "a11y.title_only_description.weak",
+    "a11y.description_duplicates_name.redundant",
+];
+
+/// Whether a taxonomy rule id checks the BarrierLab display-mode convention
+/// (`display/*`, #653) or is one of the `BEST_PRACTICE_RULES`, rather than
+/// a WCAG requirement. Such a rule is only anchored to a criterion, so it
+/// must neither count as BFSG-relevant nor raise a legal flag (#704): the
+/// page's own conformance to that criterion decides that. Scoped to these
+/// rules on purpose — the other `best-practice`-tagged rules (`region`,
+/// `link-as-button`, `redundant-role`, …) keep their current classification.
+pub fn is_convention_rule(rule_id: &str) -> bool {
+    rule_id.starts_with("a11y.display_") || BEST_PRACTICE_RULES.contains(&rule_id)
+}

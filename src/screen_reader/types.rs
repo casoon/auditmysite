@@ -15,6 +15,11 @@ pub struct SrAuditReport {
     pub navigation_views: NavigationViews,
     pub issues: Vec<SrAuditIssue>,
     pub bfsg_compliance: BfsgCompliance,
+    /// AX node ids dropped from `issues` as audit exclusions (#645, #703).
+    /// Kept so the PDF, which re-derives the issues in the run language,
+    /// drops the same nodes.
+    #[serde(skip)]
+    pub excluded_node_ids: std::collections::BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -26,12 +26,7 @@ pub(super) fn compute_risk_assessment(
     // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
     // Per-occurrence counting would inflate the number (e.g. 1000 images without
     // alt text is one rule violation, not 1000 legal flags).
-    let mut legal_flags = findings
-        .iter()
-        .filter(|f| {
-            f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
-        })
-        .count();
+    let mut legal_flags = findings.iter().filter(|f| f.is_legal_flag()).count();
 
     // The screen-reader audit can detect journey-level BFSG barriers the static
     // WCAG engine misses, so the main report and the screen-reader sidecar should
@@ -323,6 +318,8 @@ mod blocking_tests {
             "a11y.redundant_role.invalid",
             "a11y.aria_valid_attr_value.invalid",
             "a11y.combobox_options.missing",
+            "a11y.description_duplicates_name.redundant",
+            "a11y.title_only_description.weak",
         ] {
             assert!(!is_missing_name_or_role(id), "{id}");
         }

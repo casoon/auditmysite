@@ -5,6 +5,94 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Farbe als Linkmerkmal nur im Fliesstext, Bewegung nur mit Beleg (#710, #712):**
+  `link-in-text-block` (1.4.1) prueft einen Link nur noch, wenn er im Fliesstext steht — wie
+  axe `isInTextBlock`: Der Abschnitt seines Blocks (begrenzt durch `<br>`/`<hr>`) muss mehr
+  Nicht-Link-Text als Link-Text enthalten, und zwar mindestens zwei Woerter. Links in `nav`
+  bzw. Menues und Logo-Links (Bild/SVG im Link, Logo-Container) fallen heraus. Damit melden
+  Navigations-, Header-, Footer- und Logo-Links keinen Befund mehr (12 von 21 EU-Portalen,
+  axe bestaetigte keinen); der Link im Absatz bleibt ein Befund. `prefers-reduced-motion`
+  (2.3.3, AAA) meldet nicht mehr jede `transition`/`animation`, sondern nur Bewegung —
+  Animationen, deren `@keyframes` transform/translate/scale/rotate, Lage oder margin aendern,
+  und Transitions solcher Eigenschaften (`all` nur, wenn eine `:hover`/`:focus`-Regel sie
+  setzt) —, die kein Block `@media (prefers-reduced-motion: reduce)` fuer denselben oder den
+  Universalselektor abschaltet; Regeln unter `no-preference` zaehlen nicht. Farb- und
+  Deckkraft-Uebergaenge zaehlen nie. Die Meldung nennt die Belege und die Stufe AAA; AAA war
+  bereits weder rechtliches Signal noch hoch BFSG-relevant, ein Test sichert das jetzt ab.
+  Neue Detection-Corpus-Faelle `link_in_text_block_context`, `reduced_motion_colour_only`,
+  `reduced_motion_transform`, `reduced_motion_override`. Gezaehlt wird nur Bewegung, deren Selektor ein dargestelltes Element der Seite trifft
+  (bundesregierung.de: Keyframes eines nie eingebundenen Player-Spinners).
+
+- **Unreleased — title-only und doppelte Beschreibung als eigene Best-Practice-Regeln (#711,
+  #713):** Das `title`-Attribut als einzige Beschreibung eines interaktiven Elements stand als
+  `a11y.hover.content_visibility` unter 1.4.13, obwohl der Browser-Tooltip dort ausgenommen ist;
+  es ist jetzt `title-only-description` → `a11y.title_only_description.weak`. Ein Element, dessen
+  Name und Beschreibung identisch sind, stand als `a11y.interactive_name.missing` im Bericht,
+  obwohl es einen Namen hat; es ist jetzt `description-duplicates-name` →
+  `a11y.description_duplicates_name.redundant`. Beide sind `best-practice`, an 4.1.2 verankert
+  (`title` ist nach accname eine gueltige Namensquelle, 2.5.3 gilt nur bei sichtbarer
+  Beschriftung), haben `bfsg_relevance: low` und nie ein Rechtsflag — `is_convention_rule`
+  fuehrt dafuer eine Liste von Best-Practice-Kennungen neben den `display/*`-Regeln. 1.4.13
+  meldet nur noch verwaiste `role="tooltip"`-Elemente, `interactive_name.missing` nur noch
+  Elemente ohne aussagekraeftigen Namen. Neuer Detection-Corpus-Fall
+  `name_description_best_practice`, `forms_and_misc` um einen verwaisten Tooltip ergaenzt.
+
+- **Unreleased — a11y-rules 0.13.5 (#709):** Der Sprunglink wird auch hinter den Links eines
+  Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
+  casoon/barrierlab#26). Ist ein modaler Dialog offen (etwa ein Consent-Dialog, der `<main>` per
+  `aria-hidden` ausblendet), ist `landmarks/main-missing` ein Pruefhinweis „gemessen hinter einem
+  offenen Dialog" statt eines Verstosses (#709: fuenf von 21 EU-Portalen), auch bei einem Dialog
+  ohne `aria-modal` (administracion.gob.es). Ebenso wird `bypass` („keine Ueberschriften") hinter
+  einem offenen Dialog zum Pruefhinweis. Referenzband gov.ie neu bewertet (80–98): die bis 1.7.1
+  gezaehlten zehn Linkfarben-Befunde waren freistehende Listenlinks, Fehlalarme nach #710.
+
+- **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
+  `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,
+  wenn es sichtbar und anklickbar ist: nicht `checkVisibility()`-verborgen (mit
+  `opacityProperty`, `visibilityProperty`; bewusst ohne `contentVisibilityAuto`, damit Abschnitte
+  ausserhalb des Viewports gemessen bleiben), nicht in `[inert]`, ohne
+  `pointer-events: none` — wie schon beim gleichwertigen Link. Das gilt fuer das gemessene Ziel
+  und fuer die Nachbarn der Abstandspruefung; Links in einem geschlossenen `<details>` (Chrome
+  behaelt ihre Box, verbirgt sie per `content-visibility: hidden`) machten auf geographia.eu drei
+  Links im Footer und in einer Liste zum Befund. Ohne `checkVisibility` bleibt es beim bisherigen
+  Groessenfilter. Ausserdem wartet jeder Viewport-Durchgang nach der Stabilitaetspruefung auf
+  laufende endliche CSS-Animationen und -Transitions (`document.getAnimations()`, unendliche
+  werden ignoriert), begrenzt durch ein zweites `--stability-budget-ms`; eine Animation, deren
+  Restzeit das Budget uebersteigt, wird gar nicht erst abgewartet. Ein Ziel, das danach selbst
+  oder ueber einen Vorfahren noch animiert, meldet die Regel als nicht gemessen (`untested`)
+  statt mit seiner Zwischengroesse: Das Logo-Intro auf geographia.eu/atmosphere/ stand als 3×39
+  px im Bericht, fertig misst es 147×39 px. Neue Detection-Corpus-Faelle
+  `target_size_hidden_neighbours` und `target_size_animation`; gegen den Stand vor dem Fix
+  schlagen `a#beside-details` und `a#slow` fehl. Geprueft mit `cargo test`, Clippy und dem
+  Detection-Corpus (Chrome).
+
+- **Unreleased — Darstellungsregeln entscheiden kein Rechtsurteil mehr (#704):**
+  `display/text-hidden` meldet ein per CSS, `hidden` oder `aria-hidden` verstecktes
+  `[data-viz-text]` nicht mehr als Verstoss, wenn ein gerendertes, erreichbares Element derselben
+  `figure[data-viz]` (oder die figure selbst) es per `aria-describedby`/`aria-details` referenziert:
+  accname 1.2 berechnet die Beschreibung auch aus verstecktem, direkt referenziertem Inhalt (ARIA15
+  genuegt 1.1.1). Stattdessen ein Pruefhinweis mit Schwere niedrig („nur als Beschreibung,
+  visually-hidden empfohlen"). `inert` bleibt ein Verstoss. Alle `display/*`-Regeln sind
+  Best Practice der Darstellungs-Konvention: Sie setzen `bfsg_relevance` hoechstens auf `low` und
+  zaehlen nicht mehr als `legal_flags` (Seiten- und Batch-Urteil, `passed` im JSON); ein
+  gemeinsames `NormalizedFinding::is_legal_flag` ersetzt die gleichlautenden Filter. Bewusst
+  nur fuer `display/*` (`taxonomy::is_convention_rule`), nicht generisch ueber das
+  `best-practice`-Tag — `region`, `link-as-button` und `redundant-role` behalten ihre Einordnung.
+  `display/toggle-missing` sagt jetzt „kein mit `[data-display-toggle]` markierter Umschalter
+  gefunden" statt zu behaupten, man koenne nicht umschalten. Belegt am Fall geographia.eu
+  (Detection-Corpus `display_modes_described_text`).
+
+- **Unreleased — Ausschluesse gelten auch fuer die Screenreader-Schicht (#703):** Knoten in
+  `--exclude-selector`/`[data-audit-exclude]`-Teilbaeumen (#645) fallen jetzt auch aus
+  `screen_reader.issues` und damit aus `bfsg_compliance` und dem daraus abgeleiteten
+  `risk.legal_flags` (#484). Verortet wird ueber die Backend-Knoten-ID des AX-Knotens, wie bei den
+  Baum-Regeln (`ExclusionScope::excludes_ax_node`). Ein Befund faellt nur weg, wenn alle seine
+  Knoten ausgeschlossen sind; sonst bleibt er mit den uebrigen Knoten. Befunde ohne Knoten
+  (seitenweit) bleiben immer. Gezaehlt in `exclusions.excluded_screen_reader_issues` (auch im
+  Batch-Aggregat und im PDF-Hinweis); das PDF, das die Befunde in der Laufsprache neu ableitet,
+  laesst dieselben Knoten weg. Belegt an barrierlab.eu `/tasks/ticket/` (Detection-Corpus
+  `audit_exclude_screen_reader`, der dafuer `screen_reader_bfsg_verdict` pruefen kann).
+
 - **1.7.1, 2026-09-30:** Erster Schritt des Regelumzugs nach barrierlab (casoon/barrierlab#13):
   21 Kennungen kommen aus `a11y-rules` 0.13.2, die abgeloesten eigenen Regeln sind geloescht (#690,
   B0). Neue Befunde `zoom/viewport-missing` (Gewichtung folgt in #702) und `images/alt-suspicious`;
