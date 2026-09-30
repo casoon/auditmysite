@@ -5,6 +5,44 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Screenreader-Ausschluesse ueberleben den Cache (#708):** Bei `--reuse-cache`
+  wird der Screenreader-Bericht aus dem gespeicherten AX-Baum neu gebaut; die in #703
+  ausgeschlossenen Knoten standen danach wieder im Sidecar und im PDF. Die ausgeschlossenen
+  Knoten-IDs liegen jetzt im Cache-Eintrag (`snapshot.json`,
+  `screen_reader_excluded_node_ids`) und werden beim Wiederaufbau erneut angewendet. Aeltere
+  Eintraege ohne das Feld verhalten sich wie bisher.
+
+- **Unreleased — Kontrast in Shadow DOM und ueber Float-Containern (#716):** Zwei Luecken
+  gegenueber axe. (1) Die Kontrastpruefung lief nur ueber den Light DOM; Text in Webkomponenten
+  (Cookie-Banner `p-cookie-banner` auf verwaltung.bund.de, 3,17:1) fehlte. Sie geht jetzt durch
+  offene Shadow Roots, der Hintergrund wird ueber den zusammengesetzten Baum bestimmt (Slot,
+  Shadow-Host), Text direkt unter einem Shadow-Host nimmt Farbe und Schrift von seinem Slot (ohne
+  Slot wird er nicht gerendert und nicht geprueft), `aria-hidden` am Host wirkt nach innen, und der
+  Selektor lautet `host >>> inner` (auch in der Pixelprobe). Die Overlay-Erkennung sieht jetzt auch
+  positionierte Geschwister, die ein Bild enthalten (Hero-Bild als `<p-responsive-image>`), bis
+  sechs Ebenen hoch; die Pixelprobe meldet verdeckten Text (Banner ueber dem Text) als
+  Pruefhinweis statt ihn gegen den Banner zu messen. (2) `__amsIsVisuallyHidden` hielt jeden
+  Vorfahren ohne Hoehe fuer versteckt; ein `div`, das nur Floats enthaelt, ist aber 0 px hoch und
+  zeigt seinen Inhalt. Nur eine Box, die ihren Ueberlauf abschneidet, versteckt ohne Flaeche
+  etwas; Nicht-Gerendertes erkennt `checkVisibility()`. Damit wird der 4,46:1-Link auf
+  slovensko.sk gemeldet (axe: 4,45:1; der Vergleich mit der Schwelle war schon ungerundet). Der
+  Helfer wird auch von Design-Qualitaet, Journey und Medienregel genutzt. Live: bund.de meldet den
+  Datenschutz-Link und den weissen Hero-Text ueber dem Foto (Pixelprobe 3,64:1), slovensko.sk den
+  Link. Neuer Detection-Corpus-Fall `contrast_shadow_and_inline`.
+
+- **Unreleased — Scrollbare Bereiche ohne Tastaturzugang (#717):** Neue Regel
+  `scrollable-region-focusable` (2.1.1, A) → `a11y.scrollable_region_focus.missing`: ein
+  sichtbares Element mit `overflow: auto|scroll`, das mehr als 13 px ueberlaeuft (wie axe),
+  Text enthaelt und weder selbst noch ueber einen Nachfahren per Tastatur fokussierbar ist.
+  Chrome macht solche Bereiche seit Version 130 selbst fokussierbar, andere Browser nicht —
+  deshalb bleibt es ein Befund. Neuer Detection-Corpus-Fall `scrollable_region_focusable`.
+
+- **Unreleased — Gewicht von `zoom/viewport-missing` (#702):** Desktop-Browser ignorieren das
+  viewport-Meta-Tag, Zoomen per Geste bleibt moeglich; die Folge trifft nur Mobilgeraete. Der
+  Score-Abzug sinkt von 2,5/5 auf 1,5/3, Bericht und Erklaerung nennen die Folge (Desktop-Breite,
+  verkleinert, waagerechtes Scrollen beim Vergroessern). Befundstufe (FAIL) und Schwere kommen
+  weiter aus `a11y-rules`; ob es dort ein Pruefhinweis sein sollte, ist eine Frage an barrierlab.
+
 - **Unreleased — Farbe als Linkmerkmal nur im Fliesstext, Bewegung nur mit Beleg (#710, #712):**
   `link-in-text-block` (1.4.1) prueft einen Link nur noch, wenn er im Fliesstext steht — wie
   axe `isInTextBlock`: Der Abschnitt seines Blocks (begrenzt durch `<br>`/`<hr>`) muss mehr
