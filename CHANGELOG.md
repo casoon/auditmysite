@@ -5,6 +5,10 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — a11y-rules 0.13.3:** Der Sprunglink wird auch hinter den Links eines
+  Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
+  casoon/barrierlab#26); `keyboard/skip-link-missing` meldet dort keinen Pruefhinweis mehr.
+
 - **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
   `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,
   wenn es sichtbar und anklickbar ist: nicht `checkVisibility()`-verborgen (mit
