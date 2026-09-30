@@ -1,6 +1,7 @@
 {
   "case": "svg_no_title",
   "expectations": [
-    { "rule_id": "image-alt", "verdict": "violation" }
+    { "rule_id": "svg/name-missing", "verdict": "violation" },
+    { "rule_id": "image-alt", "verdict": "pass" }
   ]
 }

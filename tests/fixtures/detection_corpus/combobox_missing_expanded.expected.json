@@ -1,6 +1,6 @@
 {
   "case": "combobox_missing_expanded",
   "expectations": [
-    { "rule_id": "aria-required-attr", "verdict": "violation" }
+    { "rule_id": "aria/required-attribute-missing", "verdict": "violation" }
   ]
 }

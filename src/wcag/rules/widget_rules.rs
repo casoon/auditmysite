@@ -54,8 +54,8 @@ pub fn check_widget_rules(tree: &AXTree) -> WcagResults {
             // presence-checking can never observe the missing-attribute case
             // (#QA-031, confirmed via live fixture).
             "combobox" => check_combobox_has_options(node, tree, &mut results),
-            // "slider" value validation lives in aria_required_attr.rs
-            // (check_value_now_with_page, DOM-based): Chrome synthesizes a
+            // "slider" value validation is `aria/required-attribute-missing`
+            // in the shared bestand (#690, DOM-based): Chrome synthesizes a
             // value for every slider and CDP has no `valuenow` property, so
             // the AX tree cannot tell a missing aria-valuenow apart (#656).
             // "treeitem" required-ancestor validation lives exclusively in

@@ -1,6 +1,6 @@
 {
   "case": "svg_graphics_role_no_name",
   "expectations": [
-    { "rule_id": "svg-img-alt", "verdict": "violation" }
+    { "rule_id": "svg/name-missing", "verdict": "violation" }
   ]
 }

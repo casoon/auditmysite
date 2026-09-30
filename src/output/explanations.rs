@@ -129,6 +129,11 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
     {
         return Some(expl);
     }
+    // Eine geteilte Kennung, die einen abgeloesten Befund unveraendert
+    // uebernimmt, nimmt dessen Text (#690).
+    if let Some((_, key)) = SHARED_ALIASES.iter().find(|(id, _)| *id == rule_id) {
+        return get_explanation(key);
+    }
     // Fallback: if a taxonomy rule_id was passed, resolve to WCAG ID via legacy map
     if rule_id.contains('.') {
         use crate::taxonomy::rules::RULES;
@@ -170,6 +175,26 @@ pub fn resolve_explanation(
         .or_else(|| get_explanation(rule_id))
         .or_else(|| get_explanation(wcag_criterion))
 }
+
+/// Geteilte Kennungen (`wcag::shared`), deren Text der der abgeloesten
+/// auditmysite-Regel ist -- derselbe Befund, eine neue Kennung (#690).
+static SHARED_ALIASES: &[(&str, &str)] = &[
+    ("landmarks/main-missing", "landmark-one-main"),
+    ("landmarks/main-duplicate", "landmark-no-duplicate-main"),
+    ("landmarks/banner-missing", "landmark-banner-present"),
+    (
+        "landmarks/navigation-missing",
+        "landmark-navigation-present",
+    ),
+    (
+        "landmarks/contentinfo-missing",
+        "landmark-contentinfo-present",
+    ),
+    ("svg/name-missing", "svg-img-alt"),
+    ("links/name-missing", "control-missing-label"),
+    ("buttons/name-missing", "control-missing-label"),
+    ("keyboard/skip-link-missing", "skip-link"),
+];
 
 /// All WCAG rule explanations indexed by rule ID
 static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
@@ -3306,6 +3331,119 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    // ── Geteilte Kennungen aus #690 ohne passenden Text ──
+    // Die uebrigen uebernommenen Kennungen teilen ihren Text mit der
+    // abgeloesten Regel (`SHARED_ALIASES`) oder mit ihrem Kriterium.
+    (
+        "zoom/viewport-locked",
+        RuleExplanation {
+            customer_title: "Zoom durch Viewport-Meta-Tag gesperrt",
+            customer_title_en: "Zoom blocked by the viewport meta tag",
+            customer_description: "Das viewport-Meta-Tag verhindert das Zoomen (user-scalable=no) oder begrenzt es auf weniger als 200 %.",
+            customer_description_en: "The viewport meta tag prevents zooming (user-scalable=no) or limits it to less than 200%.",
+            user_impact: "Menschen mit Sehbeeinträchtigung können die Seite auf Mobilgeräten nicht vergrößern und verlieren Inhalte.",
+            user_impact_en: "People with visual impairments cannot enlarge the page on mobile devices and lose content.",
+            typical_cause: "user-scalable=no oder maximum-scale=1, gesetzt, um versehentliches Zoomen zu verhindern oder ein Layout zu stabilisieren.",
+            typical_cause_en: "user-scalable=no or maximum-scale=1, set to prevent accidental zooming or to stabilize a layout.",
+            recommendation: "user-scalable=no und maximum-scale aus dem viewport-Meta-Tag entfernen.",
+            recommendation_en: "Remove user-scalable=no and maximum-scale from the viewport meta tag.",
+            technical_note: "Eine Grenze zwischen 200 % und 500 % ist kein Verstoß gegen 1.4.4 und wird getrennt gemeldet.",
+            technical_note_en: "A limit between 200% and 500% does not violate 1.4.4 and is reported separately.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<meta name=\"viewport\" content=\"width=device-width, user-scalable=no\">"),
+            example_good: Some("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "zoom/viewport-missing",
+        RuleExplanation {
+            customer_title: "Fehlende Viewport-Angabe",
+            customer_title_en: "Missing viewport declaration",
+            customer_description: "Das Dokument hat kein viewport-Meta-Tag. Mobile Browser legen dann eine Desktop-Breite zugrunde und verkleinern die Seite.",
+            customer_description_en: "The document has no viewport meta tag. Mobile browsers then assume a desktop width and scale the page down.",
+            user_impact: "Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; Zoomen holt ihn nur teilweise zurück.",
+            user_impact_en: "On mobile devices the text appears below any readable size; zooming only partly brings it back.",
+            typical_cause: "Das Template setzt kein viewport-Meta-Tag, etwa bei älteren oder rein für Desktop gebauten Seiten.",
+            typical_cause_en: "The template sets no viewport meta tag, as with older pages or pages built for desktop only.",
+            recommendation: "Im <head> ein viewport-Meta-Tag mit width=device-width ergänzen.",
+            recommendation_en: "Add a viewport meta tag with width=device-width to the <head>.",
+            technical_note: "Das Layout muss danach auch in schmalen Viewports funktionieren (1.4.10 Reflow).",
+            technical_note_en: "The layout must then also work in narrow viewports (1.4.10 Reflow).",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: None,
+            example_good: Some("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "aria/reference-missing",
+        RuleExplanation {
+            customer_title: "ARIA-Verweis ins Leere",
+            customer_title_en: "ARIA reference points nowhere",
+            customer_description: "Ein ARIA-Beziehungsattribut (etwa aria-controls oder aria-labelledby) ist leer oder verweist auf eine ID, die es auf der Seite nicht gibt.",
+            customer_description_en: "An ARIA relationship attribute (such as aria-controls or aria-labelledby) is empty or references an ID that does not exist on the page.",
+            user_impact: "Screenreader können die Beziehung nicht herstellen: Beschriftung, Beschreibung oder gesteuerter Bereich fehlen.",
+            user_impact_en: "Screen readers cannot establish the relationship: the label, description, or controlled region is missing.",
+            typical_cause: "Die ID des Ziels wurde umbenannt oder wird erst später per Skript erzeugt; Komponenten setzen das Attribut, bevor das Ziel existiert.",
+            typical_cause_en: "The target's ID was renamed or is created later by script; components set the attribute before the target exists.",
+            recommendation: "Das Attribut auf die ID eines vorhandenen Elements setzen oder es entfernen.",
+            recommendation_en: "Point the attribute at the ID of an existing element or remove it.",
+            technical_note: "Geprüft werden aria-labelledby, aria-describedby, aria-controls, aria-owns und aria-activedescendant.",
+            technical_note_en: "Checked are aria-labelledby, aria-describedby, aria-controls, aria-owns, and aria-activedescendant.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button aria-controls=\"menu\">Menu</button>"),
+            example_good: Some("<button aria-controls=\"menu\">Menu</button>\n<ul id=\"menu\">...</ul>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "aria/required-attribute-missing",
+        RuleExplanation {
+            customer_title: "Erforderliches ARIA-Attribut fehlt",
+            customer_title_en: "Required ARIA attribute missing",
+            customer_description: "Ein Element trägt eine Rolle, die einen Zustand ansagt (etwa checkbox oder slider), aber nicht das Attribut, das diesen Zustand trägt.",
+            customer_description_en: "An element carries a role that announces a state (such as checkbox or slider) but not the attribute that carries this state.",
+            user_impact: "Screenreader-Nutzer erfahren nicht, ob ein Schalter an ist oder welchen Wert ein Regler hat.",
+            user_impact_en: "Screen reader users do not learn whether a switch is on or which value a slider has.",
+            typical_cause: "Selbst gebaute Bedienelemente setzen die Rolle, pflegen den Zustand aber nur visuell.",
+            typical_cause_en: "Custom controls set the role but maintain the state only visually.",
+            recommendation: "Das geforderte Attribut setzen und bei jeder Zustandsänderung aktualisieren, oder ein natives Element verwenden.",
+            recommendation_en: "Set the required attribute and update it on every state change, or use a native element.",
+            technical_note: "Etwa aria-checked für checkbox/radio/switch, aria-expanded für combobox, aria-valuenow für slider/spinbutton/meter.",
+            technical_note_en: "For example aria-checked for checkbox/radio/switch, aria-expanded for combobox, aria-valuenow for slider/spinbutton/meter.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<div role=\"switch\" tabindex=\"0\">Notifications</div>"),
+            example_good: Some("<div role=\"switch\" tabindex=\"0\" aria-checked=\"false\">Notifications</div>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "images/alt-suspicious",
+        RuleExplanation {
+            customer_title: "Vermutlich nichtssagender Alternativtext",
+            customer_title_en: "Alternative text probably not descriptive",
+            customer_description: "Ein Bild hat einen Alternativtext, der den Inhalt vermutlich nicht beschreibt: einen Dateinamen, ein Füllwort wie „Bild\" oder „Logo\" oder nur ein, zwei Zeichen.",
+            customer_description_en: "An image has alternative text that probably does not describe its content: a file name, a filler word such as \"image\" or \"logo\", or just one or two characters.",
+            user_impact: "Screenreader-Nutzer hören einen Text, der ihnen den Bildinhalt nicht vermittelt.",
+            user_impact_en: "Screen reader users hear text that does not convey the image content to them.",
+            typical_cause: "Das CMS übernimmt den Dateinamen als Alternativtext, oder das Pflichtfeld wurde mit einem Platzhalter gefüllt.",
+            typical_cause_en: "The CMS copies the file name as alternative text, or the required field was filled with a placeholder.",
+            recommendation: "Prüfen, ob der Text das Bild beschreibt; sonst durch eine Beschreibung ersetzen, bei dekorativen Bildern durch alt=\"\".",
+            recommendation_en: "Check whether the text describes the image; otherwise replace it with a description, or with alt=\"\" for decorative images.",
+            technical_note: "Heuristisch erkannt, deshalb zur Prüfung: alt=\"5\" am Bild einer Fünf ist richtig.",
+            technical_note_en: "Detected heuristically, hence for review: alt=\"5\" on an image of a five is correct.",
+            responsible_role: Role::Editorial,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<img src=\"team.jpg\" alt=\"IMG_4711.jpg\">"),
+            example_good: Some("<img src=\"team.jpg\" alt=\"The five members of the support team\">"),
+            example_decorative: Some("<img src=\"divider.png\" alt=\"\">"),
+        },
+    ),
     (
         "display/toggle-missing",
         RuleExplanation {
@@ -3469,13 +3607,21 @@ mod tests {
     /// Plan 56: A shared id with its own taxonomy entry gets its own text,
     /// not the one written for its criterion (an empty list must not read as
     /// "Missing semantic structure", an invalid lang code not as a missing one).
+    ///
+    /// Ausgenommen ist eine Kennung, deren Taxonomie-Eintrag der ihres
+    /// Kriteriums selbst ist (`images/alt-missing` → `a11y.alt_text.missing`,
+    /// `document/title-*` → `a11y.page_title.missing`): Dort ist der Text des
+    /// Kriteriums ihr eigener (#690).
     #[test]
     fn shared_ids_with_own_taxonomy_entry_get_own_explanation() {
+        use crate::taxonomy::rules::RuleLookup;
         for shared in crate::wcag::shared::SHARED_RULES {
-            let Some(rule) = crate::taxonomy::rules::RuleLookup::by_legacy_wcag_id(shared.id)
-            else {
+            let Some(rule) = RuleLookup::by_legacy_wcag_id(shared.id) else {
                 continue;
             };
+            if RuleLookup::by_legacy_wcag_id(shared.criterion).map(|r| r.id) == Some(rule.id) {
+                continue;
+            }
             let resolved = resolve_explanation(Some(shared.id), rule.id, shared.criterion)
                 .unwrap_or_else(|| panic!("no explanation for {}", shared.id));
             let generic = get_explanation(shared.criterion).map(|e| e.customer_title);

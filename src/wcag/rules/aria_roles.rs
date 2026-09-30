@@ -177,8 +177,8 @@ pub async fn check_invalid_role_with_page(page: &Page) -> Vec<Violation> {
 /// this check validates ARIA attribute *names* (misspelled/non-existent
 /// aria-* attributes), a different problem from an invalid role value. Not a
 /// real axe-core rule id (axe folds this into `aria-valid-attr`, which this
-/// codebase's `aria_relationships.rs` already uses for an unrelated check —
-/// see #QA-009 remaining scope), so this is a custom, stable identifier.
+/// codebase used for an unrelated check until #690 — see #QA-009 remaining
+/// scope), so this is a custom, stable identifier.
 const INVALID_ARIA_ATTR_NAME_AXE_ID: &str = "aria-attr-name-invalid";
 
 const INVALID_ATTR_NAME_CAP: usize = 250;

@@ -1,6 +1,6 @@
 //! Granular WCAG landmark rules
 //!
-//! Seven individual landmark checks, each exposed as its own function so they
+//! Individual landmark checks, each exposed as its own function so they
 //! can be registered and filtered independently via `run_if_allowed!`:
 //!
 //! 1. `landmark-unique`                     — same-role landmarks need unique names
@@ -9,9 +9,11 @@
 //! 4. `landmark-main-is-top-level`          — main must not nest
 //! 5. `landmark-no-duplicate-banner`        — at most one banner
 //! 6. `landmark-no-duplicate-contentinfo`   — at most one contentinfo
-//! 7. `landmark-no-duplicate-main`          — at most one main
-//! 8. `landmark-banner-present`             — page must have a banner landmark
-//! 9. `landmark-main-present`               — page must have a main landmark
+//! 7. `skip-link`                           — page with navigation needs a skip link
+//!
+//! Doppelte main sowie fehlende main- und banner-Landmark laufen seit #690
+//! als `landmarks/main-duplicate`, `landmarks/main-missing` und
+//! `landmarks/banner-missing` im geteilten Bestand (siehe `wcag::shared`).
 
 use std::collections::HashMap;
 
@@ -85,50 +87,6 @@ pub(super) const RULE_NO_DUPLICATE_CONTENTINFO: RuleMetadata = RuleMetadata {
     help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     axe_id: "landmark-no-duplicate-contentinfo",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
-};
-
-pub(super) const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
-    id: "1.3.1",
-    name: "No Duplicate Main",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "The page must not have more than one main landmark",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-    axe_id: "landmark-no-duplicate-main",
-    tags: &["wcag2a", "wcag131", "cat.semantics"],
-};
-
-pub(super) const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
-    id: "1.3.1",
-    name: "Landmark Banner Present",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "The page must have a banner landmark (<header> or role=\"banner\")",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-    axe_id: "landmark-banner-present",
-    tags: &["wcag2a", "wcag131", "cat.semantics"],
-};
-
-pub(super) const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
-    id: "1.3.1",
-    name: "Landmark Main Present",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "The page must have a main landmark (<main> or role=\"main\")",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
-    axe_id: "landmark-main-present",
-    tags: &["wcag2a", "wcag131", "cat.semantics"],
-};
-
-pub(super) const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
-    id: "2.4.1",
-    name: "Skip Link",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "The page should provide a mechanism to skip repeated navigation blocks",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
-    axe_id: "skip-link",
-    tags: &["wcag2a", "wcag241", "cat.keyboard"],
 };
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -394,142 +352,6 @@ pub fn check_landmark_no_duplicate_contentinfo(tree: &AXTree) -> WcagResults {
         "Ensure the page has at most one <footer> / role=\"contentinfo\" \
          at the top level",
     )
-}
-
-/// **landmark-no-duplicate-main**
-pub fn check_landmark_no_duplicate_main(tree: &AXTree) -> WcagResults {
-    check_no_duplicate_landmark(
-        tree,
-        "main",
-        &RULE_NO_DUPLICATE_MAIN,
-        "Ensure the page has exactly one <main> / role=\"main\"",
-    )
-}
-
-/// **landmark-banner-present** — page must have at least one banner landmark.
-///
-/// Only fires when the tree has enough nodes to represent a real page (> 2 nodes),
-/// avoiding false positives on error pages or minimal shells.
-pub fn check_landmark_banner_present(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-    let node_count = tree.nodes.len();
-    if node_count <= 2 {
-        return results;
-    }
-    let banners = tree.nodes_with_role("banner");
-    if banners.is_empty() {
-        results.add_violation(
-            Violation::new(
-                RULE_LANDMARK_BANNER_PRESENT.id,
-                RULE_LANDMARK_BANNER_PRESENT.name,
-                RULE_LANDMARK_BANNER_PRESENT.level,
-                RULE_LANDMARK_BANNER_PRESENT.severity,
-                "Page has no banner landmark — assistive technologies cannot identify the site header",
-                "root",
-            )
-            .with_fix(
-                "Add a top-level <header> element (or an element with role=\"banner\") \
-                 that is not nested inside <main>, <article>, <aside>, <nav>, or <section>",
-            )
-            .with_rule_id(RULE_LANDMARK_BANNER_PRESENT.axe_id)
-            .with_help_url(RULE_LANDMARK_BANNER_PRESENT.help_url),
-        );
-    } else {
-        results.passes += 1;
-    }
-    results
-}
-
-/// **landmark-main-present** — page must have at least one main landmark.
-pub fn check_landmark_main_present(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-    let node_count = tree.nodes.len();
-    if node_count <= 2 {
-        return results;
-    }
-    let mains = tree.nodes_with_role("main");
-    if mains.is_empty() {
-        results.add_violation(
-            Violation::new(
-                RULE_LANDMARK_MAIN_PRESENT.id,
-                RULE_LANDMARK_MAIN_PRESENT.name,
-                RULE_LANDMARK_MAIN_PRESENT.level,
-                RULE_LANDMARK_MAIN_PRESENT.severity,
-                "Page has no main landmark — assistive technologies cannot skip to the primary content",
-                "root",
-            )
-            .with_fix(
-                "Wrap the page's primary content in a <main> element \
-                 (or add role=\"main\" to the container)",
-            )
-            .with_rule_id(RULE_LANDMARK_MAIN_PRESENT.axe_id)
-            .with_help_url(RULE_LANDMARK_MAIN_PRESENT.help_url),
-        );
-    } else {
-        results.passes += 1;
-    }
-    results
-}
-
-/// **skip-link** — page with a navigation landmark must have a skip-navigation link.
-pub fn check_skip_link(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-
-    let has_nav = !tree.nodes_with_role("navigation").is_empty();
-    if !has_nav {
-        return results;
-    }
-
-    let has_skip_link = tree.iter().any(|n| {
-        if n.ignored || !matches!(n.role.as_deref(), Some("link")) {
-            return false;
-        }
-        let name = n.name.as_deref().unwrap_or("").to_lowercase();
-        // CDP exposes a link's target as "url", never "href" (#QA-032).
-        let href = n.get_property_str("url").unwrap_or("").to_lowercase();
-
-        let name_hints = [
-            "skip",
-            "überspringen",
-            "zum inhalt",
-            "zum hauptinhalt",
-            "direkt zum",
-            "navigation überspringen",
-        ];
-        let href_hints = [
-            "#main",
-            "#content",
-            "#inhalt",
-            "#skip",
-            "#maincontent",
-            "#hauptinhalt",
-        ];
-
-        name_hints.iter().any(|h| name.contains(h)) || href_hints.iter().any(|h| href.contains(h))
-    });
-
-    if has_skip_link {
-        results.passes += 1;
-    } else {
-        results.add_violation(
-            Violation::new(
-                RULE_SKIP_LINK.id,
-                RULE_SKIP_LINK.name,
-                RULE_SKIP_LINK.level,
-                RULE_SKIP_LINK.severity,
-                "Page has navigation landmarks but no skip-navigation link was found",
-                "root",
-            )
-            .with_fix(
-                "Add a visually hidden or visible link at the top of the page pointing to \
-                 the main content anchor (e.g. <a href=\"#main\">Skip to main content</a>)",
-            )
-            .with_rule_id(RULE_SKIP_LINK.axe_id)
-            .with_help_url(RULE_SKIP_LINK.help_url),
-        );
-    }
-
-    results
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -804,65 +626,13 @@ mod tests {
         assert!(r.passes > 0);
     }
 
-    // ── landmark-no-duplicate-main ─────────────────────────────────────────
-
-    #[test]
-    fn duplicate_main_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("m1", "main", Some("M1"), Some("root")),
-            node("m2", "main", Some("M2"), Some("root")),
-        ]);
-        let r = check_landmark_no_duplicate_main(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("landmark-no-duplicate-main")));
-    }
-
-    #[test]
-    fn single_main_pass() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("m", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_landmark_no_duplicate_main(&tree);
-        assert!(r.violations.is_empty());
-        assert!(r.passes > 0);
-    }
-
-    // ── skip-link ──────────────────────────────────────────────────────────
-
-    #[test]
-    fn skip_link_missing_with_nav_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("nav", "navigation", Some("Main"), Some("root")),
-            node("main", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_skip_link(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("skip-link")));
-    }
-
-    #[test]
-    fn skip_link_no_nav_no_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("main", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_skip_link(&tree);
-        assert!(r.violations.is_empty());
-    }
-
     // ── Regression: WCAG criterion-id taxonomy (issue #242) ────────────────
     //
     // Landmark-structure findings (duplicate/nested landmarks, unique names)
     // MUST be filed under WCAG 1.3.1, never under 2.4.1. Only `skip-link`
     // belongs under 2.4.1, so the "Fehlende Sprungnavigation" group in the
-    // report no longer mixes unrelated landmark findings.
+    // report no longer mixes unrelated landmark findings. The skip-link
+    // check itself is now `keyboard/skip-link-missing` from a11y-rules (#690).
 
     fn dup_nav_tree() -> AXTree {
         AXTree::from_nodes(vec![
@@ -896,14 +666,6 @@ mod tests {
                     node("b2", "banner", Some("H2"), Some("root")),
                 ])),
             ),
-            (
-                "landmark-no-duplicate-main",
-                check_landmark_no_duplicate_main(&AXTree::from_nodes(vec![
-                    node("root", "RootWebArea", Some("Page"), None),
-                    node("m1", "main", Some("M1"), Some("root")),
-                    node("m2", "main", Some("M2"), Some("root")),
-                ])),
-            ),
         ];
 
         for (axe_id, r) in checks {
@@ -920,90 +682,5 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn skip_link_is_filed_under_241() {
-        let r = check_skip_link(&AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("nav", "navigation", Some("Main"), Some("root")),
-            node("main", "main", Some("Content"), Some("root")),
-        ]));
-        assert!(!r.violations.is_empty());
-        for v in &r.violations {
-            assert_eq!(v.rule, "2.4.1", "skip-link must stay under WCAG 2.4.1");
-            assert_eq!(v.rule_id.as_deref(), Some("skip-link"));
-        }
-    }
-
-    // ── landmark-banner-present ────────────────────────────────────────────
-
-    #[test]
-    fn banner_absent_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("nav", "navigation", Some("Main"), Some("root")),
-            node("main", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_landmark_banner_present(&tree);
-        assert!(
-            r.violations
-                .iter()
-                .any(|v| v.rule_id.as_deref() == Some("landmark-banner-present")),
-            "No banner landmark should trigger a violation"
-        );
-    }
-
-    #[test]
-    fn banner_present_pass() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("b", "banner", Some("Header"), Some("root")),
-            node("main", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_landmark_banner_present(&tree);
-        assert!(r.violations.is_empty());
-        assert!(r.passes > 0);
-    }
-
-    #[test]
-    fn banner_absent_tiny_tree_no_violation() {
-        // Two-node trees (root + one node) must not fire
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("div", "generic", None, Some("root")),
-        ]);
-        let r = check_landmark_banner_present(&tree);
-        assert!(r.violations.is_empty());
-    }
-
-    // ── landmark-main-present ──────────────────────────────────────────────
-
-    #[test]
-    fn main_absent_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("b", "banner", Some("Header"), Some("root")),
-            node("nav", "navigation", Some("Nav"), Some("root")),
-        ]);
-        let r = check_landmark_main_present(&tree);
-        assert!(
-            r.violations
-                .iter()
-                .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
-            "No main landmark should trigger a violation"
-        );
-    }
-
-    #[test]
-    fn main_present_pass() {
-        let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", Some("Page"), None),
-            node("b", "banner", Some("Header"), Some("root")),
-            node("m", "main", Some("Content"), Some("root")),
-        ]);
-        let r = check_landmark_main_present(&tree);
-        assert!(r.violations.is_empty());
-        assert!(r.passes > 0);
     }
 }

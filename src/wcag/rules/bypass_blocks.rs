@@ -2,10 +2,21 @@
 //!
 //! Provides a mechanism to bypass blocks of content that are repeated.
 //! Level A - Important for keyboard users to skip navigation.
+//!
+//! Sprunglink und main-Landmark prüft seit #690 der geteilte Bestand
+//! (`keyboard/skip-link-missing`, `landmarks/main-missing`, siehe
+//! `wcag::shared`). Die frühere Sammelmeldung „weder Sprunglink noch main"
+//! entfällt damit: Sie war nur die Verknüpfung genau dieser beiden Prüfungen,
+//! und fehlen beide, melden die zwei geteilten Kennungen je ihren Teil.
+//! Ebenso die Positivsignale „Sprunglink erkannt" und „main erkannt".
+//!
+//! Hier bleibt, was der geteilte Bestand nicht kennt: eine Seite ganz ohne
+//! Überschriften (`headings/h1-missing` feuert nur, wenn es überhaupt
+//! Überschriften gibt).
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.1
 pub(super) const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
@@ -19,72 +30,11 @@ pub(super) const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag241", "cat.keyboard"],
 };
 
-/// Check for bypass block mechanisms (skip links)
-///
-/// This rule checks ONLY for skip-navigation mechanisms (skip links, headings).
-/// Landmark presence/absence is checked separately in `landmarks.rs`.
+/// Check that the page offers headings to navigate by.
 pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
     results.nodes_checked = tree.len();
 
-    let has_skip_link = has_skip_navigation(tree);
-    let has_main_landmark = has_landmark(tree, "main");
-
-    // A page passes 2.4.1 if it has EITHER a skip link OR a main landmark.
-    // Missing main landmark is reported separately by landmarks.rs.
-    if !has_skip_link && !has_main_landmark {
-        let violation = Violation::new(
-            BYPASS_BLOCKS_RULE.id,
-            BYPASS_BLOCKS_RULE.name,
-            BYPASS_BLOCKS_RULE.level,
-            BYPASS_BLOCKS_RULE.severity,
-            "No bypass mechanism found (neither skip link nor <main> landmark)",
-            "page",
-        )
-        .with_fix(
-            "Add a skip link (e.g. <a href=\"#main\">Skip to content</a>) \
-             or wrap the main content in a <main> element",
-        )
-        .with_help_url(BYPASS_BLOCKS_RULE.help_url)
-        .with_rule_id(BYPASS_BLOCKS_RULE.axe_id);
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-        // Surface detected bypass mechanisms as positive signals.
-        if has_skip_link {
-            results.add_violation(
-                Violation::new(
-                    BYPASS_BLOCKS_RULE.id,
-                    BYPASS_BLOCKS_RULE.name,
-                    BYPASS_BLOCKS_RULE.level,
-                    Severity::Low,
-                    "Skip navigation link detected — keyboard users can bypass repeated blocks",
-                    "page",
-                )
-                .with_help_url(BYPASS_BLOCKS_RULE.help_url)
-                .with_rule_id(BYPASS_BLOCKS_RULE.axe_id)
-                .with_kind(Outcome::Pass),
-            );
-        }
-        if has_main_landmark {
-            results.add_violation(
-                Violation::new(
-                    BYPASS_BLOCKS_RULE.id,
-                    BYPASS_BLOCKS_RULE.name,
-                    BYPASS_BLOCKS_RULE.level,
-                    Severity::Low,
-                    "<main> landmark detected — assistive technology users can navigate directly to main content",
-                    "page",
-                )
-                .with_help_url(BYPASS_BLOCKS_RULE.help_url)
-            .with_rule_id(BYPASS_BLOCKS_RULE.axe_id)
-                .with_kind(Outcome::Pass),
-            );
-        }
-    }
-
-    // Check for heading structure (separate concern from landmarks)
     let heading_count = count_headings(tree);
     if heading_count == 0 {
         let violation = Violation::new(
@@ -105,91 +55,6 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
     }
 
     results
-}
-
-/// Check for skip navigation link
-fn has_skip_navigation(tree: &AXTree) -> bool {
-    let skip_patterns = [
-        // English
-        "skip to",
-        "skip navigation",
-        "skip to content",
-        "skip to main",
-        "jump to",
-        "jump to content",
-        "go to main",
-        "go to content",
-        // German
-        "zum hauptinhalt",
-        "zum inhalt",
-        "navigation überspringen",
-        "zum inhalt springen",
-        "hauptinhalt",
-        // French
-        "aller au contenu",
-        "passer la navigation",
-        "accéder au contenu",
-        "aller au menu principal",
-        // Spanish
-        "ir al contenido",
-        "saltar navegación",
-        "ir al contenido principal",
-        // Italian
-        "vai al contenuto",
-        "salta la navigazione",
-        "vai al contenuto principale",
-        // Portuguese
-        "ir para o conteúdo",
-        "pular navegação",
-        "ir para o conteúdo principal",
-        // Dutch
-        "ga naar inhoud",
-        "navigatie overslaan",
-        "ga naar hoofdinhoud",
-        // Swedish
-        "hoppa till innehåll",
-        "hoppa över navigering",
-        // Norwegian
-        "hopp til innhold",
-        "hopp over navigasjon",
-        // Danish
-        "gå til indhold",
-        "spring navigation over",
-        // Finnish
-        "siirry sisältöön",
-        "ohita navigaatio",
-        // Polish
-        "przejdź do treści",
-        "pomiń nawigację",
-        // Turkish
-        "içeriğe geç",
-        "gezinmeyi atla",
-        // Czech / Slovak
-        "přejít na obsah",
-        "přeskočit navigaci",
-    ];
-
-    tree.iter().any(|node| {
-        if node.role.as_deref() == Some("link") {
-            if let Some(name) = &node.name {
-                let name_lower = name.to_lowercase();
-                return skip_patterns
-                    .iter()
-                    .any(|pattern| name_lower.contains(pattern));
-            }
-        }
-        false
-    })
-}
-
-/// Check if a specific landmark exists
-fn has_landmark(tree: &AXTree, landmark_type: &str) -> bool {
-    tree.iter().any(|node| {
-        node.role
-            .as_deref()
-            .map(|r| r.to_lowercase() == landmark_type.to_lowercase())
-            .unwrap_or(false)
-    })
 }
 
 /// Count headings in the page
@@ -228,55 +93,18 @@ mod tests {
     }
 
     #[test]
-    fn test_has_skip_navigation() {
+    fn test_page_with_headings_passes() {
         let tree = AXTree::from_nodes(vec![
-            create_node("1", "link", Some("Skip to main content")),
-            create_node("2", "main", None),
-        ]);
-
-        assert!(has_skip_navigation(&tree));
-    }
-
-    #[test]
-    fn test_no_skip_navigation() {
-        let tree = AXTree::from_nodes(vec![
-            create_node("1", "link", Some("Home")),
-            create_node("2", "link", Some("About")),
-        ]);
-
-        assert!(!has_skip_navigation(&tree));
-    }
-
-    #[test]
-    fn test_has_main_landmark() {
-        let tree = AXTree::from_nodes(vec![create_node("1", "main", None)]);
-
-        assert!(has_landmark(&tree, "main"));
-    }
-
-    #[test]
-    fn test_page_with_proper_landmarks() {
-        let tree = AXTree::from_nodes(vec![
-            create_node("1", "banner", None),
-            create_node("2", "navigation", None),
-            create_node("3", "main", None),
-            create_node("4", "contentinfo", None),
-            create_node("5", "heading", Some("Page Title")),
+            create_node("1", "main", None),
+            create_node("2", "heading", Some("Page Title")),
         ]);
 
         let results = check_bypass_blocks(&tree);
-        assert!(!results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("No skip navigation")));
-        assert!(!results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("Missing main landmark")));
+        assert!(results.violations.is_empty(), "{:?}", results.violations);
     }
 
     #[test]
-    fn test_page_without_landmarks() {
+    fn test_page_without_headings_flagged() {
         let tree = AXTree::from_nodes(vec![
             create_node("1", "generic", None),
             create_node("2", "paragraph", Some("Some text")),
@@ -286,6 +114,19 @@ mod tests {
         assert!(results
             .violations
             .iter()
-            .any(|v| v.message.contains("No bypass mechanism found")));
+            .any(|v| v.message.contains("No headings found")));
+    }
+
+    /// Sprunglink und main-Landmark sind Sache des geteilten Bestands (#690);
+    /// diese Regel meldet ihr Fehlen nicht noch einmal.
+    #[test]
+    fn test_missing_skip_link_and_main_not_reported_here() {
+        let tree = AXTree::from_nodes(vec![
+            create_node("1", "link", Some("Home")),
+            create_node("2", "heading", Some("Page Title")),
+        ]);
+
+        let results = check_bypass_blocks(&tree);
+        assert!(results.violations.is_empty(), "{:?}", results.violations);
     }
 }

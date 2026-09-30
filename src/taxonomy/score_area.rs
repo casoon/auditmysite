@@ -76,6 +76,7 @@ use ScoreArea::*;
 static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.1.x / 1.2.x — Nicht-Text-Inhalte und Medien-Alternativen ──
     ("a11y.alt_text.missing", ImagesAlternativeText),
+    ("a11y.alt_text.suspicious", ImagesAlternativeText),
     ("a11y.area_alt.missing", ImagesAlternativeText),
     ("a11y.image_map_server_side.invalid", ImagesAlternativeText),
     ("a11y.input_image_alt.missing", ImagesAlternativeText),
@@ -133,6 +134,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.color.link_indicator", Semantics),
     ("a11y.contrast.weak", Semantics),
     ("a11y.resize_text.weak", Semantics),
+    ("a11y.viewport_meta.missing", Semantics),
     ("a11y.viewport_zoom.restricted", Semantics),
     ("a11y.background_audio.uncontrolled", Semantics),
     ("a11y.visual_presentation.weak", Semantics),

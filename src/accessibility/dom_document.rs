@@ -30,10 +30,12 @@
 use std::collections::{HashMap, HashSet};
 
 use a11y_dom::{
-    Arena, ArenaNode, ComputedStyle, Document, NameSource as SharedNameSource, Node, Rect,
-    Rendering, Semantics,
+    Arena, ArenaNode, ComputedStyle, Document, NameSource as SharedNameSource, Node, NodeKind,
+    Rect, Rendering, Semantics,
 };
-use chromiumoxide::cdp::browser_protocol::dom::{GetDocumentParams, Node as CdpNode};
+use chromiumoxide::cdp::browser_protocol::dom::{
+    GetDocumentParams, Node as CdpNode, ShadowRootType,
+};
 use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
     CaptureSnapshotParams, CaptureSnapshotReturns,
 };
@@ -310,6 +312,28 @@ impl Document for RenderedCdpDocument<'_> {
     }
 }
 
+/// Rolle und Name wie [`CdpDocument`] — damit die geteilten Regeln mit
+/// Stilen laufen können (`a11y_rules::run_full`). Der Geltungsbereich der
+/// Regeln sieht dann auch per CSS Verstecktes als verborgen, nicht nur das
+/// `hidden`-Attribut.
+impl Semantics for RenderedCdpDocument<'_> {
+    fn role<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
+        self.doc.role(node)
+    }
+
+    fn accessible_name<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
+        self.doc.accessible_name(node)
+    }
+
+    fn name_source<'n>(&'n self, node: Self::N<'n>) -> Option<SharedNameSource> {
+        self.doc.name_source(node)
+    }
+
+    fn is_ignored<'n>(&'n self, node: Self::N<'n>) -> bool {
+        self.doc.is_ignored(node)
+    }
+}
+
 impl Rendering for RenderedCdpDocument<'_> {
     fn computed_style<'n>(&'n self, node: Self::N<'n>) -> Option<ComputedStyle> {
         let style = self
@@ -360,8 +384,18 @@ impl Semantics for CdpDocument {
         self.facts(node)?.name_source
     }
 
+    /// Ein Element ohne Gegenstück im Accessibility-Tree hat Chrome gar nicht
+    /// erst exponiert — etwa der Inhalt eines geschlossenen `<details>`, den
+    /// Chrome über `content-visibility` ausblendet, während der DOMSnapshot
+    /// `display` und `visibility` unverändert meldet. Ohne diese Regel bekam
+    /// jeder Link darin einen leeren Namen und einen `FAIL` (geographia.eu:
+    /// 22 Karten in `details.more`). Gilt nur, wenn der Baum überhaupt Fakten
+    /// trägt; ein gescheiterter Abgleich soll nicht alles verschwinden lassen.
     fn is_ignored<'n>(&'n self, node: Self::N<'n>) -> bool {
-        self.facts(node).is_some_and(|f| f.ignored)
+        match self.facts(node) {
+            Some(f) => f.ignored,
+            None => !self.ax.is_empty() && node.kind() == NodeKind::Element,
+        }
     }
 }
 
@@ -489,8 +523,20 @@ impl<'n> Walk<'_, 'n> {
         // sie nicht dargestellt. Hingen sie neben dem Shadow-Inhalt, stand auf
         // sachsen-anhalt.de jede `<ul><slot>` leer da und jedes per Slot
         // gelieferte `role="listitem"` ausserhalb einer Liste.
+        //
+        // User-Agent-Shadow-Roots bleiben aussen vor: Die Tag-/Monat-/Jahr-
+        // Felder eines `<input type=date>` sind `role="spinbutton"` ohne
+        // `aria-valuenow` -- aber sie gehoeren dem Browser, nicht dem Autor,
+        // und kein Autor kann sie beheben. Die frueheren DOM-Regeln kamen per
+        // Skript gar nicht an sie heran (#656); ohne diesen Filter meldete
+        // `aria/required-attribute-missing` jedes Datumsfeld (#690).
         let mut is_host = false;
-        for shadow in node.shadow_roots.iter().flatten() {
+        for shadow in node
+            .shadow_roots
+            .iter()
+            .flatten()
+            .filter(|s| s.shadow_root_type != Some(ShadowRootType::UserAgent))
+        {
             is_host = true;
             self.children(shadow);
         }
@@ -627,8 +673,8 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
 
 /// Wie [`fetch_dom_document`], dazu berechnetes `display`/`visibility` und die
 /// Leerraum-Textknoten aus einem `DOMSnapshot` — die Grundlage für
-/// [`CdpDocument::rendered`]. Für den accname-Differentiallauf; die geteilten
-/// Regeln laufen weiter über [`fetch_dom_document`].
+/// [`CdpDocument::rendered`]. Für den accname-Differentiallauf und die
+/// geteilten Regeln (`wcag::shared::run_shared_rules`).
 pub async fn fetch_dom_document_with_layout(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
     let root = get_document(page).await?;
     let layout = fetch_layout_styles(page).await?;
@@ -848,6 +894,47 @@ mod tests {
         assert_eq!(button.parent().unwrap().local_name(), "my-card");
     }
 
+    /// Der User-Agent-Shadow-Root eines `<input type=date>` traegt die
+    /// Datumsfelder als `role="spinbutton"`. Die gehoeren dem Browser; im
+    /// Dokument erscheinen sie nicht, ein offener Shadow-Root daneben schon.
+    #[test]
+    fn user_agent_shadow_root_bleibt_aussen_vor() {
+        let host = |id: i64, tag: &str, typ: &str, kind: serde_json::Value| {
+            serde_json::json!({
+                "nodeId": id, "backendNodeId": id, "nodeType": 1,
+                "nodeName": tag.to_uppercase(), "localName": tag,
+                "nodeValue": "", "children": [],
+                "shadowRoots": [{
+                    "nodeId": id + 1, "backendNodeId": id + 1, "nodeType": 11,
+                    "nodeName": "#document-fragment", "localName": "",
+                    "nodeValue": "", "shadowRootType": typ,
+                    "children": [kind]
+                }]
+            })
+        };
+        let doc = build_document(
+            &cdp(serde_json::json!({
+                "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+                "nodeName": "#document", "localName": "", "nodeValue": "",
+                "children": [
+                    element(2, "html", &[], serde_json::json!([
+                        element(3, "body", &[], serde_json::json!([
+                            host(4, "input", "user-agent",
+                                element(6, "span", &["role", "spinbutton"], serde_json::json!([]))),
+                            host(7, "my-card", "open",
+                                element(9, "button", &[], serde_json::json!([])))
+                        ]))
+                    ]))
+                ]
+            })),
+            &leerer_ax(),
+        )
+        .unwrap();
+
+        assert!(elements(&doc).all(|n| !n.is_element("span")));
+        assert!(elements(&doc).any(|n| n.is_element("button")));
+    }
+
     /// Muster von sachsen-anhalt.de: Die Liste liegt im Shadow-Root, die
     /// Eintraege kommen per Slot aus dem Light-DOM des Hosts. Im flachen Baum
     /// haengen sie unter dem `<slot>` in der `<ul>`; ein nicht zugewiesenes
@@ -992,6 +1079,22 @@ mod tests {
         assert!(doc.is_ignored(link));
     }
 
+    /// Ohne Gegenstueck im AX-Baum hat Chrome das Element nicht exponiert
+    /// (geographia.eu: Links in einem geschlossenen `<details>`). Mit leerem
+    /// AX-Baum bleibt dagegen alles sichtbar -- ein gescheiterter Abgleich
+    /// darf nicht jeden Befund verschlucken.
+    #[test]
+    fn element_ohne_ax_gegenstueck_gilt_als_ignoriert() {
+        let ax = AXTree::from_nodes(vec![ax_knoten(7, "image", Some("Firmenlogo"), false)]);
+        let doc = build_document(&beispielseite(), &ax).unwrap();
+        let link = elements(&doc).find(|n| n.is_element("a")).unwrap();
+        assert!(doc.is_ignored(link));
+
+        let ohne_ax = build_document(&beispielseite(), &leerer_ax()).unwrap();
+        let link = elements(&ohne_ax).find(|n| n.is_element("a")).unwrap();
+        assert!(!ohne_ax.is_ignored(link));
+    }
+
     /// Der eigentliche Zweck des Umbaus: Die geteilten Regeln laufen
     /// unveraendert gegen eine per Chrome gerenderte Seite und vergeben
     /// dieselben Kennungen wie auf den anderen beiden Oberflaechen.
@@ -1015,10 +1118,11 @@ mod tests {
         assert!(!ids.iter().any(|id| id.starts_with("document/")), "{ids:?}");
 
         // Mit Semantics faellt keine Regel mehr mangels Namensberechnung aus.
-        // Was uebrig bleibt, ist Tier 3: Ohne gerenderte Stile koennen die
-        // Kontrastregeln nichts sagen -- und sagen genau das, statt zu
-        // schweigen. Sie kamen mit a11y-core 0.7.0 dazu; auditmysite bedient
-        // `Rendering` noch nicht.
+        // Was uebrig bleibt, ist Tier 3: Ohne gerenderte Stile koennen
+        // Kontrast- und Layoutregeln nichts sagen -- und sagen genau das,
+        // statt zu schweigen. Die Liste kommt aus dem Crate selbst, damit eine
+        // neue Tier-3-Regel diesen Test nicht bricht, eine fehlende Tier-1/2-
+        // Regel aber schon.
         let mut nicht_gelaufen: Vec<&str> = report
             .rule_runs
             .iter()
@@ -1026,9 +1130,13 @@ mod tests {
             .map(|r| r.rule_id.as_str())
             .collect();
         nicht_gelaufen.sort_unstable();
+        let mut tier3: Vec<&str> = a11y_rules::rendering_metas()
+            .iter()
+            .flat_map(|m| m.ids.iter().copied())
+            .collect();
+        tier3.sort_unstable();
         assert_eq!(
-            nicht_gelaufen,
-            vec!["contrast/text-insufficient", "contrast/text-undetermined"],
+            nicht_gelaufen, tier3,
             "unerwartet nicht gelaufen: {nicht_gelaufen:?}"
         );
 

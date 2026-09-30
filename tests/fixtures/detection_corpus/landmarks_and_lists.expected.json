@@ -10,8 +10,8 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "landmark-navigation-present",
-      "verdict": "violation"
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
     },
     {
       "rule_id": "form-field-group",

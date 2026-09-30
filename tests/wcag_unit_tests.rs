@@ -10,8 +10,8 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_required_parent, check_aria_roles, check_focus_order, check_label_title_only,
-    check_link_purpose, check_text_alternatives, Color, ContrastRule,
+    check_aria_required_parent, check_aria_roles, check_label_title_only, check_link_purpose,
+    check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -276,10 +276,9 @@ fn test_412_listitem_with_list_parent_passes() {
     );
 }
 
-// 1.4.4 Resize Text is now a DOM page rule (check_resize_text_with_page in
-// meta_viewport_large.rs/resize_text.rs, registered in PAGE_RULES) — it needs
-// a live Page and is covered by page_rules.rs's own unit tests plus live
-// verification, not a tree-based unit test here (#QA-030).
+// 1.4.4 Resize Text: der Viewport laeuft seit #690 als `zoom/*` im geteilten
+// Bestand (siehe `wcag::shared`) -- der AX-Baum hat keine
+// `viewport`-Eigenschaft (#QA-030).
 
 // ---------------------------------------------------------------------------
 // 1.4.3 Contrast helpers — Color parsing and contrast ratio calculation
@@ -458,42 +457,9 @@ fn test_engine_clean_tree_has_zero_image_alt_violations() {
 
 // ---------------------------------------------------------------------------
 
-#[test]
-fn test_243_focusable_in_aria_hidden_flagged() {
-    let mut n = node("1", "button", Some("Hidden button"));
-    n.properties.push(AXProperty {
-        name: "hidden".to_string(),
-        value: AXValue::Bool(true),
-    });
-    n.properties.push(AXProperty {
-        name: "focusable".to_string(),
-        value: AXValue::Bool(true),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_focus_order(&tree);
-    assert!(
-        results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("aria-hidden")),
-        "Focusable element inside aria-hidden should be flagged"
-    );
-}
-
-#[test]
-fn test_243_clean_interactive_tree_passes() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "link", Some("Home")),
-        node("2", "button", Some("Submit")),
-        node("3", "link", Some("About")),
-    ]);
-    let results = check_focus_order(&tree);
-    assert_eq!(
-        results.violations.len(),
-        0,
-        "Clean interactive tree should have no focus-order violations"
-    );
-}
+// 2.4.3/4.1.2 fokussierbar unter aria-hidden: laeuft seit #690 als
+// `keyboard/hidden-focusable` im geteilten Bestand (siehe `wcag::shared`),
+// die AX-Regel `check_focus_order` ist geloescht.
 
 // ---------------------------------------------------------------------------
 // 1.3.1 Label Title Only — check_label_title_only
@@ -773,9 +739,10 @@ fn scenario_missing_alt_fires_only_111() {
 // "h2" einsortierte. Die Faelle stehen als DOM-Szenarien in `a11y-rules`.
 
 /// Page with a menu missing its required menuitem children and a focusable
-/// element inside aria-hidden. Rules 4.1.2 (required owned elements) and
-/// 2.4.3 (focusable+aria-hidden) must both fire. No other rules should fire
-/// (baseline is otherwise clean).
+/// element inside aria-hidden. Only 4.1.2 (required owned elements) fires
+/// from the tree: focusable+aria-hidden runs as `keyboard/hidden-focusable`
+/// in the shared bestand since #690 and no longer as a tree rule under 2.4.3.
+/// No other rules should fire (baseline is otherwise clean).
 ///
 /// (Invalid-*role* and invalid-*attribute-name* detection moved to DOM page
 /// rules — check_invalid_role_with_page / check_invalid_aria_attribute_name_
@@ -784,7 +751,7 @@ fn scenario_missing_alt_fires_only_111() {
 /// but also trips list_structure.rs's own 1.3.1 empty-list check — "menu" is
 /// not touched by any other module.)
 #[test]
-fn scenario_broken_aria_fires_412_and_243() {
+fn scenario_broken_aria_fires_412() {
     let empty_menu = {
         let mut n = node("menu1", "menu", Some("Empty menu"));
         n.child_ids = vec!["btn1".into()];
@@ -807,22 +774,16 @@ fn scenario_broken_aria_fires_412_and_243() {
         ("h1", heading("h1", 1, Some("Dashboard"))),
         ("menu1", empty_menu), // menu without menuitem children → 4.1.2
         ("btn1", non_menuitem_child),
-        ("btn2", hidden_focusable), // focusable + aria-hidden → 2.4.3
+        ("btn2", hidden_focusable), // focusable + aria-hidden → shared rule
     ]);
     let rules = fired_rules(&tree, WcagLevel::AA);
     assert!(
         rules.contains(&"4.1.2".to_string()),
         "Invalid ARIA role should fire 4.1.2; got: {rules:?}"
     );
-    assert!(
-        rules.contains(&"2.4.3".to_string()),
-        "Focusable element in aria-hidden should fire 2.4.3; got: {rules:?}"
-    );
-    // Only the two expected rules should fire — no regressions
-    let unexpected: Vec<_> = rules
-        .iter()
-        .filter(|r| *r != "4.1.2" && *r != "2.4.3")
-        .collect();
+    // Only the expected rule should fire — no regressions, and no second
+    // report of the aria-hidden case from the tree.
+    let unexpected: Vec<_> = rules.iter().filter(|r| *r != "4.1.2").collect();
     assert!(
         unexpected.is_empty(),
         "Unexpected rules fired in broken-aria scenario: {unexpected:?}"
