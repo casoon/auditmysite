@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contrast in shadow DOM and inline backgrounds</title>
+</head>
+<body>
+    <main>
+        <h1>Contrast in shadow DOM and near the threshold (#716)</h1>
+
+        <!-- violation: white link on #5a95d6 inside an open shadow root (3.13:1) -->
+        <cookie-banner>
+            <template shadowrootmode="open">
+                <p style="background: #5a95d6; color: #ffffff; padding: 8px">
+                    We use cookies. <a href="#privacy" style="color: #ffffff">Privacy policy</a>
+                </p>
+                <p style="background: #ffffff; color: #1a1a1a">Readable text inside the component.</p>
+            </template>
+        </cookie-banner>
+
+        <!-- violation: inline background, white text at 4.46:1, just below 4.5 -->
+        <p><a href="#new" style="background: #137dbf; color: #ffffff; padding: 4px">New portal</a></p>
+
+        <!-- violation: the container is 0px high (only floats inside) but its
+             content overflows visibly; it is not visually hidden (#716) -->
+        <div><ul style="float: left; list-style: none; margin: 0; padding: 0">
+            <li><a href="#float" style="background: #137dbf; color: #ffffff">Floated link</a></li>
+        </ul></div>
+        <div style="clear: both"></div>
+
+        <p>Plain body text with enough contrast.</p>
+    </main>
+</body>
+</html>

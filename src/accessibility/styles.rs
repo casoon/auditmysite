@@ -129,6 +129,28 @@ const STYLES_EXTRACT_JS: &str = r#"
         };
     }
 
+    // #716: ancestors in the composed (flat) tree — a slotted element
+    // renders inside its slot, and the root of a shadow tree inside its
+    // host, so backgrounds and `background-clip` are inherited across both.
+    function composedParent(node) {
+        if (node.assignedSlot) return node.assignedSlot;
+        if (node.parentElement) return node.parentElement;
+        const root = node.getRootNode ? node.getRootNode() : null;
+        return (root && root.host) ? root.host : null;
+    }
+
+    // Selector through open shadow roots: `host >>> inner`, one hop per
+    // shadow boundary. The pixel sampler resolves it the same way.
+    function composedSelector(el) {
+        let sel = __amsCssSelector(el);
+        let root = el.getRootNode ? el.getRootNode() : null;
+        while (root && root.host) {
+            sel = __amsCssSelector(root.host) + ' >>> ' + sel;
+            root = root.host.getRootNode ? root.host.getRootNode() : null;
+        }
+        return sel;
+    }
+
     function hasPaintedBackgroundImage(styles) {
         return styles.backgroundImage && styles.backgroundImage !== 'none';
     }
@@ -140,15 +162,49 @@ const STYLES_EXTRACT_JS: &str = r#"
                (styles.backgroundBlendMode && styles.backgroundBlendMode !== 'normal');
     }
 
-    // #527: cheap, bounded check for a direct sibling of `node` that is
-    // either an <img> or a positioned (absolute/fixed) element with a
-    // painted background, whose box overlaps `targetRect` — covers both the
-    // "hero <img> behind overlaid text" and "translucent overlay div on top
-    // of text" patterns without a full paint-order simulation.
+    // #716: whether a positioned element paints an image anywhere below it —
+    // an <img>/<picture>/<video>/<canvas> or a background-image, also inside
+    // open shadow roots (a hero image as `<p-responsive-image>` in an
+    // absolutely positioned wrapper). Memoised: siblings repeat across text
+    // elements.
+    const paintsImageMemo = new WeakMap();
+    function paintsImage(root) {
+        if (paintsImageMemo.has(root)) return paintsImageMemo.get(root);
+        let found = false;
+        const stack = [root];
+        let visited = 0;
+        while (stack.length > 0 && !found && visited < 500) {
+            const node = stack.pop();
+            visited++;
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const tag = node.tagName;
+                if (tag === 'IMG' || tag === 'PICTURE' || tag === 'VIDEO' || tag === 'CANVAS') {
+                    found = true;
+                    break;
+                }
+                if (hasPaintedBackgroundImage(window.getComputedStyle(node))) {
+                    found = true;
+                    break;
+                }
+                if (node.shadowRoot) stack.push(node.shadowRoot);
+            }
+            for (const child of node.children || []) stack.push(child);
+        }
+        paintsImageMemo.set(root, found);
+        return found;
+    }
+
+    // #527: bounded check for a sibling of `node` that is either an <img>
+    // or a positioned (absolute/fixed) element with a painted background or
+    // an image inside it (#716), whose box overlaps `targetRect` — covers
+    // both the "hero <img> behind overlaid text" and "translucent overlay div
+    // on top of text" patterns without a full paint-order simulation.
+    // Siblings are taken in the tree `node` lives in (light DOM or shadow
+    // root).
     function hasOverlappingPaintedSibling(node, targetRect) {
-        const parent = node.parentElement;
-        if (!parent) return false;
-        for (const sibling of parent.children) {
+        const container = node.parentElement || node.parentNode;
+        if (!container || !container.children) return false;
+        for (const sibling of container.children) {
             if (sibling === node) continue;
             const siblingStyles = window.getComputedStyle(sibling);
             const isImg = sibling.tagName === 'IMG';
@@ -156,7 +212,8 @@ const STYLES_EXTRACT_JS: &str = r#"
                 const isPositioned = siblingStyles.position === 'absolute' || siblingStyles.position === 'fixed';
                 if (!isPositioned) continue;
                 const bg = parseCssColor(siblingStyles.backgroundColor);
-                if (!bg || bg.a <= 0) continue;
+                const painted = (bg && bg.a > 0) || paintsImage(sibling);
+                if (!painted) continue;
             }
             const r = sibling.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) continue;
@@ -177,7 +234,7 @@ const STYLES_EXTRACT_JS: &str = r#"
             if (styles.backgroundClip === 'text' || styles.webkitBackgroundClip === 'text') {
                 return true;
             }
-            current = current.parentElement;
+            current = composedParent(current);
         }
         return false;
     }
@@ -191,12 +248,13 @@ const STYLES_EXTRACT_JS: &str = r#"
         return !c || c.a < NEAR_TRANSPARENT_ALPHA;
     }
 
-    function getEffectiveBackground(el) {
+    // `textRect`: box of the text's element — a slot has none of its own.
+    function getEffectiveBackground(el, textRect) {
         let current = el;
         const layers = [];
         let hasUncertainBackground = false;
-        const elRect = el.getBoundingClientRect();
-        const MAX_OVERLAY_CHECK_DEPTH = 3;
+        const elRect = textRect;
+        const MAX_OVERLAY_CHECK_DEPTH = 6;
         let overlayCheckDepth = 0;
 
         while (current && current !== document.documentElement) {
@@ -224,7 +282,7 @@ const STYLES_EXTRACT_JS: &str = r#"
                 if (bg.a >= 1) break;
             }
 
-            current = current.parentElement;
+            current = composedParent(current);
         }
 
         const htmlStyles = window.getComputedStyle(document.documentElement);
@@ -254,11 +312,27 @@ const STYLES_EXTRACT_JS: &str = r#"
     // Walk all text nodes to find every element that renders visible text.
     // This matches axe-core's approach of checking all rendered text, not
     // just a fixed list of element types.
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-    let textNode;
-    while ((textNode = walker.nextNode()) !== null) {
+    // Open shadow roots are walked too (#716): text inside web components
+    // (a cookie banner as `p-cookie-banner`) is rendered text like any other.
+    const textNodes = [];
+    const roots = [document.body];
+    while (roots.length > 0) {
+        const root = roots.shift();
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+        let node = walker.currentNode;
+        while (node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                textNodes.push(node);
+            } else if (node.shadowRoot) {
+                roots.push(node.shadowRoot);
+            }
+            node = walker.nextNode();
+        }
+    }
+    for (const textNode of textNodes) {
         if (!textNode.textContent.trim()) continue;
-        const el = textNode.parentElement;
+        const el = textNode.parentElement ||
+            (textNode.parentNode && textNode.parentNode.host) || null;
         if (!el || seen.has(el)) continue;
         seen.add(el);
 
@@ -268,10 +342,16 @@ const STYLES_EXTRACT_JS: &str = r#"
         // decorative elements that are not exposed to assistive technology (#395)
         if (__amsIsAriaHidden(el)) continue;
 
-        const styles = window.getComputedStyle(el);
+        // #716: a text node directly under a shadow host renders through the
+        // slot it is assigned to and inherits colour and font from there, not
+        // from the host; without a slot it is not rendered at all.
+        if (el.shadowRoot && textNode.parentElement === el && !textNode.assignedSlot) continue;
+        const styleEl = textNode.assignedSlot || el;
+
+        const styles = window.getComputedStyle(styleEl);
         if (styles.display === 'none' || styles.visibility === 'hidden') continue;
 
-        const effectiveBackground = getEffectiveBackground(el);
+        const effectiveBackground = getEffectiveBackground(styleEl, el.getBoundingClientRect());
         const fg = parseCssColor(styles.color);
         const bg = effectiveBackground.color;
         const bgParsed = parseCssColor(bg) || { r: 255, g: 255, b: 255, a: 1 };
@@ -281,7 +361,7 @@ const STYLES_EXTRACT_JS: &str = r#"
             finalFg = composite(fg, bgParsed);
         }
 
-        const foregroundUncertain = hasTextClippedBackground(el) ||
+        const foregroundUncertain = hasTextClippedBackground(styleEl) ||
             isNearTransparent(styles.color) ||
             (styles.webkitTextFillColor !== undefined && isNearTransparent(styles.webkitTextFillColor));
 
@@ -300,7 +380,7 @@ const STYLES_EXTRACT_JS: &str = r#"
         const rect = el.getBoundingClientRect();
 
         results.push({
-            cssPath: __amsCssSelector(el),
+            cssPath: composedSelector(el),
             snippet: el.outerHTML.substring(0, 200),
             index: idx++,
             color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,

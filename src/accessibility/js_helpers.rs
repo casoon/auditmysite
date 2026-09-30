@@ -100,7 +100,10 @@ function __amsIsAriaHidden(el) {
   var cur = el;
   while (cur && cur !== document.documentElement) {
     if (cur.getAttribute('aria-hidden') === 'true') return true;
-    cur = cur.parentElement;
+    if (cur.parentElement) { cur = cur.parentElement; continue; }
+    // Across a shadow boundary: aria-hidden on the host hides the component.
+    var root = cur.getRootNode ? cur.getRootNode() : null;
+    cur = (root && root.host) ? root.host : null;
   }
   var role = el.getAttribute('role');
   return role === 'presentation' || role === 'none';
@@ -110,12 +113,22 @@ function __amsIsAriaHidden(el) {
 /// `__amsIsVisuallyHidden(el)` — detects the visually-hidden / `.sr-only`
 /// pattern (text exposed only to assistive technology).
 ///
-/// Recognises clip-rect `rect(0 0 0 0)`, ≤1px boxes with `overflow:hidden`,
+/// Recognises unrendered elements, clip-rect `rect(0 0 0 0)`, ≤1px boxes that
+/// clip their overflow (`hidden`/`clip`),
 /// `clip-path: inset(50%/100%)`, and far off-screen positioned/indented text.
 /// WCAG contrast (1.4.3) does not apply to such elements — axe-core skips
 /// them too.
 pub(crate) const IS_VISUALLY_HIDDEN_JS: &str = r#"
 function __amsIsVisuallyHidden(el) {
+  // Not rendered at all (display:none on the element or an ancestor, closed
+  // <details>, content-visibility:hidden).
+  if (el.checkVisibility && !el.checkVisibility()) return true;
+  // An element without content and without a box (a 0×0 <img>) shows
+  // nothing; one with content can still overflow visibly, see below.
+  try {
+    var own = el.getBoundingClientRect();
+    if ((own.width === 0 || own.height === 0) && !el.hasChildNodes()) return true;
+  } catch (e) {}
   var cur = el;
   for (var depth = 0; cur && cur.nodeType === 1 && depth < 12; depth++) {
     var s = window.getComputedStyle(cur);
@@ -131,14 +144,18 @@ function __amsIsVisuallyHidden(el) {
     if (cp && /inset\(\s*(100%|9[0-9](\.\d+)?%|50(\.0*)?%)/.test(cp)) return true;
     var w = parseFloat(s.width);
     var h = parseFloat(s.height);
-    var hiddenOverflow = s.overflow === 'hidden' || s.overflowX === 'hidden' || s.overflowY === 'hidden';
+    // Only a box that clips its overflow hides content by having no size.
+    // A container of floats is 0px high and still shows every child
+    // (slovensko.sk, #716), and `display: contents` has no box at all.
+    var clips = function(v) { return v === 'hidden' || v === 'clip'; };
+    var hiddenOverflow = clips(s.overflow) || clips(s.overflowX) || clips(s.overflowY);
     if (hiddenOverflow && ((!isNaN(w) && w <= 1) || (!isNaN(h) && h <= 1))) return true;
-    if (w === 0 || h === 0) return true;
-
-    try {
-      var rect = cur.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return true;
-    } catch (e) {}
+    if (hiddenOverflow) {
+      try {
+        var rect = cur.getBoundingClientRect();
+        if (rect.width <= 1 || rect.height <= 1) return true;
+      } catch (e) {}
+    }
 
     if (s.position === 'absolute' || s.position === 'fixed') {
       var left = parseFloat(s.left);
