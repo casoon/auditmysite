@@ -318,6 +318,8 @@ mod blocking_tests {
             "a11y.redundant_role.invalid",
             "a11y.aria_valid_attr_value.invalid",
             "a11y.combobox_options.missing",
+            "a11y.description_duplicates_name.redundant",
+            "a11y.title_only_description.weak",
         ] {
             assert!(!is_missing_name_or_role(id), "{id}");
         }

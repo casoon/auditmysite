@@ -1760,6 +1760,36 @@ mod tests {
         assert_eq!(norm.risk.legal_flags, 1);
     }
 
+    /// #711, #713: `title`-only description and a description that repeats
+    /// the name land in their own taxonomy rules, not in 1.4.13 or
+    /// `interactive_name.missing`, and as best practice they raise no legal
+    /// flag even at High severity.
+    #[test]
+    fn best_practice_name_rules_have_own_taxonomy_and_no_legal_flag() {
+        for (axe_id, taxonomy_id) in [
+            ("title-only-description", "a11y.title_only_description.weak"),
+            (
+                "description-duplicates-name",
+                "a11y.description_duplicates_name.redundant",
+            ),
+        ] {
+            let mut results = WcagResults::new();
+            results.add_violation(
+                Violation::new("4.1.2", "x", WcagLevel::A, Severity::High, "x", "n1")
+                    .with_rule_id(axe_id)
+                    .with_tags(vec!["best-practice".into()]),
+            );
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let norm = normalize(&report).normalized;
+            let finding = &norm.findings[0];
+            assert_eq!(finding.rule_id, taxonomy_id, "{axe_id}");
+            assert_eq!(finding.wcag_criterion, "4.1.2", "{axe_id}");
+            assert_eq!(finding.bfsg_relevance, "low", "{axe_id}");
+            assert!(!finding.is_legal_flag(), "{axe_id}");
+            assert_eq!(norm.risk.legal_flags, 0, "{axe_id}");
+        }
+    }
+
     #[test]
     fn test_normalize_empty() {
         let report = AuditReport::new(
