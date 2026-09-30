@@ -85,7 +85,56 @@ pub fn build_sr_audit_report(
         navigation_views,
         issues,
         bfsg_compliance,
+        excluded_node_ids: Default::default(),
     }
+}
+
+impl SrAuditReport {
+    /// Applies the audit exclusions (#645) to the issues (#703): drops the
+    /// nodes for which `is_excluded` answers true, then re-derives the BFSG
+    /// verdict, so neither it nor the legal flags built on it (#484) count an
+    /// excluded specimen. Returns the number of issues dropped entirely.
+    pub fn apply_exclusion(&mut self, is_excluded: impl Fn(&str) -> bool) -> usize {
+        let excluded: std::collections::BTreeSet<String> = self
+            .issues
+            .iter()
+            .flat_map(|issue| &issue.affected_node_ids)
+            .filter(|id| is_excluded(id))
+            .cloned()
+            .collect();
+        if excluded.is_empty() {
+            return 0;
+        }
+        let dropped = drop_excluded_nodes(&mut self.issues, &excluded);
+        self.bfsg_compliance = bfsg_compliance(&self.issues);
+        self.summary.bfsg_violations = self.bfsg_compliance.violations.len();
+        self.excluded_node_ids = excluded;
+        dropped
+    }
+}
+
+/// Removes `excluded` from every issue's node list and drops an issue once
+/// all of its nodes were excluded; returns how many were dropped. An issue
+/// that names no node (a page-level finding) is never dropped — same rule as
+/// the main pass (`audit::exclusion`). Messages that quote a page-wide count
+/// (tab stops, repeated link texts) keep it: that count describes the page,
+/// which the exclusion does not change.
+pub fn drop_excluded_nodes(
+    issues: &mut Vec<SrAuditIssue>,
+    excluded: &std::collections::BTreeSet<String>,
+) -> usize {
+    if excluded.is_empty() {
+        return 0;
+    }
+    let before = issues.len();
+    issues.retain_mut(|issue| {
+        if issue.affected_node_ids.is_empty() {
+            return true;
+        }
+        issue.affected_node_ids.retain(|id| !excluded.contains(id));
+        !issue.affected_node_ids.is_empty()
+    });
+    before - issues.len()
 }
 
 /// Flags a likely consent-blocked audit (#483): too few announced nodes and no
@@ -321,5 +370,67 @@ mod tests {
         // consent-wall false positive.
         let views = navigation_views(&[item(0, "generic")]);
         assert_eq!(detect_audit_quality(200, &views), SrAuditQuality::Ok);
+    }
+
+    fn high(wcag: &str, nodes: &[&str]) -> SrAuditIssue {
+        SrAuditIssue {
+            wcag_criterion: Some(wcag.to_string()),
+            severity: "high".into(),
+            affected_node_ids: nodes.iter().map(|n| n.to_string()).collect(),
+            message: "m".into(),
+        }
+    }
+
+    fn report_with(issues: Vec<SrAuditIssue>) -> SrAuditReport {
+        let mut report = build_sr_audit_report(
+            "https://x.test/",
+            chrono::Utc::now(),
+            &AXTree::new(),
+            "en",
+            None,
+        );
+        report.bfsg_compliance = bfsg_compliance(&issues);
+        report.summary.bfsg_violations = report.bfsg_compliance.violations.len();
+        report.issues = issues;
+        report
+    }
+
+    #[test]
+    fn excluded_specimen_fields_no_longer_fail_the_bfsg_verdict() {
+        // #703: both unlabelled inputs sit inside [data-specimen].
+        let mut report = report_with(vec![high("3.3.2", &["7", "9"])]);
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::NonCompliant);
+        let dropped = report.apply_exclusion(|id| id == "7" || id == "9");
+        assert_eq!(dropped, 1);
+        assert!(report.issues.is_empty());
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::Compliant);
+        assert_eq!(report.summary.bfsg_violations, 0);
+        assert!(report
+            .bfsg_compliance
+            .passed_criteria
+            .contains(&"3.3.2".to_string()));
+        assert_eq!(report.excluded_node_ids.len(), 2);
+    }
+
+    #[test]
+    fn an_issue_with_nodes_outside_the_exclusion_keeps_only_those() {
+        let mut report = report_with(vec![high("3.3.2", &["7", "12"])]);
+        let dropped = report.apply_exclusion(|id| id == "7");
+        assert_eq!(dropped, 0);
+        assert_eq!(report.issues[0].affected_node_ids, vec!["12".to_string()]);
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::NonCompliant);
+        assert_eq!(
+            report.bfsg_compliance.violations[0].affected_node_ids,
+            vec!["12".to_string()]
+        );
+    }
+
+    #[test]
+    fn page_level_issues_are_never_excluded() {
+        let mut issues = vec![high("2.4.1", &[]), high("4.1.2", &["3"])];
+        let excluded = ["3".to_string()].into_iter().collect();
+        assert_eq!(drop_excluded_nodes(&mut issues, &excluded), 1);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].wcag_criterion.as_deref(), Some("2.4.1"));
     }
 }

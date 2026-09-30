@@ -4311,8 +4311,8 @@ pub static RULES: &[Rule] = &[
         title: "Kein Umschalter für Darstellungsmodi",
         title_en: "No display-mode toggle",
         description: "Die Seite enthält Visualisierungen (figure[data-viz]), aber keinen Umschalter [data-display-toggle] (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Wer Bewegung oder Grafiken nicht verträgt, kann nicht auf eine ruhige oder reine Textdarstellung wechseln.",
-        user_impact_en: "Visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.",
+        user_impact: "Fehlt der Umschalter tatsächlich, kann nicht auf eine ruhige oder reine Textdarstellung wechseln, wer Bewegung oder Grafiken nicht verträgt.",
+        user_impact_en: "If there really is no toggle, visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.",
         technical_impact: "Kein Element mit [data-display-toggle] auf einer Seite mit figure[data-viz].",
         technical_impact_en: "No [data-display-toggle] element on a page with figure[data-viz].",
         score_impact: ScoreImpact {

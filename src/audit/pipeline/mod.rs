@@ -1002,6 +1002,14 @@ pub async fn audit_page(
         pattern_analysis,
         start_time.elapsed().as_millis() as u64,
     );
+    // The screen-reader layer reads the mobile pass's tree, so the mobile
+    // scope decides (#703) — before normalization derives the risk from it.
+    if let Some(sr) = report.screen_reader_audit.as_mut() {
+        let dropped = sr.apply_exclusion(|node_id| {
+            mobile_exclusion.excludes_ax_node(node_id, &primary_snap.ax_tree)
+        });
+        exclusion_tally.record_screen_reader(dropped);
+    }
     report.consent_banner_detected = consent_result.banner_detected;
     report.consent_banner_cmp = consent_result.cmp_name;
     report.consent_banner_dismissed = consent_result.dismissed;

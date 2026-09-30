@@ -1,0 +1,10 @@
+{
+  "case": "display_modes_described_text",
+  "expectations": [
+    { "rule_id": "display/text-hidden", "selector": "div#layers-desc", "verdict": "pass" },
+    { "rule_id": "display/text-hidden", "selector": "div#layers-desc", "verdict": "needs_review" },
+    { "rule_id": "display/text-hidden", "selector": "div#pressure-text", "verdict": "violation" },
+    { "rule_id": "display/toggle-missing", "verdict": "pass" },
+    { "rule_id": "display/init-missing", "verdict": "pass" }
+  ]
+}

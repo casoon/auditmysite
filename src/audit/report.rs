@@ -1049,26 +1049,17 @@ pub fn compute_recurring_rules(
 /// otherwise a page could FAIL its single-page verdict on this signal while
 /// contributing nothing to the batch's legal_flags summary (#QA-024).
 fn compute_legal_flags(reports: &[crate::audit::normalized::NormalizedReport]) -> usize {
-    use crate::taxonomy::Severity;
     use std::collections::HashSet;
 
     let mut rule_ids: HashSet<&str> = reports
         .iter()
         .flat_map(|r| r.findings.iter())
-        .filter(|f| {
-            f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
-        })
+        .filter(|f| f.is_legal_flag())
         .map(|f| f.rule_id.as_str())
         .collect();
 
     let sr_only_legal_exposure = reports.iter().any(|r| {
-        let findings_based = r
-            .findings
-            .iter()
-            .filter(|f| {
-                f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
-            })
-            .count();
+        let findings_based = r.findings.iter().filter(|f| f.is_legal_flag()).count();
         r.risk.legal_flags > findings_based
     });
     if sr_only_legal_exposure {

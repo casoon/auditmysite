@@ -1091,6 +1091,7 @@ exclusion-findings =
         } dropped, not scored
     }
 exclusion-interactive = , plus { $interactive } journey findings
+exclusion-screen-reader = , plus { $issues } screen-reader findings
 batch-exclusion-selector-matched = { $selector }: { $count } elements excluded on { $pages } of { $total } pages
 batch-exclusion-findings =
     { $occurrences ->
