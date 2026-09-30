@@ -1669,6 +1669,11 @@ pub(crate) fn persist_artifacts(
         seo: snapshot.seo.clone(),
         security: snapshot.security.clone(),
         mobile: snapshot.mobile.clone(),
+        screen_reader_excluded_node_ids: report
+            .screen_reader_audit
+            .as_ref()
+            .map(|sr| sr.excluded_node_ids.clone())
+            .unwrap_or_default(),
     };
     let hash = content_hash(&snapshot_artifact);
     let normalized = normalize(report).normalized;
