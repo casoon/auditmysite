@@ -85,6 +85,23 @@ const REDUCED_MOTION_JS: &str = r#"
       try { rules = Array.from(sheet.cssRules || []); }
       catch(e) { continue; } // cross-origin sheet
       // context: 'normal' | 'reduce' | 'gated'
+      // Nur Bewegung, die auf dieser Seite laufen kann: Der Selektor muss ein
+      // dargestelltes Element treffen. Zustands-Pseudoklassen und
+      // Pseudo-Elemente werden dafuer abgestreift (`.card:hover` trifft
+      // `.card`). Ohne das zaehlten Keyframes fuer Elemente, die es gar nicht
+      // gibt — Lade-Spinner eines Players, der nie eingebunden ist
+      // (bundesregierung.de, #712).
+      const present = (selector) => {
+        const plain = selector
+          .replace(/::?(before|after|marker|placeholder|selection|backdrop|first-line|first-letter)\b/gi, '')
+          .replace(/:(hover|focus|focus-visible|focus-within|active|checked|target|visited|link)\b/gi, '');
+        try {
+          for (const el of document.querySelectorAll(plain)) {
+            if (typeof el.checkVisibility !== 'function' || el.checkVisibility()) return true;
+          }
+        } catch (_) { return true; }
+        return false;
+      };
       const walk = (rs, context) => {
         for (const r of rs) {
           if (r.type === CSSRule.MEDIA_RULE) {
@@ -120,9 +137,10 @@ const REDUCED_MOTION_JS: &str = r#"
               });
             } else if (context === 'normal') {
               const names = splitList(s.animationName).filter(n => n.toLowerCase() !== 'none');
-              if (names.length && animations.length < LIMIT) animations.push({ selector, names });
+              if (names.length && animations.length < LIMIT && present(selector)) animations.push({ selector, names });
               const tprops = splitList(s.transitionProperty);
-              if (tprops.length && maxMs(s.transitionDuration) > 0 && transitions.length < LIMIT) {
+              if (tprops.length && maxMs(s.transitionDuration) > 0 && transitions.length < LIMIT &&
+                  present(selector)) {
                 transitions.push({ selector, props: tprops });
               }
               if (STATE_RE.test(selector)) for (const p of propsOf(s)) stateProps.add(p);

@@ -20,7 +20,8 @@ short current-state summary. Newest entries first (unchanged order from before t
   Deckkraft-Uebergaenge zaehlen nie. Die Meldung nennt die Belege und die Stufe AAA; AAA war
   bereits weder rechtliches Signal noch hoch BFSG-relevant, ein Test sichert das jetzt ab.
   Neue Detection-Corpus-Faelle `link_in_text_block_context`, `reduced_motion_colour_only`,
-  `reduced_motion_transform`, `reduced_motion_override`.
+  `reduced_motion_transform`, `reduced_motion_override`. Gezaehlt wird nur Bewegung, deren Selektor ein dargestelltes Element der Seite trifft
+  (bundesregierung.de: Keyframes eines nie eingebundenen Player-Spinners).
 
 - **Unreleased — title-only und doppelte Beschreibung als eigene Best-Practice-Regeln (#711,
   #713):** Das `title`-Attribut als einzige Beschreibung eines interaktiven Elements stand als
