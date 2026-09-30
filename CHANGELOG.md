@@ -22,6 +22,20 @@ short current-state summary. Newest entries first (unchanged order from before t
   Neue Detection-Corpus-Faelle `link_in_text_block_context`, `reduced_motion_colour_only`,
   `reduced_motion_transform`, `reduced_motion_override`.
 
+- **Unreleased — title-only und doppelte Beschreibung als eigene Best-Practice-Regeln (#711,
+  #713):** Das `title`-Attribut als einzige Beschreibung eines interaktiven Elements stand als
+  `a11y.hover.content_visibility` unter 1.4.13, obwohl der Browser-Tooltip dort ausgenommen ist;
+  es ist jetzt `title-only-description` → `a11y.title_only_description.weak`. Ein Element, dessen
+  Name und Beschreibung identisch sind, stand als `a11y.interactive_name.missing` im Bericht,
+  obwohl es einen Namen hat; es ist jetzt `description-duplicates-name` →
+  `a11y.description_duplicates_name.redundant`. Beide sind `best-practice`, an 4.1.2 verankert
+  (`title` ist nach accname eine gueltige Namensquelle, 2.5.3 gilt nur bei sichtbarer
+  Beschriftung), haben `bfsg_relevance: low` und nie ein Rechtsflag — `is_convention_rule`
+  fuehrt dafuer eine Liste von Best-Practice-Kennungen neben den `display/*`-Regeln. 1.4.13
+  meldet nur noch verwaiste `role="tooltip"`-Elemente, `interactive_name.missing` nur noch
+  Elemente ohne aussagekraeftigen Namen. Neuer Detection-Corpus-Fall
+  `name_description_best_practice`, `forms_and_misc` um einen verwaisten Tooltip ergaenzt.
+
 - **Unreleased — a11y-rules 0.13.3:** Der Sprunglink wird auch hinter den Links eines
   Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
   casoon/barrierlab#26); `keyboard/skip-link-missing` meldet dort keinen Pruefhinweis mehr.

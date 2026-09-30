@@ -3,7 +3,8 @@
 //! Detects two common anti-patterns:
 //! - Elements relying solely on the native `title` attribute for important
 //!   information (not keyboard-accessible, not screen-reader-friendly on
-//!   touch devices).
+//!   touch devices). Reported as its own best-practice rule
+//!   `title-only-description` (#711), not under 1.4.13.
 //! - `role="tooltip"` elements that are not referenced by any
 //!   `aria-describedby` attribute (orphaned, never announced).
 
@@ -21,6 +22,26 @@ pub(super) const CONTENT_ON_HOVER_RULE: RuleMetadata = RuleMetadata {
     help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
     axe_id: "content-on-hover-focus",
     tags: &["wcag2aa", "wcag1413", "cat.color"],
+};
+
+// Eigene Regel fuer das `title`-Attribut als einzige Beschreibung (#711).
+// 1.4.13 betrifft Inhalte, die bei Hover/Fokus *erscheinen* (schliessbar,
+// hoverbar, dauerhaft) -- der Browser-Tooltip des `title`-Attributs ist davon
+// ausgenommen (Understanding 1.4.13: vom User Agent gesteuert).
+// Verankert an 4.1.2, nicht an 2.5.3: `title` ist nach accname eine gueltige
+// Namensquelle (Technik H65 ist fuer 4.1.2 hinreichend), der Befund verletzt
+// 4.1.2 also nicht, sondern ist Best Practice rund um den Namen. 2.5.3 gilt
+// laut Understanding nur fuer Bedienelemente mit sichtbarer Textbeschriftung,
+// die ein reines `title`-Element gerade nicht hat.
+pub(super) const TITLE_ONLY_DESCRIPTION_RULE: RuleMetadata = RuleMetadata {
+    id: "4.1.2",
+    name: "Title attribute as only description",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "Interactive elements should not rely on the native title attribute as their only descriptive text",
+    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    axe_id: "title-only-description",
+    tags: &["best-practice", "wcag412", "cat.name-role-value"],
 };
 
 // Counts:
@@ -107,10 +128,10 @@ pub async fn check_content_on_hover_with_page(page: &Page) -> Vec<Violation> {
     for sel in title_only {
         violations.push(
             Violation::new(
-                CONTENT_ON_HOVER_RULE.id,
-                CONTENT_ON_HOVER_RULE.name,
-                CONTENT_ON_HOVER_RULE.level,
-                Severity::Medium,
+                TITLE_ONLY_DESCRIPTION_RULE.id,
+                TITLE_ONLY_DESCRIPTION_RULE.name,
+                TITLE_ONLY_DESCRIPTION_RULE.level,
+                TITLE_ONLY_DESCRIPTION_RULE.severity,
                 format!(
                     "Interactive element uses the native `title` attribute as its only descriptive text ({sel}). Tooltips from `title` are not keyboard-accessible and unreliable on touch devices."
                 ),
@@ -120,8 +141,15 @@ pub async fn check_content_on_hover_with_page(page: &Page) -> Vec<Violation> {
             .with_fix(
                 "Provide a visible label, aria-label, or aria-labelledby on the element; reserve `title` for supplemental content only.",
             )
-            .with_rule_id(CONTENT_ON_HOVER_RULE.axe_id)
-            .with_help_url(CONTENT_ON_HOVER_RULE.help_url),
+            .with_rule_id(TITLE_ONLY_DESCRIPTION_RULE.axe_id)
+            .with_help_url(TITLE_ONLY_DESCRIPTION_RULE.help_url)
+            .with_tags(
+                TITLE_ONLY_DESCRIPTION_RULE
+                    .tags
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            ),
         );
     }
     for sel in orphans {
