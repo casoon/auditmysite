@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Farbe als Linkmerkmal nur im Fliesstext, Bewegung nur mit Beleg (#710, #712):**
+  `link-in-text-block` (1.4.1) prueft einen Link nur noch, wenn er im Fliesstext steht — wie
+  axe `isInTextBlock`: Der Abschnitt seines Blocks (begrenzt durch `<br>`/`<hr>`) muss mehr
+  Nicht-Link-Text als Link-Text enthalten, und zwar mindestens zwei Woerter. Links in `nav`
+  bzw. Menues und Logo-Links (Bild/SVG im Link, Logo-Container) fallen heraus. Damit melden
+  Navigations-, Header-, Footer- und Logo-Links keinen Befund mehr (12 von 21 EU-Portalen,
+  axe bestaetigte keinen); der Link im Absatz bleibt ein Befund. `prefers-reduced-motion`
+  (2.3.3, AAA) meldet nicht mehr jede `transition`/`animation`, sondern nur Bewegung —
+  Animationen, deren `@keyframes` transform/translate/scale/rotate, Lage oder margin aendern,
+  und Transitions solcher Eigenschaften (`all` nur, wenn eine `:hover`/`:focus`-Regel sie
+  setzt) —, die kein Block `@media (prefers-reduced-motion: reduce)` fuer denselben oder den
+  Universalselektor abschaltet; Regeln unter `no-preference` zaehlen nicht. Farb- und
+  Deckkraft-Uebergaenge zaehlen nie. Die Meldung nennt die Belege und die Stufe AAA; AAA war
+  bereits weder rechtliches Signal noch hoch BFSG-relevant, ein Test sichert das jetzt ab.
+  Neue Detection-Corpus-Faelle `link_in_text_block_context`, `reduced_motion_colour_only`,
+  `reduced_motion_transform`, `reduced_motion_override`.
+
 - **Unreleased — a11y-rules 0.13.3:** Der Sprunglink wird auch hinter den Links eines
   Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
   casoon/barrierlab#26); `keyboard/skip-link-missing` meldet dort keinen Pruefhinweis mehr.

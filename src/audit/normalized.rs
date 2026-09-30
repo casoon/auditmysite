@@ -1760,6 +1760,33 @@ mod tests {
         assert_eq!(norm.risk.legal_flags, 1);
     }
 
+    /// #712: `reduced_motion` (2.3.3) ist AAA — ausserhalb von EN 301 549,
+    /// also weder rechtliches Signal noch hohe BFSG-Relevanz, auch bei
+    /// hoher Schwere.
+    #[test]
+    fn aaa_reduced_motion_is_not_a_legal_flag() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "2.3.3",
+                "Animation from Interactions",
+                WcagLevel::AAA,
+                Severity::High,
+                "motion",
+                "stylesheet",
+            )
+            .with_rule_id("prefers-reduced-motion"),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AAA, results, 1);
+        let norm = normalize(&report).normalized;
+        let finding = &norm.findings[0];
+        assert_eq!(finding.rule_id, "a11y.motion.reduced_motion");
+        assert_eq!(finding.wcag_level, "AAA");
+        assert_eq!(finding.bfsg_relevance, "low");
+        assert!(!finding.is_legal_flag());
+        assert_eq!(norm.risk.legal_flags, 0);
+    }
+
     #[test]
     fn test_normalize_empty() {
         let report = AuditReport::new(
