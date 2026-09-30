@@ -20,8 +20,16 @@ Vor jeder Änderung klären, auf welcher Seite der Code liegt:
 - **Umzugskandidaten — erst migrieren, dann weiterentwickeln:** strukturierte Daten
   (`src/seo/schema_rules.rs`), Meta-Längen, OpenGraph-Anwesenheit, render-blocking. Bis zum Umzug
   hier nur Bugfixes; vor dem Umzug die Doppelung mit astro-post-audit einzeln belegen.
-- **Bleibt hier:** eigene WCAG-Regeln, Journeys, CDP-Aufnahme, Scoring/Taxonomie, PDF, CLI,
-  Berichtstexte (inkl. `screen_reader/announcer.rs`).
+- **WCAG-Regeln wandern nach barrierlab (Entscheidung 2026-09-30, Vorrang vor Feature-Arbeit hier):**
+  alle browserfreien Regeln in `src/wcag/rules` gehen nach `a11y-rules`, auditmysite bezieht sie
+  danach über `SHARED_RULES`. Reihenfolge und Pakete im Sammel-Issue casoon/barrierlab#13 — erst
+  B0 (#690, Duplikate löschen), dann je Paket barrierlab-Port → Release → Übernahme hier
+  (#691–#697, jeweils „blocked by“ auf barrierlab). Bis zum Umzug an diesen Regeln nur Bugfixes,
+  und jeder Fix geht als Testfall in das barrierlab-Issue des Pakets. Regeln mit Stil/Geometrie
+  folgen nach der Rendering-Schicht (barrierlab#21 → #698).
+- **Bleibt hier:** WCAG-Regeln, die einen laufenden Browser brauchen (Interaktion, Frames, Paste,
+  Fokus-Messung), die manuellen Prüfhinweise, Journeys, CDP-Aufnahme, Scoring/Taxonomie, PDF,
+  CLI, Berichtstexte (inkl. `screen_reader/announcer.rs`).
 - **Entwicklungsschleife:** für gleichzeitige Arbeit an beiden Seiten `[patch.crates-io]` mit
   `path = "../barrierlab/crates/<crate>"` in `.cargo/config.toml` (gitignored). Nie committen,
   solange der Patch aktiv ist — auch `Cargo.lock` nicht; committet wird erst gegen die
