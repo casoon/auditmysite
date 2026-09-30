@@ -37,12 +37,14 @@ short current-state summary. Newest entries first (unchanged order from before t
   Elemente ohne aussagekraeftigen Namen. Neuer Detection-Corpus-Fall
   `name_description_best_practice`, `forms_and_misc` um einen verwaisten Tooltip ergaenzt.
 
-- **Unreleased — a11y-rules 0.13.4 (#709):** Der Sprunglink wird auch hinter den Links eines
+- **Unreleased — a11y-rules 0.13.5 (#709):** Der Sprunglink wird auch hinter den Links eines
   Cookie-Banners erkannt, wenn er auf den Anfang des Hauptinhalts zeigt (bund.de,
   casoon/barrierlab#26). Ist ein modaler Dialog offen (etwa ein Consent-Dialog, der `<main>` per
   `aria-hidden` ausblendet), ist `landmarks/main-missing` ein Pruefhinweis „gemessen hinter einem
-  offenen Dialog" statt eines Verstosses (#709: fuenf von 21 EU-Portalen). Die frueheren
-  Folgebefunde `bypass`/`landmark-main-present` gibt es seit 1.7.1 nicht mehr.
+  offenen Dialog" statt eines Verstosses (#709: fuenf von 21 EU-Portalen), auch bei einem Dialog
+  ohne `aria-modal` (administracion.gob.es). Ebenso wird `bypass` („keine Ueberschriften") hinter
+  einem offenen Dialog zum Pruefhinweis. Referenzband gov.ie neu bewertet (80–98): die bis 1.7.1
+  gezaehlten zehn Linkfarben-Befunde waren freistehende Listenlinks, Fehlalarme nach #710.
 
 - **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
   `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,

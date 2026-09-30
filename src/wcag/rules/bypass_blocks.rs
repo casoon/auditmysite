@@ -36,7 +36,25 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
     results.nodes_checked = tree.len();
 
     let heading_count = count_headings(tree);
-    if heading_count == 0 {
+    if heading_count == 0 && dialog_open(tree) {
+        // Hinter einem offenen Dialog (Consent) blendet die Seite ihren Inhalt
+        // korrekt aus; die Ueberschriften fehlen dann fuer den Moment der
+        // Messung, nicht fuer die Seite (#709: eesti.ee, latvija.gov.lv,
+        // administracion.gob.es). Hinweis statt Verstoss.
+        results.add_violation(
+            Violation::new(
+                BYPASS_BLOCKS_RULE.id,
+                BYPASS_BLOCKS_RULE.name,
+                BYPASS_BLOCKS_RULE.level,
+                Severity::Low,
+                "No headings reachable while a dialog is open; check the page with the dialog closed",
+                "page",
+            )
+            .with_help_url(BYPASS_BLOCKS_RULE.help_url)
+            .with_rule_id(BYPASS_BLOCKS_RULE.axe_id)
+            .as_warning(),
+        );
+    } else if heading_count == 0 {
         let violation = Violation::new(
             BYPASS_BLOCKS_RULE.id,
             BYPASS_BLOCKS_RULE.name,
@@ -55,6 +73,12 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// Ob ein Dialog im Accessibility-Tree offen ist.
+fn dialog_open(tree: &AXTree) -> bool {
+    tree.iter()
+        .any(|n| !n.ignored && matches!(n.role.as_deref(), Some("dialog" | "alertdialog")))
 }
 
 /// Count headings in the page
@@ -119,6 +143,18 @@ mod tests {
 
     /// Sprunglink und main-Landmark sind Sache des geteilten Bestands (#690);
     /// diese Regel meldet ihr Fehlen nicht noch einmal.
+    #[test]
+    fn behind_open_dialog_missing_headings_are_a_note() {
+        let tree = AXTree::from_nodes(vec![
+            create_node("root", "RootWebArea", Some("Page")),
+            create_node("d", "dialog", Some("Cookies")),
+            create_node("b", "button", Some("Accept")),
+        ]);
+        let r = check_bypass_blocks(&tree);
+        assert_eq!(r.violations.len(), 0);
+        assert_eq!(r.warnings.len(), 1);
+    }
+
     #[test]
     fn test_missing_skip_link_and_main_not_reported_here() {
         let tree = AXTree::from_nodes(vec![
