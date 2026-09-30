@@ -273,6 +273,10 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "focus-visible-outline-none",
         "a11y.focus_indicator_suppressed.invalid",
     ),
+    (
+        "scrollable-region-focusable",
+        "a11y.scrollable_region_focus.missing",
+    ),
     ("input-error-message", "a11y.error_description.missing"),
     ("duplicate-id-aria", "a11y.duplicate_id_aria.invalid"),
     ("aria-label", "a11y.interactive_name.missing"),
@@ -1605,13 +1609,17 @@ pub static RULES: &[Rule] = &[
         title: "Fehlende Viewport-Angabe",
         title_en: "Missing viewport declaration",
         description: "Das Dokument hat kein viewport-Meta-Tag. Mobile Browser legen dann eine Desktop-Breite zugrunde und verkleinern die Seite.",
-        user_impact: "Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; Zoomen holt ihn nur teilweise zurück.",
-        user_impact_en: "On mobile devices the text appears below any readable size; zooming only partly brings it back.",
+        user_impact: "Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; wer vergrößert, muss waagerecht scrollen. Am Desktop ändert sich nichts.",
+        user_impact_en: "On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.",
         technical_impact: "Kein <meta name=\"viewport\"> im Dokument.",
         technical_impact_en: "No <meta name=\"viewport\"> in the document.",
+        // Geringeres Gewicht (#702): Desktop-Browser ignorieren das Tag, Zoomen
+        // per Geste bleibt moeglich; die Folge trifft nur Mobilgeraete (Seite
+        // in Desktop-Breite, verkleinert, beim Vergroessern waagerechtes
+        // Scrollen). Befundstufe und Schwere kommen aus `a11y-rules`.
         score_impact: ScoreImpact {
-            base_penalty: 2.5,
-            max_penalty: 5.0,
+            base_penalty: 1.5,
+            max_penalty: 3.0,
             occurrence_scaling: Scaling::Fixed,
         },
         report_visibility: VIS_STANDARD,
@@ -4026,6 +4034,29 @@ pub static RULES: &[Rule] = &[
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.scrollable_region_focus.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("scrollable-region-focusable"),
+        title: "Scrollbarer Bereich per Tastatur nicht erreichbar",
+        title_en: "Scrollable region not reachable by keyboard",
+        description: "Ein Bereich mit eigenem Scrollbalken ist nicht fokussierbar und enthält keine fokussierbaren Elemente.",
+        user_impact: "Tastaturnutzer können den Bereich nicht scrollen und den verdeckten Inhalt nicht lesen.",
+        user_impact_en: "Keyboard users cannot scroll the region and cannot read the hidden content.",
+        technical_impact: "Element mit overflow: auto/scroll und überlaufendem Inhalt, ohne tabindex und ohne fokussierbare Kinder.",
+        technical_impact_en: "Element with overflow: auto/scroll and overflowing content, without tabindex and without focusable children.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
     },
     Rule {
         id: "a11y.error_description.missing",

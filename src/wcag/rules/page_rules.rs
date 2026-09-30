@@ -46,10 +46,11 @@ use super::{
     check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_redundant_entry_with_page,
     check_redundant_role_with_page, check_same_origin_iframes_with_page,
-    check_server_side_image_map_with_page, check_tab_selected_state_with_page,
-    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
-    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_scrollable_region_focusable_with_page, check_server_side_image_map_with_page,
+    check_tab_selected_state_with_page, check_table_headers_attr_with_page,
+    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
+    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -114,6 +115,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "inline click-handler",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_click_handlers_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.1.1/scrollable-region-focusable",
+        name: "scrollable-region-focusable",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_scrollable_region_focusable_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.2.2/form-no-submit",
@@ -482,7 +489,8 @@ mod tests {
         //   und value-now: laufen als `keyboard/hidden-focusable`,
         //   `aria/reference-missing` und `aria/required-attribute-missing`
         //   im geteilten Bestand (#690) = 34
-        assert_eq!(count, 34);
+        // + scrollable-region-focusable (2.1.1, #717) = 35
+        assert_eq!(count, 35);
     }
 
     #[test]
@@ -520,7 +528,8 @@ mod tests {
         // - aria-hidden-focus, aria-valid-attr, checked-state, value-now
         //   (Level A) und meta-viewport (1.4.4) in den geteilten Bestand
         //   abgegeben (#690) = 45.
-        assert_eq!(count, 45);
+        // + scrollable-region-focusable (2.1.1, #717, Level A) = 46.
+        assert_eq!(count, 46);
     }
 
     #[test]

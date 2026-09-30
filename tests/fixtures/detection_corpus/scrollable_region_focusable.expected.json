@@ -1,0 +1,6 @@
+{
+  "case": "scrollable_region_focusable",
+  "expectations": [
+    { "rule_id": "scrollable-region-focusable", "verdict": "violation", "occurrences": 1 }
+  ]
+}
