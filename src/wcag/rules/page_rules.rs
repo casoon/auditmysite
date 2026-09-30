@@ -26,17 +26,16 @@ use crate::wcag::Violation;
 
 use super::{
     check_abbreviations_with_page, check_accessible_authentication_with_page,
-    check_aria_allowed_attr_with_page, check_aria_hidden_focus,
-    check_aria_prohibited_attr_with_page, check_aria_relationships_with_page,
+    check_aria_allowed_attr_with_page, check_aria_prohibited_attr_with_page,
     check_aria_valid_attr_value_with_page, check_background_audio_with_page,
-    check_checkbox_group_with_page, check_checked_state_with_page,
-    check_content_on_hover_with_page, check_display_modes_with_page,
-    check_fake_navigation_link_with_page, check_focus_not_obscured_enhanced_with_page,
-    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
-    check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_identify_purpose_with_page, check_image_input_rules_with_page,
-    check_input_purpose_with_page, check_invalid_aria_attribute_name_with_page,
-    check_invalid_role_with_page, check_label_in_name_with_page, check_language_extended_with_page,
+    check_checkbox_group_with_page, check_content_on_hover_with_page,
+    check_display_modes_with_page, check_fake_navigation_link_with_page,
+    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
+    check_focus_visible_css_with_page, check_form_no_submit_with_page,
+    check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
+    check_image_input_rules_with_page, check_input_purpose_with_page,
+    check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
+    check_label_in_name_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
@@ -46,12 +45,11 @@ use super::{
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
     check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_redundant_entry_with_page,
-    check_redundant_role_with_page, check_resize_text_with_page,
-    check_same_origin_iframes_with_page, check_server_side_image_map_with_page,
-    check_tab_selected_state_with_page, check_table_headers_attr_with_page,
-    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
-    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_value_now_with_page, check_video_caption_tracks_with_page,
+    check_redundant_role_with_page, check_same_origin_iframes_with_page,
+    check_server_side_image_map_with_page, check_tab_selected_state_with_page,
+    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
+    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
+    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -76,22 +74,10 @@ pub struct PageRuleEntry {
 pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level A ───────────────────────────────────────────────────────────────
     PageRuleEntry {
-        rule_id: "4.1.2/aria-hidden-focus",
-        name: "aria-hidden-focus",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_aria_hidden_focus(p)),
-    },
-    PageRuleEntry {
         rule_id: "4.1.2/aria-prohibited-attr",
         name: "aria-prohibited-attr",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_aria_prohibited_attr_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/aria-valid-attr",
-        name: "aria-valid-attr",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_aria_relationships_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.4.1/frame-title",
@@ -232,18 +218,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_invalid_role_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "4.1.2/checked-state",
-        name: "checkbox/radio/switch checked state",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_checked_state_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/value-now",
-        name: "slider/spinbutton/meter aria-valuenow",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_value_now_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "4.1.2/aria-allowed-attr",
         name: "aria-allowed-attr",
         min_level: WcagLevel::A,
@@ -321,12 +295,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "autocomplete-valid",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_input_purpose_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.4.4/meta-viewport",
-        name: "resize-text viewport",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_resize_text_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.3.4/orientation",
@@ -510,7 +478,11 @@ mod tests {
         // + value-now: aria-valuenow moved from the AX tree to the DOM, CDP
         //   has no `valuenow` property (#656) = 37
         // + display-mode convention (`display/*`, #653, best-practice) = 38
-        assert_eq!(count, 38);
+        // - aria-hidden-focus, aria-valid-attr DOM supplement, checked-state
+        //   und value-now: laufen als `keyboard/hidden-focusable`,
+        //   `aria/reference-missing` und `aria/required-attribute-missing`
+        //   im geteilten Bestand (#690) = 34
+        assert_eq!(count, 34);
     }
 
     #[test]
@@ -545,7 +517,10 @@ mod tests {
         //   landmark-main-present, each defect counted twice = 48.
         // + value-now (#656, Level A) = 49.
         // + display-mode convention (#653, Level A) = 50.
-        assert_eq!(count, 50);
+        // - aria-hidden-focus, aria-valid-attr, checked-state, value-now
+        //   (Level A) und meta-viewport (1.4.4) in den geteilten Bestand
+        //   abgegeben (#690) = 45.
+        assert_eq!(count, 45);
     }
 
     #[test]

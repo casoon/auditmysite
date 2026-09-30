@@ -14,14 +14,12 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_aria_naming_rules, check_aria_relationships, check_aria_roles,
-    check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
-    check_form_rules, check_instructions, check_keyboard, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_accessible_name, check_aria_naming_rules, check_aria_roles, check_bypass_blocks,
+    check_dialog_rules, check_focus_visible, check_form_rules, check_instructions, check_keyboard,
+    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_link_purpose, check_media_rules,
-    check_section_headings, check_svg_rules, check_table_extended, check_text_alternatives,
+    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
+    check_media_rules, check_section_headings, check_table_extended, check_text_alternatives,
     check_widget_rules,
 };
 use auditmysite::wcag::WcagResults;
@@ -80,17 +78,14 @@ rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
-rule_smoke_test!(smoke_check_focus_order, check_focus_order);
 rule_smoke_test!(smoke_check_labels, check_labels);
 rule_smoke_test!(smoke_check_aria_roles, check_aria_roles);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
-rule_smoke_test!(smoke_check_aria_relationships, check_aria_relationships);
 rule_smoke_test!(smoke_check_aria_naming_rules, check_aria_naming_rules);
 rule_smoke_test!(smoke_check_form_rules, check_form_rules);
 rule_smoke_test!(smoke_check_dialog_rules, check_dialog_rules);
 rule_smoke_test!(smoke_check_widget_rules, check_widget_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);
-rule_smoke_test!(smoke_check_svg_rules, check_svg_rules);
 rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
 rule_smoke_test!(
     smoke_check_landmark_banner_is_top_level,
@@ -112,16 +107,11 @@ rule_smoke_test!(
     smoke_check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_contentinfo
 );
-rule_smoke_test!(
-    smoke_check_landmark_no_duplicate_main,
-    check_landmark_no_duplicate_main
-);
 rule_smoke_test!(smoke_check_table_extended, check_table_extended);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
 // here (this file is browser-free/AXTree-only); it has its own unit tests.
 rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
-rule_smoke_test!(smoke_check_landmarks, check_landmarks);
 rule_smoke_test!(smoke_check_section_headings, check_section_headings);
 
 // ---------------------------------------------------------------------------
@@ -207,8 +197,11 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
     // Ein Baum, der ohne Filter zwei Regeln verletzt: 1.1.1 (Bild ohne
-    // Alternativtext) und landmark-main-present (keine main-Landmark auf einer
-    // Seite mit mehr als zwei Knoten).
+    // Alternativtext) und bypass (keine einzige Ueberschrift).
+    //
+    // Davor war das zweite Beispiel landmark-main-present; die fehlende
+    // main-Landmark laeuft seit #690 als `landmarks/main-missing` im
+    // geteilten Bestand.
     //
     // Davor war das zweite Beispiel 2.4.2 (Dokument ohne Titel); 2.4.2 laeuft
     // inzwischen nur noch als DOM-Seitenregel (`check_page_titled_with_page`).
@@ -264,8 +257,8 @@ fn test_enabled_only_runs_exactly_those_rules() {
     ]);
 
     // Ohne Filter fallen beide an. Ohne diese Haelfte waere die Zusicherung
-    // unten tautologisch: Sie wuerde auch halten, wenn landmark-main-present
-    // hier gar nicht anschlaegt.
+    // unten tautologisch: Sie wuerde auch halten, wenn bypass hier gar nicht
+    // anschlaegt.
     let ungefiltert = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
     assert!(
         ungefiltert.violations.iter().any(|v| v.rule == "1.1.1"),
@@ -275,8 +268,8 @@ fn test_enabled_only_runs_exactly_those_rules() {
         ungefiltert
             .violations
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
-        "landmark-main-present muss ohne Filter anfallen"
+            .any(|v| v.rule_id.as_deref() == Some("bypass")),
+        "bypass muss ohne Filter anfallen"
     );
 
     // Mit enabled_only bleibt genau die eine Regel uebrig.
@@ -294,8 +287,8 @@ fn test_enabled_only_runs_exactly_those_rules() {
         !results
             .violations
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
-        "landmark-main-present steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
+            .any(|v| v.rule_id.as_deref() == Some("bypass")),
+        "bypass steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
     );
 }
 
@@ -451,11 +444,6 @@ const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[
         "placeholder",
         "instructions.rs's has_format_hint fallback — the primary \
          placeholder-only-label detection now uses name_source (#QA-030)",
-    ),
-    (
-        "id",
-        "aria_relationships.rs — appears only in a doc comment explaining a \
-         past bug, not an actual property read",
     ),
     (
         "title",

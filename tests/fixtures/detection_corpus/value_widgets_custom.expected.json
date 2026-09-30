@@ -1,9 +1,9 @@
 {
   "case": "value_widgets_custom",
   "expectations": [
-    { "rule_id": "aria-required-attr", "selector": "div#volume", "verdict": "violation" },
-    { "rule_id": "aria-required-attr", "selector": "div#quantity", "verdict": "violation" },
-    { "rule_id": "aria-required-attr", "selector": "div#splitter", "verdict": "violation" },
-    { "rule_id": "aria-required-attr", "selector": "input#text-slider", "verdict": "violation" }
+    { "rule_id": "aria/required-attribute-missing", "selector": "div#volume", "verdict": "violation" },
+    { "rule_id": "aria/required-attribute-missing", "selector": "div#quantity", "verdict": "violation" },
+    { "rule_id": "aria/required-attribute-missing", "selector": "div#splitter", "verdict": "violation" },
+    { "rule_id": "aria/required-attribute-missing", "selector": "input#text-slider", "verdict": "violation" }
   ]
 }

@@ -1,7 +1,8 @@
 {
   "case": "image_alt",
   "expectations": [
-    { "rule_id": "image-alt", "verdict": "violation" },
+    { "rule_id": "images/alt-missing", "verdict": "violation" },
+    { "rule_id": "image-alt", "verdict": "pass" },
     { "rule_id": "unusual-words", "verdict": "needs_review" },
     { "rule_id": "keyboard-trap", "verdict": "needs_review" },
     { "rule_id": "pointer-gestures", "verdict": "needs_review" },

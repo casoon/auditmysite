@@ -5,7 +5,7 @@
     { "rule_id": "landmark-main-is-top-level", "verdict": "violation" },
     { "rule_id": "landmark-no-duplicate-banner", "verdict": "violation" },
     { "rule_id": "landmark-no-duplicate-contentinfo", "verdict": "violation" },
-    { "rule_id": "landmark-no-duplicate-main", "verdict": "violation" },
+    { "rule_id": "landmarks/main-duplicate", "verdict": "violation" },
     { "rule_id": "landmark-unique", "verdict": "violation", "occurrences": 11 }
   ]
 }

@@ -460,7 +460,7 @@ mod tests {
 
     /// The detail travels next to the tree; the coarse `NameSource` the WCAG
     /// rules read (`text_alternatives::is_decorative_empty_name`,
-    /// `accessible_name`, `svg_rules`, `instructions`) must not change.
+    /// `accessible_name`, `instructions`) must not change.
     #[test]
     fn detailed_sources_leave_the_coarse_name_source_unchanged() {
         let nodes = serde_json::json!([

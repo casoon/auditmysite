@@ -155,8 +155,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // (`POSITIVE_TABINDEX_CAP`) -- die geteilte tut das nicht und meldet
     // damit eher mehr als weniger.
     //
-    // `check_focus_order` (aria-hidden und trotzdem fokussierbar) bleibt und
-    // führt die axe-Kennung `focus-order-semantics` weiter.
+    // `check_focus_order` (aria-hidden und trotzdem fokussierbar) ist seit
+    // #690 ebenfalls abgelöst, siehe `keyboard/hidden-focusable`.
     SharedRule {
         id: "keyboard/positive-tabindex",
         criterion: "2.4.3",
@@ -227,11 +227,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     },
     // Ersetzt `wcag::rules::meta_viewport_large`. Die geteilte Regel trennt
     // seit 0.5.0, was auditmysite auf zwei Regeln verteilt hatte:
-    // `zoom/viewport-locked` ist der Verstoß unter 200 % (entspricht der
-    // Viewport-Hälfte von `resize_text`), `zoom/viewport-scale-limited` die
-    // Begrenzung zwischen 200 % und 500 %. Nur Letztere wird hier abgelöst --
-    // `resize_text` prüft darüber hinaus die Textvergrößerung selbst und
-    // bleibt eigen.
+    // `zoom/viewport-locked` ist der Verstoß unter 200 %,
+    // `zoom/viewport-scale-limited` die Begrenzung zwischen 200 % und 500 %.
     SharedRule {
         id: "zoom/viewport-scale-limited",
         criterion: "1.4.4",
@@ -239,10 +236,279 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Resize Text (Viewport Scale)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     },
+    // Ersetzt `wcag::rules::resize_text` (axe-Kennung `meta-viewport`)
+    // vollständig -- die Regel prüfte trotz ihres Namens nur den Viewport,
+    // nicht die Textvergrößerung selbst.
+    //
+    // Zwei Unterschiede, beide gewollt:
+    //
+    // - Die eigene Regel suchte `user-scalable=no` und `maximum-scale=` als
+    //   Teilzeichenkette. Die geteilte zerlegt `content` nach CSS Viewport
+    //   (Komma, Semikolon, Leerraum als Trenner, Leerraum um `=`) und erkennt
+    //   damit auch `maximum-scale = 1` oder `user-scalable=0`.
+    // - `maximum-scale` unter 2 war dort `Medium`, `user-scalable=no`
+    //   `High`. Die geteilte Regel meldet beides als `High`: Beides sperrt
+    //   die Vergrößerung auf 200 %, einmal ganz und einmal teilweise.
+    SharedRule {
+        id: "zoom/viewport-locked",
+        criterion: "1.4.4",
+        level: WcagLevel::AA,
+        name: "Resize Text (Viewport Zoom Locked)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
+    },
+    // Neu, und bewusst jetzt übernommen: Ohne Viewport-Angabe legen mobile
+    // Browser eine Desktop-Breite zugrunde und verkleinern die Seite, der
+    // Text landet unter jeder lesbaren Größe. `resize_text` sah darin keinen
+    // Befund -- ohne Meta-Tag gab es nichts zu prüfen. Die geteilte Regel
+    // führt 1.4.4 und 1.4.10; auditmysite meldet sie unter 1.4.4, wie den
+    // Rest der Viewport-Befunde.
+    SharedRule {
+        id: "zoom/viewport-missing",
+        criterion: "1.4.4",
+        level: WcagLevel::AA,
+        name: "Resize Text (Viewport Missing)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
+    },
+    // Ersetzt den Fall „fehlt oder leer" aus
+    // `wcag::rules::page_titled::check_page_titled_with_page`. Beide lesen
+    // den DOM; die eigene Regel meldete fehlenden, leeren und nichtssagenden
+    // Titel unter einer Kennung und einem Text. Jetzt sind es drei Aussagen:
+    // `document/title-missing`, `document/title-empty` und die eigene
+    // Heuristik für den nichtssagenden Titel („Untitled", „Home"), die
+    // weiter unter `document-title` läuft -- für fehlende und leere Titel
+    // aber nicht mehr anschlägt.
+    SharedRule {
+        id: "document/title-missing",
+        criterion: "2.4.2",
+        level: WcagLevel::A,
+        name: "Page Titled",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/page-titled.html",
+    },
+    SharedRule {
+        id: "document/title-empty",
+        criterion: "2.4.2",
+        level: WcagLevel::A,
+        name: "Page Titled",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/page-titled.html",
+    },
+    // Ersetzt `wcag::rules::aria_relationships` vollständig (axe-Kennung
+    // `aria-valid-attr`), die AX-Prüfung und die DOM-Ergänzung.
+    //
+    // Die DOM-Ergänzung prüfte `aria-controls`, `aria-owns` und
+    // `aria-activedescendant` auf leere Werte und auf IDs, die es nicht gibt.
+    // Genau das tut die geteilte Regel auch, und zusätzlich
+    // `aria-labelledby`/`aria-describedby` auf nicht vorhandene IDs -- ein
+    // leeres `aria-labelledby` lässt sie durch, weil die Namensberechnung
+    // dann auf die übrigen Quellen zurückfällt.
+    //
+    // Nicht übernommen, und gewollt: Die AX-Prüfung meldete eine Beziehung,
+    // deren Ziel im DOM steht, aber im AX-Baum fehlt (versteckt). Auf ein
+    // verstecktes Element zu verweisen ist zulässig -- ein ausgeklapptes
+    // Menü zeigt per `aria-controls` auf seinen eingeklappten Zustand.
+    // Ebenso entfällt der Deckel von 250 Befunden.
+    SharedRule {
+        id: "aria/reference-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (ARIA Reference)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::aria_required_attr` vollständig (axe-Kennung
+    // `aria-required-attr`): die AX-Prüfung (combobox, heading, scrollbar)
+    // und die DOM-Prüfungen `check_checked_state_with_page` (checkbox, radio,
+    // switch) und `check_value_now_with_page` (meter, scrollbar, separator,
+    // slider, spinbutton). Die geteilte Regel führt dieselbe Tabelle, nimmt
+    // dieselben nativen Elemente aus (`<input type=checkbox|radio|range|
+    // number>`, `<meter>`, `<progress>`), verlangt `aria-valuenow` am
+    // `separator` ebenso nur, wenn er fokussierbar ist, und sieht wie
+    // `check_value_now_with_page` in offene Shadow-Roots.
+    //
+    // Ein Unterschied, gewollt: `heading` ohne `aria-level` ist kein Befund
+    // mehr. ARIA 1.2 gibt der Rolle die Vorgabe 2, das Attribut ist nicht
+    // mehr erforderlich -- und Chrome füllt `level` im AX-Baum ohnehin, die
+    // Prüfung schlug in der Praxis nie an.
+    SharedRule {
+        id: "aria/required-attribute-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Required ARIA Attribute)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::aria_hidden_focus` (DOM, axe-Kennung
+    // `aria-hidden-focus`) und `wcag::rules::focus_order::check_focus_order`
+    // (AX-Baum, `focus-order-semantics`). Beide meldeten denselben Fall --
+    // fokussierbar unter `aria-hidden` --, einmal unter 4.1.2 und einmal
+    // unter 2.4.3; jetzt steht er einmal im Bericht, unter 4.1.2 wie bei axe.
+    //
+    // Wie die DOM-Regel nimmt die geteilte aus, was `inert`, per
+    // `tabindex="-1"` aus der Tabfolge genommen oder nicht dargestellt ist;
+    // Letzteres über die berechneten Stile (`run_full_in`). Fehlen die --
+    // der Layout-Abzug ist gescheitert --, sieht sie nur das
+    // `hidden`-Attribut und meldet ein per CSS verstecktes Element mit.
+    SharedRule {
+        id: "keyboard/hidden-focusable",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Focusable in aria-hidden)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::landmarks` vollständig und aus
+    // `wcag::rules::landmark_granular` die Prüfungen `landmark-main-present`,
+    // `landmark-banner-present` und `landmark-no-duplicate-main`. Die übrigen
+    // granularen Prüfungen (eindeutige Namen, Verschachtelung, doppelte
+    // banner/contentinfo, Sprunglink bei Navigation) bleiben eigen.
+    //
+    // Die fehlende main-Landmark meldeten bisher zwei Regeln, einmal unter
+    // 2.4.1 (`landmark-one-main`) und einmal unter 1.3.1
+    // (`landmark-main-present`). Jetzt einmal, unter 2.4.1 wie bei axe
+    // `landmark-one-main`: Die main-Landmark ist das Sprungziel.
+    //
+    // Ein Unterschied, gewollt: Fehlende navigation-, banner- und
+    // contentinfo-Landmark sind dort `REVIEW`, nicht `Violation`. Eine Seite
+    // darf ohne Navigation oder Fußzeile auskommen -- das ist eine
+    // Erwartung, kein beweisbarer Verstoß.
+    SharedRule {
+        id: "landmarks/main-missing",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Bypass Blocks (Main Landmark)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
+    },
+    SharedRule {
+        id: "landmarks/main-duplicate",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Main Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "landmarks/banner-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Banner Landmark)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "landmarks/contentinfo-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Contentinfo Landmark)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "landmarks/navigation-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Navigation Landmark)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::svg_rules` (axe-Kennung `svg-img-alt`) und den
+    // `<svg>`-Teil von `wcag::rules::text_alternatives`. Im AX-Baum ist ein
+    // `<svg>` vom `<img>` und vom `<div role="img">` nicht zu unterscheiden,
+    // deshalb meldete `image-alt` es bisher mit; die geteilte Regel prüft
+    // das Element selbst. Die Pipeline nimmt die `image-alt`-Befunde an
+    // `<svg>` heraus (`wcag::rules::is_svg_finding`).
+    //
+    // Dieselbe Ausnahme wie bisher: das Icon in einem benannten Link oder
+    // Button braucht keinen eigenen Namen. Nicht mehr erfasst ist ein
+    // Nicht-`<svg>`-Element mit `role="graphics-document"` oder
+    // `"graphics-symbol"` -- etwa ein `<g>` im SVG. Die Rollen kommen in der
+    // Praxis am `<svg>` selbst vor, und dort prüft die geteilte Regel.
+    SharedRule {
+        id: "svg/name-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (SVG)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt den `<img>`-Teil von `wcag::rules::text_alternatives`
+    // (axe-Kennung `image-alt`). Dort blieben Elemente mit `role="img"`, die
+    // weder `<img>` noch `<svg>` sind, und die Icon-Heuristik.
+    //
+    // Die geteilte Regel liest das `alt`-Attribut statt des Accessible Name:
+    // Ein `<img>` ohne `alt`, aber mit `aria-label`, `aria-labelledby` oder
+    // `title`, ist benannt und kein Befund (ARIA6, ARIA10, H67); eines mit
+    // `role="presentation"` oder `aria-hidden="true"` ist erklärt dekorativ.
+    // Das deckt sich mit der AX-Prüfung.
+    SharedRule {
+        id: "images/alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Neu: ein `alt`, das das Bild vermutlich nicht beschreibt -- ein
+    // Dateiname, „Bild", „Logo", ein oder zwei Zeichen. Heuristisch und
+    // deshalb `REVIEW`. Die AX-Prüfung kannte nur „Name da oder nicht da".
+    SharedRule {
+        id: "images/alt-suspicious",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Suspicious Alt Text)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `check_link` und `check_button` aus `wcag::rules::labels`
+    // (axe-Kennung `control-missing-label`); `check_form_control` bleibt dort.
+    // Beide Seiten fragen den Accessible Name: die eigene Regel den aus
+    // Chromes AX-Baum, die geteilte den aus `CdpDocument`, der auf denselben
+    // AX-Baum zurückgreift.
+    //
+    // Zwei Unterschiede, beide gewollt:
+    //
+    // - Als Link zählt dort nur `<a href>`, nicht jedes Element mit der
+    //   AX-Rolle `link`. Ein unbenanntes `<span role="link">` melden weiter
+    //   `aria-command-name` (`aria_naming_rules`) und `aria-label`
+    //   (`accessible_name`), die das schon bisher neben `labels` taten.
+    // - Beide sind dort `Critical` statt `High`: Ein unbenanntes
+    //   Bedienelement ist für Screenreader-Nutzer nicht bedienbar.
+    SharedRule {
+        id: "links/name-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Link Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "buttons/name-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Button Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt die Sprunglink-Erkennung aus `wcag::rules::bypass_blocks`.
+    // Die eigene Regel suchte im Linknamen eine Liste von Wendungen in
+    // vierzehn Sprachen; die geteilte erkennt den Sprunglink wie axe am Ziel
+    // -- Links vor dem ersten, der die Seite verlässt, springen innerhalb
+    // der Seite, in jeder Sprache (auditmysite#642) -- und nur ergänzend am
+    // Text. Sie ist `REVIEW`: Kein Merkmal weist einen Sprunglink sicher aus.
+    //
+    // Die bisherige Sammelmeldung „weder Sprunglink noch main" entfällt: Sie
+    // war die Verknüpfung dieser Prüfung mit `landmarks/main-missing`.
+    SharedRule {
+        id: "keyboard/skip-link-missing",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Bypass Blocks (Skip Link)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
+    },
 ];
 
 fn shared_rule(id: &str) -> Option<&'static SharedRule> {
     SHARED_RULES.iter().find(|r| r.id == id)
+}
+
+/// Die AX-Kennungen aller `<svg>`-Elemente im Dokument.
+///
+/// Im AX-Baum ist ein `<svg>` von einem `<div role="img">` nicht zu
+/// unterscheiden; `svg/name-missing` prüft es aber schon. Die Pipeline nimmt
+/// darüber die `image-alt`-Befunde an `<svg>` heraus
+/// (`wcag::rules::is_svg_finding`), damit derselbe Fall nicht zweimal im
+/// Bericht steht.
+pub fn svg_ax_node_ids(doc: &CdpDocument) -> std::collections::HashSet<String> {
+    a11y_dom::elements(doc)
+        .filter(|n| n.is_element("svg"))
+        .filter_map(|n| doc.ax_node_id(n).map(str::to_string))
+        .collect()
 }
 
 /// Ein kurzer, im Devtools-Suchfeld benutzbarer Selektor für ein Element.
@@ -355,9 +621,17 @@ pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
     // keys, so a German run checks the document a second time and pairs the
     // two reports finding by finding. The rules are deterministic over the
     // same document; a pair whose rule ids differ is skipped, not guessed.
-    let report = a11y_rules::run_with_semantics(doc);
+    // Mit Stilen, wo das Dokument sie hat: Dann sieht der Geltungsbereich der
+    // Regeln per CSS Verstecktes (`display: none`, `visibility: hidden`) als
+    // verborgen. Ohne sie nur das `hidden`-Attribut, und etwa ein per Klasse
+    // ausgeblendetes Menü unter `aria-hidden` fiele als fokussierbar auf.
+    let lauf = |locale: Locale| match doc.rendered() {
+        Some(rendered) => a11y_rules::run_full_in(&rendered, locale),
+        None => a11y_rules::run_with_semantics_in(doc, locale),
+    };
+    let report = lauf(Locale::En);
     if locale_for(lang) != Locale::En {
-        let localized = a11y_rules::run_with_semantics_in(doc, locale_for(lang));
+        let localized = lauf(locale_for(lang));
         if localized.findings.len() == report.findings.len() {
             for (en, loc) in report.findings.iter().zip(&localized.findings) {
                 if en.rule_id != loc.rule_id {
@@ -529,11 +803,15 @@ mod tests {
     /// solange die auditmysite-eigene Regel noch existiert.
     #[test]
     fn nicht_uebernommene_kennungen_liefern_keine_befunde() {
-        // Diese Seite hat weder <title> noch <h1>; der geteilte Bestand
-        // faende dazu etwas, auditmysite fuehrt die Kennungen aber noch nicht.
+        // Diese Seite hat kaum etwas: kein <title>, keinen Viewport, keine
+        // Landmarks. Der geteilte Bestand findet dazu einiges -- durchkommen
+        // darf davon nur, was in `SHARED_RULES` steht.
         let r = ergebnis(&["lang", "de"]);
-        assert!(r.violations.is_empty(), "{:?}", r.violations);
-        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+        assert!(!r.violations.is_empty());
+        for v in r.violations.iter().chain(&r.warnings) {
+            let id = v.rule_id.as_deref().expect("rule_id");
+            assert!(shared_rule(id).is_some(), "nicht uebernommen: {id}");
+        }
     }
 
     /// ... sie werden aber vermerkt. "Nicht gelaufen" ist nicht "bestanden".
@@ -541,13 +819,13 @@ mod tests {
     fn nicht_uebernommene_kennungen_werden_vermerkt() {
         let r = ergebnis(&["lang", "de"]);
 
-        let titel = r
+        let label = r
             .rule_outcomes
             .iter()
-            .find(|o| o.rule_id == "document/title-missing")
-            .expect("Vermerk zu document/title-missing");
-        assert!(crate::wcag::rule_run_skipped(titel));
-        assert_eq!(titel.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
+            .find(|o| o.rule_id == "forms/label-missing")
+            .expect("Vermerk zu forms/label-missing");
+        assert!(crate::wcag::rule_run_skipped(label));
+        assert_eq!(label.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
     }
 
     /// Der Schluessel eines Vermerks ist `(rule_id, viewport)`. Die Pipeline
@@ -573,6 +851,56 @@ mod tests {
             gesehen.contains("keyboard/positive-tabindex"),
             "{gesehen:?}"
         );
+    }
+
+    /// `image-alt` sieht ein `<svg>` wie ein `<div role="img">`; nur ueber
+    /// den DOM laesst sich das `<svg>` herausnehmen, das `svg/name-missing`
+    /// schon meldet. Die Kennungen muessen die des AX-Baums sein, denn daran
+    /// haengt der `image-alt`-Befund.
+    #[test]
+    fn svg_kennungen_kommen_aus_dem_ax_baum() {
+        let kind = |id: i64, tag: &str| {
+            serde_json::json!({
+                "nodeId": id, "backendNodeId": id, "nodeType": 1,
+                "nodeName": tag.to_uppercase(), "localName": tag, "nodeValue": "",
+                "attributes": [], "children": []
+            })
+        };
+        let dom: CdpNode = serde_json::from_value(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [{
+                "nodeId": 2, "backendNodeId": 2, "nodeType": 1,
+                "nodeName": "HTML", "localName": "html", "nodeValue": "",
+                "attributes": ["lang", "de"],
+                "children": [{
+                    "nodeId": 3, "backendNodeId": 3, "nodeType": 1,
+                    "nodeName": "BODY", "localName": "body", "nodeValue": "",
+                    "attributes": [],
+                    "children": [kind(4, "svg"), kind(5, "div")]
+                }]
+            }]
+        }))
+        .expect("CDP-Knoten");
+        let ax_knoten = |backend: i64| crate::accessibility::AXNode {
+            node_id: format!("ax-{backend}"),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("image".to_string()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec![],
+            parent_id: None,
+            backend_dom_node_id: Some(backend),
+        };
+        let ax = AXTree::from_nodes(vec![ax_knoten(4), ax_knoten(5)]);
+        let doc = build_document(&dom, &ax).unwrap();
+
+        let ids = svg_ax_node_ids(&doc);
+        assert_eq!(ids, ["ax-4".to_string()].into());
     }
 
     /// Eine Seite mit zwei `<div id="dopplung">` im Koerper. `verweis` haengt,

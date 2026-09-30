@@ -5,6 +5,36 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Geteilte Kennungen statt eigener Regeln (#690, B0):** Weitere Befunde laufen
+  ueber den geteilten Bestand aus `a11y-rules` 0.13.2 (`SHARED_RULES` in `src/wcag/shared.rs`),
+  die abgeloesten eigenen Regeln sind geloescht, sodass kein Befund doppelt im Bericht steht.
+  Kennungen: `meta-viewport` → `zoom/viewport-locked`; `document-title` (fehlend/leer) →
+  `document/title-missing`/`document/title-empty`, der nichtssagende Titel bleibt als
+  `document-title`; `aria-valid-attr` → `aria/reference-missing`; `aria-required-attr` →
+  `aria/required-attribute-missing`; `aria-hidden-focus` und `focus-order-semantics` →
+  `keyboard/hidden-focusable` (bisher derselbe Fall zweimal, unter 4.1.2 und 2.4.3);
+  `landmark-one-main` und `landmark-main-present` → `landmarks/main-missing` (bisher zweimal);
+  `landmark-no-duplicate-main` → `landmarks/main-duplicate`; `landmark-banner-present`,
+  `landmark-navigation-present`, `landmark-contentinfo-present` → `landmarks/*-missing`, jetzt
+  als Pruefhinweis statt Verstoss; `svg-img-alt` und `image-alt` an `<svg>` → `svg/name-missing`;
+  `image-alt` an `<img>` → `images/alt-missing` (`image-alt` bleibt fuer `role="img"` an anderen
+  Elementen und die Icon-Heuristik); Link und Button ohne Namen aus `control-missing-label` →
+  `links/name-missing`/`buttons/name-missing`; die Sprunglink-Erkennung aus `bypass` →
+  `keyboard/skip-link-missing` (Pruefhinweis, erkennt den Sprunglink am Ziel statt an einer
+  Wortliste). `bypass` meldet nur noch eine Seite ganz ohne Ueberschriften; die Sammelmeldung
+  „weder Sprunglink noch main" entfaellt. Neu: `zoom/viewport-missing` (kein viewport-Meta-Tag,
+  1.4.4) und `images/alt-suspicious` (Dateiname, Fuellwort oder ein, zwei Zeichen als Alt-Text;
+  Pruefhinweis). Die geteilten Regeln laufen jetzt mit berechnetem `display`/`visibility` aus
+  einem DOMSnapshot (`run_full_in` ueber `CdpDocument::rendered`) und pruefen per CSS
+  Verstecktes damit nicht mehr; scheitert der Snapshot, laufen sie ohne Stile. Ein Element ohne
+  Gegenstueck im AX-Baum gilt als ignoriert (Inhalt eines geschlossenen `<details>`: geographia.eu
+  bekam sonst 22 `links/name-missing`). `skip-link` aus `landmark_granular` entfaellt, der Fall ist
+  `keyboard/skip-link-missing`. User-Agent-Shadow-Roots (Datumsfelder) kommen nicht mehr in den
+  geteilten DOM. Taxonomie, Erklaerungen und Detection-Corpus sind nachgezogen. Geprueft mit
+  Detection-Corpus (Chrome) und einem Vorher/Nachher-Lauf gegen 1.7.0 auf acht Live-Seiten; jede
+  Abweichung ist erklaert (Umbenennung, entfallene Doppelmeldung, per CSS Verstecktes, oder neu
+  und berechtigt), zwei Fehlalarme dabei in `a11y-rules` 0.13.2 behoben.
+
 - **Score-Kalibrierung: `table_missing_caption` ist eine saubere Seite, 2026-09-30:** Das Fixture
   stand im Band „genau ein Level-A-High"; dieser Befund war der Fehlalarm aus #659/#674 (implizites
   `<tbody>` unter `<table><tr>` verdeckte die Zeilen vor der Pflicht-Kind-Pruefung). Seit #680

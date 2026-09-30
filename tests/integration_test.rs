@@ -61,13 +61,19 @@ async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
             .any(|role| { matches!(*role, "graphics-document" | "graphics-symbol") }),
         "Chrome AXTree did not expose a graphics-* role: {roles:?}"
     );
-    // #563: graphics-document/graphics-symbol are unambiguous AX roles (never
-    // shared with a native <img>), so check_svg_rules owns this case under
-    // the svg-img-alt axe_id — moved out of check_text_alternatives.
-    let results = auditmysite::wcag::rules::check_svg_rules(&tree);
-    assert!(results.violations.iter().any(|finding| {
-        finding.role.as_deref() == Some("graphics-symbol") || finding.message.contains("graphic")
-    }));
+    // Seit #690 prueft `svg/name-missing` aus dem geteilten Bestand das
+    // `<svg>` selbst, gleich welche Rolle es traegt: das benannte
+    // graphics-document besteht, das unbenannte graphics-symbol nicht.
+    let doc = auditmysite::accessibility::fetch_dom_document(&page, &tree)
+        .await
+        .expect("DOM extraction failed");
+    let results = auditmysite::wcag::shared::run_shared_rules(&doc, "en");
+    let svg: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.rule_id.as_deref() == Some("svg/name-missing"))
+        .collect();
+    assert_eq!(svg.len(), 1, "{svg:?}");
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -115,12 +121,13 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         .await
         .expect("Navigation failed");
 
+    // Der fehlende Titel ist seit #690 `document/title-missing` aus dem
+    // geteilten Bestand; die eigene Regel prueft nur noch auf einen
+    // nichtssagenden Titel und schweigt hier.
     let direct_title_findings = auditmysite::wcag::rules::check_page_titled_with_page(&page).await;
     assert!(
-        direct_title_findings
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("document-title")),
-        "direct DOM document-title check should trigger; got {direct_title_findings:?}"
+        direct_title_findings.is_empty(),
+        "document-title must leave a missing title to the shared rule; got {direct_title_findings:?}"
     );
 
     let config = PipelineConfig {
@@ -149,12 +156,12 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         .collect();
 
     assert!(
-        axe_ids.contains("document-title"),
-        "missing title fixture should trigger document-title; got {axe_ids:?}; raw {raw_rule_ids:?}"
+        axe_ids.contains("document/title-missing"),
+        "missing title fixture should trigger document/title-missing; got {axe_ids:?}; raw {raw_rule_ids:?}"
     );
     assert!(
-        axe_ids.contains("landmark-main-present") || axe_ids.contains("landmark-one-main"),
-        "missing main landmark fixture should trigger a main-landmark finding; got {axe_ids:?}"
+        axe_ids.contains("landmarks/main-missing"),
+        "missing main landmark fixture should trigger landmarks/main-missing; got {axe_ids:?}"
     );
     assert!(
         axe_ids.contains("landmark-unique"),
@@ -169,14 +176,19 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
             .count()
     };
     assert_eq!(
-        count("landmark-main-present"),
+        count("landmarks/main-missing"),
         1,
         "missing main must be reported once; raw {raw_rule_ids:?}"
     );
     assert_eq!(
-        count("document-title"),
+        count("document/title-missing"),
         1,
         "missing title must be reported once; raw {raw_rule_ids:?}"
+    );
+    assert_eq!(
+        count("document-title"),
+        0,
+        "missing title must not be reported twice; raw {raw_rule_ids:?}"
     );
     assert_eq!(
         count("landmark-unique"),
@@ -184,8 +196,8 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         "each duplicate nav must be reported once; raw {raw_rule_ids:?}"
     );
     assert!(
-        axe_ids.contains("aria-hidden-focus"),
-        "focusable element in aria-hidden subtree should trigger aria-hidden-focus; got {axe_ids:?}"
+        axe_ids.contains("keyboard/hidden-focusable"),
+        "focusable element in aria-hidden subtree should trigger keyboard/hidden-focusable; got {axe_ids:?}"
     );
 }
 
@@ -2142,7 +2154,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     };
 
     // Without the flag the specimen's defects are reported ...
-    assert!(has(&baseline, "image-alt", "img#specimen-img"));
+    assert!(has(&baseline, "images/alt-missing", "img#specimen-img"));
     assert!(has(
         &baseline,
         "click-events-have-key-events",
@@ -2159,13 +2171,13 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert_eq!(base_ex.excluded_occurrences, 0);
 
     // ... with it they are gone, while the real defect outside stays.
-    assert!(!has(&excluded, "image-alt", "img#specimen-img"));
+    assert!(!has(&excluded, "images/alt-missing", "img#specimen-img"));
     assert!(!has(
         &excluded,
         "click-events-have-key-events",
         "div#specimen-click"
     ));
-    assert!(has(&excluded, "image-alt", "img#real-img"));
+    assert!(has(&excluded, "images/alt-missing", "img#real-img"));
 
     let ex = excluded
         .accessibility
@@ -2185,7 +2197,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(sel("[[bad").invalid);
     assert!(sel("[data-audit-exclude]").builtin);
     assert!(ex.excluded_occurrences >= 2, "{ex:?}");
-    assert!(ex.rules.iter().any(|r| r.rule_id == "image-alt"));
+    assert!(ex.rules.iter().any(|r| r.rule_id == "images/alt-missing"));
     assert!(ex
         .rules
         .iter()

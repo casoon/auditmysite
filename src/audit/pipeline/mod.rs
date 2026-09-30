@@ -1367,27 +1367,53 @@ async fn run_rules(
     exclusion: &crate::audit::exclusion::ExclusionScope,
 ) -> (WcagResults, Vec<Violation>) {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
-    // Audit exclusions (#645) are applied per rule, before each rule's
-    // outcome is counted — so `rule_outcomes[].findings` matches the report,
-    // and neither enrichment nor evidence capture is spent on them.
-    let (mut wcag_results, mut excluded) = wcag::check_all_excluding(
-        &snapshot.ax_tree,
-        config.wcag_level,
-        &config.rule_filter,
-        &|v| exclusion.excludes_located(v, &snapshot.ax_tree),
-    );
-    for outcome in &mut wcag_results.rule_outcomes {
-        outcome.viewport = Some(viewport_label.to_string());
-    }
-    // Der geteilte Regelbestand aus `a11y-rules`, gegen den per CDP geholten
-    // DOM. Ersetzt unter anderem die frueheren 3.1.1-Pruefungen: Die
+    // Der geteilte Regelbestand aus `a11y-rules` laeuft gegen den per CDP
+    // geholten DOM. Ersetzt unter anderem die frueheren 3.1.1-Pruefungen: Die
     // AX-Eigenschaft `language` synthetisiert Chrome aus Locale und Kontext,
     // auch wenn der Autor nie ein `lang` gesetzt hat -- die AX-basierte
     // Pruefung war fuer den haeufigsten Fall also blind, was auditmysite mit
     // einer zweiten, per JavaScript nachgeschobenen Pruefung ausgeglichen hat
     // (`apply_lang_attribute_check`). Die geteilte Regel liest das Attribut
     // direkt aus dem DOM und braucht beide nicht mehr.
-    match crate::accessibility::fetch_dom_document(page, &snapshot.ax_tree).await {
+    // Mit Layout-Stilen, damit die Regeln per CSS Verstecktes nicht pruefen.
+    // Scheitert nur der Snapshot, laufen sie ohne Stile statt gar nicht.
+    //
+    // Geholt vor den Baum-Regeln: `image-alt` meldet ein `<svg>` mit, weil
+    // es im AX-Baum nicht von einem `<div role="img">` zu unterscheiden ist,
+    // und `svg/name-missing` meldet es schon. Nur wenn der DOM da ist -- also
+    // die geteilten Regeln laufen --, fallen diese Befunde weg; sonst bleiben
+    // sie, statt dass das `<svg>` gar nicht geprueft wird.
+    let doc =
+        match crate::accessibility::fetch_dom_document_with_layout(page, &snapshot.ax_tree).await {
+            Ok(doc) => Ok(doc),
+            Err(e) => {
+                warn!("DOMSnapshot fuer die geteilten Regeln fehlgeschlagen: {e}");
+                crate::accessibility::fetch_dom_document(page, &snapshot.ax_tree).await
+            }
+        };
+    let svg_nodes = doc
+        .as_ref()
+        .map(wcag::shared::svg_ax_node_ids)
+        .unwrap_or_default();
+    let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
+
+    // Audit exclusions (#645) are applied per rule, before each rule's
+    // outcome is counted — so `rule_outcomes[].findings` matches the report,
+    // and neither enrichment nor evidence capture is spent on them. The
+    // superseded `<svg>` findings ride the same mechanism so the outcome
+    // does not count them either, but they are no audit exclusion and are
+    // dropped from that list again.
+    let (mut wcag_results, excluded) = wcag::check_all_excluding(
+        &snapshot.ax_tree,
+        config.wcag_level,
+        &config.rule_filter,
+        &|v| superseded(v) || exclusion.excludes_located(v, &snapshot.ax_tree),
+    );
+    let mut excluded: Vec<Violation> = excluded.into_iter().filter(|v| !superseded(v)).collect();
+    for outcome in &mut wcag_results.rule_outcomes {
+        outcome.viewport = Some(viewport_label.to_string());
+    }
+    match doc {
         Ok(doc) => {
             let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
             for outcome in &mut shared.rule_outcomes {
@@ -2296,6 +2322,41 @@ journey_budget_ms = 1234
             .filter(|v| v.tags.contains(&"desktop-only".to_string()))
             .count();
         assert_eq!(desktop_only, 1);
+    }
+
+    /// #527 drops a warning only when the *same rule* already stands as a
+    /// violation on the element -- two shared rules under one criterion on
+    /// `<html>` are two findings (#690).
+    #[test]
+    fn test_merge_keeps_warning_of_another_rule_on_the_same_element() {
+        let v = |rule_id: &str| {
+            Violation::new(
+                "2.4.1",
+                "Bypass",
+                WcagLevel::A,
+                Severity::High,
+                rule_id,
+                "3",
+            )
+            .with_selector("html")
+            .with_rule_id(rule_id)
+        };
+        let pass = || WcagResults {
+            violations: vec![v("landmarks/main-missing")],
+            warnings: vec![
+                v("keyboard/skip-link-missing").as_warning(),
+                v("landmarks/main-missing").as_warning(),
+            ],
+            ..WcagResults::new()
+        };
+
+        let merged = merge_wcag_violations(&pass(), &pass());
+        let warnings: Vec<_> = merged
+            .warnings
+            .iter()
+            .filter_map(|w| w.rule_id.as_deref())
+            .collect();
+        assert_eq!(warnings, vec!["keyboard/skip-link-missing"]);
     }
 
     #[test]

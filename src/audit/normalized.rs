@@ -1197,7 +1197,7 @@ fn filter_aria_hidden_interactive(
 ) {
     let mut aria_hidden_selectors: std::collections::HashSet<String> = wcag_violations
         .iter()
-        .filter(|v| v.rule == "aria-hidden-focus")
+        .filter(|v| v.rule_id.as_deref() == Some("keyboard/hidden-focusable"))
         .filter_map(|v| v.selector.clone())
         .collect();
 

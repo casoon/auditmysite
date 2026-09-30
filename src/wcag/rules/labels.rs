@@ -1,7 +1,10 @@
 //! WCAG 4.1.2 - Name, Role, Value
 //!
 //! For all user interface components, the name and role can be programmatically determined.
-//! This rule checks that form controls and interactive elements have accessible names.
+//! This rule checks that form controls have accessible names.
+//!
+//! Links und Buttons ohne Namen laufen seit #690 als `links/name-missing`
+//! bzw. `buttons/name-missing` im geteilten Bestand (siehe `wcag::shared`).
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -29,13 +32,13 @@ pub(super) const RULE_META: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.forms"],
 };
 
-/// Check that form controls and interactive elements have accessible names
+/// Check that form controls have accessible names
 ///
 /// # Arguments
 /// * `tree` - The accessibility tree to check
 ///
 /// # Returns
-/// Results with violations for elements missing accessible names
+/// Results with violations for form controls missing accessible names
 pub fn check_labels(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
@@ -49,30 +52,6 @@ pub fn check_labels(tree: &AXTree) -> WcagResults {
         }
 
         check_form_control(control, &mut results);
-    }
-
-    // Check links
-    let links = tree.links();
-    results.nodes_checked += links.len();
-
-    for link in links {
-        if link.ignored {
-            continue;
-        }
-
-        check_link(link, &mut results);
-    }
-
-    // Check buttons
-    let buttons = tree.nodes_with_role("button");
-    results.nodes_checked += buttons.len();
-
-    for button in buttons {
-        if button.ignored {
-            continue;
-        }
-
-        check_button(button, &mut results);
     }
 
     results
@@ -115,54 +94,6 @@ fn check_form_control(node: &crate::accessibility::AXNode, results: &mut WcagRes
         .with_role(node.role.clone())
         .with_name(node.name.clone())
         .with_fix(fix)
-        .with_help_url(RULE_META.help_url)
-        .with_rule_id(RULE_META.axe_id);
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-    }
-}
-
-/// Check a link element
-fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
-    if !node.has_name() {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::High,
-            "Link is missing accessible text",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_fix("Add text content inside the link, or use aria-label")
-        .with_help_url(RULE_META.help_url)
-        .with_rule_id(RULE_META.axe_id);
-
-        results.add_violation(violation);
-    } else {
-        // Generic link text ("read more") is `link_purpose`'s job (2.4.4),
-        // with German stopwords and the context exception from #569. A second
-        // English-only check here reported the same links again as their own
-        // finding (deutschebahn.com: 7 + 5 occurrences of one rule).
-        results.passes += 1;
-    }
-}
-
-/// Check a button element
-fn check_button(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
-    if !node.has_name() {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::High,
-            "Button is missing accessible text",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_fix("Add text content inside the button, or use aria-label")
         .with_help_url(RULE_META.help_url)
         .with_rule_id(RULE_META.axe_id);
 
@@ -216,20 +147,12 @@ mod tests {
     }
 
     #[test]
-    fn test_button_without_label() {
-        let nodes = vec![create_control_node("1", "button", None)];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_labels(&tree);
-
-        assert_eq!(results.violations.len(), 1);
-    }
-
-    #[test]
     fn test_generic_link_text_is_left_to_link_purpose() {
         let nodes = vec![create_control_node("1", "link", Some("click here"))];
         let tree = AXTree::from_nodes(nodes);
 
-        // One rule per defect: labels checks names only, 2.4.4 is link_purpose's.
+        // One rule per defect: labels checks form controls only, 2.4.4 is
+        // link_purpose's.
         assert!(check_labels(&tree).violations.is_empty());
         let purpose = crate::wcag::rules::link_purpose::check_link_purpose(&tree);
         assert!(purpose
@@ -237,15 +160,5 @@ mod tests {
             .iter()
             .chain(&purpose.warnings)
             .any(|v| v.rule == "2.4.4"));
-    }
-
-    #[test]
-    fn test_link_without_name() {
-        let nodes = vec![create_control_node("1", "link", None)];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_labels(&tree);
-
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("Link"));
     }
 }

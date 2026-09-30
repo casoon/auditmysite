@@ -1,6 +1,6 @@
 {
   "case": "landmark_main_in_shadow_root",
   "expectations": [
-    { "rule_id": "landmark-main-present", "verdict": "pass" }
+    { "rule_id": "landmarks/main-missing", "verdict": "pass" }
   ]
 }

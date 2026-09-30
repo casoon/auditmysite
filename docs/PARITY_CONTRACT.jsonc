@@ -63,11 +63,13 @@
       "form_label"
     ],
     "landmark-main-present": [
-      "landmark_main"
+      "landmark_main",
+      "bypass_main_landmark"
     ],
     "landmark-one-main": [
       "landmark_one_main",
-      "landmark_main"
+      "landmark_main",
+      "bypass_main_landmark"
     ],
     "landmark-unique": [
       "landmark_unique"

@@ -2,6 +2,11 @@
 //!
 //! Web pages have titles that describe topic or purpose.
 //! Level A
+//!
+//! Fehlender und leerer Titel laufen seit #690 als `document/title-missing`
+//! bzw. `document/title-empty` im geteilten Bestand (siehe `wcag::shared`).
+//! Hier bleibt nur die Heuristik für den nichtssagenden Titel („Untitled",
+//! „Home"): Sie ist eigen und hat im geteilten Bestand kein Gegenstück.
 
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
@@ -20,10 +25,12 @@ pub(super) const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag242", "cat.text-alternatives"],
 };
 
-/// Page title check against the DOM. This is the only `document-title`
-/// source: the AX tree's root name falls back to the URL when the `<title>`
-/// is missing or empty, so it cannot tell those cases apart, and a second,
-/// AX-based check reported every missing title twice.
+/// Nichtssagender Seitentitel, gelesen aus dem DOM: Der Wurzelname im
+/// AX-Baum fällt ohne `<title>` auf die URL zurück und taugt dafür nicht.
+///
+/// Fehlt der Titel oder ist er leer, meldet diese Regel nichts — das ist
+/// `document/title-*` aus dem geteilten Bestand, und ein zweiter Befund
+/// stünde doppelt im Bericht.
 pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
     let result = match page
         .evaluate(
@@ -44,7 +51,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
         .unwrap_or("")
         .trim();
 
-    if !title.is_empty() && !is_generic_title(title) {
+    if title.is_empty() || !is_generic_title(title) {
         return vec![];
     }
 
@@ -53,7 +60,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
         PAGE_TITLED_RULE.name,
         PAGE_TITLED_RULE.level,
         Severity::High,
-        "Page has missing or non-descriptive title",
+        "Page title is non-descriptive",
         "document",
     )
     .with_rule_id(PAGE_TITLED_RULE.axe_id)
@@ -65,7 +72,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
             .map(|s| s.to_string())
             .collect(),
     )
-    .with_fix("Add a descriptive <title> element that describes the page topic or purpose")
+    .with_fix("Replace the generic <title> with one that describes the page topic or purpose")
     .with_help_url(PAGE_TITLED_RULE.help_url)]
 }
 

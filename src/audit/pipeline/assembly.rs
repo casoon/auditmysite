@@ -163,18 +163,23 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
     // both a confirmed violation (from one viewport) and a manual-review
     // warning (from the other) for the same rule+selector. A confirmed
     // violation supersedes a "needs review" warning, so drop the warning.
-    let violation_keys: std::collections::HashSet<(String, String)> = merged
+    //
+    // Same rule means same `rule_id`, not just the same criterion: the
+    // shared rules report several page-level findings on `<html>`, and
+    // `keyboard/skip-link-missing` (2.4.1, review) was swallowed by
+    // `landmarks/main-missing` (2.4.1, fail) on the same element (#690).
+    let violation_keys: std::collections::HashSet<(String, Option<String>, String)> = merged
         .iter()
         .map(|v| {
             let (rule, id) = dedup_key(v);
-            (rule.to_owned(), id)
+            (rule.to_owned(), v.rule_id.clone(), id)
         })
         .collect();
     let warnings: Vec<Violation> = warnings
         .into_iter()
         .filter(|w| {
             let (rule, id) = dedup_key(w);
-            !violation_keys.contains(&(rule.to_owned(), id))
+            !violation_keys.contains(&(rule.to_owned(), w.rule_id.clone(), id))
         })
         .collect();
 

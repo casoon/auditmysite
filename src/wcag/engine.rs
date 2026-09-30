@@ -16,17 +16,14 @@ pub use super::rules::{
     check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use super::rules::{
-    check_accessible_name, check_aria_naming_rules, check_aria_relationships,
-    check_aria_required_attr, check_aria_required_parent, check_aria_roles, check_bypass_blocks,
-    check_dialog_rules, check_error_identification, check_focus_order, check_focus_visible,
+    check_accessible_name, check_aria_naming_rules, check_aria_required_parent, check_aria_roles,
+    check_bypass_blocks, check_dialog_rules, check_error_identification, check_focus_visible,
     check_form_rules, check_help, check_instructions, check_keyboard, check_label_title_only,
-    check_labels, check_landmark_banner_is_top_level, check_landmark_banner_present,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
-    check_landmark_main_present, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_link_purpose, check_link_purpose_link_only,
-    check_media_rules, check_parsing, check_region, check_section_headings, check_skip_link,
-    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
+    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
+    check_link_purpose_link_only, check_media_rules, check_parsing, check_region,
+    check_section_headings, check_status_messages, check_summary_name, check_table_extended,
     check_text_alternatives, check_unusual_words, check_widget_rules,
 };
 use super::types::{Violation, WcagResults};
@@ -176,9 +173,10 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // 2.4.1 Bypass Blocks (Level A)
     run_if_allowed!(filter, "bypass", check_bypass_blocks, results, tree);
 
-    // 2.4.2 Page Titled (Level A) runs only as the DOM page rule
-    // `check_page_titled_with_page`: the AX root name falls back to the URL
-    // when the title is missing, and a second check here counted it twice.
+    // 2.4.2 Page Titled: fehlender und leerer Titel laufen als
+    // `document/title-*` im geteilten Bestand, der nichtssagende Titel als
+    // DOM-Page-Rule `check_page_titled_with_page`. Der AX-Baum taugt dafuer
+    // nicht: Sein Wurzelname faellt ohne Titel auf die URL zurueck.
 
     // 2.4.4 Link Purpose (In Context) (Level A)
     run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
@@ -204,14 +202,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
         tree
     );
 
-    // 2.4.3 Focus Order (Level A)
-    run_if_allowed!(
-        filter,
-        "focus-order-semantics",
-        check_focus_order,
-        results,
-        tree
-    );
+    // 2.4.3 Focus Order: fokussierbar trotz `aria-hidden` laeuft als
+    // `keyboard/hidden-focusable` im geteilten Bestand (siehe wcag::shared),
+    // positives `tabindex` als `keyboard/positive-tabindex`.
 
     // 2.5.3 Label in Name (Level A) is checked via the DOM-based page rule
     // `check_label_in_name_with_page` (see page_rules.rs); the tree-only variant
@@ -233,14 +226,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // check guarded on prop.name.starts_with("aria-"), which is never true
     // for CDP property names and had no DOM fallback (#QA-030).
 
-    // 4.1.2 ARIA Required Attributes (Level A)
-    run_if_allowed!(
-        filter,
-        "aria-required-attr",
-        check_aria_required_attr,
-        results,
-        tree
-    );
+    // 4.1.2 ARIA Required Attributes laeuft als
+    // `aria/required-attribute-missing` im geteilten Bestand.
 
     // 4.1.2 ARIA Required Parent (Level A)
     run_if_allowed!(
@@ -262,14 +249,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // 4.1.2 Accessible Name Extended (Level A)
     run_if_allowed!(filter, "aria-label", check_accessible_name, results, tree);
 
-    // 4.1.2 ARIA Relationship Attributes (Level A)
-    run_if_allowed!(
-        filter,
-        "aria-valid-attr",
-        check_aria_relationships,
-        results,
-        tree
-    );
+    // 4.1.2 ARIA Relationship Attributes laeuft als `aria/reference-missing`
+    // im geteilten Bestand.
 
     // 4.1.2 / 1.1.1 ARIA Role-Specific Naming Rules (Level A)
     run_if_allowed!(
@@ -298,11 +279,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // 1.2.1 / 1.1.1 Media Rules (Level A) - P2
     run_if_allowed!(filter, "video-caption", check_media_rules, results, tree);
 
-    // 1.1.1 SVG Rules (Level A) - P2
-    run_if_allowed!(filter, "svg-img-alt", check_svg_rules, results, tree);
+    // 1.1.1 SVG laeuft als `svg/name-missing` im geteilten Bestand.
 
     // 2.4.1 Skip Link (Level A)
-    run_if_allowed!(filter, "skip-link", check_skip_link, results, tree);
 
     // 1.3.1 Granular Landmark Rules (Level A)
     run_if_allowed!(
@@ -347,27 +326,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
         results,
         tree
     );
-    run_if_allowed!(
-        filter,
-        "landmark-no-duplicate-main",
-        check_landmark_no_duplicate_main,
-        results,
-        tree
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-banner-present",
-        check_landmark_banner_present,
-        results,
-        tree
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-main-present",
-        check_landmark_main_present,
-        results,
-        tree
-    );
+    // Fehlende main-/banner-Landmark und doppelte main laufen als
+    // `landmarks/*` im geteilten Bestand.
 
     // 1.3.1 th-has-data-cells (Level A) - P1. td-headers-attr now runs as a
     // DOM page rule (check_table_headers_attr_with_page in PAGE_RULES) —
@@ -405,9 +365,8 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
     // (check_input_purpose_with_page in PAGE_RULES) — the AX tree carries
     // `aria-autocomplete`, not the HTML `autocomplete` attribute.
 
-    // 1.4.4 Resize Text and Viewport Large Scale restriction now run as DOM
-    // page rules (check_resize_text_with_page / check_meta_viewport_large_with_page
-    // in PAGE_RULES) — the AX tree has no `viewport` property (#QA-030).
+    // 1.4.4 Resize Text: der Viewport laeuft als `zoom/*` im geteilten
+    // Bestand -- der AX-Baum hat keine `viewport`-Eigenschaft (#QA-030).
 
     // 1.4.11 Non-text Contrast (Level AA) now runs as a DOM page rule
     // (check_non_text_contrast_css_with_page in PAGE_RULES) — the AX tree
@@ -426,8 +385,8 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
         tree
     );
 
-    // 2.4.1 / 1.3.6 Landmark Regions (Level AA)
-    run_if_allowed!(filter, "landmark-one-main", check_landmarks, results, tree);
+    // 2.4.1 / 1.3.1 Landmark Regions laufen als `landmarks/*` im geteilten
+    // Bestand.
 }
 
 /// Run all Level AAA rules

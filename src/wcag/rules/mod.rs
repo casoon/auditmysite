@@ -6,11 +6,8 @@ mod abbreviations;
 mod accessible_authentication;
 mod accessible_name;
 mod aria_allowed_attr;
-mod aria_hidden_focus;
 mod aria_naming_rules;
 mod aria_prohibited_attr;
-mod aria_relationships;
-mod aria_required_attr;
 mod aria_required_parent;
 mod aria_roles;
 mod aria_valid_attr_value;
@@ -25,7 +22,6 @@ mod error_identification;
 mod fake_navigation_link;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
-mod focus_order;
 mod focus_visible;
 mod focus_visible_css;
 mod form_rules;
@@ -42,7 +38,6 @@ mod label_in_name;
 mod label_title_only;
 mod labels;
 mod landmark_granular;
-mod landmarks;
 mod language_extended;
 mod language_of_parts;
 mod link_purpose;
@@ -71,12 +66,10 @@ mod redundant_entry;
 mod redundant_role;
 mod reflow;
 mod region;
-mod resize_text;
 mod section_headings;
 mod server_side_image_map;
 mod status_messages;
 mod summary_name;
-mod svg_rules;
 mod table_extended;
 mod target_size_enhanced;
 mod target_size_minimum;
@@ -92,13 +85,8 @@ pub use abbreviations::check_abbreviations_with_page;
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
 pub use aria_allowed_attr::check_aria_allowed_attr_with_page;
-pub use aria_hidden_focus::check_aria_hidden_focus;
 pub use aria_naming_rules::check_aria_naming_rules;
 pub use aria_prohibited_attr::check_aria_prohibited_attr_with_page;
-pub use aria_relationships::{check_aria_relationships, check_aria_relationships_with_page};
-pub use aria_required_attr::{
-    check_aria_required_attr, check_checked_state_with_page, check_value_now_with_page,
-};
 pub use aria_required_parent::check_aria_required_parent;
 pub use aria_roles::{
     check_aria_roles, check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
@@ -118,7 +106,6 @@ pub use error_identification::check_error_identification;
 pub use fake_navigation_link::check_fake_navigation_link_with_page;
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
-pub use focus_order::check_focus_order;
 pub use focus_visible::check_focus_visible;
 pub use focus_visible_css::check_focus_visible_css_with_page;
 pub use form_rules::{
@@ -137,13 +124,10 @@ pub use label_in_name::check_label_in_name_with_page;
 pub use label_title_only::check_label_title_only;
 pub use labels::check_labels;
 pub use landmark_granular::{
-    check_landmark_banner_is_top_level, check_landmark_banner_present,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
-    check_landmark_main_present, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_skip_link,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_unique,
 };
-pub use landmarks::check_landmarks;
 pub use language_extended::check_language_extended_with_page;
 pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;
@@ -175,16 +159,14 @@ pub use redundant_entry::check_redundant_entry_with_page;
 pub use redundant_role::check_redundant_role_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use region::check_region;
-pub use resize_text::check_resize_text_with_page;
 pub use section_headings::check_section_headings;
 pub use server_side_image_map::check_server_side_image_map_with_page;
 pub use status_messages::check_status_messages;
 pub use summary_name::check_summary_name;
-pub use svg_rules::check_svg_rules;
 pub use table_extended::{check_table_extended, check_table_headers_attr_with_page};
 pub use target_size_enhanced::check_target_size_enhanced_with_page;
 pub use target_size_minimum::check_target_size_minimum_with_page;
-pub use text_alternatives::check_text_alternatives;
+pub use text_alternatives::{check_text_alternatives, is_svg_finding};
 pub use text_spacing::check_text_spacing_with_page;
 pub use timing_adjustable::{check_timeouts_with_page, check_timing_with_page};
 pub use unusual_words::check_unusual_words;
