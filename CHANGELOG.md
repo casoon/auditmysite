@@ -5,7 +5,13 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
-- **Unreleased — Geteilte Kennungen statt eigener Regeln (#690, B0):** Weitere Befunde laufen
+- **1.7.1, 2026-09-30:** Erster Schritt des Regelumzugs nach barrierlab (casoon/barrierlab#13):
+  21 Kennungen kommen aus `a11y-rules` 0.13.2, die abgeloesten eigenen Regeln sind geloescht (#690,
+  B0). Neue Befunde `zoom/viewport-missing` (Gewichtung folgt in #702) und `images/alt-suspicious`;
+  die geteilten Regeln pruefen per CSS Verstecktes nicht mehr. Referenzlauf
+  (`reference_sites_test`) und Detection-Corpus gruen. Einzelheiten im Eintrag darunter.
+
+- **Geteilte Kennungen statt eigener Regeln (#690, B0):** Weitere Befunde laufen
   ueber den geteilten Bestand aus `a11y-rules` 0.13.2 (`SHARED_RULES` in `src/wcag/shared.rs`),
   die abgeloesten eigenen Regeln sind geloescht, sodass kein Befund doppelt im Bericht steht.
   Kennungen: `meta-viewport` → `zoom/viewport-locked`; `document-title` (fehlend/leer) →
