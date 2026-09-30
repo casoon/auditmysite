@@ -44,7 +44,7 @@ const BEST_PRACTICE_RULES: &[&str] = &[
 ];
 
 /// Whether a taxonomy rule id checks the BarrierLab display-mode convention
-/// (`display/*`, #653) or is one of the [`BEST_PRACTICE_RULES`], rather than
+/// (`display/*`, #653) or is one of the `BEST_PRACTICE_RULES`, rather than
 /// a WCAG requirement. Such a rule is only anchored to a criterion, so it
 /// must neither count as BFSG-relevant nor raise a legal flag (#704): the
 /// page's own conformance to that criterion decides that. Scoped to these
