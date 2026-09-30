@@ -8,7 +8,8 @@ short current-state summary. Newest entries first (unchanged order from before t
 - **Unreleased — Zielgroesse misst nur sichtbare Ziele im fertigen Layout (#705, #706):**
   `target-size-minimum` (2.5.8) und `target-size` (2.5.5) zaehlen ein Element nur noch als Ziel,
   wenn es sichtbar und anklickbar ist: nicht `checkVisibility()`-verborgen (mit
-  `contentVisibilityAuto`, `opacityProperty`, `visibilityProperty`), nicht in `[inert]`, ohne
+  `opacityProperty`, `visibilityProperty`; bewusst ohne `contentVisibilityAuto`, damit Abschnitte
+  ausserhalb des Viewports gemessen bleiben), nicht in `[inert]`, ohne
   `pointer-events: none` — wie schon beim gleichwertigen Link. Das gilt fuer das gemessene Ziel
   und fuer die Nachbarn der Abstandspruefung; Links in einem geschlossenen `<details>` (Chrome
   behaelt ihre Box, verbirgt sie per `content-visibility: hidden`) machten auf geographia.eu drei

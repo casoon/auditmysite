@@ -111,7 +111,11 @@ function hasEquivalentLink(el, minSize) {
 function isPointerTarget(el) {
   if (el.closest('[inert]')) return false;
   if (typeof el.checkVisibility === 'function' &&
-      !el.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })) return false;
+      // Ohne contentVisibilityAuto: Abschnitte mit `content-visibility: auto`
+      // ausserhalb des Viewports sind da und bedienbar, sie wuerden sonst
+      // nicht gemessen. Das geschlossene <details> faengt checkVisibility
+      // auch so ab (::details-content ist `content-visibility: hidden`).
+      !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
   return getComputedStyle(el).pointerEvents !== 'none';
 }
 
