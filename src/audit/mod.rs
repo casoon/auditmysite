@@ -13,6 +13,7 @@ mod crawl;
 pub mod duplicate;
 pub mod exclusion;
 mod finding_derive;
+pub mod frames;
 mod interactive_finding;
 pub mod interpretation;
 pub mod management_risk;

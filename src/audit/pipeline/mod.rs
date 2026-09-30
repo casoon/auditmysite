@@ -399,7 +399,8 @@ impl PipelineConfig {
         // content-gap check field (#534), 18 for the html_conform module field,
         // 19 for the exclusions block in the execution record (#645).
         // 20 for the display-mode scope and detection fields (#653).
-        const CACHE_FMT: u8 = 20;
+        // 21 for the frame coverage in the execution record (#715).
+        const CACHE_FMT: u8 = 21;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -773,7 +774,7 @@ pub async fn audit_page(
     let desktop_exclusion =
         crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
     exclusion_tally.record_scope(&desktop_exclusion);
-    let (desktop_wcag, desktop_excluded) = run_rules(
+    let (desktop_wcag, desktop_excluded, desktop_frames) = run_rules(
         page,
         &desktop_snap,
         config,
@@ -808,7 +809,7 @@ pub async fn audit_page(
     let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
     let mobile_exclusion = crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
     exclusion_tally.record_scope(&mobile_exclusion);
-    let (mut mobile_wcag, mobile_excluded) = run_rules(
+    let (mut mobile_wcag, mobile_excluded, mobile_frames) = run_rules(
         page,
         &mobile_snap,
         config,
@@ -1150,6 +1151,10 @@ pub async fn audit_page(
         reset_tab_after_journeys(page).await;
     }
     report.accessibility.execution.exclusions = Some(exclusion_tally.into_report());
+    let mut frame_coverage = crate::audit::frames::FrameCoverage::default();
+    frame_coverage.record("desktop", &desktop_frames);
+    frame_coverage.record("mobile", &mobile_frames);
+    report.accessibility.execution.frames = Some(frame_coverage);
 
     ensure_requested_module_runs(&mut report);
     report.accessibility.execution.module_runs =
@@ -1377,7 +1382,11 @@ async fn run_rules(
     viewport_label: &'static str,
     evidence_budget: &mut crate::accessibility::ElementEvidenceBudget,
     exclusion: &crate::audit::exclusion::ExclusionScope,
-) -> (WcagResults, Vec<Violation>) {
+) -> (
+    WcagResults,
+    Vec<Violation>,
+    Vec<crate::audit::frames::FrameObservation>,
+) {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     // Der geteilte Regelbestand aus `a11y-rules` laeuft gegen den per CDP
     // geholten DOM. Ersetzt unter anderem die frueheren 3.1.1-Pruefungen: Die
@@ -1395,14 +1404,13 @@ async fn run_rules(
     // und `svg/name-missing` meldet es schon. Nur wenn der DOM da ist -- also
     // die geteilten Regeln laufen --, fallen diese Befunde weg; sonst bleiben
     // sie, statt dass das `<svg>` gar nicht geprueft wird.
-    let doc =
-        match crate::accessibility::fetch_dom_document_with_layout(page, &snapshot.ax_tree).await {
-            Ok(doc) => Ok(doc),
-            Err(e) => {
-                warn!("DOMSnapshot fuer die geteilten Regeln fehlgeschlagen: {e}");
-                crate::accessibility::fetch_dom_document(page, &snapshot.ax_tree).await
-            }
-        };
+    //
+    // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
+    let capture = crate::accessibility::fetch_dom_capture(page).await;
+    let doc = capture
+        .as_ref()
+        .map_err(|e| e.to_string())
+        .and_then(|c| c.document(&snapshot.ax_tree).map_err(|e| e.to_string()));
     let svg_nodes = doc
         .as_ref()
         .map(wcag::shared::svg_ax_node_ids)
@@ -1466,6 +1474,29 @@ async fn run_rules(
                 );
             }
         }
+    }
+
+    // Die elementbezogenen Regeln in den iframes der Seite (#715). Ohne DOM
+    // lassen sich die Frames nicht aufzaehlen; die geteilten Regeln sind dann
+    // oben schon als nicht gelaufen vermerkt.
+    let mut frames = Vec::new();
+    if let Ok(capture) = &capture {
+        let frame_pass = crate::audit::frames::audit_frames(
+            page,
+            capture,
+            &snapshot.ax_tree,
+            &crate::audit::frames::FramePassConfig {
+                level: config.wcag_level,
+                rule_filter: &config.rule_filter,
+                lang: &config.lang,
+                viewport: viewport_label,
+            },
+            exclusion,
+        )
+        .await;
+        crate::audit::frames::merge_into(&mut wcag_results, frame_pass.results);
+        excluded.extend(frame_pass.excluded);
+        frames = frame_pass.frames;
     }
 
     // Contrast carries extra args (ax tree, level, screenshot) and stays inline.
@@ -1593,7 +1624,7 @@ async fn run_rules(
         .iter()
         .filter(|outcome| crate::wcag::rule_run_errored(outcome))
         .count();
-    (wcag_results, excluded)
+    (wcag_results, excluded, frames)
 }
 
 /// Size-based rules measure the settled layout (#706): wait for finite
@@ -1669,6 +1700,11 @@ pub(crate) fn persist_artifacts(
         seo: snapshot.seo.clone(),
         security: snapshot.security.clone(),
         mobile: snapshot.mobile.clone(),
+        screen_reader_excluded_node_ids: report
+            .screen_reader_audit
+            .as_ref()
+            .map(|sr| sr.excluded_node_ids.clone())
+            .unwrap_or_default(),
     };
     let hash = content_hash(&snapshot_artifact);
     let normalized = normalize(report).normalized;

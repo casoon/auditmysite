@@ -189,6 +189,11 @@ pub struct AuditExecution {
     /// page neither sets `html[data-display]` nor has a `figure[data-viz]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_modes: Option<crate::display::DisplayModesInfo>,
+    /// Which iframes were audited with the element-level rules and which
+    /// were skipped, and why (#715). Absent in reports from before the frame
+    /// pass; present and empty for a page without frames.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frames: Option<crate::audit::frames::FrameCoverage>,
 }
 
 /// Performance vitals measured under a single network throttle profile.

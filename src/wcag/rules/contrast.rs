@@ -337,11 +337,36 @@ impl ContrastRule {
     return (lighter + 0.05) / (darker + 0.05);
   }}
 
+  function topmostAt(x, y) {{
+    let top = document.elementFromPoint(x, y);
+    while (top && top.shadowRoot) {{
+      const inner = top.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === top) break;
+      top = inner;
+    }}
+    return top;
+  }}
+
+  function composedContains(ancestor, node) {{
+    while (node) {{
+      if (node === ancestor) return true;
+      const root = node.getRootNode ? node.getRootNode() : null;
+      node = node.assignedSlot || node.parentElement || (root && root.host) || null;
+    }}
+    return false;
+  }}
+
   const results = [];
 
   for (const task of tasks) {{
     try {{
-      const el = document.querySelector(task.selector);
+      // `host >>> inner` crosses open shadow roots (#716).
+      let el = null;
+      for (const part of task.selector.split(' >>> ')) {{
+        const scope = el === null ? document : el.shadowRoot;
+        el = scope ? scope.querySelector(part) : null;
+        if (!el) break;
+      }}
       if (!el) {{
         results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Element not found" }});
         continue;
@@ -350,6 +375,15 @@ impl ContrastRule {
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {{
         results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Zero area rect" }});
+        continue;
+      }}
+
+      // Covered by something else (a cookie banner over the hero text): the
+      // pixels under the text belong to the cover, not to its background, so
+      // the sample cannot decide (#716).
+      const covering = topmostAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (covering && !composedContains(el, covering) && !composedContains(covering, el)) {{
+        results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Element covered by another element" }});
         continue;
       }}
 

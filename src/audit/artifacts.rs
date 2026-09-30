@@ -82,6 +82,11 @@ pub struct SnapshotArtifact {
     pub seo: Option<SeoAnalysis>,
     pub security: Option<SecurityAnalysis>,
     pub mobile: Option<MobileFriendliness>,
+    /// AX node ids the audit exclusions dropped from the screen-reader layer
+    /// (#703). The screen-reader report is rebuilt from `ax_tree` on a cache
+    /// hit, so the exclusion has to be reapplied from here (#708).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeSet::is_empty")]
+    pub screen_reader_excluded_node_ids: std::collections::BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,10 +323,10 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         consent_privacy: None,
         accessibility_journey: None,
         interactive_findings: Vec::new(),
-        screen_reader_audit: Some(crate::screen_reader::build_sr_audit_report(
+        screen_reader_audit: Some(rebuild_screen_reader(
             &artifacts.audit.url,
             artifacts.audit.timestamp,
-            &artifacts.snapshot.ax_tree,
+            &artifacts.snapshot,
             locale,
             None,
         )),
@@ -341,14 +346,36 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
 pub fn hydrate_cached_report(report: &mut AuditReport, snapshot: &SnapshotArtifact, locale: &str) {
     report.accessibility.execution.environment.source = "cache".to_string();
     if report.screen_reader_audit.is_none() {
-        report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+        report.screen_reader_audit = Some(rebuild_screen_reader(
             &report.url,
             report.timestamp,
-            &snapshot.ax_tree,
+            snapshot,
             locale,
             report.patterns.as_ref(),
         ));
     }
+}
+
+/// Rebuilds the screen-reader report from the cached AXTree and reapplies the
+/// exclusions recorded at audit time (#708), so the sidecar and the PDF drop
+/// the same specimens as the fresh run did.
+fn rebuild_screen_reader(
+    url: &str,
+    timestamp: DateTime<Utc>,
+    snapshot: &SnapshotArtifact,
+    locale: &str,
+    patterns: Option<&crate::patterns::PatternAnalysis>,
+) -> crate::screen_reader::SrAuditReport {
+    let mut sr = crate::screen_reader::build_sr_audit_report(
+        url,
+        timestamp,
+        &snapshot.ax_tree,
+        locale,
+        patterns,
+    );
+    let excluded = &snapshot.screen_reader_excluded_node_ids;
+    sr.apply_exclusion(|id| excluded.contains(id));
+    sr
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -434,5 +461,71 @@ mod tests {
             &meta,
             "level=AA;perf=1;seo=1;sec=0;mobile=1;dark=1;stack=0;consent=0"
         ));
+    }
+
+    fn snapshot_with_unlabelled_field(excluded: &[&str]) -> SnapshotArtifact {
+        let node = |id: &str, role: &str, children: Vec<String>, parent: Option<&str>| {
+            a11y_perception::AXNode {
+                node_id: id.to_string(),
+                ignored: false,
+                ignored_reasons: Vec::new(),
+                role: Some(role.into()),
+                name: None,
+                name_source: None,
+                description: None,
+                value: None,
+                properties: Vec::new(),
+                child_ids: children,
+                parent_id: parent.map(str::to_string),
+                backend_dom_node_id: None,
+            }
+        };
+        SnapshotArtifact {
+            ax_tree: AXTree::from_nodes(vec![
+                node("root", "RootWebArea", vec!["field".into()], None),
+                node("field", "textbox", Vec::new(), Some("root")),
+            ]),
+            performance: None,
+            seo: None,
+            security: None,
+            mobile: None,
+            screen_reader_excluded_node_ids: excluded.iter().map(|id| id.to_string()).collect(),
+        }
+    }
+
+    fn names_field(report: &AuditReport) -> bool {
+        report
+            .screen_reader_audit
+            .as_ref()
+            .unwrap()
+            .issues
+            .iter()
+            .any(|issue| issue.affected_node_ids.iter().any(|id| id == "field"))
+    }
+
+    #[test]
+    fn cache_hit_reapplies_screen_reader_exclusions() {
+        // #708: the screen-reader report is rebuilt from the cached tree, so
+        // the exclusion recorded at audit time has to be applied again.
+        let mut plain = AuditReport::new(
+            "https://example.com".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+        let mut excluded = plain.clone();
+        hydrate_cached_report(&mut plain, &snapshot_with_unlabelled_field(&[]), "en");
+        hydrate_cached_report(
+            &mut excluded,
+            &snapshot_with_unlabelled_field(&["field"]),
+            "en",
+        );
+        assert!(names_field(&plain));
+        assert!(!names_field(&excluded));
+        assert!(excluded
+            .screen_reader_audit
+            .unwrap()
+            .excluded_node_ids
+            .contains("field"));
     }
 }

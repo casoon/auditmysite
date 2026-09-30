@@ -30,6 +30,7 @@ A few fields worth knowing:
 | `pages[].detail.en301549_annex` | Findings mapped to EN 301 549 chapter 9 clauses |
 | `pages[].exclusions`, `summary.exclusions` | Applied exclusion selectors, matched elements and dropped occurrences; see [Excluding specimens](../excluding-specimens/) |
 | `audit_scope.display_mode`, `pages[].display_modes` | The display mode the scores belong to, and the modes a page offers; see [Display modes](../display-modes/) |
+| `pages[].frames` | Iframes audited with the element-level rules and iframes skipped (`cross_origin`, `hidden`, `excluded`, …); findings inside a frame carry the selector `iframe#id [frame] element` |
 | `tool_version`, `build_id` | The binary that produced the report |
 
 Rule IDs are stable across releases and carry `tags` and an `impact` field. Performance values

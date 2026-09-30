@@ -68,6 +68,7 @@ pub(super) fn build_page(
         screen_reader: normalized.screen_reader.clone(),
         content_profile: None,
         display_modes: normalized.execution.display_modes.clone(),
+        frames: normalized.execution.frames.clone(),
         detail,
     }
 }

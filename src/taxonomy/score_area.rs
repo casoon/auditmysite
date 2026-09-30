@@ -160,6 +160,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.click_handler_keyboard.missing", Keyboard),
     ("a11y.focusable_no_role.invalid", Keyboard),
     ("a11y.keyboard.missing", Keyboard),
+    ("a11y.scrollable_region_focus.missing", Keyboard),
     ("a11y.keyboard_trap.risk", Keyboard),
     ("a11y.pointer_gestures.missing_alternative", Keyboard),
     ("a11y.pointer_cancellation.invalid", Keyboard),

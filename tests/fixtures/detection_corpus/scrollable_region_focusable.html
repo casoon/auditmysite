@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scrollable regions and keyboard access</title>
+    <style>
+        .box { height: 60px; overflow: auto; border: 1px solid #333; }
+        .tall { height: 400px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Scrollable regions (#717)</h1>
+
+        <!-- violation: scrolls, not focusable, nothing focusable inside -->
+        <div class="box menus"><div class="tall">Only text that needs scrolling to read.</div></div>
+
+        <!-- pass: the region itself is focusable -->
+        <div class="box" tabindex="0" role="region" aria-label="Terms"><div class="tall">Terms text.</div></div>
+
+        <!-- pass: focusable content inside scrolls the region along -->
+        <div class="box"><div class="tall">Links: <a href="#a">first link</a></div></div>
+
+        <!-- pass: overflow hidden, not a scroll region -->
+        <div class="box" style="overflow: hidden"><div class="tall">Clipped text.</div></div>
+
+        <!-- pass: does not overflow -->
+        <div class="box">Short text.</div>
+    </main>
+</body>
+</html>

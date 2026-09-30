@@ -1,0 +1,6 @@
+{
+  "case": "contrast_shadow_and_inline",
+  "expectations": [
+    { "rule_id": "color-contrast", "verdict": "violation", "occurrences": 4 }
+  ]
+}

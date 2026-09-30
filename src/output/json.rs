@@ -602,6 +602,10 @@ pub struct PageEntry {
     /// visual · calm · text". Absent for pages without the convention.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_modes: Option<crate::display::DisplayModesInfo>,
+    /// Iframes audited with the element-level rules and iframes skipped,
+    /// with the reason (#715). Absent for reports that predate the frame pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frames: Option<crate::audit::frames::FrameCoverage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }

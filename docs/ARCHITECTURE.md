@@ -136,6 +136,7 @@ src/
 │   ├── crawl.rs         # Link crawling (html5ever-based)
 │   ├── duplicate.rs     # Duplicate-page detection
 │   ├── exclusion.rs     # Audit exclusions (--exclude-selector, [data-audit-exclude]) and their report block
+│   ├── frames.rs        # Element-level WCAG rules inside same-process iframes and the frame coverage block (#715)
 │   ├── artifacts.rs     # Cache artifact persistence (--reuse-cache)
 │   └── performance_interpretation.rs # Performance-specific interpretation texts
 │
