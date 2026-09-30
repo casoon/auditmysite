@@ -96,6 +96,9 @@
 //! [parity contract](https://github.com/casoon/auditmysite/blob/main/docs/PARITY_CONTRACT.md).
 
 #![warn(unreachable_pub)]
+// docs.rs builds without `--cap-lints warn` since rust-lang/docs.rs#3555, so a
+// rustdoc lint fails the docs.rs build instead of shipping broken pages (#588).
+#![deny(rustdoc::all)]
 
 pub mod a11y_journey;
 pub mod accessibility;
