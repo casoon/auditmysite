@@ -3,10 +3,15 @@
 //! Detects accordion structures: button with `aria-expanded` that toggles a
 //! controlled region. Native disclosure widgets (`<details>`/`<summary>`)
 //! also count when summary has the toggle semantics.
+//!
+//! Befunde meldet die Erkennung seit #694 nicht mehr: Der aufgeklappte
+//! Button ohne `aria-controls` ist `patterns/accordion-controls-missing` im
+//! geteilten Bestand. `accordion-trigger-not-button` entfällt ersatzlos --
+//! an Rollen ohne `aria-expanded` meldet das `aria/attribute-not-allowed`,
+//! an `link`, `tab` oder `treeitem` erlaubt WAI-ARIA den Zustand, und
+//! fehlender Fokus ist `keyboard/interactive-not-focusable`.
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
-use crate::wcag::types::{Severity, Violation};
 
 use super::disclosure_menu::NATIVE_DISCLOSURE_ROLES;
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
@@ -44,62 +49,13 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
             with_controls += 1;
         }
 
-        // Accordion triggers must be buttons.
-        // DisclosureTriangle is Chrome's AX-tree role for <summary>, which has
-        // implicit ARIA role "button" per the HTML-ARIA spec — treat it as compliant.
-        // DisclosureTriangleGrouped is the same <summary> inside <details name>.
+        // Accordion triggers should be buttons (APG). DisclosureTriangle is
+        // Chrome's AX-tree role for <summary>, which has implicit ARIA role
+        // "button" per the HTML-ARIA spec; DisclosureTriangleGrouped is the
+        // same <summary> inside <details name>.
         let is_button_like = role == "button" || NATIVE_DISCLOSURE_ROLES.contains(&role);
         if !is_button_like {
             non_button_triggers += 1;
-            out.violations.push(
-                Violation::new(
-                    "4.1.2",
-                    "Name, Role, Value",
-                    WcagLevel::A,
-                    Severity::Medium,
-                    format!(
-                        "Accordion trigger has aria-expanded but role is \"{role}\" — should be a button so keyboard users can activate it with Enter/Space."
-                    ),
-                    &node.node_id,
-                )
-                .with_fix(
-                    "Use a native <button> as the accordion trigger, or set role=\"button\" with tabindex=\"0\" and a keydown handler.",
-                )
-                .with_rule_id("accordion-trigger-not-button")
-                .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/accordion/"),
-            );
-        }
-
-        // Trigger without aria-controls is a warning (not strictly required
-        // but strongly recommended for screen readers).
-        // Only check when the trigger is currently expanded: Chrome CDP does not
-        // resolve the `controls` AX property when the target element is hidden
-        // (display:none / aria-hidden), so the check is unreliable for collapsed
-        // triggers even when aria-controls is correctly set in the DOM.
-        // Nav/banner exception remains for disclosure menus that never expand
-        // into a visible AX node.
-        // A native <summary> needs no aria-controls: the controlled region is
-        // the enclosing <details>, and the relationship lives in the nesting.
-        if role == "button"
-            && expanded == Some(true)
-            && !has_controls
-            && !in_nav_or_banner(node, tree)
-        {
-            out.violations.push(
-                Violation::new(
-                    "4.1.2",
-                    "Name, Role, Value",
-                    WcagLevel::A,
-                    Severity::Low,
-                    "Accordion trigger has aria-expanded but no aria-controls — screen readers cannot identify the controlled region.",
-                    &node.node_id,
-                )
-                .with_fix(
-                    "Add aria-controls=\"<id>\" pointing to the collapsible region.",
-                )
-                .with_rule_id("accordion-no-controls")
-                .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/accordion/"),
-            );
         }
     }
 
@@ -265,14 +221,13 @@ mod tests {
     }
 
     #[test]
-    fn test_non_button_trigger_violation() {
+    fn test_non_button_trigger_is_partial_without_finding() {
         let tree = AXTree::from_nodes(vec![trigger("1", "generic", Some("panel-1"))]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a
-            .violations
-            .iter()
-            .any(|v| v.message.contains("should be a button")));
+        assert!(a.violations.is_empty());
+        assert_eq!(a.recognized[0].confidence, PatternConfidence::Partial);
+        assert!(a.recognized[0].message.contains("1 non-button triggers"));
     }
 
     #[test]
@@ -284,10 +239,8 @@ mod tests {
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
         assert!(
-            !a.violations
-                .iter()
-                .any(|v| v.message.contains("should be a button")),
-            "DisclosureTriangle (<summary>) must not be flagged as non-button trigger"
+            a.recognized[0].message.contains("0 non-button triggers"),
+            "DisclosureTriangle (<summary>) must not count as non-button trigger"
         );
     }
 
@@ -298,18 +251,11 @@ mod tests {
         let tree = AXTree::from_nodes(vec![trigger("1", "DisclosureTriangleGrouped", None)]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a.violations.is_empty(), "{:?}", a.violations);
-    }
-
-    /// An open `<details>` has no aria-controls, and needs none.
-    #[test]
-    fn open_native_summary_needs_no_aria_controls() {
-        for role in NATIVE_DISCLOSURE_ROLES {
-            let tree = AXTree::from_nodes(vec![trigger_with_expanded("1", role, None, true)]);
-            let mut a = PatternAnalysis::default();
-            detect(&tree, &mut a);
-            assert!(a.violations.is_empty(), "{role}: {:?}", a.violations);
-        }
+        assert!(
+            a.recognized[0].message.contains("0 non-button triggers"),
+            "{:?}",
+            a.recognized
+        );
     }
 
     /// AccordionToggle and DisclosureToggle run the same journey: a trigger
@@ -392,7 +338,6 @@ mod tests {
             ]);
             let mut a = PatternAnalysis::default();
             detect(&tree, &mut a);
-            assert!(a.violations.is_empty(), "{grid_role}: {:?}", a.violations);
             assert!(a.recognized.is_empty(), "{grid_role}: {:?}", a.recognized);
         }
     }
@@ -405,22 +350,19 @@ mod tests {
         ]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a.violations.is_empty(), "{:?}", a.violations);
+        assert!(a.recognized.is_empty(), "{:?}", a.recognized);
     }
 
-    /// Outside a grid, an expandable row keeps being reported.
+    /// Outside a grid, an expandable row keeps counting as a trigger.
     #[test]
-    fn expandable_row_outside_grid_is_still_flagged() {
+    fn expandable_row_outside_grid_is_still_counted() {
         let tree = AXTree::from_nodes(vec![
             container("t", "table", None),
             with_parent(trigger("r", "row", None), "t"),
         ]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a
-            .violations
-            .iter()
-            .any(|v| v.message.contains("should be a button")));
+        assert!(a.recognized[0].message.contains("1 non-button triggers"));
     }
 
     #[test]
@@ -431,38 +373,8 @@ mod tests {
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
         assert!(
-            a.violations.is_empty(),
-            "Details role (the <details> container) must not produce violations"
-        );
-    }
-
-    #[test]
-    fn test_collapsed_button_without_controls_no_violation() {
-        // When collapsed (expanded=false), Chrome CDP doesn't resolve the `controls`
-        // property for hidden targets — the check is unreliable, so no violation is emitted.
-        let tree = AXTree::from_nodes(vec![trigger("1", "button", None)]);
-        let mut a = PatternAnalysis::default();
-        detect(&tree, &mut a);
-        assert!(
-            a.violations
-                .iter()
-                .all(|v| !v.message.contains("aria-controls")),
-            "collapsed trigger should not emit aria-controls violation"
-        );
-    }
-
-    #[test]
-    fn test_expanded_button_without_controls_low_violation() {
-        // When expanded (expanded=true), the controlled panel should be in the AX tree.
-        // A missing `controls` property then means aria-controls is truly absent.
-        let tree = AXTree::from_nodes(vec![trigger_with_expanded("1", "button", None, true)]);
-        let mut a = PatternAnalysis::default();
-        detect(&tree, &mut a);
-        assert!(
-            a.violations
-                .iter()
-                .any(|v| v.message.contains("aria-controls")),
-            "expanded trigger without controls should emit aria-controls violation"
+            a.recognized.is_empty(),
+            "Details role (the <details> container) must not count as a trigger"
         );
     }
 }

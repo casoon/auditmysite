@@ -209,6 +209,18 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     ("forms/title-only-label", "label-title-only"),
     ("forms/group-missing", "form-field-group"),
     ("forms/error-unidentified", "input-error-message"),
+    // #694: Landmarks und Tastatur mit dem Text der abgeloesten Regel.
+    // `headings/none`, `keyboard/interactive-not-focusable` und
+    // `dialog/focusable-missing` finden ihn ueber das Kriterium (2.4.1,
+    // 2.1.1, 2.4.3) wie `bypass`, `keyboard` und `dialog-no-focusable`.
+    ("landmarks/not-unique", "landmark-unique"),
+    ("landmarks/banner-duplicate", "landmark-no-duplicate-banner"),
+    (
+        "landmarks/contentinfo-duplicate",
+        "landmark-no-duplicate-contentinfo",
+    ),
+    ("landmarks/content-outside", "region"),
+    ("keyboard/focusable-no-role", "focusable-no-role"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -3796,6 +3808,51 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Medium,
             example_bad: Some("<form action=\"/login\">\n  <input type=\"password\" autocomplete=\"current-password\">\n  <img src=\"captcha.png\" alt=\"captcha\">\n</form>"),
             example_good: None,
+            example_decorative: None,
+        },
+    ),
+    // ── Geteilte Kennungen aus #694 ohne passenden Text ──
+    (
+        "landmarks/not-top-level",
+        RuleExplanation {
+            customer_title: "Landmark ist verschachtelt",
+            customer_title_en: "Landmark is nested",
+            customer_description: "Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
+            customer_description_en: "A header, footer or main content region (banner, contentinfo, main) sits inside another landmark instead of at the top level.",
+            user_impact: "Screenreader-Nutzer, die per Landmark-Navigation zu Kopf, Fuß oder Hauptinhalt springen, landen in einem unerwarteten Kontext.",
+            user_impact_en: "Screen reader users who jump to the header, footer or main content via landmark navigation land in an unexpected context.",
+            typical_cause: "role=\"banner\", role=\"contentinfo\" oder <main> innerhalb von <main>, <nav>, <aside> oder einem benannten Bereich.",
+            typical_cause_en: "role=\"banner\", role=\"contentinfo\" or <main> inside <main>, <nav>, <aside> or a named region.",
+            recommendation: "Kopf-, Fuß- und Hauptinhaltsbereich auf die oberste Ebene der Seite verschieben, außerhalb jedes anderen Landmarks.",
+            recommendation_en: "Move the header, footer and main content region to the top level of the page, outside any other landmark.",
+            technical_note: "Ein <header>/<footer> in <main>, <article> oder <section> ist ohnehin kein banner/contentinfo; gemeldet werden explizite Rollen und <main>. Welche Rolle betroffen ist, steht im Befundtext.",
+            technical_note_en: "A <header>/<footer> inside <main>, <article> or <section> is no banner/contentinfo anyway; reported are explicit roles and <main>. The affected role is named in the finding.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<main>\n  <div role=\"banner\">…</div>\n</main>"),
+            example_good: Some("<header>…</header>\n<main>…</main>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "patterns/accordion-controls-missing",
+        RuleExplanation {
+            customer_title: "Aufgeklappter Button ohne Verweis auf seinen Bereich",
+            customer_title_en: "Expanded button without a reference to its region",
+            customer_description: "Ein aufgeklappter Button (aria-expanded=\"true\") verweist nicht per aria-controls auf den Bereich, den er steuert.",
+            customer_description_en: "An expanded button (aria-expanded=\"true\") does not reference the region it controls with aria-controls.",
+            user_impact: "Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde, und können nicht direkt dorthin springen.",
+            user_impact_en: "Screen reader users are not told which region was expanded and cannot jump straight to it.",
+            typical_cause: "Akkordeon- oder Aufklapp-Skripte, die nur aria-expanded umschalten.",
+            typical_cause_en: "Accordion or disclosure scripts that only toggle aria-expanded.",
+            recommendation: "Am Button aria-controls auf die ID des gesteuerten Bereichs setzen.",
+            recommendation_en: "Set aria-controls on the button to the ID of the controlled region.",
+            technical_note: "Prüfhinweis: WAI-ARIA verlangt aria-controls nicht, die APG nennt es beim Disclosure-Muster optional. Ein <summary> braucht es nicht.",
+            technical_note_en: "Review hint: WAI-ARIA does not require aria-controls, the APG lists it as optional for the disclosure pattern. A <summary> does not need it.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button aria-expanded=\"true\">Details</button>\n<div id=\"panel\">…</div>"),
+            example_good: Some("<button aria-expanded=\"true\" aria-controls=\"panel\">Details</button>\n<div id=\"panel\">…</div>"),
             example_decorative: None,
         },
     ),

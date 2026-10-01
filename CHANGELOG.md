@@ -5,6 +5,49 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Landmark-, Tastatur- und Strukturregeln aus `a11y-rules` statt eigener (#694,
+  B4):** Die Landmark-Pruefungen, die Tastaturerreichbarkeit, die Seite ohne Ueberschriften und
+  zwei Musterpruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
+  `src/wcag/shared.rs`). Geloescht: `region`, `landmark_granular` (mit `is_landmark`) und
+  `bypass_blocks`; aus `keyboard` die beiden 2.1.1-Pruefungen; aus `patterns/` die Befunde
+  `dialog-no-focusable`, `accordion-no-controls`, `accordion-trigger-not-button` und
+  `aria-expanded-required` -- Mustererkennung und Journeys bleiben, `PatternAnalysis.violations`
+  ist jetzt immer leer. Im Host bleibt `keyboard-trap` (2.1.2): Hinweis je modalem Dialog und der
+  seitenweite `UNTESTED`-Vermerk brauchen echte Tastaturbedienung. Kennungen: `landmark-unique` →
+  `landmarks/not-unique`; `landmark-banner-is-top-level`, `landmark-contentinfo-is-top-level` und
+  `landmark-main-is-top-level` → `landmarks/not-top-level`; `landmark-no-duplicate-banner` und
+  `landmark-no-duplicate-contentinfo` → `landmarks/banner-duplicate` und
+  `landmarks/contentinfo-duplicate`; `region` → `landmarks/content-outside` (alle 1.3.1 A);
+  `bypass` („No headings found") → `headings/none` (2.4.1 A, samt #709); `focusable-no-role` und
+  `keyboard` („appears not keyboard-focusable") → `keyboard/focusable-no-role` und
+  `keyboard/interactive-not-focusable` (2.1.1 A); `dialog-no-focusable` →
+  `dialog/focusable-missing` (2.4.3 A); `accordion-no-controls` →
+  `patterns/accordion-controls-missing` (4.1.2 A). Ersatzlos entfallen, wie in barrierlab#17
+  begruendet: `accordion-trigger-not-button` (an Rollen ohne `aria-expanded` meldet das
+  `aria/attribute-not-allowed`, an `link`, `tab`, `treeitem` erlaubt WAI-ARIA den Zustand,
+  fehlender Fokus ist `keyboard/interactive-not-focusable`) und `aria-expanded-required` (riet ein
+  Aufklappmenue aus dem Wort „menu"/„Menü" im Namen). Gewollte Unterschiede (Einzelheiten im
+  Changelog von `a11y-rules` und an den Eintraegen in `SHARED_RULES`): `landmarks/not-unique` und
+  `patterns/accordion-controls-missing` sind Pruefhinweise statt Verstoesse; doppelte
+  banner/contentinfo zeigen auf die zweite Landmark statt die erste; `landmarks/content-outside`
+  meldet einmal je Block statt je Textknoten; `keyboard/focusable-no-role` zaehlt nur die Tabfolge
+  und keinen benannten scrollbaren Bereich; `keyboard/interactive-not-focusable` nimmt
+  deaktivierte Felder, native `<option>`, `aria-activedescendant` und Inertes aus;
+  `dialog/focusable-missing` sucht in allen Nachfahren und prueft kein geschlossenes `<dialog>`;
+  `headings/none` zaehlt `role="heading"` mit. Die Landmark-Rolle kommt aus dem Markup statt aus
+  Chromes Rolle (#639, #727). Ausschluesse (#726): Die geteilten Zaehlregeln
+  (`landmarks/not-unique`, `landmarks/main-duplicate`, `landmarks/*-duplicate`) lesen bei aktivem
+  `--exclude-selector` das Dokument ohne die ausgeschlossenen Teilbaeume
+  (`ExclusionScope::without_excluded_dom`, `wcag::shared::adopt_page_counts`); die AX-Variante
+  `without_excluded` und der Parameter `counted` von `check_all_excluding` entfallen,
+  `exclusion.excluded_landmarks` zaehlt wie bisher. In Frames laufen jetzt
+  `keyboard/focusable-no-role` und `keyboard/interactive-not-focusable` (bisher die Baumregel
+  `keyboard`) sowie neu `dialog/focusable-missing` und `patterns/accordion-controls-missing`; die
+  Landmark-Regeln und `headings/none` bleiben beim Hauptdokument. Taxonomie: die Kennungen zeigen
+  auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen
+  (`headings/none` auf den von `bypass`); neu `a11y.landmark_nested.invalid` und
+  `a11y.accordion_controls.missing` samt Erklaerungstexten.
+
 - **Unreleased — Formularregeln aus `a11y-rules` statt eigener (#693, B3):** Die Formular-,
   Kontextwechsel- und Captcha-Pruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
   `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht: `form_rules`,

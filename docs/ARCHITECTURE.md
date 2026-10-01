@@ -72,8 +72,7 @@ src/
 │   └── rules/           # Individual WCAG rules (85+ files, Level A/AA/AAA)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── contrast.rs           # 1.4.3
-│       ├── keyboard.rs           # 2.1.1
-│       ├── bypass_blocks.rs      # 2.4.1
+│       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
 │       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
 │       ├── language_of_parts.rs  # Conservative language-change check for 3.1.2

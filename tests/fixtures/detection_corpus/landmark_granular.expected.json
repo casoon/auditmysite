@@ -1,11 +1,10 @@
 {
   "case": "landmark_granular",
   "expectations": [
-    { "rule_id": "landmark-banner-is-top-level", "verdict": "violation" },
-    { "rule_id": "landmark-main-is-top-level", "verdict": "violation" },
-    { "rule_id": "landmark-no-duplicate-banner", "verdict": "violation" },
-    { "rule_id": "landmark-no-duplicate-contentinfo", "verdict": "violation" },
+    { "rule_id": "landmarks/not-top-level", "verdict": "violation", "occurrences": 2 },
+    { "rule_id": "landmarks/banner-duplicate", "verdict": "violation" },
+    { "rule_id": "landmarks/contentinfo-duplicate", "verdict": "violation" },
     { "rule_id": "landmarks/main-duplicate", "verdict": "violation" },
-    { "rule_id": "landmark-unique", "verdict": "violation", "occurrences": 11 }
+    { "rule_id": "landmarks/not-unique", "verdict": "needs_review" }
   ]
 }

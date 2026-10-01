@@ -48,13 +48,14 @@ fn wcag_rule_id_inventory_contains_a_known_id_from_each_shape() {
     assert!(ids.contains("aria/role-invalid"), "shared.rs");
     assert!(ids.contains("aria/tabpanel-missing"), "shared.rs");
 
-    // Pattern-detection modules (`src/patterns/`) — no `RuleMetadata` at all.
+    // Pattern-detection modules (`src/patterns/`) built `Violation`s with a
+    // literal rule id until #694; their checks are shared rules now.
     assert!(
-        ids.contains("accordion-trigger-not-button"),
-        "patterns/accordion.rs"
+        ids.contains("patterns/accordion-controls-missing"),
+        "shared.rs (formerly patterns/accordion.rs)"
     );
     assert!(
-        ids.contains("dialog-no-focusable"),
-        "patterns/modal_dialog.rs"
+        ids.contains("dialog/focusable-missing"),
+        "shared.rs (formerly patterns/modal_dialog.rs)"
     );
 }

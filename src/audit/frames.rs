@@ -37,16 +37,15 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
 /// relationships: names (images, links), redundant descriptions, table
-/// headers and keyboard reachability. Roles, their required parents and
+/// headers and the keyboard-trap note. Roles, their required parents and
 /// children and ambiguous `aria-owns` run as shared rules since #691, the
 /// names of dialogs, summaries and role-based widgets, label-in-name and
 /// live-region roles since #692, form labels, structure and errors since
-/// #693 (see [`FRAME_SHARED_RULES`]).
+/// #693, keyboard reachability since #694 (see [`FRAME_SHARED_RULES`]).
 ///
 /// Left out on purpose — they judge the document as a whole and belong to
-/// the top frame only: `bypass`, `region`, the `landmark-*` rules,
-/// `focus-visible` (fires only when the whole page has nothing focusable),
-/// `heading-order`, `unusual-words` and `help`.
+/// the top frame only: `focus-visible` (fires only when the whole page has
+/// nothing focusable), `heading-order`, `unusual-words` and `help`.
 pub const FRAME_TREE_RULES: &[&str] = &[
     "image-alt",
     "keyboard",
@@ -59,8 +58,15 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
 /// element-level ones. Left out, as page-level: `document/lang-*` (the
 /// frame's `lang` stays with `iframe_rules`' `html-has-lang`),
-/// `document/title-*`, `headings/h1-*`, `headings/skip-level`, `zoom/*`,
-/// `landmarks/*` and `keyboard/skip-link-missing`.
+/// `document/title-*`, `headings/h1-*`, `headings/none`,
+/// `headings/skip-level`, `zoom/*`, `landmarks/*` and
+/// `keyboard/skip-link-missing`.
+///
+/// From #694 the keyboard reachability (`keyboard/focusable-no-role`,
+/// `keyboard/interactive-not-focusable`, until then the tree rule
+/// `keyboard`) and two element-level pattern checks
+/// (`dialog/focusable-missing`, `patterns/accordion-controls-missing`) run
+/// in frames; the pattern checks ran in the top frame only before.
 ///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
@@ -124,6 +130,10 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "context/on-focus",
     "context/autofocus",
     "auth/captcha",
+    "keyboard/focusable-no-role",
+    "keyboard/interactive-not-focusable",
+    "dialog/focusable-missing",
+    "patterns/accordion-controls-missing",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -514,7 +524,7 @@ pub(crate) async fn audit_frames(
         let mut frame_results = WcagResults::new();
         if let Some(filter) = &tree_filter {
             let (tree, dropped) =
-                wcag::check_all_excluding(&frame_ax, &frame_ax, config.level, filter, &|v| {
+                wcag::check_all_excluding(&frame_ax, config.level, filter, &|v| {
                     superseded(v) || exclusion.excludes_located(v, &frame_ax)
                 });
             out.excluded
@@ -598,13 +608,7 @@ mod tests {
     #[test]
     fn frame_filter_keeps_only_element_rules() {
         let filter = frame_rule_filter(&RuleFilterConfig::default()).unwrap();
-        for page_level in [
-            "bypass",
-            "region",
-            "landmark-unique",
-            "focus-visible",
-            "heading-order",
-        ] {
+        for page_level in ["focus-visible", "heading-order", "unusual-words", "help"] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
         for element in ["description-duplicates-name", "link-name", "image-alt"] {
@@ -626,7 +630,7 @@ mod tests {
         // `enabled_only_rules` would run every rule.
         let only_page_level = RuleFilterConfig {
             disabled_rules: Vec::new(),
-            enabled_only_rules: vec!["bypass".into()],
+            enabled_only_rules: vec!["focus-visible".into()],
         };
         assert!(frame_rule_filter(&only_page_level).is_none());
     }
@@ -657,7 +661,13 @@ mod tests {
             "document/lang-missing",
             "document/title-missing",
             "headings/h1-missing",
+            "headings/none",
             "landmarks/main-missing",
+            "landmarks/not-unique",
+            "landmarks/not-top-level",
+            "landmarks/banner-duplicate",
+            "landmarks/contentinfo-duplicate",
+            "landmarks/content-outside",
             "zoom/viewport-missing",
             "keyboard/skip-link-missing",
         ] {

@@ -466,6 +466,42 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("context/on-focus", "a11y.on_focus.risk"),
     ("context/autofocus", "a11y.on_focus.risk"),
     ("auth/captcha", "a11y.accessible_auth.captcha_review"),
+    // ── Geteilte Kennungen aus #694 (B4, Landmarks, Tastatur, Struktur) ──
+    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
+    // (`landmark-unique`, `region`, `bypass`, `focusable-no-role`,
+    // `keyboard`, …) weiter aufloest. `headings/none` uebernimmt den Eintrag
+    // von `bypass`, der zuletzt nur noch die Seite ohne Ueberschriften
+    // meldete; `dialog/focusable-missing` den der 2.4.3-Gruppe, unter die
+    // `dialog-no-focusable` fiel.
+    ("landmarks/not-unique", "a11y.landmark_unique.invalid"),
+    // Neu: Die drei `*-is-top-level`-Pruefungen hatten je einen Eintrag; die
+    // geteilte Kennung fasst sie zusammen, die Rolle steht im Befundtext.
+    ("landmarks/not-top-level", "a11y.landmark_nested.invalid"),
+    (
+        "landmarks/banner-duplicate",
+        "a11y.landmark_banner_duplicate.invalid",
+    ),
+    (
+        "landmarks/contentinfo-duplicate",
+        "a11y.landmark_contentinfo_duplicate.invalid",
+    ),
+    ("landmarks/content-outside", "a11y.landmark_region.missing"),
+    ("headings/none", "a11y.bypass_blocks.missing"),
+    (
+        "keyboard/focusable-no-role",
+        "a11y.focusable_no_role.invalid",
+    ),
+    (
+        "keyboard/interactive-not-focusable",
+        "a11y.keyboard.missing",
+    ),
+    ("dialog/focusable-missing", "a11y.focus_order.weak"),
+    // Neu: `accordion-no-controls` hatte keinen eigenen Eintrag und fiel in
+    // den 4.1.2-Sammelbucket.
+    (
+        "patterns/accordion-controls-missing",
+        "a11y.accordion_controls.missing",
+    ),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the
@@ -2464,6 +2500,29 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
+        id: "a11y.accordion_controls.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("patterns/accordion-controls-missing"),
+        title: "Aufgeklappter Button ohne Verweis auf seinen Bereich",
+        title_en: "Expanded button without a reference to its region",
+        description: "Ein aufgeklappter Button (aria-expanded=\"true\") verweist nicht per aria-controls auf den Bereich, den er steuert.",
+        user_impact: "Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde.",
+        user_impact_en: "Screen reader users are not told which region was expanded.",
+        technical_impact: "aria-expanded=\"true\" ohne aria-controls; WAI-ARIA verlangt es nicht, die APG nennt es beim Disclosure-Muster optional.",
+        technical_impact_en: "aria-expanded=\"true\" without aria-controls; WAI-ARIA does not require it, the APG lists it as optional for the disclosure pattern.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
         id: "a11y.dialog_modal.missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
@@ -3564,6 +3623,31 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Screen reader users who jump to the main content via landmark navigation land in an unexpected context.",
         technical_impact: "<main>/role=\"main\" ist Nachfahre eines anderen Landmarks.",
         technical_impact_en: "<main>/role=\"main\" is a descendant of another landmark.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 3.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // `landmarks/not-top-level` (#694) fasst die drei Eintraege darueber
+    // zusammen; die Rolle steht im Befundtext.
+    Rule {
+        id: "a11y.landmark_nested.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmarks/not-top-level"),
+        title: "Landmark ist verschachtelt",
+        title_en: "Landmark is nested",
+        description: "Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
+        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation springen, landen in einem unerwarteten Kontext.",
+        user_impact_en: "Screen reader users who jump via landmark navigation land in an unexpected context.",
+        technical_impact: "<header>/<footer>/<main> bzw. role=\"banner\"/\"contentinfo\"/\"main\" ist Nachfahre eines anderen Landmarks.",
+        technical_impact_en: "<header>/<footer>/<main> or role=\"banner\"/\"contentinfo\"/\"main\" is a descendant of another landmark.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,

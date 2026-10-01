@@ -1425,10 +1425,8 @@ async fn run_rules(
     // superseded `<svg>` findings ride the same mechanism so the outcome
     // does not count them either, but they are no audit exclusion and are
     // dropped from that list again.
-    let counted = exclusion.without_excluded(&snapshot.ax_tree);
     let (mut wcag_results, excluded) = wcag::check_all_excluding(
         &snapshot.ax_tree,
-        counted.as_ref().unwrap_or(&snapshot.ax_tree),
         config.wcag_level,
         &config.rule_filter,
         &|v| superseded(v) || exclusion.excludes_located(v, &snapshot.ax_tree),
@@ -1440,6 +1438,20 @@ async fn run_rules(
     match doc {
         Ok(doc) => {
             let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
+            // Was Landmarks der ganzen Seite zaehlt, liest das Dokument ohne
+            // die ausgeschlossenen Teilbaeume: Die Musterseite darin machte
+            // sonst die banner-Landmark der Seite zum Duplikat (#726).
+            let counted_doc = capture.as_ref().ok().and_then(|c| {
+                exclusion
+                    .without_excluded_dom(&c.root)
+                    .and_then(|root| c.document_at(&root, &snapshot.ax_tree).ok())
+            });
+            if let Some(counted_doc) = counted_doc {
+                wcag::shared::adopt_page_counts(
+                    &mut shared,
+                    wcag::shared::run_shared_rules(&counted_doc, &config.lang),
+                );
+            }
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }

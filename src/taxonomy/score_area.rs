@@ -107,6 +107,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.landmark_main.missing", Landmarks),
     ("a11y.landmark_main_duplicate.invalid", Landmarks),
     ("a11y.landmark_main_nested.invalid", Landmarks),
+    ("a11y.landmark_nested.invalid", Landmarks),
     ("a11y.landmark_region.missing", Landmarks),
     ("a11y.landmark_unique.invalid", Landmarks),
     // ── 1.3.1 — Formularsemantik ──
@@ -238,6 +239,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.summary_name.missing", Aria),
     ("a11y.tablist_tabpanel.missing", Aria),
     ("a11y.tab_selected.missing", Aria),
+    ("a11y.accordion_controls.missing", Aria),
     ("a11y.dialog_modal.missing", Aria),
     ("a11y.treeitem_name.missing", Aria),
     ("a11y.status_messages.broken", Aria),

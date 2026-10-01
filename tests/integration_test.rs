@@ -1775,12 +1775,13 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 
     let analysis = auditmysite::patterns::analyze(&tree);
     assert!(
-        !analysis
-            .violations
+        analysis
+            .recognized
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("accordion-trigger-not-button")),
+            .filter(|r| r.pattern == "Accordion")
+            .all(|r| r.message.contains(" 0 non-button triggers")),
         "ein natives <summary> ist kein falscher Auslöser: {:?}",
-        analysis.violations
+        analysis.recognized
     );
 
     for (role, summary) in summaries {
@@ -2496,6 +2497,7 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
         ) || id.starts_with("landmark")
             || id.starts_with("document/")
             || id.starts_with("headings/h1")
+            || id == "headings/none"
             || id.starts_with("zoom/")
             || id == "keyboard/skip-link-missing"
     };

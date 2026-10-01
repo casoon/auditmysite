@@ -356,7 +356,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `wcag::rules::landmark_granular` die Prüfungen `landmark-main-present`,
     // `landmark-banner-present` und `landmark-no-duplicate-main`. Die übrigen
     // granularen Prüfungen (eindeutige Namen, Verschachtelung, doppelte
-    // banner/contentinfo, Sprunglink bei Navigation) bleiben eigen.
+    // banner/contentinfo) sind seit #694 ebenfalls geteilt, siehe unten.
     //
     // Die fehlende main-Landmark meldeten bisher zwei Regeln, einmal unter
     // 2.4.1 (`landmark-one-main`) und einmal unter 1.3.1
@@ -977,7 +977,171 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url:
             "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
     },
+    // ── Landmark-, Tastatur- und Strukturregeln aus #694 (B4) ──
+    //
+    // Kriterium und Stufe wie bei den abgelösten Regeln, die Schwere setzt
+    // `a11y-rules`. Einzelheiten und alle Abweichungen im Changelog von
+    // `a11y-rules` (casoon/barrierlab#17). Die Landmark-Rolle bestimmt die
+    // geteilte Fassung aus dem Markup, nicht aus Chromes Rolle: Ein
+    // unbenanntes `<form>`/`<section>` ist keine Landmark (#727), ein
+    // `<header>`/`<footer>` in `main`, `article` oder unter `role="main"`
+    // kein banner/contentinfo (#639).
+
+    // Ersetzt `landmark-unique` aus `wcag::rules::landmark_granular`. Gewollt
+    // anders: `REVIEW` statt Verstoß -- WAI-ARIA und die APG verlangen
+    // unterscheidbare Namen nur als SHOULD. Ein `<aside>` in einem Abschnitt
+    // zählt nur mit Namen als `complementary`.
+    SharedRule {
+        id: "landmarks/not-unique",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Landmark Unique)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `landmark-banner-is-top-level`,
+    // `landmark-contentinfo-is-top-level` und `landmark-main-is-top-level`
+    // aus `landmark_granular` -- eine Kennung, die Rolle steht im Text.
+    SharedRule {
+        id: "landmarks/not-top-level",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Landmark Not Top Level)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzen `landmark-no-duplicate-banner` und
+    // `landmark-no-duplicate-contentinfo` aus `landmark_granular`. Gewollt
+    // anders: Der Befund steht wie bei `landmarks/main-duplicate` an der
+    // zweiten Landmark, nicht an der ersten.
+    SharedRule {
+        id: "landmarks/banner-duplicate",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Banner Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "landmarks/contentinfo-duplicate",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Contentinfo Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::region` (`region`). Gewollt anders: gemeldet wird
+    // das äußerste Element ohne Landmark darin, einmal je Block wie axe
+    // `region` -- nicht jeder Textknoten und jedes benannte Element einzeln.
+    // Die Befundzahl je Seite sinkt damit. Sprunglinks erkennt die geteilte
+    // Fassung wie bisher am Ziel (#642).
+    SharedRule {
+        id: "landmarks/content-outside",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Content Outside Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::bypass_blocks` (`bypass`, „No headings found")
+    // samt der Ausnahme aus #709: hinter einem offenen Dialog `REVIEW`,
+    // niedrig. Neu: `role="heading"` zählt mit, versteckte Überschriften
+    // nicht.
+    SharedRule {
+        id: "headings/none",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Bypass Blocks (No Headings)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
+    },
+    // Ersetzt aus `wcag::rules::keyboard` `focusable-no-role`. Gewollt
+    // anders: nur die Tabfolge (`tabindex` ≥ 0) zählt -- ein `tabindex="-1"`
+    // am Ziel eines Sprunglinks erreicht niemand per Tab --, und ein
+    // benannter Bereich mit `tabindex="0"` (scrollbarer Bereich) ist kein
+    // Befund.
+    SharedRule {
+        id: "keyboard/focusable-no-role",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard (Focusable Without Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt aus `keyboard` „appears not keyboard-focusable" (`keyboard`).
+    // `REVIEW`, hoch wie bisher. Gewollt anders: Fokussierbarkeit kommt aus
+    // dem Markup statt aus Chromes `focusable`; ausgenommen sind
+    // deaktivierte Felder, native `<option>`, Elemente unter
+    // `aria-activedescendant` und Inertes. Die Tastaturfalle (2.1.2) braucht
+    // echte Bedienung und bleibt in `keyboard`.
+    SharedRule {
+        id: "keyboard/interactive-not-focusable",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard (Interactive Not Focusable)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt `dialog-no-focusable` aus `patterns::modal_dialog`. Gewollt
+    // anders: Gesucht wird in allen Nachfahren, nicht nur in den direkten
+    // Kindern, und ein geschlossenes `<dialog>` zählt nicht.
+    SharedRule {
+        id: "dialog/focusable-missing",
+        criterion: "2.4.3",
+        level: WcagLevel::A,
+        name: "Focus Order (Dialog Without Focusable Element)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
+    },
+    // Ersetzt `accordion-no-controls` aus `patterns::accordion`. Gewollt
+    // anders: `REVIEW` statt Verstoß -- WAI-ARIA verlangt `aria-controls` am
+    // Button nicht, die APG nennt es beim Disclosure-Muster optional.
+    // Ausgenommen wie bisher: zugeklappte Buttons, `<summary>` und Buttons in
+    // `navigation`/`banner`.
+    //
+    // Nicht übernommen und ersatzlos gelöscht: `accordion-trigger-not-button`
+    // (meldet an Rollen ohne `aria-expanded` schon
+    // `aria/attribute-not-allowed`, an `link`/`tab`/`treeitem` erlaubt
+    // WAI-ARIA den Zustand, fehlender Fokus ist
+    // `keyboard/interactive-not-focusable`) und `aria-expanded-required`
+    // aus `patterns::disclosure_menu` (riet ein Aufklappmenü aus dem Wort
+    // „menu"/„Menü" im Namen, ohne Norm dahinter).
+    SharedRule {
+        id: "patterns/accordion-controls-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Accordion Controls)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
 ];
+
+/// Geteilte Kennungen, die Landmarks der ganzen Seite zählen oder
+/// vergleichen. Ein ausgeschlossener Teilbaum (`--exclude-selector`, #645)
+/// darf darin nicht mitzählen (#726): Die Musterseite im Teilbaum hätte sonst
+/// eine zweite banner-Landmark und machte die der Seite zum Duplikat. Für
+/// diese Kennungen gilt deshalb der Lauf über das Dokument ohne die
+/// ausgeschlossenen Teilbäume ([`adopt_page_counts`]).
+pub const PAGE_COUNT_RULES: &[&str] = &[
+    "landmarks/not-unique",
+    "landmarks/main-duplicate",
+    "landmarks/banner-duplicate",
+    "landmarks/contentinfo-duplicate",
+];
+
+/// Ersetzt in `results` Befunde und Vermerke der [`PAGE_COUNT_RULES`] durch
+/// die aus `counted`, dem Lauf über das Dokument ohne ausgeschlossene
+/// Teilbäume (#726).
+pub fn adopt_page_counts(results: &mut WcagResults, counted: WcagResults) {
+    let counts = |id: &str| PAGE_COUNT_RULES.contains(&id);
+    let finding_counts = |v: &Violation| v.rule_id.as_deref().is_some_and(counts);
+    results.violations.retain(|v| !finding_counts(v));
+    results.warnings.retain(|v| !finding_counts(v));
+    results.rule_outcomes.retain(|o| !counts(&o.rule_id));
+    results
+        .violations
+        .extend(counted.violations.into_iter().filter(|v| finding_counts(v)));
+    results
+        .warnings
+        .extend(counted.warnings.into_iter().filter(|v| finding_counts(v)));
+    results.rule_outcomes.extend(
+        counted
+            .rule_outcomes
+            .into_iter()
+            .filter(|o| counts(&o.rule_id)),
+    );
+    results.localized_texts.extend(counted.localized_texts);
+}
 
 fn shared_rule(id: &str) -> Option<&'static SharedRule> {
     SHARED_RULES.iter().find(|r| r.id == id)
