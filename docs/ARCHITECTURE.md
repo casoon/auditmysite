@@ -220,7 +220,7 @@ src/
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang
 │   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
-│   ├── page_health/     # dom.rs (DOM inspection, local HTML validation), probes.rs
+│   ├── page_health/     # dom.rs (DOM inspection; HTML validation lives in html_conform), probes.rs
 │   │                    # (HTTP probes), issues.rs (collect_issues)
 │   ├── image_efficiency.rs # Image format and resolution analysis
 │   └── ...
