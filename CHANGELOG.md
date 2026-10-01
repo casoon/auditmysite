@@ -46,7 +46,11 @@ short current-state summary. Newest entries first (unchanged order from before t
   Landmark-Regeln und `headings/none` bleiben beim Hauptdokument. Taxonomie: die Kennungen zeigen
   auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen
   (`headings/none` auf den von `bypass`); neu `a11y.landmark_nested.invalid` und
-  `a11y.accordion_controls.missing` samt Erklaerungstexten.
+  `a11y.accordion_controls.missing` samt Erklaerungstexten. Mit `a11y-rules` 0.17.0. Geprueft mit Unit-Tests, Detection-Corpus, Score-Kalibrierung,
+  Referenzlauf und den Integrationstests zu Frames, Ausschluessen und Landmarks (Chrome) sowie einem
+  Vorher/Nachher-Lauf auf 14 Live-Seiten; Referenzbaender gov.uk (75–95) und bundesregierung.de
+  (35–76) neu bewertet (je +1: Inhalt ausserhalb von Landmarks je Block statt je Textstueck,
+  Dialog-Fokusziel auch in tieferen Nachfahren).
 
 - **Unreleased — Formularregeln aus `a11y-rules` statt eigener (#693, B3):** Die Formular-,
   Kontextwechsel- und Captcha-Pruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
