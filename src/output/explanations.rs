@@ -204,6 +204,11 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     ("names/symbol-only", "aria-label"),
     ("dialog/name-missing", "dialog-name"),
     ("summary/name-missing", "summary-name"),
+    // #693: Die uebrigen Formularkennungen finden ihren Text ueber das
+    // Kriterium (3.3.2, 1.3.5, 3.2.1, 3.2.2) wie die abgeloesten Regeln.
+    ("forms/title-only-label", "label-title-only"),
+    ("forms/group-missing", "form-field-group"),
+    ("forms/error-unidentified", "input-error-message"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -3742,6 +3747,55 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<div role=\"dialog\" aria-labelledby=\"t\">\n  <h2 id=\"t\">Confirm</h2>\n</div>"),
             example_good: Some("<div role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"t\">\n  <h2 id=\"t\">Confirm</h2>\n</div>"),
+            example_decorative: None,
+        },
+    ),
+    // ── Geteilte Kennungen aus #693 (B3) ohne passenden Text ──
+    // `form-no-submit` hatte keinen eigenen Text und nahm den von 3.2.2, der
+    // den Kontextwechsel bei Eingabe beschreibt, nicht das fehlende
+    // Absende-Element.
+    (
+        "forms/no-submit",
+        RuleExplanation {
+            customer_title: "Formular ohne Absende-Element",
+            customer_title_en: "Form without a submit control",
+            customer_description: "Ein Formular sammelt Eingaben, hat aber keinen Button und kein anderes Element, mit dem es ausdrücklich abgeschickt wird.",
+            customer_description_en: "A form collects input but has no button or other control that explicitly submits it.",
+            user_impact: "Ohne Absende-Element bleibt unklar, wann die Eingabe gilt. Wird das Formular stattdessen beim Ändern eines Felds abgeschickt, wechselt der Kontext unangekündigt.",
+            user_impact_en: "Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.",
+            typical_cause: "Filter- und Suchformulare, die per Skript beim Ändern eines Felds abgeschickt werden, oder ein Button außerhalb des Formulars ohne form-Attribut.",
+            typical_cause_en: "Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.",
+            recommendation: "Einen Button type=\"submit\" ins Formular setzen oder per form-Attribut zuordnen. Ändert ein Formular nur Inhalte auf der Seite, genügt eine Prüfung, dass dabei kein Kontextwechsel passiert.",
+            recommendation_en: "Add a button type=\"submit\" to the form or associate one via the form attribute. If a form only changes content on the page, check that no change of context happens.",
+            technical_note: "Ohne action und ohne Textfeld kann nur ein Skript das Formular abschicken; dann ist der Befund ein Prüfhinweis (#728).",
+            technical_note_en: "Without an action and without a text field only script can submit the form; the finding is then a review hint (#728).",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<form action=\"/results\">\n  <input type=\"checkbox\" name=\"open\" id=\"o\"><label for=\"o\">Open only</label>\n</form>"),
+            example_good: Some("<form action=\"/results\">\n  <input type=\"checkbox\" name=\"open\" id=\"o\"><label for=\"o\">Open only</label>\n  <button type=\"submit\">Apply filter</button>\n</form>"),
+            example_decorative: None,
+        },
+    ),
+    // `accessible-auth-captcha` hatte gar keinen Text.
+    (
+        "auth/captcha",
+        RuleExplanation {
+            customer_title: "Captcha im Anmeldeformular prüfen",
+            customer_title_en: "Review CAPTCHA in sign-in form",
+            customer_description: "Ein Anmeldeformular enthält ein Captcha. Ob es ein Objekterkennungstest ist oder eine Alternative ohne Denkaufgabe angeboten wird, muss geprüft werden.",
+            customer_description_en: "A sign-in form contains a CAPTCHA. Whether it is an object-recognition test or an alternative without a cognitive test is offered needs to be checked.",
+            user_impact: "Wer verzerrte Zeichen nicht lesen, abschreiben oder sich merken kann, kommt an der Anmeldung nicht vorbei.",
+            user_impact_en: "People who cannot read, transcribe or remember distorted characters cannot get past the sign-in.",
+            typical_cause: "Ein Text- oder Bildrätsel-Captcha gegen Bots, ohne zweiten Weg.",
+            typical_cause_en: "A text or puzzle CAPTCHA against bots, without a second way in.",
+            recommendation: "Eine Anmeldung ohne Denkaufgabe anbieten, etwa Passkey, E-Mail-Link oder eine Bot-Prüfung ohne Interaktion. Ein Objekterkennungstest ist auf Stufe AA zulässig.",
+            recommendation_en: "Offer a sign-in without a cognitive test, e.g. a passkey, an e-mail link or a non-interactive bot check. An object-recognition test is allowed at level AA.",
+            technical_note: "Prüfhinweis: Art des Tests und Alternativen stehen nicht im Markup. Ein Captcha im Kontaktformular gehört nicht zu 3.3.8.",
+            technical_note_en: "Review hint: the kind of test and any alternatives are not in the markup. A CAPTCHA on a contact form is outside 3.3.8.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<form action=\"/login\">\n  <input type=\"password\" autocomplete=\"current-password\">\n  <img src=\"captcha.png\" alt=\"captcha\">\n</form>"),
+            example_good: None,
             example_decorative: None,
         },
     ),

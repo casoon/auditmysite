@@ -2245,7 +2245,6 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
     for (rule, real) in [
         ("click-events-have-key-events", "div#real-click"),
         ("link-as-button", "a#real-link"),
-        ("identify-purpose", "real-mail"),
     ] {
         let found = rule_selectors(rule);
         assert!(
@@ -2273,7 +2272,19 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
     };
     assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
     assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
-    assert_eq!(excluded("identify-purpose"), 5, "{ex:?}");
+    // The e-mail fields ran under `identify-purpose` (cap 5) until #693.
+    // `forms/purpose-missing` has no cap and reports a review hint: the real
+    // field stays, all six specimens are dropped and counted.
+    assert!(
+        report
+            .accessibility
+            .wcag_results
+            .warnings
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("forms/purpose-missing")),
+        "real e-mail field missing"
+    );
+    assert_eq!(excluded("forms/purpose-missing"), 6, "{ex:?}");
 
     for viewport in ["desktop", "mobile"] {
         let outcome = report

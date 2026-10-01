@@ -5,6 +5,47 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Formularregeln aus `a11y-rules` statt eigener (#693, B3):** Die Formular-,
+  Kontextwechsel- und Captcha-Pruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
+  `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht: `form_rules`,
+  `error_identification`, `input_purpose`, `identify_purpose`, `redundant_entry`,
+  `label_title_only`, `on_focus`, `instructions` und `labels` (`check_form_control`, der letzte
+  Rest der Datei). Im Host bleibt, was die laufende Seite braucht: in `on_input` das Nachschlagen
+  einer aufgerufenen Funktion ueber `window` (Verstoss, wenn erst sie den Kontext wechselt) und die
+  Namensvermutung („Language") ohne Absende-Button, beide weiter unter `input-no-context-change`;
+  in `accessible_authentication` der Einfuege-Test (`accessible-auth-paste-blocked`). Kennungen:
+  `label` „no accessible label" und `control-missing-label` an Formularfeldern →
+  `forms/label-missing` (3.3.2 A); `label` „Placeholder used as only label" →
+  `forms/placeholder-as-label`; `label` „Form group has no legend or label" →
+  `forms/group-name-missing`; `label` „Required field not clearly indicated" und „may not indicate
+  required status" → `forms/required-unmarked`; `label` „may require format instructions" →
+  `forms/instructions-missing` (alle 3.3.2 A); `autocomplete-valid` → `forms/autocomplete-invalid`
+  (ungueltiger Wert) und `forms/purpose-missing` (fehlender Wert, 1.3.5 AA), dazu
+  `identify-purpose` (1.3.6 AAA) → `forms/purpose-missing`; `input-error-message` und
+  `aria-invalid-without-describedby` → `forms/error-unidentified` (3.3.1 A); `form-field-group` →
+  `forms/group-missing` und `label-title-only` → `forms/title-only-label` (1.3.1 A);
+  `form-no-submit` → `forms/no-submit` (3.2.2 A, samt #728); `redundant-entry` →
+  `forms/redundant-entry` (3.3.7 A); `input-no-context-change` (Handler im Markup) →
+  `context/on-input` (3.2.2 A); `focus-no-context-change` → `context/on-focus` und
+  `context/autofocus` (3.2.1 A); `accessible-auth-captcha` → `auth/captcha` (3.3.8 AA). Gewollte
+  Unterschiede (Einzelheiten im Changelog von `a11y-rules` und an den Eintraegen in
+  `SHARED_RULES`): ein fehlendes Label, eine fehlende Fehlerbeschreibung, ein unmarkiertes
+  Pflichtfeld und ein fehlender Eingabezweck stehen einmal statt zweimal im Bericht;
+  `forms/purpose-missing`, `forms/required-unmarked`, `forms/title-only-label`, `context/on-focus`
+  und `context/autofocus` sind Pruefhinweise statt Verstoesse; `forms/autocomplete-invalid` prueft
+  die ganze Autofill-Grammatik und ist niedrig statt mittel; `context/on-input` prueft auch
+  Optionsfelder; `forms/no-submit` zaehlt per `form`-Attribut zugeordnete Felder und Buttons mit;
+  der seitenweite `UNTESTED`-Vermerk zu 1.3.6 entfaellt; ein unbenanntes ARIA-Widget meldet nur
+  noch `names/required-missing` (hoch) statt zusaetzlich `label` (kritisch). Die Formularregeln
+  laufen jetzt auch in Frames, auch die bisher nur im Hauptdokument geprueften
+  (`autocomplete`, Absenden, Wiederholung, Kontextwechsel, Captcha). Taxonomie: alle Kennungen
+  zeigen auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen; neue
+  Erklaerungstexte fuer `forms/no-submit` und `auth/captcha` (beide hatten keinen eigenen). Geprueft
+  mit Unit-Tests, Detection-Corpus und Referenzlauf (Chrome); in der Score-Kalibrierung verlassen
+  `combobox_missing_expanded` und `widget_patterns` das kritische Band (87 statt <= 49), weil
+  das kritische `label` am unbenannten ARIA-Widget entfaellt -- offen. Braucht das
+  naechste `a11y-rules`-Release mit casoon/barrierlab#16.
+
 - **Unreleased — Namensregeln aus `a11y-rules` statt eigener (#692, B2):** Die Pruefungen auf
   fehlende und unzureichende zugaengliche Namen laufen ueber den geteilten Bestand
   (`SHARED_RULES` in `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht:

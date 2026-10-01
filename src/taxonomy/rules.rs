@@ -442,6 +442,30 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("summary/name-missing", "a11y.summary_name.missing"),
     ("status/live-overridden", "a11y.status_messages.broken"),
     ("label-in-name/mismatch", "a11y.label_in_name.invalid"),
+    // ── Geteilte Kennungen aus #693 (B3, Formulare) ──
+    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
+    // weiter aufloest. Die Faelle aus `instructions` liefen alle unter `label`
+    // und damit unter 3.3.2 auf `a11y.form_labels.missing`; dabei bleibt es,
+    // jetzt aber je Kennung als eigene Gruppe.
+    ("forms/label-missing", "a11y.form_labels.missing"),
+    ("forms/placeholder-as-label", "a11y.form_labels.missing"),
+    ("forms/group-name-missing", "a11y.form_labels.missing"),
+    ("forms/required-unmarked", "a11y.form_labels.missing"),
+    ("forms/instructions-missing", "a11y.form_labels.missing"),
+    ("forms/autocomplete-invalid", "a11y.input_purpose.missing"),
+    ("forms/purpose-missing", "a11y.input_purpose.missing"),
+    ("forms/error-unidentified", "a11y.error_description.missing"),
+    ("forms/group-missing", "a11y.form_field_group.missing"),
+    ("forms/title-only-label", "a11y.label_title_only.invalid"),
+    ("forms/no-submit", "a11y.form_no_submit.missing"),
+    (
+        "forms/redundant-entry",
+        "a11y.redundant_entry.missing_reuse",
+    ),
+    ("context/on-input", "a11y.on_input.risk"),
+    ("context/on-focus", "a11y.on_focus.risk"),
+    ("context/autofocus", "a11y.on_focus.risk"),
+    ("auth/captcha", "a11y.accessible_auth.captcha_review"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the

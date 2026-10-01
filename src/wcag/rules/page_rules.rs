@@ -26,27 +26,25 @@ use crate::wcag::Violation;
 
 use super::{
     check_abbreviations_with_page, check_accessible_authentication_with_page,
-    check_background_audio_with_page, check_checkbox_group_with_page,
-    check_content_on_hover_with_page, check_display_modes_with_page,
-    check_fake_navigation_link_with_page, check_focus_not_obscured_enhanced_with_page,
-    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
-    check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_identify_purpose_with_page, check_image_input_rules_with_page,
-    check_input_purpose_with_page, check_language_extended_with_page,
+    check_background_audio_with_page, check_content_on_hover_with_page,
+    check_display_modes_with_page, check_fake_navigation_link_with_page,
+    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
+    check_focus_visible_css_with_page, check_frame_tested_with_page, check_frame_title_with_page,
+    check_image_input_rules_with_page, check_language_extended_with_page,
     check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
-    check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
-    check_orientation_with_page, check_page_titled_with_page, check_pause_stop_hide_with_page,
+    check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
+    check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
     check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_redundant_entry_with_page,
-    check_redundant_role_with_page, check_same_origin_iframes_with_page,
-    check_scrollable_region_focusable_with_page, check_server_side_image_map_with_page,
-    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
-    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_reduced_motion_with_page, check_redundant_role_with_page,
+    check_same_origin_iframes_with_page, check_scrollable_region_focusable_with_page,
+    check_server_side_image_map_with_page, check_table_headers_attr_with_page,
+    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
+    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -113,24 +111,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_scrollable_region_focusable_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "3.2.2/form-no-submit",
-        name: "form-no-submit",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_form_no_submit_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.3.1/form-field-group",
-        name: "form-field-group (checkbox)",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_checkbox_group_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.3.7/redundant-entry",
-        name: "redundant-entry",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_redundant_entry_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "3.3.8/accessible-authentication",
         name: "accessible-authentication",
         min_level: WcagLevel::AA,
@@ -165,12 +145,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "use-of-color",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_use_of_color_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.2.1/on-focus",
-        name: "on-focus context change",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_on_focus_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.2.2/on-input",
@@ -258,12 +232,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
-        rule_id: "1.3.5/autocomplete-valid",
-        name: "autocomplete-valid",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_input_purpose_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "1.3.4/orientation",
         name: "orientation",
         min_level: WcagLevel::AA,
@@ -312,12 +280,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
     },
     // ── Level AAA only ────────────────────────────────────────────────────────
-    PageRuleEntry {
-        rule_id: "1.3.6/identify-purpose",
-        name: "identify-purpose",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_identify_purpose_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "1.4.7/background-audio",
         name: "background-audio",
@@ -450,7 +412,10 @@ mod tests {
         //   (#691) = 29
         // - label-in-name: laeuft als `label-in-name/mismatch` im geteilten
         //   Bestand (#692) = 28
-        assert_eq!(count, 28);
+        // - form-no-submit, form-field-group (Kontrollkaestchen),
+        //   redundant-entry und on-focus: laufen als `forms/*` und
+        //   `context/*` im geteilten Bestand (#693) = 24
+        assert_eq!(count, 24);
     }
 
     #[test]
@@ -493,7 +458,9 @@ mod tests {
         //   abgegeben (#691) = 40.
         // - label-in-name (Level A) in den geteilten Bestand abgegeben
         //   (#692) = 39.
-        assert_eq!(count, 39);
+        // - vier Formularpruefungen (Level A) und autocomplete-valid (1.3.5)
+        //   in den geteilten Bestand abgegeben (#693) = 34.
+        assert_eq!(count, 34);
     }
 
     #[test]

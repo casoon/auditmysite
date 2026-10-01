@@ -448,7 +448,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
     // Ersetzt `check_link` und `check_button` aus `wcag::rules::labels`
-    // (axe-Kennung `control-missing-label`); `check_form_control` bleibt dort.
+    // (axe-Kennung `control-missing-label`); `check_form_control` ist seit
+    // #693 `forms/label-missing` und `names/required-missing`.
     // Beide Seiten fragen den Accessible Name: die eigene Regel den aus
     // Chromes AX-Baum, die geteilte den aus `CdpDocument`, der auf denselben
     // AX-Baum zurückgreift.
@@ -695,8 +696,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // gewollt:
     //
     // - Unbenannte Buttons und Links melden `buttons/name-missing` und
-    //   `links/name-missing`, ein Formularfeld ganz ohne Beschriftung die
-    //   eigene `label`-Regel; hier steht nur das Feld, dessen Beschriftung
+    //   `links/name-missing`, ein Formularfeld ganz ohne Beschriftung
+    //   `forms/label-missing`; hier steht nur das Feld, dessen Beschriftung
     //   behauptet ist, aber leer ausgeht (`<label for>` ohne Text).
     // - `menu` und `tab` sind kein Befund mehr: ARIA 1.2 verlangt für beide
     //   keinen Namen. Ebenso die native `<option>`.
@@ -788,6 +789,193 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Label in Name",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html",
+    },
+    // ── Formularregeln aus #693 (B3) ──
+    //
+    // Kriterium und Stufe wie bei den abgelösten Regeln, auch wo
+    // `a11y-rules` mehrere Kriterien führt; die Schwere setzt `a11y-rules`.
+    // Einzelheiten und alle Abweichungen im Changelog von `a11y-rules`
+    // (casoon/barrierlab#16).
+
+    // Ersetzt aus `wcag::rules::instructions` den Fall „no accessible label"
+    // (`label`, 3.3.2, kritisch) und `wcag::rules::labels::check_form_control`
+    // (`control-missing-label`, 4.1.2, hoch) -- dasselbe Feld stand bisher
+    // zweimal im Bericht, jetzt einmal unter 3.3.2. Ein Unterschied, gewollt:
+    // Die geteilte Regel prüft native Felder auf eine Beschriftungsquelle
+    // (`<label>`, `aria-label`, `aria-labelledby`, `title`). ARIA-Widgets
+    // ohne Namen, ein leeres oder ins Leere zeigendes `aria-labelledby` und
+    // ein leeres `<label for>` meldet `names/required-missing`.
+    SharedRule {
+        id: "forms/label-missing",
+        criterion: "3.3.2",
+        level: WcagLevel::A,
+        name: "Labels or Instructions (Missing Label)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
+    },
+    // Ersetzt aus `instructions` den Fall „Placeholder used as only label".
+    // Die eigene Regel las Chromes `name_source`, die geteilte das Markup:
+    // `placeholder` ohne `<label>`, `aria-label` oder `aria-labelledby`. Ein
+    // Feld mit `title` und `placeholder` meldet sie hier, nicht unter
+    // `forms/title-only-label`.
+    SharedRule {
+        id: "forms/placeholder-as-label",
+        criterion: "3.3.2",
+        level: WcagLevel::A,
+        name: "Labels or Instructions (Placeholder as Label)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
+    },
+    // Ersetzt aus `wcag::rules::input_purpose` (`autocomplete-valid`) den
+    // ungültigen Wert. Gewollt anders: Geprüft wird die ganze Grammatik des
+    // HTML-Standards (`section-*`, `shipping`/`billing`, Kontaktart,
+    // `webauthn`), nicht nur das letzte Token, und die Schwere ist niedrig
+    // statt mittel.
+    SharedRule {
+        id: "forms/autocomplete-invalid",
+        criterion: "1.3.5",
+        level: WcagLevel::AA,
+        name: "Identify Input Purpose (Invalid Autocomplete)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/identify-input-purpose.html",
+    },
+    // Ersetzt aus `input_purpose` das fehlende `autocomplete`
+    // (`autocomplete-valid`, Verstoß) und `wcag::rules::identify_purpose`
+    // (`identify-purpose`, 1.3.6 AAA, niedrig), die dieselben Felder nach
+    // `id`/`name` ein zweites Mal meldete. Gewollt anders: `REVIEW` statt
+    // Verstoß -- ob ein Feld die Person betrifft, ist aus Beschriftung, `id`
+    // und `name` geraten --, und einmal unter 1.3.5 AA. Der seitenweite
+    // `UNTESTED`-Vermerk aus `identify_purpose` (1.3.6 für Symbole und
+    // Bereiche) entfällt.
+    SharedRule {
+        id: "forms/purpose-missing",
+        criterion: "1.3.5",
+        level: WcagLevel::AA,
+        name: "Identify Input Purpose",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/identify-input-purpose.html",
+    },
+    // Ersetzt `input-error-message` aus `wcag::rules::form_rules` und
+    // `wcag::rules::error_identification` (`aria-invalid-without-describedby`),
+    // die dasselbe Feld zweimal meldeten. Als Beschreibung zählen
+    // `aria-describedby` und `aria-errormessage` mit Text; ein verstecktes
+    // oder fehlendes Ziel gilt als Beschreibung (das Fehlen meldet
+    // `aria/reference-missing`).
+    SharedRule {
+        id: "forms/error-unidentified",
+        criterion: "3.3.1",
+        level: WcagLevel::A,
+        name: "Error Identification",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html",
+    },
+    // Ersetzt `form-field-group` aus `form_rules`, den AX-Teil (Optionsfelder)
+    // und den DOM-Teil (gleichnamige Kontrollkästchen, #643). Gruppe ist ein
+    // `<fieldset>`, `<details>` oder `role="group"`/`"radiogroup"` als
+    // Vorfahre.
+    SharedRule {
+        id: "forms/group-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Form Field Group)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt aus `instructions` den Fall „Form group has no legend or label"
+    // (`label`). Ein unbenanntes `radiogroup` meldet nicht mehr diese Regel,
+    // sondern `names/required-missing`.
+    SharedRule {
+        id: "forms/group-name-missing",
+        criterion: "3.3.2",
+        level: WcagLevel::A,
+        name: "Labels or Instructions (Group Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
+    },
+    // Ersetzt „Required field not clearly indicated" aus `instructions` und
+    // „may not indicate required status" aus `form_rules` (beide `label`),
+    // die dasselbe Feld zweimal meldeten. Gewollt anders: `REVIEW` statt
+    // Verstoß und einmal -- der Screenreader sagt das Pflichtfeld an; ob es
+    // sichtbar gekennzeichnet ist, sieht nur ein Mensch.
+    SharedRule {
+        id: "forms/required-unmarked",
+        criterion: "3.3.2",
+        level: WcagLevel::A,
+        name: "Labels or Instructions (Required Field)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
+    },
+    // Ersetzt „may require format instructions" aus `instructions` (`label`,
+    // `REVIEW`) samt den Korrekturen aus #643 und #656.
+    SharedRule {
+        id: "forms/instructions-missing",
+        criterion: "3.3.2",
+        level: WcagLevel::A,
+        name: "Labels or Instructions (Format Instructions)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
+    },
+    // Ersetzt `wcag::rules::label_title_only` (`label-title-only`). Gewollt
+    // anders: `REVIEW` statt Verstoß -- `title` ist eine zulässige Technik
+    // (H65).
+    SharedRule {
+        id: "forms/title-only-label",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Title-Only Label)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `form-no-submit` aus `form_rules`, samt der Korrektur aus #728
+    // (ohne `action` und ohne Textfeld nur `REVIEW`, niedrig). Neu: Felder
+    // und Buttons, die per `form`-Attribut außerhalb stehen, zählen mit.
+    SharedRule {
+        id: "forms/no-submit",
+        criterion: "3.2.2",
+        level: WcagLevel::A,
+        name: "On Input (Form Without Submit)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-input.html",
+    },
+    // Ersetzt `wcag::rules::redundant_entry` (`redundant-entry`), `REVIEW`
+    // wie bisher.
+    SharedRule {
+        id: "forms/redundant-entry",
+        criterion: "3.3.7",
+        level: WcagLevel::A,
+        name: "Redundant Entry",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/redundant-entry.html",
+    },
+    // Ersetzt aus `wcag::rules::on_input` (`input-no-context-change`) das
+    // Urteil über den Handlertext im Markup. Neu: auch Optionsfelder mit
+    // `onchange` (F37). In `on_input` bleiben, weil sie die laufende Seite
+    // brauchen: der Quelltext einer aufgerufenen Funktion über `window` und
+    // die Namensvermutung („Language") ohne Absende-Button.
+    SharedRule {
+        id: "context/on-input",
+        criterion: "3.2.2",
+        level: WcagLevel::A,
+        name: "On Input",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-input.html",
+    },
+    // Ersetzen `wcag::rules::on_focus` (`focus-no-context-change`), das
+    // `onfocus` und das `autofocus` jetzt unter je eigener Kennung. Gewollt
+    // anders: beide `REVIEW` statt Verstoß -- ob ein `onfocus` den Kontext
+    // wechselt, steht nicht im Markup, und `autofocus` wechselt ihn für sich
+    // genommen nicht. Schwere wie bisher (hoch, mittel).
+    SharedRule {
+        id: "context/on-focus",
+        criterion: "3.2.1",
+        level: WcagLevel::A,
+        name: "On Focus",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-focus.html",
+    },
+    SharedRule {
+        id: "context/autofocus",
+        criterion: "3.2.1",
+        level: WcagLevel::A,
+        name: "On Focus (Autofocus)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-focus.html",
+    },
+    // Ersetzt das Captcha aus `wcag::rules::accessible_authentication`
+    // (`accessible-auth-captcha`, `REVIEW`). Der Einfüge-Test an Passwort-
+    // und Einmalcode-Feldern braucht die laufende Seite und bleibt dort.
+    SharedRule {
+        id: "auth/captcha",
+        criterion: "3.3.8",
+        level: WcagLevel::AA,
+        name: "Accessible Authentication (Minimum)",
+        help_url:
+            "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
     },
 ];
 
@@ -1120,8 +1308,8 @@ mod tests {
         let label = r
             .rule_outcomes
             .iter()
-            .find(|o| o.rule_id == "forms/label-missing")
-            .expect("Vermerk zu forms/label-missing");
+            .find(|o| o.rule_id == "links/generic-name")
+            .expect("Vermerk zu links/generic-name");
         assert!(crate::wcag::rule_run_skipped(label));
         assert_eq!(label.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
     }

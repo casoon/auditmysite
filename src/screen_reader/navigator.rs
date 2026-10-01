@@ -96,7 +96,7 @@ const IDENTIFICATION_AUTOCOMPLETE_TOKENS: &[&str] = &[
 fn is_identification_control(states: &[String]) -> bool {
     // The HTML autofill spec allows multi-token autocomplete values (e.g.
     // "section-billing new-password") — the actual field purpose is always
-    // the last token, matching `wcag::rules::input_purpose`'s handling.
+    // the last token.
     state_value(states, "autocomplete").is_some_and(|value| {
         let last_token = value.split_whitespace().last().unwrap_or("");
         IDENTIFICATION_AUTOCOMPLETE_TOKENS.contains(&last_token)

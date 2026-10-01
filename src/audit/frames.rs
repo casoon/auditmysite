@@ -36,12 +36,12 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
-/// relationships: names (images, links, form fields), redundant
-/// descriptions, form structure, table headers and keyboard reachability.
-/// Roles, their required parents and children and ambiguous `aria-owns` run
-/// as shared rules since #691, the names of dialogs, summaries and
-/// role-based widgets, label-in-name and live-region roles since #692 (see
-/// [`FRAME_SHARED_RULES`]).
+/// relationships: names (images, links), redundant descriptions, table
+/// headers and keyboard reachability. Roles, their required parents and
+/// children and ambiguous `aria-owns` run as shared rules since #691, the
+/// names of dialogs, summaries and role-based widgets, label-in-name and
+/// live-region roles since #692, form labels, structure and errors since
+/// #693 (see [`FRAME_SHARED_RULES`]).
 ///
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `bypass`, `region`, the `landmark-*` rules,
@@ -51,13 +51,9 @@ pub const FRAME_TREE_RULES: &[&str] = &[
     "image-alt",
     "keyboard",
     "link-name",
-    "label",
-    "aria-invalid-without-describedby",
     "description-duplicates-name",
-    "form-field-group",
     "video-caption",
     "th-has-data-cells",
-    "label-title-only",
 ];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
@@ -65,6 +61,12 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// frame's `lang` stays with `iframe_rules`' `html-has-lang`),
 /// `document/title-*`, `headings/h1-*`, `headings/skip-level`, `zoom/*`,
 /// `landmarks/*` and `keyboard/skip-link-missing`.
+///
+/// The form rules (#693) judge single fields and forms and run in frames —
+/// an embedded sign-in or contact form is the usual case. Before #693 only
+/// the tree-based ones did (labels, groups, errors, title-only labels); the
+/// DOM-based ones (`autocomplete`, submit, redundant entry, context change,
+/// CAPTCHA) ran in the top frame only.
 pub const FRAME_SHARED_RULES: &[&str] = &[
     "headings/empty",
     "ids/duplicate",
@@ -106,6 +108,22 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "summary/name-missing",
     "status/live-overridden",
     "label-in-name/mismatch",
+    "forms/label-missing",
+    "forms/placeholder-as-label",
+    "forms/autocomplete-invalid",
+    "forms/purpose-missing",
+    "forms/error-unidentified",
+    "forms/group-missing",
+    "forms/group-name-missing",
+    "forms/required-unmarked",
+    "forms/instructions-missing",
+    "forms/title-only-label",
+    "forms/no-submit",
+    "forms/redundant-entry",
+    "context/on-input",
+    "context/on-focus",
+    "context/autofocus",
+    "auth/captcha",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -589,7 +607,7 @@ mod tests {
         ] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in ["description-duplicates-name", "label", "image-alt"] {
+        for element in ["description-duplicates-name", "link-name", "image-alt"] {
             assert!(filter.should_run(element), "{element}");
         }
     }
@@ -597,11 +615,11 @@ mod tests {
     #[test]
     fn frame_filter_respects_user_filter_and_never_widens_to_all() {
         let user = RuleFilterConfig {
-            disabled_rules: vec!["label".into()],
+            disabled_rules: vec!["link-name".into()],
             enabled_only_rules: Vec::new(),
         };
         let filter = frame_rule_filter(&user).unwrap();
-        assert!(!filter.should_run("label"));
+        assert!(!filter.should_run("link-name"));
         assert!(filter.should_run("image-alt"));
 
         // Only page-level rules enabled: nothing to run in frames. An empty

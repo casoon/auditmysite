@@ -1,7 +1,7 @@
 {
   "case": "form_heuristics_clean",
   "expectations": [
-    { "rule_id": "form-field-group", "verdict": "pass" },
-    { "rule_id": "label", "verdict": "pass" }
+    { "rule_id": "forms/group-missing", "verdict": "pass" },
+    { "rule_id": "forms/label-missing", "verdict": "pass" }
   ]
 }

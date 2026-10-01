@@ -11,24 +11,17 @@ mod click_handlers;
 mod content_on_hover;
 mod contrast;
 mod display_modes;
-mod error_identification;
 mod fake_navigation_link;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
 mod focus_visible;
 mod focus_visible_css;
-mod form_rules;
 mod help;
 mod html_content_model;
-mod identify_purpose;
 mod iframe_rules;
 mod image_input_rules;
 mod info_relationships;
-mod input_purpose;
-mod instructions;
 mod keyboard;
-mod label_title_only;
-mod labels;
 mod landmark_granular;
 mod language_extended;
 mod language_of_parts;
@@ -43,7 +36,6 @@ mod motion_actuation;
 mod no_interruptions;
 mod no_timing;
 mod non_text_contrast_css;
-mod on_focus;
 mod on_input;
 mod orientation;
 mod page_rules;
@@ -53,7 +45,6 @@ mod pointer_cancellation;
 mod pointer_gestures;
 mod re_authenticate;
 mod reduced_motion;
-mod redundant_entry;
 mod redundant_role;
 mod reflow;
 mod region;
@@ -82,26 +73,17 @@ pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
     DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE, DISPLAY_TOGGLE_MISSING_RULE,
 };
-pub use error_identification::check_error_identification;
 pub use fake_navigation_link::check_fake_navigation_link_with_page;
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_visible::check_focus_visible;
 pub use focus_visible_css::check_focus_visible_css_with_page;
-pub use form_rules::{
-    check_checkbox_group_with_page, check_form_no_submit_with_page, check_form_rules,
-};
 pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
-pub use identify_purpose::check_identify_purpose_with_page;
 pub use iframe_rules::check_same_origin_iframes_with_page;
 pub use image_input_rules::check_image_input_rules_with_page;
 pub use info_relationships::check_presentation_semantic_children_with_page;
-pub use input_purpose::check_input_purpose_with_page;
-pub use instructions::check_instructions;
 pub use keyboard::check_keyboard;
-pub use label_title_only::check_label_title_only;
-pub use labels::check_labels;
 pub use landmark_granular::{
     check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
@@ -123,7 +105,6 @@ pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;
 pub use no_timing::check_no_timing_with_page;
 pub use non_text_contrast_css::check_non_text_contrast_css_with_page;
-pub use on_focus::check_on_focus_with_page;
 pub use on_input::check_on_input_with_page;
 pub use orientation::check_orientation_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};
@@ -133,7 +114,6 @@ pub use pointer_cancellation::check_pointer_cancellation_with_page;
 pub use pointer_gestures::check_pointer_gestures_with_page;
 pub use re_authenticate::check_re_authenticate_with_page;
 pub use reduced_motion::check_reduced_motion_with_page;
-pub use redundant_entry::check_redundant_entry_with_page;
 pub use redundant_role::check_redundant_role_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use region::check_region;

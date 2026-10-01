@@ -7,18 +7,16 @@ use tracing::{debug, info};
 pub use super::rules::{
     check_abbreviations_with_page, check_background_audio_with_page,
     check_click_handlers_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_identify_purpose_with_page, check_location_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
-    check_orientation_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
-    check_visual_presentation_with_page,
+    check_focus_visible_css_with_page, check_location_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
+    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
+    check_re_authenticate_with_page, check_reduced_motion_with_page, check_reflow_with_page,
+    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use super::rules::{
-    check_accessible_name, check_bypass_blocks, check_error_identification, check_focus_visible,
-    check_form_rules, check_help, check_instructions, check_keyboard, check_label_title_only,
-    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_accessible_name, check_bypass_blocks, check_focus_visible, check_help, check_keyboard,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
     check_link_purpose_link_only, check_media_rules, check_region, check_section_headings,
@@ -199,17 +197,10 @@ fn run_level_a_rules(
     // 3.1.1 xml:lang-Abgleich laeuft weiter als DOM-Page-Rule
     // (check_language_extended_with_page in PAGE_RULES).
 
-    // 3.3.2 Labels or Instructions (Level A)
-    run_if_allowed!(filter, "label", check_instructions, results, tree);
-
-    // 3.3.1 Error Identification (Level A)
-    run_if_allowed!(
-        filter,
-        "aria-invalid-without-describedby",
-        check_error_identification,
-        results,
-        tree
-    );
+    // 3.3.2 Labels or Instructions und 3.3.1 Error Identification laufen als
+    // `forms/*` im geteilten Bestand (#693): fehlende Beschriftung,
+    // Platzhalter als Beschriftung, Pflichtfeld, Formatangabe, Gruppenname,
+    // Fehlerbeschreibung.
 
     // 2.4.3 Focus Order: fokussierbar trotz `aria-hidden` laeuft als
     // `keyboard/hidden-focusable` im geteilten Bestand (siehe wcag::shared),
@@ -218,12 +209,13 @@ fn run_level_a_rules(
     // 2.5.3 Label in Name laeuft als `label-in-name/mismatch` im geteilten
     // Bestand (#692).
 
-    // 3.2.1 On Focus and 3.2.2 On Input now run as DOM page rules
-    // (check_on_focus_with_page / check_on_input_with_page in PAGE_RULES) —
-    // onfocus/onchange/autofocus are HTML attributes, never AX properties (#QA-030).
+    // 3.2.1 On Focus und 3.2.2 On Input laufen als `context/*` im geteilten
+    // Bestand (#693). Was eine laufende Seite braucht -- den Quelltext einer
+    // aufgerufenen Funktion ueber `window` --, bleibt als DOM-Page-Rule
+    // `check_on_input_with_page` in PAGE_RULES.
 
-    // 4.1.2 Name, Role, Value (Level A)
-    run_if_allowed!(filter, "label", check_labels, results, tree);
+    // 4.1.2 Formularfelder ohne Namen laufen als `forms/label-missing` und
+    // `names/required-missing` im geteilten Bestand (#693).
 
     // 4.1.2 ARIA: Rollen, Attributnamen und -werte, erlaubte und verbotene
     // Attribute, Kontext und Bestandteile laufen als `aria/*` im geteilten
@@ -250,8 +242,8 @@ fn run_level_a_rules(
     // 4.1.2 Rollen mit Namenspflicht laufen als `names/required-missing` im
     // geteilten Bestand (#692).
 
-    // 1.3.1 / 3.3.1 / 3.3.2 Form Rules (Level A) - P1
-    run_if_allowed!(filter, "form-field-group", check_form_rules, results, tree);
+    // 1.3.1 / 3.3.1 / 3.3.2 Formularstruktur laeuft als `forms/*` im
+    // geteilten Bestand (#693).
 
     // 4.1.2 Dialoge laufen als `dialog/name-missing` und
     // `dialog/modal-unmarked` im geteilten Bestand (#692).
@@ -327,14 +319,8 @@ fn run_level_a_rules(
     // 4.1.2 `<summary>` laeuft als `summary/name-missing` im geteilten
     // Bestand (#692).
 
-    // 1.3.1 Label Title Only (Level A)
-    run_if_allowed!(
-        filter,
-        "label-title-only",
-        check_label_title_only,
-        results,
-        tree
-    );
+    // 1.3.1 Beschriftung nur per `title` laeuft als `forms/title-only-label`
+    // im geteilten Bestand (#693).
 
     // 4.1.2 Mehrdeutiges `aria-owns` laeuft als `aria/owns-conflict` im
     // geteilten Bestand (#691).
@@ -345,9 +331,8 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
     // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
-    // 1.3.5 Identify Input Purpose now runs as a DOM page rule
-    // (check_input_purpose_with_page in PAGE_RULES) — the AX tree carries
-    // `aria-autocomplete`, not the HTML `autocomplete` attribute.
+    // 1.3.5 Identify Input Purpose laeuft als `forms/autocomplete-invalid`
+    // und `forms/purpose-missing` im geteilten Bestand (#693).
 
     // 1.4.4 Resize Text: der Viewport laeuft als `zoom/*` im geteilten
     // Bestand -- der AX-Baum hat keine `viewport`-Eigenschaft (#QA-030).

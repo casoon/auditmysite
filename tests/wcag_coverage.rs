@@ -14,12 +14,11 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_bypass_blocks, check_focus_visible, check_form_rules,
-    check_instructions, check_keyboard, check_labels, check_landmark_banner_is_top_level,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
-    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
-    check_landmark_unique, check_link_purpose, check_media_rules, check_section_headings,
-    check_table_extended, check_text_alternatives,
+    check_accessible_name, check_bypass_blocks, check_focus_visible, check_keyboard,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
+    check_media_rules, check_section_headings, check_table_extended, check_text_alternatives,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -76,10 +75,7 @@ rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
-rule_smoke_test!(smoke_check_instructions, check_instructions);
-rule_smoke_test!(smoke_check_labels, check_labels);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
-rule_smoke_test!(smoke_check_form_rules, check_form_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);
 rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
 rule_smoke_test!(
@@ -423,8 +419,8 @@ const REAL_CDP_PROPERTIES: &[&str] = &[
     // - "language": populated on RootWebArea even without an author lang
     //   attribute (the root cause of #QA-001's false negative).
     // - "htmlTag": confirmed live via summary_name.rs (<details>/<summary>,
-    //   since #692 a shared rule) and instructions.rs (<fieldset> without a
-    //   submitted DOM check).
+    //   since #692 a shared rule) and instructions.rs (<fieldset>, since #693
+    //   a shared rule); read today by landmark_granular.rs.
     // - "url": a link's href target (landmark_granular.rs / region.rs).
     "language",
     "htmlTag",
@@ -435,20 +431,11 @@ const REAL_CDP_PROPERTIES: &[&str] = &[
 /// priority, intentionally tolerated rather than silently broken. Each is a
 /// harmless redundant branch alongside a working primary check, or a
 /// tracked, deliberately-deferred item — not a silent gap.
-const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[
-    (
-        "placeholder",
-        "instructions.rs's has_format_hint fallback — the primary \
-         placeholder-only-label detection now uses name_source (#QA-030)",
-    ),
-    (
-        "title",
-        "label_title_only.rs's fallback heuristic (name_source unavailable) — \
-         a real DOM `title` attribute read would need a page.evaluate \
-         conversion; the primary name_source==Title path already covers the \
-         common case",
-    ),
-];
+///
+/// Empty since #693: both entries (`placeholder` in instructions.rs,
+/// `title` in label_title_only.rs) left with their files for the shared
+/// `forms/*` rules, which read the attributes from the DOM.
+const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[];
 
 /// Scan `content` for `.<method>("<name>")` calls and return every extracted
 /// `name`. Deliberately simple substring scanning (no regex dependency) —
@@ -637,18 +624,10 @@ fn extract_rule_metadata_entries(file: &str, content: &str) -> Vec<RuleMetaEntry
 // a dedicated taxonomy `Rule` + `LEGACY_WCAG_MAP` entry, so the "mixed
 // severity in one group" premise these exceptions documented no longer
 // applies — removed as directed by this test's own staleness check.
-// "3.3.2" remains: instructions.rs/form_rules.rs *intentionally* share one
-// axe_id ("label") for several related sub-checks with varying per-call
-// severity — that is a real, still-current mix, not a grouping bug.
-const ALLOWED_MIXED_SEVERITY_GROUPS: &[(&str, &str)] = &[(
-    "3.3.2",
-    "instructions.rs (High) vs. form_rules.rs's RULE_META_LABELS (Low) — \
-     both intentionally share axe_id \"label\" for several related WCAG \
-     3.3.2 sub-checks (missing label, placeholder-only, no required-field \
-     indication, missing fieldset/legend) that legitimately carry \
-     different severities; tracked under QA-009's remaining scope, not a \
-     grouping-mechanism bug.",
-)];
+// "3.3.2" was the last one: instructions.rs/form_rules.rs shared the axe_id
+// "label" with differing severities. Both left for the shared `forms/*`
+// rules in #693, each with its own taxonomy group.
+const ALLOWED_MIXED_SEVERITY_GROUPS: &[(&str, &str)] = &[];
 
 #[test]
 fn no_undocumented_severity_collisions_in_group_key_mechanism() {
@@ -669,9 +648,11 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
         all_entries.extend(extract_rule_metadata_entries(&file_name, &content));
     }
 
+    // Sanity floor, not a pin: the count shrinks as rules move to the shared
+    // `a11y-rules` bestand (#693 left 77).
     assert!(
-        all_entries.len() >= 90,
-        "Expected ~105 RuleMetadata declarations across src/wcag/rules/, found {}. \
+        all_entries.len() >= 70,
+        "Expected ~77 RuleMetadata declarations across src/wcag/rules/, found {}. \
          The parser in extract_rule_metadata_entries may have broken (field \
          layout changed?) — verify before trusting this test's other assertions.",
         all_entries.len()
