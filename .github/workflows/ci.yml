@@ -35,7 +35,7 @@ jobs:
     name: Check & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -62,7 +62,7 @@ jobs:
     name: Check & Test (all features)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -96,7 +96,7 @@ jobs:
     name: PDF Smoke Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -157,7 +157,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Build the docs the way docs.rs will
         uses: rust-lang/docs.rs/github-actions/build@6b0955898af88db642c5ce7420d9dbef2c65d5d9
@@ -168,7 +168,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -180,7 +180,7 @@ jobs:
     name: Unused Dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -195,7 +195,7 @@ jobs:
     name: Dependency Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -213,7 +213,7 @@ jobs:
     name: Mocked Integration Tests (no Chrome)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -271,7 +271,7 @@ jobs:
     name: Browser Integration Tests (E2E)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
