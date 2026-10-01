@@ -14,13 +14,12 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_aria_naming_rules, check_aria_roles, check_bypass_blocks,
-    check_dialog_rules, check_focus_visible, check_form_rules, check_instructions, check_keyboard,
-    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_accessible_name, check_aria_naming_rules, check_bypass_blocks, check_dialog_rules,
+    check_focus_visible, check_form_rules, check_instructions, check_keyboard, check_labels,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
     check_media_rules, check_section_headings, check_table_extended, check_text_alternatives,
-    check_widget_rules,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -79,12 +78,10 @@ rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
 rule_smoke_test!(smoke_check_labels, check_labels);
-rule_smoke_test!(smoke_check_aria_roles, check_aria_roles);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
 rule_smoke_test!(smoke_check_aria_naming_rules, check_aria_naming_rules);
 rule_smoke_test!(smoke_check_form_rules, check_form_rules);
 rule_smoke_test!(smoke_check_dialog_rules, check_dialog_rules);
-rule_smoke_test!(smoke_check_widget_rules, check_widget_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);
 rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
 rule_smoke_test!(

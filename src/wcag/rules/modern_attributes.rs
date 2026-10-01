@@ -1,4 +1,11 @@
 //! DOM checks for modern interaction attributes (`popover`, `inert`).
+//!
+//! Das Popover-Ziel (`popover/target-missing`, `popover/target-invalid`) und
+//! der inerte Dialog (`inert/dialog-inert`) laufen seit #691 im geteilten
+//! Bestand (siehe `wcag::shared`). Hier bleibt, was dort keine Entsprechung
+//! hat: der fehlende Name offener Dialoge, Menüs und Popover, das offene
+//! Popover mit `inert` und der Fokus in einem inerten Teilbaum -- Letzteres
+//! braucht das aktive Element der laufenden Seite.
 
 use chromiumoxide::Page;
 use tracing::warn;
@@ -55,16 +62,6 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
           });
         };
 
-        document.querySelectorAll('[popovertarget]').forEach(trigger => {
-          const id = trigger.getAttribute('popovertarget');
-          const target = id ? document.getElementById(id) : null;
-          if (!target) {
-            push(trigger, 'popover_target_missing', 'Popover trigger references a missing target', 'popovertarget', id || '');
-          } else if (!target.hasAttribute('popover')) {
-            push(trigger, 'popover_target_invalid', 'Popover trigger references an element without the popover attribute', 'popovertarget', id);
-          }
-        });
-
         document.querySelectorAll('[popover], dialog, [role="dialog"], [role="menu"]').forEach(el => {
           const isOpenPopover = el.matches('[popover]:popover-open');
           const isOpenDialog = el.matches('dialog[open]');
@@ -73,8 +70,11 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
           if ((isOpenPopover || isOpenDialog || isAriaDialog || isMenu) && !accessibleName(el)) {
             push(el, 'interactive_surface_missing_name', 'Open dialog, menu, or popover has no accessible name', 'aria-label', null);
           }
-          if ((isOpenPopover || isOpenDialog || isAriaDialog || isMenu) && el.hasAttribute('inert')) {
-            push(el, 'active_surface_inert', 'Active dialog, menu, or popover is marked inert', 'inert', '');
+          // Der inerte Dialog ist `inert/dialog-inert`, das sichtbare Menue
+          // mit `inert` bewusst kein Befund mehr (#691); das offene Popover
+          // deckt die geteilte Regel nicht ab.
+          if (isOpenPopover && el.hasAttribute('inert')) {
+            push(el, 'active_surface_inert', 'Open popover is marked inert', 'inert', '');
           }
         });
 

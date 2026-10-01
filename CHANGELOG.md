@@ -5,6 +5,39 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — ARIA-Regeln aus `a11y-rules` statt eigener (#691, B1):** Die ARIA-Pruefungen
+  laufen ueber den geteilten Bestand (`SHARED_RULES` in `src/wcag/shared.rs`, alle unter 4.1.2
+  A), die abgeloesten eigenen Regeln sind geloescht: `aria_allowed_attr`, `aria_prohibited_attr`,
+  `aria_valid_attr_value`, `aria_required_parent`, `parsing`, `aria_roles`, `widget_rules`, die
+  Popover- und Dialog-Teile von `modern_attributes` und die Tab-Meldung aus `patterns::tab_list`.
+  Kennungen: `aria-roles` → `aria/role-invalid` (neu dazu `aria/role-abstract`) und, fuer die
+  Bestandteile, `aria/required-children-missing`; `aria-attr-name-invalid` →
+  `aria/attribute-unknown`; `aria-valid-attr-value` → `aria/attribute-value-invalid` (die
+  IDREF-Haelfte ist `aria/reference-missing`); `duplicate-id-aria` → `aria/owns-conflict`;
+  `aria-allowed-attr` → `aria/attribute-not-allowed`; `aria-prohibited-attr` →
+  `aria/attribute-prohibited`; `aria-required-parent` → `aria/required-parent-missing`;
+  `aria-tab-selected-state` und `tab-no-aria-selected` → `aria/tab-selected-missing`;
+  `aria-tablist-tabpanel` → `aria/tabpanel-missing`; `aria-combobox-options` →
+  `aria/combobox-popup-missing`; aus `modern-attribute-misuse` → `popover/target-missing`,
+  `popover/target-invalid`, `inert/dialog-inert`. Gewollte Unterschiede (Einzelheiten im
+  Changelog von `a11y-rules` und an den Eintraegen in `SHARED_RULES`): Kontext und Bestandteile
+  werden am DOM geprueft -- `ul[role=tablist] > li > a[role=tab]` (#715) meldet jetzt wie axe
+  fehlende Bestandteile an der Tabliste und fehlenden Kontext am Tab; erlaubte und verbotene
+  Attribute urteilen ueber die implizite Rolle mit (`<div aria-expanded>` ist ein Befund);
+  Bestandteile nur fuer Behaelter mit expliziter Rolle, die native Tabelle nur mit `<caption>`
+  ist kein Befund mehr; fehlender ausgewaehlter Tab und fehlendes Tab-Panel sind Pruefhinweise,
+  der Tab-Hinweis steht einmal an der Tabliste statt je Tab; unbekannte Werte von `aria-current`
+  und `aria-invalid` sind kein Befund; das sichtbare `role="menu"` mit `inert` ist keiner mehr.
+  In `modern_attributes` bleiben der fehlende Name offener Dialoge, Menues und Popover, das offene
+  Popover mit `inert` und der Fokus in einem inerten Teilbaum. Chromes eigene Rollennamen
+  erreichen die geteilten Regeln nicht mehr (`CdpDocument`): `image` wird `img`, die gross
+  geschriebenen (`LayoutTable*`, `DescriptionList`, `LabelText`, ...) werden zu „keine Rolle" --
+  sonst blieb `role="img"` ohne Attributurteil und brach eine Layouttabelle jede Kontextpruefung
+  ueber ihr ab. Neuer Taxonomie-Eintrag `a11y.tab_selected.missing`; die uebrigen Kennungen zeigen
+  auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen. Erklaerungen
+  und Detection-Corpus sind nachgezogen. Geprueft mit Unit-Tests und dem Detection-Corpus (Chrome),
+  darin der #715-Fall im iframe. Referenzbaender bundesregierung.de (35–65), berlin.de (15–48) und dm.de (15–48) neu bewertet: eingeklapptes `aria-controls` ohne Ziel ist kein Befund mehr (dm.de), Tab-Auswahl nur noch einmal je Tablist (ARIA SHOULD), Swiper-Listen als `lists/invalid-structure` (Medium) statt `aria-roles` (High) — a11y-rules 0.14.1 faengt `li[role=group]` dafuer wieder ab.
+
 - **1.7.2, 2026-09-30:** Fehlalarm-Korrekturen und Luecken aus dem axe-Gegencheck der
   barrierlab.eu-Erhebung (21 EU-Portale) und aus geographia.eu: Zielgroesse nur fuer sichtbare
   Ziele im fertigen Layout (#705, #706), Ausschluesse auch in der Screenreader-Schicht und im Cache

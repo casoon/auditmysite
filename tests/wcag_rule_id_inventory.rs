@@ -27,7 +27,7 @@ fn wcag_rule_id_inventory_is_non_trivial() {
     }
 }
 
-/// Spot-checks one id from each of the three registration shapes, so a
+/// Spot-checks one id from each of the registration shapes, so a
 /// scan regression that happens to still clear the sanity floor above
 /// (e.g. one extractor silently breaking while another compensates) is
 /// still caught.
@@ -44,9 +44,9 @@ fn wcag_rule_id_inventory_contains_a_known_id_from_each_shape() {
     );
     assert!(ids.contains("image-alt"), "text_alternatives.rs");
 
-    // Bare `const *_AXE_ID`, skips `RuleMetadata` entirely.
-    assert!(ids.contains("aria-attr-name-invalid"), "aria_roles.rs");
-    assert!(ids.contains("aria-tablist-tabpanel"), "widget_rules.rs");
+    // The `SHARED_RULES` table in `wcag/shared.rs`.
+    assert!(ids.contains("aria/role-invalid"), "shared.rs");
+    assert!(ids.contains("aria/tabpanel-missing"), "shared.rs");
 
     // Pattern-detection modules (`src/patterns/`) — no `RuleMetadata` at all.
     assert!(

@@ -13,8 +13,9 @@
 //! covers the vast majority of ids regardless of *how* the check is invoked
 //! (tree rule, DOM page rule, or directly pipeline-wired like
 //! `contrast.rs`). Two documented exceptions skip `RuleMetadata` entirely:
-//! - `aria_roles.rs` / `widget_rules.rs`: a handful of composite sub-checks
-//!   use a bare `const <NAME>_AXE_ID: &str = "..."` instead.
+//! - `iframe_rules.rs`: a composite sub-check uses a bare
+//!   `const <NAME>_AXE_ID: &str = "..."` instead (`aria_roles.rs` and
+//!   `widget_rules.rs` did too, until #691 moved them to the shared bestand).
 //! - `src/patterns/*.rs` (accordion, modal dialog, tab list, disclosure
 //!   menu): structural pattern-detection modules that build `Violation`s
 //!   with a literal `rule_id` directly, no `RuleMetadata` at all.

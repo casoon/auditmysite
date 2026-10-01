@@ -490,6 +490,195 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Bypass Blocks (Skip Link)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
+    }, // ── ARIA-Regeln aus #691 (B1) ──
+    //
+    // Alle unter 4.1.2 A wie die abgelösten Regeln, auch wo `a11y-rules`
+    // zusätzlich 1.3.1 oder 2.1.1 führt. Kontext und Bestandteile prüft die
+    // geteilte Fassung am DOM statt am AX-Baum; die Rolle eines Elements ohne
+    // `role` kommt dabei aus Chromes AX-Baum, übersetzt in
+    // `accessibility::dom_document` (`LayoutTable*` und andere
+    // Chrome-Namen → keine Rolle, `image` → `img`).
+
+    // Ersetzt `wcag::rules::aria_roles::check_invalid_role_with_page`
+    // (axe-Kennung `aria-roles`, DOM per JavaScript). Zwei Unterschiede,
+    // beide gewollt: Die geteilte Regel meldet jede ungültige Rolle der
+    // Liste, nicht nur die erste, und vergleicht ohne Kleinschreibung --
+    // `role="Button"` ist keine ARIA-Rolle. Neu ist die abstrakte Rolle
+    // (`role="widget"`) als eigene Aussage; die eigene Regel hielt sie
+    // ebenfalls für ungültig, nannte aber den Grund nicht.
+    SharedRule {
+        id: "aria/role-invalid",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Invalid ARIA Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "aria/role-abstract",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Abstract ARIA Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `aria_roles::check_invalid_aria_attribute_name_with_page`
+    // (`aria-attr-name-invalid`). Dieselbe Liste, ARIA 1.2 und die
+    // Entwurfsattribute aus 1.3, die Browser schon umsetzen. Der Deckel von
+    // 250 Befunden entfällt.
+    SharedRule {
+        id: "aria/attribute-unknown",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Unknown ARIA Attribute)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt die Wertebereiche aus `wcag::rules::aria_valid_attr_value`
+    // (`aria-valid-attr-value`); die IDREF-Hälfte der Regel ist
+    // `aria/reference-missing`. Drei Unterschiede, alle gewollt:
+    //
+    // - `aria-current` und `aria-invalid` mit unbekanntem Wert sind kein
+    //   Befund: ARIA 1.2 legt fest, dass er als `true` gilt.
+    // - Geprüft werden auch Ganzzahlen und Zahlen (`aria-level`,
+    //   `aria-valuenow`, …) und `undefined` bei `aria-expanded`/`-selected`/
+    //   `-hidden`/`-checked`/`-pressed` ist gültig.
+    // - Vergleich ohne Groß-/Kleinschreibung, leere Werte ohne Befund.
+    SharedRule {
+        id: "aria/attribute-value-invalid",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Invalid ARIA Attribute Value)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::parsing::check_parsing` (`duplicate-id-aria`):
+    // dieselbe ID in mehreren `aria-owns`. Die eigene Regel las die
+    // Beziehung aus dem AX-Baum, die geteilte aus dem DOM, und meldet den
+    // zweiten Besitzer statt des ersten.
+    SharedRule {
+        id: "aria/owns-conflict",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Conflicting aria-owns)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `widget_rules::check_tab_selected_state_with_page`
+    // (`aria-tab-selected-state`) und die Tab-Prüfung aus
+    // `patterns::tab_list` (`tab-no-aria-selected`) -- beide meldeten
+    // denselben Fall, je Tab und zweimal. Ein Unterschied, gewollt: Die
+    // geteilte Regel ist `REVIEW` und steht einmal an der Tabliste, wenn
+    // **kein** Tab `aria-selected="true"` trägt; ein Tab ohne das Attribut
+    // hat mit der Vorgabe `false` den richtigen Zustand (ARIA 1.2: SHOULD).
+    SharedRule {
+        id: "aria/tab-selected-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Selected Tab)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `widget_rules::check_tablist_has_tabpanel`
+    // (`aria-tablist-tabpanel`). Jetzt `REVIEW` statt Verstoß: ARIA 1.2
+    // beschreibt das Panel nur als üblich.
+    SharedRule {
+        id: "aria/tabpanel-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Tab Panel)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `widget_rules::check_combobox_has_options`
+    // (`aria-combobox-options`). Gleiche Ausnahmen -- zugeklappt,
+    // `aria-controls`, Popup im Teilbaum --, dazu `aria-owns`. Geprüft wird
+    // nur eine explizite `role="combobox"`; ein natives `<select>` hat sein
+    // Popup immer.
+    SharedRule {
+        id: "aria/combobox-popup-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Combobox Popup)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzen die Popover-Prüfung aus `wcag::rules::modern_attributes`
+    // (`modern-attribute-misuse`, `popover_target_missing` und
+    // `popover_target_invalid`) ohne Unterschied.
+    SharedRule {
+        id: "popover/target-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Popover Target)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "popover/target-invalid",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Popover Target)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt aus `modern_attributes` den Fall `active_surface_inert` für
+    // Dialoge. Zwei Unterschiede, beide gewollt: Die geteilte Regel sieht
+    // auch ein `inert` an einem Vorfahren, und `role="dialog"` ist `REVIEW`
+    // (ohne Stile ist ein geschlossener Dialog nicht von einem offenen zu
+    // unterscheiden), nur `<dialog open>` ein Verstoß. Ein sichtbares
+    // `role="menu"` mit `inert` ist kein Befund mehr -- ein aus dem Bild
+    // geschobenes Menü ist so richtig gebaut. Das offene Popover mit
+    // `inert`, den fehlenden Namen offener Dialoge und Popover und den Fokus
+    // in einem inerten Teilbaum prüft `modern_attributes` weiter.
+    SharedRule {
+        id: "inert/dialog-inert",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Inert Dialog)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::aria_allowed_attr` (`aria-allowed-attr`). Zwei
+    // Unterschiede, beide gewollt: Die geteilte Regel urteilt über die Rolle
+    // des Elements, explizit oder implizit -- `<div aria-expanded>` ist ein
+    // Befund, die eigene Regel sah nur explizite `role`-Angaben. Und sie
+    // kennt die „MUST NOT"-Fälle aus ARIA in HTML (`aria-checked` an einer
+    // nativen Checkbox, `aria-valuemax` neben `max`, …). Die implizite Rolle
+    // kommt aus Chromes AX-Baum; Chrome-eigene Rollen bleiben ohne Urteil.
+    SharedRule {
+        id: "aria/attribute-not-allowed",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (ARIA Attribute Not Allowed)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::aria_prohibited_attr` (`aria-prohibited-attr`).
+    // Dieselbe Tabelle; die eigene Regel urteilte über explizite Rollen und
+    // `div`/`span`, die geteilte über jede Rolle, die der Host meldet.
+    SharedRule {
+        id: "aria/attribute-prohibited",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Prohibited ARIA Attribute)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::aria_required_parent` (`aria-required-parent`).
+    // Die eigene Regel ging im AX-Baum alle Vorfahren durch, die geteilte
+    // nimmt den nächsten Vorfahren mit einer Rolle (durchlässig sind
+    // `generic`, `none`/`presentation` und Ignoriertes). Damit meldet sie wie
+    // axe den Fall aus #715: `ul[role=tablist] > li > a[role=tab]` -- Chrome
+    // glättet das `<li>` im AX-Baum, im DOM steht es als `listitem` zwischen
+    // Tabliste und Tab. Stößt der Weg auf eine Rolle außerhalb von ARIA 1.2,
+    // entsteht kein Befund.
+    SharedRule {
+        id: "aria/required-parent-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Required Parent Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt die Bestandteilprüfung aus `wcag::rules::aria_roles`
+    // (`aria-roles`). Ein Unterschied, gewollt: Geprüft werden nur Behälter
+    // mit expliziter Rolle; native Tabellen und Listen geben ihre
+    // Bestandteile per HTML vor (#659, #674). Eine native Tabelle nur mit
+    // `<caption>` ist deshalb kein Befund mehr (Korpus
+    // `table_required_rows_tbody`).
+    SharedRule {
+        id: "aria/required-children-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Required Owned Elements)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
 ];
 
@@ -987,6 +1176,177 @@ mod tests {
         };
         assert_eq!(vermerk(None), 0);
         assert_eq!(vermerk(Some("dopplung")), 1);
+    }
+
+    /// Ein Element im CDP-Format; `nodeId` und `backendNodeId` sind gleich.
+    fn el(
+        id: i64,
+        tag: &str,
+        attrs: &[&str],
+        children: Vec<serde_json::Value>,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "nodeId": id, "backendNodeId": id, "nodeType": 1,
+            "nodeName": tag.to_uppercase(), "localName": tag, "nodeValue": "",
+            "attributes": attrs, "children": children
+        })
+    }
+
+    /// Befunde der geteilten Regeln zu einem `<body>`-Inhalt; `rollen` ist
+    /// Chromes AX-Rolle je Backend-ID (`None`: ignoriert).
+    fn aria_befunde(
+        body: Vec<serde_json::Value>,
+        rollen: &[(i64, Option<&str>)],
+    ) -> Vec<(String, Option<String>)> {
+        let dom: CdpNode = serde_json::from_value(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [el(2, "html", &["lang", "de"], vec![el(3, "body", &[], body)])]
+        }))
+        .expect("CDP-Knoten");
+        let ax = AXTree::from_nodes(
+            rollen
+                .iter()
+                .map(|(backend, role)| crate::accessibility::AXNode {
+                    node_id: format!("ax-{backend}"),
+                    ignored: role.is_none(),
+                    ignored_reasons: vec![],
+                    role: Some(role.unwrap_or("none").to_string()),
+                    name: None,
+                    name_source: None,
+                    description: None,
+                    value: None,
+                    properties: vec![],
+                    child_ids: vec![],
+                    parent_id: None,
+                    backend_dom_node_id: Some(*backend),
+                })
+                .collect(),
+        );
+        let doc = build_document(&dom, &ax).unwrap();
+        let r = run_shared_rules(&doc, "en");
+        r.violations
+            .iter()
+            .chain(&r.warnings)
+            .filter(|v| {
+                v.rule_id
+                    .as_deref()
+                    .is_some_and(|id| id.starts_with("aria/"))
+            })
+            .map(|v| (v.rule_id.clone().unwrap(), v.selector.clone()))
+            .collect()
+    }
+
+    /// #715 (magyarorszag.hu): Chrome glaettet das `<li>` zwischen Tabliste
+    /// und Tab, der AX-Baum zeigt `tablist -> tab`. Die geteilte Regel prueft
+    /// den DOM und meldet wie axe beide Seiten (#691).
+    #[test]
+    fn tabliste_aus_listeneintraegen_meldet_kontext_und_bestandteile() {
+        let befunde = aria_befunde(
+            vec![el(
+                4,
+                "ul",
+                &["role", "tablist", "id", "tabs"],
+                vec![el(
+                    5,
+                    "li",
+                    &[],
+                    vec![el(
+                        6,
+                        "a",
+                        &["role", "tab", "href", "#a", "id", "t1"],
+                        vec![],
+                    )],
+                )],
+            )],
+            &[(4, Some("tablist")), (5, None), (6, Some("tab"))],
+        );
+        let hat = |id: &str, sel: &str| {
+            befunde
+                .iter()
+                .any(|(i, s)| i == id && s.as_deref() == Some(sel))
+        };
+        assert!(
+            hat("aria/required-children-missing", "ul#tabs"),
+            "{befunde:?}"
+        );
+        assert!(hat("aria/required-parent-missing", "a#t1"), "{befunde:?}");
+    }
+
+    /// Chromes `LayoutTable*` ist keine ARIA-Rolle. Als unbekannte Rolle
+    /// braeche sie die Kontextpruefung ab, und ein verwaister Tab in einer
+    /// Layouttabelle bliebe ohne Befund; uebersetzt ist sie durchlaessig.
+    #[test]
+    fn layouttabelle_verdeckt_den_fehlenden_kontext_nicht() {
+        let befunde = aria_befunde(
+            vec![el(
+                4,
+                "table",
+                &[],
+                vec![el(
+                    5,
+                    "tbody",
+                    &[],
+                    vec![el(
+                        6,
+                        "tr",
+                        &[],
+                        vec![el(
+                            7,
+                            "td",
+                            &[],
+                            vec![el(8, "div", &["role", "tab", "id", "t1"], vec![])],
+                        )],
+                    )],
+                )],
+            )],
+            &[
+                (4, Some("LayoutTable")),
+                (5, None),
+                (6, Some("LayoutTableRow")),
+                (7, Some("LayoutTableCell")),
+                (8, Some("tab")),
+            ],
+        );
+        assert!(
+            befunde
+                .iter()
+                .any(|(id, sel)| id == "aria/required-parent-missing"
+                    && sel.as_deref() == Some("div#t1")),
+            "{befunde:?}"
+        );
+    }
+
+    /// `role="img"` meldet Chrome als `image`. Ohne Uebersetzung bliebe die
+    /// Rolle ohne Urteil und `aria-checked` daran unbemerkt (Korpus
+    /// `aria_attribute_validation`).
+    #[test]
+    fn chromes_image_wird_als_img_beurteilt() {
+        let befunde = aria_befunde(
+            vec![el(
+                4,
+                "div",
+                &[
+                    "role",
+                    "img",
+                    "aria-checked",
+                    "true",
+                    "aria-label",
+                    "Icon",
+                    "id",
+                    "i",
+                ],
+                vec![],
+            )],
+            &[(4, Some("image"))],
+        );
+        assert!(
+            befunde
+                .iter()
+                .any(|(id, sel)| id == "aria/attribute-not-allowed"
+                    && sel.as_deref() == Some("div#i")),
+            "{befunde:?}"
+        );
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

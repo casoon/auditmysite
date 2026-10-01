@@ -1,7 +1,7 @@
 {
   "case": "forms_and_misc",
   "expectations": [
-    { "rule_id": "duplicate-id-aria", "verdict": "violation" },
+    { "rule_id": "aria/owns-conflict", "verdict": "violation" },
     { "rule_id": "autocomplete-valid", "verdict": "violation" },
     { "rule_id": "identify-purpose", "verdict": "violation" },
     { "rule_id": "help", "verdict": "violation" },

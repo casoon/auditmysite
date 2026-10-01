@@ -35,9 +35,10 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
 /// relationships: names (images, links, buttons, form fields, dialogs,
-/// commands, summaries), roles and their required parents/children, form
-/// structure, table headers, keyboard reachability, live-region roles and
-/// ambiguous `aria-owns`.
+/// commands, summaries), form structure, table headers, keyboard
+/// reachability and live-region roles. Roles, their required parents and
+/// children and ambiguous `aria-owns` run as shared rules since #691 (see
+/// [`FRAME_SHARED_RULES`]).
 ///
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `bypass`, `region`, the `landmark-*` rules,
@@ -49,18 +50,14 @@ pub const FRAME_TREE_RULES: &[&str] = &[
     "link-name",
     "label",
     "aria-invalid-without-describedby",
-    "aria-roles",
-    "aria-required-parent",
     "aria-label",
     "aria-command-name",
     "form-field-group",
     "dialog-name",
-    "aria-required-children",
     "video-caption",
     "th-has-data-cells",
     "summary-name",
     "label-title-only",
-    "duplicate-id-aria",
     "aria-live-region-role",
 ];
 
@@ -88,6 +85,21 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "images/alt-suspicious",
     "links/name-missing",
     "buttons/name-missing",
+    "aria/role-invalid",
+    "aria/role-abstract",
+    "aria/attribute-unknown",
+    "aria/attribute-value-invalid",
+    "aria/owns-conflict",
+    "aria/tab-selected-missing",
+    "aria/tabpanel-missing",
+    "aria/combobox-popup-missing",
+    "popover/target-missing",
+    "popover/target-invalid",
+    "inert/dialog-inert",
+    "aria/attribute-not-allowed",
+    "aria/attribute-prohibited",
+    "aria/required-parent-missing",
+    "aria/required-children-missing",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -570,13 +582,7 @@ mod tests {
         ] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in [
-            "dialog-name",
-            "aria-required-children",
-            "aria-required-parent",
-            "aria-roles",
-            "image-alt",
-        ] {
+        for element in ["dialog-name", "label", "image-alt"] {
             assert!(filter.should_run(element), "{element}");
         }
     }
@@ -589,7 +595,7 @@ mod tests {
         };
         let filter = frame_rule_filter(&user).unwrap();
         assert!(!filter.should_run("dialog-name"));
-        assert!(filter.should_run("aria-roles"));
+        assert!(filter.should_run("image-alt"));
 
         // Only page-level rules enabled: nothing to run in frames. An empty
         // `enabled_only_rules` would run every rule.

@@ -1,12 +1,12 @@
 {
   "case": "aria_attribute_validation",
   "expectations": [
-    { "rule_id": "aria-attr-name-invalid", "verdict": "violation" },
-    { "rule_id": "aria-prohibited-attr", "verdict": "violation" },
-    { "rule_id": "aria-allowed-attr", "verdict": "violation" },
-    { "rule_id": "aria-roles", "verdict": "violation" },
-    { "rule_id": "aria-valid-attr-value", "verdict": "violation" },
-    { "rule_id": "aria-required-parent", "verdict": "violation" },
+    { "rule_id": "aria/attribute-unknown", "verdict": "violation" },
+    { "rule_id": "aria/attribute-prohibited", "verdict": "violation" },
+    { "rule_id": "aria/attribute-not-allowed", "verdict": "violation" },
+    { "rule_id": "aria/role-invalid", "verdict": "violation" },
+    { "rule_id": "aria/reference-missing", "verdict": "violation" },
+    { "rule_id": "aria/required-parent-missing", "verdict": "violation" },
     { "rule_id": "keyboard/hidden-focusable", "verdict": "violation" }
   ]
 }

@@ -154,8 +154,36 @@ impl CdpDocument {
         })
     }
 
+    /// Chromes Rolle, wie der AX-Baum sie meldet — ohne die Übersetzung, die
+    /// [`Semantics::role`] vornimmt. Für den Vergleich mit Chrome
+    /// (`accname_diff`), nicht für Regeln.
+    pub fn chrome_role(&self, node: ArenaNode<'_>) -> Option<&str> {
+        self.facts(node)?.role.as_deref()
+    }
+
     fn facts(&self, node: ArenaNode<'_>) -> Option<&AxFacts> {
         self.ax.get(&self.backend_node_id(node)?)
+    }
+}
+
+/// Chromes Rolle als ARIA-Rolle, wie die geteilten Regeln sie erwarten.
+///
+/// Chrome meldet im AX-Baum neben den ARIA-Rollen eigene Namen. `image` ist
+/// ARIA `img`. Die groß geschriebenen (`LayoutTable`, `LayoutTableRow`,
+/// `LayoutTableCell`, `DescriptionList`, `Figcaption`, `LabelText`,
+/// `DisclosureTriangle`, `StaticText`, …) haben kein Gegenstück in ARIA 1.2:
+/// Es sind Elemente, denen HTML-AAM keine Rolle gibt, oder — bei `Layout*` —
+/// eine Tabelle, die Chrome nach eigener Heuristik als Layouttabelle einstuft,
+/// also als präsentational. Sie werden zu „keine Rolle“. `a11y-rules` sieht
+/// darin einen durchlässigen Zwischenknoten und urteilt nicht über seine
+/// Attribute; als unbekannte Rolle hätte sie jede Kontextprüfung über ihm
+/// abgebrochen (ein `role="tab"` in einer Layouttabellenzelle blieb ohne
+/// Befund).
+fn aria_role(chrome: &str) -> Option<&str> {
+    match chrome {
+        "image" => Some("img"),
+        r if r.starts_with(|c: char| c.is_ascii_uppercase()) => None,
+        r => Some(r),
     }
 }
 
@@ -376,7 +404,9 @@ impl Document for CdpDocument {
 
 impl Semantics for CdpDocument {
     fn role<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
-        self.facts(node)?.role.clone()
+        self.chrome_role(node)
+            .and_then(aria_role)
+            .map(str::to_string)
     }
 
     fn accessible_name<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
@@ -1105,7 +1135,8 @@ mod tests {
         let doc = build_document(&beispielseite(), &ax).unwrap();
 
         let img = elements(&doc).find(|n| n.is_element("img")).unwrap();
-        assert_eq!(doc.role(img).as_deref(), Some("image"));
+        assert_eq!(doc.role(img).as_deref(), Some("img"));
+        assert_eq!(doc.chrome_role(img), Some("image"));
         assert_eq!(doc.accessible_name(img).as_deref(), Some("Firmenlogo"));
 
         let link = elements(&doc).find(|n| n.is_element("a")).unwrap();
@@ -1115,6 +1146,27 @@ mod tests {
         // Ein Knoten ohne AX-Eintrag behauptet nichts.
         let head = elements(&doc).find(|n| n.is_element("head")).unwrap();
         assert!(doc.role(head).is_none());
+    }
+
+    /// Chromes eigene Rollennamen erreichen die geteilten Regeln nicht:
+    /// `LayoutTable*` und die übrigen groß geschriebenen haben keine
+    /// ARIA-Rolle, `image` ist `img` (B1, auditmysite#691).
+    #[test]
+    fn chromes_eigene_rollen_werden_uebersetzt() {
+        assert_eq!(aria_role("image"), Some("img"));
+        assert_eq!(aria_role("tablist"), Some("tablist"));
+        assert_eq!(aria_role("generic"), Some("generic"));
+        for intern in [
+            "LayoutTable",
+            "LayoutTableRow",
+            "LayoutTableCell",
+            "DescriptionList",
+            "Figcaption",
+            "LabelText",
+            "StaticText",
+        ] {
+            assert_eq!(aria_role(intern), None, "{intern}");
+        }
     }
 
     #[test]

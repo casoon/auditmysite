@@ -3,7 +3,9 @@
   "expectations": [
     { "rule_id": "dialog-name", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation" },
     { "rule_id": "aria-dialog-name", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "aria-tablist-tabpanel", "selector": "iframe#widget [frame] ul#tabs", "verdict": "violation" },
+    { "rule_id": "aria/tabpanel-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "needs_review" },
+    { "rule_id": "aria/required-children-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "violation" },
+    { "rule_id": "aria/required-parent-missing", "selector": "iframe#widget [frame] a#tab-one", "verdict": "violation" },
     { "rule_id": "aria-dialog-name", "selector": "iframe#hidden-widget [frame] div#hidden-dialog", "verdict": "pass" }
   ]
 }
