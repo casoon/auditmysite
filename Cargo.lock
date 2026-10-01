@@ -353,6 +353,7 @@ dependencies = [
  "clap",
  "colored",
  "console 0.16.3",
+ "csp-parse",
  "dialoguer",
  "dirs",
  "fluent-bundle",
