@@ -71,6 +71,21 @@ short current-state summary. Newest entries first (unchanged order from before t
   und Detection-Corpus sind nachgezogen. Geprueft mit Unit-Tests und dem Detection-Corpus (Chrome),
   darin der #715-Fall im iframe. Referenzbaender bundesregierung.de (35–65), berlin.de (15–48) und dm.de (15–48) neu bewertet: eingeklapptes `aria-controls` ohne Ziel ist kein Befund mehr (dm.de), Tab-Auswahl nur noch einmal je Tablist (ARIA SHOULD), Swiper-Listen als `lists/invalid-structure` (Medium) statt `aria-roles` (High) — a11y-rules 0.14.1 faengt `li[role=group]` dafuer wieder ab.
 
+- **Fehlalarme aus barrierlab.eu und geographia.eu (#725-#728):**
+  `display/text-hidden` meldete die Textebene von Visualisierungen in inaktiven Bereichs-Panels
+  (`hidden` am `section`) als entzogen; die ganze Figur samt Grafik war aber verborgen. Eine nicht
+  gerenderte Figur zaehlt jetzt auch bei `hidden`/`aria-hidden`/`inert` an Figur oder Vorfahr nicht
+  als Verstoss (#725; die sr-only-Vermutung im Issue traf nicht zu, `checkVisibility` liess das
+  Clip-Muster schon durch). `landmark-unique` und die Top-Level-Pruefungen zaehlen `form` und
+  `region` nur mit zugaenglichem Namen als Landmark (#727). Die zaehlenden Landmark-Regeln
+  (`landmark-unique`, doppeltes banner/contentinfo) lesen einen Baum ohne ausgeschlossene
+  Teilbaeume; das JSON nennt die herausgenommenen Landmarks als `exclusion.excluded_landmarks`,
+  die PDF-Notiz ebenso (#726). `form-no-submit` meldet ein Formular ohne `action`, ohne Textfeld
+  und ohne Absende-Element (nur Skript kann es absenden, typisch Schalter fuer Inhalte) nur noch
+  als niedrigen Pruefhinweis statt als 3.2.2-Verstoss (#728). Neue Corpus-Faelle
+  `display_modes_hidden_panel`, `form_toggles_without_submit`; Detection-Corpus gruen;
+  Gegenprobe gegen beide Live-Seiten ohne die Fehlbefunde.
+
 - **1.7.2, 2026-09-30:** Fehlalarm-Korrekturen und Luecken aus dem axe-Gegencheck der
   barrierlab.eu-Erhebung (21 EU-Portale) und aus geographia.eu: Zielgroesse nur fuer sichtbare
   Ziele im fertigen Layout (#705, #706), Ausschluesse auch in der Screenreader-Schicht und im Cache

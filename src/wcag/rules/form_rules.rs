@@ -101,10 +101,20 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
           );
           if (submit) continue;
 
+          // Without an action and without a text field (where Enter submits
+          // implicitly), only script can submit the form: a set of toggles
+          // that changes content on the page (#728). Whether a change
+          // handler submits or navigates is not visible from here.
+          var textEntry = form.querySelector(
+            'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])' +
+            ':not([type="button"]):not([type="reset"]):not([type="file"])' +
+            ':not([type="range"]):not([type="color"]):not([disabled])'
+          );
           issues.push({
             selector: __amsCssSelector(form),
             snippet: form.outerHTML.substring(0, 200),
-            controls: controls.length
+            controls: controls.length,
+            scriptOnly: !form.hasAttribute('action') && !textEntry
           });
         }
         return issues;
@@ -141,6 +151,10 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
         .filter_map(|issue| {
             let selector = issue.get("selector")?.as_str()?.to_string();
             let controls = issue.get("controls").and_then(|v| v.as_u64()).unwrap_or(0);
+            let script_only = issue
+                .get("scriptOnly")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             let mut violation = Violation::new(
                 RULE_META_FORM_NO_SUBMIT.id,
                 RULE_META_FORM_NO_SUBMIT.name,
@@ -169,10 +183,36 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
             if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {
                 violation = violation.with_html_snippet(snippet);
             }
+            if script_only {
+                violation = script_only_note(violation, controls);
+            }
 
             Some(violation)
         })
         .collect()
+}
+
+/// A form only script can submit — no action, no text field, no submit
+/// control — is usually a set of toggles that changes content, not context
+/// (#728). 3.2.2 fails only if changing a control submits, navigates or opens
+/// a window, which a DOM check cannot see: a low note for review.
+fn script_only_note(violation: Violation, controls: u64) -> Violation {
+    Violation {
+        severity: Severity::Low,
+        message: format!(
+            "Form has {controls} input {} and no submit control, and nothing submits it \
+             without script; check that changing a control does not submit the form, \
+             navigate or open a window",
+            if controls == 1 { "control" } else { "controls" }
+        ),
+        fix_suggestion: Some(
+            "If changing a control submits the form or changes the page, add an explicit \
+             submit button and apply the change only on activation."
+                .to_string(),
+        ),
+        ..violation
+    }
+    .as_warning()
 }
 
 /// DOM check for related checkboxes without a group ancestor (1.3.1).
@@ -609,5 +649,28 @@ mod tests {
         assert_eq!(RULE_META_FORM_NO_SUBMIT.id, "3.2.2");
         assert_eq!(RULE_META_FORM_NO_SUBMIT.axe_id, "form-no-submit");
         assert!(RULE_META_FORM_NO_SUBMIT.tags.contains(&"wcag322"));
+    }
+
+    #[test]
+    fn a_form_only_script_submits_is_a_low_review_note() {
+        // #728: a set of toggles without action, text field or submit.
+        let v = Violation::new(
+            RULE_META_FORM_NO_SUBMIT.id,
+            RULE_META_FORM_NO_SUBMIT.name,
+            RULE_META_FORM_NO_SUBMIT.level,
+            RULE_META_FORM_NO_SUBMIT.severity,
+            "Form has 11 input controls but no explicit submit button",
+            "form.demo__controls",
+        )
+        .with_rule_id(RULE_META_FORM_NO_SUBMIT.axe_id);
+        let note = script_only_note(v, 11);
+        assert_eq!(note.kind, crate::wcag::types::Outcome::Review);
+        assert_eq!(note.severity, Severity::Low);
+        assert_eq!(note.rule_id.as_deref(), Some("form-no-submit"));
+        assert!(
+            note.message.contains("11 input controls"),
+            "{}",
+            note.message
+        );
     }
 }

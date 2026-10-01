@@ -1092,6 +1092,11 @@ exclusion-findings =
     }
 exclusion-interactive = , plus { $interactive } journey findings
 exclusion-screen-reader = , plus { $issues } screen-reader findings
+exclusion-landmarks =
+    { $landmarks ->
+        [one] ; 1 landmark left out of the page's landmark counts
+       *[other] ; { $landmarks } landmarks left out of the page's landmark counts
+    }
 batch-exclusion-selector-matched = { $selector }: { $count } elements excluded on { $pages } of { $total } pages
 batch-exclusion-findings =
     { $occurrences ->

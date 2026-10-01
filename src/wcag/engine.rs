@@ -73,15 +73,21 @@ pub fn check_all_with_config(
     level: WcagLevel,
     filter: &RuleFilterConfig,
 ) -> WcagResults {
-    check_all_excluding(tree, level, filter, &|_| false).0
+    check_all_excluding(tree, tree, level, filter, &|_| false).0
 }
 
 /// [`check_all_with_config`], dropping every finding `exclude` matches
 /// (audit exclusions, #645) per rule — before the rule's outcome is counted,
 /// so `rule_outcomes[].findings` describes what the report shows. Returns the
 /// kept results and the dropped findings.
+///
+/// `counted` is the tree the page-level counting rules (duplicate and
+/// unique landmarks) read: `tree` without the excluded subtrees, so a
+/// specimen's own landmarks are not counted against the page (#726). Without
+/// exclusions it is `tree` itself.
 pub fn check_all_excluding(
     tree: &AXTree,
+    counted: &AXTree,
     level: WcagLevel,
     filter: &RuleFilterConfig,
     exclude: &dyn Fn(&Violation) -> bool,
@@ -97,7 +103,7 @@ pub fn check_all_excluding(
 
     // Run Level A rules
     debug!("Running Level A rules...");
-    run_level_a_rules(tree, &mut run, filter);
+    run_level_a_rules(tree, counted, &mut run, filter);
 
     // Run Level AA rules if requested
     if matches!(level, WcagLevel::AA | WcagLevel::AAA) {
@@ -157,7 +163,12 @@ macro_rules! run_if_allowed {
 }
 
 /// Run all Level A rules
-fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
+fn run_level_a_rules(
+    tree: &AXTree,
+    counted: &AXTree,
+    results: &mut TreeRun<'_>,
+    filter: &RuleFilterConfig,
+) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
     // 1.1.1 Area / input[type=image] / object alternatives, and server-side
@@ -262,7 +273,7 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
         "landmark-unique",
         check_landmark_unique,
         results,
-        tree
+        counted
     );
     run_if_allowed!(
         filter,
@@ -290,14 +301,14 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
         "landmark-no-duplicate-banner",
         check_landmark_no_duplicate_banner,
         results,
-        tree
+        counted
     );
     run_if_allowed!(
         filter,
         "landmark-no-duplicate-contentinfo",
         check_landmark_no_duplicate_contentinfo,
         results,
-        tree
+        counted
     );
     // Fehlende main-/banner-Landmark und doppelte main laufen als
     // `landmarks/*` im geteilten Bestand.
@@ -454,10 +465,13 @@ mod tests {
         };
         assert!(alt_run(&full).unwrap() > 0);
 
-        let (kept, dropped) =
-            check_all_excluding(&tree, WcagLevel::A, &RuleFilterConfig::default(), &|v| {
-                v.node_id == "2"
-            });
+        let (kept, dropped) = check_all_excluding(
+            &tree,
+            &tree,
+            WcagLevel::A,
+            &RuleFilterConfig::default(),
+            &|v| v.node_id == "2",
+        );
         assert!(kept.violations.iter().all(|v| v.node_id != "2"));
         assert!(dropped.iter().any(|v| v.rule == "1.1.1"));
         // The outcome counts what the report shows, not the raw rule output.

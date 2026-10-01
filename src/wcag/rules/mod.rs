@@ -105,7 +105,7 @@ pub use labels::check_labels;
 pub use landmark_granular::{
     check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_unique,
+    check_landmark_no_duplicate_contentinfo, check_landmark_unique, is_landmark,
 };
 pub use language_extended::check_language_extended_with_page;
 pub use language_of_parts::check_language_of_parts_with_page;
