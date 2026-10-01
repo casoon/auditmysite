@@ -14,7 +14,7 @@
       "verdict": "needs_review"
     },
     {
-      "rule_id": "form-field-group",
+      "rule_id": "forms/group-missing",
       "verdict": "violation"
     }
   ]

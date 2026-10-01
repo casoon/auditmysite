@@ -6,7 +6,7 @@
 //!
 //! Only the presentational-container check lives here. Table and list
 //! structure are checked by the shared rules (`tables/*`, `lists/*`, see
-//! `wcag::shared`), radio/checkbox grouping by `form_rules` (plan 56).
+//! `wcag::shared`), radio/checkbox grouping by `forms/group-missing` (#693).
 
 use chromiumoxide::Page;
 use tracing::warn;

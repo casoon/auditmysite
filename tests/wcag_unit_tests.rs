@@ -6,12 +6,10 @@
 //! Run with:
 //!   cargo test --test wcag_unit_tests
 
-use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource};
+use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
-use auditmysite::wcag::rules::{
-    check_label_title_only, check_link_purpose, check_text_alternatives, Color, ContrastRule,
-};
+use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives, Color, ContrastRule};
 
 // ---------------------------------------------------------------------------
 // Helper constructors
@@ -392,55 +390,9 @@ fn test_engine_clean_tree_has_zero_image_alt_violations() {
 // `keyboard/hidden-focusable` im geteilten Bestand (siehe `wcag::shared`),
 // die AX-Regel `check_focus_order` ist geloescht.
 
-// ---------------------------------------------------------------------------
-// 1.3.1 Label Title Only — check_label_title_only
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_131_title_only_source_flagged() {
-    let mut n = node("1", "textbox", Some("Search"));
-    n.name_source = Some(NameSource::Title);
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_label_title_only(&tree);
-    assert!(
-        !results.violations.is_empty(),
-        "Input with title-only accessible name should be flagged"
-    );
-    assert_eq!(results.violations[0].rule, "1.3.1");
-}
-
-#[test]
-fn test_131_attribute_source_passes() {
-    let mut n = node("1", "textbox", Some("Search"));
-    n.name_source = Some(NameSource::Attribute); // aria-label
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_label_title_only(&tree);
-    assert!(
-        results.violations.is_empty(),
-        "Input with aria-label source should not be flagged"
-    );
-}
-
-#[test]
-fn test_131_title_heuristic_flagged() {
-    // No name_source but title property matches accessible name and no aria-label
-    let mut n = node("1", "textbox", Some("Enter email"));
-    n.properties.push(AXProperty {
-        name: "title".to_string(),
-        value: AXValue::String("Enter email".to_string()),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_label_title_only(&tree);
-    assert!(
-        !results.violations.is_empty(),
-        "Input whose name matches its title attribute (no aria-label) should be flagged"
-    );
-}
-
-// A previous test here asserted that an "aria-label" AX property suppressed
-// the title-only fallback heuristic. That property name is never real CDP
-// data (#QA-032) — removed along with the corresponding dead check in
-// label_title_only.rs.
+// 1.3.1 Beschriftung nur per `title`: laeuft seit #693 als
+// `forms/title-only-label` im geteilten Bestand (siehe `wcag::shared`),
+// `check_label_title_only` ist geloescht.
 
 // ---------------------------------------------------------------------------
 // Scenario tests — determinism guard for complete page mocks

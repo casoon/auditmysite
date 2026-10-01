@@ -8,6 +8,6 @@
     { "rule_id": "target-size-minimum", "selector": "button#lone", "verdict": "pass" },
     { "rule_id": "target-size-minimum", "selector": "a#inline", "verdict": "pass" },
     { "rule_id": "target-size", "selector": "a#inline", "verdict": "pass" },
-    { "rule_id": "form-no-submit", "verdict": "violation" }
+    { "rule_id": "forms/no-submit", "verdict": "violation" }
   ]
 }

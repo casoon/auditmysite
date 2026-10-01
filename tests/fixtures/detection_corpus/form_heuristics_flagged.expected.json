@@ -1,8 +1,8 @@
 {
   "case": "form_heuristics_flagged",
   "expectations": [
-    { "rule_id": "form-field-group", "verdict": "violation" },
-    { "rule_id": "label", "verdict": "needs_review" },
-    { "rule_id": "label", "verdict": "pass" }
+    { "rule_id": "forms/group-missing", "verdict": "violation" },
+    { "rule_id": "forms/instructions-missing", "verdict": "needs_review" },
+    { "rule_id": "forms/instructions-missing", "verdict": "pass" }
   ]
 }

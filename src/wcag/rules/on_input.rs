@@ -5,17 +5,21 @@
 //! before using the component.
 //! Level A
 //!
-//! Note: Full on-input testing requires behavioral analysis via CDP.
-//! This rule checks for common DOM patterns: select elements and radio
-//! buttons that may trigger form submission or navigation without an
-//! explicit submit.
+//! Den Handlertext im Markup beurteilt seit #693 `context/on-input` im
+//! geteilten Bestand (siehe `wcag::shared`): Verstoss, wenn er sichtbar
+//! navigiert, absendet, ein Fenster oeffnet oder den Fokus verschiebt, sonst
+//! `REVIEW`. Hier bleibt, was nur die laufende Seite weiss:
+//!
+//! - Ruft der Handler eine globale Funktion auf (`onchange="go(this.value)"`),
+//!   wird ihr Quelltext ueber `window` nachgeschlagen. Wechselt erst sie den
+//!   Kontext, ist das ein Verstoss -- die geteilte Regel sieht nur den
+//!   Aufruf und bleibt bei `REVIEW`, beide stehen dann am selben Element.
+//! - Eine Auswahl ohne Handler, deren Name nach Navigation klingt
+//!   („Language", „Country"), ohne Absende-Button auf der Seite: `REVIEW`.
 //!
 //! Only a change of *context* counts — navigation, a form submit, a new
 //! window or a focus move. Updating content on the same page (a filter, a
-//! sort order, a grid's locale) is not one (#657). A violation is therefore
-//! only reported when the inline change handler visibly does one of those
-//! things; a handler whose effect can't be read, and a name that merely
-//! suggests navigation, become a review warning.
+//! sort order, a grid's locale) is not one (#657).
 //!
 //! DOM-level rule: `onchange` is an HTML attribute, never exposed as an AX
 //! property — an earlier tree-based implementation of this check read a
@@ -87,17 +91,15 @@ const ON_INPUT_BODY: &str = r#"
     return role === 'combobox' || role === 'listbox';
   }
 
-  // Inline handler source, plus the source of a global function it calls
-  // directly (onchange="applyFilter(this.value)"), so the Rust side can see
-  // what the handler does.
-  function handlerSource(el) {
-    var src = el.getAttribute('onchange');
-    if (src === null) return null;
+  // The source of a global function the inline handler calls directly
+  // (onchange="applyFilter(this.value)"), so the Rust side can see what the
+  // handler does. The inline text itself is judged by the shared rule.
+  function calledSource(src) {
     var call = /^\s*([A-Za-z_$][\w$]*)\s*\(/.exec(src);
     if (call && typeof window[call[1]] === 'function') {
-      try { src += '\n' + Function.prototype.toString.call(window[call[1]]); } catch (e) {}
+      try { return Function.prototype.toString.call(window[call[1]]); } catch (e) {}
     }
-    return src;
+    return null;
   }
 
   var buttonNames = [];
@@ -110,13 +112,13 @@ const ON_INPUT_BODY: &str = r#"
   var nodes = document.querySelectorAll('select, [role="combobox"], [role="listbox"], input[type="radio"], [role="radio"]');
   for (var i = 0; i < nodes.length && __amsReal(controls) < CAP; i++) {
     var el = nodes[i];
-    var changeControl = isChangeControl(el);
+    var handler = el.getAttribute('onchange');
     __amsPush(controls, el, {
       role: (el.getAttribute('role') || el.tagName.toLowerCase()),
       name: accessibleName(el).toLowerCase(),
       selector: __amsCssSelector(el),
-      change_control: changeControl,
-      handler: changeControl ? handlerSource(el) : null
+      handler: handler,
+      called: handler !== null && isChangeControl(el) ? calledSource(handler) : null
     }, CAP);
   }
 
@@ -128,8 +130,10 @@ struct Control {
     role: String,
     name: String,
     selector: String,
-    change_control: bool,
+    /// The inline `onchange` text, if any.
     handler: Option<String>,
+    /// The source of the global function the handler calls, if any.
+    called: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -202,30 +206,30 @@ fn evaluate(scan: &Scan) -> Vec<Violation> {
                 )
                 .with_selector(c.selector.clone())
                 .with_fix(fix)
-                .with_rule_id(ON_INPUT_RULE.axe_id)
+                // Dieselbe Kennung wie die geteilte Regel (`context/on-input`):
+                // Es ist derselbe Befund, nur hier mit Blick in die
+                // aufgerufene Funktion. So verdraengt der Verstoss den
+                // Pruefhinweis der geteilten Regel am selben Element (#527)
+                // statt daneben zu stehen.
+                .with_rule_id("context/on-input")
                 .with_help_url(ON_INPUT_RULE.help_url)
             };
 
-            if let Some(handler) = c.handler.as_deref().filter(|_| c.change_control) {
-                return Some(if changes_context(handler) {
+            // Ein Handler im Markup gehoert der geteilten Regel. Hier nur
+            // der Fall, den sie nicht sehen kann: Erst die aufgerufene
+            // Funktion wechselt den Kontext.
+            if let Some(handler) = c.handler.as_deref() {
+                let only_called = !changes_context(handler)
+                    && c.called.as_deref().is_some_and(changes_context);
+                return only_called.then(|| {
                     finding(
                         Severity::Medium,
                         format!(
-                            "{} element's onchange handler navigates, submits, opens a window or moves focus",
+                            "{} element's onchange handler calls a function that navigates, submits, opens a window or moves focus",
                             c.role
                         ),
                         "Use a submit button instead of changing context on selection change",
                     )
-                } else {
-                    finding(
-                        Severity::Low,
-                        format!(
-                            "{} element has an onchange handler — verify that it only updates content and does not change context",
-                            c.role
-                        ),
-                        "If the handler navigates, submits or moves focus, add a submit button or tell users beforehand",
-                    )
-                    .as_warning()
                 });
             }
 
@@ -252,13 +256,13 @@ mod tests {
     use super::*;
     use crate::wcag::types::Outcome;
 
-    fn control(name: &str, handler: Option<&str>) -> Control {
+    fn control(name: &str, handler: Option<&str>, called: Option<&str>) -> Control {
         Control {
             role: "select".to_string(),
             name: name.to_string(),
             selector: "select#x".to_string(),
-            change_control: true,
             handler: handler.map(str::to_string),
+            called: called.map(str::to_string),
         }
     }
 
@@ -304,45 +308,53 @@ mod tests {
     /// A "Google" or "logo" button no longer hides a navigation-hinted select.
     #[test]
     fn non_submit_buttons_do_not_suppress_navigation_hint() {
-        let mut s = scan(vec![control("language", None)]);
+        let mut s = scan(vec![control("language", None, None)]);
         s.button_names = names(&["sign in with google", "category", "logo"]);
         assert_eq!(evaluate(&s).len(), 1);
     }
 
+    /// Erst die aufgerufene Funktion wechselt den Kontext: Das sieht nur die
+    /// laufende Seite, die geteilte Regel bliebe bei `REVIEW`.
     #[test]
-    fn navigating_handler_is_violation() {
-        for handler in [
-            "location.href=this.value",
-            "window.location = this.value",
-            "this.form.submit()",
-            "window.open(this.value)",
-            "go(this.value)\nfunction go(v) { document.location.assign(v); }",
-        ] {
-            let v = evaluate(&scan(vec![control("pages", Some(handler))]));
-            assert_eq!(v.len(), 1, "{handler}");
-            assert_eq!(v[0].kind, Outcome::Fail, "{handler}");
-            assert_eq!(v[0].severity, Severity::Medium);
-        }
-    }
-
-    /// A handler that only updates content is no context change, but its
-    /// effect can't be proven — review, not violation.
-    #[test]
-    fn content_updating_handler_is_review() {
+    fn called_function_that_changes_context_is_violation() {
         let v = evaluate(&scan(vec![control(
-            "sort",
-            Some("grid.setSort(this.value)"),
+            "pages",
+            Some("go(this.value)"),
+            Some("function go(v) { document.location.assign(v); }"),
         )]));
         assert_eq!(v.len(), 1);
-        assert_eq!(v[0].kind, Outcome::Review);
+        assert_eq!(v[0].kind, Outcome::Fail);
+        assert_eq!(v[0].severity, Severity::Medium);
+    }
+
+    /// Was der Handler im Markup selbst tut, urteilt `context/on-input`;
+    /// hier entsteht dazu kein zweiter Befund.
+    #[test]
+    fn inline_handler_is_left_to_the_shared_rule() {
+        for (handler, called) in [
+            ("location.href=this.value", None),
+            ("this.form.submit()", None),
+            ("grid.setSort(this.value)", None),
+            (
+                "applyFilter(this.value)",
+                Some("function applyFilter(v) { grid.filter(v); }"),
+            ),
+            (
+                "go(this.value); location.href=x",
+                Some("function go(v) { location.href = v; }"),
+            ),
+        ] {
+            let v = evaluate(&scan(vec![control("language", Some(handler), called)]));
+            assert!(v.is_empty(), "{handler}: {v:?}");
+        }
     }
 
     /// #657: og-vanilla's filter/sort presets update the grid in place.
     #[test]
     fn filter_and_sort_selects_without_handler_are_not_reported() {
         let v = evaluate(&scan(vec![
-            control("filter preset", None),
-            control("sort preset", None),
+            control("filter preset", None, None),
+            control("sort preset", None, None),
         ]));
         assert!(v.is_empty());
     }
@@ -350,14 +362,14 @@ mod tests {
     /// #657: a language select may only update content — review at most.
     #[test]
     fn navigation_hint_without_handler_is_review() {
-        let v = evaluate(&scan(vec![control("language", None)]));
+        let v = evaluate(&scan(vec![control("language", None, None)]));
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].kind, Outcome::Review);
     }
 
     #[test]
     fn navigation_hint_with_submit_button_is_not_reported() {
-        let mut s = scan(vec![control("language", None)]);
+        let mut s = scan(vec![control("language", None, None)]);
         s.button_names = names(&["go"]);
         assert!(evaluate(&s).is_empty());
     }
