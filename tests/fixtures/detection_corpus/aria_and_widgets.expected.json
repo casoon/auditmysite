@@ -4,6 +4,6 @@
     { "rule_id": "aria-label", "verdict": "violation" },
     { "rule_id": "aria-live-region-role", "verdict": "violation" },
     { "rule_id": "aria/required-attribute-missing", "verdict": "violation" },
-    { "rule_id": "tab-no-aria-selected", "verdict": "violation" }
+    { "rule_id": "aria/tab-selected-missing", "verdict": "needs_review" }
   ]
 }

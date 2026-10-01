@@ -237,6 +237,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.redundant_role.invalid", Aria),
     ("a11y.summary_name.missing", Aria),
     ("a11y.tablist_tabpanel.missing", Aria),
+    ("a11y.tab_selected.missing", Aria),
     ("a11y.treeitem_name.missing", Aria),
     ("a11y.status_messages.broken", Aria),
 ];

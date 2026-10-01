@@ -390,6 +390,44 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("links/name-missing", "a11y.control_name.missing"),
     ("buttons/name-missing", "a11y.control_name.missing"),
     ("keyboard/skip-link-missing", "a11y.skip_link.missing"),
+    // ── Geteilte Kennungen aus #691 (B1, ARIA) ──
+    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
+    // weiter aufloest.
+    ("aria/role-invalid", "a11y.aria_roles.invalid"),
+    ("aria/role-abstract", "a11y.aria_roles.invalid"),
+    ("aria/attribute-unknown", "a11y.aria_attr_name.invalid"),
+    (
+        "aria/attribute-value-invalid",
+        "a11y.aria_valid_attr_value.invalid",
+    ),
+    ("aria/owns-conflict", "a11y.duplicate_id_aria.invalid"),
+    // Neu: Die beiden abgeloesten Tab-Pruefungen hatten keinen eigenen
+    // Eintrag und fielen in den 4.1.2-Sammelbucket.
+    ("aria/tab-selected-missing", "a11y.tab_selected.missing"),
+    ("aria/tabpanel-missing", "a11y.tablist_tabpanel.missing"),
+    (
+        "aria/combobox-popup-missing",
+        "a11y.combobox_options.missing",
+    ),
+    ("popover/target-missing", "a11y.modern_attributes.invalid"),
+    ("popover/target-invalid", "a11y.modern_attributes.invalid"),
+    ("inert/dialog-inert", "a11y.modern_attributes.invalid"),
+    (
+        "aria/attribute-not-allowed",
+        "a11y.aria_allowed_attr.invalid",
+    ),
+    (
+        "aria/attribute-prohibited",
+        "a11y.aria_prohibited_attr.invalid",
+    ),
+    (
+        "aria/required-parent-missing",
+        "a11y.aria_required_parent.invalid",
+    ),
+    (
+        "aria/required-children-missing",
+        "a11y.aria_required_children.missing",
+    ),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the
@@ -2363,6 +2401,29 @@ pub static RULES: &[Rule] = &[
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.tab_selected.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("aria/tab-selected-missing"),
+        title: "Kein Tab als ausgewählt ausgezeichnet",
+        title_en: "No tab marked as selected",
+        description: "Keiner der Tabs einer Tableiste trägt aria-selected=\"true\".",
+        user_impact: "Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.",
+        user_impact_en: "Screen reader users are not told which tab is active and which one the visible content belongs to.",
+        technical_impact: "tablist ohne tab mit aria-selected=\"true\".",
+        technical_impact_en: "tablist without a tab carrying aria-selected=\"true\".",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
     },
     Rule {
         id: "a11y.combobox_options.missing",

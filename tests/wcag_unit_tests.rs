@@ -10,8 +10,7 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_required_parent, check_aria_roles, check_label_title_only, check_link_purpose,
-    check_text_alternatives, Color, ContrastRule,
+    check_label_title_only, check_link_purpose, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -33,12 +32,6 @@ fn node(id: &str, role: &str, name: Option<&str>) -> AXNode {
         parent_id: None,
         backend_dom_node_id: None,
     }
-}
-
-fn node_with_parent(id: &str, role: &str, name: Option<&str>, parent: &str) -> AXNode {
-    let mut n = node(id, role, name);
-    n.parent_id = Some(parent.to_string());
-    n
 }
 
 fn node_with_children(id: &str, role: &str, name: Option<&str>, children: Vec<&str>) -> AXNode {
@@ -208,73 +201,11 @@ fn test_244_multiple_links_mixed() {
 // Verstoss also gar nicht abbilden.
 
 // ---------------------------------------------------------------------------
-// 4.1.2 ARIA Role Validity — check_aria_roles
+// 4.1.2 ARIA-Rollen und erforderlicher Kontext
 // ---------------------------------------------------------------------------
-
-#[test]
-fn test_412_valid_role_passes() {
-    let tree = AXTree::from_nodes(vec![
-        node_with_children("1", "WebArea", Some("Page"), vec!["2"]),
-        node_with_parent("2", "button", Some("Submit"), "1"),
-    ]);
-    let results = check_aria_roles(&tree);
-    assert_eq!(results.violations.len(), 0);
-}
-
-// Invalid-role detection moved to check_invalid_role_with_page (DOM-based,
-// #QA-030) — needs a live Page, not unit-tested here.
-
-// Invalid-ARIA-attribute-name detection moved to
-// check_invalid_aria_attribute_name_with_page (DOM-based, #QA-030) — needs
-// a live Page, not unit-tested here.
-
-#[test]
-fn test_412_listitem_without_list_context_flagged() {
-    // Required-parent-context validation lives exclusively in
-    // check_aria_required_parent — aria_roles.rs used to duplicate it
-    // (#QA-033), which is why this test called check_aria_roles before.
-    let tree = AXTree::from_nodes(vec![
-        node_with_children("1", "WebArea", Some("Page"), vec!["2"]),
-        node_with_parent("2", "listitem", Some("Item"), "1"),
-    ]);
-    let results = check_aria_required_parent(&tree);
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("must be contained in a parent")));
-}
-
-#[test]
-fn test_412_listitem_with_list_parent_passes() {
-    let tree = AXTree::from_nodes(vec![
-        {
-            let mut n = node_with_children("1", "WebArea", Some("Page"), vec!["2"]);
-            n.child_ids = vec!["2".to_string()];
-            n
-        },
-        {
-            let mut n = node("2", "list", Some("My List"));
-            n.child_ids = vec!["3".to_string()];
-            n.parent_id = Some("1".to_string());
-            n
-        },
-        {
-            let mut n = node("3", "listitem", Some("An item"));
-            n.parent_id = Some("2".to_string());
-            n
-        },
-    ]);
-    let results = check_aria_required_parent(&tree);
-    let context_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.node_id == "3")
-        .collect();
-    assert!(
-        context_violations.is_empty(),
-        "listitem inside list should not be flagged for context"
-    );
-}
+// Laufen seit #691 als `aria/role-invalid`, `aria/required-parent-missing`
+// und `aria/required-children-missing` im geteilten Bestand, gegen den DOM.
+// Die Tests dazu stehen in `wcag::shared` und in `a11y-rules`.
 
 // 1.4.4 Resize Text: der Viewport laeuft seit #690 als `zoom/*` im geteilten
 // Bestand (siehe `wcag::shared`) -- der AX-Baum hat keine
@@ -738,54 +669,7 @@ fn scenario_missing_alt_fires_only_111() {
 // Fassung sortierte nach `node_id` als Text, was in laengeren Seiten "h10" vor
 // "h2" einsortierte. Die Faelle stehen als DOM-Szenarien in `a11y-rules`.
 
-/// Page with a menu missing its required menuitem children and a focusable
-/// element inside aria-hidden. Only 4.1.2 (required owned elements) fires
-/// from the tree: focusable+aria-hidden runs as `keyboard/hidden-focusable`
-/// in the shared bestand since #690 and no longer as a tree rule under 2.4.3.
-/// No other rules should fire (baseline is otherwise clean).
-///
-/// (Invalid-*role* and invalid-*attribute-name* detection moved to DOM page
-/// rules — check_invalid_role_with_page / check_invalid_aria_attribute_name_
-/// with_page, #QA-030 — so this scenario now exercises the still-tree-based
-/// required-owned-elements check instead. A "list" fixture was tried first
-/// but also trips list_structure.rs's own 1.3.1 empty-list check — "menu" is
-/// not touched by any other module.)
-#[test]
-fn scenario_broken_aria_fires_412() {
-    let empty_menu = {
-        let mut n = node("menu1", "menu", Some("Empty menu"));
-        n.child_ids = vec!["btn1".into()];
-        n
-    };
-    let non_menuitem_child = node("btn1", "paragraph", Some("Not a menuitem"));
-    let hidden_focusable = {
-        let mut n = node("btn2", "button", Some("Hidden action"));
-        n.properties.push(AXProperty {
-            name: "hidden".to_string(),
-            value: AXValue::Bool(true),
-        });
-        n.properties.push(AXProperty {
-            name: "focusable".to_string(),
-            value: AXValue::Bool(true),
-        });
-        n
-    };
-    let tree = page_with_main_content(vec![
-        ("h1", heading("h1", 1, Some("Dashboard"))),
-        ("menu1", empty_menu), // menu without menuitem children → 4.1.2
-        ("btn1", non_menuitem_child),
-        ("btn2", hidden_focusable), // focusable + aria-hidden → shared rule
-    ]);
-    let rules = fired_rules(&tree, WcagLevel::AA);
-    assert!(
-        rules.contains(&"4.1.2".to_string()),
-        "Invalid ARIA role should fire 4.1.2; got: {rules:?}"
-    );
-    // Only the expected rule should fire — no regressions, and no second
-    // report of the aria-hidden case from the tree.
-    let unexpected: Vec<_> = rules.iter().filter(|r| *r != "4.1.2").collect();
-    assert!(
-        unexpected.is_empty(),
-        "Unexpected rules fired in broken-aria scenario: {unexpected:?}"
-    );
-}
+// Das Szenario mit kaputtem ARIA (Menue ohne menuitem) steht nicht mehr hier:
+// Rollen, Kontext und Bestandteile laufen seit #691 als `aria/*` im geteilten
+// Bestand gegen den DOM, kein AX-Baum-Szenario loest sie mehr aus. Die Faelle
+// stehen als DOM-Szenarien in `wcag::shared` und `a11y-rules`.

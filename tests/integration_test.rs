@@ -2440,13 +2440,22 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
         "{summary:#?}"
     );
     // The widget rules reach the tablist in the frame. Chrome's AX tree
-    // flattens the `<li>` between tablist and tab, so the tree-based
-    // required-parent/children rules see a valid structure there -- the same
-    // on the top document; that is a rule question, not a frame one.
-    assert!(
-        has("aria-tablist-tabpanel", "iframe#widget [frame] ul#tabs"),
-        "{summary:#?}"
-    );
+    // flattens the `<li>` between tablist and tab; the shared rules check
+    // the DOM (#691) and, like axe, report the `<li>` as a listitem between
+    // them.
+    for (rule, selector) in [
+        ("aria/tabpanel-missing", "iframe#widget [frame] ul#tabs"),
+        (
+            "aria/required-children-missing",
+            "iframe#widget [frame] ul#tabs",
+        ),
+        (
+            "aria/required-parent-missing",
+            "iframe#widget [frame] a#tab-one",
+        ),
+    ] {
+        assert!(has(rule, selector), "{rule}: {summary:#?}");
+    }
 
     // The main document's AX tree does not reach into the frame, so nothing
     // is reported twice.

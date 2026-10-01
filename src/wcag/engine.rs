@@ -16,15 +16,15 @@ pub use super::rules::{
     check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use super::rules::{
-    check_accessible_name, check_aria_naming_rules, check_aria_required_parent, check_aria_roles,
-    check_bypass_blocks, check_dialog_rules, check_error_identification, check_focus_visible,
-    check_form_rules, check_help, check_instructions, check_keyboard, check_label_title_only,
-    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_accessible_name, check_aria_naming_rules, check_bypass_blocks, check_dialog_rules,
+    check_error_identification, check_focus_visible, check_form_rules, check_help,
+    check_instructions, check_keyboard, check_label_title_only, check_labels,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
-    check_link_purpose_link_only, check_media_rules, check_parsing, check_region,
-    check_section_headings, check_status_messages, check_summary_name, check_table_extended,
-    check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_link_purpose_link_only, check_media_rules, check_region, check_section_headings,
+    check_status_messages, check_summary_name, check_table_extended, check_text_alternatives,
+    check_unusual_words,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
@@ -218,30 +218,10 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // 4.1.2 Name, Role, Value (Level A)
     run_if_allowed!(filter, "label", check_labels, results, tree);
 
-    // 4.1.2 ARIA Role Validity (Level A)
-    run_if_allowed!(filter, "aria-roles", check_aria_roles, results, tree);
-
-    // 4.1.2 ARIA Allowed Attributes now runs as a DOM page rule
-    // (check_aria_allowed_attr_with_page in PAGE_RULES) — the tree-based
-    // check guarded on prop.name.starts_with("aria-"), which is never true
-    // for CDP property names and had no DOM fallback (#QA-030).
-
-    // 4.1.2 ARIA Required Attributes laeuft als
-    // `aria/required-attribute-missing` im geteilten Bestand.
-
-    // 4.1.2 ARIA Required Parent (Level A)
-    run_if_allowed!(
-        filter,
-        "aria-required-parent",
-        check_aria_required_parent,
-        results,
-        tree
-    );
-
-    // 4.1.2 ARIA Prohibited Attributes (Level A) — DOM-based only, see
-    // page_rules.rs / check_aria_prohibited_attr_with_page (#564: the
-    // AX-tree-based version this used to call here could never detect
-    // anything — aria-label/aria-labelledby aren't exposed as AX properties).
+    // 4.1.2 ARIA: Rollen, Attributnamen und -werte, erlaubte und verbotene
+    // Attribute, Kontext und Bestandteile laufen als `aria/*` im geteilten
+    // Bestand (#691), gegen den DOM -- ebenso
+    // `aria/required-attribute-missing` (#690).
 
     // 1.3.1 Region / Landmark (Level A)
     run_if_allowed!(filter, "region", check_region, results, tree);
@@ -267,14 +247,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // 4.1.2 / 2.4.3 Dialog Rules (Level A) - P1
     run_if_allowed!(filter, "dialog-name", check_dialog_rules, results, tree);
 
-    // 4.1.2 / 2.1.1 Widget Rules (Level A) - P2
-    run_if_allowed!(
-        filter,
-        "aria-required-children",
-        check_widget_rules,
-        results,
-        tree
-    );
+    // 4.1.2 Tabs und Combobox laufen als `aria/tab-selected-missing`,
+    // `aria/tabpanel-missing` und `aria/combobox-popup-missing` im geteilten
+    // Bestand (#691).
 
     // 1.2.1 / 1.1.1 Media Rules (Level A) - P2
     run_if_allowed!(filter, "video-caption", check_media_rules, results, tree);
@@ -352,8 +327,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
         tree
     );
 
-    // 4.1.1 Parsing (Level A) — aria-owns duplicate target detection
-    run_if_allowed!(filter, "duplicate-id-aria", check_parsing, results, tree);
+    // 4.1.2 Mehrdeutiges `aria-owns` laeuft als `aria/owns-conflict` im
+    // geteilten Bestand (#691).
 }
 
 /// Run all Level AA rules

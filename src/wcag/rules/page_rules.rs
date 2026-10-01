@@ -26,17 +26,14 @@ use crate::wcag::Violation;
 
 use super::{
     check_abbreviations_with_page, check_accessible_authentication_with_page,
-    check_aria_allowed_attr_with_page, check_aria_prohibited_attr_with_page,
-    check_aria_valid_attr_value_with_page, check_background_audio_with_page,
-    check_checkbox_group_with_page, check_content_on_hover_with_page,
-    check_display_modes_with_page, check_fake_navigation_link_with_page,
-    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_focus_visible_css_with_page, check_form_no_submit_with_page,
-    check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
-    check_image_input_rules_with_page, check_input_purpose_with_page,
-    check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
-    check_label_in_name_with_page, check_language_extended_with_page,
-    check_language_of_parts_with_page, check_location_with_page,
+    check_background_audio_with_page, check_checkbox_group_with_page,
+    check_content_on_hover_with_page, check_display_modes_with_page,
+    check_fake_navigation_link_with_page, check_focus_not_obscured_enhanced_with_page,
+    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
+    check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
+    check_identify_purpose_with_page, check_image_input_rules_with_page,
+    check_input_purpose_with_page, check_label_in_name_with_page,
+    check_language_extended_with_page, check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -47,10 +44,9 @@ use super::{
     check_reduced_motion_with_page, check_redundant_entry_with_page,
     check_redundant_role_with_page, check_same_origin_iframes_with_page,
     check_scrollable_region_focusable_with_page, check_server_side_image_map_with_page,
-    check_tab_selected_state_with_page, check_table_headers_attr_with_page,
-    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
-    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
+    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
+    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -74,12 +70,6 @@ pub struct PageRuleEntry {
 /// `run_rules` order so finding emission stays stable.
 pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level A ───────────────────────────────────────────────────────────────
-    PageRuleEntry {
-        rule_id: "4.1.2/aria-prohibited-attr",
-        name: "aria-prohibited-attr",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_aria_prohibited_attr_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "2.4.1/frame-title",
         name: "frame-title",
@@ -217,30 +207,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "language-of-parts",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_language_of_parts_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/invalid-role",
-        name: "invalid ARIA role",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_invalid_role_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/aria-allowed-attr",
-        name: "aria-allowed-attr",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_aria_allowed_attr_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/invalid-aria-attribute-name",
-        name: "invalid ARIA attribute name",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_invalid_aria_attribute_name_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/tab-selected-state",
-        name: "tab selected state",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_tab_selected_state_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/redundant-role",
@@ -424,12 +390,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_abbreviations_with_page(p)),
     },
-    PageRuleEntry {
-        rule_id: "4.1.2/aria-valid-attr-value",
-        name: "aria-valid-attr-value",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_aria_valid_attr_value_with_page(p)),
-    },
 ];
 
 #[cfg(test)]
@@ -490,7 +450,11 @@ mod tests {
         //   `aria/reference-missing` und `aria/required-attribute-missing`
         //   im geteilten Bestand (#690) = 34
         // + scrollable-region-focusable (2.1.1, #717) = 35
-        assert_eq!(count, 35);
+        // - aria-prohibited-attr, invalid-role, aria-allowed-attr,
+        //   invalid-aria-attribute-name, tab-selected-state und
+        //   aria-valid-attr-value: laufen als `aria/*` im geteilten Bestand
+        //   (#691) = 29
+        assert_eq!(count, 29);
     }
 
     #[test]
@@ -529,7 +493,9 @@ mod tests {
         //   (Level A) und meta-viewport (1.4.4) in den geteilten Bestand
         //   abgegeben (#690) = 45.
         // + scrollable-region-focusable (2.1.1, #717, Level A) = 46.
-        assert_eq!(count, 46);
+        // - sechs ARIA-Pruefungen (Level A) in den geteilten Bestand
+        //   abgegeben (#691) = 40.
+        assert_eq!(count, 40);
     }
 
     #[test]

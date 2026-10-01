@@ -2,6 +2,6 @@
   "case": "value_widgets_native",
   "expectations": [
     { "rule_id": "aria/required-attribute-missing", "verdict": "pass" },
-    { "rule_id": "aria-required-children", "verdict": "pass" }
+    { "rule_id": "aria/required-children-missing", "verdict": "pass" }
   ]
 }

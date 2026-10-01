@@ -41,28 +41,28 @@
       "url": "https://www.bundesregierung.de/",
       "expected": {
         "min": 35,
-        "max": 60
+        "max": 65
       },
-      "reviewed": "2026-09-27",
-      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant."
+      "reviewed": "2026-10-01",
+      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point."
     },
     {
       "url": "https://www.dm.de/",
       "expected": {
         "min": 15,
-        "max": 40
+        "max": 48
       },
-      "reviewed": "2026-09-27",
-      "notes": "40x prohibited aria-label (star ratings), invalid ARIA values, unlabeled field."
+      "reviewed": "2026-10-01",
+      "notes": "40x prohibited aria-label (star ratings), invalid ARIA values, unlabeled field. B1 (#691): the search field's aria-controls=\"suggestions\" with aria-expanded=false is no longer a finding (the list only exists once expanded; a11y-rules 0.13.2, like axe), which removes one High rule and adds about 10 points (28 -> 38)."
     },
     {
       "url": "https://www.berlin.de/",
       "expected": {
         "min": 15,
-        "max": 40
+        "max": 48
       },
-      "reviewed": "2026-09-27",
-      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports."
+      "reviewed": "2026-10-01",
+      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. B1 (#691): the swiper lists (li[role=group]) are now lists/invalid-structure (Medium) instead of aria-roles (High), same two places, so the score sits about 7 points higher. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports."
     },
     {
       "url": "https://www.basf.com/",

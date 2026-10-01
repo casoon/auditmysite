@@ -1,8 +1,8 @@
 {
   "case": "widget_patterns",
   "expectations": [
-    { "rule_id": "aria-tablist-tabpanel", "verdict": "violation" },
-    { "rule_id": "aria-tab-selected-state", "verdict": "violation" },
-    { "rule_id": "aria-combobox-options", "verdict": "violation" }
+    { "rule_id": "aria/tabpanel-missing", "verdict": "needs_review" },
+    { "rule_id": "aria/tab-selected-missing", "verdict": "needs_review" },
+    { "rule_id": "aria/combobox-popup-missing", "verdict": "violation" }
   ]
 }

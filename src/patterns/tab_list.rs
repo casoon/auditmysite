@@ -1,15 +1,16 @@
 //! TabList pattern (issue #30).
 //!
-//! Detects tab-list/tab/tabpanel structures and reports that:
-//! - each tab declares aria-selected
-//! - each tab declares aria-controls (target resolution needs a DOM pass, #444)
+//! Detects tab-list/tab/tabpanel structures and reports how many tabs
+//! declare aria-selected and aria-controls (target resolution needs a DOM
+//! pass, #444).
 //!
-//! Required-children violations (tablist without tabs) are already covered
-//! by the widget_rules check — this pattern adds semantic validation.
+//! Befunde erzeugt das Muster nicht mehr: Die Tabliste ohne ausgewählten Tab
+//! ist `aria/tab-selected-missing`, die ohne Tab-Panel
+//! `aria/tabpanel-missing`, die ohne Tabs `aria/required-children-missing`
+//! -- alle im geteilten Bestand (#691). Die frühere Meldung
+//! `tab-no-aria-selected` je Tab war derselbe Fall ein zweites Mal.
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
-use crate::wcag::types::{Severity, Violation};
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
@@ -34,25 +35,8 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         for tab in &tabs {
             tabs_total += 1;
 
-            let has_selected = tab.has_property("selected");
-            if has_selected {
+            if tab.has_property("selected") {
                 tabs_with_selected += 1;
-            } else {
-                out.violations.push(
-                    Violation::new(
-                        "4.1.2",
-                        "Name, Role, Value",
-                        WcagLevel::A,
-                        Severity::Medium,
-                        "Tab is missing aria-selected — assistive tech cannot announce which tab is active.",
-                        &tab.node_id,
-                    )
-                    .with_fix(
-                        "Set aria-selected=\"true\" on the active tab and aria-selected=\"false\" on the others; toggle on activation.",
-                    )
-                    .with_rule_id("tab-no-aria-selected")
-                    .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/tabs/"),
-                );
             }
 
             // aria-controls presence. We only report that it is declared, not
@@ -140,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tab_without_selected_emits_violation() {
+    fn test_tab_without_selected_is_partial_but_no_finding() {
         let tablist = AXNode {
             node_id: "0".into(),
             ignored: false,
@@ -159,10 +143,8 @@ mod tests {
         let tree = AXTree::from_nodes(vec![tablist, tab]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a
-            .violations
-            .iter()
-            .any(|v| v.message.contains("aria-selected")));
+        assert!(a.violations.is_empty());
+        assert_eq!(a.recognized[0].confidence, PatternConfidence::Partial);
     }
 
     #[test]

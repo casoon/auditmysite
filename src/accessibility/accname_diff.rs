@@ -519,7 +519,7 @@ fn shape_of(
 }
 
 fn compare_role(doc: &CdpDocument, node: ArenaNode<'_>, max_samples: usize, out: &mut AccnameDiff) {
-    let chrome = doc.role(node);
+    let chrome = doc.chrome_role(node).map(str::to_string);
     let Some(chrome_role) = chrome.as_deref() else {
         out.roles_not_comparable += 1;
         return;

@@ -18,7 +18,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "modern-attribute-misuse",
+      "rule_id": "popover/target-missing",
       "verdict": "violation"
     },
     {

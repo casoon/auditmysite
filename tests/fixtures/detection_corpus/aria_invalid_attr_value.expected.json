@@ -1,6 +1,6 @@
 {
   "case": "aria_invalid_attr_value",
   "expectations": [
-    { "rule_id": "aria-valid-attr-value", "verdict": "violation" }
+    { "rule_id": "aria/attribute-value-invalid", "verdict": "violation" }
   ]
 }
