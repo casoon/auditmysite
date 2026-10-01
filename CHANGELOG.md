@@ -5,6 +5,18 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Frames in fremden Prozessen (#720):** Nach #715 blieben iframes, die Chrome wegen
+  Site-Isolation in einem eigenen Renderer zeigt, ungeprueft (`skipped: cross_origin`) — etwa der
+  Webchat auf gov.cy (`digital-assistant.gov.cy`, `gov.cy` ist ein Public Suffix), in dem axe einen
+  unbenannten `role="dialog"` meldet. chromiumoxide 0.8 legt fuer solche Frames zwar intern eine
+  Session an, bietet aber keine Befehle an sie. Statt eines eigenen CDP-Clients startet der
+  Audit-Browser jetzt ohne Site-Isolation (`--disable-site-isolation-trials`,
+  `IsolateOrigins`/`site-per-process` aus): Cross-Site-Frames laufen im Prozess der Seite, der
+  bestehende Frame-Durchgang erreicht sie samt Anreicherung, Selektoren und Ausschluessen. Das
+  Profil ist frisch und ohne Nutzerdaten; ignoriert ein kuenftiges Chrome die Flags, steht der
+  Frame wieder sichtbar als `cross_origin` im Bericht. Der Chrome-Test erwartet den Cross-Site-Frame
+  jetzt als geprueft mit `dialog-name`-Befund; gov.cy live: Frame geprueft, Dialog gefunden.
+
 - **SPA-Portale: Aufnahme vor dem ersten Rendern (#718):** eesti.ee zeigt nach dem Laden einen
   leeren Splash-Screen, waehrend die Angular-App ihre erste Ansicht holt — rund 400 ms ohne eine
   einzige DOM-Mutation. `wait_for_page_stability` wertete 200 ms Ruhe als stabil, der AX-Baum wurde
