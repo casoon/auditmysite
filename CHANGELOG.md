@@ -12,7 +12,8 @@ short current-state summary. Newest entries first (unchanged order from before t
   `label_title_only`, `on_focus`, `instructions` und `labels` (`check_form_control`, der letzte
   Rest der Datei). Im Host bleibt, was die laufende Seite braucht: in `on_input` das Nachschlagen
   einer aufgerufenen Funktion ueber `window` (Verstoss, wenn erst sie den Kontext wechselt) und die
-  Namensvermutung („Language") ohne Absende-Button, beide weiter unter `input-no-context-change`;
+  Namensvermutung („Language") ohne Absende-Button, beide jetzt unter derselben Kennung wie die
+  geteilte Regel (`context/on-input`), damit der Verstoss deren Pruefhinweis am selben Element verdraengt;
   in `accessible_authentication` der Einfuege-Test (`accessible-auth-paste-blocked`). Kennungen:
   `label` „no accessible label" und `control-missing-label` an Formularfeldern →
   `forms/label-missing` (3.3.2 A); `label` „Placeholder used as only label" →
@@ -35,18 +36,27 @@ short current-state summary. Newest entries first (unchanged order from before t
   und `context/autofocus` sind Pruefhinweise statt Verstoesse; `forms/autocomplete-invalid` prueft
   die ganze Autofill-Grammatik und ist niedrig statt mittel; `context/on-input` prueft auch
   Optionsfelder; `forms/no-submit` zaehlt per `form`-Attribut zugeordnete Felder und Buttons mit;
-  der seitenweite `UNTESTED`-Vermerk zu 1.3.6 entfaellt; ein unbenanntes ARIA-Widget meldet nur
-  noch `names/required-missing` (hoch) statt zusaetzlich `label` (kritisch). Die Formularregeln
+  der seitenweite `UNTESTED`-Vermerk zu 1.3.6 entfaellt. Die Formularregeln
   laufen jetzt auch in Frames, auch die bisher nur im Hauptdokument geprueften
   (`autocomplete`, Absenden, Wiederholung, Kontextwechsel, Captcha). Taxonomie: alle Kennungen
   zeigen auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen; neue
-  Erklaerungstexte fuer `forms/no-submit` und `auth/captcha` (beide hatten keinen eigenen). Geprueft
-  mit Unit-Tests, Detection-Corpus und Referenzlauf (Chrome); in der Score-Kalibrierung verlassen
-  `combobox_missing_expanded` und `widget_patterns` das kritische Band (87 statt <= 49), weil
-  das kritische `label` am unbenannten ARIA-Widget entfaellt -- offen. Braucht das
-  naechste `a11y-rules`-Release mit casoon/barrierlab#16.
+  Erklaerungstexte fuer `forms/no-submit` und `auth/captcha`. Mit `a11y-rules` 0.16.0, das ein
+  unbenanntes ARIA-Formularfeld (combobox, listbox, textbox, …) wie das native Feld ohne Label als
+  kritisch meldet. Geprueft mit Unit-Tests, Detection-Corpus, Score-Kalibrierung und Referenzlauf
+  (Chrome) sowie einem Vorher/Nachher-Lauf auf 14 Live-Seiten.
 
-- **Unreleased — Namensregeln aus `a11y-rules` statt eigener (#692, B2):** Die Pruefungen auf
+- **1.7.3, 2026-10-01:** ARIA- und Namensregeln kommen jetzt aus `a11y-rules` statt aus eigenen
+  Implementierungen (#691 B1, #692 B2, a11y-rules 0.15.0), mit neuen Kennungen nach dem Schema
+  `aria/*`, `names/*`, `dialog/*`, `popover/*`, `inert/*`; ein unbenannter Dialog steht nur noch
+  einmal im Bericht. Cross-Site-iframes werden geprueft, weil der Audit-Browser ohne
+  Site-Isolation startet (#720). SPA-Portale werden erst nach dem ersten gerenderten Inhalt
+  aufgenommen (#718). Fehlalarme behoben: Textebene in verborgenen Panels (#725), unbenannte
+  `form`/`region` als Landmark (#727), Landmark-Zaehlung trotz Ausschluss (#726, neues JSON-Feld
+  `exclusion.excluded_landmarks`), `form-no-submit` bei reinen Schalter-Formularen (#728).
+  Referenzlauf (`reference_sites_test`) und Detection-Corpus gruen. Einzelheiten in den Eintraegen
+  darunter.
+
+- **Namensregeln aus `a11y-rules` statt eigener (#692, B2):** Die Pruefungen auf
   fehlende und unzureichende zugaengliche Namen laufen ueber den geteilten Bestand
   (`SHARED_RULES` in `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht:
   `aria_naming_rules`, `dialog_rules`, `summary_name`, `status_messages`, `label_in_name` und aus
@@ -79,6 +89,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen. Geprueft mit
   Unit-Tests, Detection-Corpus und Score-Kalibrierung (Chrome). Mit `a11y-rules` 0.15.0. Der #527-Filter (Verstoss verdraengt Hinweis) vergleicht jetzt die Backend-Node-ID, wo beide Befunde eine tragen: geteilte Befunde haben kurze Selektoren (`button`), und ein Verstoss an einem Button verschluckte den Hinweis an einem anderen. Referenzband bundesregierung.de neu bewertet (35–72): drei Label-in-Name-Fehlalarme an per CSS verstecktem Text entfallen, der Cookie-Dialog ohne aria-modal ist ein Hinweis.
 
+
 - **Frames in fremden Prozessen (#720):** Nach #715 blieben iframes, die Chrome wegen
   Site-Isolation in einem eigenen Renderer zeigt, ungeprueft (`skipped: cross_origin`) — etwa der
   Webchat auf gov.cy (`digital-assistant.gov.cy`, `gov.cy` ist ein Public Suffix), in dem axe einen
@@ -100,7 +111,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   `budget_exhausted`. Neuer Chrome-Test mit Splash-Fixture (scheitert ohne den Fix);
   Detection-Corpus gruen; eesti.ee und latvija.gov.lv ohne den Fehlbefund.
 
-- **Unreleased — ARIA-Regeln aus `a11y-rules` statt eigener (#691, B1):** Die ARIA-Pruefungen
+- **ARIA-Regeln aus `a11y-rules` statt eigener (#691, B1):** Die ARIA-Pruefungen
   laufen ueber den geteilten Bestand (`SHARED_RULES` in `src/wcag/shared.rs`, alle unter 4.1.2
   A), die abgeloesten eigenen Regeln sind geloescht: `aria_allowed_attr`, `aria_prohibited_attr`,
   `aria_valid_attr_value`, `aria_required_parent`, `parsing`, `aria_roles`, `widget_rules`, die
