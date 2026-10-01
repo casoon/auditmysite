@@ -257,7 +257,17 @@ impl BrowserManager {
             "--disable-default-apps".to_string(),
             "--hide-crash-restore-bubble".to_string(),
             "--disable-session-crashed-bubble".to_string(),
-            "--disable-features=ChromeWhatsNewUI,MediaRouter,DialMediaRouteProvider".to_string(),
+            // Site isolation off (IsolateOrigins, site-per-process and the
+            // trial switch): cross-site iframes then render in the page's own
+            // process, so the frame pass (`audit::frames`) reaches them
+            // through the page session like any other frame (#720). With it
+            // on, a cross-site frame lives in its own renderer, which
+            // chromiumoxide gives no session to. The profile is fresh and
+            // holds no user data, so the process boundary between sites
+            // protects nothing here. Should Chrome ever ignore these flags,
+            // such frames show up again as `skipped: cross_origin`.
+            "--disable-features=ChromeWhatsNewUI,MediaRouter,DialMediaRouteProvider,IsolateOrigins,site-per-process".to_string(),
+            "--disable-site-isolation-trials".to_string(),
             "--metrics-recording-only".to_string(),
             "--mute-audio".to_string(),
             "--hide-scrollbars".to_string(),
@@ -809,6 +819,11 @@ mod tests {
             .all(|a| a != "--headless" && a != "--headless=new"));
         assert!(args.iter().any(|a| a == "--disable-gpu"));
         assert!(args.iter().any(|a| a == "--no-default-browser-check"));
+        // #720: cross-site frames in the page's process.
+        assert!(args.iter().any(|a| a == "--disable-site-isolation-trials"));
+        assert!(args
+            .iter()
+            .any(|a| a.starts_with("--disable-features=") && a.contains("site-per-process")));
         assert!(!args.iter().any(|a| a.starts_with("--user-data-dir=")));
         assert!(!args.iter().any(|a| a.starts_with("--window-size=")));
     }

@@ -2376,10 +2376,11 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
     let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/detection_corpus/iframe_widget_rules.html");
     let html = std::fs::read_to_string(corpus).expect("fixture");
-    // A cross-site frame (localhost vs. 127.0.0.1) is rendered out of process
-    // under site isolation and must be listed as skipped, not as clean.
+    // A cross-site frame (localhost vs. 127.0.0.1). Site isolation would
+    // render it out of process; the audit browser runs without it, so the
+    // frame is audited like a same-site one (#720).
     let remote = common::fixture_server::serve_html(
-        "<!DOCTYPE html><html lang=\"en\"><head><title>Remote</title></head><body><div role=\"dialog\"></div></body></html>"
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Remote</title></head><body><div id=\"remote-dialog\" role=\"dialog\"></div></body></html>"
             .to_string(),
     );
     let remote_url = remote.url.replace("127.0.0.1", "localhost");
@@ -2508,7 +2509,11 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
             .any(|f| f.selector == selector && f.reason == Some(reason))
     };
     assert!(skipped("iframe#hidden-widget", FrameSkipReason::Hidden));
-    assert!(skipped("iframe#remote", FrameSkipReason::CrossOrigin));
+    assert!(frames.audited.iter().any(|f| f.selector == "iframe#remote"));
+    assert!(
+        has("dialog-name", "iframe#remote [frame] div#remote-dialog"),
+        "{summary:#?}"
+    );
 }
 
 /// #718: a client-rendered app can stay quiet behind an empty splash screen
