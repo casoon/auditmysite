@@ -168,18 +168,35 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
     // shared rules report several page-level findings on `<html>`, and
     // `keyboard/skip-link-missing` (2.4.1, review) was swallowed by
     // `landmarks/main-missing` (2.4.1, fail) on the same element (#690).
-    let violation_keys: std::collections::HashSet<(String, Option<String>, String)> = merged
-        .iter()
-        .map(|v| {
-            let (rule, id) = dedup_key(v);
-            (rule.to_owned(), v.rule_id.clone(), id)
-        })
-        .collect();
+    //
+    // Same element means the same backend node when both findings carry one:
+    // the shared rules build short selectors (`button`), so two different
+    // buttons share a key, and a fail on one swallowed the review on the
+    // other (`label-in-name/mismatch`, #692). Without a backend id on either
+    // side the selector decides, as before.
+    let mut violation_keys: std::collections::HashMap<
+        (String, Option<String>, String),
+        Vec<Option<i64>>,
+    > = std::collections::HashMap::new();
+    for v in &merged {
+        let (rule, id) = dedup_key(v);
+        violation_keys
+            .entry((rule.to_owned(), v.rule_id.clone(), id))
+            .or_default()
+            .push(v.backend_node_id);
+    }
     let warnings: Vec<Violation> = warnings
         .into_iter()
         .filter(|w| {
             let (rule, id) = dedup_key(w);
-            !violation_keys.contains(&(rule.to_owned(), w.rule_id.clone(), id))
+            let Some(backends) = violation_keys.get(&(rule.to_owned(), w.rule_id.clone(), id))
+            else {
+                return true;
+            };
+            !backends.iter().any(|b| match (b, w.backend_node_id) {
+                (Some(a), Some(c)) => *a == c,
+                _ => true,
+            })
         })
         .collect();
 

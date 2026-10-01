@@ -14,12 +14,12 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_aria_naming_rules, check_bypass_blocks, check_dialog_rules,
-    check_focus_visible, check_form_rules, check_instructions, check_keyboard, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
-    check_media_rules, check_section_headings, check_table_extended, check_text_alternatives,
+    check_accessible_name, check_bypass_blocks, check_focus_visible, check_form_rules,
+    check_instructions, check_keyboard, check_labels, check_landmark_banner_is_top_level,
+    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
+    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
+    check_landmark_unique, check_link_purpose, check_media_rules, check_section_headings,
+    check_table_extended, check_text_alternatives,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -79,9 +79,7 @@ rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
 rule_smoke_test!(smoke_check_labels, check_labels);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
-rule_smoke_test!(smoke_check_aria_naming_rules, check_aria_naming_rules);
 rule_smoke_test!(smoke_check_form_rules, check_form_rules);
-rule_smoke_test!(smoke_check_dialog_rules, check_dialog_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);
 rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
 rule_smoke_test!(
@@ -424,8 +422,9 @@ const REAL_CDP_PROPERTIES: &[&str] = &[
     // Empirically confirmed beyond the documented enum, this session:
     // - "language": populated on RootWebArea even without an author lang
     //   attribute (the root cause of #QA-001's false negative).
-    // - "htmlTag": confirmed live via summary_name.rs (<details>/<summary>)
-    //   and instructions.rs (<fieldset> without a submitted DOM check).
+    // - "htmlTag": confirmed live via summary_name.rs (<details>/<summary>,
+    //   since #692 a shared rule) and instructions.rs (<fieldset> without a
+    //   submitted DOM check).
     // - "url": a link's href target (landmark_granular.rs / region.rs).
     "language",
     "htmlTag",

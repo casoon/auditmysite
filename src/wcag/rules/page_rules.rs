@@ -32,8 +32,8 @@ use super::{
     check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
     check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
     check_identify_purpose_with_page, check_image_input_rules_with_page,
-    check_input_purpose_with_page, check_label_in_name_with_page,
-    check_language_extended_with_page, check_language_of_parts_with_page, check_location_with_page,
+    check_input_purpose_with_page, check_language_extended_with_page,
+    check_language_of_parts_with_page, check_location_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -245,12 +245,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "2.5.3/label-in-name",
-        name: "label-in-name",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_label_in_name_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "2.5.4/motion-actuation",
         name: "motion-actuation",
         min_level: WcagLevel::A,
@@ -454,7 +448,9 @@ mod tests {
         //   invalid-aria-attribute-name, tab-selected-state und
         //   aria-valid-attr-value: laufen als `aria/*` im geteilten Bestand
         //   (#691) = 29
-        assert_eq!(count, 29);
+        // - label-in-name: laeuft als `label-in-name/mismatch` im geteilten
+        //   Bestand (#692) = 28
+        assert_eq!(count, 28);
     }
 
     #[test]
@@ -495,7 +491,9 @@ mod tests {
         // + scrollable-region-focusable (2.1.1, #717, Level A) = 46.
         // - sechs ARIA-Pruefungen (Level A) in den geteilten Bestand
         //   abgegeben (#691) = 40.
-        assert_eq!(count, 40);
+        // - label-in-name (Level A) in den geteilten Bestand abgegeben
+        //   (#692) = 39.
+        assert_eq!(count, 39);
     }
 
     #[test]

@@ -890,11 +890,12 @@ async fn test_catalog_audit_json_envelope_v2() {
     );
 }
 
-/// Regression test for #513: `check_label_in_name_with_page` must not flag a
-/// mismatch caused purely by `textContent`'s lack of whitespace at element
-/// boundaries, must downgrade a compound widget's plausible-but-unverifiable
-/// mismatch to a warning rather than an auto-confirmed violation, and must
-/// still catch a genuine label/name mismatch.
+/// Regression test for #513: `label-in-name/mismatch` (shared rule since #692)
+/// must not flag a mismatch caused purely by `textContent`'s lack of
+/// whitespace at element boundaries, must downgrade a compound widget's
+/// plausible-but-unverifiable mismatch to a warning rather than an
+/// auto-confirmed violation, and must still catch a genuine label/name
+/// mismatch.
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn test_label_in_name_false_positives() {
@@ -907,9 +908,19 @@ async fn test_label_in_name_false_positives() {
         .await
         .expect("Navigation failed");
 
-    let findings = auditmysite::wcag::rules::check_label_in_name_with_page(&page).await;
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let wcag = &report.accessibility.wcag_results;
+    let findings: Vec<_> = wcag
+        .violations
+        .iter()
+        .chain(&wcag.warnings)
+        .filter(|v| v.rule_id.as_deref() == Some("label-in-name/mismatch"))
+        .collect();
 
     let whitespace_boundary = findings.iter().find(|v| v.message.contains("Loads slowly"));
     assert!(
@@ -2428,13 +2439,11 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
             .iter()
             .any(|v| v.rule_id.as_deref() == Some(rule) && v.selector.as_deref() == Some(selector))
     };
-    assert!(
-        has("dialog-name", "iframe#widget [frame] div#consent-dialog"),
-        "{summary:#?}"
-    );
+    // `dialog-name` and `aria-dialog-name` reported the same dialog twice;
+    // since #692 it is `dialog/name-missing`, once.
     assert!(
         has(
-            "aria-dialog-name",
+            "dialog/name-missing",
             "iframe#widget [frame] div#consent-dialog"
         ),
         "{summary:#?}"

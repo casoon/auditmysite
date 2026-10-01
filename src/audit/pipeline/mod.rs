@@ -2419,6 +2419,39 @@ journey_budget_ms = 1234
         assert_eq!(warnings, vec!["keyboard/skip-link-missing"]);
     }
 
+    /// Two different buttons with the same short selector: the fail on one
+    /// must not swallow the review on the other (#692, label-in-name).
+    #[test]
+    fn test_merge_keeps_warning_on_another_element_with_same_selector() {
+        let v = |backend: i64| {
+            let mut v = Violation::new(
+                "2.5.3",
+                "Label in Name",
+                WcagLevel::A,
+                Severity::Medium,
+                "label-in-name/mismatch",
+                "3",
+            )
+            .with_selector("button")
+            .with_rule_id("label-in-name/mismatch");
+            v.backend_node_id = Some(backend);
+            v
+        };
+        let pass = || WcagResults {
+            violations: vec![v(10)],
+            warnings: vec![v(20).as_warning(), v(10).as_warning()],
+            ..WcagResults::new()
+        };
+
+        let merged = merge_wcag_violations(&pass(), &pass());
+        let backends: Vec<_> = merged
+            .warnings
+            .iter()
+            .filter_map(|w| w.backend_node_id)
+            .collect();
+        assert_eq!(backends, vec![20]);
+    }
+
     #[test]
     fn test_merge_wcag_violations_empty_desktop() {
         fn make_v(rule: &str, selector: &str) -> Violation {

@@ -34,10 +34,11 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
-/// relationships: names (images, links, buttons, form fields, dialogs,
-/// commands, summaries), form structure, table headers, keyboard
-/// reachability and live-region roles. Roles, their required parents and
-/// children and ambiguous `aria-owns` run as shared rules since #691 (see
+/// relationships: names (images, links, form fields), redundant
+/// descriptions, form structure, table headers and keyboard reachability.
+/// Roles, their required parents and children and ambiguous `aria-owns` run
+/// as shared rules since #691, the names of dialogs, summaries and
+/// role-based widgets, label-in-name and live-region roles since #692 (see
 /// [`FRAME_SHARED_RULES`]).
 ///
 /// Left out on purpose — they judge the document as a whole and belong to
@@ -50,15 +51,11 @@ pub const FRAME_TREE_RULES: &[&str] = &[
     "link-name",
     "label",
     "aria-invalid-without-describedby",
-    "aria-label",
-    "aria-command-name",
+    "description-duplicates-name",
     "form-field-group",
-    "dialog-name",
     "video-caption",
     "th-has-data-cells",
-    "summary-name",
     "label-title-only",
-    "aria-live-region-role",
 ];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
@@ -100,6 +97,13 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "aria/attribute-prohibited",
     "aria/required-parent-missing",
     "aria/required-children-missing",
+    "names/required-missing",
+    "names/symbol-only",
+    "dialog/name-missing",
+    "dialog/modal-unmarked",
+    "summary/name-missing",
+    "status/live-overridden",
+    "label-in-name/mismatch",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -582,7 +586,7 @@ mod tests {
         ] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in ["dialog-name", "label", "image-alt"] {
+        for element in ["description-duplicates-name", "label", "image-alt"] {
             assert!(filter.should_run(element), "{element}");
         }
     }
@@ -590,11 +594,11 @@ mod tests {
     #[test]
     fn frame_filter_respects_user_filter_and_never_widens_to_all() {
         let user = RuleFilterConfig {
-            disabled_rules: vec!["dialog-name".into()],
+            disabled_rules: vec!["label".into()],
             enabled_only_rules: Vec::new(),
         };
         let filter = frame_rule_filter(&user).unwrap();
-        assert!(!filter.should_run("dialog-name"));
+        assert!(!filter.should_run("label"));
         assert!(filter.should_run("image-alt"));
 
         // Only page-level rules enabled: nothing to run in frames. An empty

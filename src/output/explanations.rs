@@ -198,6 +198,12 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     // Tabliste ohne Tab-Panel, die `widget_rules` unter dieser Kennung meldete.
     ("aria/tabpanel-missing", "aria-required-children"),
     ("aria/role-abstract", "aria/role-invalid"),
+    // #692: Der Text zu `aria-label` beschreibt fehlende und rein
+    // symbolische Namen schon zusammen.
+    ("names/required-missing", "aria-label"),
+    ("names/symbol-only", "aria-label"),
+    ("dialog/name-missing", "dialog-name"),
+    ("summary/name-missing", "summary-name"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -3711,6 +3717,31 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Medium,
             example_bad: Some("<div role=\"tablist\">\n  <button>One</button>\n  <button>Two</button>\n</div>"),
             example_good: Some("<div role=\"tablist\">\n  <button role=\"tab\" aria-selected=\"true\">One</button>\n  <button role=\"tab\" aria-selected=\"false\">Two</button>\n</div>"),
+            example_decorative: None,
+        },
+    ),
+    // ── Geteilte Kennungen aus #692 (B2) ohne passenden Text ──
+    // `dialog-name` beschreibt nur den fehlenden Namen; das fehlende
+    // `aria-modal` hatte keinen eigenen Text.
+    (
+        "dialog/modal-unmarked",
+        RuleExplanation {
+            customer_title: "Dialog nicht als modal ausgezeichnet",
+            customer_title_en: "Dialog not marked as modal",
+            customer_description: "Ein Element mit role=\"dialog\" trägt kein aria-modal=\"true\". Ob der Dialog modal gemeint ist, muss geprüft werden.",
+            customer_description_en: "An element with role=\"dialog\" does not carry aria-modal=\"true\". Whether the dialog is meant to be modal needs to be checked.",
+            user_impact: "Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.",
+            user_impact_en: "If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.",
+            typical_cause: "Ein selbst gebauter Dialog aus einem div mit role=\"dialog\", ohne aria-modal.",
+            typical_cause_en: "A custom dialog built from a div with role=\"dialog\", without aria-modal.",
+            recommendation: "Einen modalen Dialog mit aria-modal=\"true\" auszeichnen oder ein natives <dialog> mit showModal() verwenden. Ein nicht modaler Dialog braucht das Attribut nicht.",
+            recommendation_en: "Mark a modal dialog with aria-modal=\"true\", or use a native <dialog> opened with showModal(). A non-modal dialog does not need the attribute.",
+            technical_note: "ARIA verlangt aria-modal nicht; der Hinweis ist eine Prüfempfehlung, kein Verstoß.",
+            technical_note_en: "ARIA does not require aria-modal; this is a review hint, not a violation.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<div role=\"dialog\" aria-labelledby=\"t\">\n  <h2 id=\"t\">Confirm</h2>\n</div>"),
+            example_good: Some("<div role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"t\">\n  <h2 id=\"t\">Confirm</h2>\n</div>"),
             example_decorative: None,
         },
     ),

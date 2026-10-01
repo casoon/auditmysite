@@ -2,10 +2,11 @@
 //!
 //! Das Popover-Ziel (`popover/target-missing`, `popover/target-invalid`) und
 //! der inerte Dialog (`inert/dialog-inert`) laufen seit #691 im geteilten
-//! Bestand (siehe `wcag::shared`). Hier bleibt, was dort keine Entsprechung
-//! hat: der fehlende Name offener Dialoge, Menüs und Popover, das offene
-//! Popover mit `inert` und der Fokus in einem inerten Teilbaum -- Letzteres
-//! braucht das aktive Element der laufenden Seite.
+//! Bestand (siehe `wcag::shared`), der fehlende Name offener Dialoge seit
+//! #692 als `dialog/name-missing`. Hier bleibt, was dort keine Entsprechung
+//! hat: der fehlende Name offener Menüs und Popover, das offene Popover mit
+//! `inert` und der Fokus in einem inerten Teilbaum -- Letzteres braucht das
+//! aktive Element der laufenden Seite.
 
 use chromiumoxide::Page;
 use tracing::warn;
@@ -62,13 +63,14 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
           });
         };
 
-        document.querySelectorAll('[popover], dialog, [role="dialog"], [role="menu"]').forEach(el => {
+        document.querySelectorAll('[popover], [role="menu"]').forEach(el => {
           const isOpenPopover = el.matches('[popover]:popover-open');
-          const isOpenDialog = el.matches('dialog[open]');
-          const isAriaDialog = el.getAttribute('role') === 'dialog' && isVisible(el);
           const isMenu = el.getAttribute('role') === 'menu' && isVisible(el);
-          if ((isOpenPopover || isOpenDialog || isAriaDialog || isMenu) && !accessibleName(el)) {
-            push(el, 'interactive_surface_missing_name', 'Open dialog, menu, or popover has no accessible name', 'aria-label', null);
+          // Ein Dialog -- auch als Popover -- ist `dialog/name-missing` im
+          // geteilten Bestand (#692).
+          const isDialog = el.matches('dialog, [role="dialog"], [role="alertdialog"]');
+          if ((isOpenPopover || isMenu) && !isDialog && !accessibleName(el)) {
+            push(el, 'interactive_surface_missing_name', 'Open menu or popover has no accessible name', 'aria-label', null);
           }
           // Der inerte Dialog ist `inert/dialog-inert`, das sichtbare Menue
           // mit `inert` bewusst kein Befund mehr (#691); das offene Popover

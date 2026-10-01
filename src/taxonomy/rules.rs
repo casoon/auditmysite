@@ -428,6 +428,20 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "aria/required-children-missing",
         "a11y.aria_required_children.missing",
     ),
+    // ── Geteilte Kennungen aus #692 (B2, Namen) ──
+    // Wie oben: auf den Eintrag der abgeloesten Regel. `names/*` loesen beide
+    // auf den Eintrag von `aria-label` auf, der fehlende und rein symbolische
+    // Namen schon zusammen beschreibt; die Eintraege der einzelnen
+    // `aria-*-name`-Regeln bleiben fuer aeltere Berichte stehen.
+    ("names/required-missing", "a11y.interactive_name.missing"),
+    ("names/symbol-only", "a11y.interactive_name.missing"),
+    ("dialog/name-missing", "a11y.dialog_missing_name.invalid"),
+    // Neu: `dialog-name` meldete den fehlenden Namen und das fehlende
+    // `aria-modal` unter einer Kennung und damit unter einem Titel.
+    ("dialog/modal-unmarked", "a11y.dialog_modal.missing"),
+    ("summary/name-missing", "a11y.summary_name.missing"),
+    ("status/live-overridden", "a11y.status_messages.broken"),
+    ("label-in-name/mismatch", "a11y.label_in_name.invalid"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the
@@ -2418,6 +2432,29 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Screen reader users are not told which tab is active and which one the visible content belongs to.",
         technical_impact: "tablist ohne tab mit aria-selected=\"true\".",
         technical_impact_en: "tablist without a tab carrying aria-selected=\"true\".",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.dialog_modal.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("dialog/modal-unmarked"),
+        title: "Dialog nicht als modal ausgezeichnet",
+        title_en: "Dialog not marked as modal",
+        description: "Ein Element mit role=\"dialog\" trägt kein aria-modal=\"true\".",
+        user_impact: "Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.",
+        user_impact_en: "If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.",
+        technical_impact: "role=\"dialog\" ohne aria-modal=\"true\"; ob der Dialog modal gemeint ist, zeigt erst sein Verhalten.",
+        technical_impact_en: "role=\"dialog\" without aria-modal=\"true\"; whether the dialog is meant to be modal only shows in its behavior.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
