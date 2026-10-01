@@ -45,6 +45,18 @@ short current-state summary. Newest entries first (unchanged order from before t
   kritisch meldet. Geprueft mit Unit-Tests, Detection-Corpus, Score-Kalibrierung und Referenzlauf
   (Chrome) sowie einem Vorher/Nachher-Lauf auf 14 Live-Seiten.
 
+- **Unreleased — CSP ueber `csp-parse` (#723):** `src/security` zerlegte die
+  Content-Security-Policy selbst (`split(';')`); jetzt liest es sie mit `csp-parse` 0.1.0 aus
+  barrierlab (CSP3: Policy-Liste, Direktiven, Source-Listen mit Schluesselwoertern, Nonces, Hashes,
+  Host-Wildcards). Die Bewertung (welche Schwaeche wie schwer wiegt) bleibt hier. Gewollte
+  Unterschiede: mehrere `Content-Security-Policy`-Header werden alle gelesen und als Policy-Liste
+  verbunden statt nur der erste; in einer Policy-Liste zaehlt eine Schwaeche nur, wenn jede Policy
+  sie hat (der Browser setzt alle durch); eine doppelte Direktive behaelt ihren ersten Wert statt
+  des letzten; Nonce und Hash zaehlen nur mit gueltigem Base64-Wert; die Wildcard-Pruefung ueber
+  alle Direktiven liest nur Source-Listen (nicht `report-uri`, `sandbox` u. a.). Neue Unit-Tests
+  fuer die drei Faelle; Security-Corpus gruen; die acht Referenzseiten liefern mit altem und neuem
+  Parser dieselben CSP-Befunde.
+
 - **1.7.3, 2026-10-01:** ARIA- und Namensregeln kommen jetzt aus `a11y-rules` statt aus eigenen
   Implementierungen (#691 B1, #692 B2, a11y-rules 0.15.0), mit neuen Kennungen nach dem Schema
   `aria/*`, `names/*`, `dialog/*`, `popover/*`, `inert/*`; ein unbenannter Dialog steht nur noch
