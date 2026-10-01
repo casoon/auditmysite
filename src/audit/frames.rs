@@ -3,7 +3,9 @@
 //! `getFullAXTree` and the shared DOM rules see the main document only, so a
 //! `role="dialog"` without a name or a broken tablist inside an iframe went
 //! unreported while axe-core, which runs in every frame, found it. This pass
-//! audits every frame rendered in the page's own process: it fetches the
+//! audits every frame rendered in the page's own process — with site
+//! isolation switched off in the audit browser (#720), cross-site frames
+//! included: it fetches the
 //! frame's AX tree (`frameId`) and builds a DOM document from the iframe's
 //! `content_document`, then runs the **element-level** rules on both.
 //!
@@ -136,8 +138,9 @@ pub struct FrameEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameSkipReason {
-    /// Rendered out of process (site isolation): not reachable through the
-    /// page session. `frame-tested` asks for a manual review of it.
+    /// Rendered out of process: not reachable through the page session. The
+    /// audit browser runs without site isolation (#720), so this is left for
+    /// a Chrome that ignores those flags. `frame-tested` asks for a manual review of it.
     CrossOrigin,
     /// The iframe is not perceivable: hidden, `aria-hidden`, `role=none`/
     /// `presentation`, `display:none`/`visibility:hidden`, at most 1px, or

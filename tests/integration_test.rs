@@ -2387,10 +2387,11 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
     let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/detection_corpus/iframe_widget_rules.html");
     let html = std::fs::read_to_string(corpus).expect("fixture");
-    // A cross-site frame (localhost vs. 127.0.0.1) is rendered out of process
-    // under site isolation and must be listed as skipped, not as clean.
+    // A cross-site frame (localhost vs. 127.0.0.1). Site isolation would
+    // render it out of process; the audit browser runs without it, so the
+    // frame is audited like a same-site one (#720).
     let remote = common::fixture_server::serve_html(
-        "<!DOCTYPE html><html lang=\"en\"><head><title>Remote</title></head><body><div role=\"dialog\"></div></body></html>"
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Remote</title></head><body><div id=\"remote-dialog\" role=\"dialog\"></div></body></html>"
             .to_string(),
     );
     let remote_url = remote.url.replace("127.0.0.1", "localhost");
@@ -2517,5 +2518,50 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
             .any(|f| f.selector == selector && f.reason == Some(reason))
     };
     assert!(skipped("iframe#hidden-widget", FrameSkipReason::Hidden));
-    assert!(skipped("iframe#remote", FrameSkipReason::CrossOrigin));
+    assert!(frames.audited.iter().any(|f| f.selector == "iframe#remote"));
+    assert!(
+        has("dialog-name", "iframe#remote [frame] div#remote-dialog"),
+        "{summary:#?}"
+    );
+}
+
+/// #718: a client-rendered app can stay quiet behind an empty splash screen
+/// while it fetches its first view. 200 ms of DOM quiet used to count as
+/// settled, so the audit read the AX tree before any heading existed.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn page_stability_waits_for_first_content_behind_a_quiet_splash() {
+    use auditmysite::interaction::stability::{wait_for_page_stability, StabilityStatus};
+
+    let html = r#"<!DOCTYPE html><html lang="en"><head><title>SPA</title></head>
+<body><div id="splash"></div><app-root></app-root>
+<script>
+  setTimeout(function () {
+    document.getElementById('splash').remove();
+    document.querySelector('app-root').innerHTML =
+      '<main><h1>Welcome</h1><p>Rendered on the client.</p></main>';
+  }, 800);
+</script></body></html>"#;
+    let fixture = common::fixture_server::serve_html(html.to_string());
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &fixture.url)
+        .await
+        .expect("Navigation failed");
+
+    let stability = wait_for_page_stability(&page, "desktop", 3_000).await;
+    let h1: bool = page
+        .evaluate("!!document.querySelector('h1')")
+        .await
+        .expect("evaluate failed")
+        .into_value()
+        .expect("bool");
+    fixture.stop();
+
+    assert_eq!(stability.status, StabilityStatus::Stable, "{stability:?}");
+    assert!(
+        h1,
+        "settled before the first content rendered: {stability:?}"
+    );
 }

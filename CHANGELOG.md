@@ -38,6 +38,27 @@ short current-state summary. Newest entries first (unchanged order from before t
   die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen. Geprueft mit
   Unit-Tests, Detection-Corpus und Score-Kalibrierung (Chrome). Mit `a11y-rules` 0.15.0. Der #527-Filter (Verstoss verdraengt Hinweis) vergleicht jetzt die Backend-Node-ID, wo beide Befunde eine tragen: geteilte Befunde haben kurze Selektoren (`button`), und ein Verstoss an einem Button verschluckte den Hinweis an einem anderen. Referenzband bundesregierung.de neu bewertet (35–72): drei Label-in-Name-Fehlalarme an per CSS verstecktem Text entfallen, der Cookie-Dialog ohne aria-modal ist ein Hinweis.
 
+- **Frames in fremden Prozessen (#720):** Nach #715 blieben iframes, die Chrome wegen
+  Site-Isolation in einem eigenen Renderer zeigt, ungeprueft (`skipped: cross_origin`) — etwa der
+  Webchat auf gov.cy (`digital-assistant.gov.cy`, `gov.cy` ist ein Public Suffix), in dem axe einen
+  unbenannten `role="dialog"` meldet. chromiumoxide 0.8 legt fuer solche Frames zwar intern eine
+  Session an, bietet aber keine Befehle an sie. Statt eines eigenen CDP-Clients startet der
+  Audit-Browser jetzt ohne Site-Isolation (`--disable-site-isolation-trials`,
+  `IsolateOrigins`/`site-per-process` aus): Cross-Site-Frames laufen im Prozess der Seite, der
+  bestehende Frame-Durchgang erreicht sie samt Anreicherung, Selektoren und Ausschluessen. Das
+  Profil ist frisch und ohne Nutzerdaten; ignoriert ein kuenftiges Chrome die Flags, steht der
+  Frame wieder sichtbar als `cross_origin` im Bericht. Der Chrome-Test erwartet den Cross-Site-Frame
+  jetzt als geprueft mit `dialog-name`-Befund; gov.cy live: Frame geprueft, Dialog gefunden.
+
+- **SPA-Portale: Aufnahme vor dem ersten Rendern (#718):** eesti.ee zeigt nach dem Laden einen
+  leeren Splash-Screen, waehrend die Angular-App ihre erste Ansicht holt — rund 400 ms ohne eine
+  einzige DOM-Mutation. `wait_for_page_stability` wertete 200 ms Ruhe als stabil, der AX-Baum wurde
+  vor der ersten Ueberschrift gelesen und `bypass` meldete "No headings found". Ruhe ohne Inhalt
+  (kein `main`, keine `h1`-`h3`, kein sichtbarer Text) gilt jetzt nicht mehr als stabil; die
+  Provenienz vermerkt das Warten als `reason`, eine Seite ohne Inhalt bis Budgetende endet als
+  `budget_exhausted`. Neuer Chrome-Test mit Splash-Fixture (scheitert ohne den Fix);
+  Detection-Corpus gruen; eesti.ee und latvija.gov.lv ohne den Fehlbefund.
+
 - **Unreleased — ARIA-Regeln aus `a11y-rules` statt eigener (#691, B1):** Die ARIA-Pruefungen
   laufen ueber den geteilten Bestand (`SHARED_RULES` in `src/wcag/shared.rs`, alle unter 4.1.2
   A), die abgeloesten eigenen Regeln sind geloescht: `aria_allowed_attr`, `aria_prohibited_attr`,

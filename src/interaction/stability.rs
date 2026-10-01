@@ -42,9 +42,11 @@ pub enum StabilityStatus {
     Fallback,
 }
 
-/// Wait until the DOM has been quiet for 200 ms, an application-provided
-/// `window.__AUDITMYSITE_READY__ === true` signal is present, or the bounded
-/// budget is exhausted. This deliberately does not wait for network idle.
+/// Wait until the DOM has been quiet for 200 ms with content rendered, an
+/// application-provided `window.__AUDITMYSITE_READY__ === true` signal is
+/// present, or the bounded budget is exhausted. This deliberately does not
+/// wait for network idle. A quiet page without any content yet (an empty
+/// splash screen while a client-rendered app loads, #718) is not settled.
 ///
 /// When the budget is exhausted, a heuristic distinguishes a genuinely
 /// unsettled page from one with a legitimate, continuously running
@@ -67,6 +69,25 @@ pub async fn wait_for_page_stability(
             const targets = new Set();
             let quietTimer;
             let done = false;
+            // A client-rendered app can sit quiet behind an empty splash
+            // screen while it fetches its first view (eesti.ee: ~400 ms
+            // without a single mutation, #718). Quiet without content is
+            // not settled: keep waiting until something is rendered.
+            const hasContent = () => {{
+                const body = document.body;
+                if (!body) return false;
+                if (document.querySelector('main, [role="main"], h1, h2, h3')) return true;
+                return (body.innerText || '').trim().length > 0;
+            }};
+            let awaitedContent = false;
+            const quiet = () => {{
+                if (hasContent()) {{
+                    finish('stable', awaitedContent ? 'waited for the first rendered content' : null);
+                }} else {{
+                    awaitedContent = true;
+                    quietTimer = setTimeout(quiet, 200);
+                }}
+            }};
             const finish = (status, reason) => {{
                 if (done) return;
                 done = true;
@@ -86,10 +107,14 @@ pub async fn wait_for_page_stability(
                     }}
                 }}
                 clearTimeout(quietTimer);
-                quietTimer = setTimeout(() => finish('stable', null), 200);
+                quietTimer = setTimeout(quiet, 200);
             }});
             observer.observe(document.documentElement, {{subtree:true, childList:true, attributes:true, characterData:true}});
             const budgetTimer = setTimeout(() => {{
+                if (!hasContent()) {{
+                    finish('budget_exhausted', 'the page rendered no content within the configured budget');
+                    return;
+                }}
                 let hasRunningAnimation = false;
                 try {{
                     hasRunningAnimation = typeof document.getAnimations === 'function' &&
@@ -106,7 +131,7 @@ pub async fn wait_for_page_stability(
             if (window.__AUDITMYSITE_READY__ === true || document.documentElement.dataset.auditReady === 'true') {{
                 finish('ready_signal', null);
             }} else {{
-                quietTimer = setTimeout(() => finish('stable', null), 200);
+                quietTimer = setTimeout(quiet, 200);
             }}
         }})"#
     );
