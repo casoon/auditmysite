@@ -1,0 +1,9 @@
+{
+  "case": "display_modes_hidden_panel",
+  "expectations": [
+    { "rule_id": "display/text-hidden", "selector": "div#world-text", "verdict": "pass" },
+    { "rule_id": "display/text-hidden", "selector": "div#europe-text", "verdict": "pass" },
+    { "rule_id": "display/toggle-missing", "verdict": "pass" },
+    { "rule_id": "display/init-missing", "verdict": "pass" }
+  ]
+}

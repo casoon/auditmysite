@@ -32,7 +32,7 @@ use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::accessibility::AXTree;
+use crate::accessibility::{AXNode, AXTree};
 use crate::audit::interactive_finding::InteractiveFinding;
 use crate::wcag::types::{Outcome, Violation};
 
@@ -74,6 +74,11 @@ pub struct ExclusionReport {
     /// stays, with only the other nodes.
     #[serde(default)]
     pub excluded_screen_reader_issues: usize,
+    /// Landmarks inside excluded subtrees, left out of the page-level
+    /// landmark counts (duplicate banner/contentinfo, unique names, #726).
+    /// The larger count of the two viewport passes.
+    #[serde(default)]
+    pub excluded_landmarks: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -381,6 +386,35 @@ impl ExclusionScope {
             .and_then(|n| n.backend_dom_node_id)
             .is_some_and(|id| self.contains(id))
     }
+
+    fn excludes_node(&self, node: &AXNode) -> bool {
+        node.backend_dom_node_id.is_some_and(|id| self.contains(id))
+    }
+
+    /// `ax_tree` without the nodes inside excluded subtrees — what the
+    /// page-level counting rules read (#726). `None` when nothing in the
+    /// tree is excluded.
+    pub fn without_excluded(&self, ax_tree: &AXTree) -> Option<AXTree> {
+        if !ax_tree.iter_all().any(|n| self.excludes_node(n)) {
+            return None;
+        }
+        Some(AXTree::from_nodes(
+            ax_tree
+                .iter_all()
+                .filter(|n| !self.excludes_node(n))
+                .cloned()
+                .collect(),
+        ))
+    }
+
+    /// Landmarks inside excluded subtrees — left out of the page-level
+    /// landmark counts (#726).
+    pub fn excluded_landmarks(&self, ax_tree: &AXTree) -> usize {
+        ax_tree
+            .iter()
+            .filter(|n| crate::wcag::rules::is_landmark(n) && self.excludes_node(n))
+            .count()
+    }
 }
 
 /// Split `findings` into (kept, excluded). `selector_inside` answers, per
@@ -521,6 +555,7 @@ pub struct ExclusionTally {
     mobile: BTreeMap<(String, String), (usize, usize)>,
     interactive: usize,
     screen_reader: usize,
+    landmarks: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -568,6 +603,11 @@ impl ExclusionTally {
         self.screen_reader += count;
     }
 
+    /// One viewport pass's excluded landmarks; the report keeps the larger.
+    pub fn record_landmarks(&mut self, count: usize) {
+        self.landmarks = self.landmarks.max(count);
+    }
+
     pub fn into_report(self) -> ExclusionReport {
         let mut keys: Vec<&(String, String)> =
             self.desktop.keys().chain(self.mobile.keys()).collect();
@@ -602,6 +642,7 @@ impl ExclusionTally {
             rules,
             excluded_interactive_findings: self.interactive,
             excluded_screen_reader_issues: self.screen_reader,
+            excluded_landmarks: self.landmarks,
         }
     }
 }
@@ -619,6 +660,8 @@ pub struct BatchExclusionSummary {
     pub excluded_interactive_findings: usize,
     #[serde(default)]
     pub excluded_screen_reader_issues: usize,
+    #[serde(default)]
+    pub excluded_landmarks: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -647,6 +690,7 @@ impl BatchExclusionSummary {
             s.excluded_violations += page.excluded_violations;
             s.excluded_interactive_findings += page.excluded_interactive_findings;
             s.excluded_screen_reader_issues += page.excluded_screen_reader_issues;
+            s.excluded_landmarks += page.excluded_landmarks;
             for sel in &page.selectors {
                 let entry = match s
                     .selectors
@@ -727,6 +771,7 @@ pub fn batch_exclusion_note(
         None,
         summary.excluded_interactive_findings,
         summary.excluded_screen_reader_issues,
+        summary.excluded_landmarks,
     ));
     Some(parts.join("; "))
 }
@@ -737,6 +782,7 @@ fn findings_text(
     rules: Option<usize>,
     interactive: usize,
     screen_reader: usize,
+    landmarks: usize,
 ) -> String {
     let mut text = match rules {
         Some(rules) => i18n.t_args(
@@ -759,6 +805,9 @@ fn findings_text(
             "exclusion-screen-reader",
             &[("issues", screen_reader as i64)],
         ));
+    }
+    if landmarks > 0 {
+        text.push_str(&i18n.t_args("exclusion-landmarks", &[("landmarks", landmarks as i64)]));
     }
     text
 }
@@ -797,6 +846,7 @@ pub fn exclusion_note(report: &ExclusionReport, i18n: &crate::i18n::I18n) -> Opt
         Some(report.rules.len()),
         report.excluded_interactive_findings,
         report.excluded_screen_reader_issues,
+        report.excluded_landmarks,
     ));
     Some(parts.join("; "))
 }
@@ -888,6 +938,43 @@ mod tests {
         let kept: Vec<_> = kept.iter().filter_map(|f| f.selector.as_deref()).collect();
         assert_eq!(kept, vec!["div#b", "div#c"]);
         assert_eq!(excluded[0].selector.as_deref(), Some("div#a"));
+    }
+
+    #[test]
+    fn landmarks_in_an_excluded_specimen_leave_the_page_counts() {
+        // #726: a specimen with its own banner must not make the page's
+        // banner a duplicate.
+        let node = |id: &str, role: &str, parent: Option<&str>, backend: i64| AXNode {
+            node_id: id.into(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some(role.into()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec![],
+            parent_id: parent.map(String::from),
+            backend_dom_node_id: Some(backend),
+        };
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", None, 1),
+            node("b1", "banner", Some("root"), 2),
+            node("spec", "generic", Some("root"), 10),
+            node("b2", "banner", Some("spec"), 11),
+        ]);
+        let full = crate::wcag::rules::check_landmark_no_duplicate_banner(&tree);
+        assert_eq!(full.violations.len(), 1);
+
+        let scope = active_scope([10, 11]);
+        assert_eq!(scope.excluded_landmarks(&tree), 1);
+        let counted = scope.without_excluded(&tree).expect("specimen excluded");
+        assert!(counted.get_node("b2").is_none() && counted.get_node("b1").is_some());
+        let pruned = crate::wcag::rules::check_landmark_no_duplicate_banner(&counted);
+        assert!(pruned.violations.is_empty());
+
+        assert!(active_scope([99]).without_excluded(&tree).is_none());
     }
 
     #[test]
@@ -1010,6 +1097,7 @@ mod tests {
             }],
             excluded_interactive_findings: 0,
             excluded_screen_reader_issues: 1,
+            excluded_landmarks: 2,
         };
         let en = exclusion_note(&report, &crate::i18n::I18n::new("en").unwrap()).unwrap();
         assert!(en.contains(".nothing"), "{en}");
@@ -1017,6 +1105,7 @@ mod tests {
         assert!(!en.contains(BUILTIN_EXCLUDE_SELECTOR), "{en}");
         assert!(en.contains('5'), "{en}");
         assert!(en.contains("1 screen-reader findings"), "{en}");
+        assert!(en.contains("2 landmarks left out"), "{en}");
         assert!(
             !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
             "EN note must not contain German: {en}"

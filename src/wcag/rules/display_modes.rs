@@ -152,9 +152,13 @@ const DISPLAY_MODES_JS: &str = r#"
     var hiddenReported = false;
     for (var t = 0; t < texts.length; t++) {
       var reason = hiddenFromAt(texts[t]);
-      // A text hidden only by CSS inside a figure that is itself not rendered
-      // (closed <details>, collapsed tab) is not a convention breach.
-      if (reason && (reason !== 'css' || rendered(fig))) {
+      // A figure that is itself not rendered hides its visual together with
+      // its text layer — by CSS (closed <details>, collapsed tab) or by
+      // `hidden`/aria-hidden/inert on the figure or an ancestor (an inactive
+      // scope panel, #725). Nobody gets the statement in another form, so
+      // this is not a convention breach.
+      var hiddenWithFig = !rendered(fig) && (reason === 'css' || hiddenFromAt(fig) !== null);
+      if (reason && !hiddenWithFig) {
         // accname 1.2 computes a description from a directly referenced
         // node even when it is hidden — by CSS, `hidden` or aria-hidden
         // alike (ARIA15 is a sufficient technique for 1.1.1). The statement

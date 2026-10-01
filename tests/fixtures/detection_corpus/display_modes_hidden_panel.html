@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#725): two scope panels, one active, one hidden
+     with the `hidden` attribute like an inactive tab. Both figures keep their
+     text layer visually hidden (clip pattern) but exposed. The figure in the
+     hidden panel hides its visual together with its text layer, so it is not
+     a display/text-hidden breach. Expect no display/* finding. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display modes: figure in a hidden panel</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    html:not([data-display="text"]) [data-viz-text] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main>
+    <h1>Climate monitor</h1>
+    <section aria-labelledby="world">
+      <h2 id="world">World</h2>
+      <figure id="f-world" data-viz="chart">
+        <svg data-viz-static aria-hidden="true" width="300" height="50" viewBox="0 0 300 50">
+          <path d="M0,45 L300,5" stroke="#d73027" fill="none"></path>
+        </svg>
+        <div id="world-text" data-viz-text>
+          <p>Trend line from 1959 to 2025: CO2 rose from 316 ppm to 427 ppm.</p>
+        </div>
+        <figcaption>1959-2025</figcaption>
+      </figure>
+    </section>
+    <section aria-labelledby="europe" hidden>
+      <h2 id="europe">Europe</h2>
+      <figure id="f-europe" data-viz="chart">
+        <svg data-viz-static aria-hidden="true" width="300" height="50" viewBox="0 0 300 50">
+          <path d="M0,40 L300,10" stroke="#d73027" fill="none"></path>
+        </svg>
+        <div id="europe-text" data-viz-text>
+          <p>Trend line from 1850 to 2025: Europe warmed by about 2.4 degrees.</p>
+        </div>
+        <figcaption>1850-2025</figcaption>
+      </figure>
+    </section>
+  </main>
+</body>
+</html>

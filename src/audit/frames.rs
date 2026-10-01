@@ -489,7 +489,7 @@ pub(crate) async fn audit_frames(
         let mut frame_results = WcagResults::new();
         if let Some(filter) = &tree_filter {
             let (tree, dropped) =
-                wcag::check_all_excluding(&frame_ax, config.level, filter, &|v| {
+                wcag::check_all_excluding(&frame_ax, &frame_ax, config.level, filter, &|v| {
                     superseded(v) || exclusion.excludes_located(v, &frame_ax)
                 });
             out.excluded
