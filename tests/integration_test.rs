@@ -2520,7 +2520,10 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
     assert!(skipped("iframe#hidden-widget", FrameSkipReason::Hidden));
     assert!(frames.audited.iter().any(|f| f.selector == "iframe#remote"));
     assert!(
-        has("dialog-name", "iframe#remote [frame] div#remote-dialog"),
+        has(
+            "dialog/name-missing",
+            "iframe#remote [frame] div#remote-dialog"
+        ),
         "{summary:#?}"
     );
 }
