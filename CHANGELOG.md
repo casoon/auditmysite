@@ -5,6 +5,15 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **SPA-Portale: Aufnahme vor dem ersten Rendern (#718):** eesti.ee zeigt nach dem Laden einen
+  leeren Splash-Screen, waehrend die Angular-App ihre erste Ansicht holt — rund 400 ms ohne eine
+  einzige DOM-Mutation. `wait_for_page_stability` wertete 200 ms Ruhe als stabil, der AX-Baum wurde
+  vor der ersten Ueberschrift gelesen und `bypass` meldete "No headings found". Ruhe ohne Inhalt
+  (kein `main`, keine `h1`-`h3`, kein sichtbarer Text) gilt jetzt nicht mehr als stabil; die
+  Provenienz vermerkt das Warten als `reason`, eine Seite ohne Inhalt bis Budgetende endet als
+  `budget_exhausted`. Neuer Chrome-Test mit Splash-Fixture (scheitert ohne den Fix);
+  Detection-Corpus gruen; eesti.ee und latvija.gov.lv ohne den Fehlbefund.
+
 - **Unreleased — ARIA-Regeln aus `a11y-rules` statt eigener (#691, B1):** Die ARIA-Pruefungen
   laufen ueber den geteilten Bestand (`SHARED_RULES` in `src/wcag/shared.rs`, alle unter 4.1.2
   A), die abgeloesten eigenen Regeln sind geloescht: `aria_allowed_attr`, `aria_prohibited_attr`,
