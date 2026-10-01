@@ -107,16 +107,30 @@ fn is_landmark_role(role: &str) -> bool {
     LANDMARK_ROLES.contains(&role.to_lowercase().as_str())
 }
 
+/// Returns `true` when the node is a landmark. `form` and `region` are
+/// landmarks only with an accessible name (HTML-AAM, ARIA); Chrome still
+/// reports an unnamed `<form>` with role `form` (#727).
+pub fn is_landmark(node: &AXNode) -> bool {
+    let Some(role) = node.role.as_deref() else {
+        return false;
+    };
+    if !is_landmark_role(role) {
+        return false;
+    }
+    match role.to_lowercase().as_str() {
+        "form" | "region" => node.name.as_deref().is_some_and(|n| !n.trim().is_empty()),
+        _ => true,
+    }
+}
+
 /// Returns `true` when none of the node's ancestors have a landmark role (i.e.
 /// the node is at the top level of the landmark hierarchy).
 fn is_top_level_landmark(node: &AXNode, tree: &AXTree) -> bool {
     let mut current = node.parent_id.as_deref();
     while let Some(pid) = current {
         if let Some(parent) = tree.nodes.get(pid) {
-            if let Some(ref role) = parent.role {
-                if is_landmark_role(role) {
-                    return false;
-                }
+            if is_landmark(parent) {
+                return false;
             }
             current = parent.parent_id.as_deref();
         } else {
@@ -243,7 +257,11 @@ pub fn check_landmark_unique(tree: &AXTree) -> WcagResults {
     // Group nodes by landmark role
     let mut by_role: HashMap<&str, Vec<&AXNode>> = HashMap::new();
     for role in LANDMARK_ROLES {
-        let nodes = tree.nodes_with_role(role);
+        let nodes: Vec<&AXNode> = tree
+            .nodes_with_role(role)
+            .into_iter()
+            .filter(|n| is_landmark(n))
+            .collect();
         if !nodes.is_empty() {
             by_role.insert(role, nodes);
         }
@@ -431,6 +449,32 @@ mod tests {
                 .any(|v| v.rule_id.as_deref() == Some("landmark-unique")),
             "Two navs with distinct names should pass"
         );
+    }
+
+    #[test]
+    fn landmark_unique_ignores_unnamed_forms_and_regions() {
+        // #727: an unnamed <form> or region is not a landmark, so there is
+        // nothing to tell apart.
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("f1", "form", None, Some("root")),
+            node("f2", "form", Some(""), Some("root")),
+            node("r1", "region", None, Some("root")),
+            node("r2", "region", None, Some("root")),
+        ]);
+        let r = check_landmark_unique(&tree);
+        assert!(r.violations.is_empty(), "{:?}", r.violations);
+    }
+
+    #[test]
+    fn banner_inside_unnamed_form_is_top_level() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("f1", "form", None, Some("root")),
+            node("b1", "banner", None, Some("f1")),
+        ]);
+        let r = check_landmark_banner_is_top_level(&tree);
+        assert!(r.violations.is_empty(), "{:?}", r.violations);
     }
 
     #[test]

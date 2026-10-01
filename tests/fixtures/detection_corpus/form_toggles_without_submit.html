@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- form-no-submit (#728): a form of toggles without action, text field or
+     submit control only changes content on the page (here via CSS :has()),
+     so it is a review note, not a 3.2.2 violation. A form with an action and
+     no submit control stays a violation. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Form of toggles without submit</title>
+  <style>
+    body:has(#t-contrast:checked) .demo { color: #777; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Demo</h1>
+    <form id="toggles">
+      <fieldset>
+        <legend>Remove accessibility</legend>
+        <input type="checkbox" id="t-labels"><label for="t-labels">Remove labels</label>
+        <input type="checkbox" id="t-contrast"><label for="t-contrast">Remove contrast</label>
+        <input type="radio" name="size" id="t-small"><label for="t-small">Small</label>
+        <input type="radio" name="size" id="t-large"><label for="t-large">Large</label>
+      </fieldset>
+      <button type="reset">Reset</button>
+    </form>
+    <p class="demo">Sample text.</p>
+    <form id="filter" action="/results">
+      <fieldset>
+        <legend>Filter</legend>
+        <input type="checkbox" id="f-open" name="open"><label for="f-open">Open only</label>
+      </fieldset>
+    </form>
+  </main>
+</body>
+</html>
