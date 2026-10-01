@@ -7,24 +7,22 @@ use tracing::{debug, info};
 pub use super::rules::{
     check_abbreviations_with_page, check_background_audio_with_page,
     check_click_handlers_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_identify_purpose_with_page,
-    check_label_in_name_with_page, check_location_with_page, check_motion_actuation_with_page,
-    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
-    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_re_authenticate_with_page, check_reduced_motion_with_page, check_reflow_with_page,
-    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_visual_presentation_with_page,
+    check_focus_visible_css_with_page, check_identify_purpose_with_page, check_location_with_page,
+    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_orientation_with_page, check_pointer_cancellation_with_page,
+    check_pointer_gestures_with_page, check_re_authenticate_with_page,
+    check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
+    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
+    check_visual_presentation_with_page,
 };
 use super::rules::{
-    check_accessible_name, check_aria_naming_rules, check_bypass_blocks, check_dialog_rules,
-    check_error_identification, check_focus_visible, check_form_rules, check_help,
-    check_instructions, check_keyboard, check_label_title_only, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_accessible_name, check_bypass_blocks, check_error_identification, check_focus_visible,
+    check_form_rules, check_help, check_instructions, check_keyboard, check_label_title_only,
+    check_labels, check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
     check_link_purpose_link_only, check_media_rules, check_region, check_section_headings,
-    check_status_messages, check_summary_name, check_table_extended, check_text_alternatives,
-    check_unusual_words,
+    check_table_extended, check_text_alternatives, check_unusual_words,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
@@ -217,10 +215,8 @@ fn run_level_a_rules(
     // `keyboard/hidden-focusable` im geteilten Bestand (siehe wcag::shared),
     // positives `tabindex` als `keyboard/positive-tabindex`.
 
-    // 2.5.3 Label in Name (Level A) is checked via the DOM-based page rule
-    // `check_label_in_name_with_page` (see page_rules.rs); the tree-only variant
-    // could not separate visible label from accessible name and only ever
-    // produced passes, so it was removed (#443).
+    // 2.5.3 Label in Name laeuft als `label-in-name/mismatch` im geteilten
+    // Bestand (#692).
 
     // 3.2.1 On Focus and 3.2.2 On Input now run as DOM page rules
     // (check_on_focus_with_page / check_on_input_with_page in PAGE_RULES) —
@@ -237,26 +233,28 @@ fn run_level_a_rules(
     // 1.3.1 Region / Landmark (Level A)
     run_if_allowed!(filter, "region", check_region, results, tree);
 
-    // 4.1.2 Accessible Name Extended (Level A)
-    run_if_allowed!(filter, "aria-label", check_accessible_name, results, tree);
-
-    // 4.1.2 ARIA Relationship Attributes laeuft als `aria/reference-missing`
-    // im geteilten Bestand.
-
-    // 4.1.2 / 1.1.1 ARIA Role-Specific Naming Rules (Level A)
+    // 4.1.2 Beschreibung wiederholt den Namen (Best Practice, #713). Fehlender
+    // und rein symbolischer Name laufen als `names/*` im geteilten Bestand
+    // (#692).
     run_if_allowed!(
         filter,
-        "aria-command-name",
-        check_aria_naming_rules,
+        "description-duplicates-name",
+        check_accessible_name,
         results,
         tree
     );
 
+    // 4.1.2 ARIA Relationship Attributes laeuft als `aria/reference-missing`
+    // im geteilten Bestand.
+
+    // 4.1.2 Rollen mit Namenspflicht laufen als `names/required-missing` im
+    // geteilten Bestand (#692).
+
     // 1.3.1 / 3.3.1 / 3.3.2 Form Rules (Level A) - P1
     run_if_allowed!(filter, "form-field-group", check_form_rules, results, tree);
 
-    // 4.1.2 / 2.4.3 Dialog Rules (Level A) - P1
-    run_if_allowed!(filter, "dialog-name", check_dialog_rules, results, tree);
+    // 4.1.2 Dialoge laufen als `dialog/name-missing` und
+    // `dialog/modal-unmarked` im geteilten Bestand (#692).
 
     // 4.1.2 Tabs und Combobox laufen als `aria/tab-selected-missing`,
     // `aria/tabpanel-missing` und `aria/combobox-popup-missing` im geteilten
@@ -326,8 +324,8 @@ fn run_level_a_rules(
         tree
     );
 
-    // 4.1.2 Summary Accessible Name (Level A)
-    run_if_allowed!(filter, "summary-name", check_summary_name, results, tree);
+    // 4.1.2 `<summary>` laeuft als `summary/name-missing` im geteilten
+    // Bestand (#692).
 
     // 1.3.1 Label Title Only (Level A)
     run_if_allowed!(
@@ -362,14 +360,8 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
     // 2.4.7 Focus Visible (Level AA)
     run_if_allowed!(filter, "focus-visible", check_focus_visible, results, tree);
 
-    // 4.1.3 Status Messages (Level AA)
-    run_if_allowed!(
-        filter,
-        "aria-live-region-role",
-        check_status_messages,
-        results,
-        tree
-    );
+    // 4.1.3 Status Messages laeuft als `status/live-overridden` im geteilten
+    // Bestand (#692).
 
     // 2.4.1 / 1.3.1 Landmark Regions laufen als `landmarks/*` im geteilten
     // Bestand.

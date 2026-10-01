@@ -5,6 +5,39 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Namensregeln aus `a11y-rules` statt eigener (#692, B2):** Die Pruefungen auf
+  fehlende und unzureichende zugaengliche Namen laufen ueber den geteilten Bestand
+  (`SHARED_RULES` in `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht:
+  `aria_naming_rules`, `dialog_rules`, `summary_name`, `status_messages`, `label_in_name` und aus
+  `accessible_name` alles ausser `description-duplicates-name` (#713) -- die bleibt, weil
+  `a11y_dom` keine Accessible Description liefert; ihr Schalter in `wcag::engine` heisst jetzt so
+  statt `aria-label`. Ebenfalls entfallen: `aria-dialog-name` in `patterns::modal_dialog` und der
+  Dialog-Teil des fehlenden Namens in `modern_attributes` (Menue und Popover bleiben dort).
+  Kennungen: `aria-command-name` (ohne Button und `a[href]`), `aria-input-field-name`,
+  `aria-meter-name`, `aria-progressbar-name`, `aria-toggle-field-name`, `aria-treeitem-name` und
+  `aria-label` „kein Name" → `names/required-missing`; `aria-label` „Icon Only" →
+  `names/symbol-only`; `aria-dialog-name` und `dialog-name` → `dialog/name-missing`; `dialog-name`
+  „Dialog Modal" → `dialog/modal-unmarked`; `summary-name` → `summary/name-missing`;
+  `aria-live-region-role` → `status/live-overridden` (4.1.3 AA); `label-content-name-mismatch` →
+  `label-in-name/mismatch` (2.5.3 A); alle uebrigen unter 4.1.2 A. Schwere wie bisher. Gewollte
+  Unterschiede (Einzelheiten im Changelog von `a11y-rules` und an den Eintraegen in
+  `SHARED_RULES`): ein unbenannter Dialog steht einmal statt bis zu dreimal im Bericht, ein
+  unbenanntes Widget einmal statt zweimal; unbenannte `menu`, `tab` und native `<option>` sind kein
+  Befund mehr (ARIA 1.2 verlangt dort keinen Namen); `meter` und `progressbar` stehen unter 4.1.2
+  statt 1.1.1; nicht fokussierbare unbenannte Widgets sind ein Verstoss wie bisher in
+  `aria_naming_rules`, die zusaetzliche Warnung aus `accessible_name` entfaellt; der rein
+  symbolische Name, das fehlende `aria-modal` und eine umgestellte, aber nicht abgeschaltete
+  Dringlichkeit einer Live-Region (`alert` mit `polite`) sind Pruefhinweise statt Verstoesse;
+  `dialog/modal-unmarked` prueft nur `role="dialog"`, kein natives `<dialog>`; `summary/name-missing`
+  meldet nur die `<summary>`, nicht zusaetzlich das `<details>`; leeres `aria-labelledby` und
+  `aria-describedby` an einem benannten Element sind kein Befund mehr; `label-in-name/mismatch`
+  prueft alle Rollen mit Namen aus dem Inhalt und Namen aus `aria-labelledby`, nicht nur Buttons
+  mit `aria-label`, ohne den Deckel von 50 -- und laeuft jetzt auch in Frames. Neuer
+  Taxonomie-Eintrag `a11y.dialog_modal.missing` samt Erklaerung (bisher teilte das fehlende
+  `aria-modal` Kennung und Titel mit dem fehlenden Dialognamen); die uebrigen Kennungen zeigen auf
+  die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen. Geprueft mit
+  Unit-Tests, Detection-Corpus und Score-Kalibrierung (Chrome). Mit `a11y-rules` 0.15.0. Der #527-Filter (Verstoss verdraengt Hinweis) vergleicht jetzt die Backend-Node-ID, wo beide Befunde eine tragen: geteilte Befunde haben kurze Selektoren (`button`), und ein Verstoss an einem Button verschluckte den Hinweis an einem anderen. Referenzband bundesregierung.de neu bewertet (35–72): drei Label-in-Name-Fehlalarme an per CSS verstecktem Text entfallen, der Cookie-Dialog ohne aria-modal ist ein Hinweis.
+
 - **Frames in fremden Prozessen (#720):** Nach #715 blieben iframes, die Chrome wegen
   Site-Isolation in einem eigenen Renderer zeigt, ungeprueft (`skipped: cross_origin`) — etwa der
   Webchat auf gov.cy (`digital-assistant.gov.cy`, `gov.cy` ist ein Public Suffix), in dem axe einen

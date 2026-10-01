@@ -6,7 +6,7 @@
     { "rule_id": "identify-purpose", "verdict": "violation" },
     { "rule_id": "help", "verdict": "violation" },
     { "rule_id": "form-field-group", "verdict": "violation" },
-    { "rule_id": "label-content-name-mismatch", "verdict": "violation" },
+    { "rule_id": "label-in-name/mismatch", "verdict": "violation" },
     { "rule_id": "server-side-image-map", "verdict": "violation" },
     { "rule_id": "location", "verdict": "violation" },
     { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },

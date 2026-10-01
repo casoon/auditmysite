@@ -1,8 +1,12 @@
 //! ModalDialog pattern (issue #29).
 //!
-//! Detects modal dialogs and flags missing accessible names or focusable
-//! descendants. Note: actual focus-trap behavior cannot be verified from the
-//! AXTree alone — that remains a manual-review concern.
+//! Detects modal dialogs and flags missing focusable descendants. Note:
+//! actual focus-trap behavior cannot be verified from the AXTree alone — that
+//! remains a manual-review concern.
+//!
+//! Der fehlende Name ist `dialog/name-missing` im geteilten Bestand (#692);
+//! die frühere Meldung `aria-dialog-name` hier war derselbe Fall ein weiteres
+//! Mal.
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -36,24 +40,6 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
             .iter()
             .filter_map(|id| tree.get_node(id))
             .any(|c| c.get_property_bool("focusable").unwrap_or(false));
-
-        if !has_name {
-            out.violations.push(
-                Violation::new(
-                    "4.1.2",
-                    "Name, Role, Value",
-                    WcagLevel::A,
-                    Severity::High,
-                    "Dialog has no accessible name — screen readers cannot announce its purpose.",
-                    &dialog.node_id,
-                )
-                .with_fix(
-                    "Add aria-labelledby pointing to the dialog title, or aria-label with a short description.",
-                )
-                .with_rule_id("aria-dialog-name")
-                .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/"),
-            );
-        }
 
         if !has_focusable_descendant {
             out.violations.push(
@@ -236,11 +222,12 @@ mod tests {
     }
 
     #[test]
-    fn test_unnamed_dialog_violation() {
+    fn test_unnamed_dialog_is_partial_but_no_finding() {
         let tree = build_dialog_tree(None, true, true);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a.violations.iter().any(|v| v.rule == "4.1.2"));
+        assert!(a.violations.is_empty());
+        assert_eq!(a.recognized[0].confidence, PatternConfidence::Partial);
     }
 
     #[test]

@@ -456,9 +456,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // Zwei Unterschiede, beide gewollt:
     //
     // - Als Link zählt dort nur `<a href>`, nicht jedes Element mit der
-    //   AX-Rolle `link`. Ein unbenanntes `<span role="link">` melden weiter
-    //   `aria-command-name` (`aria_naming_rules`) und `aria-label`
-    //   (`accessible_name`), die das schon bisher neben `labels` taten.
+    //   AX-Rolle `link`. Ein unbenanntes `<span role="link">` meldet
+    //   `names/required-missing` (#692).
     // - Beide sind dort `Critical` statt `High`: Ein unbenanntes
     //   Bedienelement ist für Screenreader-Nutzer nicht bedienbar.
     SharedRule {
@@ -679,6 +678,116 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Name, Role, Value (Required Owned Elements)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // ── Namensregeln aus #692 (B2) ──
+    //
+    // Kriterium und Stufe wie bei den abgelösten Regeln, die Schwere setzt
+    // `a11y-rules` gleich der bisherigen. Die geteilte Fassung fragt den
+    // Accessible Name aus `CdpDocument`, der auf Chromes AX-Baum zurückgreift
+    // -- dieselbe Quelle wie bisher.
+
+    // Ersetzt `wcag::rules::aria_naming_rules` ohne den Dialog
+    // (`aria-command-name` ohne `button` und `a[href]`,
+    // `aria-input-field-name`, `aria-meter-name`, `aria-progressbar-name`,
+    // `aria-toggle-field-name`, `aria-treeitem-name`) und aus
+    // `wcag::rules::accessible_name` den Fall „kein Name" (`aria-label`).
+    // Beide meldeten dasselbe Element bisher doppelt. Unterschiede, alle
+    // gewollt:
+    //
+    // - Unbenannte Buttons und Links melden `buttons/name-missing` und
+    //   `links/name-missing`, ein Formularfeld ganz ohne Beschriftung die
+    //   eigene `label`-Regel; hier steht nur das Feld, dessen Beschriftung
+    //   behauptet ist, aber leer ausgeht (`<label for>` ohne Text).
+    // - `menu` und `tab` sind kein Befund mehr: ARIA 1.2 verlangt für beide
+    //   keinen Namen. Ebenso die native `<option>`.
+    // - Ein unbenanntes, nicht fokussierbares Element ist ein Verstoß wie in
+    //   `aria_naming_rules`, nicht die Warnung aus `accessible_name`.
+    // - `meter` und `progressbar` stehen unter 4.1.2 statt 1.1.1: Die Tabelle
+    //   führt ein Kriterium je Kennung. `a11y-rules` gibt dem Befund 1.1.1
+    //   mit, auditmysite meldet ihn wie alle Namensbefunde unter 4.1.2.
+    SharedRule {
+        id: "names/required-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Accessible Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt aus `accessible_name` den Fall „Icon Only" (`aria-label`): ein
+    // Name aus einem Attribut, der nur ein Symbol ist. Jetzt `REVIEW` statt
+    // Verstoß -- 4.1.2 verlangt einen Namen, über seine Güte sagt es nichts.
+    // Buchstaben zählen nach Unicode, „Ä" ist kein Symbol mehr.
+    SharedRule {
+        id: "names/symbol-only",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Symbol-Only Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::dialog_rules` (`dialog-name`), den Dialog aus
+    // `aria_naming_rules` (`aria-dialog-name`) und die Namensprüfung aus
+    // `patterns::modal_dialog` (ebenfalls `aria-dialog-name`) -- derselbe
+    // Fall stand bisher bis zu dreimal im Bericht. Ein geschlossenes
+    // `<dialog>` ohne `open` wird nicht geprüft.
+    SharedRule {
+        id: "dialog/name-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Dialog Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt aus `dialog_rules` den Fall „Dialog Modal". Zwei Unterschiede,
+    // beide gewollt: `REVIEW` statt Verstoß -- ARIA verlangt `aria-modal`
+    // nicht, ein nicht modaler Dialog trägt es zu Recht nicht --, und nur
+    // `role="dialog"`: Ob ein natives `<dialog>` per `showModal()` offen ist,
+    // sieht der Abzug nicht.
+    SharedRule {
+        id: "dialog/modal-unmarked",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Dialog Modal)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::summary_name` (`summary-name`). Gemeldet wird nur
+    // die `<summary>`, die ihr `<details>` bedient; die abgelöste Regel
+    // meldete zusätzlich das `<details>`, dessen Name aus derselben
+    // `<summary>` stammt. `buttons/name-missing` meldet die `<summary>` mit
+    // derselben a11y-rules-Version nicht mehr mit.
+    SharedRule {
+        id: "summary/name-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Summary Name)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::status_messages` (`aria-live-region-role`).
+    // Schwere wie bisher (`alert` hoch, `status` und `log` mittel). Ein
+    // Unterschied, gewollt: Verstoß ist nur noch `aria-live="off"`, die
+    // Region wird dann nicht angesagt. Eine andere Dringlichkeit (`alert` mit
+    // `polite`, `status` mit `assertive`) ist `REVIEW` -- ARIA erlaubt das
+    // Überschreiben, angesagt wird weiterhin. Implizite Rollen zählen mit
+    // (`<output>` ist `status`).
+    SharedRule {
+        id: "status/live-overridden",
+        criterion: "4.1.3",
+        level: WcagLevel::AA,
+        name: "Status Messages",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html",
+    },
+    // Ersetzt `wcag::rules::label_in_name` (`label-content-name-mismatch`,
+    // DOM per JavaScript, höchstens 50 Buttons). Gleich geblieben: kein
+    // Befund, wenn der Name im sichtbaren Text steht, und `REVIEW`, wenn der
+    // sichtbare Text mehr als doppelt so lang ist wie der Name (#513).
+    // Unterschiede, alle gewollt: geprüft werden alle Rollen mit Namen aus
+    // dem Inhalt (Link, Menüeintrag, Tab, Checkbox, …) und Namen aus
+    // `aria-labelledby`, nicht nur Buttons mit `aria-label`; verglichen wird
+    // der berechnete Name, Buchstaben nach Unicode statt nur ASCII; ohne
+    // Deckel. Visuell versteckter Text (`.sr-only`) zählt als sichtbar.
+    SharedRule {
+        id: "label-in-name/mismatch",
+        criterion: "2.5.3",
+        level: WcagLevel::A,
+        name: "Label in Name",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html",
     },
 ];
 

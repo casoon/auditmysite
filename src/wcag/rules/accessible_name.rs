@@ -1,23 +1,16 @@
-//! WCAG 4.1.2 Extended - Accessible Name Checks
+//! WCAG 4.1.2 - Redundant Accessible Description
 //!
-//! Checks interactive elements for empty or inadequate accessible names,
-//! icon-only controls, redundant descriptions, and empty ARIA label references.
+//! Flags interactive elements whose accessible description repeats their
+//! accessible name (#713).
+//!
+//! Die übrigen Namensprüfungen dieser Datei -- kein Name, nur ein Symbol --
+//! laufen seit #692 als `names/required-missing` und `names/symbol-only` im
+//! geteilten Bestand (siehe `wcag::shared`). Hier bleibt die doppelte
+//! Beschreibung: `a11y_dom::Semantics` liefert keine Accessible Description.
 
-use crate::accessibility::{AXTree, NameSource};
+use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{Evidence, RuleMetadata, Severity, Violation, WcagResults};
-
-/// Rule metadata for accessible name checks
-pub(super) const RULE_META: RuleMetadata = RuleMetadata {
-    id: "4.1.2",
-    name: "Accessible Name",
-    level: WcagLevel::A,
-    severity: Severity::High,
-    description: "Interactive elements must have non-empty, meaningful accessible names",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
-    axe_id: "aria-label",
-    tags: &["wcag2a", "wcag412", "cat.aria"],
-};
+use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
 /// Beschreibung wiederholt den Namen (#713): eigene Best-Practice-Regel statt
 /// `aria-label`, weil das Element einen Namen *hat* -- die doppelte Ansage ist
@@ -34,7 +27,7 @@ pub(super) const DESCRIPTION_DUPLICATES_NAME_META: RuleMetadata = RuleMetadata {
     tags: &["best-practice", "wcag412", "cat.aria"],
 };
 
-/// Roles considered interactive and requiring an accessible name
+/// Roles considered interactive
 const INTERACTIVE_ROLES: &[&str] = &[
     "button",
     "link",
@@ -55,23 +48,7 @@ const INTERACTIVE_ROLES: &[&str] = &[
     "switch",
 ];
 
-/// Characters considered icon-only / symbol (single non-alphabetic chars or common symbols)
-/// We check if the name is a single character that is not a standard alphanumeric letter.
-fn is_icon_only_name(name: &str) -> bool {
-    let trimmed = name.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-    // Single character that is not ASCII alphanumeric
-    let chars: Vec<char> = trimmed.chars().collect();
-    if chars.len() == 1 {
-        let c = chars[0];
-        return !c.is_ascii_alphanumeric();
-    }
-    false
-}
-
-/// Check accessible names across interactive elements
+/// Check interactive elements for a description that repeats the name
 pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
@@ -91,73 +68,6 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
 
         results.nodes_checked += 1;
 
-        // 1. Empty accessible name
-        if !node.has_name() {
-            let labelledby = node.get_property_idref("labelledby");
-            let aria_label_state = if labelledby.is_some() {
-                "aria-labelledby present but resolves to empty string"
-            } else if node.name.as_deref().is_some_and(|n| n.is_empty()) {
-                "aria-label present but empty"
-            } else {
-                "no accessible name attribute found"
-            };
-            let focusable = node.is_focusable();
-            // Non-focusable elements with interactive roles are likely structural/browser-
-            // assigned roles (e.g. <dl> → DescriptionList) — lower confidence finding.
-            let violation = Violation::new(
-                RULE_META.id,
-                RULE_META.name,
-                RULE_META.level,
-                Severity::High,
-                format!(
-                    "Interactive element with role '{}' has no accessible name",
-                    role
-                ),
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_fix("Add aria-label, aria-labelledby, or visible text content")
-            .with_help_url(RULE_META.help_url)
-            .with_rule_id(RULE_META.axe_id)
-            .with_evidence_item(Evidence::dom_attribute(
-                "aria-label",
-                Some(aria_label_state.to_string()),
-            ))
-            .with_evidence_item(Evidence::ax_tree(format!("focusable={focusable}")));
-
-            if focusable {
-                results.add_violation(violation);
-            } else {
-                results.add_warning(violation.as_warning());
-            }
-            continue;
-        }
-
-        // 2. Icon-only control (name from Attribute but single non-alphanumeric char)
-        let name_str = node.name.as_deref().unwrap_or("");
-        if matches!(node.name_source, Some(NameSource::Attribute)) && is_icon_only_name(name_str) {
-            let violation = Violation::new(
-                RULE_META.id,
-                "Accessible Name - Icon Only",
-                RULE_META.level,
-                Severity::Medium,
-                format!(
-                    "Interactive element with role '{}' appears to have only an icon/symbol as its accessible name: '{}'",
-                    role, name_str
-                ),
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_name(node.name.clone())
-            .with_fix("Provide a descriptive accessible name using aria-label or visible text")
-            .with_help_url(RULE_META.help_url)
-            .with_rule_id(RULE_META.axe_id);
-
-            results.add_violation(violation);
-            continue;
-        }
-
-        // 3. Name/Description conflict (redundant description)
         if let (Some(name), Some(desc)) = (node.name.as_deref(), node.description.as_deref()) {
             if !name.trim().is_empty() && name.trim() == desc.trim() {
                 let violation = Violation::new(
@@ -191,50 +101,6 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
             }
         }
 
-        // 4. aria-labelledby present but value is empty
-        if let Some(val) = node.get_property_idref("labelledby") {
-            if val.trim().is_empty() {
-                let violation = Violation::new(
-                    RULE_META.id,
-                    "Accessible Name - Empty aria-labelledby",
-                    RULE_META.level,
-                    Severity::High,
-                    "Element has an empty aria-labelledby attribute",
-                    &node.node_id,
-                )
-                .with_role(node.role.clone())
-                .with_fix("Provide a valid ID reference in aria-labelledby")
-                .with_help_url(RULE_META.help_url)
-                .with_rule_id(RULE_META.axe_id);
-
-                results.add_violation(violation);
-                continue;
-            }
-        }
-
-        // 5. aria-describedby present but value is empty
-        if let Some(val) = node.get_property_idref("describedby") {
-            if val.trim().is_empty() {
-                let violation = Violation::new(
-                    RULE_META.id,
-                    "Accessible Name - Empty aria-describedby",
-                    RULE_META.level,
-                    Severity::Medium,
-                    "Element has an empty aria-describedby attribute",
-                    &node.node_id,
-                )
-                .with_role(node.role.clone())
-                .with_fix(
-                    "Provide a valid ID reference in aria-describedby or remove the attribute",
-                )
-                .with_help_url(RULE_META.help_url)
-                .with_rule_id(RULE_META.axe_id);
-
-                results.add_violation(violation);
-                continue;
-            }
-        }
-
         results.passes += 1;
     }
 
@@ -244,7 +110,7 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource};
+    use crate::accessibility::{AXNode, AXTree};
 
     fn make_node(id: &str, role: &str, name: Option<&str>) -> AXNode {
         AXNode {
@@ -272,41 +138,14 @@ mod tests {
         assert_eq!(results.passes, 1);
     }
 
+    /// Ein fehlender Name ist `names/required-missing` bzw.
+    /// `buttons/name-missing` im geteilten Bestand (#692), nicht diese Regel.
     #[test]
-    fn test_button_without_name_fails() {
-        let mut node = make_node("1", "button", None);
-        // Real Chrome AXTree buttons are focusable — this is what triggers a violation
-        node.properties.push(AXProperty {
-            name: "focusable".to_string(),
-            value: AXValue::Bool(true),
-        });
-        let tree = AXTree::from_nodes(vec![node]);
+    fn test_button_without_name_is_not_reported_here() {
+        let tree = AXTree::from_nodes(vec![make_node("1", "button", None)]);
         let results = check_accessible_name(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("no accessible name"));
-    }
-
-    #[test]
-    fn test_non_focusable_without_name_is_warning() {
-        // Non-focusable elements with interactive roles (e.g. browser-assigned dl → DescriptionList)
-        // are lower confidence — they become warnings, not violations.
-        let node = make_node("1", "button", None);
-        let tree = AXTree::from_nodes(vec![node]);
-        let results = check_accessible_name(&tree);
-        assert_eq!(results.violations.len(), 0);
-        assert_eq!(results.warnings.len(), 1);
-    }
-
-    #[test]
-    fn test_icon_only_name_flagged() {
-        let mut node = make_node("1", "button", Some("×"));
-        node.name_source = Some(NameSource::Attribute);
-        let tree = AXTree::from_nodes(vec![node]);
-        let results = check_accessible_name(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("icon/symbol")));
+        assert!(results.violations.is_empty());
+        assert!(results.warnings.is_empty());
     }
 
     #[test]
@@ -327,24 +166,6 @@ mod tests {
             Some("description-duplicates-name")
         );
         assert!(redundant[0].tags.iter().any(|t| t == "best-practice"));
-        assert!(!results
-            .violations
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("aria-label")));
-    }
-
-    #[test]
-    fn test_empty_aria_labelledby_flagged() {
-        let mut node = make_node("1", "textbox", Some("Name"));
-        node.properties.push(AXProperty {
-            name: "labelledby".to_string(),
-            value: AXValue::String(String::new()),
-        });
-        let tree = AXTree::from_nodes(vec![node]);
-        let results = check_accessible_name(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("aria-labelledby")));
+        assert_eq!(results.violations.len(), 1);
     }
 }

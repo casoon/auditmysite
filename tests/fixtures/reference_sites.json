@@ -41,10 +41,10 @@
       "url": "https://www.bundesregierung.de/",
       "expected": {
         "min": 35,
-        "max": 65
+        "max": 72
       },
       "reviewed": "2026-10-01",
-      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point."
+      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point. B2 (#692): three label-in-name false positives at CSS-hidden text (button#navigation \"schließen\", two toggles outside the reading order) are gone, and the cookie dialog without aria-modal is a review (dialog/modal-unmarked); 61 -> 68."
     },
     {
       "url": "https://www.dm.de/",
