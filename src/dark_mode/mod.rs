@@ -30,7 +30,9 @@ use crate::wcag::Violation;
 /// Complete dark mode analysis for a single page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DarkModeAnalysis {
-    /// Site declares `@media (prefers-color-scheme: dark)` CSS rules.
+    /// Users with a dark system preference get a dark page: the site declares
+    /// `@media (prefers-color-scheme: dark)` rules, a class-based dark theme,
+    /// or renders dark by default without a light view (#739).
     pub supported: bool,
     /// Dark mode is implemented via CSS class toggle (html.dark / [data-theme="dark"])
     /// rather than @media (prefers-color-scheme: dark). Contrast testing via CDP is not
@@ -523,12 +525,15 @@ pub async fn analyze_dark_mode_with_base_media(
     if static_info.has_class_based_dark_mode {
         detection_methods.push("CSS class-based (.dark / [data-theme=dark])".to_string());
     }
+    if static_info.dark_by_default {
+        detection_methods.push("Dark by default (no light view)".to_string());
+    }
     if static_info.meta_theme_color_dark {
         detection_methods.push("<meta name=\"theme-color\" media dark>".to_string());
     }
 
     Ok(DarkModeAnalysis {
-        supported: static_info.has_dark_media_query || static_info.has_class_based_dark_mode,
+        supported: static_info.serves_dark(),
         class_based_dark_mode: static_info.has_class_based_dark_mode,
         score,
         detection_methods,
@@ -562,7 +567,7 @@ fn build_issues(
 ) -> Vec<DarkModeIssue> {
     let mut issues: Vec<DarkModeIssue> = Vec::new();
 
-    if !info.has_dark_media_query && !info.has_class_based_dark_mode {
+    if !info.serves_dark() {
         let kind = DarkModeIssueKind::NoDarkModeSupport;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -573,7 +578,7 @@ fn build_issues(
         });
     }
 
-    if !info.has_dark_media_query && info.has_class_based_dark_mode {
+    if info.class_toggle_only() {
         let kind = DarkModeIssueKind::ClassBasedDarkModeDetected;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -585,7 +590,7 @@ fn build_issues(
     }
 
     // ── Structural best-practice issues ──────────────────────────────────────
-    if (info.has_dark_media_query || info.has_class_based_dark_mode) && !info.color_scheme_css {
+    if info.serves_dark() && !info.color_scheme_css {
         let kind = DarkModeIssueKind::NoColorSchemeDeclaration;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -595,9 +600,7 @@ fn build_issues(
             selectors: Vec::new(),
         });
     }
-    if (info.has_dark_media_query || info.has_class_based_dark_mode)
-        && info.meta_color_scheme.is_none()
-    {
+    if info.serves_dark() && info.meta_color_scheme.is_none() {
         let kind = DarkModeIssueKind::NoMetaColorScheme;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -607,9 +610,7 @@ fn build_issues(
             selectors: Vec::new(),
         });
     }
-    if (info.has_dark_media_query || info.has_class_based_dark_mode)
-        && info.css_custom_properties < 3
-    {
+    if info.serves_dark() && info.css_custom_properties < 3 {
         let kind = DarkModeIssueKind::FewColorCustomProperties;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -806,9 +807,26 @@ fn classify_contrast_violations(
 
 // ─── Static detection ────────────────────────────────────────────────────────
 
+impl StaticDarkModeInfo {
+    /// A dark system preference ends on a dark page: dark rules exist, or the
+    /// page is dark to begin with.
+    fn serves_dark(&self) -> bool {
+        self.has_dark_media_query || self.has_class_based_dark_mode || self.dark_by_default
+    }
+
+    /// Dark styling only behind a class toggle, which CDP emulation cannot
+    /// switch — irrelevant when the page is dark by default anyway.
+    fn class_toggle_only(&self) -> bool {
+        !self.has_dark_media_query && self.has_class_based_dark_mode && !self.dark_by_default
+    }
+}
+
 struct StaticDarkModeInfo {
     has_dark_media_query: bool,
     has_class_based_dark_mode: bool,
+    /// The default render is already dark — dark page background, light body
+    /// text — so a dark system preference has nothing to switch to (#739).
+    dark_by_default: bool,
     color_scheme_css: bool,
     meta_color_scheme: Option<String>,
     meta_theme_color_dark: bool,
@@ -821,6 +839,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
         const result = {
             hasDarkMediaQuery: false,
             hasClassBasedDarkMode: false,
+            darkByDefault: false,
             colorSchemeCss: false,
             metaColorScheme: null,
             metaThemeColorDark: false,
@@ -929,6 +948,45 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
             }
         } catch(e) {}
 
+        // 7. Dark by default (#739): the page background as rendered — body,
+        // else html, else the canvas, whose default follows the root's
+        // `color-scheme` — is dark and the body text is light.
+        try {
+            // Any CSS colour (rgb(), hex, oklch() from Tailwind v4, ...) as
+            // sRGB bytes plus alpha, read back from a one-pixel canvas.
+            const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+            const parse = c => {
+                if (!ctx || !c) return null;
+                ctx.clearRect(0, 0, 1, 1);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+                ctx.fillStyle = c;
+                ctx.fillRect(0, 0, 1, 1);
+                const d = ctx.getImageData(0, 0, 1, 1).data;
+                return { rgb: [d[0], d[1], d[2]], a: d[3] / 255 };
+            };
+            const lum = rgb => {
+                const [r, g, b] = rgb.map(v => {
+                    v /= 255;
+                    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+                });
+                return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            };
+            const root = document.documentElement;
+            const body = document.body;
+            let bg = null;
+            for (const el of [body, root]) {
+                const c = el && parse(window.getComputedStyle(el).backgroundColor);
+                if (c && c.a > 0.5) { bg = lum(c.rgb); break; }
+            }
+            if (bg === null) {
+                const scheme = window.getComputedStyle(root).colorScheme || '';
+                const tokens = scheme.split(/\s+/);
+                bg = tokens.includes('dark') && !tokens.includes('light') ? 0 : 1;
+            }
+            const text = body && parse(window.getComputedStyle(body).color);
+            result.darkByDefault = bg < 0.1 && !!text && lum(text.rgb) > 0.4;
+        } catch(e) {}
+
         return JSON.stringify(result);
     })()
     "#;
@@ -944,6 +1002,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
     Ok(StaticDarkModeInfo {
         has_dark_media_query: parsed["hasDarkMediaQuery"].as_bool().unwrap_or(false),
         has_class_based_dark_mode: parsed["hasClassBasedDarkMode"].as_bool().unwrap_or(false),
+        dark_by_default: parsed["darkByDefault"].as_bool().unwrap_or(false),
         color_scheme_css: parsed["colorSchemeCss"].as_bool().unwrap_or(false),
         meta_color_scheme: parsed["metaColorScheme"]
             .as_str()
@@ -1354,7 +1413,7 @@ fn compute_score(
     forced_colors: &ForcedColorsAnalysis,
     vision_deficiency: &VisionDeficiencyAnalysis,
 ) -> u32 {
-    if !info.has_dark_media_query && !info.has_class_based_dark_mode {
+    if !info.serves_dark() {
         let mut score = 50;
         if print.stylesheet_detected {
             score += 5;
@@ -1364,7 +1423,7 @@ fn compute_score(
         }
         return score;
     }
-    if !info.has_dark_media_query && info.has_class_based_dark_mode {
+    if info.class_toggle_only() {
         let mut score = 65;
         if print.stylesheet_detected {
             score += 5;
@@ -1436,6 +1495,7 @@ mod tests {
         StaticDarkModeInfo {
             has_dark_media_query: has_dark,
             has_class_based_dark_mode: false,
+            dark_by_default: false,
             color_scheme_css: color_scheme,
             meta_color_scheme: if meta {
                 Some("dark light".into())
@@ -1805,10 +1865,46 @@ mod tests {
     }
 
     #[test]
+    fn dark_by_default_counts_as_serving_dark() {
+        // #739: a dark-only site (no light view, no prefers-color-scheme
+        // rules) gives a dark-preferring user a dark page.
+        let mut info = make_info(false, true, false, false, 0);
+        info.has_class_based_dark_mode = true;
+        info.dark_by_default = true;
+        let issues = build_issues(
+            &info,
+            0,
+            0,
+            0,
+            &[],
+            &print_default(),
+            &forced_default(),
+            &vision_default(),
+        );
+        let kinds: Vec<_> = issues.iter().map(|i| format!("{:?}", i.kind)).collect();
+        assert!(!kinds.iter().any(|k| k == "NoDarkModeSupport"), "{kinds:?}");
+        assert!(
+            !kinds.iter().any(|k| k == "ClassBasedDarkModeDetected"),
+            "{kinds:?}"
+        );
+        assert!(info.serves_dark());
+        let score = compute_score(
+            &info,
+            0,
+            0,
+            &print_default(),
+            &forced_default(),
+            &vision_default(),
+        );
+        assert!(score > 65, "score {score}");
+    }
+
+    #[test]
     fn score_class_based_dark_mode_is_65() {
         let info = StaticDarkModeInfo {
             has_dark_media_query: false,
             has_class_based_dark_mode: true,
+            dark_by_default: false,
             color_scheme_css: false,
             meta_color_scheme: None,
             meta_theme_color_dark: false,
@@ -1832,6 +1928,7 @@ mod tests {
         let info = StaticDarkModeInfo {
             has_dark_media_query: false,
             has_class_based_dark_mode: true,
+            dark_by_default: false,
             color_scheme_css: false,
             meta_color_scheme: None,
             meta_theme_color_dark: false,

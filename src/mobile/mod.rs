@@ -397,6 +397,13 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         // Font analysis
         const textElements = document.querySelectorAll('p, span, a, li, td, th, div, h1, h2, h3, h4, h5, h6');
         let smallestFont = 100;
+        // The smallest size only counts text someone can read: an element
+        // whose own text is just whitespace or zero-width characters (KaTeX's
+        // `span.vlist-s` alignment helpers hold a lone U+200B at 1-2px, #740)
+        // renders nothing to read.
+        const readable = /[^\s\u200B\u200C\u200D\u2060\uFEFF]/;
+        const hasOwnReadableText = el => Array.from(el.childNodes).some(n =>
+            n.nodeType === Node.TEXT_NODE && readable.test(n.nodeValue));
 
         textElements.forEach(el => {
             const style = window.getComputedStyle(el);
@@ -406,7 +413,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 if (fontSize >= 12) {
                     result.fonts.legibleCount++;
                 }
-                if (fontSize < smallestFont) {
+                if (fontSize < smallestFont && hasOwnReadableText(el)) {
                     smallestFont = fontSize;
                 }
             }
