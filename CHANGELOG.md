@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Fehlalarme aus upscale.casoon.dev (#739, #740):** Das Dark-Mode-Modul meldete
+  eine reine Dunkel-Seite (`html.dark` fest gesetzt, `color-scheme: dark`, kein helles Layout) als
+  `no_dark_mode_support` mit Score 50. Neu ist das Signal "dunkel im Standard-Rendering":
+  wirksamer Seitenhintergrund (body, sonst html, sonst die Leinwand nach `color-scheme`) dunkel und
+  Body-Text hell; die Farben werden ueber ein Canvas-Pixel gelesen, damit auch `oklch()` aus
+  Tailwind v4 zaehlt. Eine solche Seite gilt als unterstuetzt (`detection_methods`: "Dark by
+  default (no light view)"), ohne `no_dark_mode_support` und ohne den Klassen-Hinweis (#739).
+  Das Mobile-Modul nahm als kleinste Schrift auch Elemente ohne lesbaren Text; KaTeX'
+  `span.vlist-s` (ein Nullbreiten-Leerzeichen bei 1 px) ergab "Smallest font size is 1.0px". Fuer
+  die kleinste Schrift zaehlen jetzt nur Elemente mit eigenem Text aus mehr als Leerraum und
+  Nullbreiten-Zeichen (#740). Live: upscale.casoon.dev Dark-Mode 50 → 85, Pythagoras-Lektion
+  kleinste Schrift 1 px → 11 px (echter Text); gov.uk (hell) weiter ohne Dark-Mode-Unterstuetzung,
+  casoon.de unveraendert. #738 (`<legend>` nach Leerraum) liegt in html-conform:
+  casoon/barrierlab#41.
+
 - **Unreleased — Formularregeln aus `a11y-rules` statt eigener (#693, B3):** Die Formular-,
   Kontextwechsel- und Captcha-Pruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
   `src/wcag/shared.rs`), die abgeloesten eigenen Regeln sind geloescht: `form_rules`,
