@@ -45,10 +45,23 @@ impl AuditModule for SeoModule {
     }
 
     fn derive(&self, report: &mut AuditReport, _locale: &str) -> Result<()> {
+        // Heading structure findings come from the shared rules (#724); the
+        // score, content profile and SERP view built at collection time read
+        // the heading issues, so they are rebuilt from the replaced list.
+        let url = report.url.clone();
+        if let Some(seo) = report.discoverability.seo.as_mut() {
+            super::headings::apply_shared_findings(
+                &mut seo.headings,
+                &report.accessibility.wcag_results,
+            );
+            super::rescore(seo);
+            seo.content_profile = Some(crate::seo::profile::build_content_profile(seo, "en"));
+            seo.serp = Some(crate::seo::serp::build_serp_analysis(seo, &url, "en"));
+        }
+
         let Some(page_intent) = report.journey.as_ref().map(|journey| journey.page_intent) else {
             return Ok(());
         };
-        let url = report.url.clone();
         let Some(seo) = report.discoverability.seo.as_mut() else {
             return Ok(());
         };

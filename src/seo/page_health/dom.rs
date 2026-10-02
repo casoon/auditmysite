@@ -1,14 +1,10 @@
-//! DOM inspection via a single CDP evaluate and local HTML5 validation (html5ever).
+//! DOM inspection via a single CDP evaluate.
 
 use chromiumoxide::Page;
-use html5ever::{parse_document, tendril::TendrilSink};
-use markup5ever_rcdom::RcDom;
 
 use crate::error::{AuditError, Result};
 
-use super::{
-    html_validator_executed_text, HtmlValidationIssue, HtmlValidationKind, PageHealthAnalysis,
-};
+use super::{HtmlValidationIssue, HtmlValidationKind, PageHealthAnalysis};
 
 pub(super) async fn run_dom_inspection(
     page: &Page,
@@ -483,61 +479,6 @@ pub(super) fn build_html_issues(
     }
 
     html_issues
-}
-
-pub(super) async fn run_local_html_validation(
-    page: &Page,
-    _url: &str,
-    a: &mut PageHealthAnalysis,
-) -> Result<()> {
-    let html = extract_document_html(page).await?;
-    let issues = validate_html_locally(&html);
-    a.html_issues.extend(issues);
-    a.html_validator_status = "executed".to_string();
-    a.html_validator_detail = Some(html_validator_executed_text(true).to_string());
-    Ok(())
-}
-
-pub(super) fn validate_html_locally(html: &str) -> Vec<HtmlValidationIssue> {
-    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
-
-    let errors = dom.errors;
-    if errors.is_empty() {
-        return Vec::new();
-    }
-
-    let samples: Vec<String> = errors.iter().take(3).map(|e| e.to_string()).collect();
-
-    vec![HtmlValidationIssue::new(
-        HtmlValidationKind::ParseErrors,
-        errors.len() as u32,
-        "high",
-        samples,
-    )]
-}
-
-async fn extract_document_html(page: &Page) -> Result<String> {
-    let js = r#"
-    (() => {
-        const d = document.doctype;
-        const doctype = d
-            ? `<!DOCTYPE ${d.name}${d.publicId ? ` PUBLIC "${d.publicId}"` : ''}${d.systemId ? ` "${d.systemId}"` : ''}>`
-            : '<!DOCTYPE html>';
-        return doctype + '\n' + document.documentElement.outerHTML;
-    })()
-    "#;
-
-    let result = page.evaluate(js).await.map_err(|e| {
-        AuditError::CdpError(format!("HTML extraction for validator failed: {}", e))
-    })?;
-
-    result
-        .value()
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .ok_or_else(|| {
-            AuditError::CdpError("Validator HTML extraction returned no string".to_string())
-        })
 }
 
 fn nonzero_u64(value: &serde_json::Value) -> Option<u64> {
