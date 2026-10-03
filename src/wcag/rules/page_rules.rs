@@ -27,10 +27,9 @@ use crate::wcag::Violation;
 use super::{
     check_accessible_authentication_with_page, check_display_modes_with_page,
     check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_focus_visible_css_with_page, check_frame_tested_with_page,
-    check_meaningful_sequence_with_page, check_media_alternative_with_page,
-    check_modern_attributes_with_page, check_motion_actuation_with_page,
-    check_no_interruptions_with_page, check_no_timing_with_page,
+    check_frame_tested_with_page, check_meaningful_sequence_with_page,
+    check_media_alternative_with_page, check_modern_attributes_with_page,
+    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
     check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
@@ -177,12 +176,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "orientation",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_orientation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.4.7/focus-visible-css",
-        name: "CSS focus-suppression",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_focus_visible_css_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.11/non-text-contrast-css",
@@ -399,7 +392,9 @@ mod tests {
         //   content-on-hover (AA) in den geteilten Bestand abgegeben
         //   (#697) = 25.
         // - area-alt (Level A) in den geteilten Bestand abgegeben = 24.
-        assert_eq!(count, 24);
+        // - focus-visible-css (AA): laeuft als `focus/outline-removed` ueber
+        //   die Stylesheets im geteilten Bestand = 23.
+        assert_eq!(count, 23);
     }
 
     #[test]

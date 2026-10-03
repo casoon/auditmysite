@@ -1350,6 +1350,66 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Content on Hover or Focus",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
     },
+    // ── Regeln über Stylesheets (a11y-rules 0.19, barrierlab#21 erster Teil,
+    // Host-Seite von #698) ──
+    //
+    // Laufen nur mit den Sheets der Seite (`run_shared_rules_with_stylesheets`,
+    // gelesen über `document.styleSheets` wie die abgelösten
+    // JavaScript-Regeln); ohne sie `NotRun::CapabilityMissing`. In Frames
+    // laufen sie nicht -- sie urteilen über die Seite, die abgelösten Regeln
+    // liefen ebenfalls nur im obersten Dokument. Abweichungen im Changelog
+    // von `a11y-rules` 0.19.0.
+
+    // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
+    // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
+    // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).
+    SharedRule {
+        id: "focus/outline-removed",
+        criterion: "2.4.7",
+        level: WcagLevel::AA,
+        name: "Focus Visible (CSS outline suppression)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
+    },
+    // Noch nicht übernommen: `motion/reduced-motion-ignored`. Chrome
+    // serialisiert die Kurzform `animation` vollständig
+    // (`2s linear 0s infinite normal none running spin`), und `a11y-rules`
+    // 0.19.0 nimmt den ersten Nicht-Schlüssel -- `none` aus
+    // `animation-fill-mode` -- als Namen; jede Animation über die Kurzform
+    // fällt so heraus (Korpus `media_and_motion`, `target_size_animation`).
+    // Bis barrierlab das behebt, bleibt `reduced_motion` hier.
+    // Ersetzt den Stylesheet-Teil von `wcag::rules::orientation`
+    // (`css-orientation-lock`). Gewollt anders: `REVIEW` statt Verstoß, nur
+    // Selektoren, die ein Element der Seite treffen, ohne Pseudo-Elemente
+    // (Breakpoint-Marker `body:before` auf bundesregierung.de). Der
+    // berechnete `transform: rotate` an `body`/`html` bleibt in
+    // `orientation`.
+    SharedRule {
+        id: "orientation/content-hidden",
+        criterion: "1.3.4",
+        level: WcagLevel::AA,
+        name: "Orientation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
+    },
+    // Ersetzen Blocksatz und Zeilenabstand aus
+    // `wcag::rules::visual_presentation` (`visual-presentation`). Gewollt
+    // anders: gemessen an den `<p>` der Seite statt an Selektoren, die mit
+    // `body`, `p`, `div` … beginnen (sonst meldete normalize.css jede
+    // Seite); `REVIEW` statt Verstoß. Der `UNTESTED`-Vermerk zu Farbwahl und
+    // Spaltenbreite bleibt in `visual_presentation`. AAA.
+    SharedRule {
+        id: "text/justified",
+        criterion: "1.4.8",
+        level: WcagLevel::AAA,
+        name: "Visual Presentation (Justified Text)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
+    },
+    SharedRule {
+        id: "text/line-height-tight",
+        criterion: "1.4.8",
+        level: WcagLevel::AAA,
+        name: "Visual Presentation (Line Height)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
@@ -1531,8 +1591,29 @@ fn locale_for(lang: &str) -> Locale {
 }
 
 /// Lässt den geteilten Regelbestand laufen und übernimmt die Befunde der
-/// Kennungen aus [`SHARED_RULES`].
+/// Kennungen aus [`SHARED_RULES`]. Ohne Stylesheets: Deren Regeln stehen
+/// dann als `NotRun::CapabilityMissing` im Bericht.
 pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
+    run_shared_rules_inner(doc, lang, None)
+}
+
+/// [`run_shared_rules`] samt den Regeln über Stylesheets
+/// (`a11y_rules::run_stylesheets`). `sheets` sind die lesbaren Sheets der
+/// Seite in Dokumentreihenfolge (`fetch_stylesheets`); fremde Sheets ohne
+/// lesbare `cssRules` fehlen darin wie bisher in den JavaScript-Regeln.
+pub fn run_shared_rules_with_stylesheets(
+    doc: &CdpDocument,
+    lang: &str,
+    sheets: &[stylesheet_parse::Stylesheet],
+) -> WcagResults {
+    run_shared_rules_inner(doc, lang, Some(sheets))
+}
+
+fn run_shared_rules_inner(
+    doc: &CdpDocument,
+    lang: &str,
+    sheets: Option<&[stylesheet_parse::Stylesheet]>,
+) -> WcagResults {
     let mut results = WcagResults::new();
     // `nodes_checked` bleibt bewusst unberuehrt: Der Zaehler fuehrt
     // AXTree-Knoten, und die geteilten Regeln laufen ueber den DOM. Beide
@@ -1548,9 +1629,15 @@ pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
     // Regeln per CSS Verstecktes (`display: none`, `visibility: hidden`) als
     // verborgen. Ohne sie nur das `hidden`-Attribut, und etwa ein per Klasse
     // ausgeblendetes Menü unter `aria-hidden` fiele als fokussierbar auf.
-    let lauf = |locale: Locale| match doc.rendered() {
-        Some(rendered) => a11y_rules::run_full_in(&rendered, locale),
-        None => a11y_rules::run_with_semantics_in(doc, locale),
+    let lauf = |locale: Locale| {
+        let report = match doc.rendered() {
+            Some(rendered) => a11y_rules::run_full_in(&rendered, locale),
+            None => a11y_rules::run_with_semantics_in(doc, locale),
+        };
+        match sheets {
+            Some(sheets) => a11y_rules::run_stylesheets_in(report, doc, sheets, locale),
+            None => report,
+        }
     };
     let report = lauf(Locale::En);
     if locale_for(lang) != Locale::En {

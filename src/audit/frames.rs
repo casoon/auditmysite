@@ -84,6 +84,11 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// `timing/meta-refresh` and `headings/section-without-heading` judge the
 /// document and stay with the top frame.
 ///
+/// The stylesheet rules (`focus/outline-removed`,
+/// `orientation/content-hidden`, `text/*`) don't run in frames: frame
+/// documents get no stylesheets (`run_shared_rules` without sheets), and the
+/// JavaScript rules they replace read the top document only.
+///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
 /// the tree-based ones did (labels, groups, errors, title-only labels); the

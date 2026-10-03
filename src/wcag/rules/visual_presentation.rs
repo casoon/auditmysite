@@ -3,6 +3,12 @@
 //! For blocks of text: foreground/background colours can be selected by the
 //! user; width is no more than 80 characters; text is not fully justified;
 //! line spacing is at least 1.5; text can be resized without AT.
+//!
+//! Justified text and tight line height run as `text/justified` and
+//! `text/line-height-tight` in the shared rules since a11y-rules 0.19
+//! (`a11y_rules::run_stylesheets`). Left here is the page-wide `UNTESTED`
+//! note for colour choice and column width, which `a11y-rules` assigns to
+//! its manual checklist.
 
 use chromiumoxide::Page;
 
@@ -20,39 +26,7 @@ pub(super) const VISUAL_PRESENTATION_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aaa", "wcag148", "cat.sensory-and-visual-cues"],
 };
 
-const VISUAL_PRESENTATION_JS: &str = r#"
-(function() {
-  var hasJustified = false;
-  var hasNarrowLineHeight = false;
-
-  try {
-    for (var i = 0; i < document.styleSheets.length; i++) {
-      var sheet = document.styleSheets[i];
-      var rules;
-      try { rules = Array.from(sheet.cssRules || []); } catch(e) { continue; }
-      for (var j = 0; j < rules.length; j++) {
-        var r = rules[j];
-        if (r.type === CSSRule.STYLE_RULE && r.style) {
-          var sel = (r.selectorText || '').toLowerCase();
-          var isBodyText = /^(body|p|div|article|section|main)/.test(sel) || sel === '*';
-          if (isBodyText) {
-            if (r.style.textAlign === 'justify') hasJustified = true;
-            var lh = r.style.lineHeight;
-            if (lh && lh !== 'normal') {
-              var num = parseFloat(lh);
-              if (!isNaN(num) && num < 1.5) hasNarrowLineHeight = true;
-            }
-          }
-        }
-      }
-    }
-  } catch(e) {}
-
-  return { hasJustified: hasJustified, hasNarrowLineHeight: hasNarrowLineHeight };
-})()
-"#;
-
-pub async fn check_visual_presentation_with_page(page: &Page) -> Vec<Violation> {
+pub async fn check_visual_presentation_with_page(_page: &Page) -> Vec<Violation> {
     let not_testable = Violation::new(
         VISUAL_PRESENTATION_RULE.id,
         VISUAL_PRESENTATION_RULE.name,
@@ -70,62 +44,5 @@ pub async fn check_visual_presentation_with_page(page: &Page) -> Vec<Violation> 
     .with_help_url(VISUAL_PRESENTATION_RULE.help_url)
     .with_kind(Outcome::Untested);
 
-    let result = match page.evaluate(VISUAL_PRESENTATION_JS).await {
-        Ok(r) => r,
-        Err(_) => return vec![not_testable],
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => return vec![not_testable],
-    };
-
-    let has_justified = val
-        .get("hasJustified")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let has_narrow_line_height = val
-        .get("hasNarrowLineHeight")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let mut findings = vec![not_testable];
-
-    if has_justified {
-        findings.push(
-            Violation::new(
-                VISUAL_PRESENTATION_RULE.id,
-                VISUAL_PRESENTATION_RULE.name,
-                VISUAL_PRESENTATION_RULE.level,
-                Severity::Low,
-                "Body text uses text-align: justify, which creates uneven spacing between words \
-                 that can reduce readability for users with dyslexia.",
-                "stylesheet",
-            )
-            .with_fix(
-                "Remove text-align: justify from body text. Use text-align: left (or start) instead.",
-            )
-            .with_rule_id(VISUAL_PRESENTATION_RULE.axe_id)
-            .with_help_url(VISUAL_PRESENTATION_RULE.help_url),
-        );
-    }
-
-    if has_narrow_line_height {
-        findings.push(
-            Violation::new(
-                VISUAL_PRESENTATION_RULE.id,
-                VISUAL_PRESENTATION_RULE.name,
-                VISUAL_PRESENTATION_RULE.level,
-                Severity::Low,
-                "Body text has line-height below 1.5, making text harder to read for users \
-                 with cognitive or visual disabilities.",
-                "stylesheet",
-            )
-            .with_fix("Set line-height to at least 1.5 for body text paragraphs.")
-            .with_rule_id(VISUAL_PRESENTATION_RULE.axe_id)
-            .with_help_url(VISUAL_PRESENTATION_RULE.help_url),
-        );
-    }
-
-    findings
+    vec![not_testable]
 }

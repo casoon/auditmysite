@@ -239,6 +239,9 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     ("names/title-only", "title-only-description"),
     ("tables/data-undetermined", "tables/header-without-data"),
     ("language/part-undetermined", "language/part-unmarked"),
+    // Stylesheets (a11y-rules 0.19); Bewegung, Ausrichtung und Text finden
+    // ihren Text ueber das Kriterium wie die abgeloesten Regeln.
+    ("focus/outline-removed", "focus-visible-outline-none"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID

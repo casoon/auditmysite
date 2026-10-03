@@ -559,6 +559,16 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "patterns/tooltip-unreferenced",
         "a11y.hover.content_visibility",
     ),
+    // ── Regeln ueber Stylesheets (a11y-rules 0.19) ──
+    // Auf die Eintraege der abgeloesten Regeln (`focus-visible-outline-none`,
+    // `css-orientation-lock`, `visual-presentation`).
+    (
+        "focus/outline-removed",
+        "a11y.focus_indicator_suppressed.invalid",
+    ),
+    ("orientation/content-hidden", "a11y.orientation.restricted"),
+    ("text/justified", "a11y.visual_presentation.weak"),
+    ("text/line-height-tight", "a11y.visual_presentation.weak"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the

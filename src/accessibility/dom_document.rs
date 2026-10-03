@@ -757,6 +757,41 @@ pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
     Ok(DomCapture { root, layout })
 }
 
+/// Der Text jedes lesbaren Stylesheets der Seite, in Dokumentreihenfolge
+/// (`document.styleSheets`). Ein fremdes Sheet ohne lesbare `cssRules` fehlt
+/// -- wie in den früheren JavaScript-Regeln, die dieselbe Liste lasen.
+const STYLESHEETS_JS: &str = r#"
+(function() {
+  var out = [];
+  for (var i = 0; i < document.styleSheets.length; i++) {
+    var rules;
+    try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+    if (!rules) continue;
+    out.push(Array.from(rules).map(function (r) { return r.cssText; }).join('\n'));
+  }
+  return out;
+})()
+"#;
+
+/// Holt und parst die Stylesheets der Seite für die geteilten Regeln über
+/// Stylesheets (`a11y_rules::run_stylesheets`).
+pub async fn fetch_stylesheets(page: &Page) -> Result<Vec<stylesheet_parse::Stylesheet>> {
+    let texts: Vec<String> = page
+        .evaluate(STYLESHEETS_JS)
+        .await
+        .map_err(|e| AuditError::AXTreeExtractionFailed {
+            reason: format!("document.styleSheets nicht lesbar: {e}"),
+        })?
+        .into_value()
+        .map_err(|e| AuditError::AXTreeExtractionFailed {
+            reason: format!("document.styleSheets ohne Wert: {e}"),
+        })?;
+    Ok(texts
+        .iter()
+        .map(|css| stylesheet_parse::parse_stylesheet(css))
+        .collect())
+}
+
 async fn get_document(page: &Page) -> Result<CdpNode> {
     let params = GetDocumentParams {
         // -1 = gesamter Teilbaum. Ein flacher Abruf mit Nachladen je Ebene

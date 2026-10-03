@@ -9,7 +9,6 @@ mod display_modes;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
 mod focus_visible;
-mod focus_visible_css;
 mod help;
 mod html_content_model;
 mod iframe_rules;
@@ -55,7 +54,6 @@ pub use display_modes::{
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_visible::check_focus_visible;
-pub use focus_visible_css::check_focus_visible_css_with_page;
 pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
 pub use iframe_rules::check_same_origin_iframes_with_page;

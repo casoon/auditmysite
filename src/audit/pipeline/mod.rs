@@ -1409,6 +1409,16 @@ async fn run_rules(
     //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
     let capture = crate::accessibility::fetch_dom_capture(page).await;
+    // Die Stylesheets für die geteilten Regeln über Stylesheets (Fokusrahmen,
+    // reduzierte Bewegung, Ausrichtung, Blocksatz/Zeilenabstand). Ohne sie
+    // stehen diese als `CapabilityMissing` im Bericht, statt zu bestehen.
+    let sheets = match crate::accessibility::fetch_stylesheets(page).await {
+        Ok(sheets) => Some(sheets),
+        Err(e) => {
+            warn!("Stylesheets fuer die geteilten Regeln nicht lesbar: {e}");
+            None
+        }
+    };
     let doc = capture
         .as_ref()
         .map_err(|e| e.to_string())
@@ -1437,7 +1447,12 @@ async fn run_rules(
     }
     match doc {
         Ok(doc) => {
-            let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
+            let mut shared = match &sheets {
+                Some(sheets) => {
+                    wcag::shared::run_shared_rules_with_stylesheets(&doc, &config.lang, sheets)
+                }
+                None => wcag::shared::run_shared_rules(&doc, &config.lang),
+            };
             // Was Landmarks der ganzen Seite zaehlt, liest das Dokument ohne
             // die ausgeschlossenen Teilbaeume: Die Musterseite darin machte
             // sonst die banner-Landmark der Seite zum Duplikat (#726).

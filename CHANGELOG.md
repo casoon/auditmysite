@@ -5,6 +5,31 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Regeln ueber Stylesheets aus `a11y-rules` (Host-Seite von #698, barrierlab#21
+  erster Teil):** auditmysite liest die Stylesheets der Seite (`document.styleSheets`, je Sheet
+  der `cssText` aller Regeln; fremde Sheets ohne lesbare `cssRules` fehlen wie bisher),
+  parst sie mit `stylesheet-parse` 0.1.0 (neue direkte Abhaengigkeit) und gibt sie mit dem Dokument
+  der geteilten Regeln an `a11y_rules::run_stylesheets_in`
+  (`accessibility::fetch_stylesheets`, `wcag::shared::run_shared_rules_with_stylesheets`).
+  Scheitert das Lesen, bleiben die Regeln `NotRun::CapabilityMissing`. Frames bekommen keine
+  Sheets; die Regeln urteilen ueber die Seite wie die abgeloesten, die nur im obersten Dokument
+  liefen. Uebernommen: `focus-visible-outline-none` → `focus/outline-removed` (2.4.7 AA, hoch; ein
+  in `:focus` wieder gesetzter Rahmen zaehlt als Ersatz, sueddeutsche.de),
+  `css-orientation-lock` (Stylesheet-Teil) → `orientation/content-hidden` (1.3.4 AA, Hinweis, nur
+  Selektoren mit Treffer auf der Seite, ohne Pseudo-Elemente), `visual-presentation` (Blocksatz,
+  Zeilenabstand) → `text/justified` und `text/line-height-tight` (1.4.8 AAA, Hinweise, gemessen an
+  den `<p>` der Seite). Geloescht: `focus_visible_css`; aus `orientation` die Stylesheet-Suche (der
+  berechnete `transform: rotate` an `body`/`html` bleibt), aus `visual_presentation` die
+  Stylesheet-Suche (der `UNTESTED`-Vermerk zu Farbwahl und Spaltenbreite bleibt). 1.4.8 zaehlt als
+  Hinweis-Kriterium (AAA). **Nicht uebernommen wegen eines Fehlers in `a11y-rules` 0.19.0:**
+  `motion/reduced-motion-ignored` -- Chrome serialisiert die Kurzform `animation` vollstaendig
+  (`2s linear 0s infinite normal none running spin`), und die Regel nimmt `none` aus
+  `animation-fill-mode` als Animationsnamen, jede Animation ueber die Kurzform faellt heraus
+  (Korpus `media_and_motion`, `target_size_animation`). `reduced_motion` bleibt deshalb vorerst
+  hier. Abweichungen im Changelog von `a11y-rules` 0.19.0. Korpus: `media_and_motion` meldet
+  `focus/outline-removed` und `orientation/content-hidden`, `text_and_layout` `text/justified`
+  (die enge Zeilenhoehe dort steht an einem `<div>`, nicht an einem `<p>`).
+
 - **Unreleased — `<area>` und selbststartender Ton aus `a11y-rules` (#696, Nachtrag):** Mit
   `a11y-rules` 0.19.0 sieht die Sicht `<area>` und `<audio>` ohne `controls` auch mit berechneten
   Stilen (UA `display: none`; gemeldet aus diesem PR, Fix in barrierlab). Damit laufen `area-alt` →
