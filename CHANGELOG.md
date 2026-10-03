@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — `<area>` und selbststartender Ton aus `a11y-rules` (#696, Nachtrag):** Mit
+  `a11y-rules` 0.19.0 sieht die Sicht `<area>` und `<audio>` ohne `controls` auch mit berechneten
+  Stilen (UA `display: none`; gemeldet aus diesem PR, Fix in barrierlab). Damit laufen `area-alt` →
+  `images/area-alt-missing` (1.1.1 A; `aria-label`/`aria-labelledby` zaehlen) und
+  `background-audio` → `media/audio-autoplay` ueber den geteilten Bestand; `image_input_rules` und
+  `background_audio` sind geloescht. `media/audio-autoplay` ist ein Pruefhinweis unter 1.4.2 (A)
+  statt Verstoss unter 1.4.7 (AAA) und laeuft damit schon auf AA; Taxonomie
+  `a11y.audio_control.missing`, 1.4.2 zaehlt als Hinweis-Kriterium (stand schon in der manuellen
+  Liste). Beide laufen auch in Frames. Korpus: `misc_content_checks` und `media_and_visual`
+  melden unter den neuen Kennungen.
+
 - **Unreleased — Tabellen-, Dokument-, Sprach- und Rollenregeln aus `a11y-rules` statt eigener
   (#697, B7):** Zwoelf Kennungen laufen ueber den geteilten Bestand: `th-has-data-cells` →
   `tables/header-without-data` (samt `tables/data-undetermined`, `UNTESTED`, fuer einen noch nicht

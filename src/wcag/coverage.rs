@@ -45,8 +45,10 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
 /// the AAA ones simply drop out of the "also checks" count, since the
 /// manual-review list is scoped to A/AA like the ratio.
 const HINT_ONLY_CRITERIA: &[&str] = &[
-    // A/AA. 3.1.2: `language/part-unmarked` is a review hint (#697).
-    "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.1.2", "3.3.7",
+    // A/AA. Review hints only: 1.4.2 `media/audio-autoplay` (#696), 3.1.2
+    // `language/part-unmarked` (#697).
+    "1.2.2", "1.3.2", "1.4.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.1.2",
+    "3.3.7",
     // AAA. Review hints only: 2.4.8 `navigation/location-missing` (#695),
     // 2.4.10 `headings/section-without-heading` and 3.1.4
     // `language/abbreviation-unexpanded` (#697).

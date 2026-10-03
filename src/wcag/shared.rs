@@ -1155,18 +1155,19 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // (1.2.8) -- `a11y-rules` verweist dafür auf `manual/media-alternatives`,
     // und die manuelle Checkliste führt auditmysite noch nicht.
 
-    // Ersetzen `input-image-alt` und `object-alt` aus
+    // Ersetzen `area-alt`, `input-image-alt` und `object-alt` aus
     // `wcag::rules::image_input_rules`. Gewollt anders: `aria-labelledby`
-    // zählt an beiden; `<embed>` prüft `objects/alt-missing` nicht (kein
-    // Beleg).
-    //
-    // Noch nicht übernommen: `images/area-alt-missing` und
-    // `media/audio-autoplay`. Mit berechneten Stilen nimmt die Sicht von
-    // `a11y-rules` alles mit `display: none` heraus, und das gibt das
-    // UA-Stylesheet jedem `<area>` und jedem `<audio>` ohne `controls` --
-    // beide Regeln melden dann nie (Korpus `misc_content_checks`,
-    // `media_and_visual`). Bis barrierlab das behebt, bleiben `area-alt`
-    // (`image_input_rules`) und `background-audio` hier.
+    // zählt an allen dreien, `aria-label` auch an `<area>`; `<embed>` prüft
+    // `objects/alt-missing` nicht (kein Beleg). `images/area-alt-missing`
+    // erst ab a11y-rules 0.19: davor nahm die Sicht mit berechneten Stilen
+    // `<area>` heraus (UA `display: none`, Korpus `misc_content_checks`).
+    SharedRule {
+        id: "images/area-alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Area)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
     SharedRule {
         id: "images/input-alt-missing",
         criterion: "1.1.1",
@@ -1188,6 +1189,19 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Non-text Content (Server-side Image Map)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `wcag::rules::background_audio` (`background-audio`, 1.4.7
+    // AAA), ab a11y-rules 0.19 (davor fehlte `<audio>` ohne `controls` in
+    // der Sicht, Korpus `media_and_visual`). Gewollt anders: `REVIEW` und
+    // 1.4.2 (Audio Control, A) statt 1.4.7 -- selbststartender Ton ist
+    // Gegenstand von 1.4.2, ob er länger als drei Sekunden läuft, steht
+    // nicht im Markup. Läuft damit schon ab Stufe A.
+    SharedRule {
+        id: "media/audio-autoplay",
+        criterion: "1.4.2",
+        level: WcagLevel::A,
+        name: "Audio Control",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
     },
     // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
     // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und

@@ -25,10 +25,9 @@ use crate::cli::WcagLevel;
 use crate::wcag::Violation;
 
 use super::{
-    check_accessible_authentication_with_page, check_background_audio_with_page,
-    check_display_modes_with_page, check_focus_not_obscured_enhanced_with_page,
-    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
-    check_frame_tested_with_page, check_image_input_rules_with_page,
+    check_accessible_authentication_with_page, check_display_modes_with_page,
+    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
+    check_focus_visible_css_with_page, check_frame_tested_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -130,13 +129,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_on_input_with_page(p)),
     },
-    // `area-alt` only since #696; see image_input_rules.rs.
-    PageRuleEntry {
-        rule_id: "1.1.1/area-alt",
-        name: "area alt",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_image_input_rules_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "4.1.2/redundant-role",
         name: "redundant role",
@@ -223,14 +215,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
     },
     // ── Level AAA only ────────────────────────────────────────────────────────
-    // Stays until `media/audio-autoplay` sees `<audio>` without `controls`
-    // in a document with computed styles (UA `display: none`, #696).
-    PageRuleEntry {
-        rule_id: "1.4.7/background-audio",
-        name: "background-audio",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_background_audio_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "1.2.8/media-alternative",
         name: "media-alternative",
@@ -360,7 +344,9 @@ mod tests {
         //   `document/lang-mismatch` im geteilten Bestand (#697); meta-refresh
         //   wird als `timing/meta-refresh` geteilt, der 2.2.1-Vermerk bleibt
         //   als timing-adjustable = 17
-        assert_eq!(count, 17);
+        // - area-alt: laeuft als `images/area-alt-missing` im geteilten
+        //   Bestand, seit a11y-rules 0.19 auch mit Stilen = 16
+        assert_eq!(count, 16);
     }
 
     #[test]
@@ -412,7 +398,8 @@ mod tests {
         // - drei Level-A-Regeln (siehe oben) sowie language-of-parts und
         //   content-on-hover (AA) in den geteilten Bestand abgegeben
         //   (#697) = 25.
-        assert_eq!(count, 25);
+        // - area-alt (Level A) in den geteilten Bestand abgegeben = 24.
+        assert_eq!(count, 24);
     }
 
     #[test]

@@ -9,13 +9,12 @@ use super::rules::{
     check_link_purpose_link_only, check_text_alternatives, check_unusual_words,
 };
 pub use super::rules::{
-    check_background_audio_with_page, check_focus_visible_css_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
-    check_orientation_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
-    check_visual_presentation_with_page,
+    check_focus_visible_css_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
+    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
+    check_re_authenticate_with_page, check_reduced_motion_with_page, check_reflow_with_page,
+    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
@@ -157,10 +156,9 @@ macro_rules! run_if_allowed {
 fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
-    // 1.1.1 `<input type="image">`, `<object>` und serverseitige Image-Maps
-    // laufen als `images/*` und `objects/alt-missing` im geteilten Bestand
-    // (#696); `<area>` bleibt als DOM-Page-Rule
-    // (check_image_input_rules_with_page in PAGE_RULES), siehe dort.
+    // 1.1.1 `<area>`, `<input type="image">`, `<object>` und serverseitige
+    // Image-Maps laufen als `images/*` und `objects/alt-missing` im geteilten
+    // Bestand (#696).
 
     // 2.1.1 Keyboard laeuft als `keyboard/focusable-no-role` und
     // `keyboard/interactive-not-focusable` im geteilten Bestand (#694). Hier

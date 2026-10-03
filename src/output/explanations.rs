@@ -229,6 +229,7 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     ),
     ("links/used-as-button", "link-as-button"),
     // #696: Bilder und Medien mit dem Text der abgeloesten Regel.
+    ("images/area-alt-missing", "area-alt"),
     ("images/input-alt-missing", "input-image-alt"),
     ("objects/alt-missing", "object-alt"),
     ("images/server-side-map", "server-side-image-map"),
@@ -3968,6 +3969,28 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     // ── Geteilte Kennungen aus #696 ohne passenden Text ──
+    (
+        "media/audio-autoplay",
+        RuleExplanation {
+            customer_title: "Selbststartender Ton ohne Steuerung prüfen",
+            customer_title_en: "Check autoplaying audio for a control",
+            customer_description: "Ein Audio-Element startet beim Laden der Seite von selbst und ist nicht stummgeschaltet.",
+            customer_description_en: "An audio element starts by itself when the page loads and is not muted.",
+            user_impact: "Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern; Nutzer finden die Steuerung dann kaum noch.",
+            user_impact_en: "Audio that starts on its own drowns out screen reader speech, which makes the control hard to find.",
+            typical_cause: "<audio autoplay> für Hintergrundmusik oder Werbung.",
+            typical_cause_en: "<audio autoplay> for background music or ads.",
+            recommendation: "Ton nicht automatisch starten oder eine Steuerung zum Anhalten bzw. Leiserstellen am Anfang der Seite anbieten.",
+            recommendation_en: "Do not start audio automatically, or offer a control to pause or lower it at the start of the page.",
+            technical_note: "Prüfhinweis (WCAG 1.4.2): Ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.",
+            technical_note_en: "Review hint (WCAG 1.4.2): whether the audio plays longer than three seconds and can be paused is not in the markup.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<audio src=\"intro.mp3\" autoplay></audio>"),
+            example_good: Some("<audio src=\"intro.mp3\" controls></audio>"),
+            example_decorative: None,
+        },
+    ),
     // `frame-title` fiel bisher auf den 2.4.1-Text („Fehlende
     // Sprungnavigation") zurueck.
     (

@@ -515,7 +515,9 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     // ── Geteilte Kennungen aus #696 (B6, Bilder und Medien) ──
     // Auf die Eintraege der abgeloesten Regeln; `frames/name-missing` bleibt
     // bei 2.4.1 wie `frame-title`.
+    ("images/area-alt-missing", "a11y.area_alt.missing"),
     ("images/input-alt-missing", "a11y.input_image_alt.missing"),
+    ("media/audio-autoplay", "a11y.audio_control.missing"),
     ("objects/alt-missing", "a11y.object_alt.missing"),
     (
         "images/server-side-map",
@@ -1950,6 +1952,31 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // `media/audio-autoplay` (#696, a11y-rules 0.19): selbststartender Ton
+    // unter 1.4.2 statt der Hintergrundgeraeusche aus 1.4.7 darunter.
+    Rule {
+        id: "a11y.audio_control.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Risk,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.4.2"),
+        external_level: Some("A"),
+        axe_id: Some("media/audio-autoplay"),
+        title: "Selbststartender Ton ohne Steuerung prüfen",
+        title_en: "Check autoplaying audio for a control",
+        description: "Ein <audio>-Element startet automatisch und ist nicht stummgeschaltet.",
+        user_impact: "Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern.",
+        user_impact_en: "Audio that starts on its own drowns out screen reader speech.",
+        technical_impact: "<audio autoplay> ohne muted; ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.",
+        technical_impact_en: "<audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,

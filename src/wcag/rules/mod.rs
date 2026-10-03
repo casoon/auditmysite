@@ -4,7 +4,6 @@
 
 mod accessible_authentication;
 mod accessible_name;
-mod background_audio;
 mod contrast;
 mod display_modes;
 mod focus_not_obscured_enhanced;
@@ -14,7 +13,6 @@ mod focus_visible_css;
 mod help;
 mod html_content_model;
 mod iframe_rules;
-mod image_input_rules;
 mod keyboard;
 mod link_purpose;
 mod link_purpose_link_only;
@@ -49,7 +47,6 @@ mod visual_presentation;
 
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
-pub use background_audio::check_background_audio_with_page;
 pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
@@ -62,7 +59,6 @@ pub use focus_visible_css::check_focus_visible_css_with_page;
 pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
 pub use iframe_rules::check_same_origin_iframes_with_page;
-pub use image_input_rules::check_image_input_rules_with_page;
 pub use keyboard::check_keyboard;
 pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;

@@ -2,7 +2,7 @@
   "case": "misc_content_checks",
   "expectations": [
     {
-      "rule_id": "area-alt",
+      "rule_id": "images/area-alt-missing",
       "verdict": "violation"
     },
     {
