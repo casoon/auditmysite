@@ -1146,6 +1146,62 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Location",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/location.html",
     },
+    // ── Bild- und Medienregeln aus #696 (B6) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#19). Im Host bleiben, weil nur der Browser es weiß:
+    // ob eine `<track>`-Datei lädt (`video-caption`, Netzabruf) und welche
+    // Rahmen fremd sind (`frame-tested`), dazu der Hinweis `media-alt`
+    // (1.2.8) -- `a11y-rules` verweist dafür auf `manual/media-alternatives`,
+    // und die manuelle Checkliste führt auditmysite noch nicht.
+
+    // Ersetzen `input-image-alt` und `object-alt` aus
+    // `wcag::rules::image_input_rules`. Gewollt anders: `aria-labelledby`
+    // zählt an beiden; `<embed>` prüft `objects/alt-missing` nicht (kein
+    // Beleg).
+    //
+    // Noch nicht übernommen: `images/area-alt-missing` und
+    // `media/audio-autoplay`. Mit berechneten Stilen nimmt die Sicht von
+    // `a11y-rules` alles mit `display: none` heraus, und das gibt das
+    // UA-Stylesheet jedem `<area>` und jedem `<audio>` ohne `controls` --
+    // beide Regeln melden dann nie (Korpus `misc_content_checks`,
+    // `media_and_visual`). Bis barrierlab das behebt, bleiben `area-alt`
+    // (`image_input_rules`) und `background-audio` hier.
+    SharedRule {
+        id: "images/input-alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Image Button)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    SharedRule {
+        id: "objects/alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Object)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `wcag::rules::server_side_image_map`.
+    SharedRule {
+        id: "images/server-side-map",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Server-side Image Map)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
+    // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und
+    // bleibt dabei. Gewollt anders: nur `<iframe>`; unsichtbar heißt
+    // `hidden`/`aria-hidden`, per Stil ausgeblendet (mit Layout-Stilen) oder
+    // Breite und Höhe als Attribut 0/1 -- die gerenderte Größe ≤ 1 px kennt
+    // die Regel ohne Geometrie nicht.
+    SharedRule {
+        id: "frames/name-missing",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Frame title",
+        help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus

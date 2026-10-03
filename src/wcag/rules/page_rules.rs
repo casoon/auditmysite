@@ -29,7 +29,7 @@ use super::{
     check_background_audio_with_page, check_content_on_hover_with_page,
     check_display_modes_with_page, check_focus_not_obscured_enhanced_with_page,
     check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
-    check_frame_tested_with_page, check_frame_title_with_page, check_image_input_rules_with_page,
+    check_frame_tested_with_page, check_image_input_rules_with_page,
     check_language_extended_with_page, check_language_of_parts_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
@@ -40,10 +40,9 @@ use super::{
     check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_redundant_role_with_page,
     check_same_origin_iframes_with_page, check_scrollable_region_focusable_with_page,
-    check_server_side_image_map_with_page, check_table_headers_attr_with_page,
-    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
-    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
+    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
+    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 
@@ -66,12 +65,6 @@ pub struct PageRuleEntry {
 /// `run_rules` order so finding emission stays stable.
 pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level A ───────────────────────────────────────────────────────────────
-    PageRuleEntry {
-        rule_id: "2.4.1/frame-title",
-        name: "frame-title",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_frame_title_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "4.1.2/frame-tested",
         name: "frame-tested",
@@ -144,17 +137,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_on_input_with_page(p)),
     },
+    // `area-alt` only since #696; see image_input_rules.rs.
     PageRuleEntry {
-        rule_id: "1.1.1/image-input-object-alt",
-        name: "area/input-image/object alt",
+        rule_id: "1.1.1/area-alt",
+        name: "area alt",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_image_input_rules_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.1.1/server-side-image-map",
-        name: "server-side image map",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_server_side_image_map_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.3.1/td-headers-attr",
@@ -266,6 +254,8 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
     },
     // ── Level AAA only ────────────────────────────────────────────────────────
+    // Stays until `media/audio-autoplay` sees `<audio>` without `controls`
+    // in a document with computed styles (UA `display: none`, #696).
     PageRuleEntry {
         rule_id: "1.4.7/background-audio",
         name: "background-audio",
@@ -398,7 +388,11 @@ mod tests {
         // - click-handler und link-as-button: laufen als
         //   `keyboard/click-handler-not-focusable` und `links/used-as-button`
         //   im geteilten Bestand (#695) = 22
-        assert_eq!(count, 22);
+        // - frame-title und server-side-image-map: laufen als
+        //   `frames/name-missing` und `images/server-side-map` im geteilten
+        //   Bestand (#696); image-input-object-alt bleibt fuer `<area>` als
+        //   area-alt = 20
+        assert_eq!(count, 20);
     }
 
     #[test]
@@ -445,7 +439,9 @@ mod tests {
         //   in den geteilten Bestand abgegeben (#693) = 34.
         // - click-handler und link-as-button (Level A) in den geteilten
         //   Bestand abgegeben (#695) = 32.
-        assert_eq!(count, 32);
+        // - frame-title und server-side-image-map (Level A) in den geteilten
+        //   Bestand abgegeben (#696) = 30.
+        assert_eq!(count, 30);
     }
 
     #[test]

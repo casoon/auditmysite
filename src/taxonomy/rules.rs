@@ -512,6 +512,16 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ),
     ("links/used-as-button", "a11y.link_as_button.invalid"),
     ("navigation/location-missing", "a11y.location.missing"),
+    // ── Geteilte Kennungen aus #696 (B6, Bilder und Medien) ──
+    // Auf die Eintraege der abgeloesten Regeln; `frames/name-missing` bleibt
+    // bei 2.4.1 wie `frame-title`.
+    ("images/input-alt-missing", "a11y.input_image_alt.missing"),
+    ("objects/alt-missing", "a11y.object_alt.missing"),
+    (
+        "images/server-side-map",
+        "a11y.image_map_server_side.invalid",
+    ),
+    ("frames/name-missing", "a11y.frame_title.missing"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the

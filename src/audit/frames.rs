@@ -51,7 +51,6 @@ pub const FRAME_TREE_RULES: &[&str] = &[
     "keyboard",
     "link-name",
     "description-duplicates-name",
-    "video-caption",
     "th-has-data-cells",
 ];
 
@@ -72,6 +71,11 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// JavaScript page rules (`click-events-have-key-events`, `link-as-button`)
 /// they saw the top frame only. `navigation/location-missing` judges the
 /// page and stays with the top frame.
+///
+/// The image and media rules (#696) judge single elements and run in frames;
+/// as JavaScript page rules they saw the top frame only. The tree rule
+/// `video-caption` (unnamed `application`/`img`, named decorative elements)
+/// ran in frames and is gone: the shared rules cover those cases.
 ///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
@@ -141,6 +145,10 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "patterns/accordion-controls-missing",
     "keyboard/click-handler-not-focusable",
     "links/used-as-button",
+    "images/input-alt-missing",
+    "objects/alt-missing",
+    "images/server-side-map",
+    "frames/name-missing",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────

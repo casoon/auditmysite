@@ -16,7 +16,7 @@ pub use super::rules::{
 };
 use super::rules::{
     check_accessible_name, check_focus_visible, check_help, check_keyboard, check_link_purpose,
-    check_link_purpose_link_only, check_media_rules, check_section_headings, check_table_extended,
+    check_link_purpose_link_only, check_section_headings, check_table_extended,
     check_text_alternatives, check_unusual_words,
 };
 use super::types::{Violation, WcagResults};
@@ -159,10 +159,10 @@ macro_rules! run_if_allowed {
 fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
-    // 1.1.1 Area / input[type=image] / object alternatives, and server-side
-    // image maps, now run as DOM page rules (check_image_input_rules_with_page /
-    // check_server_side_image_map_with_page in PAGE_RULES) — htmlTag/type/ismap
-    // are not AX properties (#QA-030).
+    // 1.1.1 `<input type="image">`, `<object>` und serverseitige Image-Maps
+    // laufen als `images/*` und `objects/alt-missing` im geteilten Bestand
+    // (#696); `<area>` bleibt als DOM-Page-Rule
+    // (check_image_input_rules_with_page in PAGE_RULES), siehe dort.
 
     // 2.1.1 Keyboard laeuft als `keyboard/focusable-no-role` und
     // `keyboard/interactive-not-focusable` im geteilten Bestand (#694). Hier
@@ -247,8 +247,10 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // `aria/tabpanel-missing` und `aria/combobox-popup-missing` im geteilten
     // Bestand (#691).
 
-    // 1.2.1 / 1.1.1 Media Rules (Level A) - P2
-    run_if_allowed!(filter, "video-caption", check_media_rules, results, tree);
+    // 1.1.1 / 1.2.1 AX-Pruefungen aus `media_rules` (unbenannte
+    // `application`/`img`, benannte dekorative Elemente) sind mit #696
+    // entfallen: `svg/name-missing`, `images/alt-missing` und
+    // `aria/attribute-prohibited` decken sie im geteilten Bestand.
 
     // 1.1.1 SVG laeuft als `svg/name-missing` im geteilten Bestand.
 

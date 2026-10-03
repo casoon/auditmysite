@@ -228,6 +228,10 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
         "click-events-have-key-events",
     ),
     ("links/used-as-button", "link-as-button"),
+    // #696: Bilder und Medien mit dem Text der abgeloesten Regel.
+    ("images/input-alt-missing", "input-image-alt"),
+    ("objects/alt-missing", "object-alt"),
+    ("images/server-side-map", "server-side-image-map"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -3860,6 +3864,31 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<button aria-expanded=\"true\">Details</button>\n<div id=\"panel\">…</div>"),
             example_good: Some("<button aria-expanded=\"true\" aria-controls=\"panel\">Details</button>\n<div id=\"panel\">…</div>"),
+            example_decorative: None,
+        },
+    ),
+    // ── Geteilte Kennungen aus #696 ohne passenden Text ──
+    // `frame-title` fiel bisher auf den 2.4.1-Text („Fehlende
+    // Sprungnavigation") zurueck.
+    (
+        "frames/name-missing",
+        RuleExplanation {
+            customer_title: "Eingebetteter Rahmen ohne Namen",
+            customer_title_en: "Embedded frame without a name",
+            customer_description: "Ein <iframe> hat keinen zugänglichen Namen (title, aria-label oder aria-labelledby).",
+            customer_description_en: "An <iframe> has no accessible name (title, aria-label or aria-labelledby).",
+            user_impact: "Screenreader nennen beim Betreten des Rahmens nur „Rahmen“; Nutzer erfahren nicht, was darin steckt, und können ihn nicht gezielt überspringen.",
+            user_impact_en: "Screen readers announce just \"frame\" when entering it; users cannot tell what it contains or skip it on purpose.",
+            typical_cause: "Eingebettete Karten, Videos, Widgets oder Werbung ohne title-Attribut.",
+            typical_cause_en: "Embedded maps, videos, widgets or ads without a title attribute.",
+            recommendation: "Jedem sichtbaren <iframe> ein title geben, das seinen Inhalt beschreibt.",
+            recommendation_en: "Give every visible <iframe> a title that describes its content.",
+            technical_note: "WCAG-Technik H64. Rahmen mit role=\"none\"/\"presentation\", hidden, aria-hidden oder Breite und Höhe 0/1 zählen nicht.",
+            technical_note_en: "WCAG technique H64. Frames with role=\"none\"/\"presentation\", hidden, aria-hidden or width and height 0/1 do not count.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<iframe src=\"map.html\"></iframe>"),
+            example_good: Some("<iframe src=\"map.html\" title=\"Lageplan des Standorts\"></iframe>"),
             example_decorative: None,
         },
     ),

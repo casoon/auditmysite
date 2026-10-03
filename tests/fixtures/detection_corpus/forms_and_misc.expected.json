@@ -7,7 +7,7 @@
     { "rule_id": "help", "verdict": "violation" },
     { "rule_id": "forms/group-missing", "verdict": "violation" },
     { "rule_id": "label-in-name/mismatch", "verdict": "violation" },
-    { "rule_id": "server-side-image-map", "verdict": "violation" },
+    { "rule_id": "images/server-side-map", "verdict": "violation" },
     { "rule_id": "navigation/location-missing", "verdict": "needs_review" },
     { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
     { "rule_id": "title-only-description", "verdict": "violation" },

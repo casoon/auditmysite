@@ -6,7 +6,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "input-image-alt",
+      "rule_id": "images/input-alt-missing",
       "verdict": "violation"
     },
     {

@@ -1,9 +1,11 @@
-//! WCAG 1.1.1 - Non-text Content: additional input/object rules
+//! WCAG 1.1.1 - Non-text Content: `area-alt`
 //!
-//! Covers axe-core rules that extend image-alt to other non-text elements:
-//! - `area-alt`:        `<area>` elements in image maps must have alt text
-//! - `input-image-alt`: `<input type="image">` must have alt text
-//! - `object-alt`:      `<object>` elements must have a text alternative
+//! `<area>` elements in image maps must have alt text. `input-image-alt` and
+//! `object-alt` run as `images/input-alt-missing` and `objects/alt-missing`
+//! in the shared rules since #696. `area-alt` stays here until
+//! `images/area-alt-missing` sees an `<area>` in a document with computed
+//! styles: the UA stylesheet gives `<area>` `display: none`, and the shared
+//! rules' rendered view drops it as hidden (reported to barrierlab).
 //!
 //! DOM-level rule: `htmlTag`/`type` are not AX properties (the AX tree
 //! synthesizes an accessible name for `<input type="image">` from its `alt`
@@ -27,28 +29,6 @@ pub(super) const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
 
-pub(super) const RULE_INPUT_IMAGE_ALT: RuleMetadata = RuleMetadata {
-    id: "1.1.1",
-    name: "Image Button Alternative Text",
-    level: WcagLevel::A,
-    severity: Severity::High,
-    description: "<input type=\"image\"> elements must have alternative text",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
-    axe_id: "input-image-alt",
-    tags: &["wcag2a", "wcag111", "cat.images"],
-};
-
-pub(super) const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
-    id: "1.1.1",
-    name: "Object Alternative Text",
-    level: WcagLevel::A,
-    severity: Severity::High,
-    description: "<object> elements must have a text alternative",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
-    axe_id: "object-alt",
-    tags: &["wcag2a", "wcag111", "cat.text-alternatives"],
-};
-
 const IMAGE_INPUT_CAP: usize = 250;
 
 const IMAGE_INPUT_BODY: &str = r#"
@@ -63,31 +43,10 @@ const IMAGE_INPUT_BODY: &str = r#"
     }
   }
 
-  var inputImages = document.querySelectorAll('input[type="image"]');
-  for (var j = 0; j < inputImages.length && __amsReal(issues) < CAP; j++) {
-    var input = inputImages[j];
-    var inputAlt = (input.getAttribute('alt') || '').trim();
-    var ariaLabel = (input.getAttribute('aria-label') || '').trim();
-    if (!inputAlt && !ariaLabel) {
-      __amsPush(issues, input, { kind: 'input-image', selector: __amsCssSelector(input) }, CAP);
-    }
-  }
-
-  var objects = document.querySelectorAll('object, embed');
-  for (var k = 0; k < objects.length && __amsReal(issues) < CAP; k++) {
-    var obj = objects[k];
-    var text = (obj.textContent || '').trim();
-    var objAriaLabel = (obj.getAttribute('aria-label') || '').trim();
-    var title = (obj.getAttribute('title') || '').trim();
-    if (!text && !objAriaLabel && !title) {
-      __amsPush(issues, obj, { kind: 'object', selector: __amsCssSelector(obj) }, CAP);
-    }
-  }
-
   return { issues: issues };
 "#;
 
-/// Run all image-input/object text-alternative checks.
+/// Run the `area-alt` check.
 pub async fn check_image_input_rules_with_page(page: &Page) -> Vec<Violation> {
     let js = [
         "(function() {",
@@ -125,17 +84,6 @@ pub async fn check_image_input_rules_with_page(page: &Page) -> Vec<Violation> {
                     &RULE_AREA_ALT,
                     "Active <area> element is missing alternative text".to_string(),
                     "Add an alt attribute to the <area> element describing its destination",
-                ),
-                "input-image" => (
-                    &RULE_INPUT_IMAGE_ALT,
-                    "Image submit button is missing alternative text".to_string(),
-                    "Add an alt attribute to the <input type=\"image\"> element \
-                     describing the button action",
-                ),
-                "object" => (
-                    &RULE_OBJECT_ALT,
-                    "<object> element is missing a text alternative".to_string(),
-                    "Provide a text alternative inside the <object> element or via aria-label",
                 ),
                 _ => return None,
             };

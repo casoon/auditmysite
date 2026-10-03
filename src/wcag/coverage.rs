@@ -47,8 +47,8 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
 const HINT_ONLY_CRITERIA: &[&str] = &[
     // A/AA
     "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.3.7",
-    // AAA
-    "1.2.8", "2.2.3", "2.2.4", "2.2.5", "2.4.12", "3.1.3",
+    // AAA. 2.4.8: `navigation/location-missing` is a review hint (#695).
+    "1.2.8", "2.2.3", "2.2.4", "2.2.5", "2.4.8", "2.4.12", "3.1.3",
 ];
 
 /// WCAG criteria with at least one automated rule in this tool, derived from

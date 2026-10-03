@@ -5,6 +5,31 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Bild- und Medienregeln aus `a11y-rules` statt eigener (#696, B6):** Ueber den
+  geteilten Bestand laufen jetzt `input-image-alt` → `images/input-alt-missing`, `object-alt` →
+  `objects/alt-missing`, `server-side-image-map` → `images/server-side-map` (alle 1.1.1 A) und
+  `frame-title` → `frames/name-missing` (2.4.1 A, hoch; `a11y-rules` fuehrt zusaetzlich 4.1.2).
+  Geloescht: `server_side_image_map`, aus `image_input_rules` die Pruefungen fuer
+  `<input type="image">` und `<object>`, aus `media_rules` die Rahmennamen und die Baumregel
+  `video-caption` (unbenanntes `application`/`img`, benanntes dekoratives Element -- barrierlab hat
+  sie mangels Beleg bzw. wegen `svg/name-missing`, `images/alt-missing` und
+  `aria/attribute-prohibited` nicht uebernommen). Gewollt anders: `aria-labelledby` zaehlt als
+  Alternative, `<embed>` wird nicht mehr geprueft, nur `<iframe>` (kein `<frame>`), keine
+  Obergrenze je Seite; die gerenderte Groesse ≤ 1 px kennt `frames/name-missing` ohne Geometrie nicht
+  (nur Breite/Hoehe als Attribut). `frames/name-missing` hat erstmals einen eigenen Erklaerungstext
+  (`frame-title` fiel auf den 2.4.1-Text „Fehlende Sprungnavigation" zurueck). Im Host bleiben:
+  die Untertitel-Pruefung `video-caption` (laedt die `<track>`-Datei ueber das Netz),
+  `frame-tested` (fremde Rahmen kennt nur der Browser) und `media-alt` (1.2.8) -- barrierlab
+  verweist dafuer auf `manual/media-alternatives`, die manuelle Checkliste fuehrt auditmysite noch
+  nicht. **Nicht uebernommen wegen eines Fehlers in `a11y-rules` 0.18.0:**
+  `images/area-alt-missing` und `media/audio-autoplay` melden mit berechneten Stilen nie, weil die
+  Sicht alles mit `display: none` herausnimmt und das UA-Stylesheet das jedem `<area>` und jedem
+  `<audio>` ohne `controls` gibt (Korpus `misc_content_checks`, `media_and_visual`). `area-alt`
+  (`image_input_rules`) und `background-audio` bleiben deshalb vorerst hier. Bild- und
+  Rahmenregeln laufen jetzt auch in Frames. Abdeckung: 2.4.8 (`navigation/location-missing`, seit
+  B5 nur Hinweis) zaehlt nicht mehr als automatisch geprueftes AAA-Kriterium. Geprueft:
+  Detection-Corpus vorher/nachher (nur die umbenannten Kennungen, Selektor jetzt `tag#id`).
+
 - **Unreleased — Links- und Zeigerregeln aus `a11y-rules` statt eigener (#695, B5):** Mit
   `a11y-rules` 0.18.0 laufen drei Kennungen ueber den geteilten Bestand: `click-events-have-key-events`
   → `keyboard/click-handler-not-focusable` (2.1.1 A, hoch), `link-as-button` →

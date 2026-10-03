@@ -44,7 +44,6 @@ mod redundant_role;
 mod reflow;
 mod scrollable_region;
 mod section_headings;
-mod server_side_image_map;
 mod table_extended;
 mod target_size_enhanced;
 mod target_size_minimum;
@@ -81,10 +80,7 @@ pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;
 pub use meaningful_sequence::check_meaningful_sequence_with_page;
 pub use media_alternative::check_media_alternative_with_page;
-pub use media_rules::{
-    check_frame_tested_with_page, check_frame_title_with_page, check_media_rules,
-    check_video_caption_tracks_with_page,
-};
+pub use media_rules::{check_frame_tested_with_page, check_video_caption_tracks_with_page};
 pub use modern_attributes::check_modern_attributes_with_page;
 pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;
@@ -103,7 +99,6 @@ pub use redundant_role::check_redundant_role_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use scrollable_region::check_scrollable_region_focusable_with_page;
 pub use section_headings::check_section_headings;
-pub use server_side_image_map::check_server_side_image_map_with_page;
 pub use table_extended::{check_table_extended, check_table_headers_attr_with_page};
 pub use target_size_enhanced::check_target_size_enhanced_with_page;
 pub use target_size_minimum::check_target_size_minimum_with_page;
