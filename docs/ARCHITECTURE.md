@@ -75,7 +75,6 @@ src/
 │       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
 │       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
-│       ├── language_of_parts.rs  # Conservative language-change check for 3.1.2
 │       ├── target_size_minimum.rs # 2.5.8
 │       ├── text_spacing.rs       # 1.4.12
 │       ├── display_modes.rs      # display/* checks of the data-display convention (#653, best-practice)

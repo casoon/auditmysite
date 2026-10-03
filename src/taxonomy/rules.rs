@@ -522,6 +522,41 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "a11y.image_map_server_side.invalid",
     ),
     ("frames/name-missing", "a11y.frame_title.missing"),
+    // ── Geteilte Kennungen aus #697 (B7, Tabellen, Dokument, Sprache,
+    // Rollen) ──
+    // Auf die Eintraege der abgeloesten Regeln. `language/*` bekommt einen
+    // eigenen Eintrag: `language-of-parts` hatte keinen und fiel ohne
+    // Taxonomie durch.
+    (
+        "tables/header-without-data",
+        "a11y.table_header_data.missing",
+    ),
+    ("tables/data-undetermined", "a11y.table_header_data.missing"),
+    (
+        "tables/headers-attr-invalid",
+        "a11y.table_headers_ref.invalid",
+    ),
+    ("document/lang-mismatch", "a11y.language_mismatch.invalid"),
+    ("language/part-unmarked", "a11y.language_of_parts.unmarked"),
+    (
+        "language/part-undetermined",
+        "a11y.language_of_parts.unmarked",
+    ),
+    (
+        "language/abbreviation-unexpanded",
+        "a11y.abbreviations.missing",
+    ),
+    ("timing/meta-refresh", "a11y.timing.unadjustable"),
+    (
+        "headings/section-without-heading",
+        "a11y.section_headings.missing",
+    ),
+    ("aria/role-redundant", "a11y.redundant_role.invalid"),
+    ("names/title-only", "a11y.title_only_description.weak"),
+    (
+        "patterns/tooltip-unreferenced",
+        "a11y.hover.content_visibility",
+    ),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the
@@ -1655,6 +1690,31 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // `language/part-unmarked` und `language/part-undetermined` (#697);
+    // `language-of-parts` hatte keinen eigenen Eintrag.
+    Rule {
+        id: "a11y.language_of_parts.unmarked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::LanguageClarity,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 3.1.2"),
+        external_level: Some("AA"),
+        axe_id: Some("language/part-unmarked"),
+        title: "Anderssprachiger Textteil ohne lang prüfen",
+        title_en: "Check text in another language without lang",
+        description: "Ein Textabschnitt scheint in einer anderen Sprache als die Seite verfasst, ohne dass ein lang-Attribut das auszeichnet.",
+        user_impact: "Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.",
+        user_impact_en: "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
+        technical_impact: "Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.",
+        technical_impact_en: "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,

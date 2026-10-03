@@ -10,12 +10,8 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "presentation-semantic-children",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "abbreviations",
-      "verdict": "violation"
+      "rule_id": "language/abbreviation-unexpanded",
+      "verdict": "needs_review"
     },
     {
       "rule_id": "popover/target-missing",
@@ -26,7 +22,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "html-xml-lang-mismatch",
+      "rule_id": "document/lang-mismatch",
       "verdict": "violation"
     },
     {

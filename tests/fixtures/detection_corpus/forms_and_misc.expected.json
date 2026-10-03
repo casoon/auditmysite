@@ -10,7 +10,7 @@
     { "rule_id": "images/server-side-map", "verdict": "violation" },
     { "rule_id": "navigation/location-missing", "verdict": "needs_review" },
     { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
-    { "rule_id": "title-only-description", "verdict": "violation" },
-    { "rule_id": "content-on-hover-focus", "verdict": "violation", "occurrences": 1 }
+    { "rule_id": "forms/title-only-label", "verdict": "needs_review" },
+    { "rule_id": "patterns/tooltip-unreferenced", "verdict": "violation", "occurrences": 1 }
   ]
 }

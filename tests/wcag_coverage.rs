@@ -15,7 +15,7 @@ use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
     check_accessible_name, check_focus_visible, check_keyboard, check_link_purpose,
-    check_section_headings, check_table_extended, check_text_alternatives,
+    check_text_alternatives,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -72,12 +72,10 @@ rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
-rule_smoke_test!(smoke_check_table_extended, check_table_extended);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
 // here (this file is browser-free/AXTree-only); it has its own unit tests.
 rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
-rule_smoke_test!(smoke_check_section_headings, check_section_headings);
 
 // ---------------------------------------------------------------------------
 // RuleFilterConfig — engine filtering logic
@@ -629,10 +627,10 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
     }
 
     // Sanity floor, not a pin: the count shrinks as rules move to the shared
-    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58).
+    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49).
     assert!(
-        all_entries.len() >= 50,
-        "Expected ~58 RuleMetadata declarations across src/wcag/rules/, found {}. \
+        all_entries.len() >= 45,
+        "Expected ~49 RuleMetadata declarations across src/wcag/rules/, found {}. \
          The parser in extract_rule_metadata_entries may have broken (field \
          layout changed?) — verify before trusting this test's other assertions.",
         all_entries.len()

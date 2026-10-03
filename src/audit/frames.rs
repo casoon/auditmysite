@@ -36,22 +36,22 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
-/// relationships: names (images, links), redundant descriptions, table
-/// headers and the keyboard-trap note. Roles, their required parents and
-/// children and ambiguous `aria-owns` run as shared rules since #691, the
-/// names of dialogs, summaries and role-based widgets, label-in-name and
-/// live-region roles since #692, form labels, structure and errors since
-/// #693, keyboard reachability since #694 (see [`FRAME_SHARED_RULES`]).
+/// relationships: names (images, links), redundant descriptions and the
+/// keyboard-trap note. Roles, their required parents and children and
+/// ambiguous `aria-owns` run as shared rules since #691, the names of
+/// dialogs, summaries and role-based widgets, label-in-name and live-region
+/// roles since #692, form labels, structure and errors since #693, keyboard
+/// reachability since #694, table headers since #697 (see
+/// [`FRAME_SHARED_RULES`]).
 ///
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `focus-visible` (fires only when the whole page has
-/// nothing focusable), `heading-order`, `unusual-words` and `help`.
+/// nothing focusable), `unusual-words` and `help`.
 pub const FRAME_TREE_RULES: &[&str] = &[
     "image-alt",
     "keyboard",
     "link-name",
     "description-duplicates-name",
-    "th-has-data-cells",
 ];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
@@ -76,6 +76,13 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// as JavaScript page rules they saw the top frame only. The tree rule
 /// `video-caption` (unnamed `application`/`img`, named decorative elements)
 /// ran in frames and is gone: the shared rules cover those cases.
+///
+/// From #697 the table, role, name and tooltip checks and unexpanded
+/// abbreviations run in frames; table headers ran there as the tree rule
+/// `th-has-data-cells`, the others as page rules in the top frame only. The
+/// language and document checks (`document/lang-mismatch`, `language/*`),
+/// `timing/meta-refresh` and `headings/section-without-heading` judge the
+/// document and stay with the top frame.
 ///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
@@ -149,6 +156,13 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "objects/alt-missing",
     "images/server-side-map",
     "frames/name-missing",
+    "tables/header-without-data",
+    "tables/data-undetermined",
+    "tables/headers-attr-invalid",
+    "aria/role-redundant",
+    "names/title-only",
+    "patterns/tooltip-unreferenced",
+    "language/abbreviation-unexpanded",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -687,6 +701,10 @@ mod tests {
             "zoom/viewport-missing",
             "keyboard/skip-link-missing",
             "navigation/location-missing",
+            "document/lang-mismatch",
+            "language/part-unmarked",
+            "timing/meta-refresh",
+            "headings/section-without-heading",
         ] {
             assert!(!FRAME_SHARED_RULES.contains(&page_level), "{page_level}");
         }

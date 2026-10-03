@@ -1,10 +1,10 @@
 {
   "case": "name_description_best_practice",
   "expectations": [
-    { "rule_id": "title-only-description", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "names/title-only", "verdict": "needs_review" },
     { "rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1 },
     { "rule_id": "buttons/name-missing", "verdict": "pass" },
     { "rule_id": "names/required-missing", "verdict": "pass" },
-    { "rule_id": "content-on-hover-focus", "verdict": "pass" }
+    { "rule_id": "patterns/tooltip-unreferenced", "verdict": "pass" }
   ]
 }

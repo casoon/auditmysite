@@ -6,6 +6,6 @@
     { "rule_id": "context/on-focus", "verdict": "needs_review" },
     { "rule_id": "forms/title-only-label", "verdict": "needs_review" },
     { "rule_id": "forms/redundant-entry", "verdict": "needs_review" },
-    { "rule_id": "td-headers-attr", "verdict": "violation" }
+    { "rule_id": "tables/headers-attr-invalid", "verdict": "violation" }
   ]
 }

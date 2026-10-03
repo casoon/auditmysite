@@ -45,10 +45,12 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
 /// the AAA ones simply drop out of the "also checks" count, since the
 /// manual-review list is scoped to A/AA like the ratio.
 const HINT_ONLY_CRITERIA: &[&str] = &[
-    // A/AA
-    "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.3.7",
-    // AAA. 2.4.8: `navigation/location-missing` is a review hint (#695).
-    "1.2.8", "2.2.3", "2.2.4", "2.2.5", "2.4.8", "2.4.12", "3.1.3",
+    // A/AA. 3.1.2: `language/part-unmarked` is a review hint (#697).
+    "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.1.2", "3.3.7",
+    // AAA. Review hints only: 2.4.8 `navigation/location-missing` (#695),
+    // 2.4.10 `headings/section-without-heading` and 3.1.4
+    // `language/abbreviation-unexpanded` (#697).
+    "1.2.8", "2.2.3", "2.2.4", "2.2.5", "2.4.8", "2.4.10", "2.4.12", "3.1.3", "3.1.4",
 ];
 
 /// WCAG criteria with at least one automated rule in this tool, derived from
@@ -102,6 +104,10 @@ const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     // Whether a dragging operation has a single-pointer alternative (buttons,
     // tap-to-select, a track click) is behaviour, not markup (plan 54 §3).
     ("2.5.7", "AA", "Dragging Movements"),
+    // `language/part-unmarked` only hints at a passage in another language
+    // (a heuristic for German and English, #697); whether every change of
+    // language is marked needs a reader.
+    ("3.1.2", "AA", "Language of Parts"),
     ("3.2.3", "AA", "Consistent Navigation"),
     ("3.2.4", "AA", "Consistent Identification"),
     // Cross-page by nature: the batch report compares help mechanisms across

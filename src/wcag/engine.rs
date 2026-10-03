@@ -4,20 +4,18 @@
 
 use tracing::{debug, info};
 
+use super::rules::{
+    check_accessible_name, check_focus_visible, check_help, check_keyboard, check_link_purpose,
+    check_link_purpose_link_only, check_text_alternatives, check_unusual_words,
+};
 pub use super::rules::{
-    check_abbreviations_with_page, check_background_audio_with_page,
-    check_content_on_hover_with_page, check_focus_visible_css_with_page,
+    check_background_audio_with_page, check_focus_visible_css_with_page,
     check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
     check_orientation_with_page, check_pointer_cancellation_with_page,
     check_pointer_gestures_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
     check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
     check_visual_presentation_with_page,
-};
-use super::rules::{
-    check_accessible_name, check_focus_visible, check_help, check_keyboard, check_link_purpose,
-    check_link_purpose_link_only, check_section_headings, check_table_extended,
-    check_text_alternatives, check_unusual_words,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
@@ -189,8 +187,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // synthetisiert Chrome aus Locale und Kontext, auch wenn der Autor nie
     // ein `lang` gesetzt hat -- eine AX-basierte Pruefung ist fuer den
     // haeufigsten Fall also blind.
-    // 3.1.1 xml:lang-Abgleich laeuft weiter als DOM-Page-Rule
-    // (check_language_extended_with_page in PAGE_RULES).
+    // 3.1.1 xml:lang-Abgleich laeuft als `document/lang-mismatch` im
+    // geteilten Bestand (#697).
 
     // 3.3.2 Labels or Instructions und 3.3.1 Error Identification laufen als
     // `forms/*` im geteilten Bestand (#693): fehlende Beschriftung,
@@ -259,16 +257,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // Fehlende main-/banner-Landmark und doppelte main laufen als
     // `landmarks/*` im geteilten Bestand.
 
-    // 1.3.1 th-has-data-cells (Level A) - P1. td-headers-attr now runs as a
-    // DOM page rule (check_table_headers_attr_with_page in PAGE_RULES) —
-    // `headers` is not an AX property (#QA-030).
-    run_if_allowed!(
-        filter,
-        "th-has-data-cells",
-        check_table_extended,
-        results,
-        tree
-    );
+    // 1.3.1 Kopfzellen ohne Daten und `headers`-Verweise laufen als
+    // `tables/*` im geteilten Bestand (#697).
 
     // 4.1.2 `<summary>` laeuft als `summary/name-missing` im geteilten
     // Bestand (#692).
@@ -311,14 +301,8 @@ fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFi
     // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
-    // 2.4.10 Section Headings (Level AAA)
-    run_if_allowed!(
-        filter,
-        "heading-order",
-        check_section_headings,
-        results,
-        tree
-    );
+    // 2.4.10 Section Headings laeuft als `headings/section-without-heading`
+    // im geteilten Bestand (#697).
 
     // 2.4.9 Link Purpose (Link Only) (Level AAA)
     run_if_allowed!(

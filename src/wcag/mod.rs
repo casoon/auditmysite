@@ -11,8 +11,7 @@ pub mod shared;
 pub mod types;
 
 pub use engine::{
-    check_abbreviations_with_page, check_all, check_all_excluding, check_all_with_config,
-    check_background_audio_with_page, check_content_on_hover_with_page,
+    check_all, check_all_excluding, check_all_with_config, check_background_audio_with_page,
     check_focus_visible_css_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,

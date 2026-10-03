@@ -2,11 +2,9 @@
 //!
 //! Contains individual WCAG rule implementations.
 
-mod abbreviations;
 mod accessible_authentication;
 mod accessible_name;
 mod background_audio;
-mod content_on_hover;
 mod contrast;
 mod display_modes;
 mod focus_not_obscured_enhanced;
@@ -17,10 +15,7 @@ mod help;
 mod html_content_model;
 mod iframe_rules;
 mod image_input_rules;
-mod info_relationships;
 mod keyboard;
-mod language_extended;
-mod language_of_parts;
 mod link_purpose;
 mod link_purpose_link_only;
 mod meaningful_sequence;
@@ -43,8 +38,6 @@ mod reduced_motion;
 mod redundant_role;
 mod reflow;
 mod scrollable_region;
-mod section_headings;
-mod table_extended;
 mod target_size_enhanced;
 mod target_size_minimum;
 mod text_alternatives;
@@ -54,11 +47,9 @@ mod unusual_words;
 mod use_of_color;
 mod visual_presentation;
 
-pub use abbreviations::check_abbreviations_with_page;
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
 pub use background_audio::check_background_audio_with_page;
-pub use content_on_hover::check_content_on_hover_with_page;
 pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
@@ -72,10 +63,7 @@ pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
 pub use iframe_rules::check_same_origin_iframes_with_page;
 pub use image_input_rules::check_image_input_rules_with_page;
-pub use info_relationships::check_presentation_semantic_children_with_page;
 pub use keyboard::check_keyboard;
-pub use language_extended::check_language_extended_with_page;
-pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;
 pub use meaningful_sequence::check_meaningful_sequence_with_page;
@@ -98,8 +86,6 @@ pub use reduced_motion::check_reduced_motion_with_page;
 pub use redundant_role::check_redundant_role_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use scrollable_region::check_scrollable_region_focusable_with_page;
-pub use section_headings::check_section_headings;
-pub use table_extended::{check_table_extended, check_table_headers_attr_with_page};
 pub use target_size_enhanced::check_target_size_enhanced_with_page;
 pub use target_size_minimum::check_target_size_minimum_with_page;
 pub use text_alternatives::{check_text_alternatives, is_svg_finding};

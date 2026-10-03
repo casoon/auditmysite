@@ -1,6 +1,6 @@
 {
   "case": "table_headers_no_data",
   "expectations": [
-    { "rule_id": "th-has-data-cells", "verdict": "violation" }
+    { "rule_id": "tables/header-without-data", "verdict": "violation" }
   ]
 }

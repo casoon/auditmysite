@@ -1202,6 +1202,140 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Frame title",
         help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
     },
+    // ── Tabellen-, Dokument-, Sprach- und Rollenregeln aus #697 (B7) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#20). Für alle gilt: keine Obergrenze je Seite mehr
+    // (bisher 5, 10 bzw. 20 Befunde).
+    //
+    // Nicht übernommen und gelöscht: `presentation-semantic-children`
+    // (`info_relationships`) -- nach WAI-ARIA 1.2 nimmt
+    // `role="presentation"`/`"none"` nur dem Element selbst die Semantik,
+    // nicht seinen Nachfahren; die Regel hätte das APG-Menüleistenmuster
+    // (`<li role="none">` um Menülinks) als Fehler gemeldet. Den
+    // Tabellenfall meldet `tables/presentational-with-headers`. Aus
+    // `section_headings` die Gliederungslücken (meldet
+    // `headings/skip-level`) und „mehr als 10 Absätze, weniger als 3
+    // Überschriften" (kein Beleg).
+    //
+    // Im Host bleiben: aus `redundant_role` das Paar `<ul>`/`<ol>` mit
+    // `role="list"` -- ob die Rolle überflüssig ist, hängt am berechneten
+    // `list-style-type` (#644), und den liefert `a11y-dom` noch nicht
+    // (casoon/barrierlab#21); aus `timing_adjustable` die seitenweiten
+    // `UNTESTED`-Vermerke für Skript-Fristen (2.2.1) und `timeouts` (2.2.6),
+    // die `a11y-rules` der manuellen Checkliste zuweist.
+
+    // Ersetzt `th-has-data-cells` aus `wcag::rules::table_extended` samt
+    // #638, #654 und #659. Ein noch nicht dargestellter Zeilenvorrat ist
+    // `tables/data-undetermined` (`UNTESTED`), nicht `FAIL`.
+    SharedRule {
+        id: "tables/header-without-data",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Header Without Data)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "tables/data-undetermined",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Header Without Data)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `td-headers-attr` aus `table_extended`. Gewollt anders: nur an
+    // Zellen geprüft, wo HTML das Attribut definiert.
+    SharedRule {
+        id: "tables/headers-attr-invalid",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Headers Attribute)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::language_extended` (`html-xml-lang-mismatch`).
+    SharedRule {
+        id: "document/lang-mismatch",
+        criterion: "3.1.1",
+        level: WcagLevel::A,
+        name: "Language of Page (lang/xml:lang Mismatch)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
+    },
+    // Ersetzt `wcag::rules::language_of_parts`. Gewollt anders: der innerste
+    // Textblock, ohne `<script>`/`<style>`/`<template>`; auf Seiten, die
+    // weder Deutsch noch Englisch sind, `language/part-undetermined`
+    // (`UNTESTED`) statt nichts.
+    SharedRule {
+        id: "language/part-unmarked",
+        criterion: "3.1.2",
+        level: WcagLevel::AA,
+        name: "Language of Parts",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
+    },
+    SharedRule {
+        id: "language/part-undetermined",
+        criterion: "3.1.2",
+        level: WcagLevel::AA,
+        name: "Language of Parts",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
+    },
+    // Ersetzt `wcag::rules::abbreviations`. Gewollt anders: `REVIEW` statt
+    // Verstoß, ein leeres `title` zählt als fehlend.
+    SharedRule {
+        id: "language/abbreviation-unexpanded",
+        criterion: "3.1.4",
+        level: WcagLevel::AAA,
+        name: "Abbreviations",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/abbreviations.html",
+    },
+    // Ersetzt aus `wcag::rules::timing_adjustable` die Erkennung von
+    // `<meta http-equiv="refresh">`. Gewollt anders: `0` s ist keine Frist
+    // (H76), eine Anweisung ohne Ziffern führt der Browser nicht aus.
+    SharedRule {
+        id: "timing/meta-refresh",
+        criterion: "2.2.1",
+        level: WcagLevel::A,
+        name: "Timing Adjustable",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
+    },
+    // Ersetzt die Abschnittszählung aus `wcag::rules::section_headings`
+    // (`heading-order`, 2.4.10). Gewollt anders: Artikel und benannte
+    // Abschnitte ohne eigene Überschrift statt aller Abschnitte gegen alle
+    // Überschriften; `REVIEW` statt Verstoß.
+    SharedRule {
+        id: "headings/section-without-heading",
+        criterion: "2.4.10",
+        level: WcagLevel::AAA,
+        name: "Section Headings",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/section-headings.html",
+    },
+    // Ersetzt `wcag::rules::redundant_role` bis auf `<ul>`/`<ol>` (siehe
+    // oben). `<li role="listitem">` meldet es nur in einer Liste ohne eigene
+    // Rolle.
+    SharedRule {
+        id: "aria/role-redundant",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzen `title-only-description` und `content-on-hover-focus` aus
+    // `wcag::rules::content_on_hover`. Gewollt anders: `names/title-only` ist
+    // `REVIEW` (`title` ist eine gültige Namensquelle, H65), Textfelder
+    // meldet `forms/title-only-label`; `patterns/tooltip-unreferenced` lässt
+    // auch `aria-labelledby` als Verweis gelten.
+    SharedRule {
+        id: "names/title-only",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Title Only)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "patterns/tooltip-unreferenced",
+        criterion: "1.4.13",
+        level: WcagLevel::AA,
+        name: "Content on Hover or Focus",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus

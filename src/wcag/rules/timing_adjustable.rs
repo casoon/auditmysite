@@ -1,10 +1,11 @@
 //! WCAG 2.2.1 Timing Adjustable (Level A)
 //!
 //! Time limits must be adjustable, extendable, or able to be turned off.
-//! This detection only catches the most reliable structural signal:
-//! `<meta http-equiv="refresh">` directives that auto-redirect the page.
-//! Script-driven timeouts are not detectable from static markup and remain
-//! a manual-review concern.
+//! `<meta http-equiv="refresh">` runs as `timing/meta-refresh` in the shared
+//! rules since #697. What stays here are the page-wide `UNTESTED` notes for
+//! script-driven time limits (2.2.1) and inactivity timeouts (2.2.6):
+//! `a11y-rules` assigns them to its manual checklist (`manual/timing`), which
+//! auditmysite does not run yet.
 
 use chromiumoxide::Page;
 
@@ -21,22 +22,6 @@ pub(super) const TIMING_RULE: RuleMetadata = RuleMetadata {
     axe_id: "meta-refresh",
     tags: &["wcag2a", "wcag221", "cat.time-and-media"],
 };
-
-// Returns the meta-refresh content attribute when one is present.
-// Format: "<seconds>; url=<target>" or just "<seconds>".
-const META_REFRESH_JS: &str = r#"
-(function() {
-  const meta = document.querySelector('meta[http-equiv="refresh" i]');
-  if (!meta) return { present: false };
-  const content = (meta.getAttribute('content') || '').trim();
-  const seconds = parseInt(content.split(/[;,]/)[0], 10);
-  return {
-    present: true,
-    content,
-    seconds: isNaN(seconds) ? null : seconds
-  };
-})()
-"#;
 
 pub(super) const TIMEOUT_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.6",
@@ -70,7 +55,7 @@ pub async fn check_timeouts_with_page(_page: &Page) -> Vec<Violation> {
     .with_kind(Outcome::Untested)]
 }
 
-pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
+pub async fn check_timing_with_page(_page: &Page) -> Vec<Violation> {
     // JavaScript-driven session timeouts (setTimeout/setInterval) are not
     // detectable from the DOM and always require manual testing.
     let not_testable = Violation::new(
@@ -91,60 +76,5 @@ pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
     .with_help_url(TIMING_RULE.help_url)
     .with_kind(Outcome::Untested);
 
-    let result = match page.evaluate(META_REFRESH_JS).await {
-        Ok(r) => r,
-        Err(_) => return vec![not_testable],
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => return vec![not_testable],
-    };
-
-    let present = val
-        .get("present")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if !present {
-        return vec![not_testable];
-    }
-
-    let seconds = val.get("seconds").and_then(|v| v.as_u64());
-    let content = val
-        .get("content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    let mut findings = vec![not_testable];
-
-    // Refreshes >= 20 hours are exempt under WCAG (the user has effectively
-    // unlimited time). We flag everything with a shorter interval (< 20h).
-    let exempt = seconds.map(|s| s >= 20 * 60 * 60).unwrap_or(false);
-    if !exempt {
-        let detail = match seconds {
-            Some(s) => format!("after {s} {}", if s == 1 { "second" } else { "seconds" }),
-            None => format!("(content: \"{content}\")"),
-        };
-        findings.push(
-            Violation::new(
-                TIMING_RULE.id,
-                TIMING_RULE.name,
-                TIMING_RULE.level,
-                Severity::High,
-                format!(
-                    "Page uses <meta http-equiv=\"refresh\"> to auto-redirect or reload {detail} — users cannot pause, stop, or extend the timer."
-                ),
-                "meta[http-equiv=refresh]",
-            )
-            .with_selector("meta[http-equiv=refresh]")
-            .with_fix(
-                "Remove the meta-refresh and use a server-side redirect (HTTP 301/302) for navigation, or offer an explicit user action.",
-            )
-            .with_rule_id(TIMING_RULE.axe_id)
-            .with_help_url(TIMING_RULE.help_url),
-        );
-    }
-
-    findings
+    vec![not_testable]
 }

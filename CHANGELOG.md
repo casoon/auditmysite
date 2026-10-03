@@ -5,6 +5,43 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Tabellen-, Dokument-, Sprach- und Rollenregeln aus `a11y-rules` statt eigener
+  (#697, B7):** Zwoelf Kennungen laufen ueber den geteilten Bestand: `th-has-data-cells` →
+  `tables/header-without-data` (samt `tables/data-undetermined`, `UNTESTED`, fuer einen noch nicht
+  dargestellten Zeilenvorrat, #654), `td-headers-attr` → `tables/headers-attr-invalid`,
+  `html-xml-lang-mismatch` → `document/lang-mismatch`, `language-of-parts` →
+  `language/part-unmarked` (neu `language/part-undetermined` auf Seiten, die weder Deutsch noch
+  Englisch sind), `abbreviations` → `language/abbreviation-unexpanded` (Hinweis statt Verstoss),
+  `meta-refresh` → `timing/meta-refresh` (0 s ist keine Frist), `heading-order` aus
+  `section_headings` → `headings/section-without-heading` (Hinweis, nur Artikel und benannte
+  Abschnitte), `redundant-role` → `aria/role-redundant`, `title-only-description` →
+  `names/title-only` (Hinweis; Textfelder meldet weiter `forms/title-only-label`),
+  `content-on-hover-focus` → `patterns/tooltip-unreferenced`. Geloescht: `table_extended`,
+  `language_extended`, `language_of_parts`, `abbreviations`, `content_on_hover`,
+  `info_relationships`, `section_headings`, die Baumregeln `th-has-data-cells` und `heading-order`.
+  **Ersatzlos gestrichen:** `presentation-semantic-children` -- nach WAI-ARIA 1.2 nimmt
+  `role="presentation"`/`"none"` nur dem Element selbst die Semantik, nicht den Nachfahren; die
+  Regel haette das APG-Menueleistenmuster (`<li role="none">` um Menuelinks) gemeldet (barrierlab:
+  187 Fehlalarme auf 48 Seiten), der Tabellenfall ist `tables/presentational-with-headers`. Aus
+  `section_headings` entfallen die Gliederungsluecken (`headings/skip-level`) und „mehr als 10
+  Absaetze, weniger als 3 Ueberschriften" (kein Beleg). **Im Host bleiben:** aus
+  `redundant_role` nur `<ul>`/`<ol>` mit `role="list"` -- ob die Rolle ueberfluessig ist, haengt am
+  berechneten `list-style-type` (#644), den `a11y-dom` noch nicht liefert (barrierlab#21); der
+  Korpusfall `ol#numbered-list` meldet weiter. Aus `timing_adjustable` die seitenweiten
+  `UNTESTED`-Vermerke fuer Skript-Fristen (2.2.1, jetzt als Page-Rule `2.2.1/timing-adjustable`)
+  und `timeouts` (2.2.6), die barrierlab der manuellen Checkliste zuweist. Die
+  Darstellungsregeln aus barrierlab#22 (`viz/*`, statische Haelften von `display/*`) sind nicht
+  uebernommen: `display/text-hidden`, `display/init-missing` und `display/toggle-missing` tragen in
+  `display_modes` dieselben Kennungen, pruefen dort aber auch berechnete Sichtbarkeit und den
+  Zeitpunkt von `data-display`; ein Aufteilen derselben Kennung auf zwei Quellen ist ein eigener
+  Schritt, `display_modes` bleibt unveraendert. Taxonomie: neu `a11y.language_of_parts.unmarked`
+  (3.1.2 AA; `language-of-parts` hatte keinen Eintrag); 3.1.2, 2.4.10 und 3.1.4 zaehlen als reine
+  Hinweis-Kriterien, 3.1.2 steht damit in der Liste der manuell zu pruefenden Kriterien (21 → 22,
+  `docs/PARITY_CONTRACT.jsonc`, README). Tabellen-, Rollen-, Namens- und Tooltip-Regeln sowie
+  Abkuerzungen laufen auch in Frames. Geprueft: Detection-Corpus vorher/nachher (Umbenennungen,
+  Hinweise statt Verstoesse wie im barrierlab-Changelog, `language/part-undetermined` auf
+  `invalid_lang_code` und `skip_link_language`, neue Abschnittshinweise auf fuenf Faellen).
+
 - **Unreleased — Bild- und Medienregeln aus `a11y-rules` statt eigener (#696, B6):** Ueber den
   geteilten Bestand laufen jetzt `input-image-alt` → `images/input-alt-missing`, `object-alt` →
   `objects/alt-missing`, `server-side-image-map` → `images/server-side-map` (alle 1.1.1 A) und

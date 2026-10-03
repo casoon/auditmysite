@@ -25,22 +25,19 @@ use crate::cli::WcagLevel;
 use crate::wcag::Violation;
 
 use super::{
-    check_abbreviations_with_page, check_accessible_authentication_with_page,
-    check_background_audio_with_page, check_content_on_hover_with_page,
+    check_accessible_authentication_with_page, check_background_audio_with_page,
     check_display_modes_with_page, check_focus_not_obscured_enhanced_with_page,
     check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
     check_frame_tested_with_page, check_image_input_rules_with_page,
-    check_language_extended_with_page, check_language_of_parts_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
     check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_redundant_role_with_page,
-    check_same_origin_iframes_with_page, check_scrollable_region_focusable_with_page,
-    check_table_headers_attr_with_page, check_target_size_enhanced_with_page,
+    check_re_authenticate_with_page, check_reduced_motion_with_page,
+    check_redundant_role_with_page, check_same_origin_iframes_with_page,
+    check_scrollable_region_focusable_with_page, check_target_size_enhanced_with_page,
     check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
     check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
@@ -101,11 +98,13 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_accessible_authentication_with_page(p)),
     },
+    // Only the page-wide note on script-driven time limits since #697;
+    // `<meta http-equiv="refresh">` runs as `timing/meta-refresh`.
     PageRuleEntry {
-        rule_id: "1.3.1/presentation-semantic-children",
-        name: "presentation semantic children",
+        rule_id: "2.2.1/timing-adjustable",
+        name: "timing-adjustable note",
         min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_presentation_semantic_children_with_page(p)),
+        check_fn: |p| Box::pin(check_timing_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.3.2/meaningful-sequence",
@@ -118,12 +117,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "modern interaction attributes",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_modern_attributes_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.2.1/meta-refresh",
-        name: "meta-refresh",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_timing_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.1/use-of-color",
@@ -143,24 +136,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "area alt",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_image_input_rules_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.3.1/td-headers-attr",
-        name: "table cell headers attribute",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_table_headers_attr_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.1.1/language-extended",
-        name: "xml-lang-mismatch",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_language_extended_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.1.2/language-of-parts",
-        name: "language-of-parts",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_language_of_parts_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/redundant-role",
@@ -228,12 +203,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "reduced-motion",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_reduced_motion_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.4.13/content-on-hover",
-        name: "content-on-hover",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_content_on_hover_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.5.8/target-size-minimum",
@@ -309,12 +278,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "focus-not-obscured-enhanced",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_focus_not_obscured_enhanced_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.1.4/abbreviations",
-        name: "abbreviations",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_abbreviations_with_page(p)),
     },
 ];
 
@@ -392,7 +355,12 @@ mod tests {
         //   `frames/name-missing` und `images/server-side-map` im geteilten
         //   Bestand (#696); image-input-object-alt bleibt fuer `<area>` als
         //   area-alt = 20
-        assert_eq!(count, 20);
+        // - presentation-semantic-children (gestrichen), td-headers-attr und
+        //   language-extended: laufen als `tables/headers-attr-invalid` und
+        //   `document/lang-mismatch` im geteilten Bestand (#697); meta-refresh
+        //   wird als `timing/meta-refresh` geteilt, der 2.2.1-Vermerk bleibt
+        //   als timing-adjustable = 17
+        assert_eq!(count, 17);
     }
 
     #[test]
@@ -441,7 +409,10 @@ mod tests {
         //   Bestand abgegeben (#695) = 32.
         // - frame-title und server-side-image-map (Level A) in den geteilten
         //   Bestand abgegeben (#696) = 30.
-        assert_eq!(count, 30);
+        // - drei Level-A-Regeln (siehe oben) sowie language-of-parts und
+        //   content-on-hover (AA) in den geteilten Bestand abgegeben
+        //   (#697) = 25.
+        assert_eq!(count, 25);
     }
 
     #[test]
