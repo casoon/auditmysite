@@ -29,6 +29,12 @@ short current-state summary. Newest entries first (unchanged order from before t
   hier. Abweichungen im Changelog von `a11y-rules` 0.19.0. Korpus: `media_and_motion` meldet
   `focus/outline-removed` und `orientation/content-hidden`, `text_and_layout` `text/justified`
   (die enge Zeilenhoehe dort steht an einem `<div>`, nicht an einem `<p>`).
+  Live gegen `main` (2026-10-04), Barrierefreiheit AA / AAA vorher → nachher, B4–B7 und
+  Stylesheets zusammen: gov.uk 92 → 93 / 67 → 70, bundesregierung.de 49 → 49 / 35 → 43, wetter.com
+  21 → 22 / 17 → 18, n-tv.de 22 → 29 / 18 → 21, spiegel.de 25 → 28 / 18 → 20. Entfallen sind die
+  Fehlalarme `css-orientation-lock` auf bundesregierung.de und n-tv.de (Breakpoint-Marker
+  `body:before`, Schliessknopf) und `visual-presentation` auf spiegel.de (Selektor-Praefix);
+  neu auf AAA `text/line-height-tight` auf gov.uk und bundesregierung.de.
 
 - **Unreleased — `<area>` und selbststartender Ton aus `a11y-rules` (#696, Nachtrag):** Mit
   `a11y-rules` 0.19.0 sieht die Sicht `<area>` und `<audio>` ohne `controls` auch mit berechneten
