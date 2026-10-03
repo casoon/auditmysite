@@ -1228,8 +1228,11 @@ mod tests {
             .map(|r| r.rule_id.as_str())
             .collect();
         nicht_gelaufen.sort_unstable();
+        // Seit a11y-rules 0.19 dazu die Stylesheet-Regeln: Ohne Sheets
+        // (`run_stylesheets`) sind sie `CapabilityMissing`.
         let mut tier3: Vec<&str> = a11y_rules::rendering_metas()
             .iter()
+            .chain(a11y_rules::stylesheet_metas())
             .flat_map(|m| m.ids.iter().copied())
             .collect();
         tier3.sort_unstable();
