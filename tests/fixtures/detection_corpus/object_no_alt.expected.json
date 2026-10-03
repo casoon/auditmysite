@@ -1,6 +1,6 @@
 {
   "case": "object_no_alt",
   "expectations": [
-    { "rule_id": "object-alt", "verdict": "violation" }
+    { "rule_id": "objects/alt-missing", "verdict": "violation" }
   ]
 }

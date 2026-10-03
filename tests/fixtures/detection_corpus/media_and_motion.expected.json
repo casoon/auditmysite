@@ -3,8 +3,8 @@
   "expectations": [
     { "rule_id": "media-alt", "verdict": "needs_review" },
     { "rule_id": "video-caption", "verdict": "needs_review" },
-    { "rule_id": "css-orientation-lock", "verdict": "violation" },
-    { "rule_id": "prefers-reduced-motion", "verdict": "violation" },
-    { "rule_id": "focus-visible-outline-none", "verdict": "violation" }
+    { "rule_id": "orientation/content-hidden", "verdict": "needs_review" },
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review" },
+    { "rule_id": "focus/outline-removed", "verdict": "violation" }
   ]
 }

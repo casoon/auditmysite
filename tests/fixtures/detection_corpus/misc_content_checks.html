@@ -28,7 +28,8 @@
         <!-- input-image-alt -->
         <input type="image" src="/submit.png">
 
-        <!-- presentation-semantic-children -->
+        <!-- presentation-semantic-children: dropped in #697 — role="presentation" does not
+             strip the semantics of descendants (WAI-ARIA 1.2), so this is no finding -->
         <div role="presentation">
             <button>Semantic button inside a presentation container</button>
         </div>

@@ -38,7 +38,7 @@
 //!
 //! CSS-animation findings are also suppressed when the page's stylesheets
 //! already contain an `@media (prefers-reduced-motion` rule (mirroring the
-//! detection `reduced_motion.rs` uses for 2.3.3) — a site that already reduces
+//! detection the former `reduced_motion.rs` used for 2.3.3) — a site that already reduces
 //! or disables animation for that preference has effectively provided a
 //! "hide" mechanism for the users who need it most. This does not apply to
 //! the `<marquee>` case: `prefers-reduced-motion` is a CSS media feature and
@@ -58,7 +58,7 @@
 //!   `setInterval`-refreshed ticker with no CSS animation at all).
 //! - CDP-level `prefers-reduced-motion` emulation/re-diffing (as
 //!   `dark_mode/mod.rs` does for `prefers-color-scheme`). The static
-//!   stylesheet scan already used by `reduced_motion.rs` answers the same
+//!   stylesheet scan the former `reduced_motion.rs` used answers the same
 //!   underlying question ("does the site define reduced-motion behavior at
 //!   all") without a second page load.
 //!

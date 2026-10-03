@@ -3,6 +3,7 @@
   "expectations": [
     { "rule_id": "css-order-reading-sequence", "verdict": "needs_review" },
     { "rule_id": "visual-presentation", "verdict": "needs_review" },
-    { "rule_id": "language-of-parts", "verdict": "needs_review" }
+    { "rule_id": "text/justified", "verdict": "needs_review" },
+    { "rule_id": "language/part-unmarked", "verdict": "needs_review" }
   ]
 }

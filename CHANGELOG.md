@@ -5,6 +5,201 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Reduzierte Bewegung aus `a11y-rules` 0.19.1 (Teil von #698):** Seit 0.19.1 loest
+  `a11y-rules` die Kurzform `animation` nach CSS Animations auf; Chromes Serialisierung
+  (`2s linear 0s infinite normal none running spin`) ergibt wieder den Namen `spin` statt `none`
+  (Fehler aus diesem PR, Fix in barrierlab). Damit laeuft `prefers-reduced-motion` →
+  `motion/reduced-motion-ignored` (2.3.3 AAA, Hinweis statt Verstoss, eine Meldung je Seite) ueber
+  die Stylesheets; `reduced_motion` ist geloescht, die alte Kennung loest in der Taxonomie weiter
+  auf. 2.3.3 zaehlt als Hinweis-Kriterium (AAA). Korpus: `media_and_motion`,
+  `reduced_motion_transform` und `target_size_animation` melden den Hinweis,
+  `reduced_motion_override` und `reduced_motion_colour_only` nicht. Gewollt anders: Die abgeloeste
+  Page-Rule lief trotz AAA schon ab `--level aa` (`min_level: AA`); der geteilte Hinweis erscheint
+  wie die uebrigen AAA-Kennungen nur mit `--level aaa`. Live gegen `main` (2026-10-04) auf AAA
+  gleiche Treffer (bundesregierung.de und n-tv.de je 1, gov.uk, wetter.com, spiegel.de 0); auf AA
+  faellt der bisherige 2.3.3-Befund weg, Barrierefreiheit AA / AAA vorher → nachher: gov.uk
+  92 → 93 / 67 → 70, bundesregierung.de 49 → 49 / 35 → 46, wetter.com 21 → 22 / 17 → 18, n-tv.de
+  22 → 31 / 18 → 22, spiegel.de 25 → 28 / 18 → 20.
+
+- **Unreleased — Regeln ueber Stylesheets aus `a11y-rules` (Host-Seite von #698, barrierlab#21
+  erster Teil):** auditmysite liest die Stylesheets der Seite (`document.styleSheets`, je Sheet
+  der `cssText` aller Regeln; fremde Sheets ohne lesbare `cssRules` fehlen wie bisher),
+  parst sie mit `stylesheet-parse` 0.1.0 (neue direkte Abhaengigkeit) und gibt sie mit dem Dokument
+  der geteilten Regeln an `a11y_rules::run_stylesheets_in`
+  (`accessibility::fetch_stylesheets`, `wcag::shared::run_shared_rules_with_stylesheets`).
+  Scheitert das Lesen, bleiben die Regeln `NotRun::CapabilityMissing`. Frames bekommen keine
+  Sheets; die Regeln urteilen ueber die Seite wie die abgeloesten, die nur im obersten Dokument
+  liefen. Uebernommen: `focus-visible-outline-none` → `focus/outline-removed` (2.4.7 AA, hoch; ein
+  in `:focus` wieder gesetzter Rahmen zaehlt als Ersatz, sueddeutsche.de),
+  `css-orientation-lock` (Stylesheet-Teil) → `orientation/content-hidden` (1.3.4 AA, Hinweis, nur
+  Selektoren mit Treffer auf der Seite, ohne Pseudo-Elemente), `visual-presentation` (Blocksatz,
+  Zeilenabstand) → `text/justified` und `text/line-height-tight` (1.4.8 AAA, Hinweise, gemessen an
+  den `<p>` der Seite). Geloescht: `focus_visible_css`; aus `orientation` die Stylesheet-Suche (der
+  berechnete `transform: rotate` an `body`/`html` bleibt), aus `visual_presentation` die
+  Stylesheet-Suche (der `UNTESTED`-Vermerk zu Farbwahl und Spaltenbreite bleibt). 1.4.8 zaehlt als
+  Hinweis-Kriterium (AAA). **Nicht uebernommen wegen eines Fehlers in `a11y-rules` 0.19.0:**
+  `motion/reduced-motion-ignored` -- Chrome serialisiert die Kurzform `animation` vollstaendig
+  (`2s linear 0s infinite normal none running spin`), und die Regel nimmt `none` aus
+  `animation-fill-mode` als Animationsnamen, jede Animation ueber die Kurzform faellt heraus
+  (Korpus `media_and_motion`, `target_size_animation`). `reduced_motion` bleibt deshalb vorerst
+  hier (mit 0.19.1 behoben, siehe oben). Abweichungen im Changelog von `a11y-rules` 0.19.0. Korpus: `media_and_motion` meldet
+  `focus/outline-removed` und `orientation/content-hidden`, `text_and_layout` `text/justified`
+  (die enge Zeilenhoehe dort steht an einem `<div>`, nicht an einem `<p>`).
+  Live gegen `main` (2026-10-04), Barrierefreiheit AA / AAA vorher → nachher, B4–B7 und
+  Stylesheets zusammen: gov.uk 92 → 93 / 67 → 70, bundesregierung.de 49 → 49 / 35 → 43, wetter.com
+  21 → 22 / 17 → 18, n-tv.de 22 → 29 / 18 → 21, spiegel.de 25 → 28 / 18 → 20. Entfallen sind die
+  Fehlalarme `css-orientation-lock` auf bundesregierung.de und n-tv.de (Breakpoint-Marker
+  `body:before`, Schliessknopf) und `visual-presentation` auf spiegel.de (Selektor-Praefix);
+  neu auf AAA `text/line-height-tight` auf gov.uk und bundesregierung.de.
+
+- **Unreleased — `<area>` und selbststartender Ton aus `a11y-rules` (#696, Nachtrag):** Mit
+  `a11y-rules` 0.19.0 sieht die Sicht `<area>` und `<audio>` ohne `controls` auch mit berechneten
+  Stilen (UA `display: none`; gemeldet aus diesem PR, Fix in barrierlab). Damit laufen `area-alt` →
+  `images/area-alt-missing` (1.1.1 A; `aria-label`/`aria-labelledby` zaehlen) und
+  `background-audio` → `media/audio-autoplay` ueber den geteilten Bestand; `image_input_rules` und
+  `background_audio` sind geloescht. `media/audio-autoplay` ist ein Pruefhinweis unter 1.4.2 (A)
+  statt Verstoss unter 1.4.7 (AAA) und laeuft damit schon auf AA; Taxonomie
+  `a11y.audio_control.missing`, 1.4.2 zaehlt als Hinweis-Kriterium (stand schon in der manuellen
+  Liste). Beide laufen auch in Frames. Korpus: `misc_content_checks` und `media_and_visual`
+  melden unter den neuen Kennungen.
+
+- **Unreleased — Tabellen-, Dokument-, Sprach- und Rollenregeln aus `a11y-rules` statt eigener
+  (#697, B7):** Zwoelf Kennungen laufen ueber den geteilten Bestand: `th-has-data-cells` →
+  `tables/header-without-data` (samt `tables/data-undetermined`, `UNTESTED`, fuer einen noch nicht
+  dargestellten Zeilenvorrat, #654), `td-headers-attr` → `tables/headers-attr-invalid`,
+  `html-xml-lang-mismatch` → `document/lang-mismatch`, `language-of-parts` →
+  `language/part-unmarked` (neu `language/part-undetermined` auf Seiten, die weder Deutsch noch
+  Englisch sind), `abbreviations` → `language/abbreviation-unexpanded` (Hinweis statt Verstoss),
+  `meta-refresh` → `timing/meta-refresh` (0 s ist keine Frist), `heading-order` aus
+  `section_headings` → `headings/section-without-heading` (Hinweis, nur Artikel und benannte
+  Abschnitte), `redundant-role` → `aria/role-redundant`, `title-only-description` →
+  `names/title-only` (Hinweis; Textfelder meldet weiter `forms/title-only-label`),
+  `content-on-hover-focus` → `patterns/tooltip-unreferenced`. Geloescht: `table_extended`,
+  `language_extended`, `language_of_parts`, `abbreviations`, `content_on_hover`,
+  `info_relationships`, `section_headings`, die Baumregeln `th-has-data-cells` und `heading-order`.
+  **Ersatzlos gestrichen:** `presentation-semantic-children` -- nach WAI-ARIA 1.2 nimmt
+  `role="presentation"`/`"none"` nur dem Element selbst die Semantik, nicht den Nachfahren; die
+  Regel haette das APG-Menueleistenmuster (`<li role="none">` um Menuelinks) gemeldet (barrierlab:
+  187 Fehlalarme auf 48 Seiten), der Tabellenfall ist `tables/presentational-with-headers`. Aus
+  `section_headings` entfallen die Gliederungsluecken (`headings/skip-level`) und „mehr als 10
+  Absaetze, weniger als 3 Ueberschriften" (kein Beleg). **Im Host bleiben:** aus
+  `redundant_role` nur `<ul>`/`<ol>` mit `role="list"` -- ob die Rolle ueberfluessig ist, haengt am
+  berechneten `list-style-type` (#644), den `a11y-dom` noch nicht liefert (barrierlab#21); der
+  Korpusfall `ol#numbered-list` meldet weiter. Aus `timing_adjustable` die seitenweiten
+  `UNTESTED`-Vermerke fuer Skript-Fristen (2.2.1, jetzt als Page-Rule `2.2.1/timing-adjustable`)
+  und `timeouts` (2.2.6), die barrierlab der manuellen Checkliste zuweist. Die
+  Darstellungsregeln aus barrierlab#22 (`viz/*`, statische Haelften von `display/*`) sind nicht
+  uebernommen: `display/text-hidden`, `display/init-missing` und `display/toggle-missing` tragen in
+  `display_modes` dieselben Kennungen, pruefen dort aber auch berechnete Sichtbarkeit und den
+  Zeitpunkt von `data-display`; ein Aufteilen derselben Kennung auf zwei Quellen ist ein eigener
+  Schritt, `display_modes` bleibt unveraendert. Taxonomie: neu `a11y.language_of_parts.unmarked`
+  (3.1.2 AA; `language-of-parts` hatte keinen Eintrag); 3.1.2, 2.4.10 und 3.1.4 zaehlen als reine
+  Hinweis-Kriterien, 3.1.2 steht damit in der Liste der manuell zu pruefenden Kriterien (21 → 22,
+  `docs/PARITY_CONTRACT.jsonc`, README). Tabellen-, Rollen-, Namens- und Tooltip-Regeln sowie
+  Abkuerzungen laufen auch in Frames. Geprueft: Detection-Corpus vorher/nachher (Umbenennungen,
+  Hinweise statt Verstoesse wie im barrierlab-Changelog, `language/part-undetermined` auf
+  `invalid_lang_code` und `skip_link_language`, neue Abschnittshinweise auf fuenf Faellen).
+  Pruefung B4–B7 gesamt gegen `main` (Detection-Corpus 76 Faelle auf AAA: elf Barrierefreiheits-
+  Scores steigen um 1–9 Punkte, keiner faellt; Live-Seiten auf AA, Barrierefreiheit vorher →
+  nachher: gov.uk 92 → 93, bundesregierung.de 49 → 49, wetter.com 21 → 22, n-tv.de 22 → 25,
+  spiegel.de 25 → 28). Neu auf echten Seiten: `names/title-only` (spiegel.de 132 Hinweise statt
+  5 Befunden), `frames/name-missing` (n-tv.de 6 statt 2, darunter die drei Sportdaten-Rahmen mit
+  `title=""`), `aria/role-redundant` (wetter.com 9 statt 20 gedeckelte, ausgeblendete Menues
+  zaehlen nicht mehr); `navigation/location-missing` und die anderen AAA-Hinweise laufen auf AA
+  nicht. Referenzlauf und Score-Kalibrierung bleiben in ihren Baendern.
+
+- **Unreleased — Bild- und Medienregeln aus `a11y-rules` statt eigener (#696, B6):** Ueber den
+  geteilten Bestand laufen jetzt `input-image-alt` → `images/input-alt-missing`, `object-alt` →
+  `objects/alt-missing`, `server-side-image-map` → `images/server-side-map` (alle 1.1.1 A) und
+  `frame-title` → `frames/name-missing` (2.4.1 A, hoch; `a11y-rules` fuehrt zusaetzlich 4.1.2).
+  Geloescht: `server_side_image_map`, aus `image_input_rules` die Pruefungen fuer
+  `<input type="image">` und `<object>`, aus `media_rules` die Rahmennamen und die Baumregel
+  `video-caption` (unbenanntes `application`/`img`, benanntes dekoratives Element -- barrierlab hat
+  sie mangels Beleg bzw. wegen `svg/name-missing`, `images/alt-missing` und
+  `aria/attribute-prohibited` nicht uebernommen). Gewollt anders: `aria-labelledby` zaehlt als
+  Alternative, `<embed>` wird nicht mehr geprueft, nur `<iframe>` (kein `<frame>`), keine
+  Obergrenze je Seite; die gerenderte Groesse ≤ 1 px kennt `frames/name-missing` ohne Geometrie nicht
+  (nur Breite/Hoehe als Attribut). `frames/name-missing` hat erstmals einen eigenen Erklaerungstext
+  (`frame-title` fiel auf den 2.4.1-Text „Fehlende Sprungnavigation" zurueck). Im Host bleiben:
+  die Untertitel-Pruefung `video-caption` (laedt die `<track>`-Datei ueber das Netz),
+  `frame-tested` (fremde Rahmen kennt nur der Browser) und `media-alt` (1.2.8) -- barrierlab
+  verweist dafuer auf `manual/media-alternatives`, die manuelle Checkliste fuehrt auditmysite noch
+  nicht. **Nicht uebernommen wegen eines Fehlers in `a11y-rules` 0.18.0:**
+  `images/area-alt-missing` und `media/audio-autoplay` melden mit berechneten Stilen nie, weil die
+  Sicht alles mit `display: none` herausnimmt und das UA-Stylesheet das jedem `<area>` und jedem
+  `<audio>` ohne `controls` gibt (Korpus `misc_content_checks`, `media_and_visual`). `area-alt`
+  (`image_input_rules`) und `background-audio` bleiben deshalb vorerst hier. Bild- und
+  Rahmenregeln laufen jetzt auch in Frames. Abdeckung: 2.4.8 (`navigation/location-missing`, seit
+  B5 nur Hinweis) zaehlt nicht mehr als automatisch geprueftes AAA-Kriterium. Geprueft:
+  Detection-Corpus vorher/nachher (nur die umbenannten Kennungen, Selektor jetzt `tag#id`).
+
+- **Unreleased — Links- und Zeigerregeln aus `a11y-rules` statt eigener (#695, B5):** Mit
+  `a11y-rules` 0.18.0 laufen drei Kennungen ueber den geteilten Bestand: `click-events-have-key-events`
+  → `keyboard/click-handler-not-focusable` (2.1.1 A, hoch), `link-as-button` →
+  `links/used-as-button` (4.1.2 A, niedrig), `location` → `navigation/location-missing` (2.4.8 AAA,
+  niedrig). Geloescht: `click_handlers`, `fake_navigation_link`, `location` samt ihren
+  `PAGE_RULES`-Eintraegen; die alten Kennungen loesen in der Taxonomie und den Erklaerungstexten
+  ueber die neuen auf. Gewollte Unterschiede (Changelog von `a11y-rules`): keine Obergrenze je
+  Seite mehr (bisher 10 bzw. 20), `<a onclick>` ohne `href` ist ein Klick-Handler statt Scheinlink,
+  `navigation/location-missing` ist ein Pruefhinweis statt Verstoss und sieht auch Navigation im
+  Shadow DOM. Von `pointer_cancellation` (2.5.2) ist der statische Teil (`onmousedown`/
+  `ontouchstart` an Bedienelementen) geloescht -- barrierlab hat ihn mangels Beleg nicht
+  uebernommen --, der seitenweite `UNTESTED`-Vermerk bleibt im Host: Die manuelle Checkliste
+  (`manual/*`, barrierlab#39) hat keinen Punkt fuer 2.5.2, und auditmysite fuehrt sie noch nicht.
+  Neu: Geteilte Kennungen oberhalb der geprueften Stufe (`--level`) werden herausgenommen und als
+  `NotRun::Disabled` (`above_wcag_level`) vermerkt (`wcag::shared::retain_up_to_level`), so wie
+  die abgeloesten AAA-Regeln nur mit `--level aaa` liefen. Klick-Handler und Scheinlinks laufen
+  jetzt auch in Frames. Geprueft: Detection-Corpus vorher/nachher (nur die umbenannten Kennungen,
+  `location` als Hinweis, zusaetzlich `landmark_main_in_shadow_root`), Ausschluss-Integrationstests
+  mit den ungedeckelten Zaehlungen (12 bzw. 22 ausgeschlossene Treffer).
+
+- **Unreleased — Landmark-, Tastatur- und Strukturregeln aus `a11y-rules` statt eigener (#694,
+  B4):** Die Landmark-Pruefungen, die Tastaturerreichbarkeit, die Seite ohne Ueberschriften und
+  zwei Musterpruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in
+  `src/wcag/shared.rs`). Geloescht: `region`, `landmark_granular` (mit `is_landmark`) und
+  `bypass_blocks`; aus `keyboard` die beiden 2.1.1-Pruefungen; aus `patterns/` die Befunde
+  `dialog-no-focusable`, `accordion-no-controls`, `accordion-trigger-not-button` und
+  `aria-expanded-required` -- Mustererkennung und Journeys bleiben, `PatternAnalysis.violations`
+  ist jetzt immer leer. Im Host bleibt `keyboard-trap` (2.1.2): Hinweis je modalem Dialog und der
+  seitenweite `UNTESTED`-Vermerk brauchen echte Tastaturbedienung. Kennungen: `landmark-unique` →
+  `landmarks/not-unique`; `landmark-banner-is-top-level`, `landmark-contentinfo-is-top-level` und
+  `landmark-main-is-top-level` → `landmarks/not-top-level`; `landmark-no-duplicate-banner` und
+  `landmark-no-duplicate-contentinfo` → `landmarks/banner-duplicate` und
+  `landmarks/contentinfo-duplicate`; `region` → `landmarks/content-outside` (alle 1.3.1 A);
+  `bypass` („No headings found") → `headings/none` (2.4.1 A, samt #709); `focusable-no-role` und
+  `keyboard` („appears not keyboard-focusable") → `keyboard/focusable-no-role` und
+  `keyboard/interactive-not-focusable` (2.1.1 A); `dialog-no-focusable` →
+  `dialog/focusable-missing` (2.4.3 A); `accordion-no-controls` →
+  `patterns/accordion-controls-missing` (4.1.2 A). Ersatzlos entfallen, wie in barrierlab#17
+  begruendet: `accordion-trigger-not-button` (an Rollen ohne `aria-expanded` meldet das
+  `aria/attribute-not-allowed`, an `link`, `tab`, `treeitem` erlaubt WAI-ARIA den Zustand,
+  fehlender Fokus ist `keyboard/interactive-not-focusable`) und `aria-expanded-required` (riet ein
+  Aufklappmenue aus dem Wort „menu"/„Menü" im Namen). Gewollte Unterschiede (Einzelheiten im
+  Changelog von `a11y-rules` und an den Eintraegen in `SHARED_RULES`): `landmarks/not-unique` und
+  `patterns/accordion-controls-missing` sind Pruefhinweise statt Verstoesse; doppelte
+  banner/contentinfo zeigen auf die zweite Landmark statt die erste; `landmarks/content-outside`
+  meldet einmal je Block statt je Textknoten; `keyboard/focusable-no-role` zaehlt nur die Tabfolge
+  und keinen benannten scrollbaren Bereich; `keyboard/interactive-not-focusable` nimmt
+  deaktivierte Felder, native `<option>`, `aria-activedescendant` und Inertes aus;
+  `dialog/focusable-missing` sucht in allen Nachfahren und prueft kein geschlossenes `<dialog>`;
+  `headings/none` zaehlt `role="heading"` mit. Die Landmark-Rolle kommt aus dem Markup statt aus
+  Chromes Rolle (#639, #727). Ausschluesse (#726): Die geteilten Zaehlregeln
+  (`landmarks/not-unique`, `landmarks/main-duplicate`, `landmarks/*-duplicate`) lesen bei aktivem
+  `--exclude-selector` das Dokument ohne die ausgeschlossenen Teilbaeume
+  (`ExclusionScope::without_excluded_dom`, `wcag::shared::adopt_page_counts`); die AX-Variante
+  `without_excluded` und der Parameter `counted` von `check_all_excluding` entfallen,
+  `exclusion.excluded_landmarks` zaehlt wie bisher. In Frames laufen jetzt
+  `keyboard/focusable-no-role` und `keyboard/interactive-not-focusable` (bisher die Baumregel
+  `keyboard`) sowie neu `dialog/focusable-missing` und `patterns/accordion-controls-missing`; die
+  Landmark-Regeln und `headings/none` bleiben beim Hauptdokument. Taxonomie: die Kennungen zeigen
+  auf die Eintraege der abgeloesten Regeln, deren Legacy-Kennungen weiter aufloesen
+  (`headings/none` auf den von `bypass`); neu `a11y.landmark_nested.invalid` und
+  `a11y.accordion_controls.missing` samt Erklaerungstexten. Mit `a11y-rules` 0.17.0. Geprueft mit Unit-Tests, Detection-Corpus, Score-Kalibrierung,
+  Referenzlauf und den Integrationstests zu Frames, Ausschluessen und Landmarks (Chrome) sowie einem
+  Vorher/Nachher-Lauf auf 14 Live-Seiten; Referenzbaender gov.uk (75–95) und bundesregierung.de
+  (35–76) neu bewertet (je +1: Inhalt ausserhalb von Landmarks je Block statt je Textstueck,
+  Dialog-Fokusziel auch in tieferen Nachfahren).
+
 - **Unreleased — Fehlalarme aus upscale.casoon.dev (#739, #740):** Das Dark-Mode-Modul meldete
   eine reine Dunkel-Seite (`html.dark` fest gesetzt, `color-scheme: dark`, kein helles Layout) als
   `no_dark_mode_support` mit Score 50. Neu ist das Signal "dunkel im Standard-Rendering":

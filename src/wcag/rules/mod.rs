@@ -2,32 +2,19 @@
 //!
 //! Contains individual WCAG rule implementations.
 
-mod abbreviations;
 mod accessible_authentication;
 mod accessible_name;
-mod background_audio;
-mod bypass_blocks;
-mod click_handlers;
-mod content_on_hover;
 mod contrast;
 mod display_modes;
-mod fake_navigation_link;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
 mod focus_visible;
-mod focus_visible_css;
 mod help;
 mod html_content_model;
 mod iframe_rules;
-mod image_input_rules;
-mod info_relationships;
 mod keyboard;
-mod landmark_granular;
-mod language_extended;
-mod language_of_parts;
 mod link_purpose;
 mod link_purpose_link_only;
-mod location;
 mod meaningful_sequence;
 mod media_alternative;
 mod media_rules;
@@ -44,14 +31,9 @@ mod pause_stop_hide;
 mod pointer_cancellation;
 mod pointer_gestures;
 mod re_authenticate;
-mod reduced_motion;
 mod redundant_role;
 mod reflow;
-mod region;
 mod scrollable_region;
-mod section_headings;
-mod server_side_image_map;
-mod table_extended;
 mod target_size_enhanced;
 mod target_size_minimum;
 mod text_alternatives;
@@ -61,45 +43,25 @@ mod unusual_words;
 mod use_of_color;
 mod visual_presentation;
 
-pub use abbreviations::check_abbreviations_with_page;
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
-pub use background_audio::check_background_audio_with_page;
-pub use bypass_blocks::check_bypass_blocks;
-pub use click_handlers::check_click_handlers_with_page;
-pub use content_on_hover::check_content_on_hover_with_page;
 pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
     DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE, DISPLAY_TOGGLE_MISSING_RULE,
 };
-pub use fake_navigation_link::check_fake_navigation_link_with_page;
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_visible::check_focus_visible;
-pub use focus_visible_css::check_focus_visible_css_with_page;
 pub use help::check_help;
 pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
 pub use iframe_rules::check_same_origin_iframes_with_page;
-pub use image_input_rules::check_image_input_rules_with_page;
-pub use info_relationships::check_presentation_semantic_children_with_page;
 pub use keyboard::check_keyboard;
-pub use landmark_granular::{
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_unique, is_landmark,
-};
-pub use language_extended::check_language_extended_with_page;
-pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;
-pub use location::check_location_with_page;
 pub use meaningful_sequence::check_meaningful_sequence_with_page;
 pub use media_alternative::check_media_alternative_with_page;
-pub use media_rules::{
-    check_frame_tested_with_page, check_frame_title_with_page, check_media_rules,
-    check_video_caption_tracks_with_page,
-};
+pub use media_rules::{check_frame_tested_with_page, check_video_caption_tracks_with_page};
 pub use modern_attributes::check_modern_attributes_with_page;
 pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;
@@ -113,14 +75,9 @@ pub use pause_stop_hide::check_pause_stop_hide_with_page;
 pub use pointer_cancellation::check_pointer_cancellation_with_page;
 pub use pointer_gestures::check_pointer_gestures_with_page;
 pub use re_authenticate::check_re_authenticate_with_page;
-pub use reduced_motion::check_reduced_motion_with_page;
 pub use redundant_role::check_redundant_role_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
-pub use region::check_region;
 pub use scrollable_region::check_scrollable_region_focusable_with_page;
-pub use section_headings::check_section_headings;
-pub use server_side_image_map::check_server_side_image_map_with_page;
-pub use table_extended::{check_table_extended, check_table_headers_attr_with_page};
 pub use target_size_enhanced::check_target_size_enhanced_with_page;
 pub use target_size_minimum::check_target_size_minimum_with_page;
 pub use text_alternatives::{check_text_alternatives, is_svg_finding};

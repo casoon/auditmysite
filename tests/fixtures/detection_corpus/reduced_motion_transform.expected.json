@@ -1,6 +1,6 @@
 {
   "case": "reduced_motion_transform",
   "expectations": [
-    { "rule_id": "prefers-reduced-motion", "verdict": "violation" }
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review" }
   ]
 }

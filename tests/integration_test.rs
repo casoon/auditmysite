@@ -163,10 +163,16 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         axe_ids.contains("landmarks/main-missing"),
         "missing main landmark fixture should trigger landmarks/main-missing; got {axe_ids:?}"
     );
-    assert!(
-        axe_ids.contains("landmark-unique"),
-        "duplicate navigation names should trigger landmark-unique; got {axe_ids:?}"
-    );
+    // Since #694 `landmarks/not-unique` is a review hint (WAI-ARIA asks for
+    // distinct names only as SHOULD): it lands in the warnings, not in the
+    // normalized findings.
+    let review_ids: Vec<_> = report
+        .accessibility
+        .wcag_results
+        .warnings
+        .iter()
+        .filter_map(|v| v.rule_id.as_deref())
+        .collect();
     // One occurrence per defect: the missing main once, each of the two
     // same-named navs once (the AX and a former DOM check both reported them).
     let count = |id: &str| {
@@ -191,9 +197,12 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         "missing title must not be reported twice; raw {raw_rule_ids:?}"
     );
     assert_eq!(
-        count("landmark-unique"),
+        review_ids
+            .iter()
+            .filter(|id| **id == "landmarks/not-unique")
+            .count(),
         2,
-        "each duplicate nav must be reported once; raw {raw_rule_ids:?}"
+        "each duplicate nav must be reported once; review {review_ids:?}"
     );
     assert!(
         axe_ids.contains("keyboard/hidden-focusable"),
@@ -1775,12 +1784,13 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 
     let analysis = auditmysite::patterns::analyze(&tree);
     assert!(
-        !analysis
-            .violations
+        analysis
+            .recognized
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("accordion-trigger-not-button")),
+            .filter(|r| r.pattern == "Accordion")
+            .all(|r| r.message.contains(" 0 non-button triggers")),
         "ein natives <summary> ist kein falscher Auslöser: {:?}",
-        analysis.violations
+        analysis.recognized
     );
 
     for (role, summary) in summaries {
@@ -2168,7 +2178,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(has(&baseline, "images/alt-missing", "img#specimen-img"));
     assert!(has(
         &baseline,
-        "click-events-have-key-events",
+        "keyboard/click-handler-not-focusable",
         "div#specimen-click"
     ));
     let base_ex = baseline
@@ -2185,7 +2195,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(!has(&excluded, "images/alt-missing", "img#specimen-img"));
     assert!(!has(
         &excluded,
-        "click-events-have-key-events",
+        "keyboard/click-handler-not-focusable",
         "div#specimen-click"
     ));
     assert!(has(&excluded, "images/alt-missing", "img#real-img"));
@@ -2212,7 +2222,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(ex
         .rules
         .iter()
-        .any(|r| r.rule_id == "click-events-have-key-events"));
+        .any(|r| r.rule_id == "keyboard/click-handler-not-focusable"));
     assert!(
         excluded.accessibility.score >= baseline.accessibility.score,
         "excluding defects must not lower the score"
@@ -2243,8 +2253,8 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .collect()
     };
     for (rule, real) in [
-        ("click-events-have-key-events", "div#real-click"),
-        ("link-as-button", "a#real-link"),
+        ("keyboard/click-handler-not-focusable", "div#real-click"),
+        ("links/used-as-button", "a#real-link"),
     ] {
         let found = rule_selectors(rule);
         assert!(
@@ -2270,8 +2280,14 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .map(|r| r.occurrences)
             .unwrap_or(0)
     };
-    assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
-    assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
+    // Capped at 10 and 20 until #695; the shared rules have no cap, so every
+    // excluded specimen is dropped and counted.
+    assert_eq!(
+        excluded("keyboard/click-handler-not-focusable"),
+        12,
+        "{ex:?}"
+    );
+    assert_eq!(excluded("links/used-as-button"), 22, "{ex:?}");
     // The e-mail fields ran under `identify-purpose` (cap 5) until #693.
     // `forms/purpose-missing` has no cap and reports a review hint: the real
     // field stays, all six specimens are dropped and counted.
@@ -2292,7 +2308,10 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .wcag_results
             .rule_outcomes
             .iter()
-            .find(|o| o.rule_id == "2.1.1/click-handler" && o.viewport.as_deref() == Some(viewport))
+            .find(|o| {
+                o.rule_id == "keyboard/click-handler-not-focusable"
+                    && o.viewport.as_deref() == Some(viewport)
+            })
             .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
         assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
     }
@@ -2496,6 +2515,7 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
         ) || id.starts_with("landmark")
             || id.starts_with("document/")
             || id.starts_with("headings/h1")
+            || id == "headings/none"
             || id.starts_with("zoom/")
             || id == "keyboard/skip-link-missing"
     };

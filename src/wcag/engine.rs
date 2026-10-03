@@ -4,23 +4,16 @@
 
 use tracing::{debug, info};
 
+use super::rules::{
+    check_accessible_name, check_focus_visible, check_help, check_keyboard, check_link_purpose,
+    check_link_purpose_link_only, check_text_alternatives, check_unusual_words,
+};
 pub use super::rules::{
-    check_abbreviations_with_page, check_background_audio_with_page,
-    check_click_handlers_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_location_with_page, check_motion_actuation_with_page,
-    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
-    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_re_authenticate_with_page, check_reduced_motion_with_page, check_reflow_with_page,
+    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_orientation_with_page, check_pointer_cancellation_with_page,
+    check_pointer_gestures_with_page, check_re_authenticate_with_page, check_reflow_with_page,
     check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
     check_use_of_color_with_page, check_visual_presentation_with_page,
-};
-use super::rules::{
-    check_accessible_name, check_bypass_blocks, check_focus_visible, check_help, check_keyboard,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
-    check_link_purpose_link_only, check_media_rules, check_region, check_section_headings,
-    check_table_extended, check_text_alternatives, check_unusual_words,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
@@ -71,7 +64,7 @@ pub fn check_all_with_config(
     level: WcagLevel,
     filter: &RuleFilterConfig,
 ) -> WcagResults {
-    check_all_excluding(tree, tree, level, filter, &|_| false).0
+    check_all_excluding(tree, level, filter, &|_| false).0
 }
 
 /// [`check_all_with_config`], dropping every finding `exclude` matches
@@ -79,13 +72,11 @@ pub fn check_all_with_config(
 /// so `rule_outcomes[].findings` describes what the report shows. Returns the
 /// kept results and the dropped findings.
 ///
-/// `counted` is the tree the page-level counting rules (duplicate and
-/// unique landmarks) read: `tree` without the excluded subtrees, so a
-/// specimen's own landmarks are not counted against the page (#726). Without
-/// exclusions it is `tree` itself.
+/// Die Regeln, die Landmarks der ganzen Seite zaehlen, laufen seit #694 im
+/// geteilten Bestand; dort gilt fuer sie das Dokument ohne die
+/// ausgeschlossenen Teilbaeume (#726, `wcag::shared::PAGE_COUNT_RULES`).
 pub fn check_all_excluding(
     tree: &AXTree,
-    counted: &AXTree,
     level: WcagLevel,
     filter: &RuleFilterConfig,
     exclude: &dyn Fn(&Violation) -> bool,
@@ -101,7 +92,7 @@ pub fn check_all_excluding(
 
     // Run Level A rules
     debug!("Running Level A rules...");
-    run_level_a_rules(tree, counted, &mut run, filter);
+    run_level_a_rules(tree, &mut run, filter);
 
     // Run Level AA rules if requested
     if matches!(level, WcagLevel::AA | WcagLevel::AAA) {
@@ -161,24 +152,23 @@ macro_rules! run_if_allowed {
 }
 
 /// Run all Level A rules
-fn run_level_a_rules(
-    tree: &AXTree,
-    counted: &AXTree,
-    results: &mut TreeRun<'_>,
-    filter: &RuleFilterConfig,
-) {
+fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
-    // 1.1.1 Area / input[type=image] / object alternatives, and server-side
-    // image maps, now run as DOM page rules (check_image_input_rules_with_page /
-    // check_server_side_image_map_with_page in PAGE_RULES) — htmlTag/type/ismap
-    // are not AX properties (#QA-030).
+    // 1.1.1 `<area>`, `<input type="image">`, `<object>` und serverseitige
+    // Image-Maps laufen als `images/*` und `objects/alt-missing` im geteilten
+    // Bestand (#696).
 
-    // 2.1.1 Keyboard (Level A)
+    // 2.1.1 Keyboard laeuft als `keyboard/focusable-no-role` und
+    // `keyboard/interactive-not-focusable` im geteilten Bestand (#694). Hier
+    // bleibt 2.1.2 No Keyboard Trap: Ob der Fokus wieder herauskommt, zeigt
+    // nur echte Bedienung -- ein Hinweis je modalem Dialog und seitenweit.
     run_if_allowed!(filter, "keyboard", check_keyboard, results, tree);
 
-    // 2.4.1 Bypass Blocks (Level A)
-    run_if_allowed!(filter, "bypass", check_bypass_blocks, results, tree);
+    // 2.4.1 Bypass Blocks: Sprunglink, main-Landmark und die Seite ganz ohne
+    // Ueberschriften laufen als `keyboard/skip-link-missing`,
+    // `landmarks/main-missing` und `headings/none` im geteilten Bestand
+    // (#690, #694).
 
     // 2.4.2 Page Titled: fehlender und leerer Titel laufen als
     // `document/title-*` im geteilten Bestand, der nichtssagende Titel als
@@ -194,8 +184,8 @@ fn run_level_a_rules(
     // synthetisiert Chrome aus Locale und Kontext, auch wenn der Autor nie
     // ein `lang` gesetzt hat -- eine AX-basierte Pruefung ist fuer den
     // haeufigsten Fall also blind.
-    // 3.1.1 xml:lang-Abgleich laeuft weiter als DOM-Page-Rule
-    // (check_language_extended_with_page in PAGE_RULES).
+    // 3.1.1 xml:lang-Abgleich laeuft als `document/lang-mismatch` im
+    // geteilten Bestand (#697).
 
     // 3.3.2 Labels or Instructions und 3.3.1 Error Identification laufen als
     // `forms/*` im geteilten Bestand (#693): fehlende Beschriftung,
@@ -222,8 +212,8 @@ fn run_level_a_rules(
     // Bestand (#691), gegen den DOM -- ebenso
     // `aria/required-attribute-missing` (#690).
 
-    // 1.3.1 Region / Landmark (Level A)
-    run_if_allowed!(filter, "region", check_region, results, tree);
+    // 1.3.1 Inhalt ausserhalb jeder Landmark laeuft als
+    // `landmarks/content-outside` im geteilten Bestand (#694).
 
     // 4.1.2 Beschreibung wiederholt den Namen (Best Practice, #713). Fehlender
     // und rein symbolischer Name laufen als `names/*` im geteilten Bestand
@@ -252,69 +242,20 @@ fn run_level_a_rules(
     // `aria/tabpanel-missing` und `aria/combobox-popup-missing` im geteilten
     // Bestand (#691).
 
-    // 1.2.1 / 1.1.1 Media Rules (Level A) - P2
-    run_if_allowed!(filter, "video-caption", check_media_rules, results, tree);
+    // 1.1.1 / 1.2.1 AX-Pruefungen aus `media_rules` (unbenannte
+    // `application`/`img`, benannte dekorative Elemente) sind mit #696
+    // entfallen: `svg/name-missing`, `images/alt-missing` und
+    // `aria/attribute-prohibited` decken sie im geteilten Bestand.
 
     // 1.1.1 SVG laeuft als `svg/name-missing` im geteilten Bestand.
 
-    // 2.4.1 Skip Link (Level A)
-
-    // 1.3.1 Granular Landmark Rules (Level A)
-    run_if_allowed!(
-        filter,
-        "landmark-unique",
-        check_landmark_unique,
-        results,
-        counted
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-banner-is-top-level",
-        check_landmark_banner_is_top_level,
-        results,
-        tree
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-contentinfo-is-top-level",
-        check_landmark_contentinfo_is_top_level,
-        results,
-        tree
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-main-is-top-level",
-        check_landmark_main_is_top_level,
-        results,
-        tree
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-no-duplicate-banner",
-        check_landmark_no_duplicate_banner,
-        results,
-        counted
-    );
-    run_if_allowed!(
-        filter,
-        "landmark-no-duplicate-contentinfo",
-        check_landmark_no_duplicate_contentinfo,
-        results,
-        counted
-    );
+    // 1.3.1 Landmarks: eindeutige Namen, Verschachtelung und doppelte
+    // banner/contentinfo laufen als `landmarks/*` im geteilten Bestand (#694).
     // Fehlende main-/banner-Landmark und doppelte main laufen als
     // `landmarks/*` im geteilten Bestand.
 
-    // 1.3.1 th-has-data-cells (Level A) - P1. td-headers-attr now runs as a
-    // DOM page rule (check_table_headers_attr_with_page in PAGE_RULES) —
-    // `headers` is not an AX property (#QA-030).
-    run_if_allowed!(
-        filter,
-        "th-has-data-cells",
-        check_table_extended,
-        results,
-        tree
-    );
+    // 1.3.1 Kopfzellen ohne Daten und `headers`-Verweise laufen als
+    // `tables/*` im geteilten Bestand (#697).
 
     // 4.1.2 `<summary>` laeuft als `summary/name-missing` im geteilten
     // Bestand (#692).
@@ -357,14 +298,8 @@ fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFi
     // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
-    // 2.4.10 Section Headings (Level AAA)
-    run_if_allowed!(
-        filter,
-        "heading-order",
-        check_section_headings,
-        results,
-        tree
-    );
+    // 2.4.10 Section Headings laeuft als `headings/section-without-heading`
+    // im geteilten Bestand (#697).
 
     // 2.4.9 Link Purpose (Link Only) (Level AAA)
     run_if_allowed!(
@@ -450,13 +385,10 @@ mod tests {
         };
         assert!(alt_run(&full).unwrap() > 0);
 
-        let (kept, dropped) = check_all_excluding(
-            &tree,
-            &tree,
-            WcagLevel::A,
-            &RuleFilterConfig::default(),
-            &|v| v.node_id == "2",
-        );
+        let (kept, dropped) =
+            check_all_excluding(&tree, WcagLevel::A, &RuleFilterConfig::default(), &|v| {
+                v.node_id == "2"
+            });
         assert!(kept.violations.iter().all(|v| v.node_id != "2"));
         assert!(dropped.iter().any(|v| v.rule == "1.1.1"));
         // The outcome counts what the report shows, not the raw rule output.

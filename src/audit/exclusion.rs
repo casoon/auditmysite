@@ -391,20 +391,33 @@ impl ExclusionScope {
         node.backend_dom_node_id.is_some_and(|id| self.contains(id))
     }
 
-    /// `ax_tree` without the nodes inside excluded subtrees — what the
-    /// page-level counting rules read (#726). `None` when nothing in the
-    /// tree is excluded.
-    pub fn without_excluded(&self, ax_tree: &AXTree) -> Option<AXTree> {
-        if !ax_tree.iter_all().any(|n| self.excludes_node(n)) {
+    /// The CDP document without the excluded subtrees — what the shared
+    /// rules that count landmarks across the page read (#726,
+    /// `wcag::shared::PAGE_COUNT_RULES`). `None` when nothing in it is
+    /// excluded.
+    pub fn without_excluded_dom(&self, root: &CdpNode) -> Option<CdpNode> {
+        if !self.is_active() {
             return None;
         }
-        Some(AXTree::from_nodes(
-            ax_tree
-                .iter_all()
-                .filter(|n| !self.excludes_node(n))
-                .cloned()
-                .collect(),
-        ))
+        let mut pruned = root.clone();
+        self.prune(&mut pruned).then_some(pruned)
+    }
+
+    /// Drops the excluded children under `node`; true if any was dropped.
+    fn prune(&self, node: &mut CdpNode) -> bool {
+        let mut dropped = false;
+        for list in [&mut node.children, &mut node.shadow_roots]
+            .into_iter()
+            .flatten()
+        {
+            let before = list.len();
+            list.retain(|c| !self.contains(*c.backend_node_id.inner()));
+            dropped |= list.len() != before;
+            for child in list.iter_mut() {
+                dropped |= self.prune(child);
+            }
+        }
+        dropped
     }
 
     /// Landmarks inside excluded subtrees — left out of the page-level
@@ -412,8 +425,20 @@ impl ExclusionScope {
     pub fn excluded_landmarks(&self, ax_tree: &AXTree) -> usize {
         ax_tree
             .iter()
-            .filter(|n| crate::wcag::rules::is_landmark(n) && self.excludes_node(n))
+            .filter(|n| is_landmark(n) && self.excludes_node(n))
             .count()
+    }
+}
+
+/// Ob ein AX-Knoten eine Landmark ist -- nur für die Zahl im Bericht
+/// ([`ExclusionScope::excluded_landmarks`]). `form` und `region` zählen nur
+/// mit Namen (HTML-AAM, #727); Chrome meldet ein unbenanntes `<form>` mit der
+/// Rolle `form`.
+fn is_landmark(node: &AXNode) -> bool {
+    match node.role.as_deref() {
+        Some("banner" | "complementary" | "contentinfo" | "main" | "navigation" | "search") => true,
+        Some("form" | "region") => node.name.as_deref().is_some_and(|n| !n.trim().is_empty()),
+        _ => false,
     }
 }
 
@@ -942,39 +967,86 @@ mod tests {
 
     #[test]
     fn landmarks_in_an_excluded_specimen_leave_the_page_counts() {
-        // #726: a specimen with its own banner must not make the page's
-        // banner a duplicate.
-        let node = |id: &str, role: &str, parent: Option<&str>, backend: i64| AXNode {
+        // #726: a specimen with its own banner and contentinfo must not make
+        // the page's landmarks duplicates. Seit #694 zählen die geteilten
+        // Regeln; sie lesen dafür das Dokument ohne den Teilbaum.
+        let el = |id: i64, name: &str, attrs: serde_json::Value, children: serde_json::Value| {
+            serde_json::json!({
+                "nodeId": id, "backendNodeId": id, "nodeType": 1,
+                "nodeName": name.to_uppercase(), "localName": name, "nodeValue": "",
+                "attributes": attrs, "children": children
+            })
+        };
+        let root: CdpNode = serde_json::from_value(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [el(2, "html", serde_json::json!(["lang", "en"]), serde_json::json!([
+                el(3, "body", serde_json::json!([]), serde_json::json!([
+                    el(4, "header", serde_json::json!([]), serde_json::json!([])),
+                    el(5, "main", serde_json::json!([]), serde_json::json!([
+                        el(10, "div", serde_json::json!(["data-specimen", ""]), serde_json::json!([
+                            el(11, "div", serde_json::json!(["role", "banner"]), serde_json::json!([])),
+                            el(12, "div", serde_json::json!(["role", "contentinfo"]), serde_json::json!([])),
+                        ])),
+                    ])),
+                    el(6, "footer", serde_json::json!([]), serde_json::json!([])),
+                ])),
+            ]))]
+        }))
+        .expect("CDP-Knoten");
+        let ids = |doc: &CdpNode| {
+            let doc = crate::accessibility::build_document(doc, &AXTree::default()).unwrap();
+            let r = crate::wcag::shared::run_shared_rules(&doc, "en");
+            r.violations
+                .iter()
+                .chain(&r.warnings)
+                .filter_map(|v| v.rule_id.clone())
+                .collect::<Vec<_>>()
+        };
+        let full = ids(&root);
+        assert!(full.iter().any(|id| id == "landmarks/banner-duplicate"));
+        assert!(full
+            .iter()
+            .any(|id| id == "landmarks/contentinfo-duplicate"));
+
+        let scope = active_scope([10, 11, 12]);
+        let counted = scope
+            .without_excluded_dom(&root)
+            .expect("specimen excluded");
+        let pruned = ids(&counted);
+        assert!(
+            !pruned.iter().any(|id| id.ends_with("-duplicate")),
+            "{pruned:?}"
+        );
+
+        assert!(active_scope([99]).without_excluded_dom(&root).is_none());
+    }
+
+    /// The landmark tally in the report (#726) counts named forms and
+    /// regions only (#727).
+    #[test]
+    fn excluded_landmarks_count_named_forms_only() {
+        let node = |id: &str, role: &str, name: Option<&str>, backend: i64| AXNode {
             node_id: id.into(),
             ignored: false,
             ignored_reasons: vec![],
             role: Some(role.into()),
-            name: None,
+            name: name.map(String::from),
             name_source: None,
             description: None,
             value: None,
             properties: vec![],
             child_ids: vec![],
-            parent_id: parent.map(String::from),
+            parent_id: None,
             backend_dom_node_id: Some(backend),
         };
         let tree = AXTree::from_nodes(vec![
-            node("root", "RootWebArea", None, 1),
-            node("b1", "banner", Some("root"), 2),
-            node("spec", "generic", Some("root"), 10),
-            node("b2", "banner", Some("spec"), 11),
+            node("b", "banner", None, 11),
+            node("f1", "form", None, 12),
+            node("f2", "form", Some("Search"), 13),
+            node("g", "generic", None, 14),
         ]);
-        let full = crate::wcag::rules::check_landmark_no_duplicate_banner(&tree);
-        assert_eq!(full.violations.len(), 1);
-
-        let scope = active_scope([10, 11]);
-        assert_eq!(scope.excluded_landmarks(&tree), 1);
-        let counted = scope.without_excluded(&tree).expect("specimen excluded");
-        assert!(counted.get_node("b2").is_none() && counted.get_node("b1").is_some());
-        let pruned = crate::wcag::rules::check_landmark_no_duplicate_banner(&counted);
-        assert!(pruned.violations.is_empty());
-
-        assert!(active_scope([99]).without_excluded(&tree).is_none());
+        assert_eq!(active_scope([11, 12, 13, 14]).excluded_landmarks(&tree), 2);
     }
 
     #[test]

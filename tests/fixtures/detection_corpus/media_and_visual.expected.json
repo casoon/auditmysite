@@ -1,7 +1,7 @@
 {
   "case": "media_and_visual",
   "expectations": [
-    { "rule_id": "background-audio", "verdict": "violation" },
+    { "rule_id": "media/audio-autoplay", "verdict": "needs_review" },
     { "rule_id": "non-text-contrast-css", "verdict": "violation" },
     { "rule_id": "text-spacing", "verdict": "violation" },
     { "rule_id": "css-overflow-hidden", "verdict": "violation" },

@@ -1,4 +1,10 @@
-//! WCAG 4.1.2 - Redundant native role
+//! WCAG 4.1.2 - Redundant native role, `<ul>`/`<ol>` only
+//!
+//! Since #697 every other tag/role pair runs as `aria/role-redundant` in the
+//! shared rules. `<ul>`/`<ol>` with `role="list"` stays here: whether the
+//! role is redundant depends on the computed `list-style-type` (#644), which
+//! `a11y-dom` does not carry yet (casoon/barrierlab#21), and `a11y-rules`
+//! does not judge the pair rather than guess.
 //!
 //! `<button role="button">`, `<a href="..." role="link">` and similar: the
 //! explicit `role` restates the tag's own implicit role. No crash for modern
@@ -40,30 +46,8 @@ const REDUNDANT_ROLE_JS: &str = r#"
     return getComputedStyle(el).listStyleType !== 'none';
   }
   var MAP = [
-    ['button', function(el) { return true; }, 'button'],
-    ['a', function(el) { return el.hasAttribute('href'); }, 'link'],
-    ['textarea', function(el) { return true; }, 'textbox'],
-    ['input', function(el) {
-      var t = (el.getAttribute('type') || 'text').toLowerCase();
-      return t === 'text' || t === '';
-    }, 'textbox'],
-    ['input', function(el) { return (el.getAttribute('type') || '').toLowerCase() === 'checkbox'; }, 'checkbox'],
-    ['input', function(el) { return (el.getAttribute('type') || '').toLowerCase() === 'radio'; }, 'radio'],
-    ['input', function(el) {
-      var t = (el.getAttribute('type') || '').toLowerCase();
-      return t === 'button' || t === 'submit' || t === 'reset';
-    }, 'button'],
-    ['h1', function(el) { return true; }, 'heading'],
-    ['h2', function(el) { return true; }, 'heading'],
-    ['h3', function(el) { return true; }, 'heading'],
-    ['h4', function(el) { return true; }, 'heading'],
-    ['h5', function(el) { return true; }, 'heading'],
-    ['h6', function(el) { return true; }, 'heading'],
     ['ul', keepsListSemantics, 'list'],
     ['ol', keepsListSemantics, 'list'],
-    ['li', function(el) { return true; }, 'listitem'],
-    ['table', function(el) { return true; }, 'table'],
-    ['img', function(el) { return el.hasAttribute('alt') && el.getAttribute('alt') !== ''; }, 'img']
   ];
   var findings = [];
   var elements = document.querySelectorAll('[role]');

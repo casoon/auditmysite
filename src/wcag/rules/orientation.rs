@@ -5,9 +5,11 @@
 //! orientation is essential.
 //! Level AA
 //!
-//! Checks via CSS/JS inspection:
-//! - Orientation media queries that hide or transform significant content
-//! - CSS transform: rotate on `<body>` or `<html>`
+//! Checks the computed `transform: rotate` on `<body>` or `<html>`. The
+//! stylesheet half (orientation media queries that hide or rotate content)
+//! runs as `orientation/content-hidden` in the shared rules since a11y-rules
+//! 0.19 (`a11y_rules::run_stylesheets`); the computed style of the live page
+//! stays here.
 
 use chromiumoxide::Page;
 
@@ -25,32 +27,10 @@ pub(super) const ORIENTATION_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag134", "cat.sensory-and-visual-cues"],
 };
 
-// JavaScript that scans stylesheets for orientation-locking rules.
 // Returns a JSON object: { locked: bool, detail: string }
 const ORIENTATION_LOCK_JS: &str = r#"
 (function() {
   try {
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules;
-      try { rules = Array.from(sheet.cssRules || []); }
-      catch(e) { continue; } // cross-origin sheet
-      for (const rule of rules) {
-        if (rule.type !== CSSRule.MEDIA_RULE) continue;
-        const media = (rule.conditionText || rule.media.mediaText || '').toLowerCase();
-        if (!media.includes('orientation')) continue;
-        // Rule targets a specific orientation — check if it hides content
-        for (const inner of Array.from(rule.cssRules || [])) {
-          const style = inner.style;
-          if (!style) continue;
-          if (style.display === 'none' || style.visibility === 'hidden') {
-            return { locked: true, detail: 'orientation media query hides content: ' + media };
-          }
-          if (style.transform && style.transform.includes('rotate')) {
-            return { locked: true, detail: 'orientation media query rotates content: ' + media };
-          }
-        }
-      }
-    }
     // Check inline transforms on body/html (JS-driven orientation lock workaround)
     const bodyTransform = window.getComputedStyle(document.body).transform;
     const htmlTransform = window.getComputedStyle(document.documentElement).transform;

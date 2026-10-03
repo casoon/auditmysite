@@ -1,16 +1,15 @@
 //! ModalDialog pattern (issue #29).
 //!
-//! Detects modal dialogs and flags missing focusable descendants. Note:
-//! actual focus-trap behavior cannot be verified from the AXTree alone — that
-//! remains a manual-review concern.
+//! Detects modal dialogs and offers their triggers to the journey layer.
+//! Note: actual focus-trap behavior cannot be verified from the AXTree alone
+//! — that remains a manual-review concern.
 //!
-//! Der fehlende Name ist `dialog/name-missing` im geteilten Bestand (#692);
-//! die frühere Meldung `aria-dialog-name` hier war derselbe Fall ein weiteres
-//! Mal.
+//! Der fehlende Name ist `dialog/name-missing` im geteilten Bestand (#692),
+//! der Dialog ohne fokussierbares Element seit #694
+//! `dialog/focusable-missing`; die früheren Meldungen `aria-dialog-name` und
+//! `dialog-no-focusable` hier waren derselbe Fall ein weiteres Mal.
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
-use crate::wcag::types::{Severity, Violation};
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
@@ -40,24 +39,6 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
             .iter()
             .filter_map(|id| tree.get_node(id))
             .any(|c| c.get_property_bool("focusable").unwrap_or(false));
-
-        if !has_focusable_descendant {
-            out.violations.push(
-                Violation::new(
-                    "2.4.3",
-                    "Focus Order",
-                    WcagLevel::A,
-                    Severity::Medium,
-                    "Dialog contains no focusable elements — keyboard users cannot interact with it.",
-                    &dialog.node_id,
-                )
-                .with_fix(
-                    "Ensure the dialog contains at least one focusable element (close button, form field, action) and move initial focus there when opened.",
-                )
-                .with_rule_id("dialog-no-focusable")
-                .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/"),
-            );
-        }
 
         if has_name && is_modal && has_focusable_descendant {
             well_formed += 1;
@@ -230,11 +211,14 @@ mod tests {
         assert_eq!(a.recognized[0].confidence, PatternConfidence::Partial);
     }
 
+    /// Der Befund ist seit #694 `dialog/focusable-missing` im geteilten
+    /// Bestand; hier bleibt nur die schwächere Erkennung.
     #[test]
-    fn test_dialog_without_focusable_violation() {
+    fn test_dialog_without_focusable_is_partial_but_no_finding() {
         let tree = build_dialog_tree(Some("X"), true, false);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a.violations.iter().any(|v| v.rule == "2.4.3"));
+        assert!(a.violations.is_empty());
+        assert_eq!(a.recognized[0].confidence, PatternConfidence::Partial);
     }
 }

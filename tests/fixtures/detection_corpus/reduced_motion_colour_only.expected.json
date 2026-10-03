@@ -1,6 +1,6 @@
 {
   "case": "reduced_motion_colour_only",
   "expectations": [
-    { "rule_id": "prefers-reduced-motion", "verdict": "pass" }
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "pass" }
   ]
 }

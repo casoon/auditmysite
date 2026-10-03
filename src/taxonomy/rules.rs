@@ -466,6 +466,113 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("context/on-focus", "a11y.on_focus.risk"),
     ("context/autofocus", "a11y.on_focus.risk"),
     ("auth/captcha", "a11y.accessible_auth.captcha_review"),
+    // ── Geteilte Kennungen aus #694 (B4, Landmarks, Tastatur, Struktur) ──
+    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
+    // (`landmark-unique`, `region`, `bypass`, `focusable-no-role`,
+    // `keyboard`, …) weiter aufloest. `headings/none` uebernimmt den Eintrag
+    // von `bypass`, der zuletzt nur noch die Seite ohne Ueberschriften
+    // meldete; `dialog/focusable-missing` den der 2.4.3-Gruppe, unter die
+    // `dialog-no-focusable` fiel.
+    ("landmarks/not-unique", "a11y.landmark_unique.invalid"),
+    // Neu: Die drei `*-is-top-level`-Pruefungen hatten je einen Eintrag; die
+    // geteilte Kennung fasst sie zusammen, die Rolle steht im Befundtext.
+    ("landmarks/not-top-level", "a11y.landmark_nested.invalid"),
+    (
+        "landmarks/banner-duplicate",
+        "a11y.landmark_banner_duplicate.invalid",
+    ),
+    (
+        "landmarks/contentinfo-duplicate",
+        "a11y.landmark_contentinfo_duplicate.invalid",
+    ),
+    ("landmarks/content-outside", "a11y.landmark_region.missing"),
+    ("headings/none", "a11y.bypass_blocks.missing"),
+    (
+        "keyboard/focusable-no-role",
+        "a11y.focusable_no_role.invalid",
+    ),
+    (
+        "keyboard/interactive-not-focusable",
+        "a11y.keyboard.missing",
+    ),
+    ("dialog/focusable-missing", "a11y.focus_order.weak"),
+    // Neu: `accordion-no-controls` hatte keinen eigenen Eintrag und fiel in
+    // den 4.1.2-Sammelbucket.
+    (
+        "patterns/accordion-controls-missing",
+        "a11y.accordion_controls.missing",
+    ),
+    // ── Geteilte Kennungen aus #695 (B5, Links und Zeiger) ──
+    // Auf den Eintrag der abgeloesten Regel (`click-events-have-key-events`,
+    // `link-as-button`, `location` ueber 2.4.8), deren Legacy-Kennung weiter
+    // aufloest.
+    (
+        "keyboard/click-handler-not-focusable",
+        "a11y.click_handler_keyboard.missing",
+    ),
+    ("links/used-as-button", "a11y.link_as_button.invalid"),
+    ("navigation/location-missing", "a11y.location.missing"),
+    // ── Geteilte Kennungen aus #696 (B6, Bilder und Medien) ──
+    // Auf die Eintraege der abgeloesten Regeln; `frames/name-missing` bleibt
+    // bei 2.4.1 wie `frame-title`.
+    ("images/area-alt-missing", "a11y.area_alt.missing"),
+    ("images/input-alt-missing", "a11y.input_image_alt.missing"),
+    ("media/audio-autoplay", "a11y.audio_control.missing"),
+    ("objects/alt-missing", "a11y.object_alt.missing"),
+    (
+        "images/server-side-map",
+        "a11y.image_map_server_side.invalid",
+    ),
+    ("frames/name-missing", "a11y.frame_title.missing"),
+    // ── Geteilte Kennungen aus #697 (B7, Tabellen, Dokument, Sprache,
+    // Rollen) ──
+    // Auf die Eintraege der abgeloesten Regeln. `language/*` bekommt einen
+    // eigenen Eintrag: `language-of-parts` hatte keinen und fiel ohne
+    // Taxonomie durch.
+    (
+        "tables/header-without-data",
+        "a11y.table_header_data.missing",
+    ),
+    ("tables/data-undetermined", "a11y.table_header_data.missing"),
+    (
+        "tables/headers-attr-invalid",
+        "a11y.table_headers_ref.invalid",
+    ),
+    ("document/lang-mismatch", "a11y.language_mismatch.invalid"),
+    ("language/part-unmarked", "a11y.language_of_parts.unmarked"),
+    (
+        "language/part-undetermined",
+        "a11y.language_of_parts.unmarked",
+    ),
+    (
+        "language/abbreviation-unexpanded",
+        "a11y.abbreviations.missing",
+    ),
+    ("timing/meta-refresh", "a11y.timing.unadjustable"),
+    (
+        "headings/section-without-heading",
+        "a11y.section_headings.missing",
+    ),
+    ("aria/role-redundant", "a11y.redundant_role.invalid"),
+    ("names/title-only", "a11y.title_only_description.weak"),
+    (
+        "patterns/tooltip-unreferenced",
+        "a11y.hover.content_visibility",
+    ),
+    // ── Regeln ueber Stylesheets (a11y-rules 0.19) ──
+    // Auf die Eintraege der abgeloesten Regeln (`focus-visible-outline-none`,
+    // `prefers-reduced-motion`, `css-orientation-lock`, `visual-presentation`).
+    (
+        "focus/outline-removed",
+        "a11y.focus_indicator_suppressed.invalid",
+    ),
+    (
+        "motion/reduced-motion-ignored",
+        "a11y.motion.reduced_motion",
+    ),
+    ("orientation/content-hidden", "a11y.orientation.restricted"),
+    ("text/justified", "a11y.visual_presentation.weak"),
+    ("text/line-height-tight", "a11y.visual_presentation.weak"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the
@@ -1603,6 +1710,31 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
+    // `language/part-unmarked` und `language/part-undetermined` (#697);
+    // `language-of-parts` hatte keinen eigenen Eintrag.
+    Rule {
+        id: "a11y.language_of_parts.unmarked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::LanguageClarity,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 3.1.2"),
+        external_level: Some("AA"),
+        axe_id: Some("language/part-unmarked"),
+        title: "Anderssprachiger Textteil ohne lang prüfen",
+        title_en: "Check text in another language without lang",
+        description: "Ein Textabschnitt scheint in einer anderen Sprache als die Seite verfasst, ohne dass ein lang-Attribut das auszeichnet.",
+        user_impact: "Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.",
+        user_impact_en: "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
+        technical_impact: "Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.",
+        technical_impact_en: "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
     Rule {
         id: "a11y.abbreviations.missing",
         dimension: Dimension::Accessibility,
@@ -1834,6 +1966,31 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // `media/audio-autoplay` (#696, a11y-rules 0.19): selbststartender Ton
+    // unter 1.4.2 statt der Hintergrundgeraeusche aus 1.4.7 darunter.
+    Rule {
+        id: "a11y.audio_control.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Risk,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.4.2"),
+        external_level: Some("A"),
+        axe_id: Some("media/audio-autoplay"),
+        title: "Selbststartender Ton ohne Steuerung prüfen",
+        title_en: "Check autoplaying audio for a control",
+        description: "Ein <audio>-Element startet automatisch und ist nicht stummgeschaltet.",
+        user_impact: "Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern.",
+        user_impact_en: "Audio that starts on its own drowns out screen reader speech.",
+        technical_impact: "<audio autoplay> ohne muted; ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.",
+        technical_impact_en: "<audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_STANDARD,
@@ -2456,6 +2613,29 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Screen reader users are not told which tab is active and which one the visible content belongs to.",
         technical_impact: "tablist ohne tab mit aria-selected=\"true\".",
         technical_impact_en: "tablist without a tab carrying aria-selected=\"true\".",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.accordion_controls.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("patterns/accordion-controls-missing"),
+        title: "Aufgeklappter Button ohne Verweis auf seinen Bereich",
+        title_en: "Expanded button without a reference to its region",
+        description: "Ein aufgeklappter Button (aria-expanded=\"true\") verweist nicht per aria-controls auf den Bereich, den er steuert.",
+        user_impact: "Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde.",
+        user_impact_en: "Screen reader users are not told which region was expanded.",
+        technical_impact: "aria-expanded=\"true\" ohne aria-controls; WAI-ARIA verlangt es nicht, die APG nennt es beim Disclosure-Muster optional.",
+        technical_impact_en: "aria-expanded=\"true\" without aria-controls; WAI-ARIA does not require it, the APG lists it as optional for the disclosure pattern.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -3564,6 +3744,31 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Screen reader users who jump to the main content via landmark navigation land in an unexpected context.",
         technical_impact: "<main>/role=\"main\" ist Nachfahre eines anderen Landmarks.",
         technical_impact_en: "<main>/role=\"main\" is a descendant of another landmark.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 3.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // `landmarks/not-top-level` (#694) fasst die drei Eintraege darueber
+    // zusammen; die Rolle steht im Befundtext.
+    Rule {
+        id: "a11y.landmark_nested.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmarks/not-top-level"),
+        title: "Landmark ist verschachtelt",
+        title_en: "Landmark is nested",
+        description: "Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
+        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation springen, landen in einem unerwarteten Kontext.",
+        user_impact_en: "Screen reader users who jump via landmark navigation land in an unexpected context.",
+        technical_impact: "<header>/<footer>/<main> bzw. role=\"banner\"/\"contentinfo\"/\"main\" ist Nachfahre eines anderen Landmarks.",
+        technical_impact_en: "<header>/<footer>/<main> or role=\"banner\"/\"contentinfo\"/\"main\" is a descendant of another landmark.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
