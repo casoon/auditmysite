@@ -1452,6 +1452,7 @@ async fn run_rules(
                     wcag::shared::run_shared_rules(&counted_doc, &config.lang),
                 );
             }
+            wcag::shared::retain_up_to_level(&mut shared, config.wcag_level);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }

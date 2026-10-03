@@ -5,6 +5,26 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Links- und Zeigerregeln aus `a11y-rules` statt eigener (#695, B5):** Mit
+  `a11y-rules` 0.18.0 laufen drei Kennungen ueber den geteilten Bestand: `click-events-have-key-events`
+  → `keyboard/click-handler-not-focusable` (2.1.1 A, hoch), `link-as-button` →
+  `links/used-as-button` (4.1.2 A, niedrig), `location` → `navigation/location-missing` (2.4.8 AAA,
+  niedrig). Geloescht: `click_handlers`, `fake_navigation_link`, `location` samt ihren
+  `PAGE_RULES`-Eintraegen; die alten Kennungen loesen in der Taxonomie und den Erklaerungstexten
+  ueber die neuen auf. Gewollte Unterschiede (Changelog von `a11y-rules`): keine Obergrenze je
+  Seite mehr (bisher 10 bzw. 20), `<a onclick>` ohne `href` ist ein Klick-Handler statt Scheinlink,
+  `navigation/location-missing` ist ein Pruefhinweis statt Verstoss und sieht auch Navigation im
+  Shadow DOM. Von `pointer_cancellation` (2.5.2) ist der statische Teil (`onmousedown`/
+  `ontouchstart` an Bedienelementen) geloescht -- barrierlab hat ihn mangels Beleg nicht
+  uebernommen --, der seitenweite `UNTESTED`-Vermerk bleibt im Host: Die manuelle Checkliste
+  (`manual/*`, barrierlab#39) hat keinen Punkt fuer 2.5.2, und auditmysite fuehrt sie noch nicht.
+  Neu: Geteilte Kennungen oberhalb der geprueften Stufe (`--level`) werden herausgenommen und als
+  `NotRun::Disabled` (`above_wcag_level`) vermerkt (`wcag::shared::retain_up_to_level`), so wie
+  die abgeloesten AAA-Regeln nur mit `--level aaa` liefen. Klick-Handler und Scheinlinks laufen
+  jetzt auch in Frames. Geprueft: Detection-Corpus vorher/nachher (nur die umbenannten Kennungen,
+  `location` als Hinweis, zusaetzlich `landmark_main_in_shadow_root`), Ausschluss-Integrationstests
+  mit den ungedeckelten Zaehlungen (12 bzw. 22 ausgeschlossene Treffer).
+
 - **Unreleased — Landmark-, Tastatur- und Strukturregeln aus `a11y-rules` statt eigener (#694,
   B4):** Die Landmark-Pruefungen, die Tastaturerreichbarkeit, die Seite ohne Ueberschriften und
   zwei Musterpruefungen laufen ueber den geteilten Bestand (`SHARED_RULES` in

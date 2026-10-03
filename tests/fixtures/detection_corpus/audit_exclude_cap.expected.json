@@ -1,10 +1,10 @@
 {
   "case": "audit_exclude_cap",
   "expectations": [
-    { "rule_id": "click-events-have-key-events", "selector": "div#real-click", "verdict": "violation" },
-    { "rule_id": "click-events-have-key-events", "selector": "div#specimen-click-1", "verdict": "pass" },
-    { "rule_id": "link-as-button", "selector": "a#real-link", "verdict": "violation" },
-    { "rule_id": "link-as-button", "selector": "a#specimen-link-1", "verdict": "pass" },
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#real-click", "verdict": "violation" },
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#specimen-click-1", "verdict": "pass" },
+    { "rule_id": "links/used-as-button", "selector": "a#real-link", "verdict": "violation" },
+    { "rule_id": "links/used-as-button", "selector": "a#specimen-link-1", "verdict": "pass" },
     { "rule_id": "forms/purpose-missing", "verdict": "needs_review" }
   ]
 }

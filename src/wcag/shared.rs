@@ -1104,7 +1104,76 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Accordion Controls)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
+    // ── Links- und Zeigerregeln aus #695 (B5) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#18). Gewollt anders für alle drei: keine Obergrenze
+    // je Seite mehr (bisher 10 bzw. 20 Befunde).
+
+    // Ersetzt `wcag::rules::click_handlers` (`click-events-have-key-events`).
+    // Gewollt anders: Ein `<a onclick>` ohne `href` landet hier statt bei
+    // `links/used-as-button` -- ohne `href` ist es kein Link und nicht
+    // fokussierbar.
+    SharedRule {
+        id: "keyboard/click-handler-not-focusable",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt `wcag::rules::fake_navigation_link` (`link-as-button`).
+    SharedRule {
+        id: "links/used-as-button",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::location` (`location`). Gewollt anders: `REVIEW`
+    // statt Verstoß -- 2.4.8 lässt sich auch mit Titel, Überschriften oder
+    // einer Sitemap erfüllen. AAA: läuft wie bisher nur mit `--level aaa`
+    // ([`retain_up_to_level`]).
+    //
+    // `wcag::rules::pointer_cancellation` (2.5.2) ist nicht abgelöst:
+    // `a11y-rules` hat den statischen Teil (`onmousedown`/`ontouchstart`)
+    // mangels Beleg nicht übernommen, er ist hier gelöscht. Der seitenweite
+    // `UNTESTED`-Vermerk bleibt im Host, bis die manuelle Checkliste
+    // (casoon/barrierlab#39) einen Punkt für 2.5.2 hat.
+    SharedRule {
+        id: "navigation/location-missing",
+        criterion: "2.4.8",
+        level: WcagLevel::AAA,
+        name: "Location",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/location.html",
+    },
 ];
+
+/// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
+/// und vermerkt sie als nicht gelaufen.
+///
+/// Die abgelösten Regeln liefen nur ab ihrer Stufe (`PageRuleEntry::min_level`,
+/// die AAA-Durchgänge in `wcag::engine`); eine AAA-Kennung wie
+/// `navigation/location-missing` gehört nicht in einen AA-Bericht. Der
+/// Vermerk sagt, warum sie fehlt, statt sie wie bestanden aussehen zu lassen.
+pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
+    let above = |id: &str| shared_rule(id).is_some_and(|r| r.level > level);
+    let finding_above = |v: &Violation| v.rule_id.as_deref().is_some_and(above);
+    for list in [
+        &mut results.violations,
+        &mut results.warnings,
+        &mut results.positives,
+        &mut results.not_testables,
+    ] {
+        list.retain(|v| !finding_above(v));
+    }
+    for outcome in &mut results.rule_outcomes {
+        if let Some(rule) = shared_rule(&outcome.rule_id).filter(|r| r.level > level) {
+            *outcome = RuleRun::not_run(rule.id, NotRun::Disabled)
+                .with_wcag([rule.criterion])
+                .with_reason("above_wcag_level");
+        }
+    }
+}
 
 /// Geteilte Kennungen, die Landmarks der ganzen Seite zählen oder
 /// vergleichen. Ein ausgeschlossener Teilbaum (`--exclude-selector`, #645)
@@ -1808,6 +1877,35 @@ mod tests {
                     && sel.as_deref() == Some("div#i")),
             "{befunde:?}"
         );
+    }
+
+    /// Eine AAA-Kennung erscheint nur in einem AAA-Lauf, wie die abgeloeste
+    /// Regel `location`; sonst wird sie als nicht gelaufen vermerkt (#695).
+    #[test]
+    fn kennung_oberhalb_der_stufe_wird_vermerkt_statt_gemeldet() {
+        let ergebnis = || {
+            let mut r = WcagResults::new();
+            r.add_violation(
+                Violation::new("2.4.8", "Location", WcagLevel::AAA, Severity::Low, "m", "x")
+                    .with_rule_id("navigation/location-missing")
+                    .with_kind(Outcome::Review),
+            );
+            r.rule_outcomes
+                .push(RuleRun::ran("navigation/location-missing", 1));
+            r
+        };
+
+        let mut aa = ergebnis();
+        retain_up_to_level(&mut aa, WcagLevel::AA);
+        assert!(aa.warnings.is_empty());
+        let vermerk = &aa.rule_outcomes[0];
+        assert!(crate::wcag::rule_run_skipped(vermerk));
+        assert_eq!(vermerk.reason.as_deref(), Some("above_wcag_level"));
+
+        let mut aaa = ergebnis();
+        retain_up_to_level(&mut aaa, WcagLevel::AAA);
+        assert_eq!(aaa.warnings.len(), 1);
+        assert_eq!(aaa.rule_outcomes[0].findings, 1);
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

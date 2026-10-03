@@ -2169,7 +2169,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(has(&baseline, "images/alt-missing", "img#specimen-img"));
     assert!(has(
         &baseline,
-        "click-events-have-key-events",
+        "keyboard/click-handler-not-focusable",
         "div#specimen-click"
     ));
     let base_ex = baseline
@@ -2186,7 +2186,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(!has(&excluded, "images/alt-missing", "img#specimen-img"));
     assert!(!has(
         &excluded,
-        "click-events-have-key-events",
+        "keyboard/click-handler-not-focusable",
         "div#specimen-click"
     ));
     assert!(has(&excluded, "images/alt-missing", "img#real-img"));
@@ -2213,7 +2213,7 @@ async fn exclude_selector_drops_specimen_findings_and_reports_them() {
     assert!(ex
         .rules
         .iter()
-        .any(|r| r.rule_id == "click-events-have-key-events"));
+        .any(|r| r.rule_id == "keyboard/click-handler-not-focusable"));
     assert!(
         excluded.accessibility.score >= baseline.accessibility.score,
         "excluding defects must not lower the score"
@@ -2244,8 +2244,8 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .collect()
     };
     for (rule, real) in [
-        ("click-events-have-key-events", "div#real-click"),
-        ("link-as-button", "a#real-link"),
+        ("keyboard/click-handler-not-focusable", "div#real-click"),
+        ("links/used-as-button", "a#real-link"),
     ] {
         let found = rule_selectors(rule);
         assert!(
@@ -2271,8 +2271,14 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .map(|r| r.occurrences)
             .unwrap_or(0)
     };
-    assert_eq!(excluded("click-events-have-key-events"), 10, "{ex:?}");
-    assert_eq!(excluded("link-as-button"), 20, "{ex:?}");
+    // Capped at 10 and 20 until #695; the shared rules have no cap, so every
+    // excluded specimen is dropped and counted.
+    assert_eq!(
+        excluded("keyboard/click-handler-not-focusable"),
+        12,
+        "{ex:?}"
+    );
+    assert_eq!(excluded("links/used-as-button"), 22, "{ex:?}");
     // The e-mail fields ran under `identify-purpose` (cap 5) until #693.
     // `forms/purpose-missing` has no cap and reports a review hint: the real
     // field stays, all six specimens are dropped and counted.
@@ -2293,7 +2299,10 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
             .wcag_results
             .rule_outcomes
             .iter()
-            .find(|o| o.rule_id == "2.1.1/click-handler" && o.viewport.as_deref() == Some(viewport))
+            .find(|o| {
+                o.rule_id == "keyboard/click-handler-not-focusable"
+                    && o.viewport.as_deref() == Some(viewport)
+            })
             .unwrap_or_else(|| panic!("no click-handler outcome for {viewport}"));
         assert_eq!(outcome.findings, 1, "{viewport}: {outcome:?}");
     }

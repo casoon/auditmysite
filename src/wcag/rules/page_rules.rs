@@ -27,11 +27,10 @@ use crate::wcag::Violation;
 use super::{
     check_abbreviations_with_page, check_accessible_authentication_with_page,
     check_background_audio_with_page, check_content_on_hover_with_page,
-    check_display_modes_with_page, check_fake_navigation_link_with_page,
-    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_focus_visible_css_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_image_input_rules_with_page, check_language_extended_with_page,
-    check_language_of_parts_with_page, check_location_with_page,
+    check_display_modes_with_page, check_focus_not_obscured_enhanced_with_page,
+    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
+    check_frame_tested_with_page, check_frame_title_with_page, check_image_input_rules_with_page,
+    check_language_extended_with_page, check_language_of_parts_with_page,
     check_meaningful_sequence_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_motion_actuation_with_page,
     check_no_interruptions_with_page, check_no_timing_with_page,
@@ -47,7 +46,6 @@ use super::{
     check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
-use crate::wcag::engine::check_click_handlers_with_page;
 
 /// One row of the page-rule catalog.
 pub struct PageRuleEntry {
@@ -97,12 +95,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "document-title",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_page_titled_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.1.1/click-handler",
-        name: "inline click-handler",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_click_handlers_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.1.1/scrollable-region-focusable",
@@ -187,12 +179,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "redundant role",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_redundant_role_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/link-as-button",
-        name: "link as button",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_fake_navigation_link_with_page(p)),
     },
     // Display-mode convention (#653): all five `display/*` ids from one
     // DOM pass. Best-practice rules, not WCAG requirements; no-op on pages
@@ -323,12 +309,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_timeouts_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "2.4.8/location",
-        name: "location",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_location_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "2.5.5/target-size-enhanced",
         name: "target-size-enhanced",
         min_level: WcagLevel::AAA,
@@ -415,7 +395,10 @@ mod tests {
         // - form-no-submit, form-field-group (Kontrollkaestchen),
         //   redundant-entry und on-focus: laufen als `forms/*` und
         //   `context/*` im geteilten Bestand (#693) = 24
-        assert_eq!(count, 24);
+        // - click-handler und link-as-button: laufen als
+        //   `keyboard/click-handler-not-focusable` und `links/used-as-button`
+        //   im geteilten Bestand (#695) = 22
+        assert_eq!(count, 22);
     }
 
     #[test]
@@ -460,7 +443,9 @@ mod tests {
         //   (#692) = 39.
         // - vier Formularpruefungen (Level A) und autocomplete-valid (1.3.5)
         //   in den geteilten Bestand abgegeben (#693) = 34.
-        assert_eq!(count, 34);
+        // - click-handler und link-as-button (Level A) in den geteilten
+        //   Bestand abgegeben (#695) = 32.
+        assert_eq!(count, 32);
     }
 
     #[test]

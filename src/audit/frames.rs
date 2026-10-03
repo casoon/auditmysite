@@ -68,6 +68,11 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// (`dialog/focusable-missing`, `patterns/accordion-controls-missing`) run
 /// in frames; the pattern checks ran in the top frame only before.
 ///
+/// From #695 the click-handler and fake-link checks run in frames too; as
+/// JavaScript page rules (`click-events-have-key-events`, `link-as-button`)
+/// they saw the top frame only. `navigation/location-missing` judges the
+/// page and stays with the top frame.
+///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
 /// the tree-based ones did (labels, groups, errors, title-only labels); the
@@ -134,6 +139,8 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "keyboard/interactive-not-focusable",
     "dialog/focusable-missing",
     "patterns/accordion-controls-missing",
+    "keyboard/click-handler-not-focusable",
+    "links/used-as-button",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────
@@ -533,6 +540,7 @@ pub(crate) async fn audit_frames(
         }
         let mut shared = wcag::shared::run_shared_rules(&doc, config.lang);
         retain_frame_shared_rules(&mut shared);
+        wcag::shared::retain_up_to_level(&mut shared, config.level);
         for list in [&mut shared.violations, &mut shared.warnings] {
             let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
                 .into_iter()
@@ -670,6 +678,7 @@ mod tests {
             "landmarks/content-outside",
             "zoom/viewport-missing",
             "keyboard/skip-link-missing",
+            "navigation/location-missing",
         ] {
             assert!(!FRAME_SHARED_RULES.contains(&page_level), "{page_level}");
         }

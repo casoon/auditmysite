@@ -221,6 +221,13 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     ),
     ("landmarks/content-outside", "region"),
     ("keyboard/focusable-no-role", "focusable-no-role"),
+    // #695: Links und Zeiger. `navigation/location-missing` findet den Text
+    // ueber das Kriterium 2.4.8 wie `location`.
+    (
+        "keyboard/click-handler-not-focusable",
+        "click-events-have-key-events",
+    ),
+    ("links/used-as-button", "link-as-button"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID

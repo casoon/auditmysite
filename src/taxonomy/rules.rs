@@ -502,6 +502,16 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "patterns/accordion-controls-missing",
         "a11y.accordion_controls.missing",
     ),
+    // ── Geteilte Kennungen aus #695 (B5, Links und Zeiger) ──
+    // Auf den Eintrag der abgeloesten Regel (`click-events-have-key-events`,
+    // `link-as-button`, `location` ueber 2.4.8), deren Legacy-Kennung weiter
+    // aufloest.
+    (
+        "keyboard/click-handler-not-focusable",
+        "a11y.click_handler_keyboard.missing",
+    ),
+    ("links/used-as-button", "a11y.link_as_button.invalid"),
+    ("navigation/location-missing", "a11y.location.missing"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
     // ── Display-mode convention (#653) — best-practice, own entries so the

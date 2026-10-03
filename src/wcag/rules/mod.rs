@@ -6,11 +6,9 @@ mod abbreviations;
 mod accessible_authentication;
 mod accessible_name;
 mod background_audio;
-mod click_handlers;
 mod content_on_hover;
 mod contrast;
 mod display_modes;
-mod fake_navigation_link;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
 mod focus_visible;
@@ -25,7 +23,6 @@ mod language_extended;
 mod language_of_parts;
 mod link_purpose;
 mod link_purpose_link_only;
-mod location;
 mod meaningful_sequence;
 mod media_alternative;
 mod media_rules;
@@ -62,14 +59,12 @@ pub use abbreviations::check_abbreviations_with_page;
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
 pub use background_audio::check_background_audio_with_page;
-pub use click_handlers::check_click_handlers_with_page;
 pub use content_on_hover::check_content_on_hover_with_page;
 pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
     DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE, DISPLAY_TOGGLE_MISSING_RULE,
 };
-pub use fake_navigation_link::check_fake_navigation_link_with_page;
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_visible::check_focus_visible;
@@ -84,7 +79,6 @@ pub use language_extended::check_language_extended_with_page;
 pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;
-pub use location::check_location_with_page;
 pub use meaningful_sequence::check_meaningful_sequence_with_page;
 pub use media_alternative::check_media_alternative_with_page;
 pub use media_rules::{
