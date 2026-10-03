@@ -13,7 +13,13 @@ short current-state summary. Newest entries first (unchanged order from before t
   die Stylesheets; `reduced_motion` ist geloescht, die alte Kennung loest in der Taxonomie weiter
   auf. 2.3.3 zaehlt als Hinweis-Kriterium (AAA). Korpus: `media_and_motion`,
   `reduced_motion_transform` und `target_size_animation` melden den Hinweis,
-  `reduced_motion_override` und `reduced_motion_colour_only` nicht.
+  `reduced_motion_override` und `reduced_motion_colour_only` nicht. Gewollt anders: Die abgeloeste
+  Page-Rule lief trotz AAA schon ab `--level aa` (`min_level: AA`); der geteilte Hinweis erscheint
+  wie die uebrigen AAA-Kennungen nur mit `--level aaa`. Live gegen `main` (2026-10-04) auf AAA
+  gleiche Treffer (bundesregierung.de und n-tv.de je 1, gov.uk, wetter.com, spiegel.de 0); auf AA
+  faellt der bisherige 2.3.3-Befund weg, Barrierefreiheit AA / AAA vorher → nachher: gov.uk
+  92 → 93 / 67 → 70, bundesregierung.de 49 → 49 / 35 → 46, wetter.com 21 → 22 / 17 → 18, n-tv.de
+  22 → 31 / 18 → 22, spiegel.de 25 → 28 / 18 → 20.
 
 - **Unreleased — Regeln ueber Stylesheets aus `a11y-rules` (Host-Seite von #698, barrierlab#21
   erster Teil):** auditmysite liest die Stylesheets der Seite (`document.styleSheets`, je Sheet
