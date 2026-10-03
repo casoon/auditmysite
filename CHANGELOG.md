@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Reduzierte Bewegung aus `a11y-rules` 0.19.1 (Teil von #698):** Seit 0.19.1 loest
+  `a11y-rules` die Kurzform `animation` nach CSS Animations auf; Chromes Serialisierung
+  (`2s linear 0s infinite normal none running spin`) ergibt wieder den Namen `spin` statt `none`
+  (Fehler aus diesem PR, Fix in barrierlab). Damit laeuft `prefers-reduced-motion` →
+  `motion/reduced-motion-ignored` (2.3.3 AAA, Hinweis statt Verstoss, eine Meldung je Seite) ueber
+  die Stylesheets; `reduced_motion` ist geloescht, die alte Kennung loest in der Taxonomie weiter
+  auf. 2.3.3 zaehlt als Hinweis-Kriterium (AAA). Korpus: `media_and_motion`,
+  `reduced_motion_transform` und `target_size_animation` melden den Hinweis,
+  `reduced_motion_override` und `reduced_motion_colour_only` nicht.
+
 - **Unreleased — Regeln ueber Stylesheets aus `a11y-rules` (Host-Seite von #698, barrierlab#21
   erster Teil):** auditmysite liest die Stylesheets der Seite (`document.styleSheets`, je Sheet
   der `cssText` aller Regeln; fremde Sheets ohne lesbare `cssRules` fehlen wie bisher),
@@ -26,7 +36,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   (`2s linear 0s infinite normal none running spin`), und die Regel nimmt `none` aus
   `animation-fill-mode` als Animationsnamen, jede Animation ueber die Kurzform faellt heraus
   (Korpus `media_and_motion`, `target_size_animation`). `reduced_motion` bleibt deshalb vorerst
-  hier. Abweichungen im Changelog von `a11y-rules` 0.19.0. Korpus: `media_and_motion` meldet
+  hier (mit 0.19.1 behoben, siehe oben). Abweichungen im Changelog von `a11y-rules` 0.19.0. Korpus: `media_and_motion` meldet
   `focus/outline-removed` und `orientation/content-hidden`, `text_and_layout` `text/justified`
   (die enge Zeilenhoehe dort steht an einem `<div>`, nicht an einem `<p>`).
   Live gegen `main` (2026-10-04), Barrierefreiheit AA / AAA vorher → nachher, B4–B7 und

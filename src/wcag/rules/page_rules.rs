@@ -33,11 +33,11 @@ use super::{
     check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
     check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_re_authenticate_with_page, check_reduced_motion_with_page,
-    check_redundant_role_with_page, check_same_origin_iframes_with_page,
-    check_scrollable_region_focusable_with_page, check_target_size_enhanced_with_page,
-    check_target_size_minimum_with_page, check_text_spacing_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_use_of_color_with_page, check_video_caption_tracks_with_page,
+    check_re_authenticate_with_page, check_redundant_role_with_page,
+    check_same_origin_iframes_with_page, check_scrollable_region_focusable_with_page,
+    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
+    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 
@@ -182,12 +182,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "CSS non-text contrast",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_non_text_contrast_css_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.3.3/reduced-motion",
-        name: "reduced-motion",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_reduced_motion_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.5.8/target-size-minimum",
@@ -392,9 +386,10 @@ mod tests {
         //   content-on-hover (AA) in den geteilten Bestand abgegeben
         //   (#697) = 25.
         // - area-alt (Level A) in den geteilten Bestand abgegeben = 24.
-        // - focus-visible-css (AA): laeuft als `focus/outline-removed` ueber
-        //   die Stylesheets im geteilten Bestand = 23.
-        assert_eq!(count, 23);
+        // - focus-visible-css und reduced-motion (beide hier AA): laufen als
+        //   `focus/outline-removed` und `motion/reduced-motion-ignored` ueber
+        //   die Stylesheets im geteilten Bestand = 22.
+        assert_eq!(count, 22);
     }
 
     #[test]

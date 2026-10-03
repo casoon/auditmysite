@@ -84,7 +84,7 @@ pub const FRAME_TREE_RULES: &[&str] = &[
 /// `timing/meta-refresh` and `headings/section-without-heading` judge the
 /// document and stay with the top frame.
 ///
-/// The stylesheet rules (`focus/outline-removed`,
+/// The stylesheet rules (`focus/outline-removed`, `motion/*`,
 /// `orientation/content-hidden`, `text/*`) don't run in frames: frame
 /// documents get no stylesheets (`run_shared_rules` without sheets), and the
 /// JavaScript rules they replace read the top document only.

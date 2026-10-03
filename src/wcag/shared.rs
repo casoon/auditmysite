@@ -1370,13 +1370,19 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Visible (CSS outline suppression)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
     },
-    // Noch nicht übernommen: `motion/reduced-motion-ignored`. Chrome
-    // serialisiert die Kurzform `animation` vollständig
-    // (`2s linear 0s infinite normal none running spin`), und `a11y-rules`
-    // 0.19.0 nimmt den ersten Nicht-Schlüssel -- `none` aus
-    // `animation-fill-mode` -- als Namen; jede Animation über die Kurzform
-    // fällt so heraus (Korpus `media_and_motion`, `target_size_animation`).
-    // Bis barrierlab das behebt, bleibt `reduced_motion` hier.
+    // Ersetzt `wcag::rules::reduced_motion` (`prefers-reduced-motion`), ab
+    // a11y-rules 0.19.1: 0.19.0 las aus Chromes serialisierter Kurzform
+    // `animation` (`2s linear 0s infinite normal none running spin`) `none`
+    // als Namen. Gewollt anders: `REVIEW` statt Verstoß; eine allein
+    // stehende `transition-duration` ist kein Übergang. AAA: nur mit
+    // `--level aaa`.
+    SharedRule {
+        id: "motion/reduced-motion-ignored",
+        criterion: "2.3.3",
+        level: WcagLevel::AAA,
+        name: "Animation from Interactions",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
+    },
     // Ersetzt den Stylesheet-Teil von `wcag::rules::orientation`
     // (`css-orientation-lock`). Gewollt anders: `REVIEW` statt Verstoß, nur
     // Selektoren, die ein Element der Seite treffen, ohne Pseudo-Elemente

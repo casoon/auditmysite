@@ -561,10 +561,14 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ),
     // ── Regeln ueber Stylesheets (a11y-rules 0.19) ──
     // Auf die Eintraege der abgeloesten Regeln (`focus-visible-outline-none`,
-    // `css-orientation-lock`, `visual-presentation`).
+    // `prefers-reduced-motion`, `css-orientation-lock`, `visual-presentation`).
     (
         "focus/outline-removed",
         "a11y.focus_indicator_suppressed.invalid",
+    ),
+    (
+        "motion/reduced-motion-ignored",
+        "a11y.motion.reduced_motion",
     ),
     ("orientation/content-hidden", "a11y.orientation.restricted"),
     ("text/justified", "a11y.visual_presentation.weak"),

@@ -51,9 +51,10 @@ const HINT_ONLY_CRITERIA: &[&str] = &[
     "3.3.7",
     // AAA. Review hints only: 2.4.8 `navigation/location-missing` (#695),
     // 2.4.10 `headings/section-without-heading` and 3.1.4
-    // `language/abbreviation-unexpanded` (#697) and 1.4.8 `text/*`
-    // (stylesheet rules, a11y-rules 0.19).
-    "1.2.8", "1.4.8", "2.2.3", "2.2.4", "2.2.5", "2.4.8", "2.4.10", "2.4.12", "3.1.3", "3.1.4",
+    // `language/abbreviation-unexpanded` (#697), 1.4.8 `text/*` and 2.3.3
+    // `motion/reduced-motion-ignored` (stylesheet rules, a11y-rules 0.19).
+    "1.2.8", "1.4.8", "2.2.3", "2.2.4", "2.2.5", "2.3.3", "2.4.8", "2.4.10", "2.4.12", "3.1.3",
+    "3.1.4",
 ];
 
 /// WCAG criteria with at least one automated rule in this tool, derived from
