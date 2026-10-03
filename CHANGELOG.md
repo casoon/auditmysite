@@ -41,6 +41,14 @@ short current-state summary. Newest entries first (unchanged order from before t
   Abkuerzungen laufen auch in Frames. Geprueft: Detection-Corpus vorher/nachher (Umbenennungen,
   Hinweise statt Verstoesse wie im barrierlab-Changelog, `language/part-undetermined` auf
   `invalid_lang_code` und `skip_link_language`, neue Abschnittshinweise auf fuenf Faellen).
+  Pruefung B4–B7 gesamt gegen `main` (Detection-Corpus 76 Faelle auf AAA: elf Barrierefreiheits-
+  Scores steigen um 1–9 Punkte, keiner faellt; Live-Seiten auf AA, Barrierefreiheit vorher →
+  nachher: gov.uk 92 → 93, bundesregierung.de 49 → 49, wetter.com 21 → 22, n-tv.de 22 → 25,
+  spiegel.de 25 → 28). Neu auf echten Seiten: `names/title-only` (spiegel.de 132 Hinweise statt
+  5 Befunden), `frames/name-missing` (n-tv.de 6 statt 2, darunter die drei Sportdaten-Rahmen mit
+  `title=""`), `aria/role-redundant` (wetter.com 9 statt 20 gedeckelte, ausgeblendete Menues
+  zaehlen nicht mehr); `navigation/location-missing` und die anderen AAA-Hinweise laufen auf AA
+  nicht. Referenzlauf und Score-Kalibrierung bleiben in ihren Baendern.
 
 - **Unreleased — Bild- und Medienregeln aus `a11y-rules` statt eigener (#696, B6):** Ueber den
   geteilten Bestand laufen jetzt `input-image-alt` → `images/input-alt-missing`, `object-alt` →
