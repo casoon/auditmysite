@@ -1,6 +1,7 @@
 use crate::output::report_model::{PageHealthPresentation, SerpPresentation};
 use crate::seo::page_health::{
-    html_validation_check_text, html_validation_detail_text, html_validator_executed_text,
+    html_validation_check_text, html_validation_detail_text, html_validator_delegated_text,
+    html_validator_executed_text,
 };
 
 use super::super::helpers::yes_no;
@@ -100,6 +101,7 @@ pub(super) fn build_page_health_presentation(
     let html_validator = Some((
         ph.html_validator_status.clone(),
         match (ph.html_validator_status.as_str(), &ph.html_validator_detail) {
+            ("delegated", _) => html_validator_delegated_text(en).to_string(),
             ("executed", _) => html_validator_executed_text(en).to_string(),
             (_, Some(detail)) => detail.clone(),
             (_, None) if en => "No additional information available".to_string(),

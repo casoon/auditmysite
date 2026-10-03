@@ -2,9 +2,9 @@
 //!
 //! Wraps `html_conform::check` (browser-style HTML5 tree construction, full
 //! RelaxNG schema validation, Schematron co-constraints, import-map/
-//! speculation-rules JSON validation, CSP enforcement) — a much deeper check
-//! than the existing crude `html5ever`-parse-errors-only validator in
-//! `seo::page_health` (left untouched, see module structure docs).
+//! speculation-rules JSON validation, CSP enforcement). It is the only HTML
+//! validator: the SEO view's former html5ever parse-error count of the same
+//! serialized DOM was a subset of this check and is gone (#724).
 //!
 //! `rule_id`/`message` are stored as opaque canonical-English payload —
 //! `html-conform`'s rule set is open-ended (not a small closed enum) and its

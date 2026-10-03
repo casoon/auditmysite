@@ -836,10 +836,17 @@ fn detect_protection(headers: &HeaderMap) -> ProtectionDetection {
 
 fn extract_security_headers(headers: &HeaderMap) -> SecurityHeaders {
     SecurityHeaders {
-        content_security_policy: headers
-            .get("content-security-policy")
-            .and_then(|v| v.to_str().ok())
-            .map(String::from),
+        // Every Content-Security-Policy header is enforced; several headers
+        // are one comma-separated policy list (CSP3 §2.2), so join them
+        // instead of reading only the first (#723).
+        content_security_policy: {
+            let policies: Vec<&str> = headers
+                .get_all("content-security-policy")
+                .iter()
+                .filter_map(|v| v.to_str().ok())
+                .collect();
+            (!policies.is_empty()).then(|| policies.join(", "))
+        },
         x_content_type_options: headers
             .get("x-content-type-options")
             .and_then(|v| v.to_str().ok())
@@ -1066,28 +1073,52 @@ fn permissions_policy_is_permissive(headers: &SecurityHeaders) -> bool {
     })
 }
 
+/// CSP quality findings for a `Content-Security-Policy` value, parsed with
+/// `csp-parse` (#723). The value may be a policy list (several headers or a
+/// comma-separated value). Every policy in it is enforced and a resource
+/// loads only if all of them allow it, so a weakness counts only when every
+/// policy has it.
 fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
-    let directives = parse_csp_directives(policy);
+    let list = csp_parse::parse_policy_list(policy);
+    let mut per_policy = list
+        .policies
+        .iter()
+        .filter(|p| !p.directives.is_empty())
+        .map(policy_quality_issues);
+    let Some(mut issues) = per_policy.next() else {
+        // Nothing but separators: as weak as an empty policy.
+        return policy_quality_issues(&csp_parse::Policy::default());
+    };
+    for other in per_policy {
+        issues.retain(|issue| other.iter().any(|o| o.issue_type == issue.issue_type));
+    }
+    issues
+}
+
+fn policy_quality_issues(policy: &csp_parse::Policy) -> Vec<SecurityIssue> {
+    let directives = csp_directives(policy);
     let mut issues = Vec::new();
 
-    let effective_script = directive_values(&directives, "script-src")
-        .or_else(|| directive_values(&directives, "default-src"))
-        .unwrap_or_default();
-    if effective_script.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_script) {
+    let effective_script = directives
+        .get("script-src")
+        .or_else(|| directives.get("default-src"));
+    if effective_script.is_some_and(|list| {
+        has_keyword(list, csp_parse::Keyword::UnsafeInline) && !has_nonce_or_hash(list)
+    }) {
         issues.push(csp_issue(
             SecurityIssueKind::CspUnsafeInlineScript,
             SecurityIssueValues::default(),
             Severity::High,
         ));
     }
-    if effective_script.contains(&"'unsafe-eval'") {
+    if effective_script.is_some_and(|list| has_keyword(list, csp_parse::Keyword::UnsafeEval)) {
         issues.push(csp_issue(
             SecurityIssueKind::CspUnsafeEvalScript,
             SecurityIssueValues::default(),
             Severity::High,
         ));
     }
-    if has_wildcard_source(effective_script) {
+    if effective_script.is_some_and(has_wildcard_source) {
         issues.push(csp_issue(
             SecurityIssueKind::CspWildcardScriptSource,
             SecurityIssueValues::default(),
@@ -1095,10 +1126,12 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
         ));
     }
 
-    let effective_style = directive_values(&directives, "style-src")
-        .or_else(|| directive_values(&directives, "default-src"))
-        .unwrap_or_default();
-    if effective_style.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_style) {
+    let effective_style = directives
+        .get("style-src")
+        .or_else(|| directives.get("default-src"));
+    if effective_style.is_some_and(|list| {
+        has_keyword(list, csp_parse::Keyword::UnsafeInline) && !has_nonce_or_hash(list)
+    }) {
         issues.push(csp_issue(
             SecurityIssueKind::CspUnsafeInlineStyle,
             SecurityIssueValues::default(),
@@ -1106,14 +1139,7 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
         ));
     }
 
-    if has_wildcard_source(
-        directives
-            .values()
-            .flatten()
-            .copied()
-            .collect::<Vec<_>>()
-            .as_slice(),
-    ) {
+    if directives.values().any(has_wildcard_source) {
         issues.push(csp_issue(
             SecurityIssueKind::CspWildcardSource,
             SecurityIssueValues::default(),
@@ -1122,15 +1148,18 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
     }
 
     for directive in CSP_REQUIRED_DIRECTIVES {
-        let severity = Severity::Medium;
-        if !directives.contains_key(directive) {
+        if !policy
+            .directives
+            .iter()
+            .any(|d| d.name.eq_ignore_ascii_case(directive))
+        {
             issues.push(csp_issue(
                 SecurityIssueKind::CspMissingDirective,
                 SecurityIssueValues {
                     csp_directive: Some(directive.to_string()),
                     ..Default::default()
                 },
-                severity,
+                Severity::Medium,
             ));
         }
     }
@@ -1188,40 +1217,62 @@ fn csp_issue(
     )
 }
 
-fn parse_csp_directives(policy: &str) -> BTreeMap<String, Vec<&str>> {
+/// The source-list directives of one policy, by lower-cased name. A
+/// repeated directive is ignored after its first occurrence (CSP3 §2.2.1).
+fn csp_directives(policy: &csp_parse::Policy) -> BTreeMap<String, csp_parse::SourceList> {
     let mut directives = BTreeMap::new();
-    for directive in policy.split(';') {
-        let mut parts = directive.split_whitespace();
-        let Some(name) = parts.next() else {
-            continue;
+    for directive in &policy.directives {
+        let list = match directive.value() {
+            csp_parse::DirectiveValue::SourceList(list)
+            | csp_parse::DirectiveValue::AncestorSourceList(list) => list,
+            _ => continue,
         };
-        directives.insert(name.to_ascii_lowercase(), parts.collect());
+        directives
+            .entry(directive.name.to_ascii_lowercase())
+            .or_insert(list);
     }
     directives
 }
 
-fn directive_values<'a>(
-    directives: &'a BTreeMap<String, Vec<&'a str>>,
-    name: &str,
-) -> Option<&'a [&'a str]> {
-    directives.get(name).map(Vec::as_slice)
+fn source_expressions(
+    list: &csp_parse::SourceList,
+) -> impl Iterator<Item = &csp_parse::SourceExpression> {
+    let entries: &[csp_parse::SourceListEntry] = match list {
+        csp_parse::SourceList::Sources(entries) => entries,
+        _ => &[],
+    };
+    entries.iter().filter_map(|entry| entry.expression.as_ref())
 }
 
-fn has_nonce_or_hash(values: &[&str]) -> bool {
-    values.iter().any(|value| {
-        value.starts_with("'nonce-")
-            || value.starts_with("'sha256-")
-            || value.starts_with("'sha384-")
-            || value.starts_with("'sha512-")
+fn has_keyword(list: &csp_parse::SourceList, keyword: csp_parse::Keyword) -> bool {
+    source_expressions(list)
+        .any(|e| matches!(e, csp_parse::SourceExpression::Keyword(k) if *k == keyword))
+}
+
+fn has_nonce_or_hash(list: &csp_parse::SourceList) -> bool {
+    source_expressions(list).any(|e| {
+        matches!(
+            e,
+            csp_parse::SourceExpression::Nonce(_) | csp_parse::SourceExpression::Hash(_)
+        )
     })
 }
 
-fn has_wildcard_source(values: &[&str]) -> bool {
-    values.iter().any(|value| {
-        *value == "*"
-            || value.starts_with("*.")
-            || value.starts_with("https://*")
-            || value.starts_with("http://*")
+/// `*`, `*.example.com` and `https://*` alike: any host source whose host
+/// part is a wildcard.
+fn has_wildcard_source(list: &csp_parse::SourceList) -> bool {
+    source_expressions(list).any(|e| {
+        matches!(
+            e,
+            csp_parse::SourceExpression::Host(csp_parse::HostSource {
+                host: csp_parse::HostPart::AnyHost
+                    | csp_parse::HostPart::Named {
+                        wildcard_prefix: true,
+                        ..
+                    },
+                ..
+            })
+        )
     })
 }
 
@@ -1925,6 +1976,49 @@ mod tests {
         );
 
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn csp_policy_list_counts_a_weakness_only_when_every_policy_has_it() {
+        // #723: two enforced policies; the second forbids inline script and
+        // sets object-src, so neither weakness reaches the page.
+        let issues = collect_csp_quality_issues(
+            "script-src 'unsafe-inline' 'unsafe-eval'; base-uri 'self', \
+             script-src 'self' 'unsafe-eval'; object-src 'none'",
+        );
+        let types: Vec<&str> = issues.iter().map(|i| i.issue_type.as_str()).collect();
+        assert!(!types.contains(&"unsafe_inline_script"), "{types:?}");
+        assert!(!types.contains(&"missing_object-src"), "{types:?}");
+        assert!(!types.contains(&"missing_base-uri"), "{types:?}");
+        assert!(types.contains(&"unsafe_eval_script"), "{types:?}");
+        assert!(types.contains(&"missing_frame-ancestors"), "{types:?}");
+    }
+
+    #[test]
+    fn csp_repeated_directive_keeps_its_first_value() {
+        // CSP3: a repeated directive is ignored after its first occurrence.
+        let issues = collect_csp_quality_issues(
+            "script-src 'self'; SCRIPT-SRC 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn csp_headers_are_joined_into_one_policy_list() {
+        let mut headers = HeaderMap::new();
+        headers.append(
+            "content-security-policy",
+            "script-src 'unsafe-inline'".parse().unwrap(),
+        );
+        headers.append(
+            "content-security-policy",
+            "object-src 'none'".parse().unwrap(),
+        );
+        let csp = extract_security_headers(&headers).content_security_policy;
+        assert_eq!(
+            csp.as_deref(),
+            Some("script-src 'unsafe-inline', object-src 'none'")
+        );
     }
 
     #[test]

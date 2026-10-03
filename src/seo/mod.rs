@@ -169,6 +169,19 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     Ok(analysis)
 }
 
+/// Recomputes the SEO score after the heading issues were replaced by the
+/// shared findings (#724).
+pub(crate) fn rescore(seo: &mut SeoAnalysis) {
+    seo.score = calculate_seo_score(
+        &seo.meta,
+        &seo.meta_issues,
+        &seo.headings,
+        &seo.social,
+        &seo.technical,
+        seo.image_efficiency.as_ref(),
+    );
+}
+
 fn calculate_seo_score(
     meta: &MetaTags,
     meta_issues: &[MetaValidation],

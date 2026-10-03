@@ -14,7 +14,7 @@ mod dom;
 mod issues;
 mod probes;
 
-use dom::{run_dom_inspection, run_local_html_validation};
+use dom::run_dom_inspection;
 pub use issues::collect_issues;
 use probes::run_http_probes;
 
@@ -82,7 +82,9 @@ pub struct PageHealthAnalysis {
     pub nested_interactive_count: u32,
     /// Structured list of HTML validation findings
     pub html_issues: Vec<HtmlValidationIssue>,
-    /// Status of the local HTML5 validation: "executed", "skipped", or "failed"
+    /// Status of HTML5 validation in the SEO view. `"delegated"`: it runs in
+    /// the HTML conformance module (`html_conform`, #724). `"executed"`,
+    /// `"skipped"` and `"failed"` come from reports written before that.
     pub html_validator_status: String,
     /// Additional detail about validator execution or skip reason. Canonical
     /// English; for `"executed"` the PDF re-derives it via
@@ -311,6 +313,8 @@ pub enum HtmlValidationKind {
     TablesWithoutHeaders,
     EmptyHeadings,
     NestedInteractive,
+    /// No longer produced: html5ever parse errors of the serialized live DOM
+    /// were a subset of `html_conform` (#724). Kept so stored reports load.
     ParseErrors,
 }
 
@@ -398,7 +402,20 @@ pub fn html_validation_detail_text(
     }
 }
 
-/// Detail of an executed local HTML validation — the only source of this text.
+/// Detail of the SEO view's HTML validation: it is part of the HTML
+/// conformance check (#724) — the only source of this text.
+pub fn html_validator_delegated_text(en: bool) -> &'static str {
+    if en {
+        "HTML5 validation is part of the HTML conformance check (html-conform), \
+         enabled with --full or --html-conform"
+    } else {
+        "Die HTML5-Validierung ist Teil der HTML-Konformitätsprüfung (html-conform), \
+         aktiv mit --full oder --html-conform"
+    }
+}
+
+/// Detail of an executed local HTML validation, as reports written before
+/// #724 carry it — the only source of this text.
 pub fn html_validator_executed_text(en: bool) -> &'static str {
     if en {
         "HTML5 validation run locally via html5ever"
@@ -494,7 +511,8 @@ pub struct PageHealthIssue {
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
 pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
     let mut analysis = PageHealthAnalysis {
-        html_validator_status: "skipped".to_string(),
+        html_validator_status: "delegated".to_string(),
+        html_validator_detail: Some(html_validator_delegated_text(true).to_string()),
         ..Default::default()
     };
 
@@ -508,13 +526,6 @@ pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAna
 
     // HTTP probes (reqwest, concurrent)
     run_http_probes(url, &mut analysis).await;
-
-    // Local HTML5 validation via html5ever (best effort)
-    if let Err(e) = run_local_html_validation(page, url, &mut analysis).await {
-        analysis.html_validator_status = "failed".to_string();
-        analysis.html_validator_detail = Some(e.to_string());
-        warn!("Local HTML validation failed: {}", e);
-    }
 
     // Aggregate issues — the stored report (and thus JSON) is always canonical
     // English; the PDF re-derives localized issues at presentation time (#406).
@@ -543,7 +554,7 @@ fn analyze_url(url: &str, a: &mut PageHealthAnalysis) {
 
 #[cfg(test)]
 mod tests {
-    use super::dom::{build_html_issues, validate_html_locally};
+    use super::dom::build_html_issues;
     use super::probes::{
         document_timing_indicates_compression, expected_content_type_substring,
         is_cache_policy_efficient, is_static_cache_candidate, looks_like_custom_404_page,
@@ -1068,17 +1079,5 @@ mod tests {
             analysis.html_validator_detail.as_deref(),
             Some(html_validator_executed_text(true))
         );
-    }
-
-    #[test]
-    fn html5ever_parse_errors_are_structured_findings() {
-        let issues = validate_html_locally("<!doctype html><html><head><p></head></html>");
-
-        assert!(issues.iter().any(|issue| {
-            issue.kind == HtmlValidationKind::ParseErrors
-                && issue.count > 0
-                && issue.severity == "high"
-                && !issue.detail.is_empty()
-        }));
     }
 }

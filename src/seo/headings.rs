@@ -1,6 +1,9 @@
 //! SEO heading structure analysis
 //!
-//! Analyzes H1-H6 heading hierarchy for SEO best practices.
+//! Collects the H1-H6 headings for the SEO view. The structural checks
+//! (missing/multiple H1, skipped level, empty heading) are the shared
+//! `headings/*` rules from a11y-rules, read from the accessibility results
+//! instead of evaluated a second time (#724); long headings stay an SEO rule.
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -63,7 +66,18 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     let js_code = r#"
     (() => {
-        const headingEls = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+        // Headings in open shadow roots count too, in the composed tree's
+        // order (a shadow root's content right after its host): the shared
+        // `headings/*` rules read that tree, and search engines index
+        // rendered shadow DOM content (#724). Closed roots stay out of reach.
+        const headingEls = [];
+        const collect = (root) => {
+            for (const el of root.querySelectorAll('*')) {
+                if (/^H[1-6]$/.test(el.tagName)) headingEls.push(el);
+                if (el.shadowRoot) collect(el.shadowRoot);
+            }
+        };
+        collect(document);
         const countWords = (s) => {
             const t = s.trim();
             return t.length ? t.split(/\s+/).length : 0;
@@ -85,21 +99,25 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
             // heading (or end of the content area for the last heading).
             let word_count_after = 0;
             try {
+                // A range cannot cross a shadow boundary: it ends at the next
+                // heading of the same tree, else at the end of that tree.
                 const range = document.createRange();
                 range.setStartAfter(h);
-                const next = headingEls[i + 1];
+                const root = h.getRootNode();
+                const next = headingEls.slice(i + 1).find(n => n.getRootNode() === root);
+                const container = root === document ? document.body : root;
                 if (next) {
                     range.setEndBefore(next);
-                } else if (document.body.lastChild) {
-                    range.setEndAfter(document.body.lastChild);
+                } else if (container.lastChild) {
+                    range.setEndAfter(container.lastChild);
                 } else {
-                    range.setEnd(document.body, 0);
+                    range.setEnd(container, 0);
                 }
                 const frag = range.cloneContents();
-                const container = document.createElement('div');
-                container.appendChild(frag);
-                container.querySelectorAll('script, style, noscript').forEach(e => e.remove());
-                word_count_after = countWords(container.textContent || '');
+                const holder = document.createElement('div');
+                holder.appendChild(frag);
+                holder.querySelectorAll('script, style, noscript').forEach(e => e.remove());
+                word_count_after = countWords(holder.textContent || '');
             } catch (e) {
                 word_count_after = 0;
             }
@@ -128,54 +146,11 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     let h1_count = h1_headings.len();
     let h1_text = h1_headings.first().map(|h| h.text.clone());
 
+    // Missing and multiple H1, skipped levels and empty headings come from
+    // the shared `headings/*` rules once the accessibility results exist
+    // (`apply_shared_findings`, #724). Long headings are an SEO rule of
+    // their own.
     let mut issues = Vec::new();
-
-    // Check for missing H1
-    if h1_count == 0 {
-        issues.push(HeadingIssue {
-            issue_type: "missing_h1".to_string(),
-            message: "Page is missing an H1 heading".to_string(),
-            severity: Severity::High,
-        });
-    }
-
-    // Check for multiple H1s
-    if h1_count > 1 {
-        issues.push(HeadingIssue {
-            issue_type: "multiple_h1".to_string(),
-            message: format!("Page has {} H1 headings (should have exactly 1)", h1_count),
-            severity: Severity::Medium,
-        });
-    }
-
-    // Check for skipped heading levels
-    let mut prev_level = 0u8;
-    for heading in &headings {
-        if prev_level > 0 && heading.level > prev_level + 1 {
-            issues.push(HeadingIssue {
-                issue_type: "skipped_level".to_string(),
-                message: format!(
-                    "Heading level skipped: H{} to H{} (\"{}\")",
-                    prev_level,
-                    heading.level,
-                    truncate_url(&heading.text, 40)
-                ),
-                severity: Severity::Medium,
-            });
-        }
-        prev_level = heading.level;
-    }
-
-    // Check for empty headings
-    for heading in &headings {
-        if heading.text.is_empty() {
-            issues.push(HeadingIssue {
-                issue_type: "empty_heading".to_string(),
-                message: format!("Empty H{} heading found", heading.level),
-                severity: Severity::High,
-            });
-        }
-    }
 
     // Check for very long headings
     for heading in &headings {
@@ -217,9 +192,124 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     }
 }
 
+/// Shared rule id → SEO heading issue type and the SEO weight of it.
+const SHARED_HEADING_ISSUES: [(&str, &str, Severity); 4] = [
+    ("headings/h1-missing", "missing_h1", Severity::High),
+    ("headings/h1-multiple", "multiple_h1", Severity::Medium),
+    ("headings/skip-level", "skipped_level", Severity::Medium),
+    ("headings/empty", "empty_heading", Severity::High),
+];
+
+/// Puts the shared `headings/*` findings (violations and review notes, as
+/// the report shows them after exclusions) in front of the SEO-only issues.
+/// A finding reported in both viewport passes counts once.
+pub(crate) fn apply_shared_findings(
+    structure: &mut HeadingStructure,
+    results: &crate::wcag::WcagResults,
+) {
+    let mut seen = std::collections::HashSet::new();
+    let mut shared = Vec::new();
+    for (rule_id, issue_type, severity) in SHARED_HEADING_ISSUES {
+        for finding in results.violations.iter().chain(&results.warnings) {
+            if finding.rule_id.as_deref() != Some(rule_id) {
+                continue;
+            }
+            let location = finding
+                .selector
+                .clone()
+                .unwrap_or_else(|| finding.node_id.clone());
+            if !seen.insert((rule_id, location, finding.message.clone())) {
+                continue;
+            }
+            shared.push(HeadingIssue {
+                issue_type: issue_type.to_string(),
+                message: finding.message.clone(),
+                severity,
+            });
+        }
+    }
+    let own = std::mem::take(&mut structure.issues)
+        .into_iter()
+        .filter(|i| {
+            !SHARED_HEADING_ISSUES
+                .iter()
+                .any(|(_, t, _)| *t == i.issue_type)
+        });
+    structure.issues = shared.into_iter().chain(own).collect();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_heading_findings_replace_the_structural_seo_checks() {
+        // #724: missing H1 and a skipped level come from `headings/*`, each
+        // once even when both viewport passes reported them; the long
+        // heading stays an SEO issue; other rules are ignored.
+        let finding = |rule: &str, selector: &str, message: &str| {
+            crate::wcag::Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                crate::cli::WcagLevel::A,
+                crate::wcag::types::Severity::Medium,
+                message,
+                selector,
+            )
+            .with_selector(selector)
+            .with_rule_id(rule)
+        };
+        let mut results = crate::wcag::WcagResults::new();
+        results.violations = vec![
+            finding(
+                "headings/skip-level",
+                "h4#a",
+                "Heading level skips from h2 to h4",
+            ),
+            finding(
+                "headings/skip-level",
+                "h4#a",
+                "Heading level skips from h2 to h4",
+            ),
+            finding("headings/h1-missing", "html", "The page has no h1"),
+            finding("images/alt-missing", "img", "Image without alt"),
+        ];
+        let long = "x".repeat(120);
+        let mut structure = check_headings_structure(vec![
+            HeadingInfo {
+                level: 2,
+                text: long.clone(),
+                length: long.len(),
+                is_question: false,
+                in_faq_context: false,
+                word_count_after: 0,
+            },
+            HeadingInfo {
+                level: 4,
+                text: "Deep".into(),
+                length: 4,
+                is_question: false,
+                in_faq_context: false,
+                word_count_after: 0,
+            },
+        ]);
+        // Before the shared findings arrive only the SEO rule has fired.
+        let types = |s: &HeadingStructure| -> Vec<String> {
+            s.issues.iter().map(|i| i.issue_type.clone()).collect()
+        };
+        assert_eq!(types(&structure), ["long_heading"]);
+
+        apply_shared_findings(&mut structure, &results);
+        assert_eq!(
+            types(&structure),
+            ["missing_h1", "skipped_level", "long_heading"]
+        );
+        assert_eq!(structure.issues[0].severity, Severity::High);
+        assert_eq!(
+            structure.issues[1].message,
+            "Heading level skips from h2 to h4"
+        );
+    }
 
     #[test]
     fn test_heading_info() {
