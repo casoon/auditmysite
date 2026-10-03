@@ -163,10 +163,16 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         axe_ids.contains("landmarks/main-missing"),
         "missing main landmark fixture should trigger landmarks/main-missing; got {axe_ids:?}"
     );
-    assert!(
-        axe_ids.contains("landmark-unique"),
-        "duplicate navigation names should trigger landmark-unique; got {axe_ids:?}"
-    );
+    // Since #694 `landmarks/not-unique` is a review hint (WAI-ARIA asks for
+    // distinct names only as SHOULD): it lands in the warnings, not in the
+    // normalized findings.
+    let review_ids: Vec<_> = report
+        .accessibility
+        .wcag_results
+        .warnings
+        .iter()
+        .filter_map(|v| v.rule_id.as_deref())
+        .collect();
     // One occurrence per defect: the missing main once, each of the two
     // same-named navs once (the AX and a former DOM check both reported them).
     let count = |id: &str| {
@@ -191,9 +197,12 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         "missing title must not be reported twice; raw {raw_rule_ids:?}"
     );
     assert_eq!(
-        count("landmark-unique"),
+        review_ids
+            .iter()
+            .filter(|id| **id == "landmarks/not-unique")
+            .count(),
         2,
-        "each duplicate nav must be reported once; raw {raw_rule_ids:?}"
+        "each duplicate nav must be reported once; review {review_ids:?}"
     );
     assert!(
         axe_ids.contains("keyboard/hidden-focusable"),
