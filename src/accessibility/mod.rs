@@ -26,7 +26,7 @@ pub use accname_diff::{
 };
 pub use dom_document::{
     build_document, fetch_dom_capture, fetch_dom_document, fetch_dom_document_with_layout,
-    CdpDocument, DomCapture, LayoutStyles, RenderedCdpDocument,
+    fetch_stylesheets, CdpDocument, DomCapture, LayoutStyles, RenderedCdpDocument,
 };
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;

@@ -3,6 +3,6 @@
   "expectations": [
     { "rule_id": "redundant-role", "selector": "ul#plain-list", "verdict": "pass" },
     { "rule_id": "redundant-role", "selector": "ol#numbered-list", "verdict": "violation" },
-    { "rule_id": "redundant-role", "selector": "button#send-button", "verdict": "violation" }
+    { "rule_id": "aria/role-redundant", "selector": "button#send-button", "verdict": "violation" }
   ]
 }

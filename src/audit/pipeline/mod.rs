@@ -1409,6 +1409,16 @@ async fn run_rules(
     //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
     let capture = crate::accessibility::fetch_dom_capture(page).await;
+    // Die Stylesheets für die geteilten Regeln über Stylesheets (Fokusrahmen,
+    // reduzierte Bewegung, Ausrichtung, Blocksatz/Zeilenabstand). Ohne sie
+    // stehen diese als `CapabilityMissing` im Bericht, statt zu bestehen.
+    let sheets = match crate::accessibility::fetch_stylesheets(page).await {
+        Ok(sheets) => Some(sheets),
+        Err(e) => {
+            warn!("Stylesheets fuer die geteilten Regeln nicht lesbar: {e}");
+            None
+        }
+    };
     let doc = capture
         .as_ref()
         .map_err(|e| e.to_string())
@@ -1425,10 +1435,8 @@ async fn run_rules(
     // superseded `<svg>` findings ride the same mechanism so the outcome
     // does not count them either, but they are no audit exclusion and are
     // dropped from that list again.
-    let counted = exclusion.without_excluded(&snapshot.ax_tree);
     let (mut wcag_results, excluded) = wcag::check_all_excluding(
         &snapshot.ax_tree,
-        counted.as_ref().unwrap_or(&snapshot.ax_tree),
         config.wcag_level,
         &config.rule_filter,
         &|v| superseded(v) || exclusion.excludes_located(v, &snapshot.ax_tree),
@@ -1439,7 +1447,27 @@ async fn run_rules(
     }
     match doc {
         Ok(doc) => {
-            let mut shared = wcag::shared::run_shared_rules(&doc, &config.lang);
+            let mut shared = match &sheets {
+                Some(sheets) => {
+                    wcag::shared::run_shared_rules_with_stylesheets(&doc, &config.lang, sheets)
+                }
+                None => wcag::shared::run_shared_rules(&doc, &config.lang),
+            };
+            // Was Landmarks der ganzen Seite zaehlt, liest das Dokument ohne
+            // die ausgeschlossenen Teilbaeume: Die Musterseite darin machte
+            // sonst die banner-Landmark der Seite zum Duplikat (#726).
+            let counted_doc = capture.as_ref().ok().and_then(|c| {
+                exclusion
+                    .without_excluded_dom(&c.root)
+                    .and_then(|root| c.document_at(&root, &snapshot.ax_tree).ok())
+            });
+            if let Some(counted_doc) = counted_doc {
+                wcag::shared::adopt_page_counts(
+                    &mut shared,
+                    wcag::shared::run_shared_rules(&counted_doc, &config.lang),
+                );
+            }
+            wcag::shared::retain_up_to_level(&mut shared, config.wcag_level);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }

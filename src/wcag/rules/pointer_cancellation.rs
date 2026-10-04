@@ -2,6 +2,13 @@
 //!
 //! For functionality that can be operated using a single pointer, at least one
 //! of the following is true: no down-event, abort or undo, up reversal, or essential.
+//!
+//! Only the page-wide `UNTESTED` note is left (#695, B5). The static half —
+//! inline `onmousedown`/`ontouchstart` on controls — was not ported to
+//! `a11y-rules` for lack of evidence (no hit on 48 real pages or in the
+//! corpus) and is deleted here. The note stays until the shared manual
+//! checklist (casoon/barrierlab#39) has an item for 2.5.2: whether an action
+//! fires on the down-event only shows under a real pointer.
 
 use chromiumoxide::Page;
 
@@ -19,23 +26,8 @@ pub(super) const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag252", "cat.sensory-and-visual-cues"],
 };
 
-const POINTER_CANCELLATION_JS: &str = r#"
-(function() {
-  var found = [];
-  var interactives = document.querySelectorAll('button, a[href], [role="button"], input[type="submit"], input[type="button"]');
-  for (var i = 0; i < Math.min(interactives.length, 100); i++) {
-    var el = interactives[i];
-    if (el.hasAttribute('onmousedown') || el.hasAttribute('ontouchstart')) {
-      var desc = el.getAttribute('aria-label') || el.textContent.trim().substring(0, 40) || el.tagName.toLowerCase();
-      found.push(desc);
-    }
-  }
-  return { found: found };
-})()
-"#;
-
-pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation> {
-    let not_testable = Violation::new(
+pub async fn check_pointer_cancellation_with_page(_page: &Page) -> Vec<Violation> {
+    vec![Violation::new(
         POINTER_CANCELLATION_RULE.id,
         POINTER_CANCELLATION_RULE.name,
         POINTER_CANCELLATION_RULE.level,
@@ -50,53 +42,5 @@ pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation>
     )
     .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
     .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-    .with_kind(Outcome::Untested);
-
-    let result = match page.evaluate(POINTER_CANCELLATION_JS).await {
-        Ok(r) => r,
-        Err(_) => return vec![not_testable],
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => return vec![not_testable],
-    };
-
-    let found: Vec<String> = val
-        .get("found")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let mut findings = vec![not_testable];
-
-    if !found.is_empty() {
-        findings.push(
-            Violation::new(
-                POINTER_CANCELLATION_RULE.id,
-                POINTER_CANCELLATION_RULE.name,
-                POINTER_CANCELLATION_RULE.level,
-                Severity::Medium,
-                format!(
-                    "Interactive elements with onmousedown/ontouchstart inline handlers found: \
-                     '{}'. These may trigger actions on pointer down, preventing cancellation.",
-                    found.join("', '")
-                ),
-                "button, a[href]",
-            )
-            .with_fix(
-                "Use onclick or onmouseup/ontouchend instead, or ensure the action can \
-                 be cancelled by moving the pointer off the element before release.",
-            )
-            .with_rule_id(POINTER_CANCELLATION_RULE.axe_id)
-            .with_help_url(POINTER_CANCELLATION_RULE.help_url)
-            .with_kind(Outcome::Review),
-        );
-    }
-
-    findings
+    .with_kind(Outcome::Untested)]
 }

@@ -5,10 +5,10 @@
       "url": "https://www.gov.uk/",
       "expected": {
         "min": 75,
-        "max": 92
+        "max": 95
       },
-      "reviewed": "2026-09-27",
-      "notes": "Only medium/low findings, axe clean; own statement: partially compliant."
+      "reviewed": "2026-10-01",
+      "notes": "Only medium/low findings, axe clean; own statement: partially compliant. B4 (#694): content outside landmarks is one finding per outermost block (like axe region) instead of one per text node; 92 -> 93."
     },
     {
       "url": "https://www.gov.ie/",
@@ -41,10 +41,10 @@
       "url": "https://www.bundesregierung.de/",
       "expected": {
         "min": 35,
-        "max": 72
+        "max": 76
       },
       "reviewed": "2026-10-01",
-      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point. B2 (#692): three label-in-name false positives at CSS-hidden text (button#navigation \"schließen\", two toggles outside the reading order) are gone, and the cookie dialog without aria-modal is a review (dialog/modal-unmarked); 61 -> 68."
+      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point. B2 (#692): three label-in-name false positives at CSS-hidden text (button#navigation \"schließen\", two toggles outside the reading order) are gone, and the cookie dialog without aria-modal is a review (dialog/modal-unmarked); 61 -> 68. B4 (#694): landmark-unique is a review, dialog-no-focusable no longer fires on the cookie dialog whose buttons sit deeper than direct children, and content-outside counts per block; 72 -> 73."
     },
     {
       "url": "https://www.dm.de/",

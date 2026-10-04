@@ -14,11 +14,8 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_bypass_blocks, check_focus_visible, check_keyboard,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_unique, check_link_purpose,
-    check_media_rules, check_section_headings, check_table_extended, check_text_alternatives,
+    check_accessible_name, check_focus_visible, check_keyboard, check_link_purpose,
+    check_text_alternatives,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -73,37 +70,12 @@ macro_rules! rule_smoke_test {
 
 rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
-rule_smoke_test!(smoke_check_bypass_blocks, check_bypass_blocks);
 rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
-rule_smoke_test!(smoke_check_media_rules, check_media_rules);
-rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
-rule_smoke_test!(
-    smoke_check_landmark_banner_is_top_level,
-    check_landmark_banner_is_top_level
-);
-rule_smoke_test!(
-    smoke_check_landmark_contentinfo_is_top_level,
-    check_landmark_contentinfo_is_top_level
-);
-rule_smoke_test!(
-    smoke_check_landmark_main_is_top_level,
-    check_landmark_main_is_top_level
-);
-rule_smoke_test!(
-    smoke_check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_banner
-);
-rule_smoke_test!(
-    smoke_check_landmark_no_duplicate_contentinfo,
-    check_landmark_no_duplicate_contentinfo
-);
-rule_smoke_test!(smoke_check_table_extended, check_table_extended);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
 // here (this file is browser-free/AXTree-only); it has its own unit tests.
 rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
-rule_smoke_test!(smoke_check_section_headings, check_section_headings);
 
 // ---------------------------------------------------------------------------
 // RuleFilterConfig — engine filtering logic
@@ -187,10 +159,15 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
 
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
-    // Ein Baum, der ohne Filter zwei Regeln verletzt: 1.1.1 (Bild ohne
-    // Alternativtext) und bypass (keine einzige Ueberschrift).
+    // Ein Baum, auf den ohne Filter zwei Regeln anschlagen: 1.1.1 (Bild ohne
+    // Alternativtext) und `keyboard` (der seitenweite `UNTESTED`-Vermerk zur
+    // Tastaturfalle, `keyboard-trap`).
     //
-    // Davor war das zweite Beispiel landmark-main-present; die fehlende
+    // Davor war das zweite Beispiel bypass (keine einzige Ueberschrift); die
+    // Seite ohne Ueberschriften laeuft seit #694 als `headings/none` im
+    // geteilten Bestand.
+    //
+    // Davor war es landmark-main-present; die fehlende
     // main-Landmark laeuft seit #690 als `landmarks/main-missing` im
     // geteilten Bestand.
     //
@@ -248,8 +225,8 @@ fn test_enabled_only_runs_exactly_those_rules() {
     ]);
 
     // Ohne Filter fallen beide an. Ohne diese Haelfte waere die Zusicherung
-    // unten tautologisch: Sie wuerde auch halten, wenn bypass hier gar nicht
-    // anschlaegt.
+    // unten tautologisch: Sie wuerde auch halten, wenn `keyboard` hier gar
+    // nicht anschlaegt.
     let ungefiltert = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
     assert!(
         ungefiltert.violations.iter().any(|v| v.rule == "1.1.1"),
@@ -257,10 +234,10 @@ fn test_enabled_only_runs_exactly_those_rules() {
     );
     assert!(
         ungefiltert
-            .violations
+            .not_testables
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("bypass")),
-        "bypass muss ohne Filter anfallen"
+            .any(|v| v.rule_id.as_deref() == Some("keyboard-trap")),
+        "keyboard-trap muss ohne Filter anfallen"
     );
 
     // Mit enabled_only bleibt genau die eine Regel uebrig.
@@ -276,10 +253,10 @@ fn test_enabled_only_runs_exactly_those_rules() {
     );
     assert!(
         !results
-            .violations
+            .not_testables
             .iter()
-            .any(|v| v.rule_id.as_deref() == Some("bypass")),
-        "bypass steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
+            .any(|v| v.rule_id.as_deref() == Some("keyboard-trap")),
+        "keyboard steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
     );
 }
 
@@ -420,8 +397,9 @@ const REAL_CDP_PROPERTIES: &[&str] = &[
     //   attribute (the root cause of #QA-001's false negative).
     // - "htmlTag": confirmed live via summary_name.rs (<details>/<summary>,
     //   since #692 a shared rule) and instructions.rs (<fieldset>, since #693
-    //   a shared rule); read today by landmark_granular.rs.
-    // - "url": a link's href target (landmark_granular.rs / region.rs).
+    //   a shared rule); read by landmark_granular.rs until #694.
+    // - "url": a link's href target (landmark_granular.rs / region.rs until
+    //   #694).
     "language",
     "htmlTag",
     "url",
@@ -649,10 +627,10 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
     }
 
     // Sanity floor, not a pin: the count shrinks as rules move to the shared
-    // `a11y-rules` bestand (#693 left 77).
+    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49, area/audio 47, stylesheets 45).
     assert!(
-        all_entries.len() >= 70,
-        "Expected ~77 RuleMetadata declarations across src/wcag/rules/, found {}. \
+        all_entries.len() >= 40,
+        "Expected ~45 RuleMetadata declarations across src/wcag/rules/, found {}. \
          The parser in extract_rule_metadata_entries may have broken (field \
          layout changed?) — verify before trusting this test's other assertions.",
         all_entries.len()

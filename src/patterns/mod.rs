@@ -3,7 +3,12 @@
 //! Detects common patterns (MainNavigation, DisclosureMenu, ModalDialog,
 //! TabList, SkipLink, Accordion) and produces:
 //! - `recognized`: positive signals when the pattern is well-formed
-//! - `violations`: WCAG findings when the pattern is broken
+//! - `journey_candidates`: triggers for the interactive journeys
+//!
+//! WCAG-Befunde über die Struktur der Muster laufen seit #692 und #694 im
+//! geteilten Bestand (`dialog/*`, `aria/tab-selected-missing`,
+//! `patterns/accordion-controls-missing`, siehe `wcag::shared`); `violations`
+//! bleibt für die Pipeline stehen, die Erkennung füllt es nicht mehr.
 //!
 //! Patterns are inferred from AXTree role/name/property structure, not from
 //! runtime interaction. Anything requiring a behavioral test (e.g. actual
@@ -56,7 +61,8 @@ pub(crate) const PURCHASE_FINAL_HINTS: &[&str] = &[
 pub struct PatternAnalysis {
     /// Patterns that were recognized in the page (positive signals).
     pub recognized: Vec<RecognizedPattern>,
-    /// Violations emitted when a pattern was found but broken.
+    /// Violations emitted when a pattern was found but broken. Seit #694
+    /// leer: Die Befunde kommen aus dem geteilten Bestand.
     pub violations: Vec<Violation>,
     /// Candidates handed to the Accessibility-Journey-Layer for interactive
     /// testing. Empty in Phase 1 — detectors stub `Vec::new()`. Phase 2

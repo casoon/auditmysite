@@ -107,6 +107,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.landmark_main.missing", Landmarks),
     ("a11y.landmark_main_duplicate.invalid", Landmarks),
     ("a11y.landmark_main_nested.invalid", Landmarks),
+    ("a11y.landmark_nested.invalid", Landmarks),
     ("a11y.landmark_region.missing", Landmarks),
     ("a11y.landmark_unique.invalid", Landmarks),
     // ── 1.3.1 — Formularsemantik ──
@@ -137,6 +138,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.viewport_meta.missing", Semantics),
     ("a11y.viewport_zoom.restricted", Semantics),
     ("a11y.background_audio.uncontrolled", Semantics),
+    ("a11y.audio_control.missing", Semantics),
     ("a11y.visual_presentation.weak", Semantics),
     ("a11y.reflow.missing", Semantics),
     ("a11y.non_text_contrast.weak", Semantics),
@@ -203,6 +205,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 3.1.x — Sprache ──
     ("a11y.language.missing", Semantics),
     ("a11y.language_mismatch.invalid", Semantics),
+    ("a11y.language_of_parts.unmarked", Semantics),
     ("a11y.page_language.invalid", Semantics),
     ("a11y.unusual_words.missing_definition", Semantics),
     ("a11y.abbreviations.missing", Semantics),
@@ -238,6 +241,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.summary_name.missing", Aria),
     ("a11y.tablist_tabpanel.missing", Aria),
     ("a11y.tab_selected.missing", Aria),
+    ("a11y.accordion_controls.missing", Aria),
     ("a11y.dialog_modal.missing", Aria),
     ("a11y.treeitem_name.missing", Aria),
     ("a11y.status_messages.broken", Aria),

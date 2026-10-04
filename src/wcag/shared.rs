@@ -356,7 +356,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `wcag::rules::landmark_granular` die Prüfungen `landmark-main-present`,
     // `landmark-banner-present` und `landmark-no-duplicate-main`. Die übrigen
     // granularen Prüfungen (eindeutige Namen, Verschachtelung, doppelte
-    // banner/contentinfo, Sprunglink bei Navigation) bleiben eigen.
+    // banner/contentinfo) sind seit #694 ebenfalls geteilt, siehe unten.
     //
     // Die fehlende main-Landmark meldeten bisher zwei Regeln, einmal unter
     // 2.4.1 (`landmark-one-main`) und einmal unter 1.3.1
@@ -977,7 +977,510 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url:
             "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
     },
+    // ── Landmark-, Tastatur- und Strukturregeln aus #694 (B4) ──
+    //
+    // Kriterium und Stufe wie bei den abgelösten Regeln, die Schwere setzt
+    // `a11y-rules`. Einzelheiten und alle Abweichungen im Changelog von
+    // `a11y-rules` (casoon/barrierlab#17). Die Landmark-Rolle bestimmt die
+    // geteilte Fassung aus dem Markup, nicht aus Chromes Rolle: Ein
+    // unbenanntes `<form>`/`<section>` ist keine Landmark (#727), ein
+    // `<header>`/`<footer>` in `main`, `article` oder unter `role="main"`
+    // kein banner/contentinfo (#639).
+
+    // Ersetzt `landmark-unique` aus `wcag::rules::landmark_granular`. Gewollt
+    // anders: `REVIEW` statt Verstoß -- WAI-ARIA und die APG verlangen
+    // unterscheidbare Namen nur als SHOULD. Ein `<aside>` in einem Abschnitt
+    // zählt nur mit Namen als `complementary`.
+    SharedRule {
+        id: "landmarks/not-unique",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Landmark Unique)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `landmark-banner-is-top-level`,
+    // `landmark-contentinfo-is-top-level` und `landmark-main-is-top-level`
+    // aus `landmark_granular` -- eine Kennung, die Rolle steht im Text.
+    SharedRule {
+        id: "landmarks/not-top-level",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Landmark Not Top Level)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzen `landmark-no-duplicate-banner` und
+    // `landmark-no-duplicate-contentinfo` aus `landmark_granular`. Gewollt
+    // anders: Der Befund steht wie bei `landmarks/main-duplicate` an der
+    // zweiten Landmark, nicht an der ersten.
+    SharedRule {
+        id: "landmarks/banner-duplicate",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Banner Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "landmarks/contentinfo-duplicate",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Multiple Contentinfo Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::region` (`region`). Gewollt anders: gemeldet wird
+    // das äußerste Element ohne Landmark darin, einmal je Block wie axe
+    // `region` -- nicht jeder Textknoten und jedes benannte Element einzeln.
+    // Die Befundzahl je Seite sinkt damit. Sprunglinks erkennt die geteilte
+    // Fassung wie bisher am Ziel (#642).
+    SharedRule {
+        id: "landmarks/content-outside",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Content Outside Landmarks)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::bypass_blocks` (`bypass`, „No headings found")
+    // samt der Ausnahme aus #709: hinter einem offenen Dialog `REVIEW`,
+    // niedrig. Neu: `role="heading"` zählt mit, versteckte Überschriften
+    // nicht.
+    SharedRule {
+        id: "headings/none",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Bypass Blocks (No Headings)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
+    },
+    // Ersetzt aus `wcag::rules::keyboard` `focusable-no-role`. Gewollt
+    // anders: nur die Tabfolge (`tabindex` ≥ 0) zählt -- ein `tabindex="-1"`
+    // am Ziel eines Sprunglinks erreicht niemand per Tab --, und ein
+    // benannter Bereich mit `tabindex="0"` (scrollbarer Bereich) ist kein
+    // Befund.
+    SharedRule {
+        id: "keyboard/focusable-no-role",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard (Focusable Without Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt aus `keyboard` „appears not keyboard-focusable" (`keyboard`).
+    // `REVIEW`, hoch wie bisher. Gewollt anders: Fokussierbarkeit kommt aus
+    // dem Markup statt aus Chromes `focusable`; ausgenommen sind
+    // deaktivierte Felder, native `<option>`, Elemente unter
+    // `aria-activedescendant` und Inertes. Die Tastaturfalle (2.1.2) braucht
+    // echte Bedienung und bleibt in `keyboard`.
+    SharedRule {
+        id: "keyboard/interactive-not-focusable",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard (Interactive Not Focusable)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt `dialog-no-focusable` aus `patterns::modal_dialog`. Gewollt
+    // anders: Gesucht wird in allen Nachfahren, nicht nur in den direkten
+    // Kindern, und ein geschlossenes `<dialog>` zählt nicht.
+    SharedRule {
+        id: "dialog/focusable-missing",
+        criterion: "2.4.3",
+        level: WcagLevel::A,
+        name: "Focus Order (Dialog Without Focusable Element)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
+    },
+    // Ersetzt `accordion-no-controls` aus `patterns::accordion`. Gewollt
+    // anders: `REVIEW` statt Verstoß -- WAI-ARIA verlangt `aria-controls` am
+    // Button nicht, die APG nennt es beim Disclosure-Muster optional.
+    // Ausgenommen wie bisher: zugeklappte Buttons, `<summary>` und Buttons in
+    // `navigation`/`banner`.
+    //
+    // Nicht übernommen und ersatzlos gelöscht: `accordion-trigger-not-button`
+    // (meldet an Rollen ohne `aria-expanded` schon
+    // `aria/attribute-not-allowed`, an `link`/`tab`/`treeitem` erlaubt
+    // WAI-ARIA den Zustand, fehlender Fokus ist
+    // `keyboard/interactive-not-focusable`) und `aria-expanded-required`
+    // aus `patterns::disclosure_menu` (riet ein Aufklappmenü aus dem Wort
+    // „menu"/„Menü" im Namen, ohne Norm dahinter).
+    SharedRule {
+        id: "patterns/accordion-controls-missing",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Accordion Controls)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // ── Links- und Zeigerregeln aus #695 (B5) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#18). Gewollt anders für alle drei: keine Obergrenze
+    // je Seite mehr (bisher 10 bzw. 20 Befunde).
+
+    // Ersetzt `wcag::rules::click_handlers` (`click-events-have-key-events`).
+    // Gewollt anders: Ein `<a onclick>` ohne `href` landet hier statt bei
+    // `links/used-as-button` -- ohne `href` ist es kein Link und nicht
+    // fokussierbar.
+    SharedRule {
+        id: "keyboard/click-handler-not-focusable",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Ersetzt `wcag::rules::fake_navigation_link` (`link-as-button`).
+    SharedRule {
+        id: "links/used-as-button",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::location` (`location`). Gewollt anders: `REVIEW`
+    // statt Verstoß -- 2.4.8 lässt sich auch mit Titel, Überschriften oder
+    // einer Sitemap erfüllen. AAA: läuft wie bisher nur mit `--level aaa`
+    // ([`retain_up_to_level`]).
+    //
+    // `wcag::rules::pointer_cancellation` (2.5.2) ist nicht abgelöst:
+    // `a11y-rules` hat den statischen Teil (`onmousedown`/`ontouchstart`)
+    // mangels Beleg nicht übernommen, er ist hier gelöscht. Der seitenweite
+    // `UNTESTED`-Vermerk bleibt im Host, bis die manuelle Checkliste
+    // (casoon/barrierlab#39) einen Punkt für 2.5.2 hat.
+    SharedRule {
+        id: "navigation/location-missing",
+        criterion: "2.4.8",
+        level: WcagLevel::AAA,
+        name: "Location",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/location.html",
+    },
+    // ── Bild- und Medienregeln aus #696 (B6) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#19). Im Host bleiben, weil nur der Browser es weiß:
+    // ob eine `<track>`-Datei lädt (`video-caption`, Netzabruf) und welche
+    // Rahmen fremd sind (`frame-tested`), dazu der Hinweis `media-alt`
+    // (1.2.8) -- `a11y-rules` verweist dafür auf `manual/media-alternatives`,
+    // und die manuelle Checkliste führt auditmysite noch nicht.
+
+    // Ersetzen `area-alt`, `input-image-alt` und `object-alt` aus
+    // `wcag::rules::image_input_rules`. Gewollt anders: `aria-labelledby`
+    // zählt an allen dreien, `aria-label` auch an `<area>`; `<embed>` prüft
+    // `objects/alt-missing` nicht (kein Beleg). `images/area-alt-missing`
+    // erst ab a11y-rules 0.19: davor nahm die Sicht mit berechneten Stilen
+    // `<area>` heraus (UA `display: none`, Korpus `misc_content_checks`).
+    SharedRule {
+        id: "images/area-alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Area)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    SharedRule {
+        id: "images/input-alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Image Button)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    SharedRule {
+        id: "objects/alt-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Object)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `wcag::rules::server_side_image_map`.
+    SharedRule {
+        id: "images/server-side-map",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Server-side Image Map)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ersetzt `wcag::rules::background_audio` (`background-audio`, 1.4.7
+    // AAA), ab a11y-rules 0.19 (davor fehlte `<audio>` ohne `controls` in
+    // der Sicht, Korpus `media_and_visual`). Gewollt anders: `REVIEW` und
+    // 1.4.2 (Audio Control, A) statt 1.4.7 -- selbststartender Ton ist
+    // Gegenstand von 1.4.2, ob er länger als drei Sekunden läuft, steht
+    // nicht im Markup. Läuft damit schon ab Stufe A.
+    SharedRule {
+        id: "media/audio-autoplay",
+        criterion: "1.4.2",
+        level: WcagLevel::A,
+        name: "Audio Control",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
+    },
+    // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
+    // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und
+    // bleibt dabei. Gewollt anders: nur `<iframe>`; unsichtbar heißt
+    // `hidden`/`aria-hidden`, per Stil ausgeblendet (mit Layout-Stilen) oder
+    // Breite und Höhe als Attribut 0/1 -- die gerenderte Größe ≤ 1 px kennt
+    // die Regel ohne Geometrie nicht.
+    SharedRule {
+        id: "frames/name-missing",
+        criterion: "2.4.1",
+        level: WcagLevel::A,
+        name: "Frame title",
+        help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
+    },
+    // ── Tabellen-, Dokument-, Sprach- und Rollenregeln aus #697 (B7) ──
+    //
+    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
+    // (casoon/barrierlab#20). Für alle gilt: keine Obergrenze je Seite mehr
+    // (bisher 5, 10 bzw. 20 Befunde).
+    //
+    // Nicht übernommen und gelöscht: `presentation-semantic-children`
+    // (`info_relationships`) -- nach WAI-ARIA 1.2 nimmt
+    // `role="presentation"`/`"none"` nur dem Element selbst die Semantik,
+    // nicht seinen Nachfahren; die Regel hätte das APG-Menüleistenmuster
+    // (`<li role="none">` um Menülinks) als Fehler gemeldet. Den
+    // Tabellenfall meldet `tables/presentational-with-headers`. Aus
+    // `section_headings` die Gliederungslücken (meldet
+    // `headings/skip-level`) und „mehr als 10 Absätze, weniger als 3
+    // Überschriften" (kein Beleg).
+    //
+    // Im Host bleiben: aus `redundant_role` das Paar `<ul>`/`<ol>` mit
+    // `role="list"` -- ob die Rolle überflüssig ist, hängt am berechneten
+    // `list-style-type` (#644), und den liefert `a11y-dom` noch nicht
+    // (casoon/barrierlab#21); aus `timing_adjustable` die seitenweiten
+    // `UNTESTED`-Vermerke für Skript-Fristen (2.2.1) und `timeouts` (2.2.6),
+    // die `a11y-rules` der manuellen Checkliste zuweist.
+
+    // Ersetzt `th-has-data-cells` aus `wcag::rules::table_extended` samt
+    // #638, #654 und #659. Ein noch nicht dargestellter Zeilenvorrat ist
+    // `tables/data-undetermined` (`UNTESTED`), nicht `FAIL`.
+    SharedRule {
+        id: "tables/header-without-data",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Header Without Data)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    SharedRule {
+        id: "tables/data-undetermined",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Header Without Data)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `td-headers-attr` aus `table_extended`. Gewollt anders: nur an
+    // Zellen geprüft, wo HTML das Attribut definiert.
+    SharedRule {
+        id: "tables/headers-attr-invalid",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Info and Relationships (Headers Attribute)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
+    // Ersetzt `wcag::rules::language_extended` (`html-xml-lang-mismatch`).
+    SharedRule {
+        id: "document/lang-mismatch",
+        criterion: "3.1.1",
+        level: WcagLevel::A,
+        name: "Language of Page (lang/xml:lang Mismatch)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
+    },
+    // Ersetzt `wcag::rules::language_of_parts`. Gewollt anders: der innerste
+    // Textblock, ohne `<script>`/`<style>`/`<template>`; auf Seiten, die
+    // weder Deutsch noch Englisch sind, `language/part-undetermined`
+    // (`UNTESTED`) statt nichts.
+    SharedRule {
+        id: "language/part-unmarked",
+        criterion: "3.1.2",
+        level: WcagLevel::AA,
+        name: "Language of Parts",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
+    },
+    SharedRule {
+        id: "language/part-undetermined",
+        criterion: "3.1.2",
+        level: WcagLevel::AA,
+        name: "Language of Parts",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
+    },
+    // Ersetzt `wcag::rules::abbreviations`. Gewollt anders: `REVIEW` statt
+    // Verstoß, ein leeres `title` zählt als fehlend.
+    SharedRule {
+        id: "language/abbreviation-unexpanded",
+        criterion: "3.1.4",
+        level: WcagLevel::AAA,
+        name: "Abbreviations",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/abbreviations.html",
+    },
+    // Ersetzt aus `wcag::rules::timing_adjustable` die Erkennung von
+    // `<meta http-equiv="refresh">`. Gewollt anders: `0` s ist keine Frist
+    // (H76), eine Anweisung ohne Ziffern führt der Browser nicht aus.
+    SharedRule {
+        id: "timing/meta-refresh",
+        criterion: "2.2.1",
+        level: WcagLevel::A,
+        name: "Timing Adjustable",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
+    },
+    // Ersetzt die Abschnittszählung aus `wcag::rules::section_headings`
+    // (`heading-order`, 2.4.10). Gewollt anders: Artikel und benannte
+    // Abschnitte ohne eigene Überschrift statt aller Abschnitte gegen alle
+    // Überschriften; `REVIEW` statt Verstoß.
+    SharedRule {
+        id: "headings/section-without-heading",
+        criterion: "2.4.10",
+        level: WcagLevel::AAA,
+        name: "Section Headings",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/section-headings.html",
+    },
+    // Ersetzt `wcag::rules::redundant_role` bis auf `<ul>`/`<ol>` (siehe
+    // oben). `<li role="listitem">` meldet es nur in einer Liste ohne eigene
+    // Rolle.
+    SharedRule {
+        id: "aria/role-redundant",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzen `title-only-description` und `content-on-hover-focus` aus
+    // `wcag::rules::content_on_hover`. Gewollt anders: `names/title-only` ist
+    // `REVIEW` (`title` ist eine gültige Namensquelle, H65), Textfelder
+    // meldet `forms/title-only-label`; `patterns/tooltip-unreferenced` lässt
+    // auch `aria-labelledby` als Verweis gelten.
+    SharedRule {
+        id: "names/title-only",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Title Only)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "patterns/tooltip-unreferenced",
+        criterion: "1.4.13",
+        level: WcagLevel::AA,
+        name: "Content on Hover or Focus",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+    },
+    // ── Regeln über Stylesheets (a11y-rules 0.19, barrierlab#21 erster Teil,
+    // Host-Seite von #698) ──
+    //
+    // Laufen nur mit den Sheets der Seite (`run_shared_rules_with_stylesheets`,
+    // gelesen über `document.styleSheets` wie die abgelösten
+    // JavaScript-Regeln); ohne sie `NotRun::CapabilityMissing`. In Frames
+    // laufen sie nicht -- sie urteilen über die Seite, die abgelösten Regeln
+    // liefen ebenfalls nur im obersten Dokument. Abweichungen im Changelog
+    // von `a11y-rules` 0.19.0.
+
+    // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
+    // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
+    // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).
+    SharedRule {
+        id: "focus/outline-removed",
+        criterion: "2.4.7",
+        level: WcagLevel::AA,
+        name: "Focus Visible (CSS outline suppression)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
+    },
+    // Ersetzt `wcag::rules::reduced_motion` (`prefers-reduced-motion`), ab
+    // a11y-rules 0.19.1: 0.19.0 las aus Chromes serialisierter Kurzform
+    // `animation` (`2s linear 0s infinite normal none running spin`) `none`
+    // als Namen. Gewollt anders: `REVIEW` statt Verstoß; eine allein
+    // stehende `transition-duration` ist kein Übergang. AAA: nur mit
+    // `--level aaa`.
+    SharedRule {
+        id: "motion/reduced-motion-ignored",
+        criterion: "2.3.3",
+        level: WcagLevel::AAA,
+        name: "Animation from Interactions",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
+    },
+    // Ersetzt den Stylesheet-Teil von `wcag::rules::orientation`
+    // (`css-orientation-lock`). Gewollt anders: `REVIEW` statt Verstoß, nur
+    // Selektoren, die ein Element der Seite treffen, ohne Pseudo-Elemente
+    // (Breakpoint-Marker `body:before` auf bundesregierung.de). Der
+    // berechnete `transform: rotate` an `body`/`html` bleibt in
+    // `orientation`.
+    SharedRule {
+        id: "orientation/content-hidden",
+        criterion: "1.3.4",
+        level: WcagLevel::AA,
+        name: "Orientation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
+    },
+    // Ersetzen Blocksatz und Zeilenabstand aus
+    // `wcag::rules::visual_presentation` (`visual-presentation`). Gewollt
+    // anders: gemessen an den `<p>` der Seite statt an Selektoren, die mit
+    // `body`, `p`, `div` … beginnen (sonst meldete normalize.css jede
+    // Seite); `REVIEW` statt Verstoß. Der `UNTESTED`-Vermerk zu Farbwahl und
+    // Spaltenbreite bleibt in `visual_presentation`. AAA.
+    SharedRule {
+        id: "text/justified",
+        criterion: "1.4.8",
+        level: WcagLevel::AAA,
+        name: "Visual Presentation (Justified Text)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
+    },
+    SharedRule {
+        id: "text/line-height-tight",
+        criterion: "1.4.8",
+        level: WcagLevel::AAA,
+        name: "Visual Presentation (Line Height)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
+    },
 ];
+
+/// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
+/// und vermerkt sie als nicht gelaufen.
+///
+/// Die abgelösten Regeln liefen nur ab ihrer Stufe (`PageRuleEntry::min_level`,
+/// die AAA-Durchgänge in `wcag::engine`); eine AAA-Kennung wie
+/// `navigation/location-missing` gehört nicht in einen AA-Bericht. Der
+/// Vermerk sagt, warum sie fehlt, statt sie wie bestanden aussehen zu lassen.
+pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
+    let above = |id: &str| shared_rule(id).is_some_and(|r| r.level > level);
+    let finding_above = |v: &Violation| v.rule_id.as_deref().is_some_and(above);
+    for list in [
+        &mut results.violations,
+        &mut results.warnings,
+        &mut results.positives,
+        &mut results.not_testables,
+    ] {
+        list.retain(|v| !finding_above(v));
+    }
+    for outcome in &mut results.rule_outcomes {
+        if let Some(rule) = shared_rule(&outcome.rule_id).filter(|r| r.level > level) {
+            *outcome = RuleRun::not_run(rule.id, NotRun::Disabled)
+                .with_wcag([rule.criterion])
+                .with_reason("above_wcag_level");
+        }
+    }
+}
+
+/// Geteilte Kennungen, die Landmarks der ganzen Seite zählen oder
+/// vergleichen. Ein ausgeschlossener Teilbaum (`--exclude-selector`, #645)
+/// darf darin nicht mitzählen (#726): Die Musterseite im Teilbaum hätte sonst
+/// eine zweite banner-Landmark und machte die der Seite zum Duplikat. Für
+/// diese Kennungen gilt deshalb der Lauf über das Dokument ohne die
+/// ausgeschlossenen Teilbäume ([`adopt_page_counts`]).
+pub const PAGE_COUNT_RULES: &[&str] = &[
+    "landmarks/not-unique",
+    "landmarks/main-duplicate",
+    "landmarks/banner-duplicate",
+    "landmarks/contentinfo-duplicate",
+];
+
+/// Ersetzt in `results` Befunde und Vermerke der [`PAGE_COUNT_RULES`] durch
+/// die aus `counted`, dem Lauf über das Dokument ohne ausgeschlossene
+/// Teilbäume (#726).
+pub fn adopt_page_counts(results: &mut WcagResults, counted: WcagResults) {
+    let counts = |id: &str| PAGE_COUNT_RULES.contains(&id);
+    let finding_counts = |v: &Violation| v.rule_id.as_deref().is_some_and(counts);
+    results.violations.retain(|v| !finding_counts(v));
+    results.warnings.retain(|v| !finding_counts(v));
+    results.rule_outcomes.retain(|o| !counts(&o.rule_id));
+    results
+        .violations
+        .extend(counted.violations.into_iter().filter(|v| finding_counts(v)));
+    results
+        .warnings
+        .extend(counted.warnings.into_iter().filter(|v| finding_counts(v)));
+    results.rule_outcomes.extend(
+        counted
+            .rule_outcomes
+            .into_iter()
+            .filter(|o| counts(&o.rule_id)),
+    );
+    results.localized_texts.extend(counted.localized_texts);
+}
 
 fn shared_rule(id: &str) -> Option<&'static SharedRule> {
     SHARED_RULES.iter().find(|r| r.id == id)
@@ -1094,8 +1597,29 @@ fn locale_for(lang: &str) -> Locale {
 }
 
 /// Lässt den geteilten Regelbestand laufen und übernimmt die Befunde der
-/// Kennungen aus [`SHARED_RULES`].
+/// Kennungen aus [`SHARED_RULES`]. Ohne Stylesheets: Deren Regeln stehen
+/// dann als `NotRun::CapabilityMissing` im Bericht.
 pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
+    run_shared_rules_inner(doc, lang, None)
+}
+
+/// [`run_shared_rules`] samt den Regeln über Stylesheets
+/// (`a11y_rules::run_stylesheets`). `sheets` sind die lesbaren Sheets der
+/// Seite in Dokumentreihenfolge (`fetch_stylesheets`); fremde Sheets ohne
+/// lesbare `cssRules` fehlen darin wie bisher in den JavaScript-Regeln.
+pub fn run_shared_rules_with_stylesheets(
+    doc: &CdpDocument,
+    lang: &str,
+    sheets: &[stylesheet_parse::Stylesheet],
+) -> WcagResults {
+    run_shared_rules_inner(doc, lang, Some(sheets))
+}
+
+fn run_shared_rules_inner(
+    doc: &CdpDocument,
+    lang: &str,
+    sheets: Option<&[stylesheet_parse::Stylesheet]>,
+) -> WcagResults {
     let mut results = WcagResults::new();
     // `nodes_checked` bleibt bewusst unberuehrt: Der Zaehler fuehrt
     // AXTree-Knoten, und die geteilten Regeln laufen ueber den DOM. Beide
@@ -1111,9 +1635,15 @@ pub fn run_shared_rules(doc: &CdpDocument, lang: &str) -> WcagResults {
     // Regeln per CSS Verstecktes (`display: none`, `visibility: hidden`) als
     // verborgen. Ohne sie nur das `hidden`-Attribut, und etwa ein per Klasse
     // ausgeblendetes Menü unter `aria-hidden` fiele als fokussierbar auf.
-    let lauf = |locale: Locale| match doc.rendered() {
-        Some(rendered) => a11y_rules::run_full_in(&rendered, locale),
-        None => a11y_rules::run_with_semantics_in(doc, locale),
+    let lauf = |locale: Locale| {
+        let report = match doc.rendered() {
+            Some(rendered) => a11y_rules::run_full_in(&rendered, locale),
+            None => a11y_rules::run_with_semantics_in(doc, locale),
+        };
+        match sheets {
+            Some(sheets) => a11y_rules::run_stylesheets_in(report, doc, sheets, locale),
+            None => report,
+        }
     };
     let report = lauf(Locale::En);
     if locale_for(lang) != Locale::En {
@@ -1644,6 +2174,35 @@ mod tests {
                     && sel.as_deref() == Some("div#i")),
             "{befunde:?}"
         );
+    }
+
+    /// Eine AAA-Kennung erscheint nur in einem AAA-Lauf, wie die abgeloeste
+    /// Regel `location`; sonst wird sie als nicht gelaufen vermerkt (#695).
+    #[test]
+    fn kennung_oberhalb_der_stufe_wird_vermerkt_statt_gemeldet() {
+        let ergebnis = || {
+            let mut r = WcagResults::new();
+            r.add_violation(
+                Violation::new("2.4.8", "Location", WcagLevel::AAA, Severity::Low, "m", "x")
+                    .with_rule_id("navigation/location-missing")
+                    .with_kind(Outcome::Review),
+            );
+            r.rule_outcomes
+                .push(RuleRun::ran("navigation/location-missing", 1));
+            r
+        };
+
+        let mut aa = ergebnis();
+        retain_up_to_level(&mut aa, WcagLevel::AA);
+        assert!(aa.warnings.is_empty());
+        let vermerk = &aa.rule_outcomes[0];
+        assert!(crate::wcag::rule_run_skipped(vermerk));
+        assert_eq!(vermerk.reason.as_deref(), Some("above_wcag_level"));
+
+        let mut aaa = ergebnis();
+        retain_up_to_level(&mut aaa, WcagLevel::AAA);
+        assert_eq!(aaa.warnings.len(), 1);
+        assert_eq!(aaa.rule_outcomes[0].findings, 1);
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

@@ -2,8 +2,11 @@
 //!
 //! Detects collapsible menu triggers (hamburger menus, dropdown triggers):
 //! a button (or button-role element) with `aria-expanded` is the canonical
-//! disclosure pattern. Flags missing `aria-expanded` when the structure
-//! suggests a disclosure but the attribute is absent.
+//! disclosure pattern.
+//!
+//! Die frühere Meldung `aria-expanded-required` entfällt seit #694 ersatzlos:
+//! Sie riet ein Aufklappmenü aus dem Wort „menu"/„Menü" im Namen --
+//! sprachabhängig und ohne Norm dahinter.
 //!
 //! # Natives `<details>`/`<summary>`
 //!
@@ -19,8 +22,6 @@
 //! Elementklasse, die der Prüfpfad nie erreichte.
 
 use crate::accessibility::{AXNode, AXTree};
-use crate::cli::WcagLevel;
-use crate::wcag::types::{Severity, Violation};
 
 use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
@@ -58,12 +59,6 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     if !aria.is_empty() || !native.is_empty() {
         recognize(&aria, &native, out);
         emit_candidates(&aria, &native, out);
-    }
-
-    // Die Heuristik unten bleibt an die ARIA-Variante gebunden: ein natives
-    // `<details>` deklariert seinen Zustand selbst, es kann ihn nicht vergessen.
-    if !aria.is_empty() {
-        flag_undeclared_menu_triggers(tree, out);
     }
 }
 
@@ -154,56 +149,6 @@ fn emit_candidates(aria: &[&AXNode], native: &[&AXNode], out: &mut PatternAnalys
                 required_journey: JourneyKind::DisclosureToggle,
             });
         }
-    }
-}
-
-/// Flag toggle-like nodes that look like menus but lack aria-expanded.
-/// Heuristic: a `generic` or `link` node whose name contains "menu" /
-/// "menü" and has an expanded child group is a likely disclosure that
-/// failed to declare `aria-expanded`.
-fn flag_undeclared_menu_triggers(tree: &AXTree, out: &mut PatternAnalysis) {
-    for node in tree.iter() {
-        let role = node.role.as_deref().unwrap_or("");
-        if role != "generic" && role != "link" {
-            continue;
-        }
-        let name = node.name.as_deref().unwrap_or("").to_lowercase();
-        let looks_like_menu = name.contains("menu") || name.contains("menü");
-        if !looks_like_menu {
-            continue;
-        }
-        // Skip if it already has aria-expanded
-        if node.get_property_bool("expanded").is_some() {
-            continue;
-        }
-        // Has a focusable descendant suggesting an expandable region?
-        let has_focusable_descendant = node
-            .child_ids
-            .iter()
-            .filter_map(|id| tree.get_node(id))
-            .any(|c| c.get_property_bool("focusable").unwrap_or(false));
-        if !has_focusable_descendant {
-            continue;
-        }
-
-        out.violations.push(
-            Violation::new(
-                "4.1.2",
-                "Name, Role, Value",
-                WcagLevel::A,
-                Severity::Medium,
-                format!(
-                    "Likely disclosure menu trigger (\"{}\") lacks aria-expanded — screen readers cannot announce open/closed state.",
-                    node.name.as_deref().unwrap_or("(menu)")
-                ),
-                &node.node_id,
-            )
-            .with_fix(
-                "Use a native <button> with aria-expanded=\"true|false\" toggled by the click handler.",
-            )
-            .with_rule_id("aria-expanded-required")
-            .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/"),
-        );
     }
 }
 
