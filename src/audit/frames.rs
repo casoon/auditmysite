@@ -570,6 +570,7 @@ pub(crate) async fn audit_frames(
         let mut shared = wcag::shared::run_shared_rules(&doc, config.lang);
         retain_frame_shared_rules(&mut shared);
         wcag::shared::retain_up_to_level(&mut shared, config.level);
+        wcag::shared::retain_allowed(&mut shared, config.rule_filter);
         for list in [&mut shared.violations, &mut shared.warnings] {
             let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
                 .into_iter()

@@ -30,6 +30,7 @@ use a11y_rules::Locale;
 use crate::accessibility::CdpDocument;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleRun, Violation, WcagResults};
+use crate::wcag::RuleFilterConfig;
 
 /// Was auditmysite über eine geteilte Regel zusätzlich wissen muss.
 ///
@@ -1396,11 +1397,11 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // Ersetzen `wcag::rules::contrast` (`color-contrast`, #698): Farben,
     // effektiver Hintergrund, optisch verborgener und überdeckter Text aus
     // dem DOMSnapshot (`RenderedCdpDocument`). Verglichen am Korpus und an
-    // fünf Live-Seiten, AA und AAA (barrierlab#47). Gewollt anders: Ein
-    // nicht bestimmbarer Hintergrund (Bild, Verlauf, positioniertes Bild
-    // darunter) ist `UNTESTED` statt eines Pixelvergleichs mit dem
-    // Bildschirmfoto; Text, den ein fixiertes oder klebendes Element verdeckt
-    // (Cookie-Banner), ebenso (#716 Fall 7); Text unter `aria-hidden` wird
+    // fünf Live-Seiten, AA und AAA (barrierlab#47). Ein nicht bestimmbarer
+    // Hintergrund (Bild, Verlauf, positioniertes Bild darunter) wird wie
+    // zuvor am Bildschirmfoto abgetastet (`Rendering::sampled_backdrop`).
+    // Gewollt anders: Text, den ein fixiertes oder klebendes Element verdeckt
+    // (Cookie-Banner), ist `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird
     // gemessen (#395 nahm ihn aus — 1.4.3 gilt für sichtbaren Text). AAA
     // (1.4.6) steht unter eigener Kennung und meldet nur, was 1.4.3 besteht.
     SharedRule {
@@ -1558,6 +1559,100 @@ pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
             *outcome = RuleRun::not_run(rule.id, NotRun::Disabled)
                 .with_wcag([rule.criterion])
                 .with_reason("above_wcag_level");
+        }
+    }
+}
+
+/// Kennungen abgelöster auditmysite-Regeln, unter denen ein `[rules]`-Filter
+/// (`--disable-rule`, `enabled_only`) die geteilte Regel weiter trifft — wer
+/// `color-contrast` abschaltete, schaltet auch `contrast/text-*` ab. Nur
+/// vollständig abgelöste Regeln: Läuft unter der alten Kennung noch ein
+/// lokaler Teil (`css-orientation-lock`, `visual-presentation`), steht sie
+/// nicht hier.
+pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
+    ("contrast/text-insufficient", "color-contrast"),
+    ("contrast/text-undetermined", "color-contrast"),
+    ("contrast/text-enhanced", "color-contrast"),
+    ("color/link-indistinct", "link-in-text-block"),
+    (
+        "keyboard/scrollable-region-not-focusable",
+        "scrollable-region-focusable",
+    ),
+    ("lists/role-redundant", "redundant-role"),
+    ("focus/outline-removed", "focus-visible-outline-none"),
+    ("motion/reduced-motion-ignored", "prefers-reduced-motion"),
+    ("links/used-as-button", "link-as-button"),
+    (
+        "keyboard/click-handler-not-focusable",
+        "click-events-have-key-events",
+    ),
+    ("navigation/location-missing", "location"),
+    ("landmarks/main-missing", "landmark-one-main"),
+    ("landmarks/main-duplicate", "landmark-no-duplicate-main"),
+    ("landmarks/banner-missing", "landmark-banner-present"),
+    (
+        "landmarks/contentinfo-missing",
+        "landmark-contentinfo-present",
+    ),
+    (
+        "landmarks/navigation-missing",
+        "landmark-navigation-present",
+    ),
+    ("svg/name-missing", "svg-img-alt"),
+    ("keyboard/skip-link-missing", "skip-link"),
+    ("dialog/name-missing", "dialog-name"),
+    ("summary/name-missing", "summary-name"),
+    ("label-in-name/mismatch", "label-content-name-mismatch"),
+    ("forms/autocomplete-invalid", "autocomplete-valid"),
+    ("forms/title-only-label", "label-title-only"),
+    ("forms/redundant-entry", "redundant-entry"),
+    ("auth/captcha", "accessible-auth-captcha"),
+    ("aria/attribute-prohibited", "aria-prohibited-attr"),
+    ("aria/required-parent-missing", "aria-required-parent"),
+    ("document/lang-mismatch", "html-xml-lang-mismatch"),
+];
+
+/// Ob der `[rules]`-Filter die geteilte Kennung laufen lässt — unter ihrem
+/// eigenen Namen oder einer alten Kennung aus [`LEGACY_RULE_IDS`].
+/// Abgeschaltet ist sie, sobald einer der Namen abgeschaltet ist; mit
+/// `enabled_only` läuft sie, sobald einer der Namen darin steht.
+fn filter_allows(filter: &RuleFilterConfig, id: &str) -> bool {
+    let names = || {
+        std::iter::once(id).chain(
+            LEGACY_RULE_IDS
+                .iter()
+                .filter(move |(shared, _)| *shared == id)
+                .map(|(_, old)| *old),
+        )
+    };
+    if !filter.enabled_only_rules.is_empty() {
+        names().any(|n| filter.enabled_only_rules.iter().any(|r| r == n))
+    } else {
+        !names().any(|n| filter.disabled_rules.iter().any(|r| r == n))
+    }
+}
+
+/// Nimmt Befunde der geteilten Kennungen heraus, die der `[rules]`-Filter
+/// abschaltet, und vermerkt sie als nicht gelaufen — wie die Baum-Regeln,
+/// die der Filter gar nicht erst startet. Vor #698 galt der Filter für die
+/// geteilten Regeln nicht: `--disable-rule color-contrast` schaltete nach
+/// der Umstellung nichts mehr ab.
+pub fn retain_allowed(results: &mut WcagResults, filter: &RuleFilterConfig) {
+    let off = |id: &str| shared_rule(id).is_some() && !filter_allows(filter, id);
+    let finding_off = |v: &Violation| v.rule_id.as_deref().is_some_and(off);
+    for list in [
+        &mut results.violations,
+        &mut results.warnings,
+        &mut results.positives,
+        &mut results.not_testables,
+    ] {
+        list.retain(|v| !finding_off(v));
+    }
+    for outcome in &mut results.rule_outcomes {
+        if let Some(rule) = shared_rule(&outcome.rule_id).filter(|r| off(r.id)) {
+            *outcome = RuleRun::not_run(rule.id, NotRun::Disabled)
+                .with_wcag([rule.criterion])
+                .with_reason("disabled_by_rule_filter");
         }
     }
 }
@@ -2320,6 +2415,59 @@ mod tests {
         retain_up_to_level(&mut aaa, WcagLevel::AAA);
         assert_eq!(aaa.warnings.len(), 1);
         assert_eq!(aaa.rule_outcomes[0].findings, 1);
+    }
+
+    /// `--disable-rule color-contrast` schaltet die geteilten
+    /// `contrast/text-*` ab, die neue Kennung ebenso; `enabled_only` mit der
+    /// alten Kennung laesst sie laufen und alle anderen geteilten nicht.
+    #[test]
+    fn regelfilter_greift_unter_alter_und_neuer_kennung() {
+        let ergebnis = || {
+            let mut r = WcagResults::new();
+            for id in ["contrast/text-insufficient", "links/name-missing"] {
+                r.add_violation(
+                    Violation::new("1.4.3", "n", WcagLevel::AA, Severity::High, "m", "x")
+                        .with_rule_id(id),
+                );
+                r.rule_outcomes.push(RuleRun::ran(id, 1));
+            }
+            r
+        };
+        let ids = |r: &WcagResults| -> Vec<String> {
+            r.violations
+                .iter()
+                .filter_map(|v| v.rule_id.clone())
+                .collect()
+        };
+        let filter = |disabled: &[&str], only: &[&str]| RuleFilterConfig {
+            disabled_rules: disabled.iter().map(|s| s.to_string()).collect(),
+            enabled_only_rules: only.iter().map(|s| s.to_string()).collect(),
+        };
+
+        for disabled in ["color-contrast", "contrast/text-insufficient"] {
+            let mut r = ergebnis();
+            retain_allowed(&mut r, &filter(&[disabled], &[]));
+            assert_eq!(ids(&r), ["links/name-missing"], "{disabled}");
+            let vermerk = &r.rule_outcomes[0];
+            assert!(crate::wcag::rule_run_skipped(vermerk));
+            assert_eq!(vermerk.reason.as_deref(), Some("disabled_by_rule_filter"));
+        }
+
+        let mut nur = ergebnis();
+        retain_allowed(&mut nur, &filter(&[], &["color-contrast"]));
+        assert_eq!(ids(&nur), ["contrast/text-insufficient"]);
+
+        let mut alles = ergebnis();
+        retain_allowed(&mut alles, &RuleFilterConfig::default());
+        assert_eq!(alles.violations.len(), 2);
+    }
+
+    /// Jede alte Kennung zeigt auf eine geteilte, die auditmysite fuehrt.
+    #[test]
+    fn alte_kennungen_zeigen_auf_gefuehrte_regeln() {
+        for (shared, old) in LEGACY_RULE_IDS {
+            assert!(shared_rule(shared).is_some(), "{shared} ({old})");
+        }
     }
 
     /// `rule_outcomes` und `violations` muessen dieselbe Namensmenge

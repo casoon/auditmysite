@@ -326,7 +326,9 @@ pub struct PipelineConfig {
     /// Run tech stack detection and stack-specific audits
     pub check_stack: bool,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
-    /// Consulted by `check_all_with_config` for tree-based rules and, inline,
+    /// Consulted by `check_all_with_config` for tree-based rules, by
+    /// `wcag::shared::retain_allowed` for the shared rules (own id or a legacy
+    /// id from `LEGACY_RULE_IDS`) and, inline,
     /// by reflow (`css-overflow-hidden`, matching the user-visible finding id
     /// rather than the `"reflow"` logging-only label — #560), and HTML
     /// content-model conformance (`html-content-model`, #579). Table-driven
@@ -1464,6 +1466,7 @@ async fn run_rules(
                 );
             }
             wcag::shared::retain_up_to_level(&mut shared, config.wcag_level);
+            wcag::shared::retain_allowed(&mut shared, &config.rule_filter);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }

@@ -5,6 +5,14 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Regelfilter gilt fuer die geteilten Regeln (#698):** `[rules] disabled` /
+  `enabled_only` und `--disable-rule` griffen bisher nur fuer die lokalen Regeln; seit Kontrast
+  geteilt ist, schaltete `--disable-rule color-contrast` nichts mehr ab. Jetzt nimmt
+  `wcag::shared::retain_allowed` eine geteilte Kennung heraus, wenn der Filter sie unter ihrem
+  eigenen Namen oder einer alten Kennung aus `LEGACY_RULE_IDS` abschaltet (`color-contrast` →
+  `contrast/text-*`, `link-in-text-block`, `landmark-one-main`, …, nur vollstaendig abgeloeste
+  Regeln), und vermerkt sie als `disabled_by_rule_filter`; ebenso in iframes.
+
 - **Unreleased — Kontrast ueber Bildern wieder per Abtastung (#698, barrierlab#47/#48):**
   `RenderedCdpDocument` liefert `Rendering::sampled_backdrop`: ein Bildschirmfoto des sichtbaren
   Ausschnitts, einmal in die Seite geladen, je Element die WCAG-Leuchtdichten der Pixel im Kasten
@@ -32,10 +40,8 @@ short current-state summary. Newest entries first (unchanged order from before t
   AAA-Eintrag `a11y.contrast_enhanced.weak` mit AAA-Gewicht (vorher zaehlten AAA-Verfehlungen als
   1.4.3 mit dem vollen Abzug). Dunkelmodus und Farbsehschwaeche-Ansicht zaehlen die geteilten
   Verstoesse ueber einen frischen DOMSnapshot; der Vergleich hell/dunkel paart Elemente ueber die
-  Backend-ID. Gewollt anders: nicht bestimmbarer Hintergrund ist `UNTESTED` statt eines
-  Pixelvergleichs; Text unter einem fixierten oder klebenden Element (Cookie-Banner) ist
-  `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird gemessen (#395 nahm ihn aus);
-  `--disable-rule color-contrast` greift nicht mehr (die geteilten Regeln kennen keinen Filter).
+  Backend-ID. Gewollt anders: Text unter einem fixierten oder klebenden Element (Cookie-Banner)
+  ist `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird gemessen (#395 nahm ihn aus).
   Vergleich geteilt gegen lokal (2026-10-05): Korpus (`contrast_shadow_and_inline`,
   `gradient_text_contrast`, `low_contrast_text`, `text_fill_color_contrast`) deckungsgleich, AA
   und AAA; gov.uk deckungsgleich; bundesregierung.de AA gleich, AAA +4 (Metanavigation, lokal als
@@ -46,9 +52,7 @@ short current-state summary. Newest entries first (unchanged order from before t
   Pruefhinweis); n-tv.de AA beide ohne Verstoss, AAA 25 lokale Verstoesse unter dem
   Consent-Overlay jetzt `UNTESTED`; spiegel.de AA +19 echte Verstoesse (4,04:1, Weiss auf
   #e64415 und umgekehrt), die die lokale Regel uebersah (Klassenname `overflow-hidden` galt ihr als
-  verborgen), AAA entsprechend mehr. Korpus-Erwartungen auf die neuen Kennungen umgestellt; die
-  Integrationstests zum Pixelvergleich (`image_contrast`, `opacity_overlay_contrast`) pruefen
-  jetzt, dass Text ueber Verlauf, Overlay oder `<img>` `UNTESTED` ist und nie still besteht.
+  verborgen), AAA entsprechend mehr. Korpus-Erwartungen auf die neuen Kennungen umgestellt.
   Live gegen `main` (2026-10-05), Barrierefreiheit AA / AAA vorher → nachher: gov.uk 93 → 93 /
   70 → 89, bundesregierung.de 49 → 49 / 46 → 49, wetter.com 22 → 22 / 18 → 20, n-tv.de 36 → 36 /
   23 → 29, spiegel.de 28 → 24 / 20 → 21 (AA-Verstoesse vorher → nachher: 0 → 0, 0 → 0, 15 → 12,
