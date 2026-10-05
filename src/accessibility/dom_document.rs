@@ -31,14 +31,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Color, ComputedStyle, Document, NameSource as SharedNameSource, Node,
+    Arena, ArenaNode, Color, ComputedStyle, Document, Layout, NameSource as SharedNameSource, Node,
     NodeKind, Rect, Rendering, Semantics,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     GetDocumentParams, Node as CdpNode, ShadowRootType,
 };
 use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
-    CaptureSnapshotParams, CaptureSnapshotReturns,
+    CaptureSnapshotParams, CaptureSnapshotReturns, Rectangle,
 };
 use chromiumoxide::Page;
 use tracing::{debug, warn};
@@ -211,6 +211,8 @@ struct LayoutStyle {
     style: ComputedStyle,
     /// Der Rahmen des Layout-Objekts; `None` ohne Layout-Objekt.
     bounds: Option<Rect>,
+    /// Siehe [`Layout::scroll_overflow_px`]; `None` ohne Layout-Objekt.
+    scroll_overflow_px: Option<f32>,
 }
 
 /// Die berechneten Werte, die der `DOMSnapshot` je Layout-Objekt liefert.
@@ -228,6 +230,8 @@ const SNAPSHOT_STYLES: &[&str] = &[
     "list-style-type",
     "text-decoration-line",
     "border-bottom-style",
+    "overflow-x",
+    "overflow-y",
 ];
 
 /// Die Werte eines Layout-Objekts in der Reihenfolge von [`SNAPSHOT_STYLES`].
@@ -361,7 +365,26 @@ fn computed_style(
     }
 }
 
-fn rect(r: &chromiumoxide::cdp::browser_protocol::dom_snapshot::Rectangle) -> Option<Rect> {
+/// Um wie viel der Inhalt über den Kasten hinausreicht, auf den Achsen, deren
+/// `overflow` Scrollen zulässt (`auto`, `scroll`): `scrollWidth −
+/// clientWidth` und `scrollHeight − clientHeight` aus den DOM-Rechtecken des
+/// Snapshots, das Größere von beiden. `0` bei `visible`, `hidden`, `clip`.
+fn scroll_overflow(values: &SnapshotValues, scroll: Option<Rect>, client: Option<Rect>) -> f32 {
+    let (Some(scroll), Some(client)) = (scroll, client) else {
+        return 0.0;
+    };
+    let scrolls = |axis: &str| matches!(values.get(axis), Some("auto" | "scroll"));
+    let mut overflow: f32 = 0.0;
+    if scrolls("overflow-x") {
+        overflow = overflow.max(scroll.width - client.width);
+    }
+    if scrolls("overflow-y") {
+        overflow = overflow.max(scroll.height - client.height);
+    }
+    overflow
+}
+
+fn rect(r: &Rectangle) -> Option<Rect> {
     match r.inner().as_slice() {
         [x, y, width, height] => Some(Rect {
             x: *x as f32,
@@ -411,6 +434,10 @@ impl LayoutStyles {
             let mut text_values: Vec<Option<SnapshotValues>> =
                 (0..backend.len()).map(|_| None).collect();
             let mut bounds: Vec<Option<Rect>> = vec![None; backend.len()];
+            let mut overflow: Vec<Option<f32>> = vec![None; backend.len()];
+            let rect_at = |rects: &Option<Vec<Rectangle>>, i: usize| {
+                rects.as_ref().and_then(|r| r.get(i)).and_then(rect)
+            };
             let mut renders_below = vec![false; backend.len()];
             for (layout_index, &node_index) in document.layout.node_index.iter().enumerate() {
                 let Ok(node_index) = usize::try_from(node_index) else {
@@ -423,15 +450,21 @@ impl LayoutStyles {
                 };
                 if slot.is_none() {
                     if let Some(values) = document.layout.styles.get(layout_index) {
-                        *slot = Some(SnapshotValues(
+                        let values = SnapshotValues(
                             values
                                 .inner()
                                 .iter()
                                 .map(|v| string(*v.inner()).cloned())
                                 .collect(),
-                        ));
+                        );
                         bounds[node_index] =
                             document.layout.bounds.get(layout_index).and_then(rect);
+                        overflow[node_index] = Some(scroll_overflow(
+                            &values,
+                            rect_at(&document.layout.scroll_rects, layout_index),
+                            rect_at(&document.layout.client_rects, layout_index),
+                        ));
+                        *slot = Some(values);
                     }
                 }
                 // Jeder Vorfahre eines gerenderten Knotens hat etwas
@@ -504,6 +537,7 @@ impl LayoutStyles {
                     LayoutStyle {
                         style,
                         bounds: bounds[i],
+                        scroll_overflow_px: overflow[i],
                     },
                 );
             }
@@ -518,8 +552,10 @@ impl LayoutStyles {
 
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
 async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
-    let params =
+    let mut params =
         CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
+    // `scrollRects` und `clientRects` für den Scroll-Überhang.
+    params.include_dom_rects = Some(true);
     let response = page
         .execute(params)
         .await
@@ -570,16 +606,26 @@ impl Semantics for RenderedCdpDocument<'_> {
 
 impl Rendering for RenderedCdpDocument<'_> {
     fn computed_style<'n>(&'n self, node: Self::N<'n>) -> Option<ComputedStyle> {
-        Some(self.layout(node)?.style.clone())
+        Some(self.entry(node)?.style.clone())
     }
 
     fn bounds<'n>(&'n self, node: Self::N<'n>) -> Option<Rect> {
-        self.layout(node)?.bounds
+        self.entry(node)?.bounds
+    }
+
+    /// Nur der Scroll-Überhang ist gemessen. Die übrigen Felder bleiben
+    /// neutral, `focus_visible` ungemessen (`None`): Die Heuristiken darauf
+    /// sind in auditmysite nicht übernommen (`wcag::shared::SHARED_RULES`).
+    fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
+        Some(Layout {
+            scroll_overflow_px: Some(self.entry(node)?.scroll_overflow_px?),
+            ..Layout::default()
+        })
     }
 }
 
 impl RenderedCdpDocument<'_> {
-    fn layout(&self, node: ArenaNode<'_>) -> Option<&LayoutStyle> {
+    fn entry(&self, node: ArenaNode<'_>) -> Option<&LayoutStyle> {
         self.styles.by_backend.get(&self.doc.backend_node_id(node)?)
     }
 }
@@ -1103,10 +1149,10 @@ mod tests {
         color: &'a str,
         bg: &'a str,
         bg_image: &'a str,
-    ) -> [&'a str; 13] {
+    ) -> [&'a str; 15] {
         [
             display, "visible", color, color, bg, bg_image, "16px", "400", "normal", "Arial",
-            "disc", "none", "none",
+            "disc", "none", "none", "visible", "visible",
         ]
     }
 
@@ -1218,6 +1264,37 @@ mod tests {
                 a: 255
             })
         );
+    }
+
+    /// Ein Kasten von 30px Höhe mit 152px Inhalt: Überhang 122px bei
+    /// `overflow-y: auto`, keiner bei `hidden`.
+    #[test]
+    fn scroll_ueberhang_nur_auf_scrollbaren_achsen() {
+        let values = |y: &str| {
+            let mut v: Vec<Option<String>> =
+                werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none")
+                    .iter()
+                    .map(|s| Some(s.to_string()))
+                    .collect();
+            v[14] = Some(y.to_string());
+            SnapshotValues(v)
+        };
+        let scroll = Some(Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 152.0,
+        });
+        let client = Some(Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 30.0,
+        });
+        assert_eq!(scroll_overflow(&values("auto"), scroll, client), 122.0);
+        assert_eq!(scroll_overflow(&values("scroll"), scroll, client), 122.0);
+        assert_eq!(scroll_overflow(&values("hidden"), scroll, client), 0.0);
+        assert_eq!(scroll_overflow(&values("auto"), None, client), 0.0);
     }
 
     #[test]
