@@ -554,6 +554,15 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "a11y.section_headings.missing",
     ),
     ("aria/role-redundant", "a11y.redundant_role.invalid"),
+    // ── Darstellung mit berechneten Stilen (#698) ──
+    // Auf die Eintraege der abgeloesten Regeln (`redundant-role` fuer
+    // `<ul>`/`<ol>`, `link-in-text-block`, `scrollable-region-focusable`).
+    ("lists/role-redundant", "a11y.redundant_role.invalid"),
+    ("color/link-indistinct", "a11y.color.link_indicator"),
+    (
+        "keyboard/scrollable-region-not-focusable",
+        "a11y.scrollable_region_focus.missing",
+    ),
     ("names/title-only", "a11y.title_only_description.weak"),
     (
         "patterns/tooltip-unreferenced",

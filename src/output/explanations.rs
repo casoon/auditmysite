@@ -242,6 +242,13 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     // Stylesheets (a11y-rules 0.19); Bewegung, Ausrichtung und Text finden
     // ihren Text ueber das Kriterium wie die abgeloesten Regeln.
     ("focus/outline-removed", "focus-visible-outline-none"),
+    // Darstellung mit berechneten Stilen (#698); `color/link-indistinct`
+    // findet seinen Text ueber 1.4.1 wie `link-in-text-block`.
+    ("lists/role-redundant", "redundant-role"),
+    (
+        "keyboard/scrollable-region-not-focusable",
+        "scrollable-region-focusable",
+    ),
 ];
 
 /// All WCAG rule explanations indexed by rule ID

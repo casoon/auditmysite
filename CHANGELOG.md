@@ -25,6 +25,39 @@ short current-state summary. Newest entries first (unchanged order from before t
   Detection-Corpus; Gegenprobe an geographia.eu (Referenzumsetzung, z. B. `climate-monitor` mit
   26 Figuren): alte und neue Fassung melden dort nichts, kein Fehlalarm auf konformen Seiten.
 
+- **Unreleased — Rendering-Schicht aus dem DOMSnapshot, drei Darstellungsregeln aus `a11y-rules`
+  (Teil von #698, Host-Seite von barrierlab#21 zweiter Teil; `a11y-*` 0.20.0):**
+  `RenderedCdpDocument` fuellt `ComputedStyle` jetzt vollstaendig aus demselben
+  `DOMSnapshot.captureSnapshot`: Text- und effektive Hintergrundfarbe (ueber die Vorfahren im
+  flachen Baum verrechnet, zuunterst weiss; `None` bei Hintergrundbild, Verlauf oder unlesbarer
+  Farbe), Schriftgroesse, -gewicht, -schnitt, -familie, `list-style-type`, `text-decoration-line`,
+  `border-bottom-style`; durchsichtige Textfuellung (`background-clip: text`, #640) ergibt keine
+  Farbe, `display: contents` (etwa `<slot>`) nimmt Farbe und Schrift vom gerenderten Text.
+  `bounds()` liefert den Rahmen des Layout-Objekts, `scroll_overflow_px()` den Scroll-Ueberhang
+  aus `includeDOMRects` (`scrollRects`/`clientRects`, nur auf Achsen mit `overflow: auto|scroll`).
+  Ein `Layout` liefert das Dokument nicht; die Heuristiken darauf bleiben ungelaufen. Gefuellt gesehen
+  (DoD 4, 2026-10-05, Elemente mit Layout-Objekt / alle): gov.uk 444/617, bundesregierung.de
+  6695/7591, wetter.com 1905/2612, n-tv.de 3636/4789, spiegel.de 6673/8891 — jedes neue Feld auf
+  jeder Seite gefuellt. Uebernommen: `redundant-role` (`<ul>`/`<ol>`) → `lists/role-redundant`
+  (4.1.2 A), `link-in-text-block` → `color/link-indistinct` (1.4.1 A; zusaetzlich zaehlen
+  Schriftfamilie, Unterkante und Hintergrund als Unterscheidung), `scrollable-region-focusable` →
+  `keyboard/scrollable-region-not-focusable` (2.1.1 A). Geloescht: `redundant_role`,
+  `use_of_color`, `scrollable_region`; die alten Kennungen loesen in Taxonomie und Erklaerungen
+  weiter auf. Die Farbsehschwaeche-Ansicht zaehlt `color/link-indistinct` einmal statt je Modus
+  (die Emulation aendert keine berechneten Stile). Korpus unveraendert erfuellt
+  (`redundant_role_list_style`, `link_in_text_block_context`, `scrollable_region_focusable`,
+  `misc_content_checks`). Die drei Regeln laufen nur im obersten Dokument wie die abgeloesten.
+  **Kontrast bleibt lokal:** `contrast/text-*` deckt sich am Korpus mit
+  `contrast` (Shadow DOM, 4,46:1 ungerundet, Float-Container, Verlaufstext undeterminiert), live
+  aber fehlen AAA-Schwellen, visuell versteckter Text wird gemessen (gov.uk-Suchknopf,
+  `text-indent: -5000px`), und Text ueber positionierten Bildern (#716 Fall 6) wird `FAIL` statt
+  `UNTESTED` (wetter.com `newsCarousel__headline`, spiegel.de Bildnachweise). Live gegen `main`
+  (2026-10-05), Barrierefreiheit AA / AAA vorher → nachher: gov.uk 93 → 93 / 70 → 70,
+  bundesregierung.de 49 → 49 / 46 → 46, wetter.com 22 → 22 / 18 → 18, n-tv.de 36 → 36 / 22 → 22,
+  spiegel.de 26 → 26 / 20 → 20; die drei Regeln liefen vorher und nachher ohne Befund, die
+  uebrigen Abweichungen (`color-contrast` ±1, `target-size` 8 → 10 auf AAA) sind Seitenwechsel
+  zwischen den Laeufen in unveraenderten Regeln.
+
 - **Unreleased — Reduzierte Bewegung aus `a11y-rules` 0.19.1 (Teil von #698):** Seit 0.19.1 loest
   `a11y-rules` die Kurzform `animation` nach CSS Animations auf; Chromes Serialisierung
   (`2s linear 0s infinite normal none running spin`) ergibt wieder den Namen `spin` statt `none`

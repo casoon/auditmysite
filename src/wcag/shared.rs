@@ -1232,10 +1232,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `headings/skip-level`) und „mehr als 10 Absätze, weniger als 3
     // Überschriften" (kein Beleg).
     //
-    // Im Host bleiben: aus `redundant_role` das Paar `<ul>`/`<ol>` mit
-    // `role="list"` -- ob die Rolle überflüssig ist, hängt am berechneten
-    // `list-style-type` (#644), und den liefert `a11y-dom` noch nicht
-    // (casoon/barrierlab#21); aus `timing_adjustable` die seitenweiten
+    // Im Host bleiben: aus `timing_adjustable` die seitenweiten
     // `UNTESTED`-Vermerke für Skript-Fristen (2.2.1) und `timeouts` (2.2.6),
     // die `a11y-rules` der manuellen Checkliste zuweist.
 
@@ -1321,9 +1318,9 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Section Headings",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/section-headings.html",
     },
-    // Ersetzt `wcag::rules::redundant_role` bis auf `<ul>`/`<ol>` (siehe
-    // oben). `<li role="listitem">` meldet es nur in einer Liste ohne eigene
-    // Rolle.
+    // Ersetzt `wcag::rules::redundant_role` bis auf `<ul>`/`<ol>` (dafür
+    // `lists/role-redundant`, siehe unten). `<li role="listitem">` meldet es
+    // nur in einer Liste ohne eigene Rolle.
     SharedRule {
         id: "aria/role-redundant",
         criterion: "4.1.2",
@@ -1360,6 +1357,53 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // liefen ebenfalls nur im obersten Dokument. Abweichungen im Changelog
     // von `a11y-rules` 0.19.0.
 
+    // Darstellungsregeln mit berechneten Stilen und Geometrie aus dem
+    // DOMSnapshot (`RenderedCdpDocument`, #698). Fehlt einer Seite ein Feld
+    // -- etwa weil der Snapshot scheiterte --, meldet die Regel das als
+    // `UNTESTED` für die Seite statt zu schweigen.
+    //
+    // Ersetzt aus `wcag::rules::redundant_role` das Paar `<ul>`/`<ol>` mit
+    // `role="list"`: überflüssig nur, wenn `list-style-type` nicht `none` ist
+    // (#644).
+    SharedRule {
+        id: "lists/role-redundant",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `wcag::rules::use_of_color` (`link-in-text-block`) samt #710:
+    // nur Links im Fließtext, ohne Navigation, Menüs, Logo-Links und
+    // Listeneinträge aus nur dem Link. Gewollt anders: auch Schriftfamilie,
+    // Unterkante und Hintergrund zählen als Unterscheidung.
+    SharedRule {
+        id: "color/link-indistinct",
+        criterion: "1.4.1",
+        level: WcagLevel::A,
+        name: "Use of Color",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
+    },
+    // Ersetzt `wcag::rules::scrollable_region` (`scrollable-region-focusable`,
+    // #717): Überhang aus den DOM-Rechtecken des Snapshots, 13 px Puffer wie
+    // axe.
+    SharedRule {
+        id: "keyboard/scrollable-region-not-focusable",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
+    // Noch nicht übernommen: `contrast/text-*`. Verglichen am Korpus und an
+    // fünf Live-Seiten (#698) deckt sich die geteilte Regel mit `contrast`
+    // bei deckenden Hintergründen, Shadow DOM, 4,46:1 und Verlaufstext (#640),
+    // aber: keine AAA-Schwellen (7:1/4,5:1); visuell versteckter Text
+    // (`text-indent: -5000px` in `overflow: hidden`, gov.uk-Suchknopf) wird
+    // gemessen; über einem positionierten Bild (#716 Fall 6) ist der aus den
+    // Vorfahren aufgelöste Hintergrund falsch und ergibt `FAIL` statt
+    // `UNTESTED`; Text unter `aria-hidden` wird geprüft. Bis dahin bleibt
+    // `wcag::rules::contrast`, und die geteilten Kennungen stehen als nicht
+    // übernommen im Bericht -- kein Befund doppelt.
+    //
     // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
     // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
     // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).

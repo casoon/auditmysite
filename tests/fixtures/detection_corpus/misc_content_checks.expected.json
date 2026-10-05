@@ -18,7 +18,7 @@
       "verdict": "violation"
     },
     {
-      "rule_id": "link-in-text-block",
+      "rule_id": "color/link-indistinct",
       "verdict": "violation"
     },
     {

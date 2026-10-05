@@ -13,7 +13,7 @@ pub use super::rules::{
     check_orientation_with_page, check_pointer_cancellation_with_page,
     check_pointer_gestures_with_page, check_re_authenticate_with_page, check_reflow_with_page,
     check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_visual_presentation_with_page,
+    check_visual_presentation_with_page,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
