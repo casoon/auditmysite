@@ -46,8 +46,8 @@
 //! context could sit fully behind it. Combined with the static-snapshot
 //! limitation above, findings are reported as
 //! [`crate::wcag::types::Outcome::Review`] (heuristic, manual-review
-//! candidate), matching the precedent set by `redundant_entry.rs` and
-//! `meaningful_sequence.rs` for this kind of geometry-based judgment call.
+//! candidate), matching the precedent set by `redundant_entry.rs` for this
+//! kind of geometry-based judgment call.
 
 use chromiumoxide::Page;
 

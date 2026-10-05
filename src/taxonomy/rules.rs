@@ -569,6 +569,20 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
         "keyboard/scrollable-region-not-focusable",
         "a11y.scrollable_region_focus.missing",
     ),
+    // Heuristiken ueber Layout-Angaben (#698): auf die Eintraege der
+    // abgeloesten Regeln; `keyboard/pointer-only` auf den der Klick-Handler
+    // ohne Tastatur.
+    ("targets/size", "a11y.target_size_minimum.small"),
+    ("targets/size-enhanced", "a11y.target_size_enhanced.small"),
+    ("order/visual-mismatch", "a11y.meaningful_sequence.invalid"),
+    (
+        "motion/infinite-animation",
+        "a11y.pause_stop_hide.no_control",
+    ),
+    (
+        "keyboard/pointer-only",
+        "a11y.click_handler_keyboard.missing",
+    ),
     ("names/title-only", "a11y.title_only_description.weak"),
     (
         "patterns/tooltip-unreferenced",

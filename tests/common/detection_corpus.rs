@@ -30,6 +30,10 @@ pub enum Verdict {
     Violation,
     Pass,
     NeedsReview,
+    /// Kein Befund welcher Art auch immer, auch kein Prüfhinweis und kein
+    /// `UNTESTED`. Für Regeln, die nur `REVIEW` melden: Bei ihnen kann
+    /// `pass` gar nicht scheitern, weil es nur Verstöße zählt.
+    Absent,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -1,0 +1,7 @@
+{
+  "case": "pointer_only",
+  "expectations": [
+    { "rule_id": "keyboard/pointer-only", "selector": "div#search", "verdict": "needs_review" },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#card", "verdict": "absent" }
+  ]
+}

@@ -117,6 +117,12 @@ async fn detection_corpus_matches_real_audit_run() {
                             .push(expectation_label(exp, "expected pass, found violation"));
                     }
                 }
+                Verdict::Absent => {
+                    if matches_violations || matches_warnings || matches_not_testable {
+                        false_positives
+                            .push(expectation_label(exp, "expected no finding, found one"));
+                    }
+                }
                 Verdict::NeedsReview => {
                     if !matches_violations && !matches_warnings && !matches_not_testable {
                         false_negatives.push(expectation_label(

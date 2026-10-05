@@ -1,9 +1,9 @@
 {
   "case": "target_size_hidden_neighbours",
   "expectations": [
-    { "rule_id": "target-size-minimum", "selector": "a#control", "verdict": "violation" },
-    { "rule_id": "target-size-minimum", "selector": "a#beside-details", "verdict": "pass" },
-    { "rule_id": "target-size-minimum", "selector": "a#beside-inert", "verdict": "pass" },
-    { "rule_id": "target-size-minimum", "selector": "a#beside-no-pointer", "verdict": "pass" }
+    { "rule_id": "targets/size", "selector": "a#control", "verdict": "needs_review" },
+    { "rule_id": "targets/size", "selector": "a#beside-details", "verdict": "absent" },
+    { "rule_id": "targets/size", "selector": "a#beside-inert", "verdict": "absent" },
+    { "rule_id": "targets/size", "selector": "a#beside-no-pointer", "verdict": "absent" }
   ]
 }

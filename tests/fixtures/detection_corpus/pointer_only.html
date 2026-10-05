@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Pointer-only corpus case</title>
+    <style>
+        .clicky { cursor: pointer; padding: 8px; width: 120px; }
+        .card { cursor: pointer; padding: 8px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Elements that look clickable</h1>
+        <!-- needs_review: looks clickable (cursor: pointer), no role, no tabindex, no control inside -->
+        <div class="clicky" id="search">Search</div>
+        <!-- absent: the card pattern — the whole card has cursor: pointer, the link inside is
+             the keyboard route (bundesregierung.de teasers, barrierlab#49) -->
+        <div class="card" id="card">
+            <h2><a href="/article">Article title</a></h2>
+            <p>Teaser text for the article.</p>
+        </div>
+    </main>
+</body>
+</html>

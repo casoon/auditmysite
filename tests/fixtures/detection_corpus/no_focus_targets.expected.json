@@ -2,6 +2,6 @@
   "case": "no_focus_targets",
   "expectations": [
     { "rule_id": "focus-visible", "verdict": "needs_review" },
-    { "rule_id": "pause-stop-hide", "verdict": "needs_review" }
+    { "rule_id": "motion/infinite-animation", "verdict": "needs_review" }
   ]
 }

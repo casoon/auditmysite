@@ -1534,6 +1534,63 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: values as table",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
+    // Heuristiken über die Layout-Angaben aus dem DOMSnapshot (#698,
+    // casoon/barrierlab#49). Sie urteilen mit `REVIEW`, nie `FAIL`; fehlt ein
+    // Feld, steht `UNTESTED` für die Seite.
+    //
+    // Ersetzt `wcag::rules::target_size_minimum` (`target-size-minimum`).
+    // Gewollt anders: `REVIEW` statt `FAIL`; keine Obergrenze von fünf
+    // Befunden und 1000 Zielen; gemessen wird, was per Tab erreichbar ist.
+    // Mitgebracht: Ausnahmen „inline", „Equivalent" und Abstand, Nachbarn
+    // unter `inert` oder mit `pointer-events: none` (#705), noch wachsende
+    // Ziele `UNTESTED` (#706).
+    SharedRule {
+        id: "targets/size",
+        criterion: "2.5.8",
+        level: WcagLevel::AA,
+        name: "Target Size (Minimum)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+    },
+    // Ersetzt `wcag::rules::target_size_enhanced` (`target-size`). Meldet nur,
+    // was `targets/size` nicht schon meldet.
+    SharedRule {
+        id: "targets/size-enhanced",
+        criterion: "2.5.5",
+        level: WcagLevel::AAA,
+        name: "Target Size (Enhanced)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html",
+    },
+    // Ersetzt `wcag::rules::meaningful_sequence`
+    // (`css-order-reading-sequence`). Dazu `flex-direction: *-reverse`; ohne
+    // die Grenze von fünf Flex-Containern.
+    SharedRule {
+        id: "order/visual-mismatch",
+        criterion: "1.3.2",
+        level: WcagLevel::A,
+        name: "Meaningful Sequence",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/meaningful-sequence.html",
+    },
+    // Ersetzt den Animations- und `<marquee>`-Teil von
+    // `wcag::rules::pause_stop_hide`. Gewollt anders: jede endlose Animation
+    // zählt, auch kurze Durchläufe (2.2.2 gilt für Bewegung, die insgesamt
+    // länger als fünf Sekunden läuft); `prefers-reduced-motion` hebt den
+    // Befund nicht auf; angehaltene Animationen zählen nicht.
+    SharedRule {
+        id: "motion/infinite-animation",
+        criterion: "2.2.2",
+        level: WcagLevel::A,
+        name: "Pause, Stop, Hide",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
+    },
+    // Neu: sieht anklickbar aus (`cursor: pointer` oder `onclick`), ist aber
+    // weder Bedienelement noch per Tab erreichbar.
+    SharedRule {
+        id: "keyboard/pointer-only",
+        criterion: "2.1.1",
+        level: WcagLevel::A,
+        name: "Keyboard",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
@@ -1579,6 +1636,10 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
         "scrollable-region-focusable",
     ),
     ("lists/role-redundant", "redundant-role"),
+    ("targets/size", "target-size-minimum"),
+    ("targets/size-enhanced", "target-size"),
+    ("order/visual-mismatch", "css-order-reading-sequence"),
+    ("motion/infinite-animation", "pause-stop-hide"),
     ("focus/outline-removed", "focus-visible-outline-none"),
     ("motion/reduced-motion-ignored", "prefers-reduced-motion"),
     ("links/used-as-button", "link-as-button"),
