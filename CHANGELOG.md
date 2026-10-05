@@ -5,6 +5,25 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Layout-Felder gefuellt, Vergleich mit lokalen Heuristiken (#698):**
+  `RenderedCdpDocument::layout` liefert jetzt an jedem Element mit Layout-Objekt die Felder aus
+  dem DOMSnapshot (neue berechnete Stile `flex-direction`, `order`, `min-width`, `cursor`,
+  `animation-name/-duration/-iteration-count/-play-state`, `top`, `scroll-padding-top`):
+  `flex_reversed` (Flex-Container mit `*-reverse`), `order`, `min_width_px` (`auto` → 0, nur
+  Pixelwerte), `cursor_pointer`, `infinite_animation` (paarweise ueber die `animation-*`-Listen:
+  Name, Dauer > 0, `infinite`, nicht `paused`) und `hides_focus`: eine fixierte oder klebende Leiste
+  im Hauptdokument, mindestens 20 px hoch, halb so breit wie die Seite, niedriger als der sichtbare
+  Bereich (ein Einwilligungsdialog ueber alles ist keine Leiste), die oberhalb von
+  `scroll-padding-top` beginnt und tiefer reicht — fixiert an ihrer Lage im sichtbaren Bereich,
+  klebend an ihrem `top`; nur die aeusserste. `obscured` unveraendert (nur Elemente mit eigenem
+  Text). `focus_visible` bleibt `None`: kein Durchgang dieses Abrufs bewegt den Fokus. Die
+  Heuristiken laufen weiter nur im Hintergrund (nicht in `SHARED_RULES`); die lokalen Regeln
+  bleiben. Gefuellt gesehen (2026-10-05, Desktop, `Some(true)`): `flex_reversed` gov.uk 4,
+  spiegel.de 20; `order` ≠ 0 berlin.de 4, bundesregierung.de 2, spiegel.de 2; `min_width_px`
+  > 320 bundesregierung.de 6, wetter.com 2, berlin.de 2; `cursor_pointer` auf allen sechs;
+  `infinite_animation` spiegel.de 9, bundesregierung.de 1; `hides_focus` spiegel.de 1
+  (`header.sticky`), n-tv.de 1; `obscured` wetter.com 190, n-tv.de 61, spiegel.de 32.
+
 - **Unreleased — Regelfilter gilt fuer die geteilten Regeln (#698):** `[rules] disabled` /
   `enabled_only` und `--disable-rule` griffen bisher nur fuer die lokalen Regeln; seit Kontrast
   geteilt ist, schaltete `--disable-rule color-contrast` nichts mehr ab. Jetzt nimmt
