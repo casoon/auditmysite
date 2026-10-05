@@ -40,7 +40,7 @@ use chromiumoxide::cdp::browser_protocol::dom::{
 use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
     CaptureSnapshotParams, CaptureSnapshotReturns, Rectangle,
 };
-use chromiumoxide::cdp::browser_protocol::page::CaptureScreenshotParams;
+use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotParams, Viewport};
 use chromiumoxide::cdp::js_protocol::runtime::{
     EvaluateParams, GetPropertiesParams, ReleaseObjectGroupParams,
 };
@@ -1012,14 +1012,22 @@ fn backdrops_or_none(
 /// — wie die frühere lokale Kontrastregel (#527).
 const MAX_SAMPLED: usize = 60;
 
+/// Bis zu dieser Tiefe (CSS-Pixel ab Dokumentanfang) wird abgetastet. Das
+/// Foto deckt die Kandidaten bis hierhin ab; was tiefer liegt, bleibt
+/// `UNTESTED`. Begrenzt Speicher und Zeit auf sehr langen Seiten — ein
+/// Canvas in Chrome ist ohnehin höchstens 32767 px hoch.
+const MAX_SAMPLE_DEPTH: f32 = 15000.0;
+
 /// Höchstens so viele Pixel je Element gehen in die Stichprobe; größere Kästen
 /// werden auf einem gleichmäßigen Raster ausgedünnt.
 const SAMPLES_PER_ELEMENT: usize = 2500;
 
 /// Tastet die Pixel hinter Text ab, dessen Hintergrund sich aus den Stilen
 /// nicht bestimmen lässt (Bild, Verlauf, positioniertes Bild darunter): ein
-/// Bildschirmfoto des sichtbaren Bereichs, einmal in die Seite geladen, je
-/// Element die Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
+/// Bildschirmfoto über den sichtbaren Bereich hinaus (`captureBeyondViewport`),
+/// zugeschnitten auf die Kandidaten, in CSS-Pixeln (`scale = 1 /
+/// devicePixelRatio`), einmal in die Seite geladen; je Element die
+/// Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
 /// Glyphenpixel liegen mit in der Stichprobe; die Regel urteilt deshalb über
 /// Median und 40. Perzentil.
 const SAMPLE_JS: &str = r#"
@@ -1042,9 +1050,9 @@ const SAMPLE_JS: &str = r#"
   canvas.height = img.height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0);
-  // Das Bildschirmfoto zeigt den visuellen Ausschnitt; in der mobilen
-  // Emulation ist er schmaler als `innerWidth`, wenn die Seite breiter ist.
-  const scale = img.width / (window.visualViewport ? window.visualViewport.width : window.innerWidth);
+  // Die Aufgaben stehen relativ zum Zuschnitt; das Foto hat dessen Breite in
+  // CSS-Pixeln, bis auf Rundung.
+  const scale = img.width / __CLIP_W__;
   const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
   const out = {};
   for (const t of tasks) {
@@ -1070,13 +1078,14 @@ const SAMPLE_JS: &str = r#"
 
 /// Die Kandidaten für [`SAMPLE_JS`]: Elemente mit eigenem Text im
 /// Hauptdokument, dargestellt, mit Textfarbe, aber ohne bestimmbaren
-/// Hintergrund, weder optisch verborgen noch überdeckt, ganz im sichtbaren
-/// Bereich. `viewport` ist der visuelle Ausschnitt `(links, oben, Breite,
-/// Höhe)` in Dokumentkoordinaten wie die Rahmen des Snapshots. Die größten
-/// zuerst, höchstens
-/// [`MAX_SAMPLED`]; je Kandidat Backend-ID und Rahmen im sichtbaren Bereich.
-fn sample_candidates(styles: &LayoutStyles, viewport: (f32, f32, f32, f32)) -> Vec<(i64, Rect)> {
-    let (sx, sy, vw, vh) = viewport;
+/// Hintergrund, weder optisch verborgen noch überdeckt, ganz im Dokument
+/// bis `(Breite, Tiefe)` in Dokumentkoordinaten wie die Rahmen des
+/// Snapshots. Überdeckt heißt: beim Messen im sichtbaren Bereich verdeckt
+/// (`OBSCURED_JS`); was darunter liegt, gilt nicht als verdeckt. Die
+/// größten zuerst, seitenweit höchstens [`MAX_SAMPLED`]; je Kandidat
+/// Backend-ID und Rahmen.
+fn sample_candidates(styles: &LayoutStyles, area: (f32, f32)) -> Vec<(i64, Rect)> {
+    let (width, depth) = area;
     let obscured = |id: &i64| styles.obscured.as_ref().is_some_and(|o| o.contains(id));
     let mut candidates: Vec<(i64, Rect)> = styles
         .by_backend
@@ -1091,14 +1100,8 @@ fn sample_candidates(styles: &LayoutStyles, viewport: (f32, f32, f32, f32)) -> V
                 && !obscured(id)
         })
         .filter_map(|(id, e)| {
-            let b = e.bounds.filter(|b| !b.is_empty())?;
-            let r = Rect {
-                x: b.x - sx,
-                y: b.y - sy,
-                width: b.width,
-                height: b.height,
-            };
-            (r.x >= 0.0 && r.y >= 0.0 && r.x + r.width <= vw && r.y + r.height <= vh)
+            let r = e.bounds.filter(|b| !b.is_empty())?;
+            (r.x >= 0.0 && r.y >= 0.0 && r.x + r.width <= width && r.y + r.height <= depth)
                 .then_some((*id, r))
         })
         .collect();
@@ -1107,40 +1110,80 @@ fn sample_candidates(styles: &LayoutStyles, viewport: (f32, f32, f32, f32)) -> V
     candidates
 }
 
+/// Das kleinste Rechteck um alle Kandidaten, auf ganze CSS-Pixel gerundet —
+/// der Zuschnitt des Bildschirmfotos.
+fn clip_around(candidates: &[(i64, Rect)]) -> Rect {
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, 0.0f32, 0.0f32);
+    for (_, r) in candidates {
+        x0 = x0.min(r.x);
+        y0 = y0.min(r.y);
+        x1 = x1.max(r.x + r.width);
+        y1 = y1.max(r.y + r.height);
+    }
+    let (x0, y0) = (x0.floor(), y0.floor());
+    Rect {
+        x: x0,
+        y: y0,
+        width: x1.ceil() - x0,
+        height: y1.ceil() - y0,
+    }
+}
+
 /// Siehe [`SAMPLE_JS`]. Ohne Kandidaten kein Bildschirmfoto.
 async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<i64, Vec<f64>>> {
     let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
         reason: format!("Hintergrund-Abtastung: {what}: {e}"),
     };
-    let viewport: Vec<f32> = page
+    let document: Vec<f64> = page
         .evaluate(
-            "(() => { const v = window.visualViewport; return v ? [v.pageLeft, v.pageTop, v.width, v.height] : [window.scrollX, window.scrollY, window.innerWidth, window.innerHeight]; })()",
+            "[document.documentElement.scrollWidth, document.documentElement.scrollHeight, window.devicePixelRatio || 1]",
         )
         .await
-        .map_err(|e| failed("sichtbarer Bereich", e.to_string()))?
+        .map_err(|e| failed("Dokumentgröße", e.to_string()))?
         .into_value()
-        .map_err(|e| failed("sichtbarer Bereich", e.to_string()))?;
-    let [sx, sy, vw, vh] = viewport[..] else {
-        return Err(failed("sichtbarer Bereich", format!("{viewport:?}")));
+        .map_err(|e| failed("Dokumentgröße", e.to_string()))?;
+    let [width, height, dpr] = document[..] else {
+        return Err(failed("Dokumentgröße", format!("{document:?}")));
     };
-    let candidates = sample_candidates(styles, (sx, sy, vw, vh));
+    let candidates = sample_candidates(
+        styles,
+        (width as f32, (height as f32).min(MAX_SAMPLE_DEPTH)),
+    );
     if candidates.is_empty() {
         return Ok(HashMap::new());
     }
+    let clip = clip_around(&candidates);
+    let params = CaptureScreenshotParams::builder()
+        .clip(Viewport {
+            x: f64::from(clip.x),
+            y: f64::from(clip.y),
+            width: f64::from(clip.width),
+            height: f64::from(clip.height),
+            scale: 1.0 / dpr.max(0.1),
+        })
+        .capture_beyond_viewport(true)
+        .build();
     let shot = page
-        .execute(CaptureScreenshotParams::default())
+        .execute(params)
         .await
         .map_err(|e| failed("Bildschirmfoto", e.to_string()))?;
     let tasks: Vec<serde_json::Value> = candidates
         .iter()
         .map(|(id, r)| {
-            serde_json::json!({ "id": id.to_string(), "x": r.x, "y": r.y, "w": r.width, "h": r.height })
+            serde_json::json!({
+                "id": id.to_string(),
+                "x": r.x - clip.x,
+                "y": r.y - clip.y,
+                "w": r.width,
+                "h": r.height,
+            })
         })
         .collect();
     let js = SAMPLE_JS
         .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
         .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
         .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
+        .replace("__CLIP_W__", &clip.width.to_string())
         .replace("__DATA__", shot.result.data.as_ref());
     let sampled: HashMap<String, Vec<f64>> = page
         .evaluate(js.as_str())
@@ -1946,8 +1989,8 @@ mod tests {
     }
 
     /// Abgetastet wird nur Text ohne bestimmbaren Hintergrund, der ganz im
-    /// sichtbaren Ausschnitt liegt, weder verborgen noch überdeckt ist — die
-    /// größten Kästen zuerst.
+    /// Dokument bis zur Tiefengrenze liegt, weder verborgen noch überdeckt ist
+    /// — die größten Kästen zuerst; das Foto umschließt genau sie.
     #[test]
     fn abtastung_nur_fuer_unbestimmten_sichtbaren_text() {
         let style = |bg: Option<Color>| ComputedStyle {
@@ -1998,15 +2041,27 @@ mod tests {
             .insert(5, entry(None, [10.0, 900.0, 100.0, 20.0], false));
         styles
             .by_backend
+            .insert(7, entry(None, [10.0, 20000.0, 100.0, 20.0], false));
+        styles
+            .by_backend
             .insert(6, entry(None, [10.0, 170.0, 100.0, 20.0], false));
         styles.obscured = Some(HashSet::from([6]));
-        let ids: Vec<i64> = sample_candidates(&styles, (0.0, 0.0, 800.0, 600.0))
-            .into_iter()
-            .map(|(id, _)| id)
-            .collect();
-        assert_eq!(ids, [2, 1]);
-        let verschoben = sample_candidates(&styles, (0.0, 40.0, 800.0, 600.0));
-        assert_eq!(verschoben[0].1.y, 10.0, "Rahmen relativ zum Ausschnitt");
+        let kandidaten = sample_candidates(&styles, (800.0, MAX_SAMPLE_DEPTH));
+        let ids: Vec<i64> = kandidaten.iter().map(|(id, _)| *id).collect();
+        assert_eq!(
+            ids,
+            [2, 1, 5],
+            "auch unterhalb des sichtbaren Bereichs, bis zur Tiefengrenze"
+        );
+        assert_eq!(
+            clip_around(&kandidaten),
+            Rect {
+                x: 10.0,
+                y: 10.0,
+                width: 300.0,
+                height: 910.0
+            }
+        );
     }
 
     /// Läuft die Abtastung in die Zeitgrenze oder scheitert sie, bekommt
