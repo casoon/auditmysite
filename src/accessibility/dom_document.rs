@@ -1182,7 +1182,7 @@ impl Rendering for RenderedCdpDocument<'_> {
         self.entry(node)?.visually_hidden
     }
 
-    /// Die Leuchtdichten aus [`sample_backdrops`]: nur für Text ohne
+    /// Die Leuchtdichten aus `sample_backdrops`: nur für Text ohne
     /// bestimmbaren Hintergrund im sichtbaren Bereich.
     fn sampled_backdrop<'n>(&'n self, node: Self::N<'n>) -> Option<Backdrop> {
         let backend = self.doc.backend_node_id(node)?;
@@ -1195,7 +1195,7 @@ impl Rendering for RenderedCdpDocument<'_> {
     }
 
     /// Von [`Layout`] nur `obscured`, und nur an Elementen mit eigenem Text
-    /// und Kasten im Hauptdokument: Daran misst [`OBSCURED_JS`]. Die übrigen
+    /// und Kasten im Hauptdokument: Daran misst `OBSCURED_JS`. Die übrigen
     /// Felder erhebt auditmysite nicht; die Heuristiken darauf melden das
     /// selbst als `UNTESTED`.
     fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
