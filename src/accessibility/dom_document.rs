@@ -211,6 +211,9 @@ pub struct LayoutStyles {
     /// Backend-IDs der überdeckten Textelemente aus [`OBSCURED_JS`]; `None`,
     /// wenn der Durchgang nicht lief oder scheiterte.
     obscured: Option<HashSet<i64>>,
+    /// Backend-IDs der Elemente mit einer laufenden endlichen Animation aus
+    /// [`ANIMATING_JS`]; `None`, wenn der Durchgang nicht lief oder scheiterte.
+    animating: Option<HashSet<i64>>,
     /// Abgetastete Leuchtdichten hinter dem Text, je Backend-ID, aus
     /// [`sample_backdrops`]. Fehlt ein Eintrag, ist nichts abgetastet.
     backdrops: HashMap<i64, Vec<f64>>,
@@ -228,6 +231,9 @@ struct LayoutStyle {
     /// Ob das Element selbst nicht leeren Text trägt — nur daran misst der
     /// Durchgang für [`Layout::obscured`](a11y_dom::Layout::obscured).
     own_text: bool,
+    /// Ob das Element im Hauptdokument liegt — nur dort laufen die
+    /// Skriptdurchgänge (`obscured`, `animating`).
+    main_document: bool,
     /// Die Layout-Angaben aus dem Snapshot, ohne `obscured`; `None` ohne
     /// Layout-Objekt.
     layout: Option<Layout>,
@@ -265,6 +271,7 @@ const SNAPSHOT_STYLES: &[&str] = &[
     "animation-play-state",
     "top",
     "scroll-padding-top",
+    "pointer-events",
 ];
 
 /// Die Werte eines Layout-Objekts in der Reihenfolge von [`SNAPSHOT_STYLES`].
@@ -696,8 +703,9 @@ fn runs_infinite_animation(values: &SnapshotValues) -> bool {
 }
 
 /// Die Layout-Angaben eines Elements mit Layout-Objekt, bis auf `obscured`
-/// (eigener Durchgang) und `hides_focus` (braucht die Leisten der Seite, siehe
-/// [`focus_hiding_bars`]); `focus_visible` misst dieser Abruf nicht — dafür
+/// und `animating` (eigene Durchgänge) und `hides_focus` (braucht die Leisten
+/// der Seite, siehe [`focus_hiding_bars`]); `focus_visible` misst dieser Abruf
+/// nicht — dafür
 /// müsste der Fokus wandern.
 fn layout_facts(values: &SnapshotValues) -> Layout {
     let flex = matches!(values.get("display"), Some("flex" | "inline-flex"));
@@ -715,6 +723,7 @@ fn layout_facts(values: &SnapshotValues) -> Layout {
         order: values.get("order").and_then(|o| o.trim().parse().ok()),
         min_width_px,
         cursor_pointer: values.get("cursor").map(|c| c == "pointer"),
+        pointer_events_none: values.get("pointer-events").map(|p| p == "none"),
         infinite_animation: Some(runs_infinite_animation(values)),
         ..Layout::default()
     }
@@ -986,6 +995,7 @@ impl LayoutStyles {
                         visually_hidden,
                         // Der Durchgang misst nur im Hauptdokument.
                         own_text: document_index == 0 && own_text[i],
+                        main_document: document_index == 0,
                         layout,
                     },
                 );
@@ -996,6 +1006,7 @@ impl LayoutStyles {
             whitespace_before,
             whitespace_last,
             obscured: None,
+            animating: None,
             backdrops: HashMap::new(),
         }
     }
@@ -1055,20 +1066,43 @@ const OBSCURED_JS: &str = r#"
 })()
 "#;
 
-/// Objektgruppe für die Verweise aus [`OBSCURED_JS`], gesammelt freigegeben.
-const OBSCURED_GROUP: &str = "ams-obscured";
+/// Elemente, auf denen eine *endliche* Animation oder ein Übergang noch läuft
+/// (`document.getAnimations()`, `playState` `running`, endliches `endTime`) —
+/// ihre Größe ist noch nicht die endgültige (#706). Endlose Animationen
+/// zählen nicht, sie kommen nie zur Ruhe. Höchstens 200, die Zahl der
+/// `describeNode`-Aufrufe bleibt begrenzt.
+const ANIMATING_JS: &str = r#"
+(() => {
+  const out = [];
+  const anims = typeof document.getAnimations === 'function' ? document.getAnimations() : [];
+  for (const a of anims) {
+    if (out.length >= 200) break;
+    if (a.playState !== 'running' || !a.effect || !a.effect.target) continue;
+    if (!isFinite(a.effect.getComputedTiming().endTime)) continue;
+    const t = a.effect.target;
+    if (t.nodeType === 1 && !out.includes(t)) out.push(t);
+  }
+  return out;
+})()
+"#;
 
-/// Backend-IDs der Elemente aus [`OBSCURED_JS`]: ein Skriptaufruf, ein
-/// Aufruf für die Liste, dann je *überdecktem* Element ein `describeNode` —
-/// meist keines oder eine Handvoll unter einem Banner, nicht eines je Element
-/// der Seite.
-async fn fetch_obscured(page: &Page) -> Result<HashSet<i64>> {
+/// Backend-IDs der Elemente, die `expression` als Array liefert: ein
+/// Skriptaufruf, ein Aufruf für die Liste, dann je Element ein
+/// `describeNode` — die Durchgänge liefern meist keines oder eine Handvoll,
+/// nicht eines je Element der Seite. Die Verweise liegen in der Objektgruppe
+/// `group` und werden gesammelt freigegeben.
+async fn fetch_element_ids(
+    page: &Page,
+    pass: &str,
+    expression: &str,
+    group: &str,
+) -> Result<HashSet<i64>> {
     let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
-        reason: format!("Überdeckungsdurchgang: {what}: {e}"),
+        reason: format!("{pass}: {what}: {e}"),
     };
     let params = EvaluateParams::builder()
-        .expression(OBSCURED_JS)
-        .object_group(OBSCURED_GROUP)
+        .expression(expression)
+        .object_group(group)
         .return_by_value(false)
         .build()
         .map_err(|e| failed("Parameter", e))?;
@@ -1108,26 +1142,27 @@ async fn fetch_obscured(page: &Page) -> Result<HashSet<i64>> {
         Ok(ids)
     }
     .await;
-    if let Err(e) = page
-        .execute(ReleaseObjectGroupParams::new(OBSCURED_GROUP))
-        .await
-    {
-        debug!("Objektgruppe {OBSCURED_GROUP} nicht freigegeben: {e}");
+    if let Err(e) = page.execute(ReleaseObjectGroupParams::new(group)).await {
+        debug!("Objektgruppe {group} nicht freigegeben: {e}");
     }
     result
 }
 
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
 async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
-    // Vor dem Snapshot, damit beide denselben Stand sehen. Scheitert der
-    // Durchgang, bleibt `obscured` ungemessen statt „nicht überdeckt".
-    let obscured = match fetch_obscured(page).await {
+    // Vor dem Snapshot, damit alle denselben Stand sehen. Scheitert ein
+    // Durchgang, bleibt sein Feld ungemessen statt „nein".
+    let pass = |result: Result<HashSet<i64>>| match result {
         Ok(ids) => Some(ids),
         Err(e) => {
             warn!("{e}");
             None
         }
     };
+    let obscured =
+        pass(fetch_element_ids(page, "Überdeckungsdurchgang", OBSCURED_JS, "ams-obscured").await);
+    let animating =
+        pass(fetch_element_ids(page, "Animationsdurchgang", ANIMATING_JS, "ams-animating").await);
     let mut params =
         CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
     // `scrollRects` und `clientRects` für den Scroll-Überhang.
@@ -1140,6 +1175,7 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
         })?;
     let mut styles = LayoutStyles::from_snapshot(&response.result);
     styles.obscured = obscured;
+    styles.animating = animating;
     styles.backdrops = backdrops_or_none(
         tokio::time::timeout(SAMPLE_TIMEOUT, sample_backdrops(page, &styles)).await,
     );
@@ -1439,6 +1475,8 @@ impl Rendering for RenderedCdpDocument<'_> {
     /// Aus dem Snapshot (`layout_facts`, `focus_hiding_bars`) an jedem
     /// Element mit Layout-Objekt. `obscured` nur an Elementen mit eigenem
     /// Text und Kasten im Hauptdokument: Daran misst `OBSCURED_JS`.
+    /// `animating` im Hauptdokument, wenn das Element oder ein Vorfahre in
+    /// `ANIMATING_JS` steht.
     /// `focus_visible` bleibt ungemessen.
     fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
         let backend = self.doc.backend_node_id(node)?;
@@ -1450,6 +1488,17 @@ impl Rendering for RenderedCdpDocument<'_> {
             .as_ref()
             .filter(|_| entry.own_text && entry.bounds.is_some())
             .map(|obscured| obscured.contains(&backend));
+        layout.animating = self
+            .styles
+            .animating
+            .as_ref()
+            .filter(|_| entry.main_document)
+            .map(|animating| {
+                std::iter::once(node)
+                    .chain(a11y_dom::ancestors(node))
+                    .filter_map(|a| self.doc.backend_node_id(a))
+                    .any(|id| animating.contains(&id))
+            });
         Some(layout)
     }
 }
@@ -1997,16 +2046,16 @@ mod tests {
         color: &'a str,
         bg: &'a str,
         bg_image: &'a str,
-    ) -> [&'a str; 30] {
+    ) -> [&'a str; 31] {
         [
             display, "visible", color, color, bg, bg_image, "16px", "400", "normal", "Arial",
             "disc", "none", "none", "visible", "visible", "auto", "none", "0px", "static", "1",
-            "row", "0", "auto", "auto", "none", "0s", "1", "running", "auto", "auto",
+            "row", "0", "auto", "auto", "none", "0s", "1", "running", "auto", "auto", "auto",
         ]
     }
 
     /// Setzt einen Wert aus [`SNAPSHOT_STYLES`] beim Namen.
-    fn mit<'a>(mut v: [&'a str; 30], property: &str, value: &'a str) -> [&'a str; 30] {
+    fn mit<'a>(mut v: [&'a str; 31], property: &str, value: &'a str) -> [&'a str; 31] {
         v[SNAPSHOT_STYLES.iter().position(|p| *p == property).unwrap()] = value;
         v
     }
@@ -2038,7 +2087,7 @@ mod tests {
             "animation-duration",
             "1s",
         );
-        let breit = mit(block, "min-width", "400px");
+        let breit = mit(mit(block, "min-width", "400px"), "pointer-events", "none");
         let snapshot = snapshot_mit_namen(
             &[-1, 0, 1, 1, 3, 1, 1],
             &[9, 1, 1, 1, 1, 1, 1],
@@ -2077,6 +2126,8 @@ mod tests {
             "zweite Animation endlos"
         );
         assert_eq!(layout(6).min_width_px, Some(400.0));
+        assert_eq!(layout(6).pointer_events_none, Some(true));
+        assert_eq!(layout(4).pointer_events_none, Some(false));
         assert_eq!(layout(4).min_width_px, Some(0.0), "auto");
         assert_eq!(layout(4).infinite_animation, Some(false));
         assert_eq!(layout(4).focus_visible, None);
@@ -2084,13 +2135,13 @@ mod tests {
 
     /// `body` > `div` je Muster > `span` mit Text. Gemeldet wird, ob der
     /// `span` als optisch verborgen gilt.
-    fn verborgen(div: [&str; 30], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+    fn verborgen(div: [&str; 31], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
         let span = werte("inline", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
         verborgen_mit(div, div_rect, span, span_rect)
     }
 
     /// Wie [`verborgen`], der `span` absolut positioniert.
-    fn verborgen_absolut(div: [&str; 30], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+    fn verborgen_absolut(div: [&str; 31], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
         let span = mit(
             werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none"),
             "position",
@@ -2100,9 +2151,9 @@ mod tests {
     }
 
     fn verborgen_mit(
-        div: [&str; 30],
+        div: [&str; 31],
         div_rect: [f64; 4],
-        span: [&str; 30],
+        span: [&str; 31],
         span_rect: [f64; 4],
     ) -> Option<bool> {
         let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
@@ -2180,15 +2231,15 @@ mod tests {
     /// `figcaption` > `p` mit Text). Überschneidet der Wrapper den Text, ist
     /// der Hintergrund nicht bestimmbar (#716 Fall 6, spiegel.de
     /// Bildnachweis).
-    fn hintergrund_neben(wrapper: [&str; 30], wrapper_rect: [f64; 4]) -> Option<Color> {
+    fn hintergrund_neben(wrapper: [&str; 31], wrapper_rect: [f64; 4]) -> Option<Color> {
         let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
         hintergrund_unter(wrapper, wrapper_rect, figure)
     }
 
     fn hintergrund_unter(
-        wrapper: [&str; 30],
+        wrapper: [&str; 31],
         wrapper_rect: [f64; 4],
-        caption: [&str; 30],
+        caption: [&str; 31],
     ) -> Option<Color> {
         let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
         let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
@@ -2273,6 +2324,7 @@ mod tests {
             scroll_overflow_px: Some(0.0),
             visually_hidden: Some(hidden),
             own_text: true,
+            main_document: true,
             layout: None,
         };
         let weiss = Some(Color {
