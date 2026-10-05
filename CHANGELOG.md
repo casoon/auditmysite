@@ -5,6 +5,17 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — `pointer_events_none` und `animating` (#698, barrierlab#49):**
+  `pointer_events_none` ist das berechnete `pointer-events: none` aus dem DOMSnapshot.
+  `animating` kommt aus einem Durchgang vor dem Snapshot wie `obscured`:
+  `document.getAnimations()` mit `playState` `running` und endlichem `endTime` — damit auch
+  laufende Uebergaenge —, endlose Animationen zaehlen nicht; ein Element gilt als animiert, wenn
+  es selbst oder ein Vorfahre darin steht, nur im Hauptdokument. Die berechneten `animation-*`-
+  Werte allein taugen dafuer nicht: Sie bleiben nach dem Ende einer Animation stehen. Gefuellt
+  gesehen (2026-10-05, Desktop, `Some(true)`): `pointer_events_none` bundesregierung.de 114,
+  spiegel.de 120, gov.uk 6, berlin.de 2, Korpus `target_size_hidden_neighbours` 1; `animating`
+  bundesregierung.de 246, wetter.com 89, spiegel.de 23, Korpus `target_size_animation` 1 (`a#slow`).
+
 - **Unreleased — Layout-Felder gefuellt, Vergleich mit lokalen Heuristiken (#698):**
   `RenderedCdpDocument::layout` liefert jetzt an jedem Element mit Layout-Objekt die Felder aus
   dem DOMSnapshot (neue berechnete Stile `flex-direction`, `order`, `min-width`, `cursor`,
