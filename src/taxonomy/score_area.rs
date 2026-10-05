@@ -91,11 +91,14 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // Display-mode convention (#653): the visualisation's text layer.
     ("a11y.display_text_layer.missing", ImagesAlternativeText),
     ("a11y.display_text_layer.hidden", ImagesAlternativeText),
+    ("a11y.display_caption.missing", ImagesAlternativeText),
+    ("a11y.display_table.review", Semantics),
     // Display-mode convention (#653): control over visual/moving content,
     // with the other 2.2.x rules in the collection area.
     ("a11y.display_toggle.missing", Semantics),
     ("a11y.display_init.late", Semantics),
     ("a11y.display_text_media.visible", Semantics),
+    ("a11y.display_static.missing", Semantics),
     // ── 1.3.1 — Landmarks ──
     ("a11y.landmark_banner.missing", Landmarks),
     ("a11y.landmark_contentinfo.missing", Landmarks),

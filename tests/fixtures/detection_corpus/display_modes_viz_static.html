@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- Display-mode convention, static rules shared with a11y-rules (#699): an
+     interactive visualisation without a still image and without a caption, a
+     chart whose values are only in a sentence, and one that does it right
+     (caption, still image, table). The toggle and data-display are in place,
+     so no display/* finding is expected besides the viz/* ones. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Display modes: static rules</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    [data-viz-text] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Display">
+      <select id="display-toggle" data-display-toggle aria-label="Display">
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main>
+    <h1>Earth systems</h1>
+    <figure id="globe" data-viz="interactive">
+      <canvas data-viz-live width="300" height="150" aria-hidden="true"></canvas>
+      <div data-viz-text><p>A globe showing ocean currents; drag to turn it.</p></div>
+    </figure>
+    <figure id="spark" data-viz="chart">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+      <div data-viz-text><p>Rises from 2 to 9 over the period.</p></div>
+      <figcaption>Trend</figcaption>
+    </figure>
+    <figure id="good" data-viz="chart">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+      <div data-viz-text>
+        <table>
+          <caption>Values</caption>
+          <tr><th scope="col">Year</th><th scope="col">Value</th></tr>
+          <tr><td>2000</td><td>2</td></tr>
+          <tr><td>2020</td><td>9</td></tr>
+        </table>
+      </div>
+      <figcaption>Values by year</figcaption>
+    </figure>
+  </main>
+</body>
+</html>

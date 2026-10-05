@@ -7,7 +7,6 @@
 //!
 //! | id | anchor | reads |
 //! |---|---|---|
-//! | `display/toggle-missing` | 2.2.2 | post-JS DOM |
 //! | `display/init-missing` | 2.2.2 | pre-navigation body observer (CDP) |
 //! | `display/text-media-visible` | 2.2.2 | rendered layout in `text` |
 //! | `display/text-not-visible` | 1.1.1 | rendered layout in `text` |
@@ -17,15 +16,17 @@
 //! (`html[data-display="text"]`), not on `--display`: a page that ignores the
 //! stored choice is audited as what it shows.
 //!
-//! Barrierlab move candidates (CLAUDE.md "Umzugskandidaten"): the *static*
-//! halves of `display/toggle-missing` (a `figure[data-viz]` without any
-//! `[data-display-toggle]` in the HTML) and `display/text-hidden` (the
-//! `hidden`/`aria-hidden`/`inert` attribute part, the draft's
-//! `viz/text-hidden`) need no browser and belong in the shared implementation
-//! astro-post-audit will also run. They are here only because this feature
-//! needs them against the live DOM; once barrierlab ships them, the static
-//! part moves there and this file keeps the rendering-dependent part
-//! (computed visibility, the body observer, the text-mode layout checks).
+//! What the HTML alone decides comes from `a11y-rules` (barrierlab#22, #699):
+//! `display/toggle-missing` and the `viz/*` rules (`text-missing`,
+//! `caption-missing`, `static-missing`, `table-missing`) are shared ids in
+//! `wcag::shared`. This file keeps what only the running page shows: the
+//! body observer, computed visibility (a text layer hidden by CSS, a figure
+//! that is itself not rendered) and the text-mode layout checks. A figure
+//! without any text content is `viz/text-missing`'s; `display/text-not-visible`
+//! is for a text layer that has content but does not show in text mode.
+//! `display/init-missing` and `display/text-hidden` also exist in
+//! `a11y-rules`, but only as the static part of these checks; auditmysite does
+//! not adopt those two ids, so one id never has two sources.
 
 use chromiumoxide::Page;
 
@@ -35,17 +36,6 @@ use crate::wcag::types::{evaluate_or_fail, RuleMetadata, Severity, Violation};
 // No public page for the convention yet (draft v0); link the anchor criterion.
 const HELP_URL_222: &str = "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html";
 const HELP_URL_111: &str = "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html";
-
-pub const DISPLAY_TOGGLE_MISSING_RULE: RuleMetadata = RuleMetadata {
-    id: "2.2.2",
-    name: "Display modes: toggle",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "A page with visualisations must offer a display-mode toggle",
-    help_url: HELP_URL_222,
-    axe_id: "display/toggle-missing",
-    tags: &["best-practice", "cat.display-modes"],
-};
 
 pub const DISPLAY_INIT_MISSING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.2",
@@ -136,8 +126,6 @@ const DISPLAY_MODES_JS: &str = r#"
     __amsPush(findings, el, { id: id, selector: el === html ? 'html' : __amsCssSelector(el), detail: detail || '' }, MAX);
   }
 
-  if (figs.length && !hasToggle) push('toggle', html, String(figs.length));
-
   if (figs.length || hasToggle) {
     if (!html.hasAttribute('data-display')) {
       push('init', html, 'never');
@@ -179,7 +167,10 @@ const DISPLAY_MODES_JS: &str = r#"
     var textOk = texts.some(function (el) {
       return el.textContent.trim().length > 0 && rendered(el) && !hiddenFromAt(el);
     });
-    if (!textOk && !hiddenReported) push('text', fig, texts.length ? 'empty_or_invisible' : 'missing');
+    // No text layer, or only empty ones, is `viz/text-missing` (any mode,
+    // from the HTML). Here: there is a statement, but text mode hides it.
+    var hasStatement = texts.some(function (el) { return el.textContent.trim().length > 0; });
+    if (!textOk && !hiddenReported && hasStatement) push('text', fig, 'invisible');
 
     var media = fig.querySelectorAll('[data-viz-live], [data-viz-static], canvas, video, svg, img, iframe, object, embed');
     for (var m = 0; m < media.length; m++) {
@@ -206,7 +197,7 @@ pub async fn check_display_modes_with_page(page: &Page) -> Vec<Violation> {
         "})()",
     ]
     .concat();
-    let value = match evaluate_or_fail(page, &DISPLAY_TOGGLE_MISSING_RULE, &js).await {
+    let value = match evaluate_or_fail(page, &DISPLAY_INIT_MISSING_RULE, &js).await {
         Ok(v) => v,
         Err(violations) => return violations,
     };
@@ -227,16 +218,6 @@ pub async fn check_display_modes_with_page(page: &Page) -> Vec<Violation> {
 
 fn violation_for(id: &str, selector: &str, detail: &str) -> Option<Violation> {
     let (rule, message, fix) = match id {
-        "toggle" => (
-            &DISPLAY_TOGGLE_MISSING_RULE,
-            format!(
-                "The page contains {detail} visualisation(s) (figure[data-viz]), but no \
-                 toggle marked [data-display-toggle] was found."
-            ),
-            "Add a reachable, operable control marked [data-display-toggle] that switches \
-             html[data-display] between visual, calm and text and stores the choice in \
-             localStorage under the key \"display\".",
-        ),
         "init" => (
             &DISPLAY_INIT_MISSING_RULE,
             if detail == "never" {
@@ -262,15 +243,9 @@ fn violation_for(id: &str, selector: &str, detail: &str) -> Option<Violation> {
         ),
         "text" => (
             &DISPLAY_TEXT_NOT_VISIBLE_RULE,
-            if detail == "missing" {
-                "In text mode this visualisation has no [data-viz-text], so its statement is \
-                 lost."
-                    .to_string()
-            } else {
-                "In text mode this visualisation's [data-viz-text] is empty or not visible, so \
-                 its statement is lost."
-                    .to_string()
-            },
+            "In text mode this visualisation's [data-viz-text] is not visible, so its \
+             statement is lost."
+                .to_string(),
             "Give every figure[data-viz] one [data-viz-text] with the statement (for charts the \
              values, preferably as a <table>) and its source, and show it in text mode.",
         ),
@@ -328,7 +303,6 @@ mod tests {
     #[test]
     fn every_finding_key_maps_to_its_own_rule() {
         let cases = [
-            ("toggle", "display/toggle-missing"),
             ("init", "display/init-missing"),
             ("media", "display/text-media-visible"),
             ("text", "display/text-not-visible"),
@@ -344,7 +318,7 @@ mod tests {
 
     #[test]
     fn messages_are_canonical_english() {
-        for key in ["toggle", "init", "media", "text", "hidden", "described"] {
+        for key in ["init", "media", "text", "hidden", "described"] {
             let v = violation_for(key, "figure", "never").unwrap();
             let text = format!("{} {}", v.message, v.fix_suggestion.unwrap_or_default());
             assert!(!text.chars().any(|c| "äöüÄÖÜß".contains(c)), "{text}");
@@ -361,17 +335,5 @@ mod tests {
         let hidden = violation_for("hidden", "div#layers-home-desc", "css").unwrap();
         assert_eq!(hidden.kind, crate::wcag::types::Outcome::Fail);
         assert_eq!(hidden.severity, Severity::High);
-    }
-
-    #[test]
-    fn toggle_message_reports_the_missing_marker_not_a_missing_ability() {
-        let v = violation_for("toggle", "html", "2").unwrap();
-        assert!(
-            v.message
-                .contains("no toggle marked [data-display-toggle] was found"),
-            "{}",
-            v.message
-        );
-        assert!(!v.message.contains("cannot switch"), "{}", v.message);
     }
 }

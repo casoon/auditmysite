@@ -1,0 +1,54 @@
+{
+  "case": "display_modes_viz_static",
+  "expectations": [
+    {
+      "rule_id": "viz/static-missing",
+      "selector": "figure#globe",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "viz/static-missing",
+      "selector": "figure#spark",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "viz/static-missing",
+      "selector": "figure#good",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "viz/caption-missing",
+      "selector": "figure#globe",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "viz/caption-missing",
+      "selector": "figure#spark",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "viz/caption-missing",
+      "selector": "figure#good",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "viz/table-missing",
+      "selector": "figure#spark",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "viz/table-missing",
+      "selector": "figure#good",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "viz/text-missing",
+      "selector": "figure#globe",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/toggle-missing",
+      "verdict": "pass"
+    }
+  ]
+}
