@@ -121,11 +121,12 @@ Optionale Flags:
 - **Daten:** Kompletter AXTree mit allen Nodes (Rollen, Namen, Properties, Eltern-Kind-Beziehungen)
 - **Richtung:** Chrome → auditmysite (nur Lesen)
 
-### Computed Styles (`src/accessibility/styles.rs`)
+### Computed Styles (`src/accessibility/dom_document.rs`)
 
-- **Methode:** JavaScript-Evaluation über CDP (`Runtime.evaluate`)
-- **Daten:** `window.getComputedStyle()` für Textelemente (color, background-color, font-size, font-weight)
-- **Zweck:** Kontrast-Prüfung (WCAG 1.4.3)
+- **CDP-Befehl:** `DOMSnapshot.captureSnapshot` mit den benötigten berechneten Stilwerten, dazu ein
+  `Runtime.evaluate`-Durchgang (`elementFromPoint`) für überdeckten Text
+- **Daten:** Farben, effektiver Hintergrund, Schrift, Rahmen, optisch verborgener Text
+- **Zweck:** die geteilten Darstellungsregeln, darunter Kontrast (WCAG 1.4.3, 1.4.6)
 
 ### Performance Metriken (`src/performance/vitals.rs`)
 

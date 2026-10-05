@@ -31,14 +31,18 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Color, ComputedStyle, Document, NameSource as SharedNameSource, Node,
-    NodeKind, Rect, Rendering, Semantics,
+    Arena, ArenaNode, Backdrop, Color, ComputedStyle, Document, Layout,
+    NameSource as SharedNameSource, Node, NodeKind, Rect, Rendering, Semantics,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
-    GetDocumentParams, Node as CdpNode, ShadowRootType,
+    DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
 };
 use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
     CaptureSnapshotParams, CaptureSnapshotReturns, Rectangle,
+};
+use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotParams, Viewport};
+use chromiumoxide::cdp::js_protocol::runtime::{
+    EvaluateParams, GetPropertiesParams, ReleaseObjectGroupParams,
 };
 use chromiumoxide::Page;
 use tracing::{debug, warn};
@@ -204,6 +208,12 @@ pub struct LayoutStyles {
     whitespace_before: HashSet<i64>,
     /// Knoten, deren letztes Kind ein reiner Leerraum-Textknoten ist.
     whitespace_last: HashSet<i64>,
+    /// Backend-IDs der überdeckten Textelemente aus [`OBSCURED_JS`]; `None`,
+    /// wenn der Durchgang nicht lief oder scheiterte.
+    obscured: Option<HashSet<i64>>,
+    /// Abgetastete Leuchtdichten hinter dem Text, je Backend-ID, aus
+    /// [`sample_backdrops`]. Fehlt ein Eintrag, ist nichts abgetastet.
+    backdrops: HashMap<i64, Vec<f64>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -213,6 +223,11 @@ struct LayoutStyle {
     bounds: Option<Rect>,
     /// Siehe [`Rendering::scroll_overflow_px`]; `None` ohne Layout-Objekt.
     scroll_overflow_px: Option<f32>,
+    /// Siehe [`Rendering::visually_hidden`]; `None` ohne Layout-Objekt.
+    visually_hidden: Option<bool>,
+    /// Ob das Element selbst nicht leeren Text trägt — nur daran misst der
+    /// Durchgang für [`Layout::obscured`](a11y_dom::Layout::obscured).
+    own_text: bool,
 }
 
 /// Die berechneten Werte, die der `DOMSnapshot` je Layout-Objekt liefert.
@@ -232,6 +247,11 @@ const SNAPSHOT_STYLES: &[&str] = &[
     "border-bottom-style",
     "overflow-x",
     "overflow-y",
+    "clip",
+    "clip-path",
+    "text-indent",
+    "position",
+    "opacity",
 ];
 
 /// Die Werte eines Layout-Objekts in der Reihenfolge von [`SNAPSHOT_STYLES`].
@@ -297,8 +317,8 @@ fn composite(top: Color, below: Color) -> Color {
 /// aus den Stilen bestimmbar.
 ///
 /// Nur über die Vorfahren im flachen Baum (Shadow DOM aufgelöst, wie der
-/// Snapshot ihn führt). Was ein positioniertes Geschwister darüberlegt, sieht
-/// das nicht.
+/// Snapshot ihn führt). Was ein positioniertes Geschwister darüber- oder
+/// darunterlegt, prüft [`Overlap`].
 fn backdrop(
     i: usize,
     values: &[Option<SnapshotValues>],
@@ -325,6 +345,245 @@ fn backdrop(
     };
     memo[i] = Some(result);
     result
+}
+
+/// Ob sich zwei Rechtecke mit Fläche überschneiden; bloßes Berühren zählt
+/// nicht.
+fn overlaps(a: Rect, b: Rect) -> bool {
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/// Geschwister, die eine Fläche oder ein Bild über oder unter fremden Text
+/// legen können (#716 Fall 6). Gezählt wird ein Geschwister, dessen Kasten
+/// den des Textelements überschneidet, das etwas malt — eine deckende
+/// Hintergrundfarbe, ein Hintergrundbild oder ein `<img>`, `<picture>`,
+/// `<video>`, `<canvas>` irgendwo darunter — und bei dem einer von beiden
+/// absolut oder fest positioniert ist, sie also übereinanderliegen können:
+/// das positionierte Aufmacherbild hinter einer Überschrift (wetter.com
+/// `h4.newsCarousel__headline`) wie der absolut positionierte Bildnachweis
+/// über dem Bild im Fluss (spiegel.de `figcaption > p`). Welches von beiden
+/// oben liegt, sagt der Snapshot nicht; der aus den Vorfahren aufgelöste
+/// Hintergrund ist dann jedenfalls nicht der gezeichnete. Geprüft werden die
+/// Geschwister des Elements und seiner Vorfahren bis sechs Ebenen hinauf, wie
+/// `hasOverlappingPaintedSibling` der lokalen Kontrastregel, aber nur bis
+/// zum ersten deckenden Hintergrund auf dem Weg — der Dialog eines
+/// Cookie-Banners hat seine eigene Fläche, die halbdurchsichtige Abdeckung
+/// daneben liegt darunter (wetter.com). Ein Bild im
+/// Fluss neben dem Text — etwa umflossen (`float`) — zählt nicht: Der Kasten
+/// des Absatzes reicht dort unter das Bild, sein Text nicht.
+struct Overlap<'s> {
+    values: &'s [Option<SnapshotValues>],
+    bounds: &'s [Option<Rect>],
+    parents: &'s [i64],
+    children: Vec<Vec<usize>>,
+    /// Je Knoten, ob er absolut oder fest positioniert ist.
+    lifted: Vec<bool>,
+    /// Je Knoten, ob er sichtbar ist und etwas malt, er selbst oder darunter.
+    paints: Vec<bool>,
+}
+
+impl<'s> Overlap<'s> {
+    const LEVELS: usize = 6;
+
+    fn new(
+        values: &'s [Option<SnapshotValues>],
+        bounds: &'s [Option<Rect>],
+        parents: &'s [i64],
+        names: &[&str],
+    ) -> Self {
+        let n = parents.len();
+        let parent = |i: usize| parents.get(i).and_then(|p| usize::try_from(*p).ok());
+        let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for i in 0..n {
+            if let Some(list) = parent(i).and_then(|p| children.get_mut(p)) {
+                list.push(i);
+            }
+        }
+        let lifted = (0..n)
+            .map(|i| {
+                values[i]
+                    .as_ref()
+                    .is_some_and(|v| matches!(v.get("position"), Some("absolute" | "fixed")))
+            })
+            .collect();
+        // Ein Bild unter einem Knoten, von unten nach oben: Der Snapshot
+        // steht in Dokumentreihenfolge, Kinder also hinter ihren Eltern.
+        let mut image_below = vec![false; n];
+        for i in (0..n).rev() {
+            let own = values[i].as_ref().is_some_and(|v| {
+                matches!(names[i], "IMG" | "PICTURE" | "VIDEO" | "CANVAS")
+                    || v.get("background-image").is_some_and(|img| img != "none")
+            });
+            if own {
+                image_below[i] = true;
+            }
+            if image_below[i] {
+                if let Some(p) = parent(i).filter(|p| *p < i) {
+                    image_below[p] = true;
+                }
+            }
+        }
+        let paints = (0..n)
+            .map(|i| {
+                let Some(v) = &values[i] else {
+                    return false;
+                };
+                bounds[i].is_some_and(|b| !b.is_empty())
+                    && v.get("visibility") != Some("hidden")
+                    && (image_below[i]
+                        || v.get("background-color")
+                            .and_then(parse_color)
+                            .is_some_and(|c| c.a > 0))
+            })
+            .collect();
+        Self {
+            values,
+            bounds,
+            parents,
+            children,
+            lifted,
+            paints,
+        }
+    }
+
+    fn parent(&self, i: usize) -> Option<usize> {
+        self.parents.get(i).and_then(|p| usize::try_from(*p).ok())
+    }
+
+    /// Ob ein malendes Geschwister von `i` oder eines seiner Vorfahren den
+    /// Kasten von `i` überschneidet.
+    fn covers(&self, i: usize) -> bool {
+        let Some(rect) = self.bounds[i].filter(|b| !b.is_empty()) else {
+            return false;
+        };
+        let mut current = i;
+        for _ in 0..Self::LEVELS {
+            // Ab einem deckenden Hintergrund auf dem Weg steht der
+            // aufgelöste Hintergrund fest; was daneben liegt, liegt darunter
+            // oder deckt den Text ganz ab (`Layout::obscured`).
+            if self.values[current].as_ref().is_some_and(|v| {
+                v.get("background-image").is_some_and(|img| img != "none")
+                    || v.get("background-color")
+                        .and_then(parse_color)
+                        .is_some_and(|c| c.a == 255)
+            }) {
+                return false;
+            }
+            let Some(parent) = self.parent(current) else {
+                return false;
+            };
+            let hit = self.children[parent].iter().any(|&s| {
+                s != current
+                    && self.paints[s]
+                    && (self.lifted[s] || self.lifted[current])
+                    && self.bounds[s].is_some_and(|b| overlaps(b, rect))
+            });
+            if hit {
+                return true;
+            }
+            current = parent;
+        }
+        false
+    }
+
+    /// Siehe [`Rendering::visually_hidden`]: durchsichtig (`opacity: 0` am
+    /// Element oder einem Vorfahren), abgeschnitten (`clip` an einem
+    /// absolut positionierten Kasten, `clip-path: inset(≥ 50 %)`), per
+    /// `text-indent` um mindestens 999 px verschoben, in einem Kasten von
+    /// höchstens 1 px mit `overflow: hidden`/`clip` — am Element oder an
+    /// einem Vorfahren bis zwölf Ebenen hinauf, wie `__amsIsVisuallyHidden`.
+    /// Dazu ganz links oder oberhalb des Dokuments (`left: -9999px`): Dorthin
+    /// lässt sich nicht scrollen.
+    fn visually_hidden(&self, i: usize) -> bool {
+        if self.bounds[i].is_some_and(|b| b.x + b.width <= 0.0 || b.y + b.height <= 0.0) {
+            return true;
+        }
+        // `opacity: 0` irgendwo darüber: ein ausgeblendetes Hover-Menü
+        // (wetter.com, Megamenü). Die Deckkraft vervielfacht sich über den
+        // ganzen Weg, deshalb ohne Ebenengrenze.
+        let mut current = Some(i);
+        while let Some(c) = current {
+            let transparent = self.values[c]
+                .as_ref()
+                .and_then(|v| v.get("opacity"))
+                .and_then(|o| o.trim().parse::<f32>().ok())
+                .is_some_and(|o| o <= 0.0);
+            if transparent {
+                return true;
+            }
+            current = self.parent(c);
+        }
+        // `overflow` schneidet einen absolut positionierten Nachfahren nur ab,
+        // wenn der Kasten dessen Containing Block ist oder darüber liegt —
+        // ein 0 px breites, statisches `<nav>` mit `overflow: hidden` lässt
+        // die absolut positionierte Liste darin sichtbar (bundesregierung.de,
+        // Metanavigation). Einen fixierten Nachfahren schneidet keiner ab.
+        let mut escaped = false;
+        let mut fixed = false;
+        let mut current = Some(i);
+        for _ in 0..12 {
+            let Some(c) = current else {
+                break;
+            };
+            if let Some(v) = &self.values[c] {
+                let position = v.get("position").unwrap_or("static");
+                if c != i && escaped && position != "static" {
+                    escaped = false;
+                }
+                let positioned = matches!(position, "absolute" | "fixed");
+                let clipped = positioned && v.get("clip").is_some_and(clip_rect_is_empty);
+                let clip_path = v.get("clip-path").is_some_and(clip_path_hides);
+                let indented = v
+                    .get("text-indent")
+                    .and_then(parse_px)
+                    .is_some_and(|px| px.abs() >= 999.0);
+                let clips_overflow = ["overflow-x", "overflow-y"]
+                    .iter()
+                    .any(|axis| matches!(v.get(axis), Some("hidden" | "clip")));
+                let tiny = self.bounds[c].is_some_and(|b| b.width <= 1.0 || b.height <= 1.0);
+                let clips_here = clips_overflow && tiny && (c == i || !(escaped || fixed));
+                if clipped || clip_path || indented || clips_here {
+                    return true;
+                }
+                match position {
+                    "absolute" => escaped = true,
+                    "fixed" => fixed = true,
+                    _ => {}
+                }
+            }
+            current = self.parent(c);
+        }
+        false
+    }
+}
+
+/// `clip: rect(…)` mit Kanten von höchstens 1 px — das `.sr-only`-Muster
+/// `rect(0 0 0 0)` oder `rect(1px, 1px, 1px, 1px)`.
+fn clip_rect_is_empty(clip: &str) -> bool {
+    let Some(inner) = clip
+        .trim()
+        .strip_prefix("rect(")
+        .and_then(|r| r.strip_suffix(')'))
+    else {
+        return false;
+    };
+    let edges: Vec<Option<f32>> = inner
+        .split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|p| !p.is_empty())
+        .map(|p| p.trim_end_matches("px").parse::<f32>().ok())
+        .collect();
+    edges.len() == 4 && edges.iter().all(|e| e.is_some_and(|v| v.abs() <= 1.0))
+}
+
+/// `clip-path: inset(50%)` und mehr schneidet den ganzen Kasten weg.
+fn clip_path_hides(clip_path: &str) -> bool {
+    clip_path
+        .trim()
+        .strip_prefix("inset(")
+        .and_then(|r| r.split(|c: char| c.is_whitespace() || c == ')').next())
+        .and_then(|first| first.strip_suffix('%'))
+        .and_then(|pct| pct.parse::<f32>().ok())
+        .is_some_and(|pct| pct >= 50.0)
 }
 
 fn parse_px(value: &str) -> Option<f32> {
@@ -416,7 +675,7 @@ impl LayoutStyles {
         let mut by_backend = HashMap::new();
         let mut whitespace_before = HashSet::new();
         let mut whitespace_last = HashSet::new();
-        for document in &snapshot.documents {
+        for (document_index, document) in snapshot.documents.iter().enumerate() {
             let nodes = &document.nodes;
             let (Some(backend), Some(types), Some(parents)) = (
                 nodes.backend_node_id.as_ref(),
@@ -484,6 +743,7 @@ impl LayoutStyles {
             let values = nodes.node_value.as_ref();
             let mut pending = vec![false; backend.len()];
             let mut first_text: Vec<Option<usize>> = vec![None; backend.len()];
+            let mut own_text = vec![false; backend.len()];
             for (i, id) in backend.iter().enumerate() {
                 let Some(parent) = parents.get(i).and_then(|p| usize::try_from(*p).ok()) else {
                     continue;
@@ -491,11 +751,17 @@ impl LayoutStyles {
                 if text_values[i].is_some() && first_text[parent].is_none() {
                     first_text[parent] = Some(i);
                 }
-                let blank = types.get(i) == Some(&TEXT_NODE)
-                    && values
-                        .and_then(|v| v.get(i))
-                        .and_then(|v| string(*v.inner()))
-                        .is_some_and(|t| t.trim().is_empty());
+                let text = (types.get(i) == Some(&TEXT_NODE))
+                    .then(|| {
+                        values
+                            .and_then(|v| v.get(i))
+                            .and_then(|v| string(*v.inner()))
+                    })
+                    .flatten();
+                let blank = text.is_some_and(|t| t.trim().is_empty());
+                if text.is_some_and(|t| !t.trim().is_empty()) {
+                    own_text[parent] = true;
+                }
                 if blank {
                     pending[parent] = true;
                     continue;
@@ -509,13 +775,24 @@ impl LayoutStyles {
                     whitespace_last.insert(*backend[i].inner());
                 }
             }
-            let parents: Vec<i64> = parents.clone();
+            let names: Vec<&str> = (0..backend.len())
+                .map(|i| {
+                    nodes
+                        .node_name
+                        .as_ref()
+                        .and_then(|n| n.get(i))
+                        .and_then(|v| string(*v.inner()))
+                        .map_or("", String::as_str)
+                })
+                .collect();
+            let overlap = Overlap::new(&element_values, &bounds, parents, &names);
             let mut memo: Vec<Option<Option<Color>>> = vec![None; backend.len()];
             for (i, id) in backend.iter().enumerate() {
                 if types.get(i) != Some(&ELEMENT_NODE) {
                     continue;
                 }
-                let background = backdrop(i, &element_values, &parents, &mut memo);
+                let background =
+                    backdrop(i, &element_values, parents, &mut memo).filter(|_| !overlap.covers(i));
                 let style = match &element_values[i] {
                     Some(v) => computed_style(
                         v.get("display").unwrap_or_default().to_string(),
@@ -532,12 +809,17 @@ impl LayoutStyles {
                     ),
                     None => computed_style("none".to_string(), None, None),
                 };
+                let visually_hidden =
+                    (style.display.as_deref() != Some("none")).then(|| overlap.visually_hidden(i));
                 by_backend.insert(
                     *id.inner(),
                     LayoutStyle {
                         style,
                         bounds: bounds[i],
                         scroll_overflow_px: overflow[i],
+                        visually_hidden,
+                        // Der Durchgang misst nur im Hauptdokument.
+                        own_text: document_index == 0 && own_text[i],
                     },
                 );
             }
@@ -546,12 +828,139 @@ impl LayoutStyles {
             by_backend,
             whitespace_before,
             whitespace_last,
+            obscured: None,
+            backdrops: HashMap::new(),
         }
     }
 }
 
+/// Elemente mit eigenem Text, deren Mitte im sichtbaren Bereich liegt und
+/// dort von einem fremden fixierten oder klebenden Element überdeckt wird —
+/// etwa einem Cookie-Banner (#716 Fall 7). `elementFromPoint` an der Mitte,
+/// durch offene Shadow Roots hinab wie in der lokalen Kontrastregel; ein
+/// Element mit `pointer-events: none` trifft es nicht.
+const OBSCURED_JS: &str = r#"
+(() => {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const parentOf = (n) => n.assignedSlot || n.parentElement ||
+    ((n.getRootNode && n.getRootNode().host) || null);
+  const within = (outer, n) => {
+    for (; n; n = parentOf(n)) if (n === outer) return true;
+    return false;
+  };
+  const topmostAt = (x, y) => {
+    let top = document.elementFromPoint(x, y);
+    while (top && top.shadowRoot) {
+      const inner = top.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === top) break;
+      top = inner;
+    }
+    return top;
+  };
+  const coverOf = (n) => {
+    for (; n && n.nodeType === 1; n = parentOf(n)) {
+      const p = getComputedStyle(n).position;
+      if (p === 'fixed' || p === 'sticky') return n;
+    }
+    return null;
+  };
+  const ownText = (el) => Array.prototype.some.call(el.childNodes,
+    (c) => c.nodeType === 3 && c.nodeValue.trim() !== '');
+  const out = [];
+  const roots = [document.documentElement];
+  while (roots.length > 0) {
+    const walker = document.createTreeWalker(roots.pop(), NodeFilter.SHOW_ELEMENT);
+    for (let el = walker.currentNode; el; el = walker.nextNode()) {
+      if (el.nodeType !== 1) continue;
+      if (el.shadowRoot) roots.push(el.shadowRoot);
+      if (!ownText(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
+      const hit = topmostAt(x, y);
+      if (!hit || within(el, hit) || within(hit, el)) continue;
+      const cover = coverOf(hit);
+      if (cover && !within(cover, el)) out.push(el);
+    }
+  }
+  return out;
+})()
+"#;
+
+/// Objektgruppe für die Verweise aus [`OBSCURED_JS`], gesammelt freigegeben.
+const OBSCURED_GROUP: &str = "ams-obscured";
+
+/// Backend-IDs der Elemente aus [`OBSCURED_JS`]: ein Skriptaufruf, ein
+/// Aufruf für die Liste, dann je *überdecktem* Element ein `describeNode` —
+/// meist keines oder eine Handvoll unter einem Banner, nicht eines je Element
+/// der Seite.
+async fn fetch_obscured(page: &Page) -> Result<HashSet<i64>> {
+    let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
+        reason: format!("Überdeckungsdurchgang: {what}: {e}"),
+    };
+    let params = EvaluateParams::builder()
+        .expression(OBSCURED_JS)
+        .object_group(OBSCURED_GROUP)
+        .return_by_value(false)
+        .build()
+        .map_err(|e| failed("Parameter", e))?;
+    let result = async {
+        let evaluated = page
+            .execute(params)
+            .await
+            .map_err(|e| failed("Skript", e.to_string()))?;
+        if let Some(exception) = &evaluated.result.exception_details {
+            return Err(failed("Skript", exception.text.clone()));
+        }
+        let Some(list) = evaluated.result.result.object_id.clone() else {
+            return Err(failed("Skript", "keine Liste".to_string()));
+        };
+        let properties = page
+            .execute(
+                GetPropertiesParams::builder()
+                    .object_id(list)
+                    .own_properties(true)
+                    .build()
+                    .map_err(|e| failed("Parameter", e))?,
+            )
+            .await
+            .map_err(|e| failed("Liste", e.to_string()))?;
+        let describes = properties
+            .result
+            .result
+            .iter()
+            .filter(|p| p.name.parse::<usize>().is_ok())
+            .filter_map(|p| p.value.as_ref()?.object_id.clone())
+            .map(|id| page.execute(DescribeNodeParams::builder().object_id(id).build()));
+        let mut ids = HashSet::new();
+        for described in futures::future::join_all(describes).await {
+            let described = described.map_err(|e| failed("describeNode", e.to_string()))?;
+            ids.insert(*described.result.node.backend_node_id.inner());
+        }
+        Ok(ids)
+    }
+    .await;
+    if let Err(e) = page
+        .execute(ReleaseObjectGroupParams::new(OBSCURED_GROUP))
+        .await
+    {
+        debug!("Objektgruppe {OBSCURED_GROUP} nicht freigegeben: {e}");
+    }
+    result
+}
+
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
 async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
+    // Vor dem Snapshot, damit beide denselben Stand sehen. Scheitert der
+    // Durchgang, bleibt `obscured` ungemessen statt „nicht überdeckt".
+    let obscured = match fetch_obscured(page).await {
+        Ok(ids) => Some(ids),
+        Err(e) => {
+            warn!("{e}");
+            None
+        }
+    };
     let mut params =
         CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
     // `scrollRects` und `clientRects` für den Scroll-Überhang.
@@ -562,7 +971,231 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
         .map_err(|e| AuditError::AXTreeExtractionFailed {
             reason: format!("DOMSnapshot.captureSnapshot fehlgeschlagen: {e}"),
         })?;
-    Ok(LayoutStyles::from_snapshot(&response.result))
+    let mut styles = LayoutStyles::from_snapshot(&response.result);
+    styles.obscured = obscured;
+    styles.backdrops = backdrops_or_none(
+        tokio::time::timeout(SAMPLE_TIMEOUT, sample_backdrops(page, &styles)).await,
+    );
+    Ok(styles)
+}
+
+/// Obergrenze für die ganze Abtastung — Bildschirmfoto und Skript. Eine Seite,
+/// die das Laden des Fotos nie meldet, hielte sonst den ganzen Audit an.
+const SAMPLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Wie lange das Skript in der Seite auf das geladene Foto wartet, in ms.
+const SAMPLE_LOAD_TIMEOUT_MS: u64 = 5000;
+
+/// Scheitert die Abtastung oder läuft sie in [`SAMPLE_TIMEOUT`], bekommt
+/// kein Element einen abgetasteten Hintergrund — der Text bleibt `UNTESTED`,
+/// der Audit läuft weiter.
+fn backdrops_or_none(
+    sampled: std::result::Result<Result<HashMap<i64, Vec<f64>>>, tokio::time::error::Elapsed>,
+) -> HashMap<i64, Vec<f64>> {
+    match sampled {
+        Ok(Ok(backdrops)) => backdrops,
+        Ok(Err(e)) => {
+            warn!("{e}");
+            HashMap::new()
+        }
+        Err(_) => {
+            warn!(
+                "Hintergrund-Abtastung nach {} s abgebrochen; Text ohne bestimmbaren Hintergrund bleibt ungeprueft",
+                SAMPLE_TIMEOUT.as_secs()
+            );
+            HashMap::new()
+        }
+    }
+}
+
+/// Höchstens so viele Elemente werden je Abzug abgetastet, die größten zuerst
+/// — wie die frühere lokale Kontrastregel (#527).
+const MAX_SAMPLED: usize = 60;
+
+/// Bis zu dieser Tiefe (CSS-Pixel ab Dokumentanfang) wird abgetastet. Das
+/// Foto deckt die Kandidaten bis hierhin ab; was tiefer liegt, bleibt
+/// `UNTESTED`. Begrenzt Speicher und Zeit auf sehr langen Seiten — ein
+/// Canvas in Chrome ist ohnehin höchstens 32767 px hoch.
+const MAX_SAMPLE_DEPTH: f32 = 15000.0;
+
+/// Höchstens so viele Pixel je Element gehen in die Stichprobe; größere Kästen
+/// werden auf einem gleichmäßigen Raster ausgedünnt.
+const SAMPLES_PER_ELEMENT: usize = 2500;
+
+/// Tastet die Pixel hinter Text ab, dessen Hintergrund sich aus den Stilen
+/// nicht bestimmen lässt (Bild, Verlauf, positioniertes Bild darunter): ein
+/// Bildschirmfoto über den sichtbaren Bereich hinaus (`captureBeyondViewport`),
+/// zugeschnitten auf die Kandidaten, in CSS-Pixeln (`scale = 1 /
+/// devicePixelRatio`), einmal in die Seite geladen; je Element die
+/// Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
+/// Glyphenpixel liegen mit in der Stichprobe; die Regel urteilt deshalb über
+/// Median und 40. Perzentil.
+const SAMPLE_JS: &str = r#"
+(async () => {
+  const tasks = __TASKS__;
+  const img = new Image();
+  // Laedt das Foto nie (weder `load` noch `error`), bricht das Skript
+  // selbst ab, statt die Auswertung haengen zu lassen.
+  await Promise.race([
+    new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('screenshot not loadable'));
+      img.src = 'data:image/png;base64,__DATA__';
+    }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('screenshot load timed out')), __LOAD_MS__)),
+  ]);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  // Die Aufgaben stehen relativ zum Zuschnitt; das Foto hat dessen Breite in
+  // CSS-Pixeln, bis auf Rundung.
+  const scale = img.width / __CLIP_W__;
+  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const out = {};
+  for (const t of tasks) {
+    const x = Math.round(t.x * scale), y = Math.round(t.y * scale);
+    const w = Math.round(t.w * scale), h = Math.round(t.h * scale);
+    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > img.width || y + h > img.height) continue;
+    const px = ctx.getImageData(x, y, w, h).data;
+    const step = Math.max(1, Math.ceil(Math.sqrt(w * h / __PER__)));
+    const lum = [];
+    for (let j = 0; j < h; j += step) {
+      for (let i = 0; i < w; i += step) {
+        const k = (j * w + i) * 4;
+        const a = px[k + 3] / 255;
+        const c = (v) => lin(v * a + 255 * (1 - a));
+        lum.push(Math.round((0.2126 * c(px[k]) + 0.7152 * c(px[k + 1]) + 0.0722 * c(px[k + 2])) * 1e4) / 1e4);
+      }
+    }
+    out[t.id] = lum;
+  }
+  return out;
+})()
+"#;
+
+/// Die Kandidaten für [`SAMPLE_JS`]: Elemente mit eigenem Text im
+/// Hauptdokument, dargestellt, mit Textfarbe, aber ohne bestimmbaren
+/// Hintergrund, weder optisch verborgen noch überdeckt, ganz im Dokument
+/// bis `(Breite, Tiefe)` in Dokumentkoordinaten wie die Rahmen des
+/// Snapshots. Überdeckt heißt: beim Messen im sichtbaren Bereich verdeckt
+/// (`OBSCURED_JS`); was darunter liegt, gilt nicht als verdeckt. Die
+/// größten zuerst, seitenweit höchstens [`MAX_SAMPLED`]; je Kandidat
+/// Backend-ID und Rahmen.
+fn sample_candidates(styles: &LayoutStyles, area: (f32, f32)) -> Vec<(i64, Rect)> {
+    let (width, depth) = area;
+    let obscured = |id: &i64| styles.obscured.as_ref().is_some_and(|o| o.contains(id));
+    let mut candidates: Vec<(i64, Rect)> = styles
+        .by_backend
+        .iter()
+        .filter(|(id, e)| {
+            e.own_text
+                && e.style.color.is_some()
+                && e.style.background_color.is_none()
+                && e.style.display.as_deref() != Some("none")
+                && e.style.visibility.as_deref() != Some("hidden")
+                && e.visually_hidden != Some(true)
+                && !obscured(id)
+        })
+        .filter_map(|(id, e)| {
+            let r = e.bounds.filter(|b| !b.is_empty())?;
+            (r.x >= 0.0 && r.y >= 0.0 && r.x + r.width <= width && r.y + r.height <= depth)
+                .then_some((*id, r))
+        })
+        .collect();
+    candidates.sort_by(|a, b| b.1.area().total_cmp(&a.1.area()).then(a.0.cmp(&b.0)));
+    candidates.truncate(MAX_SAMPLED);
+    candidates
+}
+
+/// Das kleinste Rechteck um alle Kandidaten, auf ganze CSS-Pixel gerundet —
+/// der Zuschnitt des Bildschirmfotos.
+fn clip_around(candidates: &[(i64, Rect)]) -> Rect {
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, 0.0f32, 0.0f32);
+    for (_, r) in candidates {
+        x0 = x0.min(r.x);
+        y0 = y0.min(r.y);
+        x1 = x1.max(r.x + r.width);
+        y1 = y1.max(r.y + r.height);
+    }
+    let (x0, y0) = (x0.floor(), y0.floor());
+    Rect {
+        x: x0,
+        y: y0,
+        width: x1.ceil() - x0,
+        height: y1.ceil() - y0,
+    }
+}
+
+/// Siehe [`SAMPLE_JS`]. Ohne Kandidaten kein Bildschirmfoto.
+async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<i64, Vec<f64>>> {
+    let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
+        reason: format!("Hintergrund-Abtastung: {what}: {e}"),
+    };
+    let document: Vec<f64> = page
+        .evaluate(
+            "[document.documentElement.scrollWidth, document.documentElement.scrollHeight, window.devicePixelRatio || 1]",
+        )
+        .await
+        .map_err(|e| failed("Dokumentgröße", e.to_string()))?
+        .into_value()
+        .map_err(|e| failed("Dokumentgröße", e.to_string()))?;
+    let [width, height, dpr] = document[..] else {
+        return Err(failed("Dokumentgröße", format!("{document:?}")));
+    };
+    let candidates = sample_candidates(
+        styles,
+        (width as f32, (height as f32).min(MAX_SAMPLE_DEPTH)),
+    );
+    if candidates.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let clip = clip_around(&candidates);
+    let params = CaptureScreenshotParams::builder()
+        .clip(Viewport {
+            x: f64::from(clip.x),
+            y: f64::from(clip.y),
+            width: f64::from(clip.width),
+            height: f64::from(clip.height),
+            scale: 1.0 / dpr.max(0.1),
+        })
+        .capture_beyond_viewport(true)
+        .build();
+    let shot = page
+        .execute(params)
+        .await
+        .map_err(|e| failed("Bildschirmfoto", e.to_string()))?;
+    let tasks: Vec<serde_json::Value> = candidates
+        .iter()
+        .map(|(id, r)| {
+            serde_json::json!({
+                "id": id.to_string(),
+                "x": r.x - clip.x,
+                "y": r.y - clip.y,
+                "w": r.width,
+                "h": r.height,
+            })
+        })
+        .collect();
+    let js = SAMPLE_JS
+        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
+        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
+        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
+        .replace("__CLIP_W__", &clip.width.to_string())
+        .replace("__DATA__", shot.result.data.as_ref());
+    let sampled: HashMap<String, Vec<f64>> = page
+        .evaluate(js.as_str())
+        .await
+        .map_err(|e| failed("Skript", e.to_string()))?
+        .into_value()
+        .map_err(|e| failed("Skript", e.to_string()))?;
+    Ok(sampled
+        .into_iter()
+        .filter(|(_, lum)| !lum.is_empty())
+        .filter_map(|(id, lum)| Some((id.parse().ok()?, lum)))
+        .collect())
 }
 
 /// [`CdpDocument`] mit Tier 3, siehe [`CdpDocument::rendered`].
@@ -613,11 +1246,44 @@ impl Rendering for RenderedCdpDocument<'_> {
         self.entry(node)?.bounds
     }
 
-    /// Aus den DOM-Rechtecken des Snapshots, siehe `scroll_overflow`. Ein
-    /// [`Layout`](a11y_dom::Layout) liefert dieses Dokument nicht: Die
-    /// Heuristiken darauf bleiben ungelaufen.
+    /// Aus den DOM-Rechtecken des Snapshots, siehe `scroll_overflow`.
     fn scroll_overflow_px<'n>(&'n self, node: Self::N<'n>) -> Option<f32> {
         self.entry(node)?.scroll_overflow_px
+    }
+
+    /// Aus den berechneten Stilen und Rahmen des Snapshots, siehe
+    /// `Overlap::visually_hidden`.
+    fn visually_hidden<'n>(&'n self, node: Self::N<'n>) -> Option<bool> {
+        self.entry(node)?.visually_hidden
+    }
+
+    /// Die Leuchtdichten aus `sample_backdrops`: nur für Text ohne
+    /// bestimmbaren Hintergrund im sichtbaren Bereich.
+    fn sampled_backdrop<'n>(&'n self, node: Self::N<'n>) -> Option<Backdrop> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles
+            .backdrops
+            .get(&backend)
+            .map(|luminance| Backdrop {
+                luminance: luminance.clone(),
+            })
+    }
+
+    /// Von [`Layout`] nur `obscured`, und nur an Elementen mit eigenem Text
+    /// und Kasten im Hauptdokument: Daran misst `OBSCURED_JS`. Die übrigen
+    /// Felder erhebt auditmysite nicht; die Heuristiken darauf melden das
+    /// selbst als `UNTESTED`.
+    fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
+        let backend = self.doc.backend_node_id(node)?;
+        let entry = self.styles.by_backend.get(&backend)?;
+        let obscured = self.styles.obscured.as_ref()?;
+        if !entry.own_text || entry.bounds.is_none() {
+            return None;
+        }
+        Some(Layout {
+            obscured: Some(obscured.contains(&backend)),
+            ..Layout::default()
+        })
     }
 }
 
@@ -1146,11 +1812,292 @@ mod tests {
         color: &'a str,
         bg: &'a str,
         bg_image: &'a str,
-    ) -> [&'a str; 15] {
+    ) -> [&'a str; 20] {
         [
             display, "visible", color, color, bg, bg_image, "16px", "400", "normal", "Arial",
-            "disc", "none", "none", "visible", "visible",
+            "disc", "none", "none", "visible", "visible", "auto", "none", "0px", "static", "1",
         ]
+    }
+
+    /// Setzt einen Wert aus [`SNAPSHOT_STYLES`] beim Namen.
+    fn mit<'a>(mut v: [&'a str; 20], property: &str, value: &'a str) -> [&'a str; 20] {
+        v[SNAPSHOT_STYLES.iter().position(|p| *p == property).unwrap()] = value;
+        v
+    }
+
+    /// `body` > `div` je Muster > `span` mit Text. Gemeldet wird, ob der
+    /// `span` als optisch verborgen gilt.
+    fn verborgen(div: [&str; 20], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+        let span = werte("inline", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        verborgen_mit(div, div_rect, span, span_rect)
+    }
+
+    /// Wie [`verborgen`], der `span` absolut positioniert.
+    fn verborgen_absolut(div: [&str; 20], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+        let span = mit(
+            werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none"),
+            "position",
+            "absolute",
+        );
+        verborgen_mit(div, div_rect, span, span_rect)
+    }
+
+    fn verborgen_mit(
+        div: [&str; 20],
+        div_rect: [f64; 4],
+        span: [&str; 20],
+        span_rect: [f64; 4],
+    ) -> Option<bool> {
+        let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
+        let snapshot = snapshot_mit_stilen(
+            &[-1, 0, 1, 2, 3],
+            &[9, 1, 1, 1, 3],
+            &[
+                (1, &body, [0.0, 0.0, 800.0, 600.0]),
+                (2, &div, div_rect),
+                (3, &span, span_rect),
+                (4, &span, span_rect),
+            ],
+        );
+        LayoutStyles::from_snapshot(&snapshot).by_backend[&4].visually_hidden
+    }
+
+    /// Die `.sr-only`-Muster, Beleg gov.uk `button.gem-c-search__submit`
+    /// (`text-indent: -5000px`).
+    #[test]
+    fn optisch_verborgener_text_wird_erkannt() {
+        let block = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        let normal = [8.0, 8.0, 200.0, 20.0];
+        assert_eq!(verborgen(block, normal, normal), Some(false));
+        assert_eq!(
+            verborgen(mit(block, "opacity", "0"), normal, normal),
+            Some(true),
+            "ausgeblendetes Hover-Menü"
+        );
+        assert_eq!(
+            verborgen(mit(block, "opacity", "0.5"), normal, normal),
+            Some(false)
+        );
+        let indent = mit(block, "text-indent", "-5000px");
+        assert_eq!(verborgen(indent, normal, normal), Some(true));
+        let clip = mit(
+            mit(block, "position", "absolute"),
+            "clip",
+            "rect(0px, 0px, 0px, 0px)",
+        );
+        assert_eq!(verborgen(clip, [8.0, 8.0, 1.0, 1.0], normal), Some(true));
+        assert_eq!(
+            verborgen(
+                mit(block, "clip", "rect(0px, 0px, 0px, 0px)"),
+                normal,
+                normal
+            ),
+            Some(false),
+            "clip wirkt nur an absolut positionierten Kästen"
+        );
+        assert_eq!(
+            verborgen(mit(block, "clip-path", "inset(50%)"), normal, normal),
+            Some(true)
+        );
+        let klein = mit(block, "overflow-x", "hidden");
+        assert_eq!(verborgen(klein, [8.0, 8.0, 1.0, 1.0], normal), Some(true));
+        assert_eq!(
+            verborgen(block, [8.0, 8.0, 200.0, 0.0], normal),
+            Some(false),
+            "ein 0 px hoher Kasten ohne overflow: hidden zeigt seinen Inhalt (#716)"
+        );
+        assert_eq!(verborgen(klein, [8.0, 8.0, 0.0, 20.0], normal), Some(true));
+        assert_eq!(
+            verborgen_absolut(klein, [8.0, 8.0, 0.0, 20.0], normal),
+            Some(false),
+            "ein statischer Kasten schneidet den absolut positionierten Nachfahren nicht ab"
+        );
+        assert_eq!(
+            verborgen(block, normal, [-10008.0, 8.0, 100.0, 20.0]),
+            Some(true),
+            "links außerhalb des Dokuments"
+        );
+    }
+
+    /// `body` > `figure` > (`img`-Wrapper, positioniert, mit Hintergrundbild;
+    /// `figcaption` > `p` mit Text). Überschneidet der Wrapper den Text, ist
+    /// der Hintergrund nicht bestimmbar (#716 Fall 6, spiegel.de
+    /// Bildnachweis).
+    fn hintergrund_neben(wrapper: [&str; 20], wrapper_rect: [f64; 4]) -> Option<Color> {
+        let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        hintergrund_unter(wrapper, wrapper_rect, figure)
+    }
+
+    fn hintergrund_unter(
+        wrapper: [&str; 20],
+        wrapper_rect: [f64; 4],
+        caption: [&str; 20],
+    ) -> Option<Color> {
+        let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
+        let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        let p = werte("block", "rgb(255, 255, 255)", "rgba(0, 0, 0, 0)", "none");
+        let snapshot = snapshot_mit_stilen(
+            &[-1, 0, 1, 2, 2, 4, 5],
+            &[9, 1, 1, 1, 1, 1, 3],
+            &[
+                (1, &body, [0.0, 0.0, 800.0, 600.0]),
+                (2, &figure, [0.0, 0.0, 400.0, 300.0]),
+                (3, &wrapper, wrapper_rect),
+                (4, &caption, [0.0, 280.0, 400.0, 20.0]),
+                (5, &p, [0.0, 280.0, 400.0, 20.0]),
+                (6, &p, [0.0, 280.0, 100.0, 20.0]),
+            ],
+        );
+        LayoutStyles::from_snapshot(&snapshot).by_backend[&6]
+            .style
+            .background_color
+    }
+
+    #[test]
+    fn positioniertes_bild_unter_dem_text_macht_den_hintergrund_unbestimmbar() {
+        let bild = mit(
+            werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "url(a.jpg)"),
+            "position",
+            "absolute",
+        );
+        let ganz = [0.0, 0.0, 400.0, 300.0];
+        assert_eq!(hintergrund_neben(bild, ganz), None);
+        assert!(
+            hintergrund_neben(bild, [0.0, 0.0, 400.0, 200.0]).is_some(),
+            "ohne Überschneidung gilt der Hintergrund der Vorfahren"
+        );
+        let im_fluss = mit(bild, "position", "static");
+        assert!(
+            hintergrund_neben(im_fluss, ganz).is_some(),
+            "ein Geschwister im Fluss liegt neben dem Text, nicht darunter"
+        );
+        let unsichtbar = mit(bild, "visibility", "hidden");
+        assert!(hintergrund_neben(unsichtbar, ganz).is_some());
+        // Umgekehrt: der Bildnachweis absolut positioniert über dem Bild im
+        // Fluss (spiegel.de `figcaption > p`).
+        let caption = mit(
+            werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none"),
+            "position",
+            "absolute",
+        );
+        assert_eq!(hintergrund_unter(im_fluss, ganz, caption), None);
+        let deckend = mit(caption, "background-color", "rgb(0, 0, 0)");
+        assert!(
+            hintergrund_unter(im_fluss, ganz, deckend).is_some(),
+            "eine eigene deckende Fläche bestimmt den Hintergrund"
+        );
+    }
+
+    /// Abgetastet wird nur Text ohne bestimmbaren Hintergrund, der ganz im
+    /// Dokument bis zur Tiefengrenze liegt, weder verborgen noch überdeckt ist
+    /// — die größten Kästen zuerst; das Foto umschließt genau sie.
+    #[test]
+    fn abtastung_nur_fuer_unbestimmten_sichtbaren_text() {
+        let style = |bg: Option<Color>| ComputedStyle {
+            color: Some(Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            }),
+            background_color: bg,
+            display: Some("block".into()),
+            visibility: Some("visible".into()),
+            ..ComputedStyle::default()
+        };
+        let entry = |bg, rect: [f32; 4], hidden| LayoutStyle {
+            style: style(bg),
+            bounds: Some(Rect {
+                x: rect[0],
+                y: rect[1],
+                width: rect[2],
+                height: rect[3],
+            }),
+            scroll_overflow_px: Some(0.0),
+            visually_hidden: Some(hidden),
+            own_text: true,
+        };
+        let weiss = Some(Color {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        });
+        let mut styles = LayoutStyles::default();
+        styles
+            .by_backend
+            .insert(1, entry(None, [10.0, 10.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(2, entry(None, [10.0, 50.0, 300.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(3, entry(weiss, [10.0, 90.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(4, entry(None, [10.0, 130.0, 100.0, 20.0], true));
+        styles
+            .by_backend
+            .insert(5, entry(None, [10.0, 900.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(7, entry(None, [10.0, 20000.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(6, entry(None, [10.0, 170.0, 100.0, 20.0], false));
+        styles.obscured = Some(HashSet::from([6]));
+        let kandidaten = sample_candidates(&styles, (800.0, MAX_SAMPLE_DEPTH));
+        let ids: Vec<i64> = kandidaten.iter().map(|(id, _)| *id).collect();
+        assert_eq!(
+            ids,
+            [2, 1, 5],
+            "auch unterhalb des sichtbaren Bereichs, bis zur Tiefengrenze"
+        );
+        assert_eq!(
+            clip_around(&kandidaten),
+            Rect {
+                x: 10.0,
+                y: 10.0,
+                width: 300.0,
+                height: 910.0
+            }
+        );
+    }
+
+    /// Läuft die Abtastung in die Zeitgrenze oder scheitert sie, bekommt
+    /// kein Element einen Hintergrund — der Audit läuft weiter.
+    #[tokio::test]
+    async fn abtastung_ohne_ergebnis_bei_zeitueberschreitung_oder_fehler() {
+        let haengt = tokio::time::timeout(
+            std::time::Duration::from_millis(1),
+            std::future::pending::<Result<HashMap<i64, Vec<f64>>>>(),
+        )
+        .await;
+        assert!(backdrops_or_none(haengt).is_empty());
+        let fehler: Result<HashMap<i64, Vec<f64>>> =
+            Err(AuditError::AXTreeExtractionFailed { reason: "x".into() });
+        assert!(backdrops_or_none(Ok(fehler)).is_empty());
+        let gut = HashMap::from([(1, vec![0.5])]);
+        assert_eq!(backdrops_or_none(Ok(Ok(gut.clone()))), gut);
+    }
+
+    /// Das Skript wartet nur begrenzt auf das Foto.
+    #[test]
+    fn abtastskript_hat_eine_ladezeitgrenze() {
+        assert!(SAMPLE_JS.contains("Promise.race") && SAMPLE_JS.contains("__LOAD_MS__"));
+        assert!(SAMPLE_LOAD_TIMEOUT_MS < SAMPLE_TIMEOUT.as_millis() as u64);
+    }
+
+    #[test]
+    fn clip_und_clip_path_werden_gelesen() {
+        assert!(clip_rect_is_empty("rect(1px, 1px, 1px, 1px)"));
+        assert!(clip_rect_is_empty("rect(0px 0px 0px 0px)"));
+        assert!(!clip_rect_is_empty("rect(0px, 100px, 20px, 0px)"));
+        assert!(!clip_rect_is_empty("auto"));
+        assert!(clip_path_hides("inset(50%)"));
+        assert!(clip_path_hides("inset(100% 0px 0px)"));
+        assert!(!clip_path_hides("inset(10px)"));
+        assert!(!clip_path_hides("none"));
     }
 
     /// `html` > `body` (#eeeeee) > `p` (halbdurchsichtiges Blau) > Text;

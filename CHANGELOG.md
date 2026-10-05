@@ -5,6 +5,89 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Regelfilter gilt fuer die geteilten Regeln (#698):** `[rules] disabled` /
+  `enabled_only` und `--disable-rule` griffen bisher nur fuer die lokalen Regeln; seit Kontrast
+  geteilt ist, schaltete `--disable-rule color-contrast` nichts mehr ab. Jetzt nimmt
+  `wcag::shared::retain_allowed` eine geteilte Kennung heraus, wenn der Filter sie unter ihrem
+  eigenen Namen oder einer alten Kennung aus `LEGACY_RULE_IDS` abschaltet (`color-contrast` →
+  `contrast/text-*`, `link-in-text-block`, `landmark-one-main`, …, nur vollstaendig abgeloeste
+  Regeln), und vermerkt sie als `disabled_by_rule_filter`; ebenso in iframes.
+
+- **Unreleased — Kontrast ueber Bildern wieder per Abtastung (#698, barrierlab#47/#48):**
+  `RenderedCdpDocument` liefert `Rendering::sampled_backdrop`: ein Bildschirmfoto ueber den
+  sichtbaren Bereich hinaus (`captureBeyondViewport`), auf die Kandidaten zugeschnitten und in
+  CSS-Pixeln (`scale = 1/devicePixelRatio`), einmal in die Seite geladen; je Element die
+  WCAG-Leuchtdichten im Kasten (Alpha gegen Weiss, hoechstens 2500 je Element auf einem Raster).
+  Seitenweit hoechstens 60 Elemente, die groessten zuerst: eigener Text im Hauptdokument,
+  Textfarbe bekannt, Hintergrund nicht bestimmbar, weder optisch verborgen noch ueberdeckt (beim
+  Messen im sichtbaren Bereich verdeckt), bis 15000 CSS-Pixel Tiefe — tiefer bleibt `UNTESTED`
+  (Speicher, Zeit; ein Canvas ist hoechstens 32767 px hoch). Zeitgrenzen: das Skript wartet
+  hoechstens 5 s auf das Foto, die ganze Abtastung hoechstens 10 s; danach, oder wenn das Foto
+  scheitert, bekommt kein Element einen Hintergrund und der Audit laeuft weiter. Die geteilte Regel
+  urteilt darueber wie die frueher lokale (Median, 40. Perzentil): `FAIL`, bestanden oder
+  Pruefhinweis. Die Integrationstests `test_image_contrast_pixel_sampling` und
+  `test_opacity_overlay_contrast_pixel_sampling` laufen wieder unveraendert gegen ihre alten
+  Urteile. Die PDF-Zeile „Kontrast X (erforderlich Y)" liest die Messwerte der geteilten Regel
+  (`contrast_ratio`, `required_ratio`, ohne `:1` geliefert). Abgetastet gesehen (2026-10-05,
+  Desktop, ohne `--dismiss-consent`): berlin.de 14, gov.uk 0, bundesregierung.de 0, wetter.com 5,
+  n-tv.de 39, spiegel.de 0 (die Bildnachweise liegen tiefer als 15000 px). Laufzeit des Audits
+  vorher → nachher im Rauschen (−9 s bis +1,5 s je Seite).
+
+- **Unreleased — Kontrast aus `a11y-rules` (#698, barrierlab#47):** `contrast/text-insufficient`
+  (1.4.3 AA), `contrast/text-undetermined` (1.4.3, `UNTESTED`) und `contrast/text-enhanced`
+  (1.4.6 AAA, nur mit `--level aaa`; meldet nur, was 1.4.3 besteht) ersetzen `color-contrast`.
+  Geloescht: `wcag::rules::contrast` samt Seitenregel und Pixelvergleich mit dem Bildschirmfoto,
+  `accessibility::styles` (`extract_text_styles`); `Color` liegt jetzt in
+  `non_text_contrast_css` (bleibt `wcag::rules::Color`). Die alte Kennung loest ueber die
+  Taxonomie weiter auf (`a11y.contrast.weak`, `axe_id: color-contrast`); 1.4.6 hat einen eigenen
+  AAA-Eintrag `a11y.contrast_enhanced.weak` mit AAA-Gewicht (vorher zaehlten AAA-Verfehlungen als
+  1.4.3 mit dem vollen Abzug). Dunkelmodus und Farbsehschwaeche-Ansicht zaehlen die geteilten
+  Verstoesse ueber einen frischen DOMSnapshot; der Vergleich hell/dunkel paart Elemente ueber die
+  Backend-ID. Gewollt anders: Text unter einem fixierten oder klebenden Element (Cookie-Banner)
+  ist `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird gemessen (#395 nahm ihn aus).
+  Vergleich geteilt gegen lokal (2026-10-05): Korpus (`contrast_shadow_and_inline`,
+  `gradient_text_contrast`, `low_contrast_text`, `text_fill_color_contrast`) deckungsgleich, AA
+  und AAA; gov.uk deckungsgleich; bundesregierung.de AA gleich, AAA +4 (Metanavigation, lokal als
+  verborgen uebersprungen: absolut positionierte Liste in 0 px breitem `nav` mit
+  `overflow: hidden`); wetter.com ohne Consent-Overlay AA gleich (15), mit Overlay die zehn
+  Navigationspunkte `UNTESTED` statt 2,37:1, AAA zusaetzlich der Consent-Dialog (lokal als
+  verborgen uebersprungen) und Teaser-Beschriftungen mit eigener deckender Flaeche (lokal
+  Pruefhinweis); n-tv.de AA beide ohne Verstoss, AAA 25 lokale Verstoesse unter dem
+  Consent-Overlay jetzt `UNTESTED`; spiegel.de AA +19 echte Verstoesse (4,04:1, Weiss auf
+  #e64415 und umgekehrt), die die lokale Regel uebersah (Klassenname `overflow-hidden` galt ihr als
+  verborgen), AAA entsprechend mehr. Korpus-Erwartungen auf die neuen Kennungen umgestellt.
+  Live gegen `main` (2026-10-05, mit Abtastung), Barrierefreiheit AA / AAA vorher → nachher:
+  gov.uk 93 → 93 / 70 → 89, bundesregierung.de 49 → 49 / 46 → 49, wetter.com 22 → 22 / 18 → 20,
+  n-tv.de 36 → 36 / 23 → 29, spiegel.de 28 → 24 / 20 → 21 (AA-Verstoesse vorher → nachher:
+  0 → 0, 0 → 0, 15 → 12, 25 → 23, 3 → 22; die Abnahmen sind Text unter dem Consent-Overlay, jetzt
+  `UNTESTED`). AAA steigt, weil 1.4.6 jetzt mit AAA-Gewicht zaehlt. Referenzseite berlin.de
+  45 → 49, knapp ueber dem Band 15–48: Die lokale Regel meldete Desktop 11 / mobil 12 Verstoesse,
+  ueberwiegend Bildnachweise und Teaser-Titel ueber Fotos (`p.image__copyright`, `a.title`),
+  gemessen gegen eine Vorfahrenfarbe (2,56:1 bzw. 1,00:1). Mit seitenweiter Abtastung ist keiner
+  mehr `UNTESTED`; es bleiben 1 / 3 Verstoesse (darunter `a.title`, 4,02:1), der Rest besteht ueber
+  den Fotos. Das Band ist neu zu bewerten.
+
+- **Unreleased — Optisch verborgener und ueberdeckter Text, Hintergrund ueber Bildern (Teil von
+  #698, Host-Seite von barrierlab#47):** `RenderedCdpDocument` liefert
+  `Rendering::visually_hidden` aus dem `DOMSnapshot` (neue Stilwerte `clip`, `clip-path`,
+  `text-indent`, `position`, `opacity`): `opacity: 0` am Element oder einem Vorfahren,
+  `clip: rect(≤ 1px …)` an einem absolut positionierten Kasten, `clip-path: inset(≥ 50 %)`,
+  `text-indent` ab 999 px, ein Kasten von hoechstens 1 px mit `overflow: hidden|clip` (am Element
+  oder bis zwoelf Ebenen darueber; ein absolut positionierter Nachfahre entkommt einem statischen,
+  ein fixierter jedem Kasten) und ein Rahmen ganz links oder oberhalb des Dokuments. Von `Layout`
+  fuellt das Dokument nur `obscured`, an Elementen mit eigenem Text im Hauptdokument: ein
+  Skriptdurchgang vor dem Snapshot prueft per `elementFromPoint` an der Mitte, ob ein fremdes
+  fixiertes oder klebendes Element den Text verdeckt; nur die Treffer werden per `describeNode`
+  auf Backend-IDs abgebildet. Die effektive Hintergrundfarbe ist `None`, wenn ein malendes
+  Geschwister des Elements oder eines Vorfahren (bis sechs Ebenen, bis zur ersten deckenden
+  Flaeche) den Kasten ueberschneidet und eines von beiden absolut oder fest positioniert ist
+  (#716 Fall 6: wetter.com `h4.newsCarousel__headline`, spiegel.de `figcaption > p`).
+  Gefuellt gesehen (DoD 4, 2026-10-05, `visually_hidden` gemessen / wahr, `obscured` gemessen /
+  wahr): gov.uk 444/15, 132/0 (darunter `button.gem-c-search__submit`); bundesregierung.de
+  6706/5634 (fast alles SVG-Sprite-Pfade in einem 0-px-`<svg>`), 232/0; wetter.com 1897/569
+  (Hover-Menues mit `opacity: 0`), 577/199 mit Consent-Overlay bzw. 0 ohne; n-tv.de 3832/16,
+  1097/79; spiegel.de 6793/135, 1027/36.
+
 - **Unreleased — Statische Darstellungsregeln aus `a11y-rules` 0.19.1 (#699):** Die Regeln der
   Darstellungskonvention, die nur das Markup brauchen, kommen jetzt aus dem geteilten Bestand
   (barrierlab#22): `display/toggle-missing` (ersetzt die lokale Regel gleichen Namens, derselbe

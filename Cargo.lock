@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "577fab9452b239a829cf84d541d8d62c0ca32d7e5b789476eff2de4eab53d742"
+checksum = "0aae019fb73270fe2ada727d397741ceb9b96acca37332e849fecef986b0265d"
 
 [[package]]
 name = "a11y-perception"
@@ -19,18 +19,18 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "204ae5880833ee4bae1d69a6bea4b7b748e177c3ac18b37a7a52ac5fea7eabda"
+checksum = "a1fe8e75247ba771448bd02e487179daefad68b2bee49cdb1a160e98d222fc8b"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36f381ef6e2d978a0f303085ded73761ca2bf6441a85060ab20118c3753be807"
+checksum = "b702a973785c5d95aadb7bd69d36fc39937541360d9e51bd1a50c299b7759eba"
 dependencies = [
  "a11y-dom",
  "a11y-report",
@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4725fedbc7ef23c31719ec246197ac397a496056e4df8a3e804a127ac0b0e34c"
+checksum = "0ca6303b1bad81ab2da648c50e5afa07ef5416c51f1a4eb8519d9021e2080c7d"
 dependencies = [
  "a11y-dom",
 ]

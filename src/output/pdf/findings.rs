@@ -210,11 +210,20 @@ fn evidence_value<'a>(evidence: &'a [Evidence], source: &str, field: &str) -> Op
 
 /// "Contrast 2.70:1 (required 4.5:1)" — combines the contrast rule's
 /// `computed` evidence into one localized measured-value line. `None` when
-/// the occurrence carries no computed contrast evidence (i.e. every rule
-/// other than 1.4.3).
+/// the occurrence carries no computed contrast evidence (every rule other
+/// than `contrast/text-*`).
 fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
-    let ratio = evidence_value(evidence, "computed", "contrast_ratio")?;
-    let required = evidence_value(evidence, "computed", "required_ratio");
+    // `a11y-rules` liefert die Zahl allein (`2.56`), die fruehere lokale
+    // Regel mit `:1`.
+    let as_ratio = |v: &str| {
+        if v.ends_with(":1") {
+            v.to_string()
+        } else {
+            format!("{v}:1")
+        }
+    };
+    let ratio = as_ratio(evidence_value(evidence, "computed", "contrast_ratio")?);
+    let required = evidence_value(evidence, "computed", "required_ratio").map(as_ratio);
     Some(match (required, en) {
         (Some(req), true) => format!("Contrast {} (required {})", ratio, req),
         (Some(req), false) => format!("Kontrast {} (erforderlich {})", ratio, req),
@@ -707,6 +716,24 @@ mod tests {
         CriticalityTier, Effort, FindingGroup, FindingPatternCluster, NarrativeArc, Priority, Role,
     };
     use crate::wcag::Severity;
+
+    /// Die Messwerte der geteilten Kontrastregel kommen ohne `:1`, die der
+    /// frueheren lokalen mit; beide ergeben dieselbe Zeile.
+    #[test]
+    fn contrast_line_reads_shared_and_legacy_evidence() {
+        use super::{contrast_measured_text, Evidence};
+        let shared = [
+            Evidence::computed("contrast_ratio", "2.56"),
+            Evidence::computed("required_ratio", "4.5"),
+        ];
+        let legacy = [
+            Evidence::computed("contrast_ratio", "2.56:1"),
+            Evidence::computed("required_ratio", "4.5:1"),
+        ];
+        let expected = Some("Contrast 2.56:1 (required 4.5:1)".to_string());
+        assert_eq!(contrast_measured_text(&shared, true), expected);
+        assert_eq!(contrast_measured_text(&legacy, true), expected);
+    }
 
     fn group(rule_id: &str, title: &str, dimension: &str) -> FindingGroup {
         FindingGroup {

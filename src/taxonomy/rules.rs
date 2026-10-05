@@ -119,6 +119,7 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("1.4.1", "a11y.color.link_indicator"),
     ("1.4.3", "a11y.contrast.weak"),
     ("1.4.4", "a11y.resize_text.weak"),
+    ("1.4.6", "a11y.contrast_enhanced.weak"),
     ("1.4.7", "a11y.background_audio.uncontrolled"),
     ("1.4.8", "a11y.visual_presentation.weak"),
     ("1.4.10", "a11y.reflow.missing"),
@@ -559,6 +560,11 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     // `<ul>`/`<ol>`, `link-in-text-block`, `scrollable-region-focusable`).
     ("lists/role-redundant", "a11y.redundant_role.invalid"),
     ("color/link-indistinct", "a11y.color.link_indicator"),
+    // Kontrast (#698): auf den Eintrag der abgeloesten Regel `color-contrast`;
+    // 1.4.6 hat einen eigenen AAA-Eintrag.
+    ("contrast/text-insufficient", "a11y.contrast.weak"),
+    ("contrast/text-undetermined", "a11y.contrast.weak"),
+    ("contrast/text-enhanced", "a11y.contrast_enhanced.weak"),
     (
         "keyboard/scrollable-region-not-focusable",
         "a11y.scrollable_region_focus.missing",
@@ -1795,6 +1801,29 @@ pub static RULES: &[Rule] = &[
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.contrast_enhanced.weak",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.4.6"),
+        external_level: Some("AAA"),
+        axe_id: Some("color-contrast-enhanced"),
+        title: "Erhöhter Farbkontrast nicht erreicht (AAA)",
+        title_en: "Enhanced color contrast not met (AAA)",
+        description: "Text erreicht den Mindestkontrast, aber nicht den erhöhten Kontrast von 7:1.",
+        user_impact: "Für Menschen mit deutlich eingeschränktem Sehvermögen bleibt der Text schwer lesbar.",
+        user_impact_en: "Text remains hard to read for people with substantially reduced vision.",
+        technical_impact: "Kontrastverhältnis unter 7:1 für normalen Text bzw. 4,5:1 für großen Text.",
+        technical_impact_en: "Contrast ratio below 7:1 for normal text or 4.5:1 for large text.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
     },
     Rule {
         id: "a11y.resize_text.weak",

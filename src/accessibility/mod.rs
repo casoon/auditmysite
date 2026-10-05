@@ -14,7 +14,6 @@ mod enrichment;
 mod extractor;
 pub(crate) mod js_helpers;
 pub mod snapshot;
-mod styles;
 
 pub use a11y_perception::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
 pub use a11y_perception::{AXSnapshot, FocusIndicatorStatus, FocusSnapshot, Rect};
@@ -34,4 +33,3 @@ pub use extractor::{
     extract_ax_tree, extract_ax_tree_with_name_sources, extract_frame_ax_tree, ChromeNameSources,
 };
 pub use snapshot::capture as capture_snapshot;
-pub use styles::{extract_text_styles, ComputedStyles};

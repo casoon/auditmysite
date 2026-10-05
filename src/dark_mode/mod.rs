@@ -22,7 +22,6 @@ use tracing::warn;
 use crate::cli::WcagLevel;
 use crate::error::{AuditError, Result};
 use crate::interaction::stability::settle;
-use crate::wcag::rules::ContrastRule;
 use crate::wcag::Violation;
 
 // ─── Public types ────────────────────────────────────────────────────────────
@@ -757,12 +756,17 @@ fn collect_selectors<'a>(
 
 /// Classify each violation from light and dark passes into light_and_dark / dark_only / light_only.
 ///
-/// Dedup key: selector when present (stable across passes), otherwise message.
+/// Dedup key: the backend node id when present (the same element in both
+/// passes — the shared rule gives only a short selector like `span.ml-6`,
+/// shared by many elements), then the selector, otherwise the message.
 fn classify_contrast_violations(
     light: &[Violation],
     dark: &[Violation],
 ) -> Vec<DarkContrastViolation> {
     fn key(v: &Violation) -> String {
+        if let Some(id) = v.backend_node_id {
+            return format!("backend:{id}");
+        }
         v.selector
             .as_deref()
             .filter(|s| !s.is_empty())
@@ -1097,6 +1101,37 @@ async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<For
     Ok(analysis)
 }
 
+/// Text mit zu wenig Kontrast in der Seite, wie sie gerade dargestellt wird —
+/// die geteilten `contrast/text-*` über einen frischen DOMSnapshot, nur die
+/// Verstöße bis zur geprüften Stufe (`contrast/text-enhanced` erst bei AAA).
+/// Nicht bestimmbarer Kontrast zählt nicht: Er ist kein Befund im hellen oder
+/// dunklen Modus, sondern ein Prüfhinweis.
+async fn contrast_failures(page: &Page, level: WcagLevel) -> Vec<Violation> {
+    let doc = match crate::accessibility::fetch_dom_document_with_layout(
+        page,
+        &crate::accessibility::AXTree::default(),
+    )
+    .await
+    {
+        Ok(doc) => doc,
+        Err(e) => {
+            warn!("Could not capture the DOM for contrast/text-*: {e}");
+            return Vec::new();
+        }
+    };
+    let mut results = crate::wcag::shared::run_shared_rules(&doc, "en");
+    crate::wcag::shared::retain_up_to_level(&mut results, level);
+    results
+        .violations
+        .into_iter()
+        .filter(|v| {
+            v.rule_id
+                .as_deref()
+                .is_some_and(|id| id.starts_with("contrast/"))
+        })
+        .collect()
+}
+
 /// Links im Fließtext, die sich nur durch Farbe abheben — die geteilte Regel
 /// `color/link-indistinct` über den DOMSnapshot der Seite.
 async fn link_indistinct_count(page: &Page) -> usize {
@@ -1130,16 +1165,11 @@ async fn analyze_vision_deficiency(
         return Ok(VisionDeficiencyAnalysis::default());
     }
 
-    let baseline_contrast = ContrastRule::check_with_page(
-        page,
-        &crate::accessibility::AXTree::default(),
-        wcag_level,
-        None,
-    )
-    .await;
     // Die Emulation filtert nur das gezeichnete Bild; berechnete Stile, und
-    // damit `color/link-indistinct`, bleiben dieselben. Einmal gezählt gilt
-    // es für jeden Modus.
+    // damit `contrast/text-*` und `color/link-indistinct`, bleiben dieselben.
+    // Einmal gezählt gilt es für jeden Modus — neue Kontrastbefunde kann die
+    // Emulation über berechnete Stile nicht erzeugen.
+    let contrast = contrast_failures(page, wcag_level).await;
     let use_of_color = link_indistinct_count(page).await;
 
     let modes = [
@@ -1167,25 +1197,12 @@ async fn analyze_vision_deficiency(
         }
         emulation_supported = true;
 
-        if let Err(e) = settle(page).await {
-            warn!("Could not wait for vision-deficiency layout settle: {e}");
-        }
-
-        let contrast = ContrastRule::check_with_page(
-            page,
-            &crate::accessibility::AXTree::default(),
-            wcag_level,
-            None,
-        )
-        .await;
-        let new_contrast = violations_only_in(&baseline_contrast, &contrast);
-
         results.push(VisionDeficiencyModeAnalysis {
             mode: label.to_string(),
             contrast_violations: contrast.len() as u32,
-            new_contrast_violations: new_contrast.len() as u32,
+            new_contrast_violations: 0,
             use_of_color_violations: use_of_color as u32,
-            new_contrast_selectors: new_contrast.into_iter().take(10).collect(),
+            new_contrast_selectors: Vec::new(),
         });
     }
 
@@ -1202,25 +1219,6 @@ async fn analyze_vision_deficiency(
         emulation_supported,
         modes: results,
     })
-}
-
-fn violations_only_in(baseline: &[Violation], simulated: &[Violation]) -> Vec<String> {
-    use std::collections::HashSet;
-
-    fn key(v: &Violation) -> String {
-        v.selector
-            .as_deref()
-            .filter(|selector| !selector.is_empty())
-            .unwrap_or(&v.message)
-            .to_string()
-    }
-
-    let baseline_keys: HashSet<String> = baseline.iter().map(key).collect();
-    simulated
-        .iter()
-        .map(key)
-        .filter(|key| !baseline_keys.contains(key))
-        .collect()
 }
 
 async fn detect_print_stylesheet(page: &Page) -> Result<bool> {
@@ -1398,9 +1396,7 @@ async fn compare_contrast(
     level: WcagLevel,
     base: &[MediaFeature],
 ) -> (Vec<Violation>, Vec<Violation>) {
-    let light_violations =
-        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)
-            .await;
+    let light_violations = contrast_failures(page, level).await;
 
     let dark_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),
@@ -1415,9 +1411,7 @@ async fn compare_contrast(
         warn!("Could not wait for dark mode layout settle: {e}");
     }
 
-    let dark_violations =
-        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)
-            .await;
+    let dark_violations = contrast_failures(page, level).await;
 
     let light_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),

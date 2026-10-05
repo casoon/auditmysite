@@ -326,13 +326,14 @@ pub struct PipelineConfig {
     /// Run tech stack detection and stack-specific audits
     pub check_stack: bool,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
-    /// Consulted by `check_all_with_config` for tree-based rules and, inline,
-    /// by contrast (`color-contrast`), reflow (`css-overflow-hidden`,
-    /// matching the user-visible finding id rather than the `"reflow"`
-    /// logging-only label — #560), and HTML content-model conformance
-    /// (`html-content-model`, #579). Table-driven `PAGE_RULES` entries are not
-    /// yet covered (their `rule_id` is logging-only; a single check_fn can
-    /// emit more than one real axe_id).
+    /// Consulted by `check_all_with_config` for tree-based rules, by
+    /// `wcag::shared::retain_allowed` for the shared rules (own id or a legacy
+    /// id from `LEGACY_RULE_IDS`) and, inline,
+    /// by reflow (`css-overflow-hidden`, matching the user-visible finding id
+    /// rather than the `"reflow"` logging-only label — #560), and HTML
+    /// content-model conformance (`html-content-model`, #579). Table-driven
+    /// `PAGE_RULES` entries are not yet covered (their `rule_id` is
+    /// logging-only; a single check_fn can emit more than one real axe_id).
     pub rule_filter: crate::wcag::RuleFilterConfig,
     /// Persist audit artifacts under ~/.auditmysite/cache
     pub persist_artifacts: bool,
@@ -778,7 +779,6 @@ pub async fn audit_page(
         page,
         &desktop_snap,
         config,
-        desktop_screenshot.as_ref(),
         "desktop",
         &mut evidence_budget,
         &desktop_exclusion,
@@ -814,7 +814,6 @@ pub async fn audit_page(
         page,
         &mobile_snap,
         config,
-        mobile_screenshot.as_ref(),
         "mobile",
         &mut evidence_budget,
         &mobile_exclusion,
@@ -1380,7 +1379,6 @@ async fn run_rules(
     page: &Page,
     snapshot: &SnapshotData,
     config: &PipelineConfig,
-    screenshot: Option<&ViewportScreenshot>,
     viewport_label: &'static str,
     evidence_budget: &mut crate::accessibility::ElementEvidenceBudget,
     exclusion: &crate::audit::exclusion::ExclusionScope,
@@ -1468,6 +1466,7 @@ async fn run_rules(
                 );
             }
             wcag::shared::retain_up_to_level(&mut shared, config.wcag_level);
+            wcag::shared::retain_allowed(&mut shared, &config.rule_filter);
             for outcome in &mut shared.rule_outcomes {
                 outcome.viewport = Some(viewport_label.to_string());
             }
@@ -1529,37 +1528,6 @@ async fn run_rules(
         crate::audit::frames::merge_into(&mut wcag_results, frame_pass.results);
         excluded.extend(frame_pass.excluded);
         frames = frame_pass.frames;
-    }
-
-    // Contrast carries extra args (ax tree, level, screenshot) and stays inline.
-    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA)
-        && config.rule_filter.should_run("color-contrast")
-    {
-        info!("Running contrast check with CDP...");
-        let contrast_violations = wcag::rules::ContrastRule::check_with_page(
-            page,
-            &snapshot.ax_tree,
-            config.wcag_level,
-            screenshot,
-        )
-        .await;
-        let (contrast_violations, dropped) = crate::audit::exclusion::filter_findings(
-            page,
-            exclusion,
-            &snapshot.ax_tree,
-            contrast_violations,
-        )
-        .await;
-        excluded.extend(dropped);
-        let (outcome, findings) = page_rule_outcome(
-            "color-contrast",
-            Some("1.4.3"),
-            viewport_label,
-            contrast_violations,
-        );
-        info!("Found {} contrast findings", findings.len());
-        wcag_results.rule_outcomes.push(outcome);
-        wcag_results.extend_findings(findings);
     }
 
     // HTML content-model conformance carries extra args (raw HTML + the
