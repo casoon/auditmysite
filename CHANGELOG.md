@@ -5,6 +5,27 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Optisch verborgener und ueberdeckter Text, Hintergrund ueber Bildern (Teil von
+  #698, Host-Seite von barrierlab#47):** `RenderedCdpDocument` liefert
+  `Rendering::visually_hidden` aus dem `DOMSnapshot` (neue Stilwerte `clip`, `clip-path`,
+  `text-indent`, `position`, `opacity`): `opacity: 0` am Element oder einem Vorfahren,
+  `clip: rect(≤ 1px …)` an einem absolut positionierten Kasten, `clip-path: inset(≥ 50 %)`,
+  `text-indent` ab 999 px, ein Kasten von hoechstens 1 px mit `overflow: hidden|clip` (am Element
+  oder bis zwoelf Ebenen darueber; ein absolut positionierter Nachfahre entkommt einem statischen,
+  ein fixierter jedem Kasten) und ein Rahmen ganz links oder oberhalb des Dokuments. Von `Layout`
+  fuellt das Dokument nur `obscured`, an Elementen mit eigenem Text im Hauptdokument: ein
+  Skriptdurchgang vor dem Snapshot prueft per `elementFromPoint` an der Mitte, ob ein fremdes
+  fixiertes oder klebendes Element den Text verdeckt; nur die Treffer werden per `describeNode`
+  auf Backend-IDs abgebildet. Die effektive Hintergrundfarbe ist `None`, wenn ein malendes
+  Geschwister des Elements oder eines Vorfahren (bis sechs Ebenen, bis zur ersten deckenden
+  Flaeche) den Kasten ueberschneidet und eines von beiden absolut oder fest positioniert ist
+  (#716 Fall 6: wetter.com `h4.newsCarousel__headline`, spiegel.de `figcaption > p`).
+  Gefuellt gesehen (DoD 4, 2026-10-05, `visually_hidden` gemessen / wahr, `obscured` gemessen /
+  wahr): gov.uk 444/15, 132/0 (darunter `button.gem-c-search__submit`); bundesregierung.de
+  6706/5634 (fast alles SVG-Sprite-Pfade in einem 0-px-`<svg>`), 232/0; wetter.com 1897/569
+  (Hover-Menues mit `opacity: 0`), 577/199 mit Consent-Overlay bzw. 0 ohne; n-tv.de 3832/16,
+  1097/79; spiegel.de 6793/135, 1027/36.
+
 - **Unreleased — Statische Darstellungsregeln aus `a11y-rules` 0.19.1 (#699):** Die Regeln der
   Darstellungskonvention, die nur das Markup brauchen, kommen jetzt aus dem geteilten Bestand
   (barrierlab#22): `display/toggle-missing` (ersetzt die lokale Regel gleichen Namens, derselbe
