@@ -5,6 +5,37 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Zielgroesse, Reihenfolge, Endlos-Animation und Nur-Zeiger aus `a11y-rules`
+  (#698, barrierlab#49):** `targets/size` (2.5.8 AA) und `targets/size-enhanced` (2.5.5 AAA, nur
+  was 2.5.8 nicht schon meldet) ersetzen `target-size-minimum` und `target-size`;
+  `order/visual-mismatch` (1.3.2) ersetzt `css-order-reading-sequence`;
+  `motion/infinite-animation` (2.2.2) ersetzt den Animations- und `<marquee>`-Teil von
+  `pause-stop-hide`; `keyboard/pointer-only` (2.1.1, `cursor: pointer` oder `onclick` ohne Rolle,
+  tabindex und Bedienelement darin) ist neu. Geloescht: `target_size_minimum`,
+  `target_size_enhanced`, `meaningful_sequence`, `pause_stop_hide`. Die alten Kennungen loesen ueber
+  `LEGACY_RULE_IDS` (Regelfilter) und `LEGACY_WCAG_MAP` (Taxonomie) weiter auf.
+  **Urteil aendert sich:** 2.5.8 und 2.5.5 waren `FAIL`, jetzt `REVIEW`; ein beim Messen noch
+  wachsendes Ziel bleibt `UNTESTED` wie bisher. 1.3.2 und 2.2.2 waren und bleiben Pruefhinweise.
+  Gewollt anders: keine Obergrenzen mehr (lokal 5 Befunde, 1000 Ziele, 5 Flex-Container — die
+  Reihenfolge sah deshalb den Fussbereich von bundesregierung.de und die Kopfzeile von berlin.de
+  nicht); `flex-direction: *-reverse` zaehlt; jede endlose Animation zaehlt, auch kurze Durchlaeufe
+  (2.2.2 gilt fuer Bewegung, die insgesamt laenger als fuenf Sekunden laeuft; lokal nur Durchlaeufe
+  ueber 5 s), `prefers-reduced-motion` hebt den Befund nicht mehr auf, angehaltene Animationen
+  zaehlen nicht (lokal schon). Nicht mehr geprueft: die Karussell-Signale von `pause-stop-hide`
+  (`data-autoplay`, `data-ride`, `.swiper-autoplay-running`, `data-update-interval`) — auf den sechs
+  Referenzseiten ohne Treffer. Bekannte Luecke: Ziele mit `tabindex="-1"` (Karussellpunkte mit
+  rovingem tabindex, bundesregierung.de mobil `#slick-slide-control00`, 10 × 10 px) misst
+  `targets/size` nicht. Korpus: neues Urteil `absent` (kein Befund welcher Art auch immer), weil
+  `pass` nur Verstoesse zaehlt und bei `REVIEW`-Regeln nie scheitert; neuer Fall `pointer_only`.
+  Live vorher → nachher (2026-10-05, Desktop und mobil, Verstoesse / Score): AA gov.uk 3 → 3,
+  bundesregierung.de 18 → 13 (die 5 lokalen 2.5.8-Verstoesse, davon 4 Sprunglinks bei −99999 px,
+  entfallen), wetter.com 137 → 137, n-tv.de 73 → 64 / 36 → 39, spiegel.de 100 → 98 / 24 → 25,
+  berlin.de 31 → 31; AAA gov.uk 45 → 40 / 89 → 91, bundesregierung.de 87 → 74, wetter.com 229 →
+  223, n-tv.de 390 → 371 / 29 → 34, spiegel.de 347 → 341 / 21 → 22, berlin.de 61 → 53 / 38 → 41.
+  Neu als Pruefhinweis: endlose Animationen auf spiegel.de (9) und bundesregierung.de (1),
+  Reihenfolge auf berlin.de (2), bundesregierung.de und spiegel.de, 2.5.5 ohne Obergrenze
+  (gov.uk 82 Eintraege statt 5 Verstoesse).
+
 - **Unreleased — `pointer_events_none` und `animating` (#698, barrierlab#49):**
   `pointer_events_none` ist das berechnete `pointer-events: none` aus dem DOMSnapshot.
   `animating` kommt aus einem Durchgang vor dem Snapshot wie `obscured`:
