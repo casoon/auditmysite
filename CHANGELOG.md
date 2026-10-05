@@ -23,9 +23,10 @@ short current-state summary. Newest entries first (unchanged order from before t
   ueber 5 s), `prefers-reduced-motion` hebt den Befund nicht mehr auf, angehaltene Animationen
   zaehlen nicht (lokal schon). Nicht mehr geprueft: die Karussell-Signale von `pause-stop-hide`
   (`data-autoplay`, `data-ride`, `.swiper-autoplay-running`, `data-update-interval`) — auf den sechs
-  Referenzseiten ohne Treffer. Bekannte Luecke: Ziele mit `tabindex="-1"` (Karussellpunkte mit
-  rovingem tabindex, bundesregierung.de mobil `#slick-slide-control00`, 10 × 10 px) misst
-  `targets/size` nicht. Korpus: neues Urteil `absent` (kein Befund welcher Art auch immer), weil
+  Referenzseiten ohne Treffer. Seit a11y-rules 0.22.0 zaehlt jedes Bedienelement als Ziel, unabhaengig
+  von `tabindex` (Karussellpunkte mit rovingem tabindex: bundesregierung.de mobil
+  `#slick-slide-control00`–`03`, 10 × 10 px, jetzt gemeldet; dazu 2.5.5 an `div[role=button]`
+  bundesregierung.de und `#moreNews` wetter.com, beide echte Ziele). Korpus: neues Urteil `absent` (kein Befund welcher Art auch immer), weil
   `pass` nur Verstoesse zaehlt und bei `REVIEW`-Regeln nie scheitert; neuer Fall `pointer_only`.
   Live vorher → nachher (2026-10-05, Desktop und mobil, Verstoesse / Score): AA gov.uk 3 → 3,
   bundesregierung.de 18 → 13 (die 5 lokalen 2.5.8-Verstoesse, davon 4 Sprunglinks bei −99999 px,
