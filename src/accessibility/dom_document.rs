@@ -31,7 +31,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Color, ComputedStyle, Document, Layout, NameSource as SharedNameSource, Node,
+    Arena, ArenaNode, Color, ComputedStyle, Document, NameSource as SharedNameSource, Node,
     NodeKind, Rect, Rendering, Semantics,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
@@ -211,7 +211,7 @@ struct LayoutStyle {
     style: ComputedStyle,
     /// Der Rahmen des Layout-Objekts; `None` ohne Layout-Objekt.
     bounds: Option<Rect>,
-    /// Siehe [`Layout::scroll_overflow_px`]; `None` ohne Layout-Objekt.
+    /// Siehe [`Rendering::scroll_overflow_px`]; `None` ohne Layout-Objekt.
     scroll_overflow_px: Option<f32>,
 }
 
@@ -613,14 +613,11 @@ impl Rendering for RenderedCdpDocument<'_> {
         self.entry(node)?.bounds
     }
 
-    /// Nur der Scroll-Überhang ist gemessen. Die übrigen Felder bleiben
-    /// neutral, `focus_visible` ungemessen (`None`): Die Heuristiken darauf
-    /// sind in auditmysite nicht übernommen (`wcag::shared::SHARED_RULES`).
-    fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
-        Some(Layout {
-            scroll_overflow_px: Some(self.entry(node)?.scroll_overflow_px?),
-            ..Layout::default()
-        })
+    /// Aus den DOM-Rechtecken des Snapshots, siehe [`scroll_overflow`]. Ein
+    /// [`Layout`](a11y_dom::Layout) liefert dieses Dokument nicht: Die
+    /// Heuristiken darauf bleiben ungelaufen.
+    fn scroll_overflow_px<'n>(&'n self, node: Self::N<'n>) -> Option<f32> {
+        self.entry(node)?.scroll_overflow_px
     }
 }
 
