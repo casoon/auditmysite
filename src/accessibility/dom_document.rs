@@ -31,8 +31,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Color, ComputedStyle, Document, Layout, NameSource as SharedNameSource, Node,
-    NodeKind, Rect, Rendering, Semantics,
+    Arena, ArenaNode, Backdrop, Color, ComputedStyle, Document, Layout,
+    NameSource as SharedNameSource, Node, NodeKind, Rect, Rendering, Semantics,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -40,6 +40,7 @@ use chromiumoxide::cdp::browser_protocol::dom::{
 use chromiumoxide::cdp::browser_protocol::dom_snapshot::{
     CaptureSnapshotParams, CaptureSnapshotReturns, Rectangle,
 };
+use chromiumoxide::cdp::browser_protocol::page::CaptureScreenshotParams;
 use chromiumoxide::cdp::js_protocol::runtime::{
     EvaluateParams, GetPropertiesParams, ReleaseObjectGroupParams,
 };
@@ -210,6 +211,9 @@ pub struct LayoutStyles {
     /// Backend-IDs der überdeckten Textelemente aus [`OBSCURED_JS`]; `None`,
     /// wenn der Durchgang nicht lief oder scheiterte.
     obscured: Option<HashSet<i64>>,
+    /// Abgetastete Leuchtdichten hinter dem Text, je Backend-ID, aus
+    /// [`sample_backdrops`]. Fehlt ein Eintrag, ist nichts abgetastet.
+    backdrops: HashMap<i64, Vec<f64>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -825,6 +829,7 @@ impl LayoutStyles {
             whitespace_before,
             whitespace_last,
             obscured: None,
+            backdrops: HashMap::new(),
         }
     }
 }
@@ -968,7 +973,154 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
         })?;
     let mut styles = LayoutStyles::from_snapshot(&response.result);
     styles.obscured = obscured;
+    styles.backdrops = match sample_backdrops(page, &styles).await {
+        Ok(backdrops) => backdrops,
+        Err(e) => {
+            warn!("{e}");
+            HashMap::new()
+        }
+    };
     Ok(styles)
+}
+
+/// Höchstens so viele Elemente werden je Abzug abgetastet, die größten zuerst
+/// — wie die frühere lokale Kontrastregel (#527).
+const MAX_SAMPLED: usize = 60;
+
+/// Höchstens so viele Pixel je Element gehen in die Stichprobe; größere Kästen
+/// werden auf einem gleichmäßigen Raster ausgedünnt.
+const SAMPLES_PER_ELEMENT: usize = 2500;
+
+/// Tastet die Pixel hinter Text ab, dessen Hintergrund sich aus den Stilen
+/// nicht bestimmen lässt (Bild, Verlauf, positioniertes Bild darunter): ein
+/// Bildschirmfoto des sichtbaren Bereichs, einmal in die Seite geladen, je
+/// Element die Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
+/// Glyphenpixel liegen mit in der Stichprobe; die Regel urteilt deshalb über
+/// Median und 40. Perzentil.
+const SAMPLE_JS: &str = r#"
+(async () => {
+  const tasks = __TASKS__;
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error('screenshot not loadable'));
+    img.src = 'data:image/png;base64,__DATA__';
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  // Das Bildschirmfoto zeigt den visuellen Ausschnitt; in der mobilen
+  // Emulation ist er schmaler als `innerWidth`, wenn die Seite breiter ist.
+  const scale = img.width / (window.visualViewport ? window.visualViewport.width : window.innerWidth);
+  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const out = {};
+  for (const t of tasks) {
+    const x = Math.round(t.x * scale), y = Math.round(t.y * scale);
+    const w = Math.round(t.w * scale), h = Math.round(t.h * scale);
+    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > img.width || y + h > img.height) continue;
+    const px = ctx.getImageData(x, y, w, h).data;
+    const step = Math.max(1, Math.ceil(Math.sqrt(w * h / __PER__)));
+    const lum = [];
+    for (let j = 0; j < h; j += step) {
+      for (let i = 0; i < w; i += step) {
+        const k = (j * w + i) * 4;
+        const a = px[k + 3] / 255;
+        const c = (v) => lin(v * a + 255 * (1 - a));
+        lum.push(Math.round((0.2126 * c(px[k]) + 0.7152 * c(px[k + 1]) + 0.0722 * c(px[k + 2])) * 1e4) / 1e4);
+      }
+    }
+    out[t.id] = lum;
+  }
+  return out;
+})()
+"#;
+
+/// Die Kandidaten für [`SAMPLE_JS`]: Elemente mit eigenem Text im
+/// Hauptdokument, dargestellt, mit Textfarbe, aber ohne bestimmbaren
+/// Hintergrund, weder optisch verborgen noch überdeckt, ganz im sichtbaren
+/// Bereich. `viewport` ist der visuelle Ausschnitt `(links, oben, Breite,
+/// Höhe)` in Dokumentkoordinaten wie die Rahmen des Snapshots. Die größten
+/// zuerst, höchstens
+/// [`MAX_SAMPLED`]; je Kandidat Backend-ID und Rahmen im sichtbaren Bereich.
+fn sample_candidates(styles: &LayoutStyles, viewport: (f32, f32, f32, f32)) -> Vec<(i64, Rect)> {
+    let (sx, sy, vw, vh) = viewport;
+    let obscured = |id: &i64| styles.obscured.as_ref().is_some_and(|o| o.contains(id));
+    let mut candidates: Vec<(i64, Rect)> = styles
+        .by_backend
+        .iter()
+        .filter(|(id, e)| {
+            e.own_text
+                && e.style.color.is_some()
+                && e.style.background_color.is_none()
+                && e.style.display.as_deref() != Some("none")
+                && e.style.visibility.as_deref() != Some("hidden")
+                && e.visually_hidden != Some(true)
+                && !obscured(id)
+        })
+        .filter_map(|(id, e)| {
+            let b = e.bounds.filter(|b| !b.is_empty())?;
+            let r = Rect {
+                x: b.x - sx,
+                y: b.y - sy,
+                width: b.width,
+                height: b.height,
+            };
+            (r.x >= 0.0 && r.y >= 0.0 && r.x + r.width <= vw && r.y + r.height <= vh)
+                .then_some((*id, r))
+        })
+        .collect();
+    candidates.sort_by(|a, b| b.1.area().total_cmp(&a.1.area()).then(a.0.cmp(&b.0)));
+    candidates.truncate(MAX_SAMPLED);
+    candidates
+}
+
+/// Siehe [`SAMPLE_JS`]. Ohne Kandidaten kein Bildschirmfoto.
+async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<i64, Vec<f64>>> {
+    let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
+        reason: format!("Hintergrund-Abtastung: {what}: {e}"),
+    };
+    let viewport: Vec<f32> = page
+        .evaluate(
+            "(() => { const v = window.visualViewport; return v ? [v.pageLeft, v.pageTop, v.width, v.height] : [window.scrollX, window.scrollY, window.innerWidth, window.innerHeight]; })()",
+        )
+        .await
+        .map_err(|e| failed("sichtbarer Bereich", e.to_string()))?
+        .into_value()
+        .map_err(|e| failed("sichtbarer Bereich", e.to_string()))?;
+    let [sx, sy, vw, vh] = viewport[..] else {
+        return Err(failed("sichtbarer Bereich", format!("{viewport:?}")));
+    };
+    let candidates = sample_candidates(styles, (sx, sy, vw, vh));
+    if candidates.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let shot = page
+        .execute(CaptureScreenshotParams::default())
+        .await
+        .map_err(|e| failed("Bildschirmfoto", e.to_string()))?;
+    let tasks: Vec<serde_json::Value> = candidates
+        .iter()
+        .map(|(id, r)| {
+            serde_json::json!({ "id": id.to_string(), "x": r.x, "y": r.y, "w": r.width, "h": r.height })
+        })
+        .collect();
+    let js = SAMPLE_JS
+        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
+        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
+        .replace("__DATA__", shot.result.data.as_ref());
+    let sampled: HashMap<String, Vec<f64>> = page
+        .evaluate(js.as_str())
+        .await
+        .map_err(|e| failed("Skript", e.to_string()))?
+        .into_value()
+        .map_err(|e| failed("Skript", e.to_string()))?;
+    Ok(sampled
+        .into_iter()
+        .filter(|(_, lum)| !lum.is_empty())
+        .filter_map(|(id, lum)| Some((id.parse().ok()?, lum)))
+        .collect())
 }
 
 /// [`CdpDocument`] mit Tier 3, siehe [`CdpDocument::rendered`].
@@ -1028,6 +1180,18 @@ impl Rendering for RenderedCdpDocument<'_> {
     /// `Overlap::visually_hidden`.
     fn visually_hidden<'n>(&'n self, node: Self::N<'n>) -> Option<bool> {
         self.entry(node)?.visually_hidden
+    }
+
+    /// Die Leuchtdichten aus [`sample_backdrops`]: nur für Text ohne
+    /// bestimmbaren Hintergrund im sichtbaren Bereich.
+    fn sampled_backdrop<'n>(&'n self, node: Self::N<'n>) -> Option<Backdrop> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles
+            .backdrops
+            .get(&backend)
+            .map(|luminance| Backdrop {
+                luminance: luminance.clone(),
+            })
     }
 
     /// Von [`Layout`] nur `obscured`, und nur an Elementen mit eigenem Text
@@ -1747,6 +1911,70 @@ mod tests {
             hintergrund_unter(im_fluss, ganz, deckend).is_some(),
             "eine eigene deckende Fläche bestimmt den Hintergrund"
         );
+    }
+
+    /// Abgetastet wird nur Text ohne bestimmbaren Hintergrund, der ganz im
+    /// sichtbaren Ausschnitt liegt, weder verborgen noch überdeckt ist — die
+    /// größten Kästen zuerst.
+    #[test]
+    fn abtastung_nur_fuer_unbestimmten_sichtbaren_text() {
+        let style = |bg: Option<Color>| ComputedStyle {
+            color: Some(Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            }),
+            background_color: bg,
+            display: Some("block".into()),
+            visibility: Some("visible".into()),
+            ..ComputedStyle::default()
+        };
+        let entry = |bg, rect: [f32; 4], hidden| LayoutStyle {
+            style: style(bg),
+            bounds: Some(Rect {
+                x: rect[0],
+                y: rect[1],
+                width: rect[2],
+                height: rect[3],
+            }),
+            scroll_overflow_px: Some(0.0),
+            visually_hidden: Some(hidden),
+            own_text: true,
+        };
+        let weiss = Some(Color {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        });
+        let mut styles = LayoutStyles::default();
+        styles
+            .by_backend
+            .insert(1, entry(None, [10.0, 10.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(2, entry(None, [10.0, 50.0, 300.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(3, entry(weiss, [10.0, 90.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(4, entry(None, [10.0, 130.0, 100.0, 20.0], true));
+        styles
+            .by_backend
+            .insert(5, entry(None, [10.0, 900.0, 100.0, 20.0], false));
+        styles
+            .by_backend
+            .insert(6, entry(None, [10.0, 170.0, 100.0, 20.0], false));
+        styles.obscured = Some(HashSet::from([6]));
+        let ids: Vec<i64> = sample_candidates(&styles, (0.0, 0.0, 800.0, 600.0))
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(ids, [2, 1]);
+        let verschoben = sample_candidates(&styles, (0.0, 40.0, 800.0, 600.0));
+        assert_eq!(verschoben[0].1.y, 10.0, "Rahmen relativ zum Ausschnitt");
     }
 
     #[test]

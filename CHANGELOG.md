@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Kontrast ueber Bildern wieder per Abtastung (#698, barrierlab#47/#48):**
+  `RenderedCdpDocument` liefert `Rendering::sampled_backdrop`: ein Bildschirmfoto des sichtbaren
+  Ausschnitts, einmal in die Seite geladen, je Element die WCAG-Leuchtdichten der Pixel im Kasten
+  (Alpha gegen Weiss, hoechstens 2500 je Element auf einem Raster). Abgetastet werden hoechstens 60
+  Elemente, die groessten zuerst: eigener Text im Hauptdokument, Textfarbe bekannt, Hintergrund
+  nicht bestimmbar, weder optisch verborgen noch ueberdeckt, ganz im visuellen Ausschnitt
+  (`visualViewport` — in der mobilen Emulation ist er schmaler als `innerWidth`). Scheitert das
+  Bildschirmfoto, bleibt es bei `UNTESTED`. Die geteilte Regel urteilt darueber wie die frueher
+  lokale (Median, 40. Perzentil): `FAIL`, bestanden oder Pruefhinweis. Die Integrationstests
+  `test_image_contrast_pixel_sampling` und `test_opacity_overlay_contrast_pixel_sampling` laufen
+  wieder unveraendert gegen ihre alten Urteile. Die PDF-Zeile „Kontrast X (erforderlich Y)" liest
+  die Messwerte der geteilten Regel (`contrast_ratio`, `required_ratio`, ohne `:1` geliefert).
+  Abgetastet gesehen (2026-10-05, Desktop, ohne `--dismiss-consent`): berlin.de 8; gov.uk,
+  bundesregierung.de, wetter.com, n-tv.de, spiegel.de 0 — dort liegt im sichtbaren Ausschnitt
+  kein Text ohne bestimmbaren Hintergrund, oder ein Consent-Overlay deckt ihn ab
+  (wetter.com 199, n-tv.de 79, spiegel.de 38 ueberdeckte Elemente).
+
 - **Unreleased — Kontrast aus `a11y-rules` (#698, barrierlab#47):** `contrast/text-insufficient`
   (1.4.3 AA), `contrast/text-undetermined` (1.4.3, `UNTESTED`) und `contrast/text-enhanced`
   (1.4.6 AAA, nur mit `--level aaa`; meldet nur, was 1.4.3 besteht) ersetzen `color-contrast`.
