@@ -973,14 +973,39 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
         })?;
     let mut styles = LayoutStyles::from_snapshot(&response.result);
     styles.obscured = obscured;
-    styles.backdrops = match sample_backdrops(page, &styles).await {
-        Ok(backdrops) => backdrops,
-        Err(e) => {
+    styles.backdrops = backdrops_or_none(
+        tokio::time::timeout(SAMPLE_TIMEOUT, sample_backdrops(page, &styles)).await,
+    );
+    Ok(styles)
+}
+
+/// Obergrenze für die ganze Abtastung — Bildschirmfoto und Skript. Eine Seite,
+/// die das Laden des Fotos nie meldet, hielte sonst den ganzen Audit an.
+const SAMPLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Wie lange das Skript in der Seite auf das geladene Foto wartet, in ms.
+const SAMPLE_LOAD_TIMEOUT_MS: u64 = 5000;
+
+/// Scheitert die Abtastung oder läuft sie in [`SAMPLE_TIMEOUT`], bekommt
+/// kein Element einen abgetasteten Hintergrund — der Text bleibt `UNTESTED`,
+/// der Audit läuft weiter.
+fn backdrops_or_none(
+    sampled: std::result::Result<Result<HashMap<i64, Vec<f64>>>, tokio::time::error::Elapsed>,
+) -> HashMap<i64, Vec<f64>> {
+    match sampled {
+        Ok(Ok(backdrops)) => backdrops,
+        Ok(Err(e)) => {
             warn!("{e}");
             HashMap::new()
         }
-    };
-    Ok(styles)
+        Err(_) => {
+            warn!(
+                "Hintergrund-Abtastung nach {} s abgebrochen; Text ohne bestimmbaren Hintergrund bleibt ungeprueft",
+                SAMPLE_TIMEOUT.as_secs()
+            );
+            HashMap::new()
+        }
+    }
 }
 
 /// Höchstens so viele Elemente werden je Abzug abgetastet, die größten zuerst
@@ -1001,11 +1026,17 @@ const SAMPLE_JS: &str = r#"
 (async () => {
   const tasks = __TASKS__;
   const img = new Image();
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = () => reject(new Error('screenshot not loadable'));
-    img.src = 'data:image/png;base64,__DATA__';
-  });
+  // Laedt das Foto nie (weder `load` noch `error`), bricht das Skript
+  // selbst ab, statt die Auswertung haengen zu lassen.
+  await Promise.race([
+    new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('screenshot not loadable'));
+      img.src = 'data:image/png;base64,__DATA__';
+    }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('screenshot load timed out')), __LOAD_MS__)),
+  ]);
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
   canvas.height = img.height;
@@ -1109,6 +1140,7 @@ async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<
     let js = SAMPLE_JS
         .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
         .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
+        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
         .replace("__DATA__", shot.result.data.as_ref());
     let sampled: HashMap<String, Vec<f64>> = page
         .evaluate(js.as_str())
@@ -1975,6 +2007,30 @@ mod tests {
         assert_eq!(ids, [2, 1]);
         let verschoben = sample_candidates(&styles, (0.0, 40.0, 800.0, 600.0));
         assert_eq!(verschoben[0].1.y, 10.0, "Rahmen relativ zum Ausschnitt");
+    }
+
+    /// Läuft die Abtastung in die Zeitgrenze oder scheitert sie, bekommt
+    /// kein Element einen Hintergrund — der Audit läuft weiter.
+    #[tokio::test]
+    async fn abtastung_ohne_ergebnis_bei_zeitueberschreitung_oder_fehler() {
+        let haengt = tokio::time::timeout(
+            std::time::Duration::from_millis(1),
+            std::future::pending::<Result<HashMap<i64, Vec<f64>>>>(),
+        )
+        .await;
+        assert!(backdrops_or_none(haengt).is_empty());
+        let fehler: Result<HashMap<i64, Vec<f64>>> =
+            Err(AuditError::AXTreeExtractionFailed { reason: "x".into() });
+        assert!(backdrops_or_none(Ok(fehler)).is_empty());
+        let gut = HashMap::from([(1, vec![0.5])]);
+        assert_eq!(backdrops_or_none(Ok(Ok(gut.clone()))), gut);
+    }
+
+    /// Das Skript wartet nur begrenzt auf das Foto.
+    #[test]
+    fn abtastskript_hat_eine_ladezeitgrenze() {
+        assert!(SAMPLE_JS.contains("Promise.race") && SAMPLE_JS.contains("__LOAD_MS__"));
+        assert!(SAMPLE_LOAD_TIMEOUT_MS < SAMPLE_TIMEOUT.as_millis() as u64);
     }
 
     #[test]
