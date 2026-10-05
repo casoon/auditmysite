@@ -551,9 +551,43 @@ async fn test_modern_contrast_resolution() {
     );
 }
 
+/// Contrast findings of one fixture, by the selector part they carry:
+/// confirmed violations, review warnings and undetermined (`UNTESTED`).
+fn contrast_buckets(report: &auditmysite::audit::AuditReport) -> [Vec<&auditmysite::Violation>; 3] {
+    let wcag = &report.accessibility.wcag_results;
+    fn pick(list: &[auditmysite::Violation]) -> Vec<&auditmysite::Violation> {
+        list.iter().filter(|v| v.rule == "1.4.3").collect()
+    }
+    let buckets = [
+        pick(&wcag.violations),
+        pick(&wcag.warnings),
+        pick(&wcag.not_testables),
+    ];
+    for (label, bucket) in ["violation", "warning", "undetermined"]
+        .iter()
+        .zip(&buckets)
+    {
+        for v in bucket {
+            println!("{label}: selector={:?}, message={}", v.selector, v.message);
+        }
+    }
+    buckets
+}
+
+fn count_in(bucket: &[&auditmysite::Violation], needle: &str) -> usize {
+    bucket
+        .iter()
+        .filter(|v| v.selector.as_deref().is_some_and(|s| s.contains(needle)))
+        .count()
+}
+
+/// Text over a gradient: the background is not one colour, so the shared
+/// `contrast/text-*` reports it as undetermined — never as passed, never as
+/// a confirmed ratio (#698). The local rule sampled the screenshot instead
+/// (#264); that is gone with it.
 #[tokio::test]
 #[ignore = "needs Chrome"]
-async fn test_image_contrast_pixel_sampling() {
+async fn test_gradient_background_contrast_is_undetermined() {
     let (url, shutdown) = serve_fixture("image_contrast.html");
 
     let manager = ci_browser().await;
@@ -569,111 +603,29 @@ async fn test_image_contrast_pixel_sampling() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    // Filter contrast rule "1.4.3" violations and warnings
-    let contrast_violations: Vec<_> = report
-        .accessibility
-        .wcag_results
-        .violations
-        .iter()
-        .filter(|v| v.rule == "1.4.3")
-        .collect();
-
-    let contrast_warnings: Vec<_> = report
-        .accessibility
-        .wcag_results
-        .warnings
-        .iter()
-        .filter(|v| v.rule == "1.4.3")
-        .collect();
-
-    // Debug output
-    for v in &contrast_violations {
-        println!(
-            "Confirmed Violation: selector={:?}, message={}",
-            v.selector, v.message
+    let [violations, warnings, undetermined] = contrast_buckets(&report);
+    for needle in ["pass-text", "fail-text", "warn-text"] {
+        assert_eq!(
+            count_in(&violations, needle) + count_in(&warnings, needle),
+            0,
+            "{needle}: no verdict from the colours over a gradient"
+        );
+        assert_eq!(
+            count_in(&undetermined, needle),
+            1,
+            "{needle}: over a gradient the contrast is undetermined"
         );
     }
-    for w in &contrast_warnings {
-        println!(
-            "NeedsReview Warning: selector={:?}, message={}",
-            w.selector, w.message
-        );
-    }
-
-    // Assertions for pass-text: should be absent from both violations and warnings
-    let has_pass_violation = contrast_violations.iter().any(|v| {
-        v.selector
-            .as_deref()
-            .map(|s| s.contains("pass-text") || s.contains("gradient-pass-box"))
-            .unwrap_or(false)
-    });
-    let has_pass_warning = contrast_warnings.iter().any(|w| {
-        w.selector
-            .as_deref()
-            .map(|s| s.contains("pass-text") || s.contains("gradient-pass-box"))
-            .unwrap_or(false)
-    });
-    assert!(
-        !has_pass_violation,
-        "The dark-gradient text should not be a confirmed violation"
-    );
-    assert!(
-        !has_pass_warning,
-        "The dark-gradient text should not be a manual review warning (should pass completely)"
-    );
-
-    // Assertions for fail-text: should be present in violations, but absent from warnings
-    let has_fail_violation = contrast_violations.iter().any(|v| {
-        v.selector
-            .as_deref()
-            .map(|s| s.contains("fail-text") || s.contains("gradient-fail-box"))
-            .unwrap_or(false)
-    });
-    let has_fail_warning = contrast_warnings.iter().any(|w| {
-        w.selector
-            .as_deref()
-            .map(|s| s.contains("fail-text") || s.contains("gradient-fail-box"))
-            .unwrap_or(false)
-    });
-    assert!(
-        has_fail_violation,
-        "The light-gradient text should be a confirmed violation"
-    );
-    assert!(
-        !has_fail_warning,
-        "The light-gradient text should not be a manual review warning (it should fail)"
-    );
-
-    // Assertions for warn-text: should be present in warnings, but absent from violations
-    let has_warn_violation = contrast_violations.iter().any(|v| {
-        v.selector
-            .as_deref()
-            .map(|s| s.contains("warn-text") || s.contains("gradient-warn-box"))
-            .unwrap_or(false)
-    });
-    let has_warn_warning = contrast_warnings.iter().any(|w| {
-        w.selector
-            .as_deref()
-            .map(|s| s.contains("warn-text") || s.contains("gradient-warn-box"))
-            .unwrap_or(false)
-    });
-    assert!(
-        !has_warn_violation,
-        "The split-gradient text should not be a confirmed violation"
-    );
-    assert!(
-        has_warn_warning,
-        "The split-gradient text should be a manual review warning"
-    );
 }
 
+/// Regression for #527: text whose CSS colours look fine in isolation but
+/// sits under an opacity stack, a translucent overlay sibling or over an
+/// actual `<img>` must not silently pass. With the shared rule (#698) the
+/// opacity stack is measured from the colours (it fails there already), the
+/// overlay and the image make the background undetermined.
 #[tokio::test]
 #[ignore = "needs Chrome"]
-async fn test_opacity_overlay_contrast_pixel_sampling() {
-    // Regression for #527: an uncertain-background element (opacity stack,
-    // translucent overlay sibling, or an actual <img> behind text) whose
-    // CSS-derived colors look fine in isolation must still be pixel-sampled
-    // and surfaced, instead of silently producing zero findings.
+async fn test_opacity_overlay_contrast_is_not_silently_passed() {
     let (url, shutdown) = serve_fixture("opacity_overlay_contrast.html");
 
     let manager = ci_browser().await;
@@ -689,64 +641,22 @@ async fn test_opacity_overlay_contrast_pixel_sampling() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    let contrast_violations: Vec<_> = report
-        .accessibility
-        .wcag_results
-        .violations
-        .iter()
-        .filter(|v| v.rule == "1.4.3")
-        .collect();
-    let contrast_warnings: Vec<_> = report
-        .accessibility
-        .wcag_results
-        .warnings
-        .iter()
-        .filter(|v| v.rule == "1.4.3")
-        .collect();
-
-    for v in &contrast_violations {
-        println!(
-            "Confirmed Violation: selector={:?}, message={}",
-            v.selector, v.message
-        );
-    }
-    for w in &contrast_warnings {
-        println!(
-            "NeedsReview Warning: selector={:?}, message={}",
-            w.selector, w.message
-        );
-    }
-
-    let is_flagged = |needle: &str| -> bool {
-        let in_violations = contrast_violations
-            .iter()
-            .filter(|v| v.selector.as_deref().is_some_and(|s| s.contains(needle)))
-            .count();
-        let in_warnings = contrast_warnings
-            .iter()
-            .filter(|w| w.selector.as_deref().is_some_and(|s| s.contains(needle)))
-            .count();
-        assert!(
-            in_violations + in_warnings <= 1,
-            "{needle} must be flagged at most once across violations+warnings, got {} violations and {} warnings",
-            in_violations,
-            in_warnings
-        );
-        in_violations + in_warnings == 1
+    let [violations, warnings, undetermined] = contrast_buckets(&report);
+    let flagged = |needle: &str| {
+        count_in(&violations, needle)
+            + count_in(&warnings, needle)
+            + count_in(&undetermined, needle)
     };
-
-    assert!(
-        is_flagged("opacity-text") || is_flagged("opacity-box"),
-        "opacity-stacked text must now be flagged (previously missed entirely)"
+    assert_eq!(count_in(&violations, "opacity-text"), 1, "opacity stack");
+    assert_eq!(flagged("opacity-text"), 1, "opacity stack flagged once");
+    assert_eq!(
+        count_in(&undetermined, "overlay-text"),
+        1,
+        "overlay sibling"
     );
-    assert!(
-        is_flagged("overlay-text") || is_flagged("overlay-box"),
-        "text under a translucent overlay sibling must now be flagged"
-    );
-    assert!(
-        is_flagged("img-text") || is_flagged("img-box"),
-        "text layered over an actual <img> must now be flagged"
-    );
+    assert_eq!(flagged("overlay-text"), 1, "overlay sibling flagged once");
+    assert_eq!(count_in(&undetermined, "img-text"), 1, "text over <img>");
+    assert_eq!(flagged("img-text"), 1, "text over <img> flagged once");
 }
 
 /// #343 — catalog-driven audit produces a complete report structure.
