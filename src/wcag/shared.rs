@@ -1393,6 +1393,17 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
+    // Noch nicht übernommen: `contrast/text-*`. Verglichen am Korpus und an
+    // fünf Live-Seiten (#698) deckt sich die geteilte Regel mit `contrast`
+    // bei deckenden Hintergründen, Shadow DOM, 4,46:1 und Verlaufstext (#640),
+    // aber: keine AAA-Schwellen (7:1/4,5:1); visuell versteckter Text
+    // (`text-indent: -5000px` in `overflow: hidden`, gov.uk-Suchknopf) wird
+    // gemessen; über einem positionierten Bild (#716 Fall 6) ist der aus den
+    // Vorfahren aufgelöste Hintergrund falsch und ergibt `FAIL` statt
+    // `UNTESTED`; Text unter `aria-hidden` wird geprüft. Bis dahin bleibt
+    // `wcag::rules::contrast`, und die geteilten Kennungen stehen als nicht
+    // übernommen im Bericht -- kein Befund doppelt.
+    //
     // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
     // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
     // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).
