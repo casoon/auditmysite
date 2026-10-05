@@ -613,7 +613,7 @@ impl Rendering for RenderedCdpDocument<'_> {
         self.entry(node)?.bounds
     }
 
-    /// Aus den DOM-Rechtecken des Snapshots, siehe [`scroll_overflow`]. Ein
+    /// Aus den DOM-Rechtecken des Snapshots, siehe `scroll_overflow`. Ein
     /// [`Layout`](a11y_dom::Layout) liefert dieses Dokument nicht: Die
     /// Heuristiken darauf bleiben ungelaufen.
     fn scroll_overflow_px<'n>(&'n self, node: Self::N<'n>) -> Option<f32> {
