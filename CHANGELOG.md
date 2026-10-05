@@ -5,6 +5,32 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Kontrast aus `a11y-rules` (#698, barrierlab#47):** `contrast/text-insufficient`
+  (1.4.3 AA), `contrast/text-undetermined` (1.4.3, `UNTESTED`) und `contrast/text-enhanced`
+  (1.4.6 AAA, nur mit `--level aaa`; meldet nur, was 1.4.3 besteht) ersetzen `color-contrast`.
+  Geloescht: `wcag::rules::contrast` samt Seitenregel und Pixelvergleich mit dem Bildschirmfoto,
+  `accessibility::styles` (`extract_text_styles`); `Color` liegt jetzt in
+  `non_text_contrast_css` (bleibt `wcag::rules::Color`). Die alte Kennung loest ueber die
+  Taxonomie weiter auf (`a11y.contrast.weak`, `axe_id: color-contrast`); 1.4.6 hat einen eigenen
+  AAA-Eintrag `a11y.contrast_enhanced.weak` mit AAA-Gewicht (vorher zaehlten AAA-Verfehlungen als
+  1.4.3 mit dem vollen Abzug). Dunkelmodus und Farbsehschwaeche-Ansicht zaehlen die geteilten
+  Verstoesse ueber einen frischen DOMSnapshot; der Vergleich hell/dunkel paart Elemente ueber die
+  Backend-ID. Gewollt anders: nicht bestimmbarer Hintergrund ist `UNTESTED` statt eines
+  Pixelvergleichs; Text unter einem fixierten oder klebenden Element (Cookie-Banner) ist
+  `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird gemessen (#395 nahm ihn aus);
+  `--disable-rule color-contrast` greift nicht mehr (die geteilten Regeln kennen keinen Filter).
+  Vergleich geteilt gegen lokal (2026-10-05): Korpus (`contrast_shadow_and_inline`,
+  `gradient_text_contrast`, `low_contrast_text`, `text_fill_color_contrast`) deckungsgleich, AA
+  und AAA; gov.uk deckungsgleich; bundesregierung.de AA gleich, AAA +4 (Metanavigation, lokal als
+  verborgen uebersprungen: absolut positionierte Liste in 0 px breitem `nav` mit
+  `overflow: hidden`); wetter.com ohne Consent-Overlay AA gleich (15), mit Overlay die zehn
+  Navigationspunkte `UNTESTED` statt 2,37:1, AAA zusaetzlich der Consent-Dialog (lokal als
+  verborgen uebersprungen) und Teaser-Beschriftungen mit eigener deckender Flaeche (lokal
+  Pruefhinweis); n-tv.de AA beide ohne Verstoss, AAA 25 lokale Verstoesse unter dem
+  Consent-Overlay jetzt `UNTESTED`; spiegel.de AA +19 echte Verstoesse (4,04:1, Weiss auf
+  #e64415 und umgekehrt), die die lokale Regel uebersah (Klassenname `overflow-hidden` galt ihr als
+  verborgen), AAA entsprechend mehr. Korpus-Erwartungen auf die neuen Kennungen umgestellt.
+
 - **Unreleased — Optisch verborgener und ueberdeckter Text, Hintergrund ueber Bildern (Teil von
   #698, Host-Seite von barrierlab#47):** `RenderedCdpDocument` liefert
   `Rendering::visually_hidden` aus dem `DOMSnapshot` (neue Stilwerte `clip`, `clip-path`,

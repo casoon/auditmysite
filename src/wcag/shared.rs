@@ -1393,17 +1393,37 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Noch nicht übernommen: `contrast/text-*`. Verglichen am Korpus und an
-    // fünf Live-Seiten (#698) deckt sich die geteilte Regel mit `contrast`
-    // bei deckenden Hintergründen, Shadow DOM, 4,46:1 und Verlaufstext (#640),
-    // aber: keine AAA-Schwellen (7:1/4,5:1); visuell versteckter Text
-    // (`text-indent: -5000px` in `overflow: hidden`, gov.uk-Suchknopf) wird
-    // gemessen; über einem positionierten Bild (#716 Fall 6) ist der aus den
-    // Vorfahren aufgelöste Hintergrund falsch und ergibt `FAIL` statt
-    // `UNTESTED`; Text unter `aria-hidden` wird geprüft. Bis dahin bleibt
-    // `wcag::rules::contrast`, und die geteilten Kennungen stehen als nicht
-    // übernommen im Bericht -- kein Befund doppelt.
-    //
+    // Ersetzen `wcag::rules::contrast` (`color-contrast`, #698): Farben,
+    // effektiver Hintergrund, optisch verborgener und überdeckter Text aus
+    // dem DOMSnapshot (`RenderedCdpDocument`). Verglichen am Korpus und an
+    // fünf Live-Seiten, AA und AAA (barrierlab#47). Gewollt anders: Ein
+    // nicht bestimmbarer Hintergrund (Bild, Verlauf, positioniertes Bild
+    // darunter) ist `UNTESTED` statt eines Pixelvergleichs mit dem
+    // Bildschirmfoto; Text, den ein fixiertes oder klebendes Element verdeckt
+    // (Cookie-Banner), ebenso (#716 Fall 7); Text unter `aria-hidden` wird
+    // gemessen (#395 nahm ihn aus — 1.4.3 gilt für sichtbaren Text). AAA
+    // (1.4.6) steht unter eigener Kennung und meldet nur, was 1.4.3 besteht.
+    SharedRule {
+        id: "contrast/text-insufficient",
+        criterion: "1.4.3",
+        level: WcagLevel::AA,
+        name: "Contrast (Minimum)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+    },
+    SharedRule {
+        id: "contrast/text-undetermined",
+        criterion: "1.4.3",
+        level: WcagLevel::AA,
+        name: "Contrast (Minimum)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+    },
+    SharedRule {
+        id: "contrast/text-enhanced",
+        criterion: "1.4.6",
+        level: WcagLevel::AAA,
+        name: "Contrast (Enhanced)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced.html",
+    },
     // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
     // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
     // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).

@@ -36,11 +36,11 @@ fn wcag_rule_id_inventory_contains_a_known_id_from_each_shape() {
     let ids = canonical_rule_ids();
 
     // `RuleMetadata`-driven — the common case, works regardless of whether
-    // the rule is invoked as a tree rule, a DOM page rule, or (like
-    // contrast.rs) wired directly into the pipeline.
+    // the rule is invoked as a tree rule, a DOM page rule, or wired directly
+    // into the pipeline.
     assert!(
-        ids.contains("color-contrast"),
-        "contrast.rs's CONTRAST_RULE"
+        ids.contains("non-text-contrast-css"),
+        "non_text_contrast_css.rs's NON_TEXT_CONTRAST_CSS_RULE"
     );
     assert!(ids.contains("image-alt"), "text_alternatives.rs");
 

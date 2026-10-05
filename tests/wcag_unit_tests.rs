@@ -9,7 +9,7 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
-use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives, Color, ContrastRule};
+use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives, Color};
 
 // ---------------------------------------------------------------------------
 // Helper constructors
@@ -210,8 +210,9 @@ fn test_244_multiple_links_mixed() {
 // `viewport`-Eigenschaft (#QA-030).
 
 // ---------------------------------------------------------------------------
-// 1.4.3 Contrast helpers — Color parsing and contrast ratio calculation
-// (ContrastRule::check_with_page requires CDP; these test the pure functions)
+// Color parsing and contrast ratio — the helpers behind the CSS-level 1.4.11
+// check. Text contrast (1.4.3/1.4.6) runs as `contrast/text-*` in the shared
+// rule set since #698; its tests live in `a11y-rules`.
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -275,7 +276,7 @@ fn test_relative_luminance_black() {
 fn test_contrast_ratio_black_on_white() {
     let black = Color::new(0, 0, 0);
     let white = Color::new(255, 255, 255);
-    let ratio = ContrastRule::calculate_contrast_ratio(&black, &white);
+    let ratio = black.contrast_ratio(&white);
     assert!(
         (ratio - 21.0).abs() < 0.1,
         "Black/white contrast ratio should be ~21:1, got {}",
@@ -286,45 +287,12 @@ fn test_contrast_ratio_black_on_white() {
 #[test]
 fn test_contrast_ratio_identical_colors() {
     let red = Color::new(255, 0, 0);
-    let ratio = ContrastRule::calculate_contrast_ratio(&red, &red);
+    let ratio = red.contrast_ratio(&red);
     assert!(
         (ratio - 1.0).abs() < 0.01,
         "Same color should yield 1:1 ratio, got {}",
         ratio
     );
-}
-
-#[test]
-fn test_contrast_meets_requirement_aa_normal_pass() {
-    assert!(ContrastRule::meets_requirement(4.5, false, WcagLevel::AA));
-    assert!(ContrastRule::meets_requirement(5.0, false, WcagLevel::AA));
-}
-
-#[test]
-fn test_contrast_meets_requirement_aa_normal_fail() {
-    assert!(!ContrastRule::meets_requirement(4.0, false, WcagLevel::AA));
-    assert!(!ContrastRule::meets_requirement(1.0, false, WcagLevel::AA));
-}
-
-#[test]
-fn test_contrast_meets_requirement_aa_large_text() {
-    // Large text needs 3:1 at AA
-    assert!(ContrastRule::meets_requirement(3.0, true, WcagLevel::AA));
-    assert!(!ContrastRule::meets_requirement(2.9, true, WcagLevel::AA));
-}
-
-#[test]
-fn test_contrast_meets_requirement_aaa_normal() {
-    // Normal text needs 7:1 at AAA
-    assert!(ContrastRule::meets_requirement(7.0, false, WcagLevel::AAA));
-    assert!(!ContrastRule::meets_requirement(6.9, false, WcagLevel::AAA));
-}
-
-#[test]
-fn test_contrast_level_a_always_passes() {
-    // Level A has no contrast requirement
-    assert!(ContrastRule::meets_requirement(1.0, false, WcagLevel::A));
-    assert!(ContrastRule::meets_requirement(1.1, true, WcagLevel::A));
 }
 
 #[test]

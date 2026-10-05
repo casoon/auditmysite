@@ -137,6 +137,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.orientation.restricted", Semantics),
     ("a11y.color.link_indicator", Semantics),
     ("a11y.contrast.weak", Semantics),
+    ("a11y.contrast_enhanced.weak", Semantics),
     ("a11y.resize_text.weak", Semantics),
     ("a11y.viewport_meta.missing", Semantics),
     ("a11y.viewport_zoom.restricted", Semantics),

@@ -269,8 +269,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
 
 /// Run all Level AA rules
 fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
-    // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
-    // handled separately in the pipeline via ContrastRule::check_with_page
+    // 1.4.3 Contrast (Minimum) laeuft als `contrast/text-insufficient` und
+    // `contrast/text-undetermined` im geteilten Bestand (#698).
 
     // 1.3.5 Identify Input Purpose laeuft als `forms/autocomplete-invalid`
     // und `forms/purpose-missing` im geteilten Bestand (#693).
@@ -295,8 +295,8 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
 
 /// Run all Level AAA rules
 fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
-    // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
-    // handled separately in the pipeline via ContrastRule::check_with_page
+    // 1.4.6 Contrast (Enhanced) laeuft als `contrast/text-enhanced` im
+    // geteilten Bestand (#698).
 
     // 2.4.10 Section Headings laeuft als `headings/section-without-heading`
     // im geteilten Bestand (#697).

@@ -4,7 +4,6 @@
 
 mod accessible_authentication;
 mod accessible_name;
-mod contrast;
 mod display_modes;
 mod focus_not_obscured_enhanced;
 mod focus_not_obscured_minimum;
@@ -42,7 +41,6 @@ mod visual_presentation;
 
 pub use accessible_authentication::check_accessible_authentication_with_page;
 pub use accessible_name::check_accessible_name;
-pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
     DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE,
@@ -63,7 +61,7 @@ pub use modern_attributes::check_modern_attributes_with_page;
 pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;
 pub use no_timing::check_no_timing_with_page;
-pub use non_text_contrast_css::check_non_text_contrast_css_with_page;
+pub use non_text_contrast_css::{check_non_text_contrast_css_with_page, Color};
 pub use on_input::check_on_input_with_page;
 pub use orientation::check_orientation_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};

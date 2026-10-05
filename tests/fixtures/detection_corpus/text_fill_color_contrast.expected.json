@@ -1,7 +1,7 @@
 {
   "case": "text_fill_color_contrast",
   "expectations": [
-    { "rule_id": "color-contrast", "selector": "p#fill-faint", "verdict": "violation" },
-    { "rule_id": "color-contrast", "selector": "p#fill-dark", "verdict": "pass" }
+    { "rule_id": "contrast/text-insufficient", "selector": "p#fill-faint", "verdict": "violation" },
+    { "rule_id": "contrast/text-insufficient", "selector": "p#fill-dark", "verdict": "pass" }
   ]
 }

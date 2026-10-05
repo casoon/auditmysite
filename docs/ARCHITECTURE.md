@@ -55,7 +55,6 @@ src/
 │   ├── mod.rs
 │   ├── extractor.rs     # CDP AXTree extraction
 │   ├── tree.rs          # AXNode, AXTree structures
-│   ├── styles.rs        # Computed style extraction
 │   ├── enrichment.rs    # AXNode enrichment (roles, computed properties)
 │   ├── code_gen.rs      # Selector/snippet generation for findings
 │   ├── element_capture.rs # CDP screenshot capture + element highlighting for evidence
@@ -71,7 +70,6 @@ src/
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation
 │   └── rules/           # Individual WCAG rules (85+ files, Level A/AA/AAA)
 │       ├── text_alternatives.rs  # 1.1.1
-│       ├── contrast.rs           # 1.4.3
 │       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
 │       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
