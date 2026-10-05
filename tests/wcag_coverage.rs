@@ -627,10 +627,10 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
     }
 
     // Sanity floor, not a pin: the count shrinks as rules move to the shared
-    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49, area/audio 47, stylesheets 45).
+    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49, area/audio 47, stylesheets 45, rendering tier 42).
     assert!(
         all_entries.len() >= 40,
-        "Expected ~45 RuleMetadata declarations across src/wcag/rules/, found {}. \
+        "Expected ~42 RuleMetadata declarations across src/wcag/rules/, found {}. \
          The parser in extract_rule_metadata_entries may have broken (field \
          layout changed?) — verify before trusting this test's other assertions.",
         all_entries.len()

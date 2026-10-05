@@ -22,7 +22,7 @@ use tracing::warn;
 use crate::cli::WcagLevel;
 use crate::error::{AuditError, Result};
 use crate::interaction::stability::settle;
-use crate::wcag::rules::{check_use_of_color_with_page, ContrastRule};
+use crate::wcag::rules::ContrastRule;
 use crate::wcag::Violation;
 
 // ─── Public types ────────────────────────────────────────────────────────────
@@ -1097,6 +1097,31 @@ async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<For
     Ok(analysis)
 }
 
+/// Links im Fließtext, die sich nur durch Farbe abheben — die geteilte Regel
+/// `color/link-indistinct` über den DOMSnapshot der Seite.
+async fn link_indistinct_count(page: &Page) -> usize {
+    let doc = match crate::accessibility::fetch_dom_document_with_layout(
+        page,
+        &crate::accessibility::AXTree::default(),
+    )
+    .await
+    {
+        Ok(doc) => doc,
+        Err(e) => {
+            warn!("Could not capture the DOM for color/link-indistinct: {e}");
+            return 0;
+        }
+    };
+    let Some(rendered) = doc.rendered() else {
+        return 0;
+    };
+    a11y_rules::run_full(&rendered)
+        .findings
+        .iter()
+        .filter(|f| f.rule_id == "color/link-indistinct" && f.outcome == a11y_report::Outcome::Fail)
+        .count()
+}
+
 async fn analyze_vision_deficiency(
     page: &Page,
     wcag_level: WcagLevel,
@@ -1112,7 +1137,10 @@ async fn analyze_vision_deficiency(
         None,
     )
     .await;
-    let baseline_use_of_color = check_use_of_color_with_page(page).await;
+    // Die Emulation filtert nur das gezeichnete Bild; berechnete Stile, und
+    // damit `color/link-indistinct`, bleiben dieselben. Einmal gezählt gilt
+    // es für jeden Modus.
+    let use_of_color = link_indistinct_count(page).await;
 
     let modes = [
         ("protanopia", SetEmulatedVisionDeficiencyType::Protanopia),
@@ -1150,14 +1178,13 @@ async fn analyze_vision_deficiency(
             None,
         )
         .await;
-        let use_of_color = check_use_of_color_with_page(page).await;
         let new_contrast = violations_only_in(&baseline_contrast, &contrast);
 
         results.push(VisionDeficiencyModeAnalysis {
             mode: label.to_string(),
             contrast_violations: contrast.len() as u32,
             new_contrast_violations: new_contrast.len() as u32,
-            use_of_color_violations: use_of_color.len().max(baseline_use_of_color.len()) as u32,
+            use_of_color_violations: use_of_color as u32,
             new_contrast_selectors: new_contrast.into_iter().take(10).collect(),
         });
     }
