@@ -14,21 +14,24 @@ short current-state summary. Newest entries first (unchanged order from before t
   Regeln), und vermerkt sie als `disabled_by_rule_filter`; ebenso in iframes.
 
 - **Unreleased — Kontrast ueber Bildern wieder per Abtastung (#698, barrierlab#47/#48):**
-  `RenderedCdpDocument` liefert `Rendering::sampled_backdrop`: ein Bildschirmfoto des sichtbaren
-  Ausschnitts, einmal in die Seite geladen, je Element die WCAG-Leuchtdichten der Pixel im Kasten
-  (Alpha gegen Weiss, hoechstens 2500 je Element auf einem Raster). Abgetastet werden hoechstens 60
-  Elemente, die groessten zuerst: eigener Text im Hauptdokument, Textfarbe bekannt, Hintergrund
-  nicht bestimmbar, weder optisch verborgen noch ueberdeckt, ganz im visuellen Ausschnitt
-  (`visualViewport` — in der mobilen Emulation ist er schmaler als `innerWidth`). Scheitert das
-  Bildschirmfoto, bleibt es bei `UNTESTED`. Die geteilte Regel urteilt darueber wie die frueher
-  lokale (Median, 40. Perzentil): `FAIL`, bestanden oder Pruefhinweis. Die Integrationstests
-  `test_image_contrast_pixel_sampling` und `test_opacity_overlay_contrast_pixel_sampling` laufen
-  wieder unveraendert gegen ihre alten Urteile. Die PDF-Zeile „Kontrast X (erforderlich Y)" liest
-  die Messwerte der geteilten Regel (`contrast_ratio`, `required_ratio`, ohne `:1` geliefert).
-  Abgetastet gesehen (2026-10-05, Desktop, ohne `--dismiss-consent`): berlin.de 8; gov.uk,
-  bundesregierung.de, wetter.com, n-tv.de, spiegel.de 0 — dort liegt im sichtbaren Ausschnitt
-  kein Text ohne bestimmbaren Hintergrund, oder ein Consent-Overlay deckt ihn ab
-  (wetter.com 199, n-tv.de 79, spiegel.de 38 ueberdeckte Elemente).
+  `RenderedCdpDocument` liefert `Rendering::sampled_backdrop`: ein Bildschirmfoto ueber den
+  sichtbaren Bereich hinaus (`captureBeyondViewport`), auf die Kandidaten zugeschnitten und in
+  CSS-Pixeln (`scale = 1/devicePixelRatio`), einmal in die Seite geladen; je Element die
+  WCAG-Leuchtdichten im Kasten (Alpha gegen Weiss, hoechstens 2500 je Element auf einem Raster).
+  Seitenweit hoechstens 60 Elemente, die groessten zuerst: eigener Text im Hauptdokument,
+  Textfarbe bekannt, Hintergrund nicht bestimmbar, weder optisch verborgen noch ueberdeckt (beim
+  Messen im sichtbaren Bereich verdeckt), bis 15000 CSS-Pixel Tiefe — tiefer bleibt `UNTESTED`
+  (Speicher, Zeit; ein Canvas ist hoechstens 32767 px hoch). Zeitgrenzen: das Skript wartet
+  hoechstens 5 s auf das Foto, die ganze Abtastung hoechstens 10 s; danach, oder wenn das Foto
+  scheitert, bekommt kein Element einen Hintergrund und der Audit laeuft weiter. Die geteilte Regel
+  urteilt darueber wie die frueher lokale (Median, 40. Perzentil): `FAIL`, bestanden oder
+  Pruefhinweis. Die Integrationstests `test_image_contrast_pixel_sampling` und
+  `test_opacity_overlay_contrast_pixel_sampling` laufen wieder unveraendert gegen ihre alten
+  Urteile. Die PDF-Zeile „Kontrast X (erforderlich Y)" liest die Messwerte der geteilten Regel
+  (`contrast_ratio`, `required_ratio`, ohne `:1` geliefert). Abgetastet gesehen (2026-10-05,
+  Desktop, ohne `--dismiss-consent`): berlin.de 14, gov.uk 0, bundesregierung.de 0, wetter.com 5,
+  n-tv.de 39, spiegel.de 0 (die Bildnachweise liegen tiefer als 15000 px). Laufzeit des Audits
+  vorher → nachher im Rauschen (−9 s bis +1,5 s je Seite).
 
 - **Unreleased — Kontrast aus `a11y-rules` (#698, barrierlab#47):** `contrast/text-insufficient`
   (1.4.3 AA), `contrast/text-undetermined` (1.4.3, `UNTESTED`) und `contrast/text-enhanced`
@@ -58,12 +61,11 @@ short current-state summary. Newest entries first (unchanged order from before t
   n-tv.de 36 → 36 / 23 → 29, spiegel.de 28 → 24 / 20 → 21 (AA-Verstoesse vorher → nachher:
   0 → 0, 0 → 0, 15 → 12, 25 → 23, 3 → 22; die Abnahmen sind Text unter dem Consent-Overlay, jetzt
   `UNTESTED`). AAA steigt, weil 1.4.6 jetzt mit AAA-Gewicht zaehlt. Referenzseite berlin.de
-  45 → 49 (drei Laeufe: 46, 49, 49), knapp ueber dem Band 15–48: Die lokale Regel meldete Desktop 11 /
-  mobil 12 Verstoesse, ueberwiegend Bildnachweise und Teaser-Titel ueber Fotos
-  (`p.image__copyright`, `a.title`), gemessen gegen eine Vorfahrenfarbe (2,56:1 bzw. 1,00:1). Jetzt
-  im sichtbaren Ausschnitt abgetastet (bestanden, oder `a.title` 4,02:1 `FAIL`), unterhalb des
-  Ausschnitts `UNTESTED` (6 je Durchgang); es bleiben 1 / 3 Verstoesse. Das Band ist neu zu
-  bewerten.
+  45 → 49, knapp ueber dem Band 15–48: Die lokale Regel meldete Desktop 11 / mobil 12 Verstoesse,
+  ueberwiegend Bildnachweise und Teaser-Titel ueber Fotos (`p.image__copyright`, `a.title`),
+  gemessen gegen eine Vorfahrenfarbe (2,56:1 bzw. 1,00:1). Mit seitenweiter Abtastung ist keiner
+  mehr `UNTESTED`; es bleiben 1 / 3 Verstoesse (darunter `a.title`, 4,02:1), der Rest besteht ueber
+  den Fotos. Das Band ist neu zu bewerten.
 
 - **Unreleased — Optisch verborgener und ueberdeckter Text, Hintergrund ueber Bildern (Teil von
   #698, Host-Seite von barrierlab#47):** `RenderedCdpDocument` liefert
