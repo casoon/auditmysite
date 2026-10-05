@@ -53,15 +53,17 @@ short current-state summary. Newest entries first (unchanged order from before t
   Consent-Overlay jetzt `UNTESTED`; spiegel.de AA +19 echte Verstoesse (4,04:1, Weiss auf
   #e64415 und umgekehrt), die die lokale Regel uebersah (Klassenname `overflow-hidden` galt ihr als
   verborgen), AAA entsprechend mehr. Korpus-Erwartungen auf die neuen Kennungen umgestellt.
-  Live gegen `main` (2026-10-05), Barrierefreiheit AA / AAA vorher → nachher: gov.uk 93 → 93 /
-  70 → 89, bundesregierung.de 49 → 49 / 46 → 49, wetter.com 22 → 22 / 18 → 20, n-tv.de 36 → 36 /
-  23 → 29, spiegel.de 28 → 24 / 20 → 21 (AA-Verstoesse vorher → nachher: 0 → 0, 0 → 0, 15 → 12,
-  25 → 23, 3 → 23; die Abnahmen sind Text unter dem Consent-Overlay, jetzt `UNTESTED`). AAA steigt,
-  weil 1.4.6 jetzt mit AAA-Gewicht zaehlt. berlin.de (Referenzseite) 45 → 50, ueber dem Band
-  15–48: von 13 lokalen Verstoessen bleiben 2 (`a.title`, 3,39:1); die uebrigen sind
-  Bildnachweise und Teaser-Titel ueber Fotos (`p.image__copyright`, `a.title` in transparentem,
-  absolut positioniertem Overlay), lokal gegen eine Vorfahrenfarbe gemessen, jetzt `UNTESTED` —
-  das Band ist neu zu bewerten.
+  Live gegen `main` (2026-10-05, mit Abtastung), Barrierefreiheit AA / AAA vorher → nachher:
+  gov.uk 93 → 93 / 70 → 89, bundesregierung.de 49 → 49 / 46 → 49, wetter.com 22 → 22 / 18 → 20,
+  n-tv.de 36 → 36 / 23 → 29, spiegel.de 28 → 24 / 20 → 21 (AA-Verstoesse vorher → nachher:
+  0 → 0, 0 → 0, 15 → 12, 25 → 23, 3 → 22; die Abnahmen sind Text unter dem Consent-Overlay, jetzt
+  `UNTESTED`). AAA steigt, weil 1.4.6 jetzt mit AAA-Gewicht zaehlt. Referenzseite berlin.de
+  45 → 49 (drei Laeufe: 46, 49, 49), knapp ueber dem Band 15–48: Die lokale Regel meldete Desktop 11 /
+  mobil 12 Verstoesse, ueberwiegend Bildnachweise und Teaser-Titel ueber Fotos
+  (`p.image__copyright`, `a.title`), gemessen gegen eine Vorfahrenfarbe (2,56:1 bzw. 1,00:1). Jetzt
+  im sichtbaren Ausschnitt abgetastet (bestanden, oder `a.title` 4,02:1 `FAIL`), unterhalb des
+  Ausschnitts `UNTESTED` (6 je Durchgang); es bleiben 1 / 3 Verstoesse. Das Band ist neu zu
+  bewerten.
 
 - **Unreleased — Optisch verborgener und ueberdeckter Text, Hintergrund ueber Bildern (Teil von
   #698, Host-Seite von barrierlab#47):** `RenderedCdpDocument` liefert
