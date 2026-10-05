@@ -45,7 +45,7 @@ pub use accessible_name::check_accessible_name;
 pub use contrast::{Color, ContrastRule};
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
-    DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE, DISPLAY_TOGGLE_MISSING_RULE,
+    DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE,
 };
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;

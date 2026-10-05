@@ -1460,6 +1460,59 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Visual Presentation (Line Height)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
     },
+    // Die statischen Regeln der Darstellungskonvention (barrierlab#22, #699):
+    // Best Practice, keine WCAG-Anforderung, am nächsten Kriterium verankert
+    // wie die lokalen `display/*` in `wcag::rules::display_modes`. Dort
+    // bleibt, was die laufende Seite misst (`display/init-missing` per
+    // Beobachter, `display/text-hidden` samt berechneter Sichtbarkeit, die
+    // Textmodus-Prüfungen); diese Kennungen aus `a11y-rules` übernimmt
+    // auditmysite nicht.
+    // Ersetzt `display/toggle-missing` aus `display_modes`: derselbe Text,
+    // dieselbe Prüfung am DOM nach JavaScript.
+    SharedRule {
+        id: "display/toggle-missing",
+        criterion: "2.2.2",
+        level: WcagLevel::A,
+        name: "Display modes: toggle",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
+    },
+    // Ersetzt den `missing`-Fall von `display/text-not-visible`: eine
+    // Visualisierung ohne `[data-viz-text]` oder nur mit leeren, in jedem
+    // Modus. Ob eine vorhandene Textschicht im Textmodus auch erscheint,
+    // misst `display_modes` weiter an der laufenden Seite.
+    SharedRule {
+        id: "viz/text-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Display modes: text layer",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Neu mit der Konvention: `<figcaption>` als Kind der `figure[data-viz]`.
+    SharedRule {
+        id: "viz/caption-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Display modes: caption",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Neu: `data-viz="3d"`/`"interactive"` ohne Standbild `[data-viz-static]`
+    // -- im ruhigen Modus ersetzt nichts die Bewegung.
+    SharedRule {
+        id: "viz/static-missing",
+        criterion: "2.2.2",
+        level: WcagLevel::A,
+        name: "Display modes: still image",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
+    },
+    // Neu: `data-viz="chart"` ohne `<table>`; `REVIEW`, weil wenige Werte
+    // auch ein Satz trägt.
+    SharedRule {
+        id: "viz/table-missing",
+        criterion: "1.3.1",
+        level: WcagLevel::A,
+        name: "Display modes: values as table",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus

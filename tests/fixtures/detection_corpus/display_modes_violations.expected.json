@@ -1,12 +1,40 @@
 {
   "case": "display_modes_violations",
   "expectations": [
-    { "rule_id": "display/toggle-missing", "selector": "html", "verdict": "violation" },
-    { "rule_id": "display/init-missing", "selector": "html", "verdict": "violation" },
-    { "rule_id": "display/text-hidden", "selector": "div#t1", "verdict": "violation" },
-    { "rule_id": "display/text-media-visible", "selector": "div#st1", "verdict": "violation" },
-    { "rule_id": "display/text-media-visible", "selector": "canvas#c2", "verdict": "violation" },
-    { "rule_id": "display/text-not-visible", "selector": "figure#f2", "verdict": "violation" },
-    { "rule_id": "display/text-not-visible", "selector": "figure#f1", "verdict": "pass" }
+    {
+      "rule_id": "display/toggle-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "display/init-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "display/text-hidden",
+      "selector": "div#t1",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "selector": "div#st1",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "selector": "canvas#c2",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "viz/text-missing",
+      "selector": "figure#f2",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "viz/text-missing",
+      "selector": "figure#f1",
+      "verdict": "pass"
+    }
   ]
 }

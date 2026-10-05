@@ -77,7 +77,7 @@ src/
 │       ├── headings.rs           # 2.4.6
 │       ├── target_size_minimum.rs # 2.5.8
 │       ├── text_spacing.rs       # 1.4.12
-│       ├── display_modes.rs      # display/* checks of the data-display convention (#653, best-practice)
+│       ├── display_modes.rs      # display/* checks of the data-display convention that need the running page (#653, best-practice); the static ones are shared (viz/*, #699)
 │       └── ... (registered in rules/mod.rs)
 │
 ├── display/             # Display modes (#653): --display pre-navigation setup (localStorage.display,

@@ -5,6 +5,26 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Statische Darstellungsregeln aus `a11y-rules` 0.19.1 (#699):** Die Regeln der
+  Darstellungskonvention, die nur das Markup brauchen, kommen jetzt aus dem geteilten Bestand
+  (barrierlab#22): `display/toggle-missing` (ersetzt die lokale Regel gleichen Namens, derselbe
+  Text) und die neuen `viz/text-missing`, `viz/caption-missing`, `viz/static-missing`,
+  `viz/table-missing` (Letzteres ein Pruefhinweis). Die neuen Kennungen haben eigene
+  Taxonomie-Eintraege (`a11y.display_caption.missing`, `a11y.display_static.missing`,
+  `a11y.display_table.review`; `viz/text-missing` teilt `a11y.display_text_layer.missing`),
+  Erklaerungen und Score-Bereiche; wie `display/*` gelten sie als Konventionsregeln, nicht als
+  Rechtshinweis. In `display_modes` bleibt, was nur die laufende Seite zeigt:
+  `display/init-missing` (Beobachter vor der Navigation), `display/text-hidden` (samt berechneter
+  Sichtbarkeit und der ausgeblendeten Figur, #725), `display/text-media-visible` und
+  `display/text-not-visible`. Diese beiden Kennungen gibt es auch in `a11y-rules`, aber nur als
+  statischer Teil; auditmysite uebernimmt sie nicht, damit eine Kennung nie zwei Quellen hat.
+  Gewollt anders: `display/text-not-visible` meldet im Textmodus nur noch eine Textschicht, die
+  Inhalt hat, aber nicht erscheint; fehlt sie oder ist leer, ist das `viz/text-missing` und gilt
+  in jedem Modus, nicht nur im Textmodus. Neue Corpus-Fixture `display_modes_viz_static`, die
+  Erwartung in `display_modes_violations` zieht auf `viz/text-missing` um. Geprueft: Unit-Tests,
+  Detection-Corpus; Gegenprobe an geographia.eu (Referenzumsetzung, z. B. `climate-monitor` mit
+  26 Figuren): alte und neue Fassung melden dort nichts, kein Fehlalarm auf konformen Seiten.
+
 - **Unreleased — Rendering-Schicht aus dem DOMSnapshot, drei Darstellungsregeln aus `a11y-rules`
   (Teil von #698, Host-Seite von barrierlab#21 zweiter Teil; `a11y-*` 0.20.0):**
   `RenderedCdpDocument` fuellt `ComputedStyle` jetzt vollstaendig aus demselben
