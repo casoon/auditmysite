@@ -31,8 +31,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, ComputedStyle, Document, NameSource as SharedNameSource, Node, NodeKind,
-    Rect, Rendering, Semantics,
+    Arena, ArenaNode, Color, ComputedStyle, Document, NameSource as SharedNameSource, Node,
+    NodeKind, Rect, Rendering, Semantics,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -143,10 +143,10 @@ impl CdpDocument {
     }
 
     /// Das Dokument mit Tier 3 ([`Rendering`]), wenn es mit Layout-Stilen
-    /// gebaut wurde ([`fetch_dom_document_with_layout`]). Eine eigene Sicht statt einer Implementierung auf
-    /// `CdpDocument` selbst: Es gibt nur `display` und `visibility`, keine
-    /// Geometrie — Regeln auf Tier 3 sollen daran nicht stillschweigend
-    /// laufen.
+    /// gebaut wurde ([`fetch_dom_document_with_layout`]). Eine eigene Sicht
+    /// statt einer Implementierung auf `CdpDocument` selbst: Ohne Snapshot
+    /// gibt es weder Stile noch Geometrie, und Regeln auf Tier 3 sollen daran
+    /// nicht stillschweigend laufen.
     pub fn rendered(&self) -> Option<RenderedCdpDocument<'_>> {
         Some(RenderedCdpDocument {
             doc: self,
@@ -187,12 +187,12 @@ fn aria_role(chrome: &str) -> Option<&str> {
     }
 }
 
-/// Berechnetes `display` und `visibility` je Backend-Node-ID.
+/// Berechnete Stile und Geometrie je Backend-Node-ID.
 ///
 /// Aus einem `DOMSnapshot`: Elemente mit Layout-Objekt tragen ihre
-/// berechneten Werte. Ein Element **ohne** Layout-Objekt ist entweder
-/// `display: none` (oder liegt darunter) oder `display: contents` — Letzteres
-/// genau dann, wenn darunter etwas gerendert wird.
+/// berechneten Werte und ihren Rahmen. Ein Element **ohne** Layout-Objekt ist
+/// entweder `display: none` (oder liegt darunter) oder `display: contents` —
+/// Letzteres genau dann, wenn darunter etwas gerendert wird.
 ///
 /// Dazu die Leerraum-Textknoten, die `DOM.getDocument` auslässt, der Snapshot
 /// aber führt: Zwischen `<span>a</span> <span>b</span>` trennt nur dieser
@@ -206,10 +206,171 @@ pub struct LayoutStyles {
     whitespace_last: HashSet<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct LayoutStyle {
+    style: ComputedStyle,
+    /// Der Rahmen des Layout-Objekts; `None` ohne Layout-Objekt.
+    bounds: Option<Rect>,
+}
+
+/// Die berechneten Werte, die der `DOMSnapshot` je Layout-Objekt liefert.
+const SNAPSHOT_STYLES: &[&str] = &[
+    "display",
+    "visibility",
+    "color",
+    "-webkit-text-fill-color",
+    "background-color",
+    "background-image",
+    "font-size",
+    "font-weight",
+    "font-style",
+    "font-family",
+    "list-style-type",
+    "text-decoration-line",
+    "border-bottom-style",
+];
+
+/// Die Werte eines Layout-Objekts in der Reihenfolge von [`SNAPSHOT_STYLES`].
+struct SnapshotValues(Vec<Option<String>>);
+
+impl SnapshotValues {
+    fn get(&self, property: &str) -> Option<&str> {
+        let i = SNAPSHOT_STYLES.iter().position(|p| *p == property)?;
+        self.0.get(i)?.as_deref()
+    }
+}
+
+const WHITE: Color = Color {
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 255,
+};
+
+/// Eine berechnete Farbe, wie Chrome sie serialisiert: `rgb(r, g, b)` oder
+/// `rgba(r, g, b, a)`. Andere Schreibweisen (`color(srgb …)`, `oklch(…)`)
+/// ergeben `None` — die Farbe gilt dann als nicht bestimmt, nicht als
+/// geraten.
+fn parse_color(css: &str) -> Option<Color> {
+    let css = css.trim();
+    let inner = css
+        .strip_prefix("rgba(")
+        .or_else(|| css.strip_prefix("rgb("))?
+        .strip_suffix(')')?;
+    let parts: Vec<&str> = inner.split(',').map(str::trim).collect();
+    let channel = |s: &str| {
+        s.parse::<f32>()
+            .ok()
+            .map(|v| v.round().clamp(0.0, 255.0) as u8)
+    };
+    let (r, g, b) = match parts.as_slice() {
+        [r, g, b] | [r, g, b, _] => (channel(r)?, channel(g)?, channel(b)?),
+        _ => return None,
+    };
+    let a = match parts.get(3) {
+        Some(a) => (a.parse::<f32>().ok()?.clamp(0.0, 1.0) * 255.0).round() as u8,
+        None => 255,
+    };
+    Some(Color { r, g, b, a })
+}
+
+/// Legt eine teildurchsichtige Farbe über eine deckende.
+fn composite(top: Color, below: Color) -> Color {
+    let a = f32::from(top.a) / 255.0;
+    let mix = |t: u8, b: u8| (f32::from(t) * a + f32::from(b) * (1.0 - a)).round() as u8;
+    Color {
+        r: mix(top.r, below.r),
+        g: mix(top.g, below.g),
+        b: mix(top.b, below.b),
+        a: 255,
+    }
+}
+
+/// Die Farbe, die hinter dem Inhalt des Knotens `i` liegt: die eigene
+/// Hintergrundfarbe, durchscheinend über die der Vorfahren gelegt, zuunterst
+/// die weiße Leinwand. `None`, sobald auf dem Weg ein Hintergrundbild oder ein
+/// Verlauf liegt oder eine Farbe nicht lesbar ist — dann ist die Farbe nicht
+/// aus den Stilen bestimmbar.
+///
+/// Nur über die Vorfahren im flachen Baum (Shadow DOM aufgelöst, wie der
+/// Snapshot ihn führt). Was ein positioniertes Geschwister darüberlegt, sieht
+/// das nicht.
+fn backdrop(
+    i: usize,
+    values: &[Option<SnapshotValues>],
+    parents: &[i64],
+    memo: &mut [Option<Option<Color>>],
+) -> Option<Color> {
+    if let Some(known) = memo[i] {
+        return known;
+    }
+    let below = match parents.get(i).and_then(|p| usize::try_from(*p).ok()) {
+        Some(parent) => backdrop(parent, values, parents, memo),
+        None => Some(WHITE),
+    };
+    let result = match &values[i] {
+        // Ohne eigenen Kasten (`display: contents`, das Dokument) scheint
+        // durch, was darunter liegt.
+        None => below,
+        Some(v) if v.get("background-image").is_some_and(|img| img != "none") => None,
+        Some(v) => match v.get("background-color").and_then(parse_color) {
+            Some(c) if c.a == 255 => Some(c),
+            Some(c) => below.map(|b| composite(c, b)),
+            None => None,
+        },
+    };
+    memo[i] = Some(result);
+    result
+}
+
+fn parse_px(value: &str) -> Option<f32> {
+    value.trim().strip_suffix("px")?.parse().ok()
+}
+
+/// Die Textfarbe, mit der tatsächlich gezeichnet wird. `-webkit-text-fill-color`
+/// geht `color` vor; ist sie durchsichtig, malt meist ein Hintergrund durch
+/// den Text (`background-clip: text`, #640) — dann gibt es keine bestimmbare
+/// Farbe.
+fn painted_color(values: &SnapshotValues) -> Option<Color> {
+    values
+        .get("-webkit-text-fill-color")
+        .or_else(|| values.get("color"))
+        .and_then(parse_color)
+        .filter(|c| c.a > 0)
+}
+
+fn computed_style(
     display: String,
-    visibility: Option<String>,
+    values: Option<&SnapshotValues>,
+    background: Option<Color>,
+) -> ComputedStyle {
+    let get = |p: &str| values.and_then(|v| v.get(p));
+    let owned = |p: &str| get(p).map(str::to_string);
+    ComputedStyle {
+        color: values.and_then(painted_color),
+        background_color: background,
+        font_size_px: get("font-size").and_then(parse_px),
+        font_weight: get("font-weight").and_then(|w| w.trim().parse().ok()),
+        display: Some(display),
+        visibility: owned("visibility"),
+        list_style_type: owned("list-style-type"),
+        text_decoration_line: owned("text-decoration-line"),
+        font_style: owned("font-style"),
+        font_family: owned("font-family"),
+        border_bottom_style: owned("border-bottom-style"),
+    }
+}
+
+fn rect(r: &chromiumoxide::cdp::browser_protocol::dom_snapshot::Rectangle) -> Option<Rect> {
+    match r.inner().as_slice() {
+        [x, y, width, height] => Some(Rect {
+            x: *x as f32,
+            y: *y as f32,
+            width: *width as f32,
+            height: *height as f32,
+        }),
+        _ => None,
+    }
 }
 
 impl LayoutStyles {
@@ -222,7 +383,7 @@ impl LayoutStyles {
     }
 
     /// Aus der Antwort von `DOMSnapshot.captureSnapshot` mit
-    /// `computedStyles = ["display", "visibility"]`.
+    /// `computedStyles = SNAPSHOT_STYLES`.
     pub fn from_snapshot(snapshot: &CaptureSnapshotReturns) -> Self {
         let string = |i: i64| {
             usize::try_from(i)
@@ -241,22 +402,37 @@ impl LayoutStyles {
             ) else {
                 continue;
             };
-            let mut styles: Vec<Option<LayoutStyle>> = vec![None; backend.len()];
+            // Werte und Rahmen des ersten Layout-Objekts je Knoten. Elemente
+            // und Textknoten getrennt: Ein Textknoten trägt die Werte seines
+            // Elternelements, auch dessen Hintergrund, und darf deshalb nicht
+            // als eigene Schicht zählen.
+            let mut element_values: Vec<Option<SnapshotValues>> =
+                (0..backend.len()).map(|_| None).collect();
+            let mut text_values: Vec<Option<SnapshotValues>> =
+                (0..backend.len()).map(|_| None).collect();
+            let mut bounds: Vec<Option<Rect>> = vec![None; backend.len()];
             let mut renders_below = vec![false; backend.len()];
             for (layout_index, &node_index) in document.layout.node_index.iter().enumerate() {
                 let Ok(node_index) = usize::try_from(node_index) else {
                     continue;
                 };
-                if let Some(values) = document.layout.styles.get(layout_index) {
-                    let values = values.inner();
-                    styles[node_index] =
-                        values
-                            .first()
-                            .and_then(|d| string(*d.inner()))
-                            .map(|display| LayoutStyle {
-                                display: display.clone(),
-                                visibility: values.get(1).and_then(|v| string(*v.inner())).cloned(),
-                            });
+                let slot = if types.get(node_index) == Some(&ELEMENT_NODE) {
+                    &mut element_values[node_index]
+                } else {
+                    &mut text_values[node_index]
+                };
+                if slot.is_none() {
+                    if let Some(values) = document.layout.styles.get(layout_index) {
+                        *slot = Some(SnapshotValues(
+                            values
+                                .inner()
+                                .iter()
+                                .map(|v| string(*v.inner()).cloned())
+                                .collect(),
+                        ));
+                        bounds[node_index] =
+                            document.layout.bounds.get(layout_index).and_then(rect);
+                    }
                 }
                 // Jeder Vorfahre eines gerenderten Knotens hat etwas
                 // Gerendertes unter sich.
@@ -270,13 +446,18 @@ impl LayoutStyles {
                 }
             }
             // Der Snapshot steht in Dokumentreihenfolge; je Elternknoten wird
-            // vermerkt, ob zuletzt ein Leerraum-Textknoten kam.
+            // vermerkt, ob zuletzt ein Leerraum-Textknoten kam. Nebenbei: der
+            // erste gerenderte Textknoten je Element.
             let values = nodes.node_value.as_ref();
             let mut pending = vec![false; backend.len()];
+            let mut first_text: Vec<Option<usize>> = vec![None; backend.len()];
             for (i, id) in backend.iter().enumerate() {
                 let Some(parent) = parents.get(i).and_then(|p| usize::try_from(*p).ok()) else {
                     continue;
                 };
+                if text_values[i].is_some() && first_text[parent].is_none() {
+                    first_text[parent] = Some(i);
+                }
                 let blank = types.get(i) == Some(&TEXT_NODE)
                     && values
                         .and_then(|v| v.get(i))
@@ -295,15 +476,36 @@ impl LayoutStyles {
                     whitespace_last.insert(*backend[i].inner());
                 }
             }
+            let parents: Vec<i64> = parents.clone();
+            let mut memo: Vec<Option<Option<Color>>> = vec![None; backend.len()];
             for (i, id) in backend.iter().enumerate() {
                 if types.get(i) != Some(&ELEMENT_NODE) {
                     continue;
                 }
-                let style = styles[i].take().unwrap_or_else(|| LayoutStyle {
-                    display: if renders_below[i] { "contents" } else { "none" }.to_string(),
-                    visibility: None,
-                });
-                by_backend.insert(*id.inner(), style);
+                let background = backdrop(i, &element_values, &parents, &mut memo);
+                let style = match &element_values[i] {
+                    Some(v) => computed_style(
+                        v.get("display").unwrap_or_default().to_string(),
+                        Some(v),
+                        background,
+                    ),
+                    // Ein Element ohne eigenen Kasten: `display: contents`
+                    // (etwa ein `<slot>`) zeichnet seinen Text mit den
+                    // eigenen vererbten Werten, und die führt der Textknoten.
+                    None if renders_below[i] => computed_style(
+                        "contents".to_string(),
+                        first_text[i].and_then(|t| text_values[t].as_ref()),
+                        background,
+                    ),
+                    None => computed_style("none".to_string(), None, None),
+                };
+                by_backend.insert(
+                    *id.inner(),
+                    LayoutStyle {
+                        style,
+                        bounds: bounds[i],
+                    },
+                );
             }
         }
         Self {
@@ -316,7 +518,8 @@ impl LayoutStyles {
 
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
 async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
-    let params = CaptureSnapshotParams::new(vec!["display".to_string(), "visibility".to_string()]);
+    let params =
+        CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
     let response = page
         .execute(params)
         .await
@@ -367,23 +570,17 @@ impl Semantics for RenderedCdpDocument<'_> {
 
 impl Rendering for RenderedCdpDocument<'_> {
     fn computed_style<'n>(&'n self, node: Self::N<'n>) -> Option<ComputedStyle> {
-        let style = self
-            .styles
-            .by_backend
-            .get(&self.doc.backend_node_id(node)?)?;
-        Some(ComputedStyle {
-            color: None,
-            background_color: None,
-            font_size_px: None,
-            font_weight: None,
-            display: Some(style.display.clone()),
-            visibility: style.visibility.clone(),
-        })
+        Some(self.layout(node)?.style.clone())
     }
 
-    /// Keine Geometrie — siehe [`CdpDocument::rendered`].
-    fn bounds<'n>(&'n self, _node: Self::N<'n>) -> Option<Rect> {
-        None
+    fn bounds<'n>(&'n self, node: Self::N<'n>) -> Option<Rect> {
+        self.layout(node)?.bounds
+    }
+}
+
+impl RenderedCdpDocument<'_> {
+    fn layout(&self, node: ArenaNode<'_>) -> Option<&LayoutStyle> {
+        self.styles.by_backend.get(&self.doc.backend_node_id(node)?)
     }
 }
 
@@ -708,7 +905,7 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
     Ok(doc)
 }
 
-/// Wie [`fetch_dom_document`], dazu berechnetes `display`/`visibility` und die
+/// Wie [`fetch_dom_document`], dazu berechnete Stile, Geometrie und die
 /// Leerraum-Textknoten aus einem `DOMSnapshot` — die Grundlage für
 /// [`CdpDocument::rendered`]. Für den accname-Differentiallauf und die
 /// geteilten Regeln (`wcag::shared::run_shared_rules`).
@@ -844,19 +1041,216 @@ mod tests {
         }))
         .unwrap();
         let styles = LayoutStyles::from_snapshot(&snapshot);
-        let get = |id| styles.by_backend.get(&id).cloned();
-        assert_eq!(
-            get(2),
-            Some(LayoutStyle {
-                display: "block".into(),
-                visibility: Some("hidden".into())
-            })
-        );
-        assert_eq!(get(3).map(|s| s.display), Some("contents".into()));
-        assert_eq!(get(6).map(|s| s.display), Some("none".into()));
+        let get = |id| styles.by_backend.get(&id).map(|s| s.style.clone());
+        let div = get(2).unwrap();
+        assert_eq!(div.display.as_deref(), Some("block"));
+        assert_eq!(div.visibility.as_deref(), Some("hidden"));
+        assert_eq!(get(3).and_then(|s| s.display), Some("contents".into()));
+        assert_eq!(get(6).and_then(|s| s.display), Some("none".into()));
         assert_eq!(get(4), None, "Textknoten tragen keinen Stil");
         assert_eq!(styles.whitespace_before, HashSet::from([6]));
         assert_eq!(styles.whitespace_last, HashSet::from([2]));
+    }
+
+    /// Ein Snapshot mit den Werten aus [`SNAPSHOT_STYLES`] je Layout-Objekt.
+    /// `layout` sind `(Knotenindex, Werte, Rahmen)`; die Werte stehen als
+    /// Text und werden zu Indizes in `strings`.
+    fn snapshot_mit_stilen(
+        parents: &[i64],
+        types: &[i64],
+        layout: &[(i64, &[&str], [f64; 4])],
+    ) -> CaptureSnapshotReturns {
+        let mut strings: Vec<String> = Vec::new();
+        let mut index = |s: &str| -> i64 {
+            if let Some(i) = strings.iter().position(|x| x == s) {
+                return i as i64;
+            }
+            strings.push(s.to_string());
+            (strings.len() - 1) as i64
+        };
+        let styles: Vec<Vec<i64>> = layout
+            .iter()
+            .map(|(_, values, _)| values.iter().map(|v| index(v)).collect())
+            .collect();
+        let backend: Vec<i64> = (1..=parents.len() as i64).collect();
+        serde_json::from_value(serde_json::json!({
+            "strings": strings,
+            "documents": [{
+                "documentURL": 0, "title": 0, "baseURL": 0, "contentLanguage": 0,
+                "encodingName": 0, "publicId": 0, "systemId": 0, "frameId": 0,
+                "nodes": {
+                    "parentIndex": parents,
+                    "nodeType": types,
+                    "nodeValue": vec![-1; parents.len()],
+                    "backendNodeId": backend
+                },
+                "layout": {
+                    "nodeIndex": layout.iter().map(|(i, _, _)| *i).collect::<Vec<_>>(),
+                    "styles": styles,
+                    "bounds": layout.iter().map(|(_, _, b)| b.to_vec()).collect::<Vec<_>>(),
+                    "text": vec![-1; layout.len()],
+                    "stackingContexts": {"index": []}
+                },
+                "textBoxes": {"layoutIndex": [], "bounds": [], "start": [], "length": []}
+            }]
+        }))
+        .unwrap()
+    }
+
+    /// Werte in der Reihenfolge von [`SNAPSHOT_STYLES`].
+    fn werte<'a>(
+        display: &'a str,
+        color: &'a str,
+        bg: &'a str,
+        bg_image: &'a str,
+    ) -> [&'a str; 13] {
+        [
+            display, "visible", color, color, bg, bg_image, "16px", "400", "normal", "Arial",
+            "disc", "none", "none",
+        ]
+    }
+
+    /// `html` > `body` (#eeeeee) > `p` (halbdurchsichtiges Blau) > Text;
+    /// `body` > `div` mit Verlauf > `span` > Text; `body` > `slot`
+    /// (`display: contents`) > Text in Rot.
+    #[test]
+    fn stile_farben_und_rahmen_kommen_aus_dem_snapshot() {
+        let parents = [-1, 0, 1, 2, 3, 2, 5, 6, 2, 8];
+        let types = [9, 1, 1, 1, 3, 1, 1, 3, 1, 3];
+        let html = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        let body = werte("block", "rgb(0, 0, 0)", "rgb(238, 238, 238)", "none");
+        let p = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 255, 0.5)", "none");
+        let p_text = p;
+        let div = werte(
+            "block",
+            "rgb(0, 0, 0)",
+            "rgba(0, 0, 0, 0)",
+            "linear-gradient(red, blue)",
+        );
+        let span = werte("inline", "rgb(1, 2, 3)", "rgba(0, 0, 0, 0)", "none");
+        let span_text = span;
+        let slot_text = werte("inline", "rgb(255, 0, 0)", "rgba(0, 0, 0, 0)", "none");
+        let snapshot = snapshot_mit_stilen(
+            &parents,
+            &types,
+            &[
+                (1, &html, [0.0, 0.0, 800.0, 600.0]),
+                (2, &body, [8.0, 8.0, 784.0, 584.0]),
+                (3, &p, [8.0, 8.0, 784.0, 18.0]),
+                (4, &p_text, [8.0, 8.0, 30.0, 18.0]),
+                (5, &div, [8.0, 30.0, 784.0, 18.0]),
+                (6, &span, [8.0, 30.0, 40.0, 18.0]),
+                (7, &span_text, [8.0, 30.0, 40.0, 18.0]),
+                (9, &slot_text, [8.0, 50.0, 40.0, 18.0]),
+            ],
+        );
+        let styles = LayoutStyles::from_snapshot(&snapshot);
+        let get = |backend: i64| styles.by_backend.get(&backend).cloned().unwrap();
+
+        let p = get(4);
+        assert_eq!(
+            p.style.background_color,
+            Some(Color {
+                r: 119,
+                g: 119,
+                b: 247,
+                a: 255
+            }),
+            "halbdurchsichtig über #eeeeee"
+        );
+        assert_eq!(
+            p.style.color,
+            Some(Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255
+            })
+        );
+        assert_eq!(p.style.font_size_px, Some(16.0));
+        assert_eq!(p.style.font_weight, Some(400));
+        assert_eq!(p.style.list_style_type.as_deref(), Some("disc"));
+        assert_eq!(p.style.font_family.as_deref(), Some("Arial"));
+        assert_eq!(
+            p.bounds,
+            Some(Rect {
+                x: 8.0,
+                y: 8.0,
+                width: 784.0,
+                height: 18.0
+            })
+        );
+
+        let span = get(7);
+        assert_eq!(
+            span.style.color,
+            Some(Color {
+                r: 1,
+                g: 2,
+                b: 3,
+                a: 255
+            })
+        );
+        assert_eq!(
+            span.style.background_color, None,
+            "über einem Verlauf ist der Hintergrund nicht bestimmbar"
+        );
+
+        let slot = get(9);
+        assert_eq!(slot.style.display.as_deref(), Some("contents"));
+        assert_eq!(
+            slot.style.color,
+            Some(Color {
+                r: 255,
+                g: 0,
+                b: 0,
+                a: 255
+            }),
+            "Farbe aus dem gerenderten Text"
+        );
+        assert_eq!(slot.bounds, None);
+        assert_eq!(
+            slot.style.background_color,
+            Some(Color {
+                r: 238,
+                g: 238,
+                b: 238,
+                a: 255
+            })
+        );
+    }
+
+    #[test]
+    fn durchsichtige_textfuellung_ist_keine_bestimmbare_farbe() {
+        let mut v = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
+        v[3] = "rgba(0, 0, 0, 0)";
+        let snapshot = snapshot_mit_stilen(&[-1, 0], &[9, 1], &[(1, &v, [0.0, 0.0, 10.0, 10.0])]);
+        let styles = LayoutStyles::from_snapshot(&snapshot);
+        assert_eq!(styles.by_backend[&2].style.color, None);
+    }
+
+    #[test]
+    fn farben_werden_aus_chromes_schreibweise_gelesen() {
+        assert_eq!(
+            parse_color("rgb(10, 20, 30)"),
+            Some(Color {
+                r: 10,
+                g: 20,
+                b: 30,
+                a: 255
+            })
+        );
+        assert_eq!(
+            parse_color("rgba(10, 20, 30, 0.5)"),
+            Some(Color {
+                r: 10,
+                g: 20,
+                b: 30,
+                a: 128
+            })
+        );
+        assert_eq!(parse_color("oklch(0.5 0.1 200)"), None);
+        assert_eq!(parse_color("color(srgb 1 0 0)"), None);
     }
 
     /// Baut einen CDP-Knotenbaum aus JSON. `Node` ist `Deserialize`, damit
