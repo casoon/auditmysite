@@ -15,8 +15,8 @@ pub use engine::{
     check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
     check_re_authenticate_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
-    check_visual_presentation_with_page, RuleFilterConfig,
+    check_timeouts_with_page, check_timing_with_page, check_visual_presentation_with_page,
+    RuleFilterConfig,
 };
 pub use types::{
     rule_run_errored, rule_run_skipped, technical_failure_reason, technical_rule_failure,

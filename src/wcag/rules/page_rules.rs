@@ -33,12 +33,10 @@ use super::{
     check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
     check_page_titled_with_page, check_pause_stop_hide_with_page,
     check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_re_authenticate_with_page, check_redundant_role_with_page,
-    check_same_origin_iframes_with_page, check_scrollable_region_focusable_with_page,
+    check_re_authenticate_with_page, check_same_origin_iframes_with_page,
     check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
     check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_use_of_color_with_page, check_video_caption_tracks_with_page,
-    check_visual_presentation_with_page,
+    check_video_caption_tracks_with_page, check_visual_presentation_with_page,
 };
 
 /// One row of the page-rule catalog.
@@ -85,12 +83,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_page_titled_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "2.1.1/scrollable-region-focusable",
-        name: "scrollable-region-focusable",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_scrollable_region_focusable_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "3.3.8/accessible-authentication",
         name: "accessible-authentication",
         min_level: WcagLevel::AA,
@@ -117,22 +109,10 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_modern_attributes_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "1.4.1/use-of-color",
-        name: "use-of-color",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_use_of_color_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "3.2.2/on-input",
         name: "on-input context change",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_on_input_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "4.1.2/redundant-role",
-        name: "redundant role",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_redundant_role_with_page(p)),
     },
     // Display-mode convention (#653): all five `display/*` ids from one
     // DOM pass. Best-practice rules, not WCAG requirements; no-op on pages
@@ -333,7 +313,11 @@ mod tests {
         //   als timing-adjustable = 17
         // - area-alt: laeuft als `images/area-alt-missing` im geteilten
         //   Bestand, seit a11y-rules 0.19 auch mit Stilen = 16
-        assert_eq!(count, 16);
+        // - scrollable-region-focusable, use-of-color und redundant-role:
+        //   laufen als `keyboard/scrollable-region-not-focusable`,
+        //   `color/link-indistinct` und `lists/role-redundant` mit den
+        //   Stilen aus dem DOMSnapshot im geteilten Bestand (#698) = 13
+        assert_eq!(count, 13);
     }
 
     #[test]
@@ -389,7 +373,9 @@ mod tests {
         // - focus-visible-css und reduced-motion (beide hier AA): laufen als
         //   `focus/outline-removed` und `motion/reduced-motion-ignored` ueber
         //   die Stylesheets im geteilten Bestand = 22.
-        assert_eq!(count, 22);
+        // - scrollable-region-focusable, use-of-color und redundant-role
+        //   (Level A) in den geteilten Bestand abgegeben (#698) = 19.
+        assert_eq!(count, 19);
     }
 
     #[test]
