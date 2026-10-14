@@ -962,7 +962,8 @@ async fn test_label_in_name_false_positives() {
 /// non-inert, non-aria-hidden link to the same destination meets the size
 /// ("Equivalent" exception). A fragment into another document is ignored, one
 /// into the current page is not. Hidden, undersized and `href="#"` equivalents
-/// do not count.
+/// do not count. Seit #698 aus `a11y-rules` (`targets/size`,
+/// `targets/size-enhanced`) über den DOMSnapshot der Seite.
 #[tokio::test]
 #[ignore]
 async fn test_target_size_equivalent_link_exception() {
@@ -975,16 +976,30 @@ async fn test_target_size_equivalent_link_exception() {
         .await
         .expect("Navigation failed");
 
-    let minimum = auditmysite::wcag::rules::check_target_size_minimum_with_page(&page).await;
-    let enhanced = auditmysite::wcag::rules::check_target_size_enhanced_with_page(&page).await;
+    let doc = auditmysite::accessibility::fetch_dom_document_with_layout(
+        &page,
+        &auditmysite::accessibility::AXTree::default(),
+    )
+    .await
+    .expect("DOM capture failed");
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    let selectors = |findings: &[auditmysite::Violation]| -> Vec<String> {
-        findings.iter().filter_map(|v| v.selector.clone()).collect()
+    let rendered = doc.rendered().expect("document without layout");
+    let report = a11y_rules::run_full(&rendered);
+    let selectors = |rule: &str| -> Vec<String> {
+        report
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == rule)
+            .filter_map(|f| f.location.node.as_deref()?.parse::<u32>().ok())
+            .filter_map(|i| doc.node_at(a11y_dom::NodeId(i)))
+            .filter_map(|n| a11y_dom::Node::attr(n, "id").map(|id| format!("a#{id}")))
+            .collect()
     };
+    let minimum = selectors("targets/size");
     assert_eq!(
-        selectors(&minimum),
+        minimum,
         [
             "a#hidden-only",
             "a#both-small",
@@ -992,13 +1007,13 @@ async fn test_target_size_equivalent_link_exception() {
             "a#page-fragment",
             "a#hash"
         ],
-        "2.5.8 findings: {minimum:?}"
+        "2.5.8 findings"
     );
-    let enhanced_selectors = selectors(&enhanced);
+    let enhanced = selectors("targets/size-enhanced");
     assert!(
-        !enhanced_selectors.contains(&"a#eq-small".to_string())
-            && enhanced_selectors.contains(&"a#hidden-only".to_string())
-            && enhanced_selectors.contains(&"a#no-eq".to_string()),
+        !enhanced.contains(&"a#eq-small".to_string())
+            && !enhanced.contains(&"a#doc-fragment".to_string())
+            && enhanced.contains(&"a#contact-lone".to_string()),
         "2.5.5 findings: {enhanced:?}"
     );
 }

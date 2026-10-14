@@ -249,6 +249,11 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
         "keyboard/scrollable-region-not-focusable",
         "scrollable-region-focusable",
     ),
+    // Heuristiken ueber Layout-Angaben (#698): `targets/*`, `order/*` und
+    // `motion/infinite-animation` finden ihren Text ueber das Kriterium wie
+    // die abgeloesten Regeln; `keyboard/pointer-only` nimmt den der
+    // Klick-Handler ohne Tastatur.
+    ("keyboard/pointer-only", "click-events-have-key-events"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID

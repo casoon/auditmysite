@@ -5,6 +5,68 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Zielgroesse, Reihenfolge, Endlos-Animation und Nur-Zeiger aus `a11y-rules`
+  (#698, barrierlab#49):** `targets/size` (2.5.8 AA) und `targets/size-enhanced` (2.5.5 AAA, nur
+  was 2.5.8 nicht schon meldet) ersetzen `target-size-minimum` und `target-size`;
+  `order/visual-mismatch` (1.3.2) ersetzt `css-order-reading-sequence`;
+  `motion/infinite-animation` (2.2.2) ersetzt den Animations- und `<marquee>`-Teil von
+  `pause-stop-hide`; `keyboard/pointer-only` (2.1.1, `cursor: pointer` oder `onclick` ohne Rolle,
+  tabindex und Bedienelement darin) ist neu. Geloescht: `target_size_minimum`,
+  `target_size_enhanced`, `meaningful_sequence`, `pause_stop_hide`. Die alten Kennungen loesen ueber
+  `LEGACY_RULE_IDS` (Regelfilter) und `LEGACY_WCAG_MAP` (Taxonomie) weiter auf.
+  **Urteil aendert sich:** 2.5.8 und 2.5.5 waren `FAIL`, jetzt `REVIEW`; ein beim Messen noch
+  wachsendes Ziel bleibt `UNTESTED` wie bisher. 1.3.2 und 2.2.2 waren und bleiben Pruefhinweise.
+  Gewollt anders: keine Obergrenzen mehr (lokal 5 Befunde, 1000 Ziele, 5 Flex-Container — die
+  Reihenfolge sah deshalb den Fussbereich von bundesregierung.de und die Kopfzeile von berlin.de
+  nicht); `flex-direction: *-reverse` zaehlt; jede endlose Animation zaehlt, auch kurze Durchlaeufe
+  (2.2.2 gilt fuer Bewegung, die insgesamt laenger als fuenf Sekunden laeuft; lokal nur Durchlaeufe
+  ueber 5 s), `prefers-reduced-motion` hebt den Befund nicht mehr auf, angehaltene Animationen
+  zaehlen nicht (lokal schon). Nicht mehr geprueft: die Karussell-Signale von `pause-stop-hide`
+  (`data-autoplay`, `data-ride`, `.swiper-autoplay-running`, `data-update-interval`) — auf den sechs
+  Referenzseiten ohne Treffer. Seit a11y-rules 0.22.0 zaehlt jedes Bedienelement als Ziel, unabhaengig
+  von `tabindex` (Karussellpunkte mit rovingem tabindex: bundesregierung.de mobil
+  `#slick-slide-control00`–`03`, 10 × 10 px, jetzt gemeldet; dazu 2.5.5 an `div[role=button]`
+  bundesregierung.de und `#moreNews` wetter.com, beide echte Ziele). Korpus: neues Urteil `absent` (kein Befund welcher Art auch immer), weil
+  `pass` nur Verstoesse zaehlt und bei `REVIEW`-Regeln nie scheitert; neuer Fall `pointer_only`.
+  Live vorher → nachher (2026-10-05, Desktop und mobil, Verstoesse / Score): AA gov.uk 3 → 3,
+  bundesregierung.de 18 → 13 (die 5 lokalen 2.5.8-Verstoesse, davon 4 Sprunglinks bei −99999 px,
+  entfallen), wetter.com 137 → 137, n-tv.de 73 → 64 / 36 → 39, spiegel.de 100 → 98 / 24 → 25,
+  berlin.de 31 → 31; AAA gov.uk 45 → 40 / 89 → 91, bundesregierung.de 87 → 74, wetter.com 229 →
+  223, n-tv.de 390 → 371 / 29 → 34, spiegel.de 347 → 341 / 21 → 22, berlin.de 61 → 53 / 38 → 41.
+  Neu als Pruefhinweis: endlose Animationen auf spiegel.de (9) und bundesregierung.de (1),
+  Reihenfolge auf berlin.de (2), bundesregierung.de und spiegel.de, 2.5.5 ohne Obergrenze
+  (gov.uk 82 Eintraege statt 5 Verstoesse).
+
+- **Unreleased — `pointer_events_none` und `animating` (#698, barrierlab#49):**
+  `pointer_events_none` ist das berechnete `pointer-events: none` aus dem DOMSnapshot.
+  `animating` kommt aus einem Durchgang vor dem Snapshot wie `obscured`:
+  `document.getAnimations()` mit `playState` `running` und endlichem `endTime` — damit auch
+  laufende Uebergaenge —, endlose Animationen zaehlen nicht; ein Element gilt als animiert, wenn
+  es selbst oder ein Vorfahre darin steht, nur im Hauptdokument. Die berechneten `animation-*`-
+  Werte allein taugen dafuer nicht: Sie bleiben nach dem Ende einer Animation stehen. Gefuellt
+  gesehen (2026-10-05, Desktop, `Some(true)`): `pointer_events_none` bundesregierung.de 114,
+  spiegel.de 120, gov.uk 6, berlin.de 2, Korpus `target_size_hidden_neighbours` 1; `animating`
+  bundesregierung.de 246, wetter.com 89, spiegel.de 23, Korpus `target_size_animation` 1 (`a#slow`).
+
+- **Unreleased — Layout-Felder gefuellt, Vergleich mit lokalen Heuristiken (#698):**
+  `RenderedCdpDocument::layout` liefert jetzt an jedem Element mit Layout-Objekt die Felder aus
+  dem DOMSnapshot (neue berechnete Stile `flex-direction`, `order`, `min-width`, `cursor`,
+  `animation-name/-duration/-iteration-count/-play-state`, `top`, `scroll-padding-top`):
+  `flex_reversed` (Flex-Container mit `*-reverse`), `order`, `min_width_px` (`auto` → 0, nur
+  Pixelwerte), `cursor_pointer`, `infinite_animation` (paarweise ueber die `animation-*`-Listen:
+  Name, Dauer > 0, `infinite`, nicht `paused`) und `hides_focus`: eine fixierte oder klebende Leiste
+  im Hauptdokument, mindestens 20 px hoch, halb so breit wie die Seite, niedriger als der sichtbare
+  Bereich (ein Einwilligungsdialog ueber alles ist keine Leiste), die oberhalb von
+  `scroll-padding-top` beginnt und tiefer reicht — fixiert an ihrer Lage im sichtbaren Bereich,
+  klebend an ihrem `top`; nur die aeusserste. `obscured` unveraendert (nur Elemente mit eigenem
+  Text). `focus_visible` bleibt `None`: kein Durchgang dieses Abrufs bewegt den Fokus. Die
+  Heuristiken laufen weiter nur im Hintergrund (nicht in `SHARED_RULES`); die lokalen Regeln
+  bleiben. Gefuellt gesehen (2026-10-05, Desktop, `Some(true)`): `flex_reversed` gov.uk 4,
+  spiegel.de 20; `order` ≠ 0 berlin.de 4, bundesregierung.de 2, spiegel.de 2; `min_width_px`
+  > 320 bundesregierung.de 6, wetter.com 2, berlin.de 2; `cursor_pointer` auf allen sechs;
+  `infinite_animation` spiegel.de 9, bundesregierung.de 1; `hides_focus` spiegel.de 1
+  (`header.sticky`), n-tv.de 1; `obscured` wetter.com 190, n-tv.de 61, spiegel.de 32.
+
 - **Unreleased — Regelfilter gilt fuer die geteilten Regeln (#698):** `[rules] disabled` /
   `enabled_only` und `--disable-rule` griffen bisher nur fuer die lokalen Regeln; seit Kontrast
   geteilt ist, schaltete `--disable-rule color-contrast` nichts mehr ab. Jetzt nimmt

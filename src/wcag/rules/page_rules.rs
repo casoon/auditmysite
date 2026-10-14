@@ -27,16 +27,15 @@ use crate::wcag::Violation;
 use super::{
     check_accessible_authentication_with_page, check_display_modes_with_page,
     check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_frame_tested_with_page, check_meaningful_sequence_with_page,
-    check_media_alternative_with_page, check_modern_attributes_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_frame_tested_with_page, check_media_alternative_with_page,
+    check_modern_attributes_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
-    check_page_titled_with_page, check_pause_stop_hide_with_page,
-    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_re_authenticate_with_page, check_same_origin_iframes_with_page,
-    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
-    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_video_caption_tracks_with_page, check_visual_presentation_with_page,
+    check_page_titled_with_page, check_pointer_cancellation_with_page,
+    check_pointer_gestures_with_page, check_re_authenticate_with_page,
+    check_same_origin_iframes_with_page, check_text_spacing_with_page, check_timeouts_with_page,
+    check_timing_with_page, check_video_caption_tracks_with_page,
+    check_visual_presentation_with_page,
 };
 
 /// One row of the page-rule catalog.
@@ -97,12 +96,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_timing_with_page(p)),
     },
     PageRuleEntry {
-        rule_id: "1.3.2/meaningful-sequence",
-        name: "meaningful-sequence (CSS order)",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_meaningful_sequence_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "4.1.2/modern-attributes",
         name: "modern interaction attributes",
         min_level: WcagLevel::A,
@@ -144,12 +137,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_motion_actuation_with_page(p)),
     },
-    PageRuleEntry {
-        rule_id: "2.2.2/pause-stop-hide",
-        name: "pause-stop-hide",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_pause_stop_hide_with_page(p)),
-    },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.3.4/orientation",
@@ -162,12 +149,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "CSS non-text contrast",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_non_text_contrast_css_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.8/target-size-minimum",
-        name: "target-size-minimum",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_target_size_minimum_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.12/text-spacing",
@@ -217,12 +198,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "timeouts",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_timeouts_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.5/target-size-enhanced",
-        name: "target-size-enhanced",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_target_size_enhanced_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.4.12/focus-not-obscured-enhanced",
@@ -317,7 +292,10 @@ mod tests {
         //   laufen als `keyboard/scrollable-region-not-focusable`,
         //   `color/link-indistinct` und `lists/role-redundant` mit den
         //   Stilen aus dem DOMSnapshot im geteilten Bestand (#698) = 13
-        assert_eq!(count, 13);
+        // - meaningful-sequence und pause-stop-hide: laufen als
+        //   `order/visual-mismatch` und `motion/infinite-animation` mit den
+        //   Layout-Angaben aus dem DOMSnapshot im geteilten Bestand (#698) = 11
+        assert_eq!(count, 11);
     }
 
     #[test]
@@ -375,7 +353,11 @@ mod tests {
         //   die Stylesheets im geteilten Bestand = 22.
         // - scrollable-region-focusable, use-of-color und redundant-role
         //   (Level A) in den geteilten Bestand abgegeben (#698) = 19.
-        assert_eq!(count, 19);
+        // - meaningful-sequence, pause-stop-hide (Level A) und
+        //   target-size-minimum (AA) laufen als `order/visual-mismatch`,
+        //   `motion/infinite-animation` und `targets/size` im geteilten
+        //   Bestand (#698) = 16.
+        assert_eq!(count, 16);
     }
 
     #[test]

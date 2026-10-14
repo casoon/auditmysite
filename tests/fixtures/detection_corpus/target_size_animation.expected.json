@@ -1,10 +1,9 @@
 {
   "case": "target_size_animation",
   "expectations": [
-    { "rule_id": "target-size-minimum", "selector": "a#intro", "verdict": "pass" },
-    { "rule_id": "target-size", "selector": "a#intro", "verdict": "pass" },
-    { "rule_id": "target-size-minimum", "selector": "a#slow", "verdict": "pass" },
-    { "rule_id": "target-size-minimum", "selector": "a#slow", "verdict": "needs_review" },
-    { "rule_id": "target-size", "selector": "a#slow", "verdict": "pass" }
+    { "rule_id": "targets/size", "selector": "a#intro", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "selector": "a#intro", "verdict": "absent" },
+    { "rule_id": "targets/size", "selector": "a#slow", "verdict": "needs_review" },
+    { "rule_id": "targets/size-enhanced", "selector": "a#slow", "verdict": "absent" }
   ]
 }

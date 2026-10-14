@@ -9,9 +9,7 @@
 //! rules share the same static-snapshot geometric approach and the same
 //! caveats (no real focus-walk/scroll simulation, no paint/stacking-order
 //! check) — see `focus_not_obscured_minimum` for the full rationale. Only
-//! the overlap threshold and severity/level differ, matching how
-//! `target_size_minimum` (2.5.8, AA) and `target_size_enhanced` (2.5.5, AAA)
-//! are already split into two independent rule files in this codebase.
+//! the overlap threshold and severity/level differ.
 //!
 //! Because a fully-hidden element (2.4.11 violation) is by definition also
 //! partially hidden, the same element can legitimately show up as both a

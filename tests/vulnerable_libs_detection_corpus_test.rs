@@ -100,7 +100,7 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
                             .push(format!("{}: expected violation, found none", exp.rule_id));
                     }
                 }
-                Verdict::Pass => {
+                Verdict::Pass | Verdict::Absent => {
                     if flagged_vulnerable {
                         false_positives
                             .push(format!("{}: expected pass, found violation", exp.rule_id));

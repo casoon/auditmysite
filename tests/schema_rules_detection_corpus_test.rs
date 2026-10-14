@@ -137,7 +137,7 @@ async fn schema_rules_detection_corpus_matches_real_detector_run() {
                             .push(format!("{}: expected violation, found none", exp.rule_id));
                     }
                 }
-                Verdict::Pass => {
+                Verdict::Pass | Verdict::Absent => {
                     if violates {
                         false_positives
                             .push(format!("{}: expected pass, found violation", exp.rule_id));
