@@ -1500,6 +1500,8 @@ pub struct PortfolioSummary {
     pub hreflang_issues: Vec<HreflangIssue>,
     /// Sitemap entries with HTTP/indexability issues
     pub sitemap_http_issues: Vec<crate::audit::SitemapHttpIssue>,
+    /// HTTP status class counts over every checked sitemap URL (plan 87).
+    pub sitemap_status_counts: std::collections::BTreeMap<String, usize>,
     /// Sitemap entries not linked by any audited page
     pub orphan_sitemap_urls: Vec<String>,
     /// Internal linked URLs that are absent from the sitemap

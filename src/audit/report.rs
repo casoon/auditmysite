@@ -747,6 +747,11 @@ pub struct SampleMetadata {
 /// Sitemap URL validation result for sitemap-driven batch reports.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SitemapDiagnostics {
+    /// HTTP outcome of every checked sitemap URL by class (`2xx`, `3xx`,
+    /// `4xx`, `5xx`, `other`, `fetch_error`) — measured for each URL, not
+    /// inferred from the issue list (plan 87). Redirects are not followed.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub status_counts: BTreeMap<String, usize>,
     /// Number of sitemap URLs checked via HTTP.
     pub checked_urls: usize,
     /// Sitemap entries that do not resolve to a direct canonical 200 response,

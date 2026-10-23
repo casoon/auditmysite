@@ -302,28 +302,91 @@ fn render_seo_sitemap_http_issues(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    if !pres.portfolio_summary.sitemap_http_issues.is_empty() {
+    let counts = &pres.portfolio_summary.sitemap_status_counts;
+    let issues = &pres.portfolio_summary.sitemap_http_issues;
+    if counts.is_empty() && issues.is_empty() {
+        return builder;
+    }
+    builder =
+        builder.add_component(Section::new(i18n.t("batch-seo-sitemap-http-title")).with_level(3));
+
+    // Measured distribution over every checked URL, not "all minus the
+    // issues" (plan 87).
+    if !counts.is_empty() {
+        let checked: usize = counts.values().sum();
+        let distribution = counts
+            .iter()
+            .map(|(class, count)| {
+                let label = match class.as_str() {
+                    "fetch_error" => i18n.t("batch-sitemap-kind-fetch-error"),
+                    "other" => i18n.t("batch-sitemap-class-other"),
+                    other => other.to_string(),
+                };
+                format!("{count} × {label}")
+            })
+            .collect::<Vec<_>>()
+            .join(" · ");
+        builder = builder.add_component(TextBlock::new(i18n.t_args(
+            "batch-sitemap-http-summary",
+            &[
+                ("checked", checked.to_string()),
+                ("distribution", distribution),
+            ],
+        )));
+    }
+
+    // Redirects grouped by target: one row per target with a count and an
+    // example source, instead of one row per sitemap URL.
+    let mut by_target: std::collections::BTreeMap<&str, Vec<&crate::audit::SitemapHttpIssue>> =
+        std::collections::BTreeMap::new();
+    for issue in issues.iter().filter(|i| i.kind == "redirect") {
+        by_target
+            .entry(issue.final_url.as_deref().unwrap_or(&issue.detail))
+            .or_default()
+            .push(issue);
+    }
+    if !by_target.is_empty() {
+        let mut groups: Vec<_> = by_target.into_iter().collect();
+        groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(b.0)));
+        let total_groups = groups.len();
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-redirect-target")).with_width("44%"),
+            TableColumn::new(i18n.t("batch-col-redirect-count")).with_width("12%"),
+            TableColumn::new(i18n.t("batch-col-redirect-example")).with_width("44%"),
+        ])
+        .with_title(i18n.t("batch-sitemap-redirects-title"));
+        for (target, sources) in groups.into_iter().take(10) {
+            table = table.add_row(vec![
+                truncate_url(target, 48),
+                sources.len().to_string(),
+                truncate_url(&sources[0].url, 48),
+            ]);
+        }
+        builder = builder.add_component(table);
+        if total_groups > 10 {
+            builder = builder.add_component(TextBlock::new(i18n.t_args(
+                "batch-sitemap-redirects-more",
+                &[("more", (total_groups - 10).to_string())],
+            )));
+        }
+    }
+
+    let others: Vec<_> = issues.iter().filter(|i| i.kind != "redirect").collect();
+    if !others.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-dup-type")),
             TableColumn::new(i18n.t("batch-col-page-a")),
             TableColumn::new(i18n.t("batch-col-status-code")),
             TableColumn::new(i18n.t("batch-col-dup-value")),
         ])
-        .with_title(i18n.t("batch-seo-sitemap-http-title"));
-
-        for issue in &pres.portfolio_summary.sitemap_http_issues {
+        .with_title(i18n.t("batch-sitemap-other-issues-title"));
+        for issue in others.iter().take(20) {
             let kind_label = match issue.kind.as_str() {
                 "status" => i18n.t("batch-sitemap-kind-status"),
-                "redirect" => i18n.t("batch-sitemap-kind-redirect"),
                 "noindex" => i18n.t("batch-sitemap-kind-noindex"),
                 "fetch_error" => i18n.t("batch-sitemap-kind-fetch-error"),
                 other => other.to_string(),
             };
-            let detail = issue
-                .final_url
-                .as_ref()
-                .map(|url| truncate_url(url, 35))
-                .unwrap_or_else(|| truncate_url(&issue.detail, 45));
             table = table.add_row(vec![
                 kind_label,
                 truncate_url(&issue.url, 35),
@@ -331,13 +394,12 @@ fn render_seo_sitemap_http_issues(
                     .status_code
                     .map(|code| code.to_string())
                     .unwrap_or_else(|| "n/a".to_string()),
-                detail,
+                truncate_url(&issue.detail, 45),
             ]);
         }
         builder = builder.add_component(table);
     }
-
-    builder
+    builder.add_component(TextBlock::new(i18n.t("batch-sitemap-http-json-note")))
 }
 
 fn render_seo_sitemap_orphans(

@@ -501,6 +501,7 @@ pub fn build_batch_presentation_with_normalized(
         robots_conflicts,
         crawl_depth_diagnostics,
         crawl_depths_unavailable,
+        sitemap_status_counts,
     ) = batch
         .sitemap_diagnostics
         .as_ref()
@@ -512,6 +513,7 @@ pub fn build_batch_presentation_with_normalized(
                 diagnostics.robots_conflicts.clone(),
                 diagnostics.crawl_depths.clone(),
                 diagnostics.crawl_depths_unavailable.is_some(),
+                diagnostics.status_counts.clone(),
             )
         })
         .unwrap_or_default();
@@ -846,6 +848,7 @@ pub fn build_batch_presentation_with_normalized(
             canonical_issues,
             hreflang_issues,
             sitemap_http_issues,
+            sitemap_status_counts,
             orphan_sitemap_urls,
             linked_not_in_sitemap,
             robots_conflicts,

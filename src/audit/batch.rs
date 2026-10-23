@@ -315,12 +315,18 @@ pub async fn analyze_sitemap_diagnostics(
         .build()
         .unwrap_or_else(|_| Client::new());
 
-    let mut http_issues: Vec<SitemapHttpIssue> = futures::stream::iter(sitemap_urls.iter())
-        .map(|url| check_sitemap_url(&client, url))
-        .buffer_unordered(8)
-        .filter_map(|issue| async move { issue })
-        .collect()
-        .await;
+    let checks: Vec<(&'static str, Option<SitemapHttpIssue>)> =
+        futures::stream::iter(sitemap_urls.iter())
+            .map(|url| check_sitemap_url(&client, url))
+            .buffer_unordered(8)
+            .collect()
+            .await;
+    let mut status_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut http_issues: Vec<SitemapHttpIssue> = Vec::new();
+    for (class, issue) in checks {
+        *status_counts.entry(class.to_string()).or_insert(0) += 1;
+        http_issues.extend(issue);
+    }
     http_issues.sort_by(|a, b| a.url.cmp(&b.url).then_with(|| a.kind.cmp(&b.kind)));
 
     let sitemap_set: HashSet<String> = sitemap_urls
@@ -374,6 +380,7 @@ pub async fn analyze_sitemap_diagnostics(
         .then(|| "homepage_unavailable".to_string());
 
     SitemapDiagnostics {
+        status_counts,
         checked_urls: sitemap_urls.len(),
         http_issues,
         orphan_sitemap_urls,
@@ -457,7 +464,8 @@ fn find_robots_sitemap_conflicts(
     conflicts
 }
 
-async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssue> {
+/// HTTP status class of one sitemap URL plus the issue it raises, if any.
+async fn check_sitemap_url(client: &Client, url: &str) -> (&'static str, Option<SitemapHttpIssue>) {
     let response = match client
         .get(url)
         .header("User-Agent", "auditmysite-sitemap-validator/1.0")
@@ -466,17 +474,27 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
     {
         Ok(response) => response,
         Err(err) => {
-            return Some(SitemapHttpIssue {
-                kind: "fetch_error".to_string(),
-                url: url.to_string(),
-                status_code: None,
-                final_url: None,
-                detail: err.to_string(),
-            });
+            return (
+                "fetch_error",
+                Some(SitemapHttpIssue {
+                    kind: "fetch_error".to_string(),
+                    url: url.to_string(),
+                    status_code: None,
+                    final_url: None,
+                    detail: err.to_string(),
+                }),
+            );
         }
     };
 
     let status = response.status();
+    let class = match status.as_u16() {
+        200..=299 => "2xx",
+        300..=399 => "3xx",
+        400..=499 => "4xx",
+        500..=599 => "5xx",
+        _ => "other",
+    };
     if status.is_redirection() {
         let final_url = response
             .headers()
@@ -484,23 +502,29 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
             .and_then(|value| value.to_str().ok())
             .and_then(|location| resolve_url(url, location))
             .unwrap_or_else(|| url.to_string());
-        return Some(SitemapHttpIssue {
-            kind: "redirect".to_string(),
-            url: url.to_string(),
-            status_code: Some(status.as_u16()),
-            final_url: Some(final_url.clone()),
-            detail: final_url,
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "redirect".to_string(),
+                url: url.to_string(),
+                status_code: Some(status.as_u16()),
+                final_url: Some(final_url.clone()),
+                detail: final_url,
+            }),
+        );
     }
 
     if status.as_u16() != 200 {
-        return Some(SitemapHttpIssue {
-            kind: "status".to_string(),
-            url: url.to_string(),
-            status_code: Some(status.as_u16()),
-            final_url: None,
-            detail: status.to_string(),
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "status".to_string(),
+                url: url.to_string(),
+                status_code: Some(status.as_u16()),
+                final_url: None,
+                detail: status.to_string(),
+            }),
+        );
     }
 
     let headers_noindex = response
@@ -511,20 +535,23 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
     let body = response.text().await.unwrap_or_default();
     let meta_noindex = contains_noindex_meta(&body);
     if headers_noindex || meta_noindex {
-        return Some(SitemapHttpIssue {
-            kind: "noindex".to_string(),
-            url: url.to_string(),
-            status_code: Some(200),
-            final_url: None,
-            detail: if headers_noindex {
-                "x-robots-tag".to_string()
-            } else {
-                "meta robots".to_string()
-            },
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "noindex".to_string(),
+                url: url.to_string(),
+                status_code: Some(200),
+                final_url: None,
+                detail: if headers_noindex {
+                    "x-robots-tag".to_string()
+                } else {
+                    "meta robots".to_string()
+                },
+            }),
+        );
     }
 
-    None
+    (class, None)
 }
 
 fn contains_noindex(value: &str) -> bool {
