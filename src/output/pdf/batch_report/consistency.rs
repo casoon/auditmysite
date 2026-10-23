@@ -23,9 +23,9 @@ pub(super) fn render_batch_consistency(
         "Seitenübergreifende Konsistenz"
     };
     let intro = if en {
-        "Checks that shared structural elements (navigation, headings, canonical URLs) are consistent across all audited pages. WCAG 3.2.3 / 3.2.4."
+        "Checks that shared structural elements are consistent across all audited pages: navigation and headings (WCAG 3.2.3 / 3.2.4) and canonical URLs (a search-engine signal, not a WCAG criterion)."
     } else {
-        "Prüft, ob geteilte strukturelle Elemente (Navigation, Überschriften, Canonical-URLs) auf allen geprüften Seiten konsistent sind. WCAG 3.2.3 / 3.2.4."
+        "Prüft, ob geteilte strukturelle Elemente auf allen geprüften Seiten konsistent sind: Navigation und Überschriften (WCAG 3.2.3 / 3.2.4) sowie Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium)."
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
 
@@ -214,19 +214,21 @@ pub(super) fn render_batch_consistency(
                     } else {
                         "Fehlendes Canonical"
                     },
+                    // Optional tag: without it search engines pick the
+                    // canonical URL themselves (plan 88).
                     if en {
                         format!(
-                            "Missing on {} of {} audited pages.",
+                            "Missing on {} of {} audited pages. Optional: search engines then choose the canonical URL themselves. It only matters where URL variants exist (parameters, www/non-www); that was not checked here.",
                             c.missing_count, c.total_pages
                         )
                     } else {
                         format!(
-                            "Fehlt auf {} von {} geprüften Seiten.",
+                            "Fehlt auf {} von {} geprüften Seiten. Optional: Suchmaschinen wählen die kanonische URL dann selbst. Relevant wird das erst bei URL-Varianten (Parameter, www/ohne www); das wurde hier nicht geprüft.",
                             c.missing_count, c.total_pages
                         )
                     },
                 )
-                .with_status("warn"),
+                .with_status("info"),
             );
         }
         rows

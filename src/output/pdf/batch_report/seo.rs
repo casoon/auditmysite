@@ -256,6 +256,8 @@ fn render_seo_canonical_issues(
             let kind_label = match issue.kind.as_str() {
                 "noindex_conflict" => i18n.t("batch-canonical-noindex"),
                 "og_url_mismatch" => i18n.t("batch-canonical-ogurl"),
+                "target_redirects" => i18n.t("batch-canonical-target-redirects"),
+                "target_unreachable" => i18n.t("batch-canonical-target-unreachable"),
                 other => other.to_string(),
             };
             let detail = if issue.detail.chars().count() > 50 {

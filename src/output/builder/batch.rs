@@ -482,8 +482,16 @@ pub fn build_batch_presentation_with_normalized(
     // Cross-page missing-tag prevalence (meta description / canonical / og:image / og:title)
     let missing_tag_prevalence = build_missing_tag_prevalence(&batch.reports);
 
-    // Per-page canonical conflicts (noindex / og:url mismatch)
-    let canonical_issues = build_canonical_issues(&batch.reports);
+    // Per-page canonical conflicts (noindex / og:url mismatch / target
+    // status from the sitemap check)
+    let canonical_issues = build_canonical_issues(
+        &batch.reports,
+        batch
+            .sitemap_diagnostics
+            .as_ref()
+            .map(|d| d.http_issues.as_slice())
+            .unwrap_or_default(),
+    );
 
     // Non-reciprocal hreflang relationships among audited pages
     let hreflang_issues = build_hreflang_issues(&batch.reports);
@@ -1135,9 +1143,14 @@ fn build_missing_tag_prevalence(
 
 /// Detect canonical-tag conflicts per page (#423): a canonical pointing away
 /// while the page is `noindex` (mixed signals to crawlers), and a canonical
-/// that disagrees with the page's `og:url`. Pure per-page checks aggregated
-/// across the batch; no extra network requests.
-fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<CanonicalIssue> {
+/// that disagrees with the page's `og:url`, and a canonical target the sitemap
+/// check saw redirect or fail (plan 88). Targets outside the sitemap check
+/// stay unchecked. Pure per-page checks aggregated across the batch; no extra
+/// network requests.
+fn build_canonical_issues(
+    reports: &[crate::audit::AuditReport],
+    sitemap_issues: &[crate::audit::SitemapHttpIssue],
+) -> Vec<CanonicalIssue> {
     fn norm_url(u: &str) -> String {
         u.trim().trim_end_matches('/').to_string()
     }
@@ -1187,6 +1200,33 @@ fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<Canonica
                     detail: format!("{canonical} ≠ {og_url}"),
                 });
             }
+        }
+
+        // canonical target the sitemap check saw redirect or fail.
+        if let Some(target) = sitemap_issues
+            .iter()
+            .find(|i| norm_url(&i.url) == norm_url(canonical))
+        {
+            let issue = match target.kind.as_str() {
+                "redirect" => Some(CanonicalIssue {
+                    kind: "target_redirects".to_string(),
+                    url: r.url.clone(),
+                    detail: match &target.final_url {
+                        Some(final_url) => format!("{canonical} → {final_url}"),
+                        None => canonical.to_string(),
+                    },
+                }),
+                "status" | "fetch_error" => Some(CanonicalIssue {
+                    kind: "target_unreachable".to_string(),
+                    url: r.url.clone(),
+                    detail: match target.status_code {
+                        Some(code) => format!("{canonical} (HTTP {code})"),
+                        None => canonical.to_string(),
+                    },
+                }),
+                _ => None,
+            };
+            out.extend(issue);
         }
     }
     out
@@ -1941,7 +1981,7 @@ mod duplicate_content_tests {
             ),
         ];
 
-        let issues = build_canonical_issues(&reports);
+        let issues = build_canonical_issues(&reports, &[]);
         assert_eq!(issues.len(), 2);
         assert!(issues
             .iter()
@@ -1950,6 +1990,47 @@ mod duplicate_content_tests {
             .iter()
             .any(|i| i.kind == "og_url_mismatch" && i.url == "https://x.test/b"));
         // page c must not be flagged (trailing-slash-only difference)
+        assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
+    }
+
+    #[test]
+    fn canonical_target_status_comes_from_sitemap_check() {
+        let reports = vec![
+            report_with_canonical("https://x.test/a", Some("https://x.test/old"), None, None),
+            report_with_canonical("https://x.test/b", Some("https://x.test/gone/"), None, None),
+            report_with_canonical(
+                "https://x.test/c",
+                Some("https://x.test/elsewhere"),
+                None,
+                None,
+            ),
+        ];
+        let sitemap_issues = vec![
+            crate::audit::SitemapHttpIssue {
+                kind: "redirect".to_string(),
+                url: "https://x.test/old".to_string(),
+                status_code: Some(301),
+                final_url: Some("https://x.test/new".to_string()),
+                detail: String::new(),
+            },
+            crate::audit::SitemapHttpIssue {
+                kind: "status".to_string(),
+                url: "https://x.test/gone".to_string(),
+                status_code: Some(404),
+                final_url: None,
+                detail: String::new(),
+            },
+        ];
+
+        let issues = build_canonical_issues(&reports, &sitemap_issues);
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().any(|i| i.kind == "target_redirects"
+            && i.url == "https://x.test/a"
+            && i.detail == "https://x.test/old → https://x.test/new"));
+        assert!(issues.iter().any(|i| i.kind == "target_unreachable"
+            && i.url == "https://x.test/b"
+            && i.detail.ends_with("(HTTP 404)")));
+        // a target outside the sitemap check stays unchecked, not flagged
         assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
     }
 
