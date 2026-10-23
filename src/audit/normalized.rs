@@ -340,9 +340,12 @@ impl NormalizedFinding {
     /// severity. A convention rule (`display/*`) never does (#704) — it is
     /// only anchored to a criterion, it does not test it.
     pub fn is_legal_flag(&self) -> bool {
+        // A finding that still needs a manual check is no legal flag, however
+        // severe its rule (plan 74).
         self.wcag_level == "A"
             && matches!(self.severity, Severity::Critical | Severity::High)
             && !crate::taxonomy::is_convention_rule(&self.rule_id)
+            && self.verification != "manual_review_recommended"
     }
 }
 

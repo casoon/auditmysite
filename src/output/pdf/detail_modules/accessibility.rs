@@ -274,6 +274,11 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
         } else {
             "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
         }),
+        BfsgVerdict::NeedsReview => Callout::info(if en {
+            "BFSG-relevant technical criteria: no confirmed violation within the automated scope, but findings that need a manual check (see issues below). This is not a legal conformance assessment."
+        } else {
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang kein bestätigter Verstoß, aber Hinweise, die von Hand zu prüfen sind (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
+        }),
         BfsgVerdict::NotEvaluated => Callout::info(if en {
             "BFSG conformance was not evaluated for this page."
         } else {

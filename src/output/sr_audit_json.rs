@@ -99,15 +99,7 @@ mod tests {
         insta::assert_json_snapshot!(json, @r###"
         {
           "bfsg_compliance": {
-            "passed_criteria": [
-              "1.3.1",
-              "2.4.1",
-              "2.4.6",
-              "3.3.2",
-              "4.1.2"
-            ],
-            "verdict": "non_compliant",
-            "violations": [
+            "needs_review": [
               {
                 "affected_node_ids": [
                   "3"
@@ -117,7 +109,16 @@ mod tests {
                 "fix_required": true,
                 "wcag_criterion": "2.4.4"
               }
-            ]
+            ],
+            "passed_criteria": [
+              "1.3.1",
+              "2.4.1",
+              "2.4.6",
+              "3.3.2",
+              "4.1.2"
+            ],
+            "verdict": "needs_review",
+            "violations": []
           },
           "issues": [
             {
@@ -125,6 +126,7 @@ mod tests {
                 "3"
               ],
               "message": "Interactive name \"Hier\" is not meaningful without context.",
+              "review": true,
               "severity": "medium",
               "wcag_criterion": "2.4.4"
             },
@@ -216,7 +218,7 @@ mod tests {
           "schema_version": "1.0",
           "summary": {
             "audit_quality": "ok",
-            "bfsg_violations": 1,
+            "bfsg_violations": 0,
             "heading_quality_score": 100,
             "landmark_quality_score": 25,
             "name_quality_score": 0,

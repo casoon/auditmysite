@@ -213,38 +213,49 @@ fn percentage(passed: usize, total: usize) -> u32 {
 const EVALUATED_WCAG_CRITERIA: &[&str] = &["1.3.1", "2.4.1", "2.4.4", "2.4.6", "3.3.2", "4.1.2"];
 
 fn bfsg_compliance(issues: &[SrAuditIssue]) -> BfsgCompliance {
-    let violations = issues
-        .iter()
-        .filter_map(|issue| {
-            let wcag = issue.wcag_criterion.as_deref()?;
-            let mapping = map_to_bfsg(wcag)?;
-            mapping.fix_required.then(|| BfsgViolation {
-                wcag_criterion: wcag.to_string(),
-                en_301_549_clause: Some(mapping.en_301549_clause.to_string()),
-                bfsg_reference: Some(mapping.bfsg_paragraph.to_string()),
-                fix_required: mapping.fix_required,
-                affected_node_ids: issue.affected_node_ids.clone(),
+    let mapped = |review: bool| {
+        issues
+            .iter()
+            .filter(|issue| issue.review == review)
+            .filter_map(|issue| {
+                let wcag = issue.wcag_criterion.as_deref()?;
+                let mapping = map_to_bfsg(wcag)?;
+                mapping.fix_required.then(|| BfsgViolation {
+                    wcag_criterion: wcag.to_string(),
+                    en_301_549_clause: Some(mapping.en_301549_clause.to_string()),
+                    bfsg_reference: Some(mapping.bfsg_paragraph.to_string()),
+                    fix_required: mapping.fix_required,
+                    affected_node_ids: issue.affected_node_ids.clone(),
+                })
             })
-        })
-        .collect::<Vec<_>>();
-    let failed: std::collections::HashSet<_> = violations
+            .collect::<Vec<_>>()
+    };
+    // Heuristics are no violation, and a criterion with an open heuristic is
+    // not passed either (plan 74).
+    let violations = mapped(false);
+    let needs_review = mapped(true);
+    let open: std::collections::HashSet<_> = violations
         .iter()
+        .chain(&needs_review)
         .map(|violation| violation.wcag_criterion.as_str())
         .collect();
     let passed_criteria = EVALUATED_WCAG_CRITERIA
         .iter()
-        .filter(|criterion| !failed.contains(*criterion))
+        .filter(|criterion| !open.contains(*criterion))
         .map(|criterion| criterion.to_string())
         .collect();
 
     BfsgCompliance {
-        verdict: if violations.is_empty() {
-            BfsgVerdict::Compliant
-        } else {
+        verdict: if !violations.is_empty() {
             BfsgVerdict::NonCompliant
+        } else if !needs_review.is_empty() {
+            BfsgVerdict::NeedsReview
+        } else {
+            BfsgVerdict::Compliant
         },
         violations,
         passed_criteria,
+        needs_review,
     }
 }
 
@@ -270,11 +281,33 @@ mod tests {
 
     fn issue(wcag_criterion: &str) -> SrAuditIssue {
         SrAuditIssue {
+            review: false,
             wcag_criterion: Some(wcag_criterion.to_string()),
             severity: "low".into(),
             affected_node_ids: vec![],
             message: "test issue".into(),
         }
+    }
+
+    /// Plan 74 (inros-lackner 2026-10-23): "Mehr erfahren" without context
+    /// and the heading order are heuristics — they made the sidecar
+    /// "non_compliant" next to the confirmed empty links. Review items are
+    /// neither violations nor passed.
+    #[test]
+    fn heuristic_issues_need_review_instead_of_failing_bfsg() {
+        let review = |wcag: &str| SrAuditIssue {
+            review: true,
+            ..issue(wcag)
+        };
+        let compliance = bfsg_compliance(&[review("2.4.4"), review("1.3.1")]);
+        assert_eq!(compliance.verdict, BfsgVerdict::NeedsReview);
+        assert!(compliance.violations.is_empty());
+        assert_eq!(compliance.needs_review.len(), 2);
+        assert!(!compliance.passed_criteria.contains(&"2.4.4".to_string()));
+
+        let compliance = bfsg_compliance(&[review("2.4.4"), issue("4.1.2")]);
+        assert_eq!(compliance.verdict, BfsgVerdict::NonCompliant);
+        assert_eq!(compliance.violations.len(), 1);
     }
 
     #[test]
@@ -374,6 +407,7 @@ mod tests {
 
     fn high(wcag: &str, nodes: &[&str]) -> SrAuditIssue {
         SrAuditIssue {
+            review: false,
             wcag_criterion: Some(wcag.to_string()),
             severity: "high".into(),
             affected_node_ids: nodes.iter().map(|n| n.to_string()).collect(),

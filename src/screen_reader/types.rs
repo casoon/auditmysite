@@ -83,6 +83,12 @@ pub struct SrAuditIssue {
     pub severity: String,
     pub affected_node_ids: Vec<String>,
     pub message: String,
+    /// A heuristic that needs a reader's judgement (generic or repeated link
+    /// text, heading order, landmark structure, icon-font characters) rather
+    /// than a confirmed failure. Review items never count as BFSG violations
+    /// and never as passed (plan 74).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub review: bool,
 }
 
 /// Compact screen-reader audit view for the unified report envelope and PDF.
@@ -120,6 +126,11 @@ pub struct BfsgCompliance {
     pub verdict: BfsgVerdict,
     pub violations: Vec<BfsgViolation>,
     pub passed_criteria: Vec<String>,
+    /// Heuristic findings on BFSG-relevant criteria (generic link text,
+    /// heading order, …): to be judged by a reader, neither violations nor
+    /// passed (plan 74).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub needs_review: Vec<BfsgViolation>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,6 +139,8 @@ pub enum BfsgVerdict {
     NotEvaluated,
     Compliant,
     NonCompliant,
+    /// No confirmed violation, but heuristic findings that need a reader.
+    NeedsReview,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -145,6 +158,7 @@ mod tests {
 
     fn issue(severity: &str) -> SrAuditIssue {
         SrAuditIssue {
+            review: false,
             wcag_criterion: None,
             severity: severity.to_string(),
             affected_node_ids: vec![],
@@ -170,6 +184,7 @@ mod tests {
                 verdict: BfsgVerdict::NotEvaluated,
                 violations: vec![],
                 passed_criteria: vec![],
+                needs_review: Vec::new(),
             },
         };
         assert_eq!(summary.count_severity("high"), 2);

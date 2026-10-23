@@ -481,6 +481,7 @@ mod tests {
             severity: "medium".into(),
             affected_node_ids: vec!["n1".into()],
             message: "Heading level is skipped.".into(),
+            review: true,
         }];
 
         let rollups = derive_bik_chapters(
