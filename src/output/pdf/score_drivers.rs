@@ -266,6 +266,34 @@ fn render_overall_score_derivation(
         "Wie der kombinierte technische Wert zustande kommt"
     });
 
+    // Where the two viewport values come from: the module weights above,
+    // over the modules measured on that viewport (plan 73).
+    table = table.add_row(vec![
+        if en {
+            "Desktop value: accessibility and performance, module weights renormalized".to_string()
+        } else {
+            "Desktop-Wert: Barrierefreiheit und Performance, Modulgewichte neu normiert".to_string()
+        },
+        if en {
+            "measured on desktop".to_string()
+        } else {
+            "auf Desktop gemessen".to_string()
+        },
+        sb.desktop_overall.to_string(),
+    ]);
+    table = table.add_row(vec![
+        if en {
+            "Mobile value: all weighted modules except security".to_string()
+        } else {
+            "Mobile-Wert: alle gewichteten Module außer Sicherheit".to_string()
+        },
+        if en {
+            "module weights above, over 90".to_string()
+        } else {
+            "Modulgewichte oben, auf 90 bezogen".to_string()
+        },
+        sb.mobile_overall.to_string(),
+    ]);
     table = table.add_row(vec![
         if en {
             "Viewport blend (mobile weighs more)".to_string()

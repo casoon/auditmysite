@@ -13,32 +13,23 @@ use crate::wcag::{self, Violation, WcagResults};
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
 
-/// Compute a normalized module score for one viewport pass.
-///
-/// Weights: Accessibility 40 %, Performance 20 %, SEO 20 %, Mobile 10 %
-/// (normalized to active modules, same as the single-pass formula).
-pub(super) fn compute_viewport_overall(
-    acc: f32,
-    perf: Option<u32>,
-    seo: Option<u32>,
-    mobile: Option<u32>,
-) -> u32 {
-    let mut weighted = acc as f64 * 40.0;
-    let mut total = 40.0;
-
-    if let Some(p) = perf {
-        weighted += p as f64 * 20.0;
-        total += 20.0;
+/// Weighted overall of one viewport over the modules measured there, with
+/// the weights `module_scores` publishes (`taxonomy::module_weight`), so the
+/// shown weights are the formula: before plan 73 this path weighted SEO 20
+/// instead of 15 and left HTML conformance out. Security joins after the
+/// viewport blend with its own 10 %. `None` modules (not run, or no Web
+/// Vitals measured) drop out and the rest is renormalized.
+pub(super) fn compute_viewport_overall(acc: f32, modules: &[(&str, Option<u32>)]) -> u32 {
+    let accessibility = crate::taxonomy::module_weight("Accessibility") as f64;
+    let mut weighted = acc as f64 * accessibility;
+    let mut total = accessibility;
+    for (name, score) in modules {
+        if let Some(score) = score {
+            let weight = crate::taxonomy::module_weight(name) as f64;
+            weighted += *score as f64 * weight;
+            total += weight;
+        }
     }
-    if let Some(s) = seo {
-        weighted += s as f64 * 20.0;
-        total += 20.0;
-    }
-    if let Some(m) = mobile {
-        weighted += m as f64 * 10.0;
-        total += 10.0;
-    }
-
     (weighted / total).round() as u32
 }
 
