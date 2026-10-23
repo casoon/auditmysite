@@ -5,6 +5,23 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Berichtsqualität nach dem inros-Review (Pläne 69–93, 94):**
+  Ein externes Review des Einzel- und des Sitemap-Berichts für inros-lackner.de wurde Punkt für
+  Punkt gegen Code und Live-Seite geprüft; nur bestätigte Befunde sind geändert, widerlegte
+  bleiben dokumentiert (`plan/referenz/2026-10-23-*`). Messfehler: Best Practices und Tech-Stack
+  meldeten ohne Erhebung 100 (jetzt Prüfstatus), CSS-Abdeckung hatte Zähler = Nenner (316/316 →
+  316/5076), die Viewport-Rechnung nutzte andere Modulgewichte als veröffentlicht, Security zog
+  für kontextabhängige Header ab (30 → 40), drei WCAG-Kriterien fehlten in der Abdeckungsliste
+  (manuell 22 → 25). Batch: Linkgraph ab der Startseite, gemessene Sitemap-Statusverteilung,
+  Stichprobe offengelegt, Spannweite statt „sauberer Seiten“, Themenvergleich mit richtiger
+  Einheit (`similarity_percent`, `shared_terms` als Alias) aus dem Hauptinhalt statt dem Body,
+  Seitengruppen und gemeinsame Blocking-Dateien (5 statt „100“). Sprache: Befunde mit
+  „möglicher Rechtsrelevanz“ statt „rechtlich relevant“, heuristische UX/Journey-Aussagen als
+  solche, Mustermeldungen und Schema-Matrix lokalisiert. PDF: Befundmatrix mit vollen Titeln,
+  keine leeren Seiten oder allein stehenden Überschriften mehr (renderreport 0.6.2), Batch-PDF
+  scheiterte nicht mehr an PDF/UA. `cross` im Release-Workflow auf einen Commit gepinnt.
+  Nachweis: Live-Läufe Einzel und Batch (20 von 685) vor/nach, gerenderte Seiten gesichtet.
+
 - **Unreleased — Sicherheitsmeldungen vom Oktober 2026:** `rustls` 0.23.46, `rustls-webpki`
   0.103.16 und `webpki-roots` 1.0.11 im Lockfile (RUSTSEC-2026-0347/0348/0349, -0381, -0382);
   `zip` 2 → 9 und `c2pa` 0.90 → 0.91 (RUSTSEC-2026-0367/0368/0369, beide Kopien von `zip`).
