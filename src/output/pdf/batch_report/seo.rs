@@ -566,37 +566,56 @@ fn render_seo_page_type_distribution(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
-        let high_label = i18n.t("batch-relevance-high");
-        let medium_label = i18n.t("batch-relevance-medium");
-        let low_label = i18n.t("batch-relevance-low");
+        // Group mean and common finding instead of a relevance rating that
+        // had no data behind it (plan 93).
         let mut type_table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("batch-col-page-type")),
-            TableColumn::new(i18n.t("batch-col-pages-list")),
-            TableColumn::new(i18n.t("batch-col-share")),
-            TableColumn::new(i18n.t("batch-col-relevance")),
+            TableColumn::new(i18n.t("batch-col-page-type")).with_width("24%"),
+            TableColumn::new(i18n.t("batch-col-pages-list")).with_width("10%"),
+            TableColumn::new(i18n.t("batch-col-share")).with_width("10%"),
+            TableColumn::new(i18n.t("batch-col-group-a11y")).with_width("14%"),
+            TableColumn::new(i18n.t("batch-col-group-common-finding")).with_width("42%"),
         ])
         .with_title(i18n.t("batch-table-page-type-distribution"));
 
         for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
-            let relevance = match label.as_str() {
-                "Marketing / Landing Page"
-                | "Transaktional / Utility"
-                | "Transactional / Utility" => &high_label,
-                "Editorial / Artikel"
-                | "Editorial / Article"
-                | "Strukturierter Wissensinhalt"
-                | "Structured knowledge content" => &medium_label,
-                "Thin / Minimal Content" => &low_label,
-                _ => &medium_label,
+            let group = pres
+                .portfolio_summary
+                .page_type_groups
+                .iter()
+                .find(|g| &g.page_type == label);
+            let avg = group
+                .and_then(|g| g.avg_accessibility)
+                .map(|avg| avg.to_string())
+                .unwrap_or_else(|| "–".to_string());
+            let common = match group {
+                Some(g) if g.pages < 2 => i18n.t("batch-group-single-page"),
+                Some(g) => g
+                    .common_finding
+                    .as_ref()
+                    .map(|(title, pages)| {
+                        i18n.t_args(
+                            "batch-group-common-finding",
+                            &[
+                                ("title", title.clone()),
+                                ("pages", pages.to_string()),
+                                ("total", g.pages.to_string()),
+                            ],
+                        )
+                    })
+                    .unwrap_or_else(|| i18n.t("batch-group-no-common-finding")),
+                None => "–".to_string(),
             };
             type_table = type_table.add_row(vec![
                 label.clone(),
                 count.to_string(),
                 format!("{pct}%"),
-                relevance.to_string(),
+                avg,
+                common,
             ]);
         }
-        builder = builder.add_component(type_table);
+        builder = builder
+            .add_component(type_table)
+            .add_component(TextBlock::new(i18n.t("batch-page-type-groups-note")));
     }
 
     builder

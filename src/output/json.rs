@@ -897,6 +897,7 @@ fn build_site_analysis(
             "count": count,
             "percentage": percentage,
         })).collect::<Vec<_>>(),
+        "page_type_groups": portfolio.page_type_groups,
         "content_quality": {
             "strongest_pages": portfolio.strongest_content_pages.iter().map(|(url, page_type, score)| serde_json::json!({
                 "url": url, "page_type": page_type, "score": score,
@@ -933,6 +934,7 @@ fn build_site_analysis(
             "render_blocking_summary": portfolio.render_blocking_summary.iter().map(|(metric, value)| serde_json::json!({
                 "metric": metric, "value": value,
             })).collect::<Vec<_>>(),
+            "shared_blocking_resources": portfolio.shared_blocking_resources,
         },
         "structured_data": {
             "type_distribution": portfolio.schema_distribution.iter().map(|(schema_type, pages)| serde_json::json!({

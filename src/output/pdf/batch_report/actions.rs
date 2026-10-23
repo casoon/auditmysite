@@ -360,6 +360,32 @@ pub(super) fn render_batch_action_plan_section(
             .add_component(Section::new(i18n.t("batch-render-blocking-section")).with_level(1))
             .add_component(TextBlock::new(i18n.t("batch-render-blocking-intro")))
             .add_component(kv);
+
+        // The same files across pages (plan 93): one fix reaches every page
+        // listed, which the summed count above hides.
+        let shared = &pres.portfolio_summary.shared_blocking_resources;
+        if !shared.is_empty() {
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(i18n.t("batch-col-minify-asset")).with_width("58%"),
+                TableColumn::new(i18n.t("batch-col-minify-kind")).with_width("12%"),
+                TableColumn::new(i18n.t("batch-col-pages-list")).with_width("15%"),
+                TableColumn::new(i18n.t("batch-col-size")).with_width("15%"),
+            ])
+            .with_title(i18n.t("batch-shared-blocking-title"));
+            for res in shared {
+                table = table.add_row(vec![
+                    crate::util::short_url(&res.url, 60),
+                    res.kind.clone(),
+                    format!("{} / {}", res.pages, pres.portfolio_summary.total_urls),
+                    if res.transfer_bytes > 0 {
+                        format!("{:.1} KB", res.transfer_bytes as f64 / 1024.0)
+                    } else {
+                        "–".to_string()
+                    },
+                ]);
+            }
+            builder = builder.add_component(table);
+        }
     }
 
     // Cross-page minification consistency (#537)

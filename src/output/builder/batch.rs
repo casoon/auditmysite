@@ -420,6 +420,7 @@ pub fn build_batch_presentation_with_normalized(
         })
         .collect();
     page_type_distribution.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let page_type_groups = build_page_type_groups(&url_details);
 
     let mut distribution_insights = Vec::new();
     if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
@@ -564,10 +565,18 @@ pub fn build_batch_presentation_with_normalized(
             Vec::new()
         } else {
             let n = pages_with_data.len() as f64;
-            let total_blocking: usize = pages_with_data
+            // The same file on twenty pages is one resource, not twenty
+            // (plan 93): count distinct URLs, report loads alongside.
+            let total_loads: usize = pages_with_data
                 .iter()
                 .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
                 .sum();
+            let distinct_blocking = pages_with_data
+                .iter()
+                .flat_map(|rb| rb.blocking_scripts.iter().chain(&rb.blocking_css))
+                .map(|res| res.url.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len();
             let total_third_party_bytes: u64 =
                 pages_with_data.iter().map(|rb| rb.third_party_bytes).sum();
             let pages_with_blocking = pages_with_data
@@ -584,14 +593,14 @@ pub fn build_batch_presentation_with_normalized(
                 (
                     "Pages analyzed",
                     "Pages with blocking",
-                    "Blocking resources total",
+                    "Distinct blocking resources",
                     "Third-party traffic total",
                 )
             } else {
                 (
                     "Seiten analysiert",
                     "Seiten mit Blocking",
-                    "Blocking-Ressourcen gesamt",
+                    "Verschiedene Blocking-Ressourcen",
                     "Third-Party-Traffic gesamt",
                 )
             };
@@ -610,7 +619,14 @@ pub fn build_batch_presentation_with_normalized(
                         pages_with_blocking as f64 / n * 100.0
                     ),
                 ),
-                (label_blocking_total.to_string(), total_blocking.to_string()),
+                (
+                    label_blocking_total.to_string(),
+                    if en {
+                        format!("{distinct_blocking} ({total_loads} loads across pages)")
+                    } else {
+                        format!("{distinct_blocking} ({total_loads} Einbindungen über alle Seiten)")
+                    },
+                ),
                 (
                     label_third_party.to_string(),
                     format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0),
@@ -840,6 +856,7 @@ pub fn build_batch_presentation_with_normalized(
             certificate,
             grade,
             page_type_distribution,
+            page_type_groups,
             distribution_insights,
             strongest_content_pages,
             weakest_content_pages,
@@ -849,6 +866,7 @@ pub fn build_batch_presentation_with_normalized(
             crawl_links,
             budget_summary,
             render_blocking_summary,
+            shared_blocking_resources: build_shared_blocking_resources(&batch.reports),
             schema_distribution,
             pages_without_schema,
             duplicate_content,
@@ -1138,6 +1156,99 @@ fn build_missing_tag_prevalence(
             .cmp(&a.missing_count)
             .then_with(|| a.kind.cmp(&b.kind))
     });
+    out
+}
+
+/// Pages grouped by detected page type (plan 93). The type is a heuristic
+/// classification, not a verified template; a group of one page gets no
+/// mean and no common finding.
+fn build_page_type_groups(url_details: &[CompactUrlSummary]) -> Vec<PageTypeGroup> {
+    let mut groups: std::collections::BTreeMap<&str, Vec<&CompactUrlSummary>> =
+        std::collections::BTreeMap::new();
+    for detail in url_details {
+        if let Some(page_type) = detail.page_type.as_deref() {
+            groups.entry(page_type).or_default().push(detail);
+        }
+    }
+    let mut out: Vec<PageTypeGroup> = groups
+        .into_iter()
+        .map(|(page_type, pages)| {
+            let comparable = pages.len() >= 2;
+            let avg_accessibility = comparable.then(|| {
+                (pages.iter().map(|p| p.score as f64).sum::<f64>() / pages.len() as f64).round()
+                    as u32
+            });
+            let mut finding_pages: std::collections::BTreeMap<&str, usize> =
+                std::collections::BTreeMap::new();
+            for page in &pages {
+                let titles: std::collections::BTreeSet<&str> =
+                    page.top_issues.iter().map(String::as_str).collect();
+                for title in titles {
+                    *finding_pages.entry(title).or_default() += 1;
+                }
+            }
+            let common_finding = finding_pages
+                .into_iter()
+                .filter(|(_, count)| comparable && *count >= 2)
+                .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
+                .map(|(title, count)| (title.to_string(), count));
+            PageTypeGroup {
+                page_type: page_type.to_string(),
+                pages: pages.len(),
+                avg_accessibility,
+                common_finding,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.pages
+            .cmp(&a.pages)
+            .then_with(|| a.page_type.cmp(&b.page_type))
+    });
+    out
+}
+
+/// Render-blocking resources loaded by two or more audited pages, by exact
+/// URL — query strings and versions stay part of the identity (plan 93).
+fn build_shared_blocking_resources(
+    reports: &[crate::audit::AuditReport],
+) -> Vec<SharedBlockingResource> {
+    let mut by_url: std::collections::BTreeMap<
+        &str,
+        (&str, std::collections::BTreeSet<&str>, u64),
+    > = std::collections::BTreeMap::new();
+    for report in reports {
+        let Some(rb) = report
+            .performance
+            .as_ref()
+            .and_then(|p| p.render_blocking.as_ref())
+        else {
+            continue;
+        };
+        for res in rb.blocking_scripts.iter().chain(&rb.blocking_css) {
+            let entry = by_url.entry(res.url.as_str()).or_insert((
+                res.kind.as_str(),
+                Default::default(),
+                0,
+            ));
+            entry.1.insert(report.url.as_str());
+            entry.2 = entry.2.max(res.transfer_bytes);
+        }
+    }
+    let mut out: Vec<SharedBlockingResource> = by_url
+        .into_iter()
+        .filter(|(_, (_, pages, _))| pages.len() >= 2)
+        .map(
+            |(url, (kind, pages, transfer_bytes))| SharedBlockingResource {
+                url: url.to_string(),
+                kind: kind.to_string(),
+                pages: pages.len(),
+                transfer_bytes,
+            },
+        )
+        .collect();
+    out.sort_by(|a, b| b.pages.cmp(&a.pages).then_with(|| a.url.cmp(&b.url)));
+    out.truncate(10);
     out
 }
 
@@ -2246,6 +2357,90 @@ mod minification_inconsistency_tests {
                 measurement_warnings: vec![],
             },
         )
+    }
+
+    fn report_with_blocking(url: &str, scripts: &[&str]) -> AuditReport {
+        let mut report = report_with_perf(url, &[], &[], &[]);
+        let rb = report
+            .performance
+            .as_mut()
+            .and_then(|p| p.render_blocking.as_mut())
+            .expect("fixture has render-blocking data");
+        rb.blocking_scripts = scripts
+            .iter()
+            .map(|u| crate::performance::BlockingResource {
+                url: u.to_string(),
+                transfer_bytes: 2048,
+                kind: "script".to_string(),
+            })
+            .collect();
+        report
+    }
+
+    /// Plan 93: a file is counted once per page, versions stay distinct,
+    /// a file on one page only is not "shared".
+    #[test]
+    fn shared_blocking_resources_by_exact_url() {
+        let reports = vec![
+            report_with_blocking(
+                "https://x.test/a",
+                &["https://x.test/app.js?v=1", "https://x.test/a.js"],
+            ),
+            report_with_blocking(
+                "https://x.test/b",
+                &["https://x.test/app.js?v=1", "https://x.test/app.js?v=1"],
+            ),
+            report_with_blocking("https://x.test/c", &["https://x.test/app.js?v=2"]),
+        ];
+        let shared = build_shared_blocking_resources(&reports);
+        assert_eq!(shared.len(), 1, "{shared:?}");
+        assert_eq!(shared[0].url, "https://x.test/app.js?v=1");
+        assert_eq!(shared[0].pages, 2);
+        assert_eq!(shared[0].kind, "script");
+    }
+
+    fn compact(
+        url: &str,
+        page_type: Option<&str>,
+        score: f32,
+        issues: &[&str],
+    ) -> CompactUrlSummary {
+        CompactUrlSummary {
+            url: url.to_string(),
+            score,
+            grade: String::new(),
+            critical_violations: 0,
+            total_violations: 0,
+            page_type: page_type.map(str::to_string),
+            page_attributes: vec![],
+            page_semantic_score: None,
+            biggest_lever: String::new(),
+            topic_terms: vec![],
+            top_issues: issues.iter().map(|i| i.to_string()).collect(),
+            module_scores: vec![],
+        }
+    }
+
+    /// Plan 93: group means need at least two pages; unknown types are left
+    /// out; the common finding needs two pages of the group.
+    #[test]
+    fn page_type_groups_have_explicit_size() {
+        let details = vec![
+            compact("a", Some("Editorial"), 80.0, &["Kontrast", "Alt-Text"]),
+            compact("b", Some("Editorial"), 61.0, &["Kontrast"]),
+            compact("c", Some("Editorial"), 70.0, &["Labels"]),
+            compact("d", Some("Hub"), 90.0, &["Kontrast"]),
+            compact("e", None, 10.0, &["Kontrast"]),
+        ];
+        let groups = build_page_type_groups(&details);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].page_type, "Editorial");
+        assert_eq!(groups[0].pages, 3);
+        assert_eq!(groups[0].avg_accessibility, Some(70));
+        assert_eq!(groups[0].common_finding, Some(("Kontrast".to_string(), 2)));
+        assert_eq!(groups[1].page_type, "Hub");
+        assert_eq!(groups[1].avg_accessibility, None);
+        assert_eq!(groups[1].common_finding, None);
     }
 
     #[test]

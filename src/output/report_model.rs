@@ -1474,6 +1474,9 @@ pub struct PortfolioSummary {
     /// Grade based on the averaged overall score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
+    /// Audited pages grouped by detected page type, with group averages and
+    /// the most common finding (plan 93).
+    pub page_type_groups: Vec<PageTypeGroup>,
     pub distribution_insights: Vec<String>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
     pub weakest_content_pages: Vec<(String, String, u32)>,
@@ -1486,6 +1489,9 @@ pub struct PortfolioSummary {
     pub budget_summary: Vec<(String, String, usize, String)>,
     /// Aggregated render-blocking summary across all pages (metric_label, value_label)
     pub render_blocking_summary: Vec<(String, String)>,
+    /// Render-blocking resources (exact URL) found on two or more pages
+    /// (plan 93).
+    pub shared_blocking_resources: Vec<SharedBlockingResource>,
     /// Schema type distribution: (schema_type_label, url_count) sorted descending
     pub schema_distribution: Vec<(String, usize)>,
     /// Number of pages with no structured data at all
@@ -1621,4 +1627,28 @@ pub struct TopicOverlapPair {
     pub similarity_percent: u32,
     /// The topic terms both pages share, without site-wide terms.
     pub shared_terms: Vec<String>,
+}
+
+/// Audited pages of one detected page type (heuristic classification).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PageTypeGroup {
+    pub page_type: String,
+    pub pages: usize,
+    /// Mean accessibility score of the group; `None` below two pages, where
+    /// a mean compares nothing.
+    pub avg_accessibility: Option<u32>,
+    /// The finding title most pages of the group share, with its page
+    /// count; only when at least two pages share it.
+    pub common_finding: Option<(String, usize)>,
+}
+
+/// One render-blocking resource and the audited pages that load it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SharedBlockingResource {
+    pub url: String,
+    /// `script` or `css`.
+    pub kind: String,
+    pub pages: usize,
+    /// Largest transfer size seen for this URL, in bytes.
+    pub transfer_bytes: u64,
 }
