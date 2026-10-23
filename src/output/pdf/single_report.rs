@@ -1748,18 +1748,23 @@ fn render_appendix_section(
 fn render_positive_signals_section(
     mut builder: renderreport::engine::ReportBuilder,
     signals: &[PositiveSignal],
-    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if signals.is_empty() {
         return builder;
     }
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
-
+    // A short panel follows the previous chapter under its own heading
+    // instead of opening a page for a few rows (plan 76).
     let en = is_english(i18n);
+    builder = builder.add_component(
+        Section::new(if en {
+            "Recognized structural patterns"
+        } else {
+            "Erkannte Strukturmuster"
+        })
+        .with_level(2),
+    );
     let mut rows = Vec::new();
     for signal in signals {
         let status = if signal.strong {
@@ -1780,9 +1785,9 @@ fn render_positive_signals_section(
     }
 
     builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Recognized structural patterns"
+        "Recognized in the accessibility tree; no interaction test"
     } else {
-        "Erkannte Strukturmuster"
+        "Im Barrierefreiheitsbaum erkannt, ohne Interaktionstest"
     }))
 }
 
@@ -2117,7 +2122,7 @@ fn render_active_module_section(
         }
         "patterns" if !vm.positive_signals.is_empty() => {
             return (
-                render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n),
+                render_positive_signals_section(builder, &vm.positive_signals, i18n),
                 true,
             );
         }
