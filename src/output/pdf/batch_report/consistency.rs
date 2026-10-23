@@ -1,7 +1,7 @@
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
 use renderreport::components::text::TextBlock;
-use renderreport::components::{AuditTable, TableColumn};
+use renderreport::components::{AuditTable, Callout, TableColumn};
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
@@ -532,14 +532,19 @@ fn render_consistency_page_type_matrix(
     en: bool,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.page_type_matrix.is_empty() {
+        builder = builder.add_component(Callout::info(if en {
+            "The page type is a heuristic from page structure and URL. Suggested types are schema.org types that would fit that page type; they are optional, not a requirement."
+        } else {
+            "Der Seitentyp ist eine Heuristik aus Seitenstruktur und URL. Vorgeschlagene Typen sind schema.org-Typen, die zu diesem Seitentyp passen würden; sie sind optional, keine Pflicht."
+        }));
         let mut table = AuditTable::new(vec![
             TableColumn::new("URL").with_width("31%"),
             TableColumn::new(if en { "Page type" } else { "Seitentyp" }).with_width("19%"),
             TableColumn::new("Status").with_width("16%"),
             TableColumn::new(if en {
-                "Expected / detected"
+                "Suggested / detected"
             } else {
-                "Erwartet / erkannt"
+                "Vorgeschlagen / erkannt"
             })
             .with_width("34%"),
         ])
@@ -551,8 +556,8 @@ fn render_consistency_page_type_matrix(
         for row in &structured.page_type_matrix {
             table = table.add_row(vec![
                 short_url(&row.url, 48),
-                row.page_kind.clone(),
-                row.coverage_status.clone(),
+                schema_page_kind_label(&row.page_kind, en),
+                schema_coverage_label(&row.coverage_status, en),
                 format!(
                     "{} / {}",
                     if row.expected_types.is_empty() {
@@ -572,6 +577,35 @@ fn render_consistency_page_type_matrix(
     }
 
     builder
+}
+
+/// Page-type key of the schema matrix in the run language; the JSON keeps
+/// the canonical key (plan 89).
+fn schema_page_kind_label(key: &str, en: bool) -> String {
+    serde_json::from_value::<crate::seo::schema_fit::SchemaPageKind>(serde_json::Value::String(
+        key.to_string(),
+    ))
+    .map(|kind| kind.label(en).to_string())
+    .unwrap_or_else(|_| key.to_string())
+}
+
+/// Coverage-status key of the schema matrix in the run language.
+fn schema_coverage_label(key: &str, en: bool) -> String {
+    use crate::seo::schema_fit::SchemaCoverageStatus;
+    let status =
+        serde_json::from_value::<SchemaCoverageStatus>(serde_json::Value::String(key.to_string()));
+    let label = match (status, en) {
+        (Ok(SchemaCoverageStatus::Complete), true) => "Covered",
+        (Ok(SchemaCoverageStatus::Complete), false) => "Abgedeckt",
+        (Ok(SchemaCoverageStatus::Opportunity), true) => "Optional addition",
+        (Ok(SchemaCoverageStatus::Opportunity), false) => "Optionale Ergänzung",
+        (Ok(SchemaCoverageStatus::ManualReview), true) => "Review manually",
+        (Ok(SchemaCoverageStatus::ManualReview), false) => "Manuell prüfen",
+        (Ok(SchemaCoverageStatus::NotApplicable), true) => "Not applicable",
+        (Ok(SchemaCoverageStatus::NotApplicable), false) => "Nicht anwendbar",
+        (Err(_), _) => return key.to_string(),
+    };
+    label.to_string()
 }
 
 fn render_consistency_identity_findings(
@@ -681,4 +715,34 @@ fn render_consistency_overlap_pairs(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_matrix_keys_are_localized() {
+        assert_eq!(
+            schema_coverage_label("manual_review", false),
+            "Manuell prüfen"
+        );
+        assert_eq!(
+            schema_coverage_label("opportunity", true),
+            "Optional addition"
+        );
+        assert_ne!(
+            schema_page_kind_label("corporate_page", false),
+            "corporate_page"
+        );
+        assert_ne!(
+            schema_page_kind_label("corporate_page", false),
+            schema_page_kind_label("corporate_page", true)
+        );
+        // unknown keys pass through rather than vanish
+        assert_eq!(
+            schema_coverage_label("something_new", false),
+            "something_new"
+        );
+    }
 }
