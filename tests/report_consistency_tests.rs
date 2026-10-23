@@ -1274,6 +1274,7 @@ fn test_json_report_includes_report_artifact_fields() {
             pattern: "MainNavigation".to_string(),
             message: "Main navigation recognized".to_string(),
             confidence: auditmysite::patterns::PatternConfidence::Strong,
+            detail: None,
         }],
         violations: vec![],
         journey_candidates: vec![],

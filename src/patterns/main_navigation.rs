@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{PatternAnalysis, PatternConfidence, PatternMessage};
 
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let nav_nodes = tree.nodes_with_role("navigation");
@@ -41,12 +41,10 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         let count_missing = nav_nodes.len() - named;
         out.add_recognized(
             "MainNavigation",
-            format!(
-                "{} navigation {} found, but {} have no accessible name. Screen reader users cannot distinguish them.",
-                nav_nodes.len(),
-                if nav_nodes.len() == 1 { "landmark" } else { "landmarks" },
-                count_missing
-            ),
+            PatternMessage::NavigationUnnamed {
+                landmarks: nav_nodes.len(),
+                unnamed: count_missing,
+            },
             PatternConfidence::Partial,
         );
         return;
@@ -56,11 +54,9 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         // Nav landmark without link descendants — likely empty or malformed.
         out.add_recognized(
             "MainNavigation",
-            format!(
-                "{} navigation {} found, but none contain link children. Pattern is structurally incomplete.",
-                nav_nodes.len(),
-                if nav_nodes.len() == 1 { "landmark" } else { "landmarks" }
-            ),
+            PatternMessage::NavigationWithoutLinks {
+                landmarks: nav_nodes.len(),
+            },
             PatternConfidence::Partial,
         );
         return;
@@ -68,11 +64,9 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
     out.add_recognized(
         "MainNavigation",
-        format!(
-            "Semantic main navigation recognized ({} {} with native links). Good foundation for keyboard and screen reader use.",
-            nav_nodes.len(),
-            if nav_nodes.len() == 1 { "landmark" } else { "landmarks" }
-        ),
+        PatternMessage::Navigation {
+            landmarks: nav_nodes.len(),
+        },
         PatternConfidence::Strong,
     );
 }

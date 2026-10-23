@@ -12,7 +12,9 @@
 
 use crate::accessibility::AXTree;
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let tablists = tree.nodes_with_role("tablist");
@@ -57,19 +59,12 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     };
     out.add_recognized(
         "TabList",
-        format!(
-            "{} {} with {} {}; {} have aria-selected, {} declare aria-controls.",
-            tablists.len(),
-            if tablists.len() == 1 {
-                "tablist"
-            } else {
-                "tablists"
-            },
-            tabs_total,
-            if tabs_total == 1 { "tab" } else { "tabs" },
-            tabs_with_selected,
-            tabs_with_controls
-        ),
+        PatternMessage::TabList {
+            tablists: tablists.len(),
+            tabs: tabs_total,
+            selected: tabs_with_selected,
+            controls: tabs_with_controls,
+        },
         confidence,
     );
 

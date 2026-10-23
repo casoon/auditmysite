@@ -11,7 +11,9 @@
 
 use crate::accessibility::AXTree;
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Der Auslöser wird unabhängig davon angeboten, ob gerade ein Dialog im
@@ -52,12 +54,10 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     };
     out.add_recognized(
         "ModalDialog",
-        format!(
-            "{} {} detected, {} structurally well-formed (accessible name, aria-modal, focusable descendants).",
-            dialogs.len(),
-            if dialogs.len() == 1 { "dialog" } else { "dialogs" },
-            well_formed
-        ),
+        PatternMessage::ModalDialog {
+            dialogs: dialogs.len(),
+            well_formed,
+        },
         confidence,
     );
 }

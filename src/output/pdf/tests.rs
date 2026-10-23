@@ -1177,6 +1177,7 @@ mod tests {
                 pattern: "SkipLink".to_string(),
                 message: "Skip link recognized and correctly positioned.".to_string(),
                 confidence: crate::patterns::PatternConfidence::Strong,
+                detail: None,
             }],
             violations: vec![],
             journey_candidates: vec![],

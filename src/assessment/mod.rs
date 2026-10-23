@@ -482,6 +482,7 @@ mod tests {
             pattern: "MainNavigation".to_string(),
             message: "nav[aria-label] with 5 links found".to_string(),
             confidence: PatternConfidence::Strong,
+            detail: None,
         };
         let sig = ContentSignal::from(&p);
         assert_eq!(sig.area, ContentArea::Pattern);

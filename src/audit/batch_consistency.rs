@@ -966,6 +966,7 @@ mod tests {
                     pattern: p.to_string(),
                     message: "test".to_string(),
                     confidence: PatternConfidence::Strong,
+                    detail: None,
                 })
                 .collect(),
             violations: vec![],
