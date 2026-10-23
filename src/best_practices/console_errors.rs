@@ -34,6 +34,11 @@ pub struct ConsoleErrorsAnalysis {
     pub error_count: usize,
     /// Total warning count
     pub warning_count: usize,
+    /// Whether the collector ran: installed before navigation and read back
+    /// after load. `false` means the empty lists are no measurement (plan 69).
+    /// Older reports carry no field and were always taken as collected.
+    #[serde(default = "crate::best_practices::collected_by_default")]
+    pub collected: bool,
 }
 
 /// Inject a console interceptor script **before** the page navigates.
@@ -89,8 +94,10 @@ pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> 
 
     let js = r#"
     (() => {
-        var items = window.__auditConsoleErrors || [];
-        return JSON.stringify(items);
+        // Undefined: the collector was never installed — no measurement,
+        // not "no errors".
+        if (window.__auditConsoleErrors === undefined) return null;
+        return JSON.stringify(window.__auditConsoleErrors);
     })()
     "#;
 
@@ -99,7 +106,11 @@ pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> 
         .await
         .map_err(|e| AuditError::CdpError(format!("Console results JS failed: {e}")))?;
 
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
+    let Some(json_str) = result.value().and_then(|v| v.as_str()) else {
+        return Err(AuditError::CdpError(
+            "Console collector was not installed on this page".into(),
+        ));
+    };
 
     #[derive(serde::Deserialize)]
     struct RawMsg {
@@ -137,6 +148,7 @@ pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> 
         warnings,
         error_count,
         warning_count,
+        collected: true,
     })
 }
 
@@ -151,6 +163,7 @@ mod tests {
             warnings: vec![],
             error_count: 0,
             warning_count: 0,
+            collected: true,
         };
         assert_eq!(analysis.error_count, 0);
         assert_eq!(analysis.warning_count, 0);

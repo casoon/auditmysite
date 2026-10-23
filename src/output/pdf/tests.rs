@@ -453,6 +453,7 @@ mod tests {
             }],
             score: 60,
             grade: "C".to_string(),
+            audited_stacks: vec!["WordPress".to_string()],
         });
         let typ = generate_typ(
             &report,
@@ -468,8 +469,11 @@ mod tests {
             typ.contains("CRITICAL"),
             "expected English severity label \"CRITICAL\" in EN-locale Typst source"
         );
+        // Component templates carry German fallback defaults
+        // (`default: "Kritisch"`); only the report content counts.
         assert!(
-            !typ.contains("Kritisch"),
+            !typ.replace("default: \"Kritisch\"", "")
+                .contains("Kritisch"),
             "German severity label \"Kritisch\" leaked into EN-locale Typst source"
         );
     }
@@ -1070,6 +1074,7 @@ mod tests {
             }],
             score: 60,
             grade: "C".to_string(),
+            audited_stacks: vec!["WordPress".to_string()],
         });
 
         let config = ReportConfig {
@@ -1175,6 +1180,7 @@ mod tests {
                 pattern: "SkipLink".to_string(),
                 message: "Skip link recognized and correctly positioned.".to_string(),
                 confidence: crate::patterns::PatternConfidence::Strong,
+                detail: None,
             }],
             violations: vec![],
             journey_candidates: vec![],
@@ -1934,7 +1940,7 @@ mod tests {
         assert!(de.contains("2 von 3 URLs — 1 nicht auditierbar und in keinem Score enthalten"));
         assert!(de.contains("Scores decken 2 von 3 URLs ab"));
         assert!(de.contains("Eine URL konnte nicht auditiert werden."));
-        assert!(de.contains("https://example.com/heavy-webgl"));
+        assert!(de.contains("example.com/heavy-webgl"));
 
         let en = unescape_typ(
             &generate_batch_typ(
@@ -1949,7 +1955,7 @@ mod tests {
         assert!(en.contains("2 of 3 URLs — 1 could not be audited and are not in any score"));
         assert!(en.contains("Scores cover 2 of 3 URLs"));
         assert!(en.contains("One URL could not be audited."));
-        assert!(en.contains("https://example.com/heavy-webgl"));
+        assert!(en.contains("example.com/heavy-webgl"));
 
         let complete = BatchReport::from_reports(
             vec![AuditReport::new(
@@ -2054,6 +2060,28 @@ mod tests {
         );
         let pdf = generate_pdf(&report, &ReportConfig::default()).expect("standard PDF");
         assert_pdf_ua_structure(&pdf, "de");
+    }
+
+    /// The sitemap HTTP section sits under the level-1 SEO header; a
+    /// level-3 heading there broke PDF/UA compilation on a live sitemap run.
+    #[test]
+    fn test_batch_pdf_renders_sitemap_status_section() {
+        let mut batch = BatchReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://example.com"),
+                pdf_fixture_report_for_url("https://example.com/about"),
+            ],
+            vec![],
+            2_400,
+        );
+        batch.sitemap_diagnostics = Some(crate::audit::SitemapDiagnostics {
+            status_counts: [("2xx".to_string(), 40), ("3xx".to_string(), 2)]
+                .into_iter()
+                .collect(),
+            checked_urls: 42,
+            ..Default::default()
+        });
+        generate_batch_pdf(&batch, &ReportConfig::default()).expect("batch PDF");
     }
 
     #[test]

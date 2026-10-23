@@ -6,7 +6,7 @@ use renderreport::prelude::*;
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::findings::first_sentence;
 use super::super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
@@ -224,9 +224,39 @@ pub(super) fn render_batch_top_issues(
         // one-word-per-line sliver spanning dozens of page-breaking rows
         // (see #518). `headline` already embeds the selector via
         // `{ $selector }` interpolation, so nothing is lost.
+        //
+        // One entry per place: two rules at the same selector (the skip link
+        // on inros-lackner: landmark and positive tabindex) are one place
+        // with two findings, listed underneath — not two causes (plan 85).
         let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
+        let mut seen: Vec<&str> = Vec::new();
         for cluster in &pres.template_clusters {
-            template_list = template_list.add_item(&cluster.headline);
+            if seen.contains(&cluster.selector.as_str()) {
+                continue;
+            }
+            seen.push(cluster.selector.as_str());
+            let children = pres
+                .template_clusters
+                .iter()
+                .filter(|c| c.selector == cluster.selector)
+                .map(|c| renderreport::components::advanced::ListItem {
+                    content: pres
+                        .top_issues
+                        .iter()
+                        .find(|g| g.rule_id == c.rule_id)
+                        .map(|g| g.title.clone())
+                        .unwrap_or_else(|| c.rule_id.clone()),
+                    icon: None,
+                    children: Vec::new(),
+                })
+                .collect();
+            template_list
+                .items
+                .push(renderreport::components::advanced::ListItem {
+                    content: cluster.headline.clone(),
+                    icon: None,
+                    children,
+                });
         }
         builder = builder.add_component(template_list);
     }
@@ -330,6 +360,32 @@ pub(super) fn render_batch_action_plan_section(
             .add_component(Section::new(i18n.t("batch-render-blocking-section")).with_level(1))
             .add_component(TextBlock::new(i18n.t("batch-render-blocking-intro")))
             .add_component(kv);
+
+        // The same files across pages (plan 93): one fix reaches every page
+        // listed, which the summed count above hides.
+        let shared = &pres.portfolio_summary.shared_blocking_resources;
+        if !shared.is_empty() {
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(i18n.t("batch-col-minify-asset")).with_width("58%"),
+                TableColumn::new(i18n.t("batch-col-minify-kind")).with_width("12%"),
+                TableColumn::new(i18n.t("batch-col-pages-list")).with_width("15%"),
+                TableColumn::new(i18n.t("batch-col-size")).with_width("15%"),
+            ])
+            .with_title(i18n.t("batch-shared-blocking-title"));
+            for res in shared {
+                table = table.add_row(vec![
+                    crate::util::short_url(&res.url, 60),
+                    res.kind.clone(),
+                    format!("{} / {}", res.pages, pres.portfolio_summary.total_urls),
+                    if res.transfer_bytes > 0 {
+                        format!("{:.1} KB", res.transfer_bytes as f64 / 1024.0)
+                    } else {
+                        "–".to_string()
+                    },
+                ]);
+            }
+            builder = builder.add_component(table);
+        }
     }
 
     // Cross-page minification consistency (#537)
@@ -353,7 +409,7 @@ pub(super) fn render_batch_action_plan_section(
                 other => other.to_string(),
             };
             table = table.add_row(vec![
-                truncate_url(&entry.url, 45),
+                short_url(&entry.url, 45),
                 kind_label,
                 entry.minified_on_count.to_string(),
                 entry.unminified_on_count.to_string(),
@@ -387,11 +443,11 @@ pub(super) fn render_batch_action_plan_section(
             let chain_str = entry
                 .chain
                 .iter()
-                .map(|u| truncate_url(u, 20))
+                .map(|u| short_url(u, 20))
                 .collect::<Vec<_>>()
                 .join(" → ");
             table = table.add_row(vec![
-                truncate_url(&entry.url, 35),
+                short_url(&entry.url, 35),
                 entry.hop_count.to_string(),
                 type_label,
                 chain_str,

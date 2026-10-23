@@ -9,7 +9,7 @@ use renderreport::prelude::*;
 use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::design::tokens;
 use super::super::helpers::severity_label_i18n;
@@ -56,8 +56,8 @@ pub(super) fn render_batch_crawl_links(
                 direct_label.to_string()
             };
             table = table.add_row(vec![
-                truncate_url(&row.source_url, 30),
-                truncate_url(&row.target_url, 38),
+                short_url(&row.source_url, 30),
+                short_url(&row.target_url, 38),
                 row.status.clone(),
                 typ_label,
             ]);
@@ -99,8 +99,8 @@ pub(super) fn render_batch_crawl_links(
                 direct_label.to_string()
             };
             ext_table = ext_table.add_row(vec![
-                truncate_url(&row.source_url, 30),
-                truncate_url(&row.target_url, 38),
+                short_url(&row.source_url, 30),
+                short_url(&row.target_url, 38),
                 row.status.clone(),
                 typ_label,
             ]);
@@ -137,10 +137,10 @@ pub(super) fn render_batch_crawl_links(
 
         for chain in &crawl_links.redirect_chains {
             chain_table = chain_table.add_row(vec![
-                truncate_url(&chain.source_url, 28),
-                truncate_url(&chain.target_url, 28),
+                short_url(&chain.source_url, 28),
+                short_url(&chain.target_url, 28),
                 chain.hops.to_string(),
-                truncate_url(&chain.final_url, 32),
+                short_url(&chain.final_url, 32),
             ]);
         }
 
@@ -168,7 +168,7 @@ pub(super) fn render_batch_appendix(
         }
 
         builder =
-            builder.add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
+            builder.add_component(Section::new(short_url(&url_appendix.url, 70)).with_level(2));
 
         let mut table = AuditTable::new(vec![
             TableColumn::new(rule_col.clone()),

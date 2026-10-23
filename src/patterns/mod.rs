@@ -135,6 +135,278 @@ pub struct RecognizedPattern {
     pub message: String,
     /// How confident the detection is.
     pub confidence: PatternConfidence,
+    /// What was recognized, with its raw values — the only source for
+    /// `message` and for the localized PDF text (#406, Plan 77). Not in the
+    /// JSON: `message` already carries the canonical English text there.
+    #[serde(skip)]
+    pub detail: Option<PatternMessage>,
+}
+
+/// What a detector recognized. `pattern_message_text` turns it into prose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PatternMessage {
+    NavigationUnnamed {
+        landmarks: usize,
+        unnamed: usize,
+    },
+    NavigationWithoutLinks {
+        landmarks: usize,
+    },
+    Navigation {
+        landmarks: usize,
+    },
+    DisclosureNative {
+        native: usize,
+    },
+    Disclosure {
+        triggers: usize,
+        with_controls: usize,
+        native: usize,
+    },
+    ModalDialog {
+        dialogs: usize,
+        well_formed: usize,
+    },
+    TabList {
+        tablists: usize,
+        tabs: usize,
+        selected: usize,
+        controls: usize,
+    },
+    SkipLink {
+        name: String,
+        first: bool,
+    },
+    Accordion {
+        triggers: usize,
+        with_controls: usize,
+        non_button: usize,
+    },
+    Form {
+        fields: usize,
+        trigger: Option<String>,
+    },
+    AddToCart {
+        trigger: Option<String>,
+    },
+    QuantityStepper {
+        name: Option<String>,
+    },
+    EasyLanguage,
+}
+
+/// Text for a recognized pattern — canonical English for the JSON, the run
+/// language for the PDF.
+pub fn pattern_message_text(message: &PatternMessage, en: bool) -> String {
+    fn n(count: usize, one: &str, many: &str) -> String {
+        format!("{count} {}", if count == 1 { one } else { many })
+    }
+    match message {
+        PatternMessage::NavigationUnnamed { landmarks, unnamed } => {
+            if en {
+                format!(
+                "{} found, but {unnamed} have no accessible name. Screen reader users cannot distinguish them.",
+                n(*landmarks, "navigation landmark", "navigation landmarks")
+            )
+            } else {
+                format!(
+                "{} gefunden, davon {unnamed} ohne zugänglichen Namen. Screenreader-Nutzende können sie nicht unterscheiden.",
+                n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
+            )
+            }
+        }
+        PatternMessage::NavigationWithoutLinks { landmarks } => {
+            if en {
+                format!(
+                    "{} found, but none contain link children. Pattern is structurally incomplete.",
+                    n(*landmarks, "navigation landmark", "navigation landmarks")
+                )
+            } else {
+                format!(
+                    "{} gefunden, aber keiner enthält Links. Die Struktur ist unvollständig.",
+                    n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
+                )
+            }
+        }
+        PatternMessage::Navigation { landmarks } => {
+            if en {
+                format!(
+                "Semantic main navigation recognized ({} with native links). Good foundation for keyboard and screen reader use.",
+                n(*landmarks, "landmark", "landmarks")
+            )
+            } else {
+                format!(
+                "Semantische Hauptnavigation erkannt ({} mit nativen Links). Gute Grundlage für Tastatur- und Screenreader-Nutzung.",
+                n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
+            )
+            }
+        }
+        PatternMessage::DisclosureNative { native } => {
+            if en {
+                format!(
+                    "{} (<details>/<summary>) — semantics come from the element, no ARIA needed.",
+                    n(
+                        *native,
+                        "native disclosure trigger",
+                        "native disclosure triggers"
+                    )
+                )
+            } else {
+                format!(
+                "{} (<details>/<summary>) – die Semantik kommt aus dem Element, ARIA ist nicht nötig.",
+                n(*native, "natives Aufklappelement", "native Aufklappelemente")
+            )
+            }
+        }
+        PatternMessage::Disclosure {
+            triggers,
+            with_controls,
+            native,
+        } => {
+            let mut text = match (en, with_controls == triggers) {
+                (true, true) => format!(
+                    "{} with aria-expanded and aria-controls — well-formed pattern.",
+                    n(*triggers, "disclosure trigger", "disclosure triggers")
+                ),
+                (true, false) => format!(
+                    "{} with aria-expanded ({with_controls} with aria-controls). Controls relationship strengthens screen-reader announcements.",
+                    n(*triggers, "disclosure trigger", "disclosure triggers")
+                ),
+                (false, true) => format!(
+                    "{} mit aria-expanded und aria-controls – vollständig ausgezeichnet.",
+                    n(*triggers, "Aufklapp-Auslöser", "Aufklapp-Auslöser")
+                ),
+                (false, false) => format!(
+                    "{} mit aria-expanded ({with_controls} mit aria-controls). Die Verknüpfung über aria-controls verbessert die Screenreader-Ansage.",
+                    n(*triggers, "Aufklapp-Auslöser", "Aufklapp-Auslöser")
+                ),
+            };
+            if *native > 0 {
+                text.push_str(&if en {
+                    format!(
+                        " Plus {} native <details>/<summary> {}.",
+                        native,
+                        if *native == 1 { "trigger" } else { "triggers" }
+                    )
+                } else {
+                    format!(
+                        " Dazu {} mit <details>/<summary>.",
+                        n(*native, "natives Element", "native Elemente")
+                    )
+                });
+            }
+            text
+        }
+        PatternMessage::ModalDialog {
+            dialogs,
+            well_formed,
+        } => {
+            if en {
+                format!(
+                "{} detected, {well_formed} structurally well-formed (accessible name, aria-modal, focusable descendants).",
+                n(*dialogs, "dialog", "dialogs")
+            )
+            } else {
+                format!(
+                "{} erkannt, davon {well_formed} strukturell vollständig (zugänglicher Name, aria-modal, fokussierbarer Inhalt).",
+                n(*dialogs, "Dialog", "Dialoge")
+            )
+            }
+        }
+        PatternMessage::TabList {
+            tablists,
+            tabs,
+            selected,
+            controls,
+        } => {
+            if en {
+                format!(
+                    "{} with {}; {selected} have aria-selected, {controls} declare aria-controls.",
+                    n(*tablists, "tablist", "tablists"),
+                    n(*tabs, "tab", "tabs")
+                )
+            } else {
+                format!(
+                    "{} mit {}; {selected} mit aria-selected, {controls} mit aria-controls.",
+                    n(*tablists, "Tab-Liste", "Tab-Listen"),
+                    n(*tabs, "Tab", "Tabs")
+                )
+            }
+        }
+        PatternMessage::SkipLink { name, first: true } => {
+            if en {
+                format!("Skip link recognized and correctly positioned as first focusable element (\"{name}\").")
+            } else {
+                format!("Sprunglink erkannt und korrekt als erstes fokussierbares Element platziert („{name}“).")
+            }
+        }
+        PatternMessage::SkipLink { name, first: false } => {
+            if en {
+                format!("Skip link detected (\"{name}\") but not the first focusable element — keyboard users may have to tab past other content first.")
+            } else {
+                format!("Sprunglink erkannt („{name}“), aber nicht als erstes fokussierbares Element – Tastaturnutzende müssen eventuell erst an anderen Elementen vorbei.")
+            }
+        }
+        PatternMessage::Accordion {
+            triggers,
+            with_controls,
+            non_button,
+        } => {
+            if en {
+                format!(
+                    "{}; {with_controls} with aria-controls; {non_button} non-button triggers.",
+                    n(*triggers, "accordion trigger", "accordion triggers")
+                )
+            } else {
+                format!(
+                    "{}; {with_controls} mit aria-controls; {non_button} ohne Button-Rolle.",
+                    n(*triggers, "Accordion-Auslöser", "Accordion-Auslöser")
+                )
+            }
+        }
+        PatternMessage::Form { fields, trigger } => {
+            if en {
+                format!(
+                    "{} detected; submit trigger: {}",
+                    n(*fields, "required field", "required fields"),
+                    trigger.as_deref().unwrap_or("(unnamed button)")
+                )
+            } else {
+                format!(
+                    "{} erkannt; Absenden über: {}",
+                    n(*fields, "Pflichtfeld", "Pflichtfelder"),
+                    trigger.as_deref().unwrap_or("(Button ohne Namen)")
+                )
+            }
+        }
+        PatternMessage::AddToCart { trigger } => {
+            if en {
+                format!(
+                    "Add-to-cart trigger detected: {}",
+                    trigger.as_deref().unwrap_or("(unnamed button)")
+                )
+            } else {
+                format!(
+                    "Warenkorb-Button erkannt: {}",
+                    trigger.as_deref().unwrap_or("(Button ohne Namen)")
+                )
+            }
+        }
+        PatternMessage::QuantityStepper { name } => {
+            if en {
+                format!(
+                    "Spinbutton quantity control detected: {}",
+                    name.as_deref().unwrap_or("(unnamed)")
+                )
+            } else {
+                format!(
+                    "Mengenauswahl (Spinbutton) erkannt: {}",
+                    name.as_deref().unwrap_or("(ohne Namen)")
+                )
+            }
+        }
+        PatternMessage::EasyLanguage => easy_language::message_text(en).to_string(),
+    }
 }
 
 /// Confidence level of a pattern detection.
@@ -150,13 +422,14 @@ impl PatternAnalysis {
     pub fn add_recognized(
         &mut self,
         pattern: &str,
-        message: impl Into<String>,
+        detail: PatternMessage,
         confidence: PatternConfidence,
     ) {
         self.recognized.push(RecognizedPattern {
             pattern: pattern.to_string(),
-            message: message.into(),
+            message: pattern_message_text(&detail, true),
             confidence,
+            detail: Some(detail),
         });
     }
 
@@ -179,4 +452,84 @@ pub fn analyze(tree: &AXTree) -> PatternAnalysis {
     add_to_cart::detect(tree, &mut result);
     quantity_stepper::detect(tree, &mut result);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn all_messages() -> Vec<PatternMessage> {
+        vec![
+            PatternMessage::NavigationUnnamed {
+                landmarks: 2,
+                unnamed: 1,
+            },
+            PatternMessage::NavigationWithoutLinks { landmarks: 1 },
+            PatternMessage::Navigation { landmarks: 1 },
+            PatternMessage::DisclosureNative { native: 3 },
+            PatternMessage::Disclosure {
+                triggers: 2,
+                with_controls: 1,
+                native: 1,
+            },
+            PatternMessage::ModalDialog {
+                dialogs: 1,
+                well_formed: 1,
+            },
+            PatternMessage::TabList {
+                tablists: 1,
+                tabs: 3,
+                selected: 3,
+                controls: 2,
+            },
+            PatternMessage::SkipLink {
+                name: "Skip".into(),
+                first: true,
+            },
+            PatternMessage::SkipLink {
+                name: "Skip".into(),
+                first: false,
+            },
+            PatternMessage::Accordion {
+                triggers: 4,
+                with_controls: 4,
+                non_button: 0,
+            },
+            PatternMessage::Form {
+                fields: 2,
+                trigger: None,
+            },
+            PatternMessage::AddToCart { trigger: None },
+            PatternMessage::QuantityStepper { name: None },
+            PatternMessage::EasyLanguage,
+        ]
+    }
+
+    /// #406: EN-Text ohne deutsche Zeichen, DE-Text tatsächlich übersetzt.
+    #[test]
+    fn pattern_messages_are_localized() {
+        for message in all_messages() {
+            let en = pattern_message_text(&message, true);
+            let de = pattern_message_text(&message, false);
+            assert!(
+                !en.chars().any(|c| "äöüÄÖÜß„“".contains(c)),
+                "{message:?}: {en}"
+            );
+            assert_ne!(en, de, "{message:?} is not translated");
+        }
+    }
+
+    #[test]
+    fn json_message_is_canonical_english() {
+        let mut out = PatternAnalysis::default();
+        out.add_recognized(
+            "MainNavigation",
+            PatternMessage::Navigation { landmarks: 1 },
+            PatternConfidence::Strong,
+        );
+        assert_eq!(
+            out.recognized[0].message,
+            "Semantic main navigation recognized (1 landmark with native links). Good foundation for keyboard and screen reader use."
+        );
+    }
 }

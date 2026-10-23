@@ -442,9 +442,9 @@ pub fn ux_issue_text(
                 "Kein erkennbarer Call-to-Action gefunden".into()
             },
             if en {
-                "Users cannot tell what the next step is".into()
+                "Users may not be able to tell what the next step is".into()
             } else {
-                "Nutzer wissen nicht, was der nächste Schritt ist".into()
+                "Der nächste Schritt ist für Nutzer möglicherweise nicht erkennbar".into()
             },
             if en {
                 "Clearly emphasize the primary CTA and give it an unambiguous label".into()
@@ -459,9 +459,11 @@ pub fn ux_issue_text(
                 format!("{} konkurrierende Call-to-Actions gefunden", count)
             },
             if en {
-                "Too many equally weighted calls to action confuse users".into()
+                "Many equally weighted calls to action can make it harder for users to choose"
+                    .into()
             } else {
-                "Zu viele gleichwertige Handlungsaufforderungen verwirren Nutzer".into()
+                "Viele gleichwertige Handlungsaufforderungen können Nutzern die Wahl erschweren"
+                    .into()
             },
             if en {
                 "Prioritize one primary CTA and visually de-emphasize secondary ones".into()
@@ -482,9 +484,9 @@ pub fn ux_issue_text(
                 )
             },
             if en {
-                "Users cannot distinguish link targets".into()
+                "Users may find it hard to distinguish link targets".into()
             } else {
-                "Nutzer können Ziele nicht unterscheiden".into()
+                "Linkziele sind für Nutzer möglicherweise schwer zu unterscheiden".into()
             },
             if en {
                 "Give links descriptive texts that name their target".into()
@@ -499,9 +501,10 @@ pub fn ux_issue_text(
                 "Keine H1-Überschrift vorhanden".into()
             },
             if en {
-                "The page topic is not recognizable for users and search engines".into()
+                "The page topic may be hard to recognize for users and search engines".into()
             } else {
-                "Seitenthema ist für Nutzer und Suchmaschinen nicht erkennbar".into()
+                "Das Seitenthema ist für Nutzer und Suchmaschinen möglicherweise schwer erkennbar"
+                    .into()
             },
             if en {
                 "Set exactly one H1 heading with the page's main topic".into()
@@ -536,9 +539,9 @@ pub fn ux_issue_text(
                 )
             },
             if en {
-                "The page structure is unclear for screen readers and users".into()
+                "The page structure gives screen readers and users little orientation".into()
             } else {
-                "Seitenstruktur ist für Screenreader und Nutzer unklar".into()
+                "Die Seitenstruktur bietet Screenreadern und Nutzern wenig Orientierung".into()
             },
             if en {
                 "Build heading levels without gaps (H1 → H2 → H3)".into()
@@ -578,9 +581,10 @@ pub fn ux_issue_text(
                     )
                 },
                 if en {
-                    "Users do not receive enough information to make a decision".into()
+                    "Users may not find enough information to make a decision".into()
                 } else {
-                    "Nutzer erhalten nicht genügend Information für eine Entscheidung".into()
+                    "Nutzer finden möglicherweise nicht genügend Information für eine Entscheidung"
+                        .into()
                 },
                 if en {
                     "Add relevant content that clearly conveys the page's purpose".into()
@@ -596,9 +600,10 @@ pub fn ux_issue_text(
                 "Viel Text ohne ausreichende Zwischenüberschriften".into()
             },
             if en {
-                "Users cannot scan the content and fail to find relevant passages".into()
+                "Content without structure is harder to scan; relevant passages are harder to find"
+                    .into()
             } else {
-                "Nutzer können Inhalte nicht scannen und finden relevante Stellen nicht".into()
+                "Ohne Gliederung lassen sich Inhalte schwerer überfliegen und relevante Stellen schwerer finden".into()
             },
             if en {
                 "Structure the text with subheadings (H2, H3)".into()
@@ -647,9 +652,9 @@ pub fn ux_issue_text(
                 "Kein Datenschutz-Link erkennbar".into()
             },
             if en {
-                "Required under GDPR, strengthens user trust".into()
+                "Privacy information is required under the GDPR when personal data is processed; a visible link strengthens trust".into()
             } else {
-                "DSGVO-Pflicht, stärkt Nutzervertrauen".into()
+                "Datenschutzhinweise sind nach DSGVO vorgeschrieben, sobald personenbezogene Daten verarbeitet werden; ein sichtbarer Link stärkt das Vertrauen".into()
             },
             if en {
                 "Link the privacy policy in the footer".into()
@@ -682,9 +687,9 @@ pub fn ux_issue_text(
                 format!("{} Links auf der Seite", count)
             },
             if en {
-                "High link density overwhelms users when orienting themselves".into()
+                "High link density can make orientation harder".into()
             } else {
-                "Hohe Linkdichte überfordert Nutzer bei der Orientierung".into()
+                "Hohe Linkdichte kann die Orientierung erschweren".into()
             },
             if en {
                 "Simplify navigation, prioritize and group links".into()

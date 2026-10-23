@@ -747,6 +747,11 @@ pub struct SampleMetadata {
 /// Sitemap URL validation result for sitemap-driven batch reports.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SitemapDiagnostics {
+    /// HTTP outcome of every checked sitemap URL by class (`2xx`, `3xx`,
+    /// `4xx`, `5xx`, `other`, `fetch_error`) — measured for each URL, not
+    /// inferred from the issue list (plan 87). Redirects are not followed.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub status_counts: BTreeMap<String, usize>,
     /// Number of sitemap URLs checked via HTTP.
     pub checked_urls: usize,
     /// Sitemap entries that do not resolve to a direct canonical 200 response,
@@ -769,6 +774,11 @@ pub struct SitemapDiagnostics {
     /// reasonable start-page candidate was audited.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub crawl_depths: Option<CrawlDepthDiagnostics>,
+    /// Why `crawl_depths` is absent when it is: `"homepage_unavailable"`
+    /// when the homepage could not be fetched — the depths are then not
+    /// determined rather than measured from some other page (plan 81).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crawl_depths_unavailable: Option<String>,
 }
 
 /// Crawl-depth diagnostics for a sitemap-driven batch (#548): BFS distance
@@ -787,9 +797,15 @@ pub struct SitemapDiagnostics {
 /// presenting a partial graph as complete.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrawlDepthDiagnostics {
-    /// The page BFS started from (heuristic: shortest-path sitemap URL,
-    /// root `/` naturally wins).
+    /// The site's homepage BFS started from, after redirects (plan 81).
     pub start_url: String,
+    /// Where the homepage's outbound links came from: `"audited_homepage"`
+    /// (it was one of the audited pages) or `"fetched_homepage"` (fetched
+    /// once over HTTP for its links only — not an audit, not in any score).
+    /// Empty in reports before plan 81, whose start was the shortest audited
+    /// sitemap URL, not necessarily the homepage.
+    #[serde(default)]
+    pub start_source: String,
     /// Depth (in clicks) -> number of audited pages at that depth. 0 is the
     /// start page itself.
     pub depth_histogram: BTreeMap<usize, usize>,

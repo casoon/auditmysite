@@ -1059,6 +1059,18 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
             .types
             .contains(&SchemaType::LocalBusiness)
     {
+        // Only a location page is expected to describe a local business;
+        // elsewhere its absence is no gap worth a review item (plan 89).
+        let location_page = seo
+            .structured_data
+            .fit_assessment
+            .as_ref()
+            .is_some_and(|fit| {
+                fit.page_kind == crate::seo::schema_fit::SchemaPageKind::LocationDetail
+            });
+        if !location_page {
+            return Vec::new();
+        }
         return vec![signal(
             ContentArea::Seo,
             AssessmentLevel::NotTestable,
@@ -1918,11 +1930,28 @@ mod tests {
     }
 
     #[test]
-    fn local_business_not_testable_when_absent() {
-        let seo = minimal_seo();
+    fn local_business_not_testable_when_absent_on_location_page() {
+        let mut seo = minimal_seo();
+        seo.structured_data.fit_assessment = Some(crate::seo::schema_fit::SchemaFitAssessment {
+            page_kind: crate::seo::schema_fit::SchemaPageKind::LocationDetail,
+            confidence: 85,
+            fit_status: crate::seo::schema_fit::SchemaFitStatus::Indeterminate,
+            coverage_status: crate::seo::schema_fit::SchemaCoverageStatus::Opportunity,
+            expected_primary_types: vec![],
+            detected_primary_types: vec![],
+            evidence: vec![],
+        });
         let signals = build_local_business(&seo);
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].level, AssessmentLevel::NotTestable);
+    }
+
+    /// A news or corporate page without LocalBusiness is not a review item
+    /// (plan 89).
+    #[test]
+    fn local_business_absence_is_silent_outside_location_pages() {
+        let seo = minimal_seo();
+        assert!(build_local_business(&seo).is_empty());
     }
 
     #[test]

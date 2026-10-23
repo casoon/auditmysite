@@ -14,7 +14,9 @@
 use crate::accessibility::AXTree;
 
 use super::disclosure_menu::NATIVE_DISCLOSURE_ROLES;
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let mut triggers = 0usize;
@@ -70,13 +72,11 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     };
     out.add_recognized(
         "Accordion",
-        format!(
-            "{} accordion {}; {} with aria-controls; {} non-button triggers.",
+        PatternMessage::Accordion {
             triggers,
-            if triggers == 1 { "trigger" } else { "triggers" },
             with_controls,
-            non_button_triggers
-        ),
+            non_button: non_button_triggers,
+        },
         confidence,
     );
 

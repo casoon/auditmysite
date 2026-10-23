@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::audit::AuditReport;
 use crate::i18n::I18n;
-use crate::output::report_model::CompactUrlSummary;
+use crate::output::report_model::{CompactUrlSummary, TopicOverlapPair};
 
 const SUPPORTED_LOCALES: &[&str] = &["de", "en"];
 
@@ -57,11 +57,33 @@ pub fn extract_page_topics(report: &AuditReport) -> Vec<String> {
     top_terms_from_segments(&weighted_segments, 5)
 }
 
+/// Terms on at least 80% of five or more pages: they tell no pages apart.
+fn site_wide_terms(url_details: &[CompactUrlSummary]) -> HashSet<&str> {
+    let mut page_counts: HashMap<&str, usize> = HashMap::new();
+    for detail in url_details {
+        let unique: HashSet<&str> = detail.topic_terms.iter().map(String::as_str).collect();
+        for term in unique {
+            *page_counts.entry(term).or_default() += 1;
+        }
+    }
+    let pages = url_details.len();
+    page_counts
+        .into_iter()
+        .filter(|(_, count)| pages >= 5 && count * 5 >= pages * 4)
+        .map(|(term, _)| term)
+        .collect()
+}
+
+/// The most common topic terms across pages. Site-wide terms (brand names,
+/// boilerplate) are no topic and stay out (plan 90).
 pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, usize)> {
+    let site_wide = site_wide_terms(url_details);
     let mut counts: HashMap<String, usize> = HashMap::new();
     for detail in url_details {
         for term in &detail.topic_terms {
-            *counts.entry(term.clone()).or_default() += 1;
+            if !site_wide.contains(term.as_str()) {
+                *counts.entry(term.clone()).or_default() += 1;
+            }
         }
     }
 
@@ -70,16 +92,31 @@ pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, u
     topics.into_iter().take(8).collect()
 }
 
-pub fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<(String, String, u32)> {
+/// Pairs of pages with strongly overlapping topic terms. Terms found on at
+/// least 80% of five or more pages (brand names, boilerplate) tell no pages
+/// apart and are left out of the comparison (plan 90).
+pub fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<TopicOverlapPair> {
+    let site_wide = site_wide_terms(url_details);
+
     let mut pairs = Vec::new();
     for (idx, left) in url_details.iter().enumerate() {
-        let left_terms: HashSet<&str> = left.topic_terms.iter().map(String::as_str).collect();
+        let left_terms: HashSet<&str> = left
+            .topic_terms
+            .iter()
+            .map(String::as_str)
+            .filter(|term| !site_wide.contains(term))
+            .collect();
         if left_terms.len() < 3 {
             continue;
         }
 
         for right in url_details.iter().skip(idx + 1) {
-            let right_terms: HashSet<&str> = right.topic_terms.iter().map(String::as_str).collect();
+            let right_terms: HashSet<&str> = right
+                .topic_terms
+                .iter()
+                .map(String::as_str)
+                .filter(|term| !site_wide.contains(term))
+                .collect();
             if right_terms.len() < 3 {
                 continue;
             }
@@ -95,15 +132,26 @@ pub fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<(Str
             let jaccard = intersection as f64 / union as f64;
             let similarity = ((jaccard * 0.55 + overlap_ratio * 0.45) * 100.0).round() as u32;
             if similarity >= 45 {
-                pairs.push((left.url.clone(), right.url.clone(), similarity));
+                let mut shared_terms: Vec<String> = left_terms
+                    .intersection(&right_terms)
+                    .map(|term| term.to_string())
+                    .collect();
+                shared_terms.sort();
+                pairs.push(TopicOverlapPair {
+                    url_a: left.url.clone(),
+                    url_b: right.url.clone(),
+                    similarity_percent: similarity,
+                    shared_terms,
+                });
             }
         }
     }
 
     pairs.sort_by(|a, b| {
-        b.2.cmp(&a.2)
-            .then_with(|| a.0.cmp(&b.0))
-            .then_with(|| a.1.cmp(&b.1))
+        b.similarity_percent
+            .cmp(&a.similarity_percent)
+            .then_with(|| a.url_a.cmp(&b.url_a))
+            .then_with(|| a.url_b.cmp(&b.url_b))
     });
     pairs.into_iter().take(6).collect()
 }
@@ -171,5 +219,47 @@ mod tests {
         for word in ["nicht", "wenn", "noch", "they", "will", "have", "when"] {
             assert!(!terms.contains(&word.to_string()), "{word} in {terms:?}");
         }
+    }
+
+    fn page(url: &str, terms: &[&str]) -> CompactUrlSummary {
+        CompactUrlSummary {
+            url: url.to_string(),
+            score: 0.0,
+            grade: String::new(),
+            critical_violations: 0,
+            total_violations: 0,
+            page_type: None,
+            page_attributes: vec![],
+            page_semantic_score: None,
+            biggest_lever: String::new(),
+            topic_terms: terms.iter().map(|t| t.to_string()).collect(),
+            top_issues: vec![],
+            module_scores: vec![],
+        }
+    }
+
+    /// A brand term on every page does not make two pages alike (plan 90).
+    #[test]
+    fn site_wide_terms_do_not_count_as_overlap() {
+        let pages = vec![
+            page("a", &["inros", "lackner", "hafen", "kaikante", "sanierung"]),
+            page("b", &["inros", "lackner", "hafen", "kaikante", "terminal"]),
+            page("c", &["inros", "lackner", "karriere", "benefits", "urlaub"]),
+            page("d", &["inros", "lackner", "projekte", "energie", "umwelt"]),
+            page(
+                "e",
+                &["inros", "lackner", "datenschutz", "cookies", "rechte"],
+            ),
+        ];
+        let pairs = derive_topic_overlap_pairs(&pages);
+        assert_eq!(pairs.len(), 1, "{pairs:?}");
+        assert_eq!(
+            (pairs[0].url_a.as_str(), pairs[0].url_b.as_str()),
+            ("a", "b")
+        );
+        assert_eq!(pairs[0].shared_terms, vec!["hafen", "kaikante"]);
+        assert!(pairs[0].similarity_percent <= 100);
+        let topics = derive_domain_topics(&pages);
+        assert!(!topics.iter().any(|(t, _)| t == "inros" || t == "lackner"));
     }
 }

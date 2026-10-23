@@ -618,6 +618,7 @@ mod tests {
             severity,
             tier: HeaderTier::Baseline,
             values: Default::default(),
+            score_deduction: 0,
         }
     }
 
@@ -676,6 +677,7 @@ mod tests {
                 severity: Severity::High,
                 tier: HeaderTier::Baseline,
                 values: Default::default(),
+                score_deduction: 0,
             }],
         );
 

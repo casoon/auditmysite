@@ -19,7 +19,9 @@
 
 use crate::accessibility::AXTree;
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let Some(stepper) = tree
@@ -31,10 +33,9 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
     out.add_recognized(
         "QuantityStepper",
-        format!(
-            "Spinbutton quantity control detected: {}",
-            stepper.name.as_deref().unwrap_or("(unnamed)")
-        ),
+        PatternMessage::QuantityStepper {
+            name: stepper.name.clone(),
+        },
         PatternConfidence::Partial,
     );
 

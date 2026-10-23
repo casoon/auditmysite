@@ -454,6 +454,7 @@ pub(super) fn build_performance_details(
             css_used_pct: cov.unused_css.used_pct,
             css_total_rules: Some(cov.unused_css.total_rules),
             css_used_rules: Some(cov.unused_css.used_rules),
+            css_partial: cov.unused_css.measurement == "partial",
             duplicate_assets: cov
                 .duplicate_assets
                 .iter()

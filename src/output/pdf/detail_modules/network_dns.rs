@@ -38,7 +38,7 @@ pub(in crate::output::pdf) fn render_network_dns(
         Label::new(pick(
             i18n,
             "Direkte DNS-Abfragen (CAA, DNSSEC, SPF/MX) — kein Bestandteil des \
-             Accessibility-/Gesamt-Scores, keine rechtliche Bewertung.",
+             Barrierefreiheitswerts oder des kombinierten technischen Werts, keine rechtliche Bewertung.",
             "Direct DNS queries (CAA, DNSSEC, SPF/MX) — not part of the accessibility \
              or overall score, not a legal assessment.",
         ))

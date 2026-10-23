@@ -248,15 +248,24 @@ pub(super) fn apply_canonical_perf(
     }
 
     let new_perf = report.performance.as_ref().map(|p| p.score.overall);
+    let perf_input = report
+        .performance
+        .as_ref()
+        .filter(|p| p.score.metrics_available > 0)
+        .map(|p| p.score.overall);
     let mobile_seo = report.discoverability.seo.as_ref().map(|s| s.score);
     let mobile_mf = report.experience.mobile.as_ref().map(|m| m.score);
+    let mobile_hc = report.html_conform.as_ref().map(|h| h.score);
     if let Some(ref mut vps) = report.viewport_scores {
         vps.mobile.performance = new_perf;
         let mobile_overall = compute_viewport_overall(
             vps.mobile.accessibility as f32,
-            vps.mobile.performance,
-            mobile_seo,
-            mobile_mf,
+            &[
+                ("Performance", perf_input),
+                ("SEO", mobile_seo),
+                ("Mobile", mobile_mf),
+                ("HTML Conformance", mobile_hc),
+            ],
         );
         let desktop_overall = vps.desktop.overall;
         vps.mobile.overall = mobile_overall;

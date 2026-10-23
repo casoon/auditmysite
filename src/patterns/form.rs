@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use crate::accessibility::{AXNode, AXTree};
 
 use super::{
-    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind,
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
     PURCHASE_FINAL_HINTS,
 };
 
@@ -135,11 +135,10 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     for (trigger, field_count) in ranked {
         out.add_recognized(
             "Form",
-            format!(
-                "{field_count} required {} detected; submit trigger: {}",
-                if field_count == 1 { "field" } else { "fields" },
-                trigger.name.as_deref().unwrap_or("(unnamed button)")
-            ),
+            PatternMessage::Form {
+                fields: field_count,
+                trigger: trigger.name.clone(),
+            },
             PatternConfidence::Partial,
         );
 

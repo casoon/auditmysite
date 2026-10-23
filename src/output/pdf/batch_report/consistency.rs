@@ -1,10 +1,11 @@
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
-use renderreport::components::{AuditTable, TableColumn};
+use renderreport::components::text::TextBlock;
+use renderreport::components::{AuditTable, Callout, TableColumn};
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 /// Render cross-page consistency analysis (issues #44/#45/#46).
 /// Shows navigation, heading, and canonical consistency stats with any
@@ -22,9 +23,9 @@ pub(super) fn render_batch_consistency(
         "Seitenübergreifende Konsistenz"
     };
     let intro = if en {
-        "Checks that shared structural elements (navigation, headings, canonical URLs) are consistent across all audited pages. WCAG 3.2.3 / 3.2.4."
+        "Checks that shared structural elements are consistent across all audited pages: navigation and headings (WCAG 3.2.3 / 3.2.4) and canonical URLs (a search-engine signal, not a WCAG criterion)."
     } else {
-        "Prüft, ob geteilte strukturelle Elemente (Navigation, Überschriften, Canonical-URLs) auf allen geprüften Seiten konsistent sind. WCAG 3.2.3 / 3.2.4."
+        "Prüft, ob geteilte strukturelle Elemente auf allen geprüften Seiten konsistent sind: Navigation und Überschriften (WCAG 3.2.3 / 3.2.4) sowie Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium)."
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
 
@@ -213,19 +214,21 @@ pub(super) fn render_batch_consistency(
                     } else {
                         "Fehlendes Canonical"
                     },
+                    // Optional tag: without it search engines pick the
+                    // canonical URL themselves (plan 88).
                     if en {
                         format!(
-                            "Missing on {} of {} audited pages.",
+                            "Missing on {} of {} audited pages. Optional: search engines then choose the canonical URL themselves. It only matters where URL variants exist (parameters, www/non-www); that was not checked here.",
                             c.missing_count, c.total_pages
                         )
                     } else {
                         format!(
-                            "Fehlt auf {} von {} geprüften Seiten.",
+                            "Fehlt auf {} von {} geprüften Seiten. Optional: Suchmaschinen wählen die kanonische URL dann selbst. Relevant wird das erst bei URL-Varianten (Parameter, www/ohne www); das wurde hier nicht geprüft.",
                             c.missing_count, c.total_pages
                         )
                     },
                 )
-                .with_status("warn"),
+                .with_status("info"),
             );
         }
         rows
@@ -370,20 +373,26 @@ fn render_consistency_orphan_pages(
             .map(|url| {
                 ChecklistRow::new(
                     if en {
-                        "Orphan candidate"
+                        "No inbound link observed"
                     } else {
-                        "Mögliche verwaiste Seite"
+                        "Kein eingehender Link beobachtet"
                     },
                     url,
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Pages without inbound links within the audited URL set"
-        } else {
-            "Seiten ohne eingehende Links innerhalb der geprüften URLs"
-        }));
+        builder = builder
+            .add_component(ChecklistPanel::new(rows).with_title(if en {
+                "Pages without an observed inbound link within the audited URLs"
+            } else {
+                "Seiten ohne beobachteten eingehenden Link innerhalb der geprüften URLs"
+            }))
+            .add_component(TextBlock::new(if en {
+                "Only the links of the audited pages were observed. A page listed here can still be linked from pages outside the sample, a search or a sitemap page — it is a candidate, not a confirmed orphan."
+            } else {
+                "Beobachtet wurden nur die Links der geprüften Seiten. Eine hier genannte Seite kann von Seiten außerhalb der Stichprobe, über die Suche oder eine Sitemap-Seite verlinkt sein — sie ist ein Kandidat, keine bestätigte verwaiste Seite."
+            }));
     }
 
     builder
@@ -523,14 +532,19 @@ fn render_consistency_page_type_matrix(
     en: bool,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.page_type_matrix.is_empty() {
+        builder = builder.add_component(Callout::info(if en {
+            "The page type is a heuristic from page structure and URL. Suggested types are schema.org types that would fit that page type; they are optional, not a requirement."
+        } else {
+            "Der Seitentyp ist eine Heuristik aus Seitenstruktur und URL. Vorgeschlagene Typen sind schema.org-Typen, die zu diesem Seitentyp passen würden; sie sind optional, keine Pflicht."
+        }));
         let mut table = AuditTable::new(vec![
             TableColumn::new("URL").with_width("31%"),
             TableColumn::new(if en { "Page type" } else { "Seitentyp" }).with_width("19%"),
             TableColumn::new("Status").with_width("16%"),
             TableColumn::new(if en {
-                "Expected / detected"
+                "Suggested / detected"
             } else {
-                "Erwartet / erkannt"
+                "Vorgeschlagen / erkannt"
             })
             .with_width("34%"),
         ])
@@ -541,9 +555,9 @@ fn render_consistency_page_type_matrix(
         });
         for row in &structured.page_type_matrix {
             table = table.add_row(vec![
-                truncate_url(&row.url, 48),
-                row.page_kind.clone(),
-                row.coverage_status.clone(),
+                short_url(&row.url, 48),
+                schema_page_kind_label(&row.page_kind, en),
+                schema_coverage_label(&row.coverage_status, en),
                 format!(
                     "{} / {}",
                     if row.expected_types.is_empty() {
@@ -563,6 +577,35 @@ fn render_consistency_page_type_matrix(
     }
 
     builder
+}
+
+/// Page-type key of the schema matrix in the run language; the JSON keeps
+/// the canonical key (plan 89).
+fn schema_page_kind_label(key: &str, en: bool) -> String {
+    serde_json::from_value::<crate::seo::schema_fit::SchemaPageKind>(serde_json::Value::String(
+        key.to_string(),
+    ))
+    .map(|kind| kind.label(en).to_string())
+    .unwrap_or_else(|_| key.to_string())
+}
+
+/// Coverage-status key of the schema matrix in the run language.
+fn schema_coverage_label(key: &str, en: bool) -> String {
+    use crate::seo::schema_fit::SchemaCoverageStatus;
+    let status =
+        serde_json::from_value::<SchemaCoverageStatus>(serde_json::Value::String(key.to_string()));
+    let label = match (status, en) {
+        (Ok(SchemaCoverageStatus::Complete), true) => "Covered",
+        (Ok(SchemaCoverageStatus::Complete), false) => "Abgedeckt",
+        (Ok(SchemaCoverageStatus::Opportunity), true) => "Optional addition",
+        (Ok(SchemaCoverageStatus::Opportunity), false) => "Optionale Ergänzung",
+        (Ok(SchemaCoverageStatus::ManualReview), true) => "Review manually",
+        (Ok(SchemaCoverageStatus::ManualReview), false) => "Manuell prüfen",
+        (Ok(SchemaCoverageStatus::NotApplicable), true) => "Not applicable",
+        (Ok(SchemaCoverageStatus::NotApplicable), false) => "Nicht anwendbar",
+        (Err(_), _) => return key.to_string(),
+    };
+    label.to_string()
 }
 
 fn render_consistency_identity_findings(
@@ -645,13 +688,24 @@ fn render_consistency_overlap_pairs(
             .overlap_pairs
             .iter()
             .take(10)
-            .map(|(url_a, url_b, shared)| {
+            .map(|pair| {
+                let terms = pair.shared_terms.join(", ");
                 ChecklistRow::new(
-                    format!("{url_a} ↔ {url_b}"),
+                    format!(
+                        "{} ↔ {}",
+                        short_url(&pair.url_a, 40),
+                        short_url(&pair.url_b, 40)
+                    ),
                     if en {
-                        format!("{shared} shared topic terms")
+                        format!(
+                            "Topic-term similarity {} % · shared terms: {terms}",
+                            pair.similarity_percent
+                        )
                     } else {
-                        format!("{shared} gemeinsame Themenbegriffe")
+                        format!(
+                            "Begriffsähnlichkeit {} % · gemeinsame Begriffe: {terms}",
+                            pair.similarity_percent
+                        )
                     },
                 )
                 .with_status("warn")
@@ -665,4 +719,34 @@ fn render_consistency_overlap_pairs(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_matrix_keys_are_localized() {
+        assert_eq!(
+            schema_coverage_label("manual_review", false),
+            "Manuell prüfen"
+        );
+        assert_eq!(
+            schema_coverage_label("opportunity", true),
+            "Optional addition"
+        );
+        assert_ne!(
+            schema_page_kind_label("corporate_page", false),
+            "corporate_page"
+        );
+        assert_ne!(
+            schema_page_kind_label("corporate_page", false),
+            schema_page_kind_label("corporate_page", true)
+        );
+        // unknown keys pass through rather than vanish
+        assert_eq!(
+            schema_coverage_label("something_new", false),
+            "something_new"
+        );
+    }
 }

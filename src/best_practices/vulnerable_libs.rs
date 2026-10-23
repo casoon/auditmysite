@@ -53,6 +53,10 @@ pub struct VulnerableLibrariesAnalysis {
     /// libraries in `detect_from_url`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate_libraries: Vec<DuplicateLibraryVersions>,
+    /// Whether detection ran. `false` means the empty lists are no
+    /// measurement (plan 69); older reports carry no field.
+    #[serde(default = "crate::best_practices::collected_by_default")]
+    pub checked: bool,
 }
 
 /// A known library loaded under more than one distinct version at once.
@@ -219,6 +223,7 @@ pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibra
         vulnerable,
         has_vulnerabilities,
         duplicate_libraries,
+        checked: true,
     })
 }
 
@@ -351,6 +356,20 @@ fn find_version_pattern(text: &str) -> Option<String> {
 }
 
 /// Check a library version against the known-vulnerable database.
+/// The libraries whose versions are checked against known vulnerabilities —
+/// the whole scope of the check. "No known vulnerability" means none among
+/// these, not that the page has no vulnerable script (plan 69).
+pub const CHECKED_LIBRARIES: &[&str] = &[
+    "jQuery",
+    "Bootstrap",
+    "AngularJS",
+    "Handlebars",
+    "Lodash",
+    "Underscore",
+    "Prototype",
+    "MooTools",
+];
+
 fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
     let v = parse_semver(version)?;
 

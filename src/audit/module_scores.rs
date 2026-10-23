@@ -98,10 +98,16 @@ pub(super) fn build_module_scores(
         ));
     }
     if let Some(ref bp) = report.best_practices {
+        // Neither the console nor the library check ran: the 100 left over
+        // from no deductions is not a result (plan 69).
         module_scores.push(ModuleScoreEntry::new(
             "Best Practices",
             bp.score,
-            "measured",
+            if bp.is_unmeasured() {
+                "not_measured"
+            } else {
+                "measured"
+            },
             false,
         ));
     }

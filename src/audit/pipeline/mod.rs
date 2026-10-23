@@ -862,15 +862,33 @@ pub async fn audit_page(
 
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
+    // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
+    // the blend as `module_scores` drops it from the overall (plan 73).
+    let measured = |p: &crate::audit::PerformanceResults| p.score.metrics_available > 0;
+    let desktop_perf_input = desktop_snap
+        .performance
+        .as_ref()
+        .filter(|p| measured(p))
+        .map(|p| p.score.overall);
+    let mobile_perf_input = mobile_snap
+        .performance
+        .as_ref()
+        .filter(|p| measured(p))
+        .map(|p| p.score.overall);
     let mobile_seo_score = mobile_snap.seo.as_ref().map(|s| s.score);
     let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
+    let mobile_hc_score = mobile_snap.html_conform.as_ref().map(|h| h.score);
 
-    let desktop_overall = compute_viewport_overall(desktop_acc, desktop_perf_score, None, None);
+    let desktop_overall =
+        compute_viewport_overall(desktop_acc, &[("Performance", desktop_perf_input)]);
     let mobile_overall = compute_viewport_overall(
         mobile_acc,
-        mobile_perf_score,
-        mobile_seo_score,
-        mobile_mf_score,
+        &[
+            ("Performance", mobile_perf_input),
+            ("SEO", mobile_seo_score),
+            ("Mobile", mobile_mf_score),
+            ("HTML Conformance", mobile_hc_score),
+        ],
     );
     let weighted_overall =
         (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
@@ -2591,14 +2609,41 @@ journey_budget_ms = 1234
 
     #[test]
     fn test_compute_viewport_overall_acc_only() {
-        assert_eq!(compute_viewport_overall(80.0, None, None, None), 80);
+        assert_eq!(compute_viewport_overall(80.0, &[]), 80);
     }
 
     #[test]
     fn test_compute_viewport_overall_with_perf() {
         // acc=80 (40%) + perf=60 (20%) → (80*40 + 60*20) / 60 = 4400/60 ≈ 73
-        let result = compute_viewport_overall(80.0, Some(60), None, None);
+        let result = compute_viewport_overall(80.0, &[("Performance", Some(60))]);
         assert_eq!(result, 73);
+    }
+
+    /// Plan 73: the viewport path uses the published module weights — SEO
+    /// 15, HTML conformance 5 — so with every module on one viewport it is
+    /// the module-weighted mean over the 90 non-security points. inros-
+    /// lackner mobile: (49·40 + 77·20 + 65·15 + 80·10 + 62·5) / 90 = 62.06.
+    /// The old path (SEO 20, no HTML conformance) gave 62.2; asymmetric
+    /// scores show the difference.
+    #[test]
+    fn viewport_overall_uses_the_published_module_weights() {
+        let modules = |seo: u32, hc: u32| {
+            compute_viewport_overall(
+                49.0,
+                &[
+                    ("Performance", Some(77)),
+                    ("SEO", Some(seo)),
+                    ("Mobile", Some(80)),
+                    ("HTML Conformance", Some(hc)),
+                ],
+            )
+        };
+        assert_eq!(modules(65, 62), 62);
+        // SEO 100, HTML conformance 0: weights 15/5 give 64, the old 20/0
+        // gave 70.
+        assert_eq!(modules(100, 0), 64);
+        // Unmeasured performance drops out instead of counting as 0.
+        assert_eq!(compute_viewport_overall(80.0, &[("Performance", None)]), 80);
     }
 
     #[test]

@@ -120,6 +120,7 @@ fn detect_non_descriptive_interactive_names(
                 "medium"
             };
             issues.push(SrAuditIssue {
+                review: true,
                 wcag_criterion: Some("2.4.4".into()),
                 severity: severity.into(),
                 affected_node_ids: vec![item.node_id.clone()],
@@ -172,6 +173,7 @@ fn detect_duplicated_accessible_name(
             continue;
         }
         issues.push(SrAuditIssue {
+            review: true,
             wcag_criterion: Some("2.4.4".into()),
             severity: "medium".into(),
             affected_node_ids: vec![item.node_id.clone()],
@@ -222,6 +224,7 @@ fn detect_duplicate_link_texts(views: &NavigationViews, en: bool, issues: &mut V
             (LinkQuality::Good, _) => continue,
         };
         issues.push(SrAuditIssue {
+            review: link.quality != LinkQuality::Empty,
             wcag_criterion: Some("2.4.4".into()),
             severity: "low".into(),
             affected_node_ids: link.node_ids.clone(),
@@ -292,6 +295,7 @@ fn push_desert_issue(
     issues: &mut Vec<SrAuditIssue>,
 ) {
     issues.push(SrAuditIssue {
+        review: false,
         // Heuristic structural finding (long region without orientation point).
         // Mapped to 1.3.6 (Identify Purpose) for a self-documenting criterion,
         // consistent with the missing-landmark issues. 1.3.6 is intentionally not
@@ -336,6 +340,7 @@ fn detect_skipped_heading_levels(
             }
         });
         issues.push(SrAuditIssue {
+            review: true,
             // WCAG 2.4.6 (Headings and Labels) is about whether heading TEXT
             // is descriptive, not heading nesting order -- confirmed against
             // the W3C Understanding doc. The shared rule for the identical
@@ -375,6 +380,7 @@ fn detect_unlabeled_duplicate_landmarks(
 
     if affected.len() > 1 {
         issues.push(SrAuditIssue {
+            review: true,
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
@@ -392,6 +398,7 @@ fn detect_unlabeled_duplicate_landmarks(
         .filter(|landmark| landmark.quality == LandmarkQuality::MissingMain)
     {
         issues.push(SrAuditIssue {
+            review: true,
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: vec![landmark.node_id.clone()],
@@ -413,29 +420,29 @@ fn detect_missing_required_landmarks(
     const REQUIRED_EN: &[(&str, &str)] = &[
         (
             "banner",
-            "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
+            "No header area (banner landmark) present. Screen reader users cannot reach the page header through landmark navigation; its content stays reachable in reading mode.",
         ),
         (
             "navigation",
-            "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
+            "No navigation landmark present. Screen reader users cannot jump to the navigation through landmark navigation; the links stay reachable in reading and tab order.",
         ),
         (
             "contentinfo",
-            "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
+            "No footer landmark (contentinfo) present. Screen reader users cannot reach the footer through landmark navigation; its content stays reachable in reading mode.",
         ),
     ];
     const REQUIRED_DE: &[(&str, &str)] = &[
         (
             "banner",
-            "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
+            "Kein Header-Bereich (banner-Landmark) vorhanden. Screenreader-Nutzer erreichen den Seitenkopf nicht über die Landmark-Navigation; im Lesemodus bleibt sein Inhalt erreichbar.",
         ),
         (
             "navigation",
-            "Keine Navigations-Landmark vorhanden. Tastaturnutzer können nicht direkt zur Navigation springen.",
+            "Keine Navigations-Landmark vorhanden. Screenreader-Nutzer können nicht über die Landmark-Navigation zur Navigation springen; im Lesemodus und per Tab bleiben die Links erreichbar.",
         ),
         (
             "contentinfo",
-            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Die Seitenstruktur ist für Screen Reader unvollständig.",
+            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Screenreader-Nutzer erreichen die Fußzeile nicht über die Landmark-Navigation; im Lesemodus bleibt ihr Inhalt erreichbar.",
         ),
     ];
 
@@ -451,6 +458,7 @@ fn detect_missing_required_landmarks(
             // the static AXTree doesn't reflect the post-toggle DOM (#504).
             if *role == "navigation" && has_disclosure_menu_pattern {
                 issues.push(SrAuditIssue {
+                    review: false,
                     wcag_criterion: Some("1.3.6".into()),
                     severity: "low".into(),
                     affected_node_ids: vec![],
@@ -459,6 +467,7 @@ fn detect_missing_required_landmarks(
                 continue;
             }
             issues.push(SrAuditIssue {
+                review: false,
                 wcag_criterion: Some("1.3.6".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![],
@@ -494,6 +503,7 @@ fn detect_icon_font_contamination(items: &[ReadingItem], en: bool, issues: &mut 
 
     if !affected.is_empty() {
         issues.push(SrAuditIssue {
+            review: true,
             wcag_criterion: Some("2.4.4".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
@@ -517,6 +527,7 @@ fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut V
     if let Some(first) = headings.iter().find(|h| h.quality != HeadingQuality::Empty) {
         if first.level != Some(1) {
             issues.push(SrAuditIssue {
+                review: true,
                 wcag_criterion: Some("1.3.1".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![first.node_id.clone()],
@@ -547,6 +558,7 @@ fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut V
     if let (Some(sub_seq), Some(h1)) = (first_sub_seq, first_h1) {
         if sub_seq < h1.seq {
             issues.push(SrAuditIssue {
+                review: true,
                 wcag_criterion: Some("1.3.1".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![h1.node_id.clone()],
@@ -582,6 +594,7 @@ fn detect_tab_stop_count(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAud
 
     if tab_stop_count > TAB_STOP_WARNING_THRESHOLD && !has_skip_link {
         issues.push(SrAuditIssue {
+            review: true,
             wcag_criterion: Some("2.4.1".into()),
             severity: "medium".into(),
             affected_node_ids: items
@@ -619,6 +632,7 @@ fn detect_empty_interactive_elements(
 
     if !affected.is_empty() {
         issues.push(SrAuditIssue {
+            review: false,
             wcag_criterion: Some("4.1.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,
@@ -641,6 +655,7 @@ fn detect_empty_form_labels(views: &NavigationViews, en: bool, issues: &mut Vec<
 
     if !affected.is_empty() {
         issues.push(SrAuditIssue {
+            review: false,
             wcag_criterion: Some("3.3.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,

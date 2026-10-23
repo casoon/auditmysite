@@ -39,7 +39,7 @@ pub(in crate::output::pdf) fn render_ai_transparency(
         Label::new(pick(
             i18n,
             "Prüft eingebettete C2PA-\"Content Credentials\"-Manifeste auf Bildern — kein \
-             Bestandteil des Accessibility-/Gesamt-Scores, keine rechtliche Bewertung. Jeder \
+             Bestandteil des Barrierefreiheitswerts oder des kombinierten technischen Werts, keine rechtliche Bewertung. Jeder \
              Fund ist ein Hinweis zur manuellen Prüfung, ob für dieses Bild eine für Menschen \
              wahrnehmbare Kennzeichnung existiert (EU-AI-Act, Art. 50).",
             "Checks embedded C2PA \"Content Credentials\" manifests on images — not part of the \

@@ -29,9 +29,9 @@ pub(super) fn cover_band_phrase(
     let base = match verdict {
         Verdict::Fail => {
             if en {
-                "Not passed — action required"
+                "Not passed in the automated audit scope — action required"
             } else {
-                "Nicht bestanden — Handlungsbedarf"
+                "Im automatischen Prüfumfang nicht bestanden — Handlungsbedarf"
             }
         }
         // Warn and Pass keep the score-derived phrase: the score band is the
@@ -82,8 +82,9 @@ pub(super) fn build_batch_cover_score_row(
 
     grid = grid.add_item(serde_json::json!({
         "type": "score-card",
+        // The note sits below the row (overview.rs): the grid item has a
+        // fixed height, and in the card it ran into the paragraph below.
         "data": ScoreCard::new(i18n.t("cover-card-average"), avg_score)
-            .with_description(i18n.t("batch-cover-overall-score-note"))
             .with_thresholds(70, 50)
             .with_height("100%")
             .to_data()

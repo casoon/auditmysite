@@ -800,7 +800,9 @@ fn test_risk_breadth_critical_without_critical_occurrences() {
     let mut results = WcagResults::new();
     for (rule, name) in [
         ("1.1.1", "Non-text Content"),
-        ("2.4.4", "Link Purpose"),
+        // Not 2.4.4: its rule needs a manual check and is no legal flag
+        // since plan 74.
+        ("4.1.2", "Name, Role, Value"),
         ("2.4.6", "Headings"),
         ("3.3.2", "Labels"),
     ] {
@@ -1249,6 +1251,7 @@ fn test_json_report_includes_report_artifact_fields() {
         findings: vec![],
         score: 100,
         grade: "A".to_string(),
+        audited_stacks: Vec::new(),
     });
     report.experience.budget_violations = vec![auditmysite::audit::BudgetViolation {
         metric: "LCP".to_string(),
@@ -1271,6 +1274,7 @@ fn test_json_report_includes_report_artifact_fields() {
             pattern: "MainNavigation".to_string(),
             message: "Main navigation recognized".to_string(),
             confidence: auditmysite::patterns::PatternConfidence::Strong,
+            detail: None,
         }],
         violations: vec![],
         journey_candidates: vec![],

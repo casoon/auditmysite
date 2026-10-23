@@ -218,10 +218,15 @@ pub fn build_batch_presentation_with_normalized(
             }
         })
         .collect();
+    // Accessibility ascending — the report's main score (plan 83). Ties go
+    // to more critical/high findings first, then the lower overall score,
+    // then the URL, so the order never depends on audit completion order.
     url_ranking.sort_by(|a, b| {
         a.score
-            .partial_cmp(&b.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .total_cmp(&b.score)
+            .then_with(|| b.critical_violations.cmp(&a.critical_violations))
+            .then_with(|| a.overall_score.cmp(&b.overall_score))
+            .then_with(|| a.url.cmp(&b.url))
     });
 
     let url_details: Vec<CompactUrlSummary> = batch
@@ -234,9 +239,11 @@ pub fn build_batch_presentation_with_normalized(
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
 
+            // Unmeasured modules carry no comparable value (plan 86).
             let module_scores = nr
                 .module_scores
                 .iter()
+                .filter(|m| m.measurement_type != "not_measured")
                 .map(|m| (m.name.clone(), m.score))
                 .collect();
 
@@ -303,9 +310,9 @@ pub fn build_batch_presentation_with_normalized(
         .zip(normalized_reports.iter())
         .collect();
     sorted_by_score.sort_by(|a, b| {
-        (a.1.score as f32)
-            .partial_cmp(&(b.1.score as f32))
-            .unwrap_or(std::cmp::Ordering::Equal)
+        a.1.score
+            .cmp(&b.1.score)
+            .then_with(|| a.0.url.cmp(&b.0.url))
     });
     let worst_urls: Vec<(String, f32)> = sorted_by_score
         .iter()
@@ -335,6 +342,30 @@ pub fn build_batch_presentation_with_normalized(
         let low = normalized_reports
             .iter()
             .map(|nr| nr.severity_counts.low)
+            .sum();
+        SeverityDistribution {
+            critical,
+            high,
+            medium,
+            low,
+        }
+    };
+    let occurrence_distribution = {
+        let critical = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.critical)
+            .sum();
+        let high = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.high)
+            .sum();
+        let medium = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.medium)
+            .sum();
+        let low = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.low)
             .sum();
         SeverityDistribution {
             critical,
@@ -389,6 +420,7 @@ pub fn build_batch_presentation_with_normalized(
         })
         .collect();
     page_type_distribution.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let page_type_groups = build_page_type_groups(&url_details);
 
     let mut distribution_insights = Vec::new();
     if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
@@ -451,8 +483,16 @@ pub fn build_batch_presentation_with_normalized(
     // Cross-page missing-tag prevalence (meta description / canonical / og:image / og:title)
     let missing_tag_prevalence = build_missing_tag_prevalence(&batch.reports);
 
-    // Per-page canonical conflicts (noindex / og:url mismatch)
-    let canonical_issues = build_canonical_issues(&batch.reports);
+    // Per-page canonical conflicts (noindex / og:url mismatch / target
+    // status from the sitemap check)
+    let canonical_issues = build_canonical_issues(
+        &batch.reports,
+        batch
+            .sitemap_diagnostics
+            .as_ref()
+            .map(|d| d.http_issues.as_slice())
+            .unwrap_or_default(),
+    );
 
     // Non-reciprocal hreflang relationships among audited pages
     let hreflang_issues = build_hreflang_issues(&batch.reports);
@@ -469,6 +509,8 @@ pub fn build_batch_presentation_with_normalized(
         linked_not_in_sitemap,
         robots_conflicts,
         crawl_depth_diagnostics,
+        crawl_depths_unavailable,
+        sitemap_status_counts,
     ) = batch
         .sitemap_diagnostics
         .as_ref()
@@ -479,6 +521,8 @@ pub fn build_batch_presentation_with_normalized(
                 diagnostics.linked_not_in_sitemap.clone(),
                 diagnostics.robots_conflicts.clone(),
                 diagnostics.crawl_depths.clone(),
+                diagnostics.crawl_depths_unavailable.is_some(),
+                diagnostics.status_counts.clone(),
             )
         })
         .unwrap_or_default();
@@ -521,10 +565,18 @@ pub fn build_batch_presentation_with_normalized(
             Vec::new()
         } else {
             let n = pages_with_data.len() as f64;
-            let total_blocking: usize = pages_with_data
+            // The same file on twenty pages is one resource, not twenty
+            // (plan 93): count distinct URLs, report loads alongside.
+            let total_loads: usize = pages_with_data
                 .iter()
                 .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
                 .sum();
+            let distinct_blocking = pages_with_data
+                .iter()
+                .flat_map(|rb| rb.blocking_scripts.iter().chain(&rb.blocking_css))
+                .map(|res| res.url.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len();
             let total_third_party_bytes: u64 =
                 pages_with_data.iter().map(|rb| rb.third_party_bytes).sum();
             let pages_with_blocking = pages_with_data
@@ -541,14 +593,14 @@ pub fn build_batch_presentation_with_normalized(
                 (
                     "Pages analyzed",
                     "Pages with blocking",
-                    "Blocking resources total",
+                    "Distinct blocking resources",
                     "Third-party traffic total",
                 )
             } else {
                 (
                     "Seiten analysiert",
                     "Seiten mit Blocking",
-                    "Blocking-Ressourcen gesamt",
+                    "Verschiedene Blocking-Ressourcen",
                     "Third-Party-Traffic gesamt",
                 )
             };
@@ -567,7 +619,14 @@ pub fn build_batch_presentation_with_normalized(
                         pages_with_blocking as f64 / n * 100.0
                     ),
                 ),
-                (label_blocking_total.to_string(), total_blocking.to_string()),
+                (
+                    label_blocking_total.to_string(),
+                    if en {
+                        format!("{distinct_blocking} ({total_loads} loads across pages)")
+                    } else {
+                        format!("{distinct_blocking} ({total_loads} Einbindungen über alle Seiten)")
+                    },
+                ),
                 (
                     label_third_party.to_string(),
                     format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0),
@@ -653,7 +712,11 @@ pub fn build_batch_presentation_with_normalized(
     let module_averages = {
         let mut module_sums: HashMap<String, (u32, usize)> = HashMap::new();
         for nr in normalized_reports {
-            for ms in &nr.module_scores {
+            for ms in nr
+                .module_scores
+                .iter()
+                .filter(|m| m.measurement_type != "not_measured")
+            {
                 let entry = module_sums.entry(ms.name.clone()).or_insert((0, 0));
                 entry.0 += ms.score;
                 entry.1 += 1;
@@ -714,8 +777,8 @@ pub fn build_batch_presentation_with_normalized(
             (RiskLevel::Medium, false) => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
             (RiskLevel::High, true) => "Several pages show high risk. Timely remediation recommended, especially for WCAG Level A violations.",
             (RiskLevel::High, false) => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
-            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A violations detected automatically — immediate action recommended; manual review required for a defensible legal classification.",
-            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — sofortige Maßnahmen empfohlen, manuelle Prüfung für belastbare rechtliche Einordnung nötig.",
+            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.",
+            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — vorrangige Behebung empfohlen; ob daraus rechtliche Pflichten folgen, hängt vom anwendbaren Rahmen (z. B. BFSG/EAA) ab und braucht eine manuelle Prüfung.",
         };
         (level_str, summary.to_string())
     };
@@ -784,6 +847,7 @@ pub fn build_batch_presentation_with_normalized(
             worst_urls,
             best_urls,
             severity_distribution,
+            occurrence_distribution,
             risk_level,
             risk_summary,
             module_averages,
@@ -792,6 +856,7 @@ pub fn build_batch_presentation_with_normalized(
             certificate,
             grade,
             page_type_distribution,
+            page_type_groups,
             distribution_insights,
             strongest_content_pages,
             weakest_content_pages,
@@ -801,6 +866,7 @@ pub fn build_batch_presentation_with_normalized(
             crawl_links,
             budget_summary,
             render_blocking_summary,
+            shared_blocking_resources: build_shared_blocking_resources(&batch.reports),
             schema_distribution,
             pages_without_schema,
             duplicate_content,
@@ -808,12 +874,14 @@ pub fn build_batch_presentation_with_normalized(
             canonical_issues,
             hreflang_issues,
             sitemap_http_issues,
+            sitemap_status_counts,
             orphan_sitemap_urls,
             linked_not_in_sitemap,
             robots_conflicts,
             minification_inconsistencies,
             redirect_chain_issues,
             crawl_depth_diagnostics,
+            crawl_depths_unavailable,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -1091,11 +1159,109 @@ fn build_missing_tag_prevalence(
     out
 }
 
+/// Pages grouped by detected page type (plan 93). The type is a heuristic
+/// classification, not a verified template; a group of one page gets no
+/// mean and no common finding.
+fn build_page_type_groups(url_details: &[CompactUrlSummary]) -> Vec<PageTypeGroup> {
+    let mut groups: std::collections::BTreeMap<&str, Vec<&CompactUrlSummary>> =
+        std::collections::BTreeMap::new();
+    for detail in url_details {
+        if let Some(page_type) = detail.page_type.as_deref() {
+            groups.entry(page_type).or_default().push(detail);
+        }
+    }
+    let mut out: Vec<PageTypeGroup> = groups
+        .into_iter()
+        .map(|(page_type, pages)| {
+            let comparable = pages.len() >= 2;
+            let avg_accessibility = comparable.then(|| {
+                (pages.iter().map(|p| p.score as f64).sum::<f64>() / pages.len() as f64).round()
+                    as u32
+            });
+            let mut finding_pages: std::collections::BTreeMap<&str, usize> =
+                std::collections::BTreeMap::new();
+            for page in &pages {
+                let titles: std::collections::BTreeSet<&str> =
+                    page.top_issues.iter().map(String::as_str).collect();
+                for title in titles {
+                    *finding_pages.entry(title).or_default() += 1;
+                }
+            }
+            let common_finding = finding_pages
+                .into_iter()
+                .filter(|(_, count)| comparable && *count >= 2)
+                .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
+                .map(|(title, count)| (title.to_string(), count));
+            PageTypeGroup {
+                page_type: page_type.to_string(),
+                pages: pages.len(),
+                avg_accessibility,
+                common_finding,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.pages
+            .cmp(&a.pages)
+            .then_with(|| a.page_type.cmp(&b.page_type))
+    });
+    out
+}
+
+/// Render-blocking resources loaded by two or more audited pages, by exact
+/// URL — query strings and versions stay part of the identity (plan 93).
+fn build_shared_blocking_resources(
+    reports: &[crate::audit::AuditReport],
+) -> Vec<SharedBlockingResource> {
+    let mut by_url: std::collections::BTreeMap<
+        &str,
+        (&str, std::collections::BTreeSet<&str>, u64),
+    > = std::collections::BTreeMap::new();
+    for report in reports {
+        let Some(rb) = report
+            .performance
+            .as_ref()
+            .and_then(|p| p.render_blocking.as_ref())
+        else {
+            continue;
+        };
+        for res in rb.blocking_scripts.iter().chain(&rb.blocking_css) {
+            let entry = by_url.entry(res.url.as_str()).or_insert((
+                res.kind.as_str(),
+                Default::default(),
+                0,
+            ));
+            entry.1.insert(report.url.as_str());
+            entry.2 = entry.2.max(res.transfer_bytes);
+        }
+    }
+    let mut out: Vec<SharedBlockingResource> = by_url
+        .into_iter()
+        .filter(|(_, (_, pages, _))| pages.len() >= 2)
+        .map(
+            |(url, (kind, pages, transfer_bytes))| SharedBlockingResource {
+                url: url.to_string(),
+                kind: kind.to_string(),
+                pages: pages.len(),
+                transfer_bytes,
+            },
+        )
+        .collect();
+    out.sort_by(|a, b| b.pages.cmp(&a.pages).then_with(|| a.url.cmp(&b.url)));
+    out.truncate(10);
+    out
+}
+
 /// Detect canonical-tag conflicts per page (#423): a canonical pointing away
 /// while the page is `noindex` (mixed signals to crawlers), and a canonical
-/// that disagrees with the page's `og:url`. Pure per-page checks aggregated
-/// across the batch; no extra network requests.
-fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<CanonicalIssue> {
+/// that disagrees with the page's `og:url`, and a canonical target the sitemap
+/// check saw redirect or fail (plan 88). Targets outside the sitemap check
+/// stay unchecked. Pure per-page checks aggregated across the batch; no extra
+/// network requests.
+fn build_canonical_issues(
+    reports: &[crate::audit::AuditReport],
+    sitemap_issues: &[crate::audit::SitemapHttpIssue],
+) -> Vec<CanonicalIssue> {
     fn norm_url(u: &str) -> String {
         u.trim().trim_end_matches('/').to_string()
     }
@@ -1145,6 +1311,33 @@ fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<Canonica
                     detail: format!("{canonical} ≠ {og_url}"),
                 });
             }
+        }
+
+        // canonical target the sitemap check saw redirect or fail.
+        if let Some(target) = sitemap_issues
+            .iter()
+            .find(|i| norm_url(&i.url) == norm_url(canonical))
+        {
+            let issue = match target.kind.as_str() {
+                "redirect" => Some(CanonicalIssue {
+                    kind: "target_redirects".to_string(),
+                    url: r.url.clone(),
+                    detail: match &target.final_url {
+                        Some(final_url) => format!("{canonical} → {final_url}"),
+                        None => canonical.to_string(),
+                    },
+                }),
+                "status" | "fetch_error" => Some(CanonicalIssue {
+                    kind: "target_unreachable".to_string(),
+                    url: r.url.clone(),
+                    detail: match target.status_code {
+                        Some(code) => format!("{canonical} (HTTP {code})"),
+                        None => canonical.to_string(),
+                    },
+                }),
+                _ => None,
+            };
+            out.extend(issue);
         }
     }
     out
@@ -1682,6 +1875,31 @@ mod duplicate_content_tests {
         assert!(!groups.iter().any(|g| g.value == "Unique"));
     }
 
+    /// Plan 83: equal accessibility scores rank by URL, so the order is the
+    /// same whatever order the audits finished in.
+    #[test]
+    fn url_ranking_does_not_depend_on_input_order() {
+        let urls = ["https://x.test/c", "https://x.test/a", "https://x.test/b"];
+        let ranking = |order: &[usize]| {
+            let reports = order
+                .iter()
+                .map(|&i| report_with(urls[i], urls[i], "H"))
+                .collect();
+            build_batch_presentation(&crate::audit::BatchReport::from_reports(
+                reports,
+                vec![],
+                100,
+            ))
+            .url_ranking
+            .into_iter()
+            .map(|u| u.url)
+            .collect::<Vec<_>>()
+        };
+        let expected = vec!["https://x.test/a", "https://x.test/b", "https://x.test/c"];
+        assert_eq!(ranking(&[0, 1, 2]), expected);
+        assert_eq!(ranking(&[2, 0, 1]), expected);
+    }
+
     #[test]
     fn no_groups_when_all_values_distinct() {
         let reports = vec![
@@ -1874,7 +2092,7 @@ mod duplicate_content_tests {
             ),
         ];
 
-        let issues = build_canonical_issues(&reports);
+        let issues = build_canonical_issues(&reports, &[]);
         assert_eq!(issues.len(), 2);
         assert!(issues
             .iter()
@@ -1883,6 +2101,47 @@ mod duplicate_content_tests {
             .iter()
             .any(|i| i.kind == "og_url_mismatch" && i.url == "https://x.test/b"));
         // page c must not be flagged (trailing-slash-only difference)
+        assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
+    }
+
+    #[test]
+    fn canonical_target_status_comes_from_sitemap_check() {
+        let reports = vec![
+            report_with_canonical("https://x.test/a", Some("https://x.test/old"), None, None),
+            report_with_canonical("https://x.test/b", Some("https://x.test/gone/"), None, None),
+            report_with_canonical(
+                "https://x.test/c",
+                Some("https://x.test/elsewhere"),
+                None,
+                None,
+            ),
+        ];
+        let sitemap_issues = vec![
+            crate::audit::SitemapHttpIssue {
+                kind: "redirect".to_string(),
+                url: "https://x.test/old".to_string(),
+                status_code: Some(301),
+                final_url: Some("https://x.test/new".to_string()),
+                detail: String::new(),
+            },
+            crate::audit::SitemapHttpIssue {
+                kind: "status".to_string(),
+                url: "https://x.test/gone".to_string(),
+                status_code: Some(404),
+                final_url: None,
+                detail: String::new(),
+            },
+        ];
+
+        let issues = build_canonical_issues(&reports, &sitemap_issues);
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().any(|i| i.kind == "target_redirects"
+            && i.url == "https://x.test/a"
+            && i.detail == "https://x.test/old → https://x.test/new"));
+        assert!(issues.iter().any(|i| i.kind == "target_unreachable"
+            && i.url == "https://x.test/b"
+            && i.detail.ends_with("(HTTP 404)")));
+        // a target outside the sitemap check stays unchecked, not flagged
         assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
     }
 
@@ -2098,6 +2357,90 @@ mod minification_inconsistency_tests {
                 measurement_warnings: vec![],
             },
         )
+    }
+
+    fn report_with_blocking(url: &str, scripts: &[&str]) -> AuditReport {
+        let mut report = report_with_perf(url, &[], &[], &[]);
+        let rb = report
+            .performance
+            .as_mut()
+            .and_then(|p| p.render_blocking.as_mut())
+            .expect("fixture has render-blocking data");
+        rb.blocking_scripts = scripts
+            .iter()
+            .map(|u| crate::performance::BlockingResource {
+                url: u.to_string(),
+                transfer_bytes: 2048,
+                kind: "script".to_string(),
+            })
+            .collect();
+        report
+    }
+
+    /// Plan 93: a file is counted once per page, versions stay distinct,
+    /// a file on one page only is not "shared".
+    #[test]
+    fn shared_blocking_resources_by_exact_url() {
+        let reports = vec![
+            report_with_blocking(
+                "https://x.test/a",
+                &["https://x.test/app.js?v=1", "https://x.test/a.js"],
+            ),
+            report_with_blocking(
+                "https://x.test/b",
+                &["https://x.test/app.js?v=1", "https://x.test/app.js?v=1"],
+            ),
+            report_with_blocking("https://x.test/c", &["https://x.test/app.js?v=2"]),
+        ];
+        let shared = build_shared_blocking_resources(&reports);
+        assert_eq!(shared.len(), 1, "{shared:?}");
+        assert_eq!(shared[0].url, "https://x.test/app.js?v=1");
+        assert_eq!(shared[0].pages, 2);
+        assert_eq!(shared[0].kind, "script");
+    }
+
+    fn compact(
+        url: &str,
+        page_type: Option<&str>,
+        score: f32,
+        issues: &[&str],
+    ) -> CompactUrlSummary {
+        CompactUrlSummary {
+            url: url.to_string(),
+            score,
+            grade: String::new(),
+            critical_violations: 0,
+            total_violations: 0,
+            page_type: page_type.map(str::to_string),
+            page_attributes: vec![],
+            page_semantic_score: None,
+            biggest_lever: String::new(),
+            topic_terms: vec![],
+            top_issues: issues.iter().map(|i| i.to_string()).collect(),
+            module_scores: vec![],
+        }
+    }
+
+    /// Plan 93: group means need at least two pages; unknown types are left
+    /// out; the common finding needs two pages of the group.
+    #[test]
+    fn page_type_groups_have_explicit_size() {
+        let details = vec![
+            compact("a", Some("Editorial"), 80.0, &["Kontrast", "Alt-Text"]),
+            compact("b", Some("Editorial"), 61.0, &["Kontrast"]),
+            compact("c", Some("Editorial"), 70.0, &["Labels"]),
+            compact("d", Some("Hub"), 90.0, &["Kontrast"]),
+            compact("e", None, 10.0, &["Kontrast"]),
+        ];
+        let groups = build_page_type_groups(&details);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].page_type, "Editorial");
+        assert_eq!(groups[0].pages, 3);
+        assert_eq!(groups[0].avg_accessibility, Some(70));
+        assert_eq!(groups[0].common_finding, Some(("Kontrast".to_string(), 2)));
+        assert_eq!(groups[1].page_type, "Hub");
+        assert_eq!(groups[1].avg_accessibility, None);
+        assert_eq!(groups[1].common_finding, None);
     }
 
     #[test]

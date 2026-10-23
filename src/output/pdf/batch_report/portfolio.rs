@@ -7,7 +7,7 @@ use renderreport::prelude::*;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::design::tokens;
 use super::appendix::render_batch_crawl_links;
@@ -54,69 +54,62 @@ pub(super) fn render_batch_module_portfolio(
     }
     builder = builder.add_component(grid);
 
-    let total = pres.portfolio_summary.total_urls;
+    // Average, then the spread over the pages that measured the module —
+    // no "clean pages" from score ≥ 90, which says nothing about findings
+    // (plan 86).
     let mut table = AuditTable::new(vec![
         TableColumn::new(i18n.t("batch-col-module")).with_width("20%"),
         TableColumn::new(i18n.t("batch-col-score")).with_width("14%"),
-        TableColumn::new(i18n.t("batch-col-clean-pages")).with_width("18%"),
-        TableColumn::new(i18n.t("batch-col-effect")).with_width("48%"),
+        TableColumn::new(i18n.t("batch-col-spread")).with_width("22%"),
+        TableColumn::new(i18n.t("batch-col-effect")).with_width("44%"),
     ])
     .with_title(i18n.t("batch-module-portfolio-table-title"));
 
     for (name, score) in &pres.portfolio_summary.module_averages {
-        let clean_pages = clean_pages_for_module(pres, name);
+        let spread = match module_score_spread(pres, name) {
+            Some((min, max, pages)) if min == max => i18n.t_args(
+                "batch-module-spread-constant",
+                &[("value", min.to_string()), ("pages", pages.to_string())],
+            ),
+            Some((min, max, pages)) => i18n.t_args(
+                "batch-module-spread-range",
+                &[
+                    ("min", min.to_string()),
+                    ("max", max.to_string()),
+                    ("pages", pages.to_string()),
+                ],
+            ),
+            None => "—".to_string(),
+        };
         table = table.add_row(vec![
             localized_module_name(name, en).to_string(),
             format!("{score}/100"),
-            i18n.t_args(
-                "batch-module-clean-count",
-                &[
-                    ("clean", clean_pages.to_string()),
-                    ("total", total.to_string()),
-                ],
-            ),
-            module_effect_sentence(name, *score, clean_pages, total, en),
+            spread,
+            module_effect_sentence(name, *score, en),
         ]);
     }
     builder = builder.add_component(table);
 
-    let all_clean: Vec<String> = pres
-        .portfolio_summary
-        .module_averages
-        .iter()
-        .filter(|(name, _)| clean_pages_for_module(pres, name) == total && total > 0)
-        .map(|(name, _)| localized_module_name(name, en).to_string())
-        .collect();
-    if !all_clean.is_empty() {
-        builder = builder.add_component(
-            Callout::success(
-                i18n.t_args(
-                    "batch-module-clean-confirmation",
-                    &[
-                        ("modules", all_clean.join(", ")),
-                        ("total", total.to_string()),
-                    ],
-                )
-                .as_str(),
-            )
-            .with_title(i18n.t("batch-module-clean-title")),
-        );
-    }
-
     builder
 }
 
-pub(super) fn clean_pages_for_module(pres: &BatchPresentation, module_name: &str) -> usize {
-    pres.url_details
+/// (min, max, pages) of a module's score over the URLs that measured it.
+pub(super) fn module_score_spread(
+    pres: &BatchPresentation,
+    module_name: &str,
+) -> Option<(u32, u32, usize)> {
+    let scores: Vec<u32> = pres
+        .url_details
         .iter()
-        .filter(|detail| {
+        .filter_map(|detail| {
             detail
                 .module_scores
                 .iter()
                 .find(|(name, _)| name == module_name)
-                .is_some_and(|(_, score)| *score >= 90)
+                .map(|(_, score)| *score)
         })
-        .count()
+        .collect();
+    Some((*scores.iter().min()?, *scores.iter().max()?, scores.len()))
 }
 
 pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
@@ -139,22 +132,7 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
     }
 }
 
-pub(super) fn module_effect_sentence(
-    module_name: &str,
-    score: u32,
-    clean_pages: usize,
-    total: usize,
-    en: bool,
-) -> String {
-    if clean_pages == total && total > 0 {
-        return if en {
-            "Checked across the audited URL set with no relevant anomalies in the green band."
-                .to_string()
-        } else {
-            "Im geprüften URL-Set ohne relevante Auffälligkeiten im grünen Bereich.".to_string()
-        };
-    }
-
+pub(super) fn module_effect_sentence(module_name: &str, score: u32, en: bool) -> String {
     let band = match score {
         90..=100 => 0,
         75..=89 => 1,
@@ -256,10 +234,10 @@ pub(super) fn render_batch_impact_summary(
 
     let user_impact = match (a11y_avg, en) {
         (s, true) if s < 50 => {
-            "Critical — core functions are unreachable for users with disabilities"
+            "Critical — on the audited pages, barriers severely hamper use with assistive technologies"
         }
         (s, false) if s < 50 => {
-            "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar"
+            "Kritisch — auf den geprüften Seiten erschweren Barrieren die Nutzung mit Hilfstechnologien erheblich"
         }
         (s, true) if s < 70 => {
             "Limited — structural issues impede users with assistive technologies"
@@ -277,10 +255,12 @@ pub(super) fn render_batch_impact_summary(
         (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
     };
     let business_impact = if dist.critical > 0 {
+        // About the audited pages: how far beyond the sample the barriers
+        // reach is not measured (plan 80).
         if en {
-            "Large parts of the website are unusable or barely usable for certain user groups."
+            "The audited pages contain critical barriers for certain user groups; how far they reach beyond these pages is not measured."
         } else {
-            "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+            "Die geprüften Seiten enthalten kritische Barrieren für bestimmte Nutzergruppen; wie weit sie über diese Seiten hinausreichen, ist nicht gemessen."
         }
     } else if dist.high > 0 {
         if en {
@@ -289,9 +269,9 @@ pub(super) fn render_batch_impact_summary(
             "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
         }
     } else if en {
-        "Low impact — users can fundamentally use the website."
+        "Low impact on the audited pages — no critical or high barriers detected automatically."
     } else {
-        "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
+        "Geringe Auswirkung auf den geprüften Seiten — automatisiert keine kritischen oder hohen Barrieren erkannt."
     };
     let legal_impact = if dist.critical > 0 {
         if en {
@@ -343,7 +323,7 @@ pub(super) fn render_batch_url_ranking(
         .map(|(i, u)| {
             let mut row = BenchmarkRow::new(
                 (i + 1) as u32,
-                &truncate_url(&u.url, 35),
+                &short_url(&u.url, 35),
                 u.overall_score,
                 u.score as u32,
                 u.critical_violations as u32,
@@ -417,10 +397,10 @@ pub(super) fn render_batch_tech_url_matrix(
             .unwrap_or_else(|| "—".to_string());
         matrix = matrix.add_row(vec![
             row.rank.to_string(),
-            truncate_url(&row.url, 34),
+            short_url(&row.url, 34),
             row.title
                 .as_deref()
-                .map(|t| truncate_url(t, 36))
+                .map(|t| short_url(t, 36))
                 .unwrap_or_else(|| "—".to_string()),
             row.inbound_links.to_string(),
             row.outbound_links.to_string(),
@@ -441,17 +421,17 @@ pub(super) fn render_batch_tech_url_matrix(
 
         for detail in pres.url_details.iter().take(10) {
             focus_table = focus_table.add_row(vec![
-                truncate_url(&detail.url, 38),
+                short_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
                 if detail.page_attributes.is_empty() {
                     "—".to_string()
                 } else {
-                    truncate_url(&detail.page_attributes.join(", "), 40)
+                    short_url(&detail.page_attributes.join(", "), 40)
                 },
                 if detail.top_issues.is_empty() {
                     "—".to_string()
                 } else {
-                    truncate_url(&detail.top_issues.join(", "), 52)
+                    short_url(&detail.top_issues.join(", "), 52)
                 },
             ]);
         }
@@ -459,4 +439,32 @@ pub(super) fn render_batch_tech_url_matrix(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{AuditReport, BatchReport};
+    use crate::cli::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    /// Plan 86: identical scores read as one value on all measured pages,
+    /// and a module no page measured has no spread at all.
+    #[test]
+    fn module_spread_reports_min_max_over_measured_pages() {
+        let reports = ["https://x.test/a", "https://x.test/b"]
+            .iter()
+            .map(|url| AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100))
+            .collect();
+        let pres = crate::output::builder::build_batch_presentation(&BatchReport::from_reports(
+            reports,
+            vec![],
+            100,
+        ));
+        assert_eq!(
+            module_score_spread(&pres, "Accessibility"),
+            Some((100, 100, 2))
+        );
+        assert_eq!(module_score_spread(&pres, "Performance"), None);
+    }
 }

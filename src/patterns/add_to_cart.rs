@@ -16,7 +16,7 @@
 use crate::accessibility::AXTree;
 
 use super::{
-    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind,
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
     PURCHASE_FINAL_HINTS,
 };
 
@@ -47,10 +47,9 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
     out.add_recognized(
         "AddToCart",
-        format!(
-            "Add-to-cart trigger detected: {}",
-            trigger.name.as_deref().unwrap_or("(unnamed button)")
-        ),
+        PatternMessage::AddToCart {
+            trigger: trigger.name.clone(),
+        },
         PatternConfidence::Partial,
     );
 

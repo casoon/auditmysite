@@ -6,7 +6,7 @@ use renderreport::prelude::*;
 use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::helpers::{effort_label_i18n, severity_label_i18n};
 
@@ -148,9 +148,9 @@ pub(super) fn build_batch_assessment(
     } else if score < 75 {
         if dist.critical > 0 {
             if en {
-                "Usable, but legally risky".to_string()
+                "Usable, but with critical barriers".to_string()
             } else {
-                "Nutzbar, aber rechtlich riskant".to_string()
+                "Nutzbar, aber mit kritischen Barrieren".to_string()
             }
         } else if dist.high > 0 {
             if en {
@@ -166,9 +166,9 @@ pub(super) fn build_batch_assessment(
     } else if score < 90 {
         if dist.critical > 0 {
             if en {
-                "Technically stable, but legally risky".to_string()
+                "Technically stable, but with critical barriers".to_string()
             } else {
-                "Technisch stabil, aber rechtlich riskant".to_string()
+                "Technisch stabil, aber mit kritischen Barrieren".to_string()
             }
         } else if dist.high > 0 {
             if en {
@@ -371,13 +371,27 @@ pub(super) fn render_batch_internal_comparison(
         if scored.is_empty() {
             continue;
         }
-        scored.sort_by_key(|(_, score)| *score);
+        scored.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(b.0)));
         let (worst_url, worst_score) = scored[0];
         let (best_url, best_score) = scored[scored.len() - 1];
+        // No variation: a best and a weakest URL would be an arbitrary pick
+        // (plan 86).
+        if best_score == worst_score {
+            let same = if en {
+                format!("{best_score}/100 on all {} measured pages", scored.len())
+            } else {
+                format!(
+                    "{best_score}/100 auf allen {} Seiten mit Messung",
+                    scored.len()
+                )
+            };
+            rows.push(vec![module, same, "—".to_string()]);
+            continue;
+        }
         rows.push(vec![
             module,
-            format!("{} ({}/100)", truncate_url(best_url, 34), best_score),
-            format!("{} ({}/100)", truncate_url(worst_url, 34), worst_score),
+            format!("{} ({}/100)", short_url(best_url, 34), best_score),
+            format!("{} ({}/100)", short_url(worst_url, 34), worst_score),
         ]);
     }
     if !rows.is_empty() {
@@ -407,14 +421,14 @@ pub(super) fn render_batch_internal_comparison(
                 if en {
                     format!(
                         "{}: {} / 100 ({} points below average)",
-                        truncate_url(&url.url, 70),
+                        short_url(&url.url, 70),
                         url.score.round() as u32,
                         delta.abs()
                     )
                 } else {
                     format!(
                         "{}: {} / 100 ({} Punkte unter Durchschnitt)",
-                        truncate_url(&url.url, 70),
+                        short_url(&url.url, 70),
                         url.score.round() as u32,
                         delta.abs()
                     )
@@ -475,12 +489,12 @@ pub(super) fn render_batch_decision_actions(
         let root: String = if let Some(cluster) = cluster {
             cluster.decision_label.clone()
         } else if group.is_component_issue || group.affected_urls.len() > 1 {
+            // Recurring is observed; a shared component is not (plan 85).
             if en {
-                "likely shared component/template"
+                format!("recurs on {} pages, cause open", group.affected_urls.len())
             } else {
-                "vermutlich Komponente/Template"
+                format!("auf {} Seiten, Ursache offen", group.affected_urls.len())
             }
-            .to_string()
         } else if en {
             "page-specific".to_string()
         } else {
@@ -491,18 +505,19 @@ pub(super) fn render_batch_decision_actions(
             severity_label_i18n(group.severity, i18n),
             crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
             effort_label_i18n(group.effort, i18n),
-            if en {
-                format!(
-                    "{} occurrences / {} URLs",
-                    group.occurrence_count,
-                    group.affected_urls.len()
-                )
-            } else {
-                format!(
-                    "{} Vorkommen / {} URLs",
-                    group.occurrence_count,
-                    group.affected_urls.len()
-                )
+            {
+                let urls = group.affected_urls.len();
+                let url_unit = if urls == 1 { "URL" } else { "URLs" };
+                if en {
+                    let occ = if group.occurrence_count == 1 {
+                        "occurrence"
+                    } else {
+                        "occurrences"
+                    };
+                    format!("{} {occ} / {urls} {url_unit}", group.occurrence_count)
+                } else {
+                    format!("{} Vorkommen / {urls} {url_unit}", group.occurrence_count)
+                }
             },
         ]);
         count += 1;
@@ -522,18 +537,21 @@ pub(super) fn build_batch_key_points(
     let en = is_english(i18n);
     let mut points = Vec::with_capacity(3);
 
-    // Point 1: Critical/high count across all URLs
+    // Point 1: critical/high WCAG occurrences, with the per-page finding
+    // groups they form — two different counts, both named (plan 79).
     let ch = dist.critical + dist.high;
+    let occ = &pres.portfolio_summary.occurrence_distribution;
+    let ch_occurrences = occ.critical + occ.high;
     if ch > 0 {
         if en {
             points.push(format!(
-                "{} critical/high violations across {} URLs",
-                ch, pres.portfolio_summary.total_urls
+                "{} critical/high WCAG occurrences on {} URLs ({} findings, grouped per page)",
+                ch_occurrences, pres.portfolio_summary.total_urls, ch
             ));
         } else {
             points.push(format!(
-                "{} kritische/hohe Verstöße über {} URLs hinweg",
-                ch, pres.portfolio_summary.total_urls
+                "{} kritische/hohe WCAG-Vorkommen auf {} URLs ({} Befunde, je Seite gruppiert)",
+                ch_occurrences, pres.portfolio_summary.total_urls, ch
             ));
         }
     }

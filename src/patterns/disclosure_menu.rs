@@ -23,7 +23,9 @@
 
 use crate::accessibility::{AXNode, AXTree};
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 /// Die Rollen, unter denen Chrome ein natives `<summary>` im
 /// Accessibility-Tree führt. `DisclosureTriangleGrouped` ist die Variante in
@@ -46,14 +48,6 @@ fn triggers(tree: &AXTree) -> (Vec<&AXNode>, Vec<&AXNode>) {
     (aria, native)
 }
 
-fn plural(n: usize) -> &'static str {
-    if n == 1 {
-        "trigger"
-    } else {
-        "triggers"
-    }
-}
-
 pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let (aria, native) = triggers(tree);
     if !aria.is_empty() || !native.is_empty() {
@@ -72,11 +66,9 @@ fn recognize(aria: &[&AXNode], native: &[&AXNode], out: &mut PatternAnalysis) {
         // Attributbeziehung, die fehlen könnte.
         out.add_recognized(
             "DisclosureMenu",
-            format!(
-                "{} native disclosure {} (<details>/<summary>) — semantics come from the element, no ARIA needed.",
-                native.len(),
-                plural(native.len())
-            ),
+            PatternMessage::DisclosureNative {
+                native: native.len(),
+            },
             PatternConfidence::Strong,
         );
         return;
@@ -87,27 +79,11 @@ fn recognize(aria: &[&AXNode], native: &[&AXNode], out: &mut PatternAnalysis) {
     } else {
         PatternConfidence::Partial
     };
-    let mut detail = if with_controls == disclosure_count {
-        format!(
-            "{} disclosure {} with aria-expanded and aria-controls — well-formed pattern.",
-            disclosure_count,
-            plural(disclosure_count)
-        )
-    } else {
-        format!(
-            "{} disclosure {} with aria-expanded ({} with aria-controls). Controls relationship strengthens screen-reader announcements.",
-            disclosure_count,
-            plural(disclosure_count),
-            with_controls
-        )
+    let detail = PatternMessage::Disclosure {
+        triggers: disclosure_count,
+        with_controls,
+        native: native.len(),
     };
-    if !native.is_empty() {
-        detail.push_str(&format!(
-            " Plus {} native <details>/<summary> {}.",
-            native.len(),
-            plural(native.len())
-        ));
-    }
     out.add_recognized("DisclosureMenu", detail, confidence);
 }
 

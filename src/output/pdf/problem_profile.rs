@@ -364,12 +364,12 @@ pub(super) fn build_problem_concentration_note(
     }
     Some(if en {
         format!(
-            "{} occurrences were detected. About {}% of them trace back to just {} recurring causes. Most affected: {}.",
+            "{} occurrences were detected. About {}% of them fall on just {} findings. Most affected: {}.",
             c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
         )
     } else {
         format!(
-            "{} Vorkommen wurden erkannt. Rund {} % davon lassen sich auf {} wiederkehrende Ursachen zurückführen. Besonders betroffen: {}.",
+            "{} Vorkommen wurden erkannt. Rund {} % davon entfallen auf nur {} Befunde. Besonders betroffen: {}.",
             c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
         )
     })

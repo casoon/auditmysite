@@ -315,12 +315,18 @@ pub async fn analyze_sitemap_diagnostics(
         .build()
         .unwrap_or_else(|_| Client::new());
 
-    let mut http_issues: Vec<SitemapHttpIssue> = futures::stream::iter(sitemap_urls.iter())
-        .map(|url| check_sitemap_url(&client, url))
-        .buffer_unordered(8)
-        .filter_map(|issue| async move { issue })
-        .collect()
-        .await;
+    let checks: Vec<(&'static str, Option<SitemapHttpIssue>)> =
+        futures::stream::iter(sitemap_urls.iter())
+            .map(|url| check_sitemap_url(&client, url))
+            .buffer_unordered(8)
+            .collect()
+            .await;
+    let mut status_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut http_issues: Vec<SitemapHttpIssue> = Vec::new();
+    for (class, issue) in checks {
+        *status_counts.entry(class.to_string()).or_insert(0) += 1;
+        http_issues.extend(issue);
+    }
     http_issues.sort_by(|a, b| a.url.cmp(&b.url).then_with(|| a.kind.cmp(&b.kind)));
 
     let sitemap_set: HashSet<String> = sitemap_urls
@@ -331,7 +337,15 @@ pub async fn analyze_sitemap_diagnostics(
         .iter()
         .filter_map(|r| normalize_url(&r.url))
         .collect();
-    let linked_set = collect_internal_link_targets(reports);
+    // The homepage's own links are observed inbound links too (plan 82).
+    let homepage = match homepage_url(sitemap_urls, reports) {
+        Some(url) => fetch_homepage_links(&url, reports).await,
+        None => None,
+    };
+    let mut linked_set = collect_internal_link_targets(reports);
+    if let Some(start) = &homepage {
+        linked_set.extend(start.links.iter().cloned());
+    }
 
     let mut orphan_sitemap_urls: Vec<String> = sitemap_set
         .iter()
@@ -358,15 +372,22 @@ pub async fn analyze_sitemap_diagnostics(
         .map(|robots| find_robots_sitemap_conflicts(sitemap_urls, robots))
         .unwrap_or_default();
 
-    let crawl_depths = build_crawl_depth_diagnostics(sitemap_urls, reports);
+    let crawl_depths = homepage
+        .as_ref()
+        .map(|start| build_crawl_depth_diagnostics(start, sitemap_urls, reports));
+    let crawl_depths_unavailable = crawl_depths
+        .is_none()
+        .then(|| "homepage_unavailable".to_string());
 
     SitemapDiagnostics {
+        status_counts,
         checked_urls: sitemap_urls.len(),
         http_issues,
         orphan_sitemap_urls,
         linked_not_in_sitemap,
         robots_conflicts,
         crawl_depths,
+        crawl_depths_unavailable,
     }
 }
 
@@ -443,7 +464,8 @@ fn find_robots_sitemap_conflicts(
     conflicts
 }
 
-async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssue> {
+/// HTTP status class of one sitemap URL plus the issue it raises, if any.
+async fn check_sitemap_url(client: &Client, url: &str) -> (&'static str, Option<SitemapHttpIssue>) {
     let response = match client
         .get(url)
         .header("User-Agent", "auditmysite-sitemap-validator/1.0")
@@ -452,17 +474,27 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
     {
         Ok(response) => response,
         Err(err) => {
-            return Some(SitemapHttpIssue {
-                kind: "fetch_error".to_string(),
-                url: url.to_string(),
-                status_code: None,
-                final_url: None,
-                detail: err.to_string(),
-            });
+            return (
+                "fetch_error",
+                Some(SitemapHttpIssue {
+                    kind: "fetch_error".to_string(),
+                    url: url.to_string(),
+                    status_code: None,
+                    final_url: None,
+                    detail: err.to_string(),
+                }),
+            );
         }
     };
 
     let status = response.status();
+    let class = match status.as_u16() {
+        200..=299 => "2xx",
+        300..=399 => "3xx",
+        400..=499 => "4xx",
+        500..=599 => "5xx",
+        _ => "other",
+    };
     if status.is_redirection() {
         let final_url = response
             .headers()
@@ -470,23 +502,29 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
             .and_then(|value| value.to_str().ok())
             .and_then(|location| resolve_url(url, location))
             .unwrap_or_else(|| url.to_string());
-        return Some(SitemapHttpIssue {
-            kind: "redirect".to_string(),
-            url: url.to_string(),
-            status_code: Some(status.as_u16()),
-            final_url: Some(final_url.clone()),
-            detail: final_url,
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "redirect".to_string(),
+                url: url.to_string(),
+                status_code: Some(status.as_u16()),
+                final_url: Some(final_url.clone()),
+                detail: final_url,
+            }),
+        );
     }
 
     if status.as_u16() != 200 {
-        return Some(SitemapHttpIssue {
-            kind: "status".to_string(),
-            url: url.to_string(),
-            status_code: Some(status.as_u16()),
-            final_url: None,
-            detail: status.to_string(),
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "status".to_string(),
+                url: url.to_string(),
+                status_code: Some(status.as_u16()),
+                final_url: None,
+                detail: status.to_string(),
+            }),
+        );
     }
 
     let headers_noindex = response
@@ -497,20 +535,23 @@ async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssu
     let body = response.text().await.unwrap_or_default();
     let meta_noindex = contains_noindex_meta(&body);
     if headers_noindex || meta_noindex {
-        return Some(SitemapHttpIssue {
-            kind: "noindex".to_string(),
-            url: url.to_string(),
-            status_code: Some(200),
-            final_url: None,
-            detail: if headers_noindex {
-                "x-robots-tag".to_string()
-            } else {
-                "meta robots".to_string()
-            },
-        });
+        return (
+            class,
+            Some(SitemapHttpIssue {
+                kind: "noindex".to_string(),
+                url: url.to_string(),
+                status_code: Some(200),
+                final_url: None,
+                detail: if headers_noindex {
+                    "x-robots-tag".to_string()
+                } else {
+                    "meta robots".to_string()
+                },
+            }),
+        );
     }
 
-    None
+    (class, None)
 }
 
 fn contains_noindex(value: &str) -> bool {
@@ -567,14 +608,65 @@ fn resolve_link_target(base: &Url, target: &str) -> Option<String> {
 /// for a large batch (#548).
 const MAX_CRAWL_DEPTH_LIST: usize = 20;
 
-/// Build crawl-depth diagnostics for a sitemap-driven batch (#548), or
-/// `None` when no reasonable start-page candidate was actually audited.
+/// The homepage BFS starts from and its outbound links (plan 81).
+struct CrawlStart {
+    /// Normalized homepage URL after redirects.
+    url: String,
+    source: &'static str,
+    /// Its normalized internal links; for an audited homepage they come from
+    /// its report like every other page's.
+    links: Vec<String>,
+}
+
+/// The site root `scheme://host/` of the sitemap (or, without one, of the
+/// first audited page) — the homepage depths are measured from.
+fn homepage_url(sitemap_urls: &[String], reports: &[AuditReport]) -> Option<String> {
+    let any = sitemap_urls
+        .first()
+        .map(String::as_str)
+        .or_else(|| reports.first().map(|r| r.url.as_str()))?;
+    Url::parse(any).ok()?.join("/").ok().map(|u| u.to_string())
+}
+
+/// Resolves the homepage as BFS entry: one GET (redirects followed, 15 s
+/// budget, same client as the sitemap checks) for its final URL. When that
+/// URL was audited, its report supplies the links; otherwise they are read
+/// from the fetched HTML. The fetch is no audit — it changes no page count
+/// or score. `None` when the homepage cannot be fetched: then there is no
+/// homepage depth, rather than a depth from some other page under that label.
+async fn fetch_homepage_links(url: &str, reports: &[AuditReport]) -> Option<CrawlStart> {
+    let client = build_browser_client(15).ok()?;
+    let response = client.get(url).send().await.ok()?.error_for_status().ok()?;
+    let final_url = response.url().to_string();
+    let start = normalize_url(&final_url)?;
+    if reports
+        .iter()
+        .any(|r| normalize_url(&r.url).as_deref() == Some(start.as_str()))
+    {
+        return Some(CrawlStart {
+            url: start,
+            source: "audited_homepage",
+            links: Vec::new(),
+        });
+    }
+    let host = Url::parse(&final_url).ok()?.host_str()?.to_string();
+    let html = response.text().await.ok()?;
+    let (internal, _) = super::crawl::extract_links(&final_url, &host, &html);
+    Some(CrawlStart {
+        url: start,
+        source: "fetched_homepage",
+        links: internal.iter().filter_map(|l| normalize_url(l)).collect(),
+    })
+}
+
+/// Build crawl-depth diagnostics for a sitemap-driven batch (#548) from the
+/// homepage entry (plan 81).
 fn build_crawl_depth_diagnostics(
+    start: &CrawlStart,
     sitemap_urls: &[String],
     reports: &[AuditReport],
-) -> Option<CrawlDepthDiagnostics> {
-    let start_url = choose_crawl_start_url(sitemap_urls, reports)?;
-    let depths = compute_crawl_depths(&start_url, reports);
+) -> CrawlDepthDiagnostics {
+    let depths = compute_crawl_depths(start, reports);
 
     let mut depth_histogram: BTreeMap<usize, usize> = BTreeMap::new();
     for depth in depths.values() {
@@ -607,38 +699,14 @@ fn build_crawl_depth_diagnostics(
     // presenting a partial graph as complete (#548 acceptance criterion).
     let partial_batch = reports.len() < sitemap_urls.len();
 
-    Some(CrawlDepthDiagnostics {
-        start_url,
+    CrawlDepthDiagnostics {
+        start_url: start.url.clone(),
+        start_source: start.source.to_string(),
         depth_histogram,
         deepest_pages,
         unreachable_pages,
         partial_batch,
-    })
-}
-
-/// Heuristic start page for crawl-depth BFS: the shortest-path sitemap URL
-/// (root `/` naturally wins ties), restricted to URLs that were actually
-/// audited — a candidate whose own outbound links were never extracted
-/// can't seed a BFS. Ties broken alphabetically for determinism. Returns
-/// `None` when every sitemap URL fell outside the audited/sampled set.
-fn choose_crawl_start_url(sitemap_urls: &[String], reports: &[AuditReport]) -> Option<String> {
-    let audited_urls: HashSet<String> = reports
-        .iter()
-        .filter_map(|r| normalize_url(&r.url))
-        .collect();
-
-    sitemap_urls
-        .iter()
-        .filter(|url| {
-            normalize_url(url).is_some_and(|normalized| audited_urls.contains(&normalized))
-        })
-        .min_by_key(|url| {
-            let path_len = Url::parse(url)
-                .map(|u| u.path().len())
-                .unwrap_or(usize::MAX);
-            (path_len, (*url).clone())
-        })
-        .cloned()
+    }
 }
 
 /// BFS distance (in clicks) from `start_url` to every page in `reports`,
@@ -652,18 +720,11 @@ fn choose_crawl_start_url(sitemap_urls: &[String], reports: &[AuditReport]) -> O
 /// page URLs; a page present in `reports` but absent from the returned map
 /// was never reached from `start_url` within this batch — a distinct state
 /// from "very deep", not a default/fallback depth.
-fn compute_crawl_depths(start_url: &str, reports: &[AuditReport]) -> HashMap<String, usize> {
-    let Some(start) = normalize_url(start_url) else {
-        return HashMap::new();
-    };
-
+fn compute_crawl_depths(start: &CrawlStart, reports: &[AuditReport]) -> HashMap<String, usize> {
     let audited_urls: HashSet<String> = reports
         .iter()
         .filter_map(|r| normalize_url(&r.url))
         .collect();
-    if !audited_urls.contains(&start) {
-        return HashMap::new();
-    }
 
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
     for report in reports {
@@ -686,10 +747,24 @@ fn compute_crawl_depths(start_url: &str, reports: &[AuditReport]) -> HashMap<Str
         }
     }
 
+    // A fetched homepage is no audited page: its links seed the graph,
+    // limited to audited pages like every other edge.
+    if start.source == "fetched_homepage" {
+        adjacency.insert(
+            start.url.clone(),
+            start
+                .links
+                .iter()
+                .filter(|l| audited_urls.contains(*l))
+                .cloned()
+                .collect(),
+        );
+    }
+
     let mut depths: HashMap<String, usize> = HashMap::new();
-    depths.insert(start.clone(), 0);
+    depths.insert(start.url.clone(), 0);
     let mut queue: VecDeque<String> = VecDeque::new();
-    queue.push_back(start);
+    queue.push_back(start.url.clone());
     while let Some(current) = queue.pop_front() {
         let current_depth = depths[&current];
         let Some(neighbors) = adjacency.get(&current) else {
@@ -701,6 +776,10 @@ fn compute_crawl_depths(start_url: &str, reports: &[AuditReport]) -> HashMap<Str
                 queue.push_back(neighbor.clone());
             }
         }
+    }
+    // The histogram and the unreached list count audited pages only.
+    if !audited_urls.contains(&start.url) {
+        depths.remove(&start.url);
     }
     depths
 }
@@ -1412,7 +1491,7 @@ mod tests {
             report_with_links("https://example.com/a", &["/b"]),
             report_with_links("https://example.com/b", &[]),
         ];
-        let depths = compute_crawl_depths("https://example.com/", &reports);
+        let depths = compute_crawl_depths(&audited_home(), &reports);
         assert_eq!(depths.get("https://example.com/"), Some(&0));
         assert_eq!(depths.get("https://example.com/a"), Some(&1));
         assert_eq!(depths.get("https://example.com/b"), Some(&2));
@@ -1427,7 +1506,7 @@ mod tests {
             report_with_links("https://example.com/a", &["/c"]),
             report_with_links("https://example.com/c", &[]),
         ];
-        let depths = compute_crawl_depths("https://example.com/", &reports);
+        let depths = compute_crawl_depths(&audited_home(), &reports);
         assert_eq!(depths.get("https://example.com/c"), Some(&1));
     }
 
@@ -1439,7 +1518,7 @@ mod tests {
             report_with_links("https://example.com/a", &[]),
             report_with_links("https://example.com/d", &[]),
         ];
-        let depths = compute_crawl_depths("https://example.com/", &reports);
+        let depths = compute_crawl_depths(&audited_home(), &reports);
         assert_eq!(depths.get("https://example.com/a"), Some(&1));
         assert_eq!(depths.get("https://example.com/d"), None);
         assert_eq!(depths.len(), 2);
@@ -1448,36 +1527,58 @@ mod tests {
     #[test]
     fn compute_crawl_depths_single_page_batch() {
         let reports = vec![report_with_links("https://example.com/", &[])];
-        let depths = compute_crawl_depths("https://example.com/", &reports);
+        let depths = compute_crawl_depths(&audited_home(), &reports);
         assert_eq!(depths.len(), 1);
         assert_eq!(depths.get("https://example.com/"), Some(&0));
     }
 
     #[test]
     fn compute_crawl_depths_empty_input() {
-        let depths = compute_crawl_depths("https://example.com/", &[]);
+        let depths = compute_crawl_depths(&audited_home(), &[]);
         assert!(depths.is_empty());
     }
 
+    fn audited_home() -> CrawlStart {
+        CrawlStart {
+            url: "https://example.com/".to_string(),
+            source: "audited_homepage",
+            links: Vec::new(),
+        }
+    }
+
+    /// Plan 81: the homepage was not audited (a privacy page was the
+    /// shortest audited URL in the original); its fetched links seed the
+    /// graph, it is not counted as an audited page, and the privacy page is
+    /// not depth 0.
     #[test]
-    fn choose_crawl_start_url_prefers_shortest_path_among_audited() {
+    fn fetched_homepage_seeds_depths_without_counting_itself() {
         let reports = vec![
-            report_with_links("https://example.com/", &[]),
-            report_with_links("https://example.com/about", &[]),
+            report_with_links("https://example.com/datenschutz", &[]),
+            report_with_links("https://example.com/leistungen", &["/leistungen/bim"]),
+            report_with_links("https://example.com/leistungen/bim", &[]),
         ];
-        let sitemap_urls = vec![
-            "https://example.com/about".to_string(),
-            "https://example.com/".to_string(),
-        ];
-        let start = choose_crawl_start_url(&sitemap_urls, &reports);
-        assert_eq!(start, Some("https://example.com/".to_string()));
+        let start = CrawlStart {
+            url: "https://example.com/".to_string(),
+            source: "fetched_homepage",
+            links: vec![
+                "https://example.com/leistungen".to_string(),
+                "https://example.com/not-audited".to_string(),
+            ],
+        };
+        let depths = compute_crawl_depths(&start, &reports);
+        assert_eq!(depths.get("https://example.com/leistungen"), Some(&1));
+        assert_eq!(depths.get("https://example.com/leistungen/bim"), Some(&2));
+        assert_eq!(depths.get("https://example.com/datenschutz"), None);
+        assert_eq!(depths.get("https://example.com/"), None);
     }
 
     #[test]
-    fn choose_crawl_start_url_none_when_no_sitemap_url_was_audited() {
-        let reports = vec![report_with_links("https://example.com/only-audited", &[])];
-        let sitemap_urls = vec!["https://example.com/".to_string()];
-        assert_eq!(choose_crawl_start_url(&sitemap_urls, &reports), None);
+    fn homepage_url_is_the_site_root() {
+        let sitemap = vec!["https://example.com/de/datenschutz".to_string()];
+        assert_eq!(
+            homepage_url(&sitemap, &[]),
+            Some("https://example.com/".to_string())
+        );
     }
 
     #[test]
@@ -1492,7 +1593,7 @@ mod tests {
             "https://example.com/a".to_string(),
             "https://example.com/b".to_string(),
         ];
-        let diag = build_crawl_depth_diagnostics(&sitemap_urls, &reports).unwrap();
+        let diag = build_crawl_depth_diagnostics(&audited_home(), &sitemap_urls, &reports);
         assert_eq!(diag.start_url, "https://example.com/");
         assert!(diag.partial_batch);
         assert_eq!(diag.depth_histogram.get(&0), Some(&1));
@@ -1509,7 +1610,7 @@ mod tests {
             "https://example.com/".to_string(),
             "https://example.com/a".to_string(),
         ];
-        let diag = build_crawl_depth_diagnostics(&sitemap_urls, &reports).unwrap();
+        let diag = build_crawl_depth_diagnostics(&audited_home(), &sitemap_urls, &reports);
         assert!(!diag.partial_batch);
     }
 }

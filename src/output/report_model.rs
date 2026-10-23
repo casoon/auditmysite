@@ -891,6 +891,9 @@ pub struct CoveragePresentation {
     pub css_used_pct: Option<f64>,
     pub css_total_rules: Option<u32>,
     pub css_used_rules: Option<u32>,
+    /// Not every stylesheet's text could be read: the share covers the
+    /// readable ones only (plan 78).
+    pub css_partial: bool,
     /// Same file served under 2+ URLs (#551), empty unless found.
     pub duplicate_assets: Vec<DuplicateAssetRow>,
 }
@@ -1106,6 +1109,11 @@ pub struct SecurityPresentation {
     /// dependent headers so a missing-header count doesn't read as uniformly
     /// urgent (#578).
     pub headers: Vec<(String, String, String, String)>,
+    /// (component, classification, points) — how the score arose from 100:
+    /// one row per issue with its deduction from the shared contribution
+    /// list, then the HSTS bonus and the vulnerable-library penalty, so the
+    /// table adds up to `score` (plan 72).
+    pub score_rows: Vec<(String, String, String)>,
     pub ssl_info: Vec<(String, String)>,
     pub issues: Vec<(String, Severity, String)>,
     pub recommendations: Vec<String>,
@@ -1447,6 +1455,10 @@ pub struct PortfolioSummary {
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,
+    /// The same split by WCAG occurrences rather than per-page finding
+    /// groups — 21 critical + 74 high groups were 21 + 124 occurrences on
+    /// inros-lackner (plan 79). Counts naming "Vorkommen" use this one.
+    pub occurrence_distribution: SeverityDistribution,
     /// Aggregated risk level across all URLs (worst-case)
     pub risk_level: String,
     /// Risk summary text
@@ -1462,11 +1474,14 @@ pub struct PortfolioSummary {
     /// Grade based on the averaged overall score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
+    /// Audited pages grouped by detected page type, with group averages and
+    /// the most common finding (plan 93).
+    pub page_type_groups: Vec<PageTypeGroup>,
     pub distribution_insights: Vec<String>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
     pub weakest_content_pages: Vec<(String, String, u32)>,
     pub top_topics: Vec<(String, usize)>,
-    pub overlap_pairs: Vec<(String, String, u32)>,
+    pub overlap_pairs: Vec<TopicOverlapPair>,
     /// Near-duplicate content pairs detected via SimHash (url_a, url_b, similarity_pct)
     pub near_duplicates: Vec<(String, String, u8)>,
     pub crawl_links: Option<CrawlLinkSummary>,
@@ -1474,6 +1489,9 @@ pub struct PortfolioSummary {
     pub budget_summary: Vec<(String, String, usize, String)>,
     /// Aggregated render-blocking summary across all pages (metric_label, value_label)
     pub render_blocking_summary: Vec<(String, String)>,
+    /// Render-blocking resources (exact URL) found on two or more pages
+    /// (plan 93).
+    pub shared_blocking_resources: Vec<SharedBlockingResource>,
     /// Schema type distribution: (schema_type_label, url_count) sorted descending
     pub schema_distribution: Vec<(String, usize)>,
     /// Number of pages with no structured data at all
@@ -1488,6 +1506,8 @@ pub struct PortfolioSummary {
     pub hreflang_issues: Vec<HreflangIssue>,
     /// Sitemap entries with HTTP/indexability issues
     pub sitemap_http_issues: Vec<crate::audit::SitemapHttpIssue>,
+    /// HTTP status class counts over every checked sitemap URL (plan 87).
+    pub sitemap_status_counts: std::collections::BTreeMap<String, usize>,
     /// Sitemap entries not linked by any audited page
     pub orphan_sitemap_urls: Vec<String>,
     /// Internal linked URLs that are absent from the sitemap
@@ -1499,10 +1519,12 @@ pub struct PortfolioSummary {
     /// Audited URLs whose own navigation involved a long (≥3 hop) or
     /// cyclical redirect chain (#546)
     pub redirect_chain_issues: Vec<RedirectChainIssue>,
-    /// Crawl-depth diagnostics (BFS click-distance from a heuristic start
-    /// page through this batch's internal link graph, #548). `None` when
-    /// no reasonable start-page candidate was audited.
+    /// Crawl-depth diagnostics (BFS click-distance from the homepage
+    /// through this batch's internal link graph, #548, plan 81).
     pub crawl_depth_diagnostics: Option<crate::audit::CrawlDepthDiagnostics>,
+    /// Set when a sitemap batch could not fetch the homepage: depths are
+    /// then not determined (plan 81).
+    pub crawl_depths_unavailable: bool,
 }
 
 pub struct CrawlLinkSummary {
@@ -1593,4 +1615,40 @@ pub struct BatchAppendixData {
 pub struct UrlAppendix {
     pub url: String,
     pub violations: Vec<AppendixViolation>,
+}
+
+/// Two audited pages whose topic terms overlap strongly (plan 90).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TopicOverlapPair {
+    pub url_a: String,
+    pub url_b: String,
+    /// Weighted Jaccard/overlap similarity of the two term sets, 0-100.
+    /// Not a count of terms.
+    pub similarity_percent: u32,
+    /// The topic terms both pages share, without site-wide terms.
+    pub shared_terms: Vec<String>,
+}
+
+/// Audited pages of one detected page type (heuristic classification).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PageTypeGroup {
+    pub page_type: String,
+    pub pages: usize,
+    /// Mean accessibility score of the group; `None` below two pages, where
+    /// a mean compares nothing.
+    pub avg_accessibility: Option<u32>,
+    /// The finding title most pages of the group share, with its page
+    /// count; only when at least two pages share it.
+    pub common_finding: Option<(String, usize)>,
+}
+
+/// One render-blocking resource and the audited pages that load it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SharedBlockingResource {
+    pub url: String,
+    /// `script` or `css`.
+    pub kind: String,
+    pub pages: usize,
+    /// Largest transfer size seen for this URL, in bytes.
+    pub transfer_bytes: u64,
 }

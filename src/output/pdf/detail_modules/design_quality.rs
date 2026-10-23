@@ -38,7 +38,7 @@ pub(in crate::output::pdf) fn render_design_quality(
         Label::new(pick(
             i18n,
             "Heuristische, evidenzbasierte Hinweise zu UX/Lesbarkeit — kein Bestandteil des \
-             Accessibility-/Gesamt-Scores, keine rechtliche Bewertung.",
+             Barrierefreiheitswerts oder des kombinierten technischen Werts, keine rechtliche Bewertung.",
             "Heuristic, evidence-based UX/readability findings — not part of the accessibility \
              or overall score, not a legal assessment.",
         ))

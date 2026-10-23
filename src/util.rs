@@ -53,6 +53,27 @@ pub fn truncate_url(s: &str, max_len: usize) -> String {
     format!("{}...", &s[..boundary])
 }
 
+/// A URL for a narrow table cell: the scheme dropped and, when still too
+/// long, the middle cut instead of the end — the end of a path is what tells
+/// sibling pages apart. `truncate_url` turned `/aktuelles/news/hafen` and
+/// `/aktuelles/news/bahn` into the same `https://www.example.de/akt...`
+/// (plan 92). Safe for multi-byte UTF-8.
+pub fn short_url(url: &str, max_len: usize) -> String {
+    let bare = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    let chars: Vec<char> = bare.chars().collect();
+    if chars.len() <= max_len || max_len < 8 {
+        return bare.to_string();
+    }
+    let head = max_len / 3;
+    let tail = max_len - head - 1;
+    let start: String = chars[..head].iter().collect();
+    let end: String = chars[chars.len() - tail..].iter().collect();
+    format!("{start}…{end}")
+}
+
 /// Truncate a string for display purposes, ellipsizing with `…` (safe for
 /// multi-byte UTF-8). Distinct from [`truncate_url`], which appends an ASCII
 /// `...` ellipsis instead — this preserves the `…` style the `performance`
@@ -73,6 +94,23 @@ pub fn truncate_ellipsis(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_url_keeps_the_distinguishing_end() {
+        let a = short_url(
+            "https://www.example.de/aktuelles/news/hafen-hamburg-erweiterung",
+            40,
+        );
+        let b = short_url(
+            "https://www.example.de/aktuelles/news/bahnstrecke-nord-ausbau",
+            40,
+        );
+        assert_ne!(a, b);
+        assert!(a.ends_with("hafen-hamburg-erweiterung"), "{a}");
+        assert!(a.starts_with("www.example"), "{a}");
+        assert_eq!(a.chars().count(), 40);
+        assert_eq!(short_url("https://example.de/kurz", 40), "example.de/kurz");
+    }
 
     #[test]
     fn test_truncate_short_url() {

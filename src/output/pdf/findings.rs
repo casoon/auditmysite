@@ -2,7 +2,7 @@
 
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{
-    Divider, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
+    Divider, FlowGroup, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
 };
 use renderreport::components::text::Label;
 use renderreport::prelude::*;
@@ -296,12 +296,10 @@ pub(super) fn render_finding_technical(
     } else {
         format!("{}{}", severity_prefix, group.title)
     };
-    builder = builder.add_component(
-        Label::new(&header)
-            .bold()
-            .with_size("14pt")
-            .with_color(color),
-    );
+    let title = Label::new(&header)
+        .bold()
+        .with_size("14pt")
+        .with_color(color);
 
     // Plain-language lead-in: what this means and who it affects, in customer
     // language — shown BEFORE the QA-meta block so every reader sees impact
@@ -318,8 +316,18 @@ pub(super) fn render_finding_technical(
         }
         lead_in.push_str(&group.user_impact);
     }
-    if !lead_in.is_empty() {
-        builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
+    // Title and lead-in stay together: alone, the title could end a page
+    // while its text starts the next (plan 76).
+    if lead_in.is_empty() {
+        builder = builder.add_component(title);
+    } else {
+        let lead = Label::new(lead_in).with_size("10.5pt");
+        builder = builder.add_component(
+            FlowGroup::new()
+                .add_item(serde_json::json!({ "type": "label", "data": title.to_data() }))
+                .add_item(serde_json::json!({ "type": "label", "data": lead.to_data() }))
+                .with_keep_together_if_under("240pt"),
+        );
     }
 
     // Primary tier: the four things a developer scans first (who/how urgent/

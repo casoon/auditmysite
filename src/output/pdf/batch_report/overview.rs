@@ -14,7 +14,7 @@ use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::cover::{
     batch_certificate_label, build_batch_cover_score_row, certificate_badge_path,
@@ -84,12 +84,29 @@ pub(super) fn render_batch_cover(
             );
         if let Some(sample) = &batch.sample {
             let source = i18n.t(&format!("batch-source-{}", sample.source));
+            // Share and selection method, and that `first_n` is no
+            // representative choice (plan 80).
+            let pct = if sample.total_discovered > 0 {
+                let pct = sample.audited as f64 * 100.0 / sample.total_discovered as f64;
+                if is_english(i18n) {
+                    format!("{pct:.1}")
+                } else {
+                    format!("{pct:.1}").replace('.', ",")
+                }
+            } else {
+                "0".to_string()
+            };
             let scope = if sample.is_sample {
                 i18n.t_args(
-                    "batch-scope-sample",
+                    if sample.selection == "first_n" {
+                        "batch-scope-sample"
+                    } else {
+                        "batch-scope-sample-filtered"
+                    },
                     &[
                         ("audited", sample.audited.to_string()),
                         ("total", sample.total_discovered.to_string()),
+                        ("pct", pct),
                         ("source", source),
                     ],
                 )
@@ -103,6 +120,35 @@ pub(super) fn render_batch_cover(
                 )
             };
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
+        }
+        // The three sets a reader must not mix up: audited in the browser,
+        // failed, and only HTTP-checked (plans 80, 87).
+        if !batch.errors.is_empty() {
+            cover_meta = cover_meta.add(
+                i18n.t("batch-cover-frame-failed"),
+                i18n.t_args(
+                    "batch-cover-frame-failed-value",
+                    &[
+                        ("failed", batch.errors.len().to_string()),
+                        (
+                            "selected",
+                            (batch.errors.len() + batch.reports.len()).to_string(),
+                        ),
+                    ],
+                ),
+            );
+        }
+        if let Some(diagnostics) = &batch.sitemap_diagnostics {
+            cover_meta = cover_meta.add(
+                i18n.t("batch-cover-frame-http"),
+                i18n.t_args(
+                    "batch-cover-frame-http-value",
+                    &[
+                        ("checked", diagnostics.checked_urls.to_string()),
+                        ("audited", batch.reports.len().to_string()),
+                    ],
+                ),
+            );
         }
         // #653: the display mode every score in this report belongs to.
         {
@@ -176,6 +222,15 @@ pub(super) fn render_batch_cover(
             i18n,
         )?)
         .add_component(
+            Label::new(format!(
+                "{}: {}",
+                i18n.t("cover-card-average"),
+                i18n.t("batch-cover-overall-score-note")
+            ))
+            .with_size("8.5pt")
+            .with_color(crate::output::pdf::design::tokens::MUTED),
+        )
+        .add_component(
             TextBlock::new(&pres.portfolio_summary.verdict_text)
                 .with_size("11pt")
                 .with_line_height("1.4em")
@@ -220,7 +275,7 @@ fn render_batch_unaudited_urls(
     let args = unaudited_args(batch);
     let mut list = List::new().with_title(i18n.t("batch-unaudited-list-title"));
     for error in batch.errors.iter().take(MAX_LISTED_UNAUDITED_URLS) {
-        list = list.add_item(truncate_url(&error.url, 90));
+        list = list.add_item(short_url(&error.url, 90));
     }
     if batch.errors.len() > MAX_LISTED_UNAUDITED_URLS {
         list = list.add_item(i18n.t_args(
@@ -267,12 +322,15 @@ pub(super) fn render_batch_status_section(
     builder = render_batch_unaudited_urls(builder, batch, i18n);
 
     // Score overview cards
+    // Both counts are WCAG occurrences: `total_violations` sums every
+    // module's findings, `dist` counts per-page groups (plan 79).
     let score = pres.portfolio_summary.average_score.round() as u32;
+    let occ = &pres.portfolio_summary.occurrence_distribution;
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,
         score,
-        pres.portfolio_summary.total_violations as u32,
-        (dist.critical + dist.high) as u32,
+        (occ.critical + occ.high + occ.medium + occ.low) as u32,
+        (occ.critical + occ.high) as u32,
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
             (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
         }),
@@ -449,11 +507,7 @@ pub(super) fn build_batch_overview_grid(
             Some(score_quality_color(average_score)),
         ),
         (
-            if en {
-                "Sites audited"
-            } else {
-                "Geprüfte Websites"
-            },
+            if en { "URLs audited" } else { "Geprüfte URLs" },
             total_urls.to_string(),
             Some("#0f766e"),
         ),
@@ -468,9 +522,9 @@ pub(super) fn build_batch_overview_grid(
         ),
         (
             if en {
-                "Critical + High"
+                "Critical + high occurrences"
             } else {
-                "Kritisch + Hoch"
+                "Kritisch + Hoch (Vorkommen)"
             },
             critical_and_high.to_string(),
             Some("#dc2626"),

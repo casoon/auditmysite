@@ -897,6 +897,7 @@ fn build_site_analysis(
             "count": count,
             "percentage": percentage,
         })).collect::<Vec<_>>(),
+        "page_type_groups": portfolio.page_type_groups,
         "content_quality": {
             "strongest_pages": portfolio.strongest_content_pages.iter().map(|(url, page_type, score)| serde_json::json!({
                 "url": url, "page_type": page_type, "score": score,
@@ -909,8 +910,15 @@ fn build_site_analysis(
             "top_terms": portfolio.top_topics.iter().map(|(term, pages)| serde_json::json!({
                 "term": term, "page_count": pages,
             })).collect::<Vec<_>>(),
-            "overlap_pairs": portfolio.overlap_pairs.iter().map(|(url_a, url_b, shared_terms)| serde_json::json!({
-                "url_a": url_a, "url_b": url_b, "shared_terms": shared_terms,
+            // `shared_terms` always held the similarity (0-100), never a term
+            // count; kept with that value for compatibility, deprecated in
+            // favour of `similarity_percent` (plan 90).
+            "overlap_pairs": portfolio.overlap_pairs.iter().map(|pair| serde_json::json!({
+                "url_a": pair.url_a,
+                "url_b": pair.url_b,
+                "similarity_percent": pair.similarity_percent,
+                "shared_terms": pair.similarity_percent,
+                "shared_topic_terms": pair.shared_terms,
             })).collect::<Vec<_>>(),
         },
         "duplicates": {
@@ -926,6 +934,7 @@ fn build_site_analysis(
             "render_blocking_summary": portfolio.render_blocking_summary.iter().map(|(metric, value)| serde_json::json!({
                 "metric": metric, "value": value,
             })).collect::<Vec<_>>(),
+            "shared_blocking_resources": portfolio.shared_blocking_resources,
         },
         "structured_data": {
             "type_distribution": portfolio.schema_distribution.iter().map(|(schema_type, pages)| serde_json::json!({

@@ -99,15 +99,7 @@ mod tests {
         insta::assert_json_snapshot!(json, @r###"
         {
           "bfsg_compliance": {
-            "passed_criteria": [
-              "1.3.1",
-              "2.4.1",
-              "2.4.6",
-              "3.3.2",
-              "4.1.2"
-            ],
-            "verdict": "non_compliant",
-            "violations": [
+            "needs_review": [
               {
                 "affected_node_ids": [
                   "3"
@@ -117,7 +109,16 @@ mod tests {
                 "fix_required": true,
                 "wcag_criterion": "2.4.4"
               }
-            ]
+            ],
+            "passed_criteria": [
+              "1.3.1",
+              "2.4.1",
+              "2.4.6",
+              "3.3.2",
+              "4.1.2"
+            ],
+            "verdict": "needs_review",
+            "violations": []
           },
           "issues": [
             {
@@ -125,24 +126,25 @@ mod tests {
                 "3"
               ],
               "message": "Interactive name \"Hier\" is not meaningful without context.",
+              "review": true,
               "severity": "medium",
               "wcag_criterion": "2.4.4"
             },
             {
               "affected_node_ids": [],
-              "message": "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
+              "message": "No header area (banner landmark) present. Screen reader users cannot reach the page header through landmark navigation; its content stays reachable in reading mode.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
+              "message": "No navigation landmark present. Screen reader users cannot jump to the navigation through landmark navigation; the links stay reachable in reading and tab order.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
+              "message": "No footer landmark (contentinfo) present. Screen reader users cannot reach the footer through landmark navigation; its content stays reachable in reading mode.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             }
@@ -216,7 +218,7 @@ mod tests {
           "schema_version": "1.0",
           "summary": {
             "audit_quality": "ok",
-            "bfsg_violations": 1,
+            "bfsg_violations": 0,
             "heading_quality_score": 100,
             "landmark_quality_score": 25,
             "name_quality_score": 0,

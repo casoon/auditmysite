@@ -32,10 +32,7 @@ use super::detail_modules::{
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
 use super::findings::render_finding_technical;
-use super::helpers::{
-    manual_recheck_instruction, map_severity, priority_label_i18n, role_label_i18n,
-    truncate_with_ellipsis,
-};
+use super::helpers::{manual_recheck_instruction, map_severity, priority_label_i18n};
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
 use crate::cli::{AnnexKind, ReportLevel};
@@ -228,9 +225,9 @@ fn render_module_split_dashboards(
         );
         let message = if risk_gated {
             if en {
-                "The additional indicator modules (UX, Journey, …) are in good shape, but operability/legal risk elsewhere in this report still requires action — see Management Summary."
+                "The additional indicator modules (UX, Journey, …) are in good shape, but barriers elsewhere in this report (operability, possible legal relevance) still require action — see Management Summary."
             } else {
-                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch besteht an anderer Stelle in diesem Report Bedienbarkeits- oder rechtliches Risiko, das Handeln erfordert — siehe Management-Zusammenfassung."
+                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch zeigt dieser Report an anderer Stelle Barrieren mit Handlungsbedarf (Bedienbarkeit, mögliche Rechtsrelevanz) — siehe Management-Zusammenfassung."
             }
         } else if en {
             "The additional indicator modules (UX, Journey, …) are in good shape — no module needs prioritized optimization."
@@ -345,7 +342,7 @@ fn render_overall_rating(
         Label::new(if en {
             "The rating is a band label for the accessibility score within the automated scope, not a conformance certificate."
         } else {
-            "Die Einstufung ist ein Bandlabel für den Barrierefreiheits-Wert im automatisierten Prüfumfang, kein Konformitätsnachweis."
+            "Die Einstufung ist ein Bandlabel für den Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis."
         })
         .with_size("8.5pt")
         .with_color(design::tokens::MUTED),
@@ -889,7 +886,29 @@ pub(super) fn render_management_page(
         .iter()
         .map(|s| (s.subcategory_kind.label(en).to_string(), s.score))
         .collect();
-    builder = render_subcategory_breakdown(builder, en_label, &accessibility_entries, i18n);
+    // Where each critical accessibility finding counts, from the findings'
+    // own sub-area (plan 70).
+    let accessibility_critical: Vec<(String, String)> = vm
+        .findings
+        .all_findings
+        .iter()
+        .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
+        .filter_map(|f| {
+            let area = vm
+                .modules
+                .accessibility_subcategory_scores
+                .iter()
+                .find(|s| Some(s.subcategory_kind.label(true)) == f.subcategory.as_deref())?;
+            Some((f.title.clone(), area.subcategory_kind.label(en).to_string()))
+        })
+        .collect();
+    builder = render_subcategory_breakdown(
+        builder,
+        en_label,
+        &accessibility_entries,
+        &accessibility_critical,
+        i18n,
+    );
 
     let security_label = if en { "Security" } else { "Sicherheit" };
     let security_entries: Vec<(String, u32)> = vm
@@ -898,7 +917,7 @@ pub(super) fn render_management_page(
         .iter()
         .map(|s| (s.category_kind.label(en).to_string(), s.score))
         .collect();
-    builder = render_subcategory_breakdown(builder, security_label, &security_entries, i18n);
+    builder = render_subcategory_breakdown(builder, security_label, &security_entries, &[], i18n);
 
     // 3. Strengths vs. priorities as card groups
     builder = render_module_split_dashboards(builder, vm, i18n);
@@ -1002,7 +1021,7 @@ pub(super) fn render_appendix_full(
     } else {
         (
             "Anhang & Methodik",
-            "Prüfumfang, Methodik, WCAG-Coverage und die vollständige Fundstellenliste.",
+            "Prüfumfang, Methodik, WCAG-Coverage und die vollständige Liste der Vorkommen.",
         )
     };
     builder = builder.add_component(PageBreak::new()).add_component(
@@ -1409,28 +1428,32 @@ fn render_findings_section(
             } else {
                 (
                     "Befundmatrix",
-                    "Eine Zeile je Befundgruppe, sortiert nach Priorität – als Überblick zur Priorisierung, bevor die Detailkarten unten jede Zeile vertiefen.",
+                    "Eine Zeile je Regelgruppe, sortiert nach Priorität – als Überblick zur Priorisierung, bevor die Detailkarten unten jede Zeile vertiefen.",
                 )
             };
             builder = builder.add_component(Label::new(matrix_intro).with_size("10.5pt"));
 
+            // Four columns with the full finding title: six narrow ones cut
+            // titles at 48 and actions at 72 characters. The action and the
+            // owner are in the detail card below (plan 76).
             let mut table = AuditTable::new(vec![
-                TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("10%"),
-                TableColumn::new("WCAG").with_width("10%"),
-                TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("28%"),
-                TableColumn::new(if en { "Scope" } else { "Umfang" }).with_width("14%"),
-                TableColumn::new(if en { "Responsible" } else { "Zuständig" }).with_width("14%"),
-                TableColumn::new(if en { "Action" } else { "Maßnahme" }).with_width("24%"),
+                TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("13%"),
+                TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("55%"),
+                TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("16%"),
+                TableColumn::new(if en { "Effort" } else { "Aufwand" }).with_width("16%"),
             ])
             .with_title(matrix_title);
 
             for group in matrix_findings.iter().take(FINDINGS_MATRIX_MAX_ROWS) {
-                let wcag = if group.wcag_criterion.is_empty() {
-                    "n/a".to_string()
+                let finding = if group.wcag_criterion.is_empty() {
+                    group.title.clone()
                 } else if group.wcag_level.is_empty() {
-                    group.wcag_criterion.clone()
+                    format!("{} · WCAG {}", group.title, group.wcag_criterion)
                 } else {
-                    format!("{} ({})", group.wcag_criterion, group.wcag_level)
+                    format!(
+                        "{} · WCAG {} ({})",
+                        group.title, group.wcag_criterion, group.wcag_level
+                    )
                 };
                 let scope = if group.is_component_issue {
                     if en {
@@ -1445,11 +1468,9 @@ fn render_findings_section(
                 };
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
-                    wcag,
-                    truncate_with_ellipsis(&group.title, 48),
+                    finding,
                     scope,
-                    role_label_i18n(group.responsible_role, i18n),
-                    truncate_with_ellipsis(&group.recommendation, 72),
+                    super::helpers::effort_label_i18n(group.effort, i18n),
                 ]);
             }
             builder = builder.add_component(table);
@@ -1646,7 +1667,7 @@ fn render_appendix_section(
             )
         } else {
             (
-                "Vollständige Fundstellen",
+                "Alle Vorkommen",
                 "Rohdaten des Audits und die vollständige Liste aller erkannten Verstöße.",
             )
         };
@@ -1727,18 +1748,23 @@ fn render_appendix_section(
 fn render_positive_signals_section(
     mut builder: renderreport::engine::ReportBuilder,
     signals: &[PositiveSignal],
-    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if signals.is_empty() {
         return builder;
     }
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
-
+    // A short panel follows the previous chapter under its own heading
+    // instead of opening a page for a few rows (plan 76).
     let en = is_english(i18n);
+    builder = builder.add_component(
+        Section::new(if en {
+            "Recognized structural patterns"
+        } else {
+            "Erkannte Strukturmuster"
+        })
+        .with_level(2),
+    );
     let mut rows = Vec::new();
     for signal in signals {
         let status = if signal.strong {
@@ -1759,9 +1785,9 @@ fn render_positive_signals_section(
     }
 
     builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Recognized structural patterns"
+        "Recognized in the accessibility tree; no interaction test"
     } else {
-        "Erkannte Strukturmuster"
+        "Im Barrierefreiheitsbaum erkannt, ohne Interaktionstest"
     }))
 }
 
@@ -1901,7 +1927,7 @@ fn render_dual_viewport_summary_section(
         )
     } else {
         format!(
-            "Jeder Barrierefreiheits-Score bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
+            "Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
         )
     };
 
@@ -2083,13 +2109,20 @@ fn render_active_module_section(
             }
         }
         "tech_stack" => {
-            if let Some(ref ts) = vm.module_details.tech_stack {
+            // Nothing detected and nothing probed: no chapter — a page for
+            // "nothing to report" (plan 76). The JSON keeps the module.
+            if let Some(ts) = vm
+                .module_details
+                .tech_stack
+                .as_ref()
+                .filter(|ts| !ts.detected.is_empty() || !ts.findings.is_empty())
+            {
                 return (render_tech_stack(builder, ts, is_first, i18n), true);
             }
         }
         "patterns" if !vm.positive_signals.is_empty() => {
             return (
-                render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n),
+                render_positive_signals_section(builder, &vm.positive_signals, i18n),
                 true,
             );
         }

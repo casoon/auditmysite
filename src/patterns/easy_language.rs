@@ -39,7 +39,7 @@ use tracing::warn;
 use crate::accessibility::AXTree;
 use crate::i18n::I18n;
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{PatternAnalysis, PatternConfidence, PatternMessage};
 
 /// CSS class name substrings recognized as an easy-language marker.
 const CSS_CLASS_MARKERS: &[&str] = &[
@@ -188,7 +188,7 @@ pub(crate) async fn detect(page: &Page, tree: &AXTree, out: &mut PatternAnalysis
         PatternConfidence::Partial
     };
 
-    out.add_recognized("EasyLanguage", message_text(true), confidence);
+    out.add_recognized("EasyLanguage", PatternMessage::EasyLanguage, confidence);
 }
 
 #[cfg(test)]

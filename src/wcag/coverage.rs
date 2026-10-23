@@ -93,14 +93,24 @@ const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     ("1.2.1", "A", "Audio-only and Video-only (Prerecorded)"),
     ("1.2.2", "A", "Captions (Prerecorded)"),
     ("1.2.3", "A", "Audio Description or Media Alternative"),
+    // Live content does not exist in a page snapshot (plan 74: one of the
+    // three A/AA criteria that sat in neither list, 55 − 30 − 22).
+    ("1.2.4", "AA", "Captions (Live)"),
     ("1.2.5", "AA", "Audio Description (Prerecorded)"),
     ("1.3.2", "A", "Meaningful Sequence"),
+    // Whether an instruction relies on shape, size, position or sound alone
+    // is a reading of the text (plan 74).
+    ("1.3.3", "A", "Sensory Characteristics"),
     ("1.4.2", "A", "Audio Control"),
     ("1.4.5", "AA", "Images of Text"),
     ("2.1.2", "A", "No Keyboard Trap"),
     ("2.1.4", "A", "Character Key Shortcuts"),
     ("2.2.2", "A", "Pause, Stop, Hide"),
     ("2.3.1", "A", "Three Flashes or Below Threshold"),
+    // Cross-page: a single page cannot show a second way to reach it; the
+    // batch report lists pages without an observed inbound link as
+    // candidates only (plan 74, plan 82).
+    ("2.4.5", "AA", "Multiple Ways"),
     ("2.4.11", "AA", "Focus Not Obscured (Minimum)"),
     ("2.5.1", "A", "Pointer Gestures"),
     ("2.5.2", "A", "Pointer Cancellation"),
@@ -190,6 +200,19 @@ pub fn manual_review_criterion_name_de(id: &str, fallback_en: &'static str) -> &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Plan 74: every WCAG 2.2 A/AA criterion is either automated or listed
+    /// for manual review, never both — the report's 30 + 22 used to leave
+    /// three of the 55 (1.2.4, 1.3.3, 2.4.5) in neither group.
+    #[test]
+    fn automated_and_manual_partition_the_aa_criteria() {
+        let (automated_aa, total) = coverage_stats();
+        let manual = manual_review_criteria();
+        assert_eq!(automated_aa + manual.len(), total);
+        for (id, _, _) in manual {
+            assert!(!automated_criteria().iter().any(|(a, _)| a == id), "{id}");
+        }
+    }
 
     /// Plan 36 §1: the report's appendix reconciles its own totals — the A/AA
     /// count the ratio is scoped to plus the AAA criteria this tool also

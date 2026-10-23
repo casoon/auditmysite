@@ -304,8 +304,8 @@ fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedTe
             "Inadequate — relevant security issues or misconfigurations were found.",
         ),
         (Security, Critical) => (
-            "Kritisch — es bestehen erhebliche Sicherheitsrisiken mit unmittelbarem Handlungsbedarf.",
-            "Critical — significant security risks exist that require immediate action.",
+            "Kritisch — im geprüften Umfang fehlen grundlegende Schutzmaßnahmen. Das ist kein Nachweis einer ausnutzbaren Lücke, sollte aber vorrangig behoben werden.",
+            "Critical — basic protections are missing within the scope checked. That is no proof of an exploitable flaw, but it should be fixed with priority.",
         ),
 
         (HtmlConform, Excellent) => (
@@ -351,45 +351,45 @@ fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedTe
         ),
 
         (Ux, Excellent) => (
-            "Sehr gut — die Bedienung ist klar und führt Nutzer sicher durch die Seite.",
-            "Excellent — the interface is clear and guides users confidently through the page.",
+            "Sehr gut — die strukturellen Signale sprechen für eine klare, gut geführte Bedienung.",
+            "Excellent — the structural signals point to a clear, well-guided interface.",
         ),
         (Ux, Good) => (
-            "Gut — die Nutzerführung ist verständlich, einzelne Abläufe lassen sich straffen.",
-            "Good — user guidance is clear; individual flows can be tightened.",
+            "Gut — die strukturellen Signale sprechen für eine verständliche Nutzerführung; einzelne Stellen lassen sich straffen.",
+            "Good — the structural signals point to clear user guidance; individual spots can be tightened.",
         ),
         (Ux, NeedsImprovement) => (
-            "Verbesserungswürdig — Nutzerführung und Interaktion wirken stellenweise unnötig komplex.",
-            "Needs improvement — user guidance and interaction feel needlessly complex in places.",
+            "Verbesserungswürdig — die strukturellen Signale deuten stellenweise auf unnötig komplexe Nutzerführung hin.",
+            "Needs improvement — the structural signals suggest needlessly complex user guidance in places.",
         ),
         (Ux, Weak) => (
-            "Ausbaufähig — Reibungspunkte erschweren eine klare Nutzerführung.",
-            "Inadequate — friction points get in the way of clear user guidance.",
+            "Ausbaufähig — erkannte Reibungspunkte können eine klare Nutzerführung erschweren.",
+            "Inadequate — the detected friction points can get in the way of clear user guidance.",
         ),
         (Ux, Critical) => (
-            "Kritisch — die Bedienung ist unübersichtlich und behindert die Zielerreichung.",
-            "Critical — the interface is confusing and prevents users from reaching their goal.",
+            "Kritisch — die strukturellen Signale deuten auf eine unübersichtliche Bedienung hin, die das Erreichen von Zielen erschweren kann.",
+            "Critical — the structural signals point to a confusing interface that can make it hard to reach goals.",
         ),
 
         (Journey, Excellent) => (
-            "Sehr gut — die wichtigsten Nutzerpfade sind durchgängig und nachvollziehbar.",
-            "Excellent — the key user paths are consistent and easy to follow.",
+            "Sehr gut — die Seitenstruktur stützt die wichtigsten Nutzerpfade durchgängig und nachvollziehbar.",
+            "Excellent — the page structure supports the key user paths consistently and clearly.",
         ),
         (Journey, Good) => (
-            "Gut — die zentralen Nutzerpfade funktionieren, einzelne Schritte lassen sich verbessern.",
-            "Good — the core user paths work; individual steps can be improved.",
+            "Gut — die Seitenstruktur stützt die zentralen Nutzerpfade; einzelne Schritte lassen sich verbessern.",
+            "Good — the page structure supports the core user paths; individual steps can be improved.",
         ),
         (Journey, NeedsImprovement) => (
-            "Verbesserungswürdig — einzelne Schritte der Nutzerführung sind umständlich oder unklar.",
-            "Needs improvement — individual steps in the user flow are cumbersome or unclear.",
+            "Verbesserungswürdig — die Seitenstruktur deutet auf umständliche oder unklare Schritte in der Nutzerführung hin.",
+            "Needs improvement — the page structure suggests cumbersome or unclear steps in the user flow.",
         ),
         (Journey, Weak) => (
-            "Ausbaufähig — Brüche in der Nutzerführung erschweren das Erreichen zentraler Ziele.",
-            "Inadequate — breaks in the user flow make it harder to reach key goals.",
+            "Ausbaufähig — erkannte Brüche in der Nutzerführung können das Erreichen zentraler Ziele erschweren.",
+            "Inadequate — the detected breaks in the user flow can make it harder to reach key goals.",
         ),
         (Journey, Critical) => (
-            "Kritisch — wichtige Schritte der Nutzerführung sind unnötig kompliziert oder unterbrochen.",
-            "Critical — important steps in the user flow are needlessly complicated or broken.",
+            "Kritisch — die Seitenstruktur deutet auf unnötig komplizierte oder unterbrochene Schritte der Nutzerführung hin.",
+            "Critical — the page structure points to needlessly complicated or broken steps in the user flow.",
         ),
     };
 
@@ -417,7 +417,7 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
         }
     } else if critical >= 5 && total > 30 {
         LocalizedText {
-            de: format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regeltypen, {total} Instanzen) — Prozess-Problem, kein Einzelfall"),
+            de: format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regelgruppen, {total} Vorkommen) — Prozess-Problem, kein Einzelfall"),
             en: format!("Accessibility pattern: Systematic patterns ({rule_count} rule types, {total} instances) — process problem, not a one-off"),
         }
     } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
@@ -508,18 +508,18 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
         } else if s.score >= 30 {
             LocalizedText {
                 de: format!(
-                    "Security-Level: {} Pkt — mehrere kritische Security-Header fehlen",
+                    "Security-Level: {} Pkt — mehrere Basisschutz-Header fehlen",
                     s.score
                 ),
                 en: format!(
-                    "Security level: {} pts — multiple critical security headers missing",
+                    "Security level: {} pts — several baseline security headers missing",
                     s.score
                 ),
             }
         } else {
             LocalizedText {
-                de: format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — hohes Risiko, schnell behebbar", s.score),
-                en: format!("Security level: {} pts — security headers almost entirely missing — high risk, quick to fix", s.score),
+                de: format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — vorrangig, mit geringem Aufwand behebbar", s.score),
+                en: format!("Security level: {} pts — security headers almost entirely missing — a priority, low effort to fix", s.score),
             }
         }
     } else {
@@ -1045,6 +1045,7 @@ mod tests {
             severity: Severity::Low,
             tier,
             values: Default::default(),
+            score_deduction: 0,
         }
     }
 
@@ -1093,6 +1094,7 @@ mod tests {
             severity: Severity::High,
             tier: crate::security::HeaderTier::Baseline,
             values: Default::default(),
+            score_deduction: 0,
         }
     }
 
@@ -1177,6 +1179,7 @@ mod tests {
                 severity: Severity::Critical,
                 tier: HeaderTier::Baseline,
                 values: Default::default(),
+                score_deduction: 0,
             },
             low_severity_context_issue("Cross-Origin-Opener-Policy", HeaderTier::ContextDependent),
         ];

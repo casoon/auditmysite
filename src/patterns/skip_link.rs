@@ -6,7 +6,9 @@
 
 use crate::accessibility::AXTree;
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind, PatternMessage,
+};
 
 fn collect_links<'a>(
     tree: &'a AXTree,
@@ -74,16 +76,9 @@ pub(crate) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     } else {
         PatternConfidence::Partial
     };
-    let message = if is_first {
-        format!(
-            "Skip link recognized and correctly positioned as first focusable element (\"{}\").",
-            candidates[0].name.as_deref().unwrap_or("")
-        )
-    } else {
-        format!(
-            "Skip link detected (\"{}\") but not the first focusable element — keyboard users may have to tab past other content first.",
-            candidates[0].name.as_deref().unwrap_or("")
-        )
+    let message = PatternMessage::SkipLink {
+        name: candidates[0].name.clone().unwrap_or_default(),
+        first: is_first,
     };
     out.add_recognized("SkipLink", message, confidence);
 

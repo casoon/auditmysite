@@ -1,4 +1,3 @@
-use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
 };
@@ -8,7 +7,7 @@ use renderreport::prelude::*;
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 pub(super) fn render_batch_seo_section(
     mut builder: renderreport::engine::ReportBuilder,
@@ -74,34 +73,26 @@ fn render_seo_weakest_pages(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // The five pages with the lowest content profile, listed as such: a low
+    // profile is no observed problem, and a word count is no basis for
+    // "+300–800 words" or a guessed ranking impact (plan 84).
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-        let issues_title = i18n.t("batch-seo-issues-title");
-        let mut issues_kv = KeyValueList::new().with_title(issues_title);
+        let mut list = KeyValueList::new().with_title(i18n.t("batch-seo-weakest-title"));
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
-            let relevance =
-                super::super::business_relevance(Some(page_type.as_str()), url, i18n.locale());
-            let high_marker = if is_english(i18n) { "high" } else { "hoch" };
-            let impact = if relevance == high_marker {
-                i18n.t("batch-seo-impact-ranking-loss")
-            } else if *score < 30 {
-                i18n.t("batch-seo-impact-weak-visibility")
-            } else {
-                i18n.t("batch-seo-impact-opt-potential")
-            };
-            let value = i18n.t_args(
-                "batch-seo-recommendation-words",
-                &[("page_type", page_type.clone()), ("impact", impact)],
+            list = list.add(
+                short_url(url, 50),
+                i18n.t_args(
+                    "batch-seo-weakest-value",
+                    &[
+                        ("page_type", page_type.clone()),
+                        ("score", score.to_string()),
+                    ],
+                ),
             );
-            let key_str = i18n.t_args(
-                "batch-seo-profile-label",
-                &[
-                    ("url", truncate_url(url, 35)),
-                    ("score", format!("{score}")),
-                ],
-            );
-            issues_kv = issues_kv.add(key_str, value);
         }
-        builder = builder.add_component(issues_kv);
+        builder = builder
+            .add_component(list)
+            .add_component(TextBlock::new(i18n.t("batch-seo-weakest-note")));
     }
 
     builder
@@ -161,8 +152,8 @@ fn render_seo_near_duplicates(
                 i18n.t("batch-seo-risk-medium")
             };
             table = table.add_row(vec![
-                truncate_url(url_a, 35),
-                truncate_url(url_b, 35),
+                short_url(url_a, 35),
+                short_url(url_b, 35),
                 format!("{sim}%"),
                 risk.to_string(),
             ]);
@@ -199,7 +190,7 @@ fn render_seo_duplicate_content(
                 .urls
                 .iter()
                 .take(3)
-                .map(|u| truncate_url(u, 30))
+                .map(|u| short_url(u, 30))
                 .collect::<Vec<_>>()
                 .join(", ");
             table = table.add_row(vec![
@@ -265,6 +256,8 @@ fn render_seo_canonical_issues(
             let kind_label = match issue.kind.as_str() {
                 "noindex_conflict" => i18n.t("batch-canonical-noindex"),
                 "og_url_mismatch" => i18n.t("batch-canonical-ogurl"),
+                "target_redirects" => i18n.t("batch-canonical-target-redirects"),
+                "target_unreachable" => i18n.t("batch-canonical-target-unreachable"),
                 other => other.to_string(),
             };
             let detail = if issue.detail.chars().count() > 50 {
@@ -272,7 +265,7 @@ fn render_seo_canonical_issues(
             } else {
                 issue.detail.clone()
             };
-            table = table.add_row(vec![kind_label, truncate_url(&issue.url, 35), detail]);
+            table = table.add_row(vec![kind_label, short_url(&issue.url, 35), detail]);
         }
         builder = builder.add_component(table);
     }
@@ -295,8 +288,8 @@ fn render_seo_hreflang_issues(
 
         for issue in &pres.portfolio_summary.hreflang_issues {
             table = table.add_row(vec![
-                truncate_url(&issue.source_url, 32),
-                truncate_url(&issue.target_url, 32),
+                short_url(&issue.source_url, 32),
+                short_url(&issue.target_url, 32),
                 issue.lang.clone(),
             ]);
         }
@@ -311,42 +304,104 @@ fn render_seo_sitemap_http_issues(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    if !pres.portfolio_summary.sitemap_http_issues.is_empty() {
+    let counts = &pres.portfolio_summary.sitemap_status_counts;
+    let issues = &pres.portfolio_summary.sitemap_http_issues;
+    if counts.is_empty() && issues.is_empty() {
+        return builder;
+    }
+    builder =
+        builder.add_component(Section::new(i18n.t("batch-seo-sitemap-http-title")).with_level(2));
+
+    // Measured distribution over every checked URL, not "all minus the
+    // issues" (plan 87).
+    if !counts.is_empty() {
+        let checked: usize = counts.values().sum();
+        let distribution = counts
+            .iter()
+            .map(|(class, count)| {
+                let label = match class.as_str() {
+                    "fetch_error" => i18n.t("batch-sitemap-kind-fetch-error"),
+                    "other" => i18n.t("batch-sitemap-class-other"),
+                    other => other.to_string(),
+                };
+                format!("{count} × {label}")
+            })
+            .collect::<Vec<_>>()
+            .join(" · ");
+        builder = builder.add_component(TextBlock::new(i18n.t_args(
+            "batch-sitemap-http-summary",
+            &[
+                ("checked", checked.to_string()),
+                ("distribution", distribution),
+            ],
+        )));
+    }
+
+    // Redirects grouped by target: one row per target with a count and an
+    // example source, instead of one row per sitemap URL.
+    let mut by_target: std::collections::BTreeMap<&str, Vec<&crate::audit::SitemapHttpIssue>> =
+        std::collections::BTreeMap::new();
+    for issue in issues.iter().filter(|i| i.kind == "redirect") {
+        by_target
+            .entry(issue.final_url.as_deref().unwrap_or(&issue.detail))
+            .or_default()
+            .push(issue);
+    }
+    if !by_target.is_empty() {
+        let mut groups: Vec<_> = by_target.into_iter().collect();
+        groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(b.0)));
+        let total_groups = groups.len();
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-redirect-target")).with_width("44%"),
+            TableColumn::new(i18n.t("batch-col-redirect-count")).with_width("12%"),
+            TableColumn::new(i18n.t("batch-col-redirect-example")).with_width("44%"),
+        ])
+        .with_title(i18n.t("batch-sitemap-redirects-title"));
+        for (target, sources) in groups.into_iter().take(10) {
+            table = table.add_row(vec![
+                short_url(target, 48),
+                sources.len().to_string(),
+                short_url(&sources[0].url, 48),
+            ]);
+        }
+        builder = builder.add_component(table);
+        if total_groups > 10 {
+            builder = builder.add_component(TextBlock::new(i18n.t_args(
+                "batch-sitemap-redirects-more",
+                &[("more", (total_groups - 10).to_string())],
+            )));
+        }
+    }
+
+    let others: Vec<_> = issues.iter().filter(|i| i.kind != "redirect").collect();
+    if !others.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-dup-type")),
             TableColumn::new(i18n.t("batch-col-page-a")),
             TableColumn::new(i18n.t("batch-col-status-code")),
             TableColumn::new(i18n.t("batch-col-dup-value")),
         ])
-        .with_title(i18n.t("batch-seo-sitemap-http-title"));
-
-        for issue in &pres.portfolio_summary.sitemap_http_issues {
+        .with_title(i18n.t("batch-sitemap-other-issues-title"));
+        for issue in others.iter().take(20) {
             let kind_label = match issue.kind.as_str() {
                 "status" => i18n.t("batch-sitemap-kind-status"),
-                "redirect" => i18n.t("batch-sitemap-kind-redirect"),
                 "noindex" => i18n.t("batch-sitemap-kind-noindex"),
                 "fetch_error" => i18n.t("batch-sitemap-kind-fetch-error"),
                 other => other.to_string(),
             };
-            let detail = issue
-                .final_url
-                .as_ref()
-                .map(|url| truncate_url(url, 35))
-                .unwrap_or_else(|| truncate_url(&issue.detail, 45));
             table = table.add_row(vec![
                 kind_label,
-                truncate_url(&issue.url, 35),
+                short_url(&issue.url, 35),
                 issue
                     .status_code
                     .map(|code| code.to_string())
                     .unwrap_or_else(|| "n/a".to_string()),
-                detail,
+                short_url(&issue.detail, 45),
             ]);
         }
         builder = builder.add_component(table);
     }
-
-    builder
+    builder.add_component(TextBlock::new(i18n.t("batch-sitemap-http-json-note")))
 }
 
 fn render_seo_sitemap_orphans(
@@ -363,19 +418,36 @@ fn render_seo_sitemap_orphans(
         ])
         .with_title(i18n.t("batch-seo-sitemap-orphan-title"));
 
-        for url in pres.portfolio_summary.orphan_sitemap_urls.iter().take(20) {
+        // Candidates from a partial graph: a short list, not a site-wide
+        // verdict (plan 82).
+        let partial = pres
+            .portfolio_summary
+            .crawl_depth_diagnostics
+            .as_ref()
+            .is_none_or(|d| d.partial_batch);
+        let cap = if partial { 10 } else { 20 };
+        for url in pres.portfolio_summary.orphan_sitemap_urls.iter().take(cap) {
             table = table.add_row(vec![
                 i18n.t("batch-sitemap-kind-orphan"),
-                truncate_url(url, 50),
+                short_url(url, 50),
             ]);
         }
         for url in pres.portfolio_summary.linked_not_in_sitemap.iter().take(20) {
             table = table.add_row(vec![
                 i18n.t("batch-sitemap-kind-linked-missing"),
-                truncate_url(url, 50),
+                short_url(url, 50),
             ]);
         }
         builder = builder.add_component(table);
+        if !pres.portfolio_summary.orphan_sitemap_urls.is_empty() {
+            builder = builder.add_component(TextBlock::new(i18n.t_args(
+                "batch-sitemap-orphan-note",
+                &[(
+                    "count",
+                    pres.portfolio_summary.orphan_sitemap_urls.len().to_string(),
+                )],
+            )));
+        }
     }
 
     builder
@@ -394,7 +466,7 @@ fn render_seo_robots_conflicts(
         .with_title(i18n.t("batch-seo-robots-conflicts-title"));
 
         for conflict in &pres.portfolio_summary.robots_conflicts {
-            table = table.add_row(vec![truncate_url(&conflict.url, 45), conflict.rule.clone()]);
+            table = table.add_row(vec![short_url(&conflict.url, 45), conflict.rule.clone()]);
         }
         builder = builder.add_component(table);
     }
@@ -419,13 +491,17 @@ fn render_seo_crawl_depth(
             })
             .collect::<Vec<_>>()
             .join(" · ");
-        let intro = i18n.t_args(
+        let mut intro = i18n.t_args(
             "batch-crawl-depth-intro",
             &[
-                ("start_url", truncate_url(&diag.start_url, 50)),
+                ("start_url", short_url(&diag.start_url, 50)),
                 ("histogram", histogram_summary),
             ],
         );
+        if diag.start_source == "fetched_homepage" {
+            intro.push(' ');
+            intro.push_str(&i18n.t("batch-crawl-depth-fetched-homepage"));
+        }
 
         builder = builder
             .add_component(Section::new(i18n.t("batch-crawl-depth-section")).with_level(1))
@@ -446,19 +522,39 @@ fn render_seo_crawl_depth(
             for entry in &diag.deepest_pages {
                 table = table.add_row(vec![
                     i18n.t("batch-crawl-depth-kind-deepest"),
-                    truncate_url(&entry.url, 50),
+                    short_url(&entry.url, 50),
                     entry.depth.to_string(),
                 ]);
             }
-            for url in &diag.unreachable_pages {
-                table = table.add_row(vec![
-                    i18n.t("batch-crawl-depth-kind-unreachable"),
-                    truncate_url(url, 50),
-                    "—".to_string(),
-                ]);
+            // In a sample most pages have no observed path; a row each pushed
+            // the measured depths off the page. The count stays, the list
+            // is in the JSON (plan 91).
+            if diag.partial_batch {
+                builder = builder.add_component(table);
+                // The JSON list is capped; the count is audited minus reached.
+                let reached: usize = diag.depth_histogram.values().sum();
+                let unobserved = pres.portfolio_summary.total_urls.saturating_sub(reached);
+                if unobserved > 0 {
+                    builder = builder.add_component(TextBlock::new(i18n.t_args(
+                        "batch-crawl-depth-unobserved-count",
+                        &[("count", unobserved.to_string())],
+                    )));
+                }
+            } else {
+                for url in &diag.unreachable_pages {
+                    table = table.add_row(vec![
+                        i18n.t("batch-crawl-depth-kind-unreachable"),
+                        short_url(url, 50),
+                        "—".to_string(),
+                    ]);
+                }
+                builder = builder.add_component(table);
             }
-            builder = builder.add_component(table);
         }
+    } else if pres.portfolio_summary.crawl_depths_unavailable {
+        builder = builder
+            .add_component(Section::new(i18n.t("batch-crawl-depth-section")).with_level(1))
+            .add_component(TextBlock::new(i18n.t("batch-crawl-depth-unavailable")));
     }
 
     builder
@@ -470,37 +566,56 @@ fn render_seo_page_type_distribution(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
-        let high_label = i18n.t("batch-relevance-high");
-        let medium_label = i18n.t("batch-relevance-medium");
-        let low_label = i18n.t("batch-relevance-low");
+        // Group mean and common finding instead of a relevance rating that
+        // had no data behind it (plan 93).
         let mut type_table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("batch-col-page-type")),
-            TableColumn::new(i18n.t("batch-col-pages-list")),
-            TableColumn::new(i18n.t("batch-col-share")),
-            TableColumn::new(i18n.t("batch-col-relevance")),
+            TableColumn::new(i18n.t("batch-col-page-type")).with_width("24%"),
+            TableColumn::new(i18n.t("batch-col-pages-list")).with_width("10%"),
+            TableColumn::new(i18n.t("batch-col-share")).with_width("10%"),
+            TableColumn::new(i18n.t("batch-col-group-a11y")).with_width("14%"),
+            TableColumn::new(i18n.t("batch-col-group-common-finding")).with_width("42%"),
         ])
         .with_title(i18n.t("batch-table-page-type-distribution"));
 
         for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
-            let relevance = match label.as_str() {
-                "Marketing / Landing Page"
-                | "Transaktional / Utility"
-                | "Transactional / Utility" => &high_label,
-                "Editorial / Artikel"
-                | "Editorial / Article"
-                | "Strukturierter Wissensinhalt"
-                | "Structured knowledge content" => &medium_label,
-                "Thin / Minimal Content" => &low_label,
-                _ => &medium_label,
+            let group = pres
+                .portfolio_summary
+                .page_type_groups
+                .iter()
+                .find(|g| &g.page_type == label);
+            let avg = group
+                .and_then(|g| g.avg_accessibility)
+                .map(|avg| avg.to_string())
+                .unwrap_or_else(|| "–".to_string());
+            let common = match group {
+                Some(g) if g.pages < 2 => i18n.t("batch-group-single-page"),
+                Some(g) => g
+                    .common_finding
+                    .as_ref()
+                    .map(|(title, pages)| {
+                        i18n.t_args(
+                            "batch-group-common-finding",
+                            &[
+                                ("title", title.clone()),
+                                ("pages", pages.to_string()),
+                                ("total", g.pages.to_string()),
+                            ],
+                        )
+                    })
+                    .unwrap_or_else(|| i18n.t("batch-group-no-common-finding")),
+                None => "–".to_string(),
             };
             type_table = type_table.add_row(vec![
                 label.clone(),
                 count.to_string(),
                 format!("{pct}%"),
-                relevance.to_string(),
+                avg,
+                common,
             ]);
         }
-        builder = builder.add_component(type_table);
+        builder = builder
+            .add_component(type_table)
+            .add_component(TextBlock::new(i18n.t("batch-page-type-groups-note")));
     }
 
     builder
@@ -562,7 +677,7 @@ fn render_seo_strongest_pages(
 
         for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
             strengths = strengths.add_row(vec![
-                truncate_url(url, 42),
+                short_url(url, 42),
                 page_type.clone(),
                 format!("{score}/100"),
             ]);

@@ -397,7 +397,11 @@ async fn fetch_html(url: &str) -> Result<String> {
 /// used to resolve relative links — matching browser behaviour. Parser-based
 /// extraction is robust against attribute-quote variants, casing, whitespace and
 /// slightly malformed markup that a raw byte scan would mishandle.
-fn extract_links(base_url: &str, expected_host: &str, html: &str) -> (Vec<String>, Vec<String>) {
+pub(crate) fn extract_links(
+    base_url: &str,
+    expected_host: &str,
+    html: &str,
+) -> (Vec<String>, Vec<String>) {
     let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
 
     let mut base_href: Option<String> = None;

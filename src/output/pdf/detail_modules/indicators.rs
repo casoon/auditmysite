@@ -112,11 +112,17 @@ pub(in crate::output::pdf) fn render_tech_stack(
         (false, false) => format!("{} Technologien erkannt.", ts.detected.len()),
     };
     builder = super::module_chapter_opener(builder, &ts_title, &ts_takeaway, is_first);
-    builder = builder.add_component(
-        ScoreCard::new(super::module_score_caption(i18n), ts.score)
-            .with_description(super::score_band_label(ts.score, i18n))
-            .with_thresholds(75, 40),
-    );
+    // Without a stack-specific probe the 100 is a default, not an assessment
+    // (plan 69).
+    builder = if ts.is_hardening_assessed() {
+        builder.add_component(
+            ScoreCard::new(super::module_score_caption(i18n), ts.score)
+                .with_description(super::score_band_label(ts.score, i18n))
+                .with_thresholds(75, 40),
+        )
+    } else {
+        builder.add_component(TextBlock::new(i18n.t("pdf-ts-not-assessed")))
+    };
 
     if !ts.detected.is_empty() {
         let mut table = AuditTable::new(vec![
@@ -575,6 +581,17 @@ pub(in crate::output::pdf) fn render_best_practices(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let collected = bp.console_errors.collected;
+    let checked = bp.vulnerable_libraries.checked;
+    if bp.is_unmeasured() {
+        let takeaway = if is_english(i18n) {
+            "Not measured."
+        } else {
+            "Nicht gemessen."
+        };
+        builder = super::module_chapter_opener(builder, "Best Practices", takeaway, is_first);
+        return builder.add_component(TextBlock::new(i18n.t("pdf-bp-not-measured")));
+    }
     let bp_clean =
         bp.console_errors.error_count == 0 && !bp.vulnerable_libraries.has_vulnerabilities;
     let bp_takeaway = match (bp_clean, is_english(i18n)) {
@@ -589,10 +606,24 @@ pub(in crate::output::pdf) fn render_best_practices(
             .with_description(super::score_band_label(bp.score, i18n))
             .with_thresholds(75, 40),
     );
+    // What "nothing detected" covers — a clean result is no general
+    // all-clear (plan 69).
+    builder = builder.add_component(TextBlock::new(i18n.t_args(
+        "pdf-bp-scope",
+        &[("libs", crate::best_practices::CHECKED_LIBRARIES.join(", "))],
+    )));
+    if !collected {
+        builder = builder.add_component(TextBlock::new(i18n.t("pdf-bp-console-not-collected")));
+    }
+    if !checked {
+        builder = builder.add_component(TextBlock::new(i18n.t("pdf-bp-libs-not-checked")));
+    }
 
     if bp.score >= 90
         && bp.console_errors.error_count == 0
         && !bp.vulnerable_libraries.has_vulnerabilities
+        && collected
+        && checked
     {
         return builder.add_component(TextBlock::new(i18n.t("pdf-bp-success")));
     }

@@ -32,16 +32,19 @@ pub(super) fn build_positive_signals(
                         (false, "Accordion") => "Accordion",
                         (true, "EasyLanguage") => "Easy-language version",
                         (false, "EasyLanguage") => "Leichte-Sprache-Version",
+                        (true, "Form") => "Form",
+                        (false, "Form") => "Formular",
+                        (true, "AddToCart") => "Add to cart",
+                        (false, "AddToCart") => "Warenkorb-Button",
+                        (true, "QuantityStepper") => "Quantity stepper",
+                        (false, "QuantityStepper") => "Mengenauswahl",
                         (_, other) => other,
                     };
-                    // #406: every other pattern's `message` is a raw English
-                    // passthrough (pre-existing, out of scope here) — only
-                    // EasyLanguage's description is re-derived per locale,
-                    // since it's the one new message this task adds.
-                    let description = if r.pattern == "EasyLanguage" {
-                        crate::patterns::easy_language::message_text(en).to_string()
-                    } else {
-                        r.message.clone()
+                    // #406: der Text wird in der Lauf-Sprache neu abgeleitet;
+                    // ohne Rohwerte (Muster von außen gebaut) bleibt `message`.
+                    let description = match &r.detail {
+                        Some(detail) => crate::patterns::pattern_message_text(detail, en),
+                        None => r.message.clone(),
                     };
                     PositiveSignal {
                         title: title.to_string(),

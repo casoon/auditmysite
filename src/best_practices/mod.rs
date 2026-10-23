@@ -10,6 +10,7 @@ pub use console_errors::{
 pub use module::BestPracticesModule;
 pub use vulnerable_libs::{
     analyze_vulnerable_libraries, DetectedLibrary, VulnerableLibrariesAnalysis, VulnerableLibrary,
+    CHECKED_LIBRARIES,
 };
 
 use chromiumoxide::Page;
@@ -43,6 +44,7 @@ pub async fn analyze_best_practices(page: &Page) -> Result<BestPracticesAnalysis
                 warnings: vec![],
                 error_count: 0,
                 warning_count: 0,
+                collected: false,
             }
         }
     };
@@ -56,6 +58,7 @@ pub async fn analyze_best_practices(page: &Page) -> Result<BestPracticesAnalysis
                 vulnerable: vec![],
                 has_vulnerabilities: false,
                 duplicate_libraries: vec![],
+                checked: false,
             }
         }
     };
@@ -67,6 +70,19 @@ pub async fn analyze_best_practices(page: &Page) -> Result<BestPracticesAnalysis
         vulnerable_libraries,
         score,
     })
+}
+
+/// Serde default for `collected`/`checked`: reports written before plan 69
+/// had no such field and always counted as measured.
+pub(crate) fn collected_by_default() -> bool {
+    true
+}
+
+impl BestPracticesAnalysis {
+    /// Neither sub-check produced a measurement — the score is not a result.
+    pub fn is_unmeasured(&self) -> bool {
+        !self.console_errors.collected && !self.vulnerable_libraries.checked
+    }
 }
 
 fn calculate_score(console: &ConsoleErrorsAnalysis, libs: &VulnerableLibrariesAnalysis) -> u32 {

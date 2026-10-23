@@ -230,15 +230,14 @@ fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterio
                 .collect::<HashSet<_>>()
                 .len(),
         },
+        // Always a manual check: a page without an observed inbound link from
+        // the audited set can still be reached through search, a sitemap
+        // page or links outside the sample — no warning from a partial graph
+        // (plan 82).
         CrossPageCriterionAssessment {
             criterion: "2.4.5 Multiple Ways".to_string(),
-            status: if orphan_pages.orphan_urls.is_empty() {
-                "manual_review"
-            } else {
-                "warning"
-            }
-            .to_string(),
-            basis: "Inbound links within the audited set are checked; search, sitemap and process-step exceptions still require manual confirmation"
+            status: "manual_review".to_string(),
+            basis: "Inbound links observed within the audited set only; pages without one are candidates, and search, sitemap pages, links from unaudited pages and process-step exceptions need manual confirmation"
                 .to_string(),
             affected_pages: orphan_pages.orphan_urls.len(),
         },
@@ -797,7 +796,7 @@ fn analyze_orphan_pages(reports: &[AuditReport]) -> OrphanPageAnalysis {
     let mut findings = Vec::new();
     if !orphan_urls.is_empty() {
         findings.push(format!(
-            "{} of {total_pages} {} are not linked from any other audited page: {}",
+            "{} of {total_pages} {} received no observed inbound link from the other audited pages: {}",
             orphan_urls.len(),
             if orphan_urls.len() == 1 {
                 "page"
@@ -967,6 +966,7 @@ mod tests {
                     pattern: p.to_string(),
                     message: "test".to_string(),
                     confidence: PatternConfidence::Strong,
+                    detail: None,
                 })
                 .collect(),
             violations: vec![],
@@ -1225,6 +1225,14 @@ mod tests {
             .orphan_pages
             .orphan_urls
             .contains(&"https://a.com/b".to_string()));
+        // Plan 82: candidates from the audited set are no 2.4.5 warning.
+        let multiple_ways = a
+            .wcag_cross_page
+            .iter()
+            .find(|c| c.criterion.starts_with("2.4.5"))
+            .unwrap();
+        assert_eq!(multiple_ways.status, "manual_review");
+        assert_eq!(multiple_ways.affected_pages, 2);
     }
 
     #[test]
