@@ -239,9 +239,11 @@ pub fn build_batch_presentation_with_normalized(
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
 
+            // Unmeasured modules carry no comparable value (plan 86).
             let module_scores = nr
                 .module_scores
                 .iter()
+                .filter(|m| m.measurement_type != "not_measured")
                 .map(|m| (m.name.clone(), m.score))
                 .collect();
 
@@ -684,7 +686,11 @@ pub fn build_batch_presentation_with_normalized(
     let module_averages = {
         let mut module_sums: HashMap<String, (u32, usize)> = HashMap::new();
         for nr in normalized_reports {
-            for ms in &nr.module_scores {
+            for ms in nr
+                .module_scores
+                .iter()
+                .filter(|m| m.measurement_type != "not_measured")
+            {
                 let entry = module_sums.entry(ms.name.clone()).or_insert((0, 0));
                 entry.0 += ms.score;
                 entry.1 += 1;

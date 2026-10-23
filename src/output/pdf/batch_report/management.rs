@@ -371,9 +371,23 @@ pub(super) fn render_batch_internal_comparison(
         if scored.is_empty() {
             continue;
         }
-        scored.sort_by_key(|(_, score)| *score);
+        scored.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(b.0)));
         let (worst_url, worst_score) = scored[0];
         let (best_url, best_score) = scored[scored.len() - 1];
+        // No variation: a best and a weakest URL would be an arbitrary pick
+        // (plan 86).
+        if best_score == worst_score {
+            let same = if en {
+                format!("{best_score}/100 on all {} measured pages", scored.len())
+            } else {
+                format!(
+                    "{best_score}/100 auf allen {} Seiten mit Messung",
+                    scored.len()
+                )
+            };
+            rows.push(vec![module, same, "—".to_string()]);
+            continue;
+        }
         rows.push(vec![
             module,
             format!("{} ({}/100)", truncate_url(best_url, 34), best_score),

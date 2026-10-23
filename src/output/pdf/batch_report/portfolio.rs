@@ -54,69 +54,62 @@ pub(super) fn render_batch_module_portfolio(
     }
     builder = builder.add_component(grid);
 
-    let total = pres.portfolio_summary.total_urls;
+    // Average, then the spread over the pages that measured the module —
+    // no "clean pages" from score ≥ 90, which says nothing about findings
+    // (plan 86).
     let mut table = AuditTable::new(vec![
         TableColumn::new(i18n.t("batch-col-module")).with_width("20%"),
         TableColumn::new(i18n.t("batch-col-score")).with_width("14%"),
-        TableColumn::new(i18n.t("batch-col-clean-pages")).with_width("18%"),
-        TableColumn::new(i18n.t("batch-col-effect")).with_width("48%"),
+        TableColumn::new(i18n.t("batch-col-spread")).with_width("22%"),
+        TableColumn::new(i18n.t("batch-col-effect")).with_width("44%"),
     ])
     .with_title(i18n.t("batch-module-portfolio-table-title"));
 
     for (name, score) in &pres.portfolio_summary.module_averages {
-        let clean_pages = clean_pages_for_module(pres, name);
+        let spread = match module_score_spread(pres, name) {
+            Some((min, max, pages)) if min == max => i18n.t_args(
+                "batch-module-spread-constant",
+                &[("value", min.to_string()), ("pages", pages.to_string())],
+            ),
+            Some((min, max, pages)) => i18n.t_args(
+                "batch-module-spread-range",
+                &[
+                    ("min", min.to_string()),
+                    ("max", max.to_string()),
+                    ("pages", pages.to_string()),
+                ],
+            ),
+            None => "—".to_string(),
+        };
         table = table.add_row(vec![
             localized_module_name(name, en).to_string(),
             format!("{score}/100"),
-            i18n.t_args(
-                "batch-module-clean-count",
-                &[
-                    ("clean", clean_pages.to_string()),
-                    ("total", total.to_string()),
-                ],
-            ),
-            module_effect_sentence(name, *score, clean_pages, total, en),
+            spread,
+            module_effect_sentence(name, *score, en),
         ]);
     }
     builder = builder.add_component(table);
 
-    let all_clean: Vec<String> = pres
-        .portfolio_summary
-        .module_averages
-        .iter()
-        .filter(|(name, _)| clean_pages_for_module(pres, name) == total && total > 0)
-        .map(|(name, _)| localized_module_name(name, en).to_string())
-        .collect();
-    if !all_clean.is_empty() {
-        builder = builder.add_component(
-            Callout::success(
-                i18n.t_args(
-                    "batch-module-clean-confirmation",
-                    &[
-                        ("modules", all_clean.join(", ")),
-                        ("total", total.to_string()),
-                    ],
-                )
-                .as_str(),
-            )
-            .with_title(i18n.t("batch-module-clean-title")),
-        );
-    }
-
     builder
 }
 
-pub(super) fn clean_pages_for_module(pres: &BatchPresentation, module_name: &str) -> usize {
-    pres.url_details
+/// (min, max, pages) of a module's score over the URLs that measured it.
+pub(super) fn module_score_spread(
+    pres: &BatchPresentation,
+    module_name: &str,
+) -> Option<(u32, u32, usize)> {
+    let scores: Vec<u32> = pres
+        .url_details
         .iter()
-        .filter(|detail| {
+        .filter_map(|detail| {
             detail
                 .module_scores
                 .iter()
                 .find(|(name, _)| name == module_name)
-                .is_some_and(|(_, score)| *score >= 90)
+                .map(|(_, score)| *score)
         })
-        .count()
+        .collect();
+    Some((*scores.iter().min()?, *scores.iter().max()?, scores.len()))
 }
 
 pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
@@ -139,22 +132,7 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
     }
 }
 
-pub(super) fn module_effect_sentence(
-    module_name: &str,
-    score: u32,
-    clean_pages: usize,
-    total: usize,
-    en: bool,
-) -> String {
-    if clean_pages == total && total > 0 {
-        return if en {
-            "Checked across the audited URL set with no relevant anomalies in the green band."
-                .to_string()
-        } else {
-            "Im geprüften URL-Set ohne relevante Auffälligkeiten im grünen Bereich.".to_string()
-        };
-    }
-
+pub(super) fn module_effect_sentence(module_name: &str, score: u32, en: bool) -> String {
     let band = match score {
         90..=100 => 0,
         75..=89 => 1,
@@ -459,4 +437,32 @@ pub(super) fn render_batch_tech_url_matrix(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{AuditReport, BatchReport};
+    use crate::cli::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    /// Plan 86: identical scores read as one value on all measured pages,
+    /// and a module no page measured has no spread at all.
+    #[test]
+    fn module_spread_reports_min_max_over_measured_pages() {
+        let reports = ["https://x.test/a", "https://x.test/b"]
+            .iter()
+            .map(|url| AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100))
+            .collect();
+        let pres = crate::output::builder::build_batch_presentation(&BatchReport::from_reports(
+            reports,
+            vec![],
+            100,
+        ));
+        assert_eq!(
+            module_score_spread(&pres, "Accessibility"),
+            Some((100, 100, 2))
+        );
+        assert_eq!(module_score_spread(&pres, "Performance"), None);
+    }
 }
