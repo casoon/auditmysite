@@ -2106,7 +2106,7 @@ fn render_active_module_section(
         "tech_stack" => {
             // Nothing detected and nothing probed: no chapter — a page for
             // "nothing to report" (plan 76). The JSON keeps the module.
-            if let Some(ref ts) = vm
+            if let Some(ts) = vm
                 .module_details
                 .tech_stack
                 .as_ref()
