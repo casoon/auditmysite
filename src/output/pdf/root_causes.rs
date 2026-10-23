@@ -6,14 +6,12 @@
 //! assignment, so they move together. No logic changed in the move.
 
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{List, PageBreak, RecommendationCard, SectionHeaderSplit};
-use renderreport::components::charts::Chart;
+use renderreport::components::advanced::{PageBreak, RecommendationCard, SectionHeaderSplit};
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use super::design;
-use super::helpers::truncate_with_ellipsis;
 use super::problem_profile::build_overall_leverage_note;
 use super::single_report::cross_module_measures;
 use crate::i18n::I18n;
@@ -122,25 +120,19 @@ pub(super) fn render_root_cause_analysis(
         return builder;
     }
 
-    // Plain lead-in (Rule A): spell out what "root cause" means in practice
-    // before the technical list of causes/components follows below.
+    // Plain lead-in (Rule A). One page shows where findings concentrate,
+    // not that they share a cause — a shared component is a possibility for
+    // the developer to check (plan 75).
     let lead_in = if en {
-        "In practice: fixing the right root cause — a shared component or template — often resolves several findings at once, instead of fixing each one individually."
+        "Where the findings concentrate: if a finding sits in a reused component or template, one fix there resolves all of its occurrences — whether it does cannot be seen from a single page."
     } else {
-        "Das bedeutet konkret: Ein Fix an der richtigen Stelle – etwa einer wiederverwendeten Komponente oder einem Template – behebt oft mehrere Befunde gleichzeitig, statt jeden einzeln reparieren zu müssen."
+        "Wo sich die Befunde ballen: Liegt ein Befund in einer wiederverwendeten Komponente oder einem Template, behebt ein Fix dort alle seine Vorkommen — ob das so ist, lässt sich an einer einzelnen Seite nicht erkennen."
     };
     builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
 
-    // Render root causes (assigning letters A, B, C, etc.)
-    let mut list = List::new().with_title(if en {
-        "Systemic Root Causes"
-    } else {
-        "Erkannte Kernursachen"
-    });
-    let mut table_rows = Vec::new();
-    let mut chart_data: Vec<(String, f64)> = Vec::new();
+    // One table with the full titles. A list, a bar chart and this table
+    // used to repeat the same numbers three times (plan 75).
     let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
-
     // Rounded (not truncating) share so a small-but-real cause reads as "1 %"
     // rather than a self-contradictory "0 %" next to its own listed row.
     let share_pct = |occurrences: usize| -> i64 {
@@ -150,87 +142,39 @@ pub(super) fn render_root_cause_analysis(
             0
         }
     };
-
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("64%"),
+        TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("18%"),
+        TableColumn::new(if en { "Share" } else { "Anteil" }).with_width("18%"),
+    ])
+    .with_title(if en {
+        "Where the occurrences concentrate"
+    } else {
+        "Wo sich die Vorkommen ballen"
+    });
     let mut shown_occurrences = 0usize;
-
-    for (idx, finding) in findings.iter().enumerate().take(ROOT_CAUSE_SHOWN) {
-        let letter = (b'A' + idx as u8) as char;
-        let item_title = format!(
-            "{} {}: {} {} — {}",
-            if en { "Root Cause" } else { "Ursache" },
-            letter,
-            finding.occurrence_count,
-            if en { "occurrences" } else { "Vorkommen" },
-            finding.title
-        );
-        list = list.add_item(&item_title);
+    for finding in findings.iter().take(ROOT_CAUSE_SHOWN) {
         shown_occurrences += finding.occurrence_count;
-
-        // Repeat the clear-text title next to the letter — otherwise the chart
-        // and table only carry "Ursache A", forcing readers to flip back to
-        // the list above to remember what it refers to.
-        let short_title = truncate_with_ellipsis(&finding.title, 45);
-        table_rows.push(vec![
-            format!("{letter} — {short_title}"),
+        table = table.add_row(vec![
+            finding.title.clone(),
             finding.occurrence_count.to_string(),
             format!("{} %", share_pct(finding.occurrence_count)),
         ]);
-        chart_data.push((
-            format!("{letter} — {short_title}"),
-            finding.occurrence_count as f64,
-        ));
     }
-
-    // Findings beyond the top ROOT_CAUSE_SHOWN would otherwise inflate
-    // `total_occurrences` (the true, honest denominator) with no visible row
-    // to account for them — the displayed shares silently failed to sum to
-    // 100 %. Disclose the remainder explicitly instead (#QA-039 report review).
+    // Findings beyond the top ROOT_CAUSE_SHOWN still count in the
+    // denominator; disclose them so the shares add up to 100 % (#QA-039).
     if findings.len() > ROOT_CAUSE_SHOWN {
-        let remaining_causes = findings.len() - ROOT_CAUSE_SHOWN;
+        let remaining_findings = findings.len() - ROOT_CAUSE_SHOWN;
         let remaining_occurrences = total_occurrences - shown_occurrences;
-        let label = if en {
-            format!("Other ({remaining_causes} further causes)")
-        } else {
-            format!("Sonstige ({remaining_causes} weitere Ursachen)")
-        };
-        table_rows.push(vec![
-            label.clone(),
+        table = table.add_row(vec![
+            if en {
+                format!("Other ({remaining_findings} further findings)")
+            } else {
+                format!("Sonstige ({remaining_findings} weitere Befunde)")
+            },
             remaining_occurrences.to_string(),
             format!("{} %", share_pct(remaining_occurrences)),
         ]);
-        chart_data.push((label, remaining_occurrences as f64));
-    }
-
-    builder = builder.add_component(list);
-
-    // Occurrence distribution as a bar chart — shows at a glance where the
-    // findings concentrate (#7 distribution bars).
-    if chart_data.len() >= 2 {
-        builder = builder.add_component(
-            Chart::bar(if en {
-                "Occurrence distribution by cause"
-            } else {
-                "Verteilung der Vorkommen nach Ursache"
-            })
-            .add_series("occurrences", chart_data)
-            .horizontal(),
-        );
-    }
-
-    // Render the table: Ursache | Vorkommen | Anteil
-    let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Root Cause" } else { "Ursache" }).with_width("40%"),
-        TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("30%"),
-        TableColumn::new(if en { "Share" } else { "Anteil" }).with_width("30%"),
-    ])
-    .with_title(if en {
-        "Distribution of Issues by Root Cause"
-    } else {
-        "Verteilung der Mängel nach Ursache"
-    });
-
-    for row in table_rows {
-        table = table.add_row(row);
     }
     builder = builder.add_component(table);
 

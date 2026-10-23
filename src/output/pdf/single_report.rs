@@ -32,10 +32,7 @@ use super::detail_modules::{
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
 use super::findings::render_finding_technical;
-use super::helpers::{
-    manual_recheck_instruction, map_severity, priority_label_i18n, role_label_i18n,
-    truncate_with_ellipsis,
-};
+use super::helpers::{manual_recheck_instruction, map_severity, priority_label_i18n};
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
 use crate::cli::{AnnexKind, ReportLevel};
@@ -1436,23 +1433,27 @@ fn render_findings_section(
             };
             builder = builder.add_component(Label::new(matrix_intro).with_size("10.5pt"));
 
+            // Four columns with the full finding title: six narrow ones cut
+            // titles at 48 and actions at 72 characters. The action and the
+            // owner are in the detail card below (plan 76).
             let mut table = AuditTable::new(vec![
-                TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("10%"),
-                TableColumn::new("WCAG").with_width("10%"),
-                TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("28%"),
-                TableColumn::new(if en { "Scope" } else { "Umfang" }).with_width("14%"),
-                TableColumn::new(if en { "Responsible" } else { "Zuständig" }).with_width("14%"),
-                TableColumn::new(if en { "Action" } else { "Maßnahme" }).with_width("24%"),
+                TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("13%"),
+                TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("55%"),
+                TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("16%"),
+                TableColumn::new(if en { "Effort" } else { "Aufwand" }).with_width("16%"),
             ])
             .with_title(matrix_title);
 
             for group in matrix_findings.iter().take(FINDINGS_MATRIX_MAX_ROWS) {
-                let wcag = if group.wcag_criterion.is_empty() {
-                    "n/a".to_string()
+                let finding = if group.wcag_criterion.is_empty() {
+                    group.title.clone()
                 } else if group.wcag_level.is_empty() {
-                    group.wcag_criterion.clone()
+                    format!("{} · WCAG {}", group.title, group.wcag_criterion)
                 } else {
-                    format!("{} ({})", group.wcag_criterion, group.wcag_level)
+                    format!(
+                        "{} · WCAG {} ({})",
+                        group.title, group.wcag_criterion, group.wcag_level
+                    )
                 };
                 let scope = if group.is_component_issue {
                     if en {
@@ -1467,11 +1468,9 @@ fn render_findings_section(
                 };
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
-                    wcag,
-                    truncate_with_ellipsis(&group.title, 48),
+                    finding,
                     scope,
-                    role_label_i18n(group.responsible_role, i18n),
-                    truncate_with_ellipsis(&group.recommendation, 72),
+                    super::helpers::effort_label_i18n(group.effort, i18n),
                 ]);
             }
             builder = builder.add_component(table);

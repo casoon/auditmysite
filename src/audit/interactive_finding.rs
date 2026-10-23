@@ -1117,21 +1117,19 @@ pub fn interactive_finding_text(
         HeadingMultipleH1 => (
             if en {
                 format!(
-                    "{count} H1 headings found. Multiple H1 elements make it harder for \
-                     screen reader users to orient themselves."
+                    "{count} H1 headings found. That is allowed; it can blur orientation \
+                     when it is unclear which one names the page topic."
                 )
             } else {
                 format!(
-                    "{count} H1-Überschriften gefunden. Mehrere H1-Elemente erschweren \
-                     Screenreader-Nutzern die Orientierung."
+                    "{count} H1-Überschriften gefunden. Das ist zulässig; es kann die \
+                     Orientierung erschweren, wenn unklar ist, welche das Seitenthema benennt."
                 )
             },
             Some(if en {
-                "Use only one H1 heading per page. Mark further top-level headings as H2."
-                    .to_string()
+                "Check the heading structure; one H1 for the page topic is recommended.".to_string()
             } else {
-                "Nur eine H1-Überschrift pro Seite verwenden. Weitere Top-Level-Überschriften \
-                 als H2 auszeichnen."
+                "Überschriftenstruktur prüfen; empfohlen ist eine H1 für das Seitenthema."
                     .to_string()
             }),
         ),
