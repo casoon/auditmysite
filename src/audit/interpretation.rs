@@ -508,18 +508,18 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
         } else if s.score >= 30 {
             LocalizedText {
                 de: format!(
-                    "Security-Level: {} Pkt — mehrere kritische Security-Header fehlen",
+                    "Security-Level: {} Pkt — mehrere Basisschutz-Header fehlen",
                     s.score
                 ),
                 en: format!(
-                    "Security level: {} pts — multiple critical security headers missing",
+                    "Security level: {} pts — several baseline security headers missing",
                     s.score
                 ),
             }
         } else {
             LocalizedText {
-                de: format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — hohes Risiko, schnell behebbar", s.score),
-                en: format!("Security level: {} pts — security headers almost entirely missing — high risk, quick to fix", s.score),
+                de: format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — vorrangig, mit geringem Aufwand behebbar", s.score),
+                en: format!("Security level: {} pts — security headers almost entirely missing — a priority, low effort to fix", s.score),
             }
         }
     } else {
