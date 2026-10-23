@@ -83,6 +83,24 @@ fn test_release_build_requires_quality_gates_to_pass_first() {
     );
 }
 
+/// Plan 94: `cross` is installed from a pinned commit with `--locked`,
+/// never from the moving tip of cross-rs/main.
+#[test]
+fn test_cross_is_installed_pinned() {
+    let release_yml = read_repo_file(".github/workflows/release.yml");
+    for line in release_yml
+        .lines()
+        .filter(|l| l.contains("cargo install cross"))
+    {
+        assert!(line.contains("--rev "), "unpinned cross install: {line}");
+        assert!(
+            line.contains("--locked"),
+            "cross install without --locked: {line}"
+        );
+    }
+    assert!(release_yml.contains("cargo install cross"));
+}
+
 #[test]
 fn test_release_build_uses_locked_lockfile() {
     // plan/25-release-workflow-quality-gate.md: release binaries must be
