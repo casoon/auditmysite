@@ -225,9 +225,9 @@ fn render_module_split_dashboards(
         );
         let message = if risk_gated {
             if en {
-                "The additional indicator modules (UX, Journey, …) are in good shape, but operability/legal risk elsewhere in this report still requires action — see Management Summary."
+                "The additional indicator modules (UX, Journey, …) are in good shape, but barriers elsewhere in this report (operability, possible legal relevance) still require action — see Management Summary."
             } else {
-                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch besteht an anderer Stelle in diesem Report Bedienbarkeits- oder rechtliches Risiko, das Handeln erfordert — siehe Management-Zusammenfassung."
+                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch zeigt dieser Report an anderer Stelle Barrieren mit Handlungsbedarf (Bedienbarkeit, mögliche Rechtsrelevanz) — siehe Management-Zusammenfassung."
             }
         } else if en {
             "The additional indicator modules (UX, Journey, …) are in good shape — no module needs prioritized optimization."
@@ -342,7 +342,7 @@ fn render_overall_rating(
         Label::new(if en {
             "The rating is a band label for the accessibility score within the automated scope, not a conformance certificate."
         } else {
-            "Die Einstufung ist ein Bandlabel für den Barrierefreiheits-Wert im automatisierten Prüfumfang, kein Konformitätsnachweis."
+            "Die Einstufung ist ein Bandlabel für den Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis."
         })
         .with_size("8.5pt")
         .with_color(design::tokens::MUTED),
@@ -1021,7 +1021,7 @@ pub(super) fn render_appendix_full(
     } else {
         (
             "Anhang & Methodik",
-            "Prüfumfang, Methodik, WCAG-Coverage und die vollständige Fundstellenliste.",
+            "Prüfumfang, Methodik, WCAG-Coverage und die vollständige Liste der Vorkommen.",
         )
     };
     builder = builder.add_component(PageBreak::new()).add_component(
@@ -1428,7 +1428,7 @@ fn render_findings_section(
             } else {
                 (
                     "Befundmatrix",
-                    "Eine Zeile je Befundgruppe, sortiert nach Priorität – als Überblick zur Priorisierung, bevor die Detailkarten unten jede Zeile vertiefen.",
+                    "Eine Zeile je Regelgruppe, sortiert nach Priorität – als Überblick zur Priorisierung, bevor die Detailkarten unten jede Zeile vertiefen.",
                 )
             };
             builder = builder.add_component(Label::new(matrix_intro).with_size("10.5pt"));
@@ -1667,7 +1667,7 @@ fn render_appendix_section(
             )
         } else {
             (
-                "Vollständige Fundstellen",
+                "Alle Vorkommen",
                 "Rohdaten des Audits und die vollständige Liste aller erkannten Verstöße.",
             )
         };
@@ -1922,7 +1922,7 @@ fn render_dual_viewport_summary_section(
         )
     } else {
         format!(
-            "Jeder Barrierefreiheits-Score bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
+            "Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
         )
     };
 

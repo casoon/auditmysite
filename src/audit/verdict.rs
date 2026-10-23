@@ -63,10 +63,10 @@ impl VerdictReasonKind {
     pub fn text(self, en: bool) -> String {
         match self {
             VerdictReasonKind::LegalFlags(n) => match (en, n) {
-                (true, 1) => "1 legally relevant finding".to_string(),
-                (true, n) => format!("{n} legally relevant findings"),
-                (false, 1) => "1 rechtlich relevanter Befund".to_string(),
-                (false, n) => format!("{n} rechtlich relevante Befunde"),
+                (true, 1) => "1 finding with possible legal relevance (BFSG/EAA)".to_string(),
+                (true, n) => format!("{n} findings with possible legal relevance (BFSG/EAA)"),
+                (false, 1) => "1 Befund mit möglicher Rechtsrelevanz (BFSG/EAA)".to_string(),
+                (false, n) => format!("{n} Befunde mit möglicher Rechtsrelevanz (BFSG/EAA)"),
             },
             VerdictReasonKind::BlockingIssues(n) => match (en, n) {
                 (true, 1) => "1 control not operable with assistive technology".to_string(),
@@ -287,13 +287,13 @@ mod tests {
         for (kind, de, en) in [
             (
                 LegalFlags(1),
-                "1 rechtlich relevanter Befund",
-                "1 legally relevant finding",
+                "1 Befund mit möglicher Rechtsrelevanz (BFSG/EAA)",
+                "1 finding with possible legal relevance (BFSG/EAA)",
             ),
             (
                 LegalFlags(4),
-                "4 rechtlich relevante Befunde",
-                "4 legally relevant findings",
+                "4 Befunde mit möglicher Rechtsrelevanz (BFSG/EAA)",
+                "4 findings with possible legal relevance (BFSG/EAA)",
             ),
             (
                 BlockingIssues(1),

@@ -252,7 +252,7 @@ pub(super) fn build_methodology(
         )
     } else {
         format!(
-            "{} unterschiedliche WCAG-Befundgruppen, {} WCAG-Vorkommen; {} Befundzeilen und {} Vorkommen über alle Kategorien",
+            "{} unterschiedliche WCAG-Regelgruppen, {} WCAG-Vorkommen; {} Befundzeilen und {} Vorkommen über alle Kategorien",
             normalized.severity_counts.total,
             normalized.occurrence_counts.total,
             normalized.findings.len(),
@@ -262,7 +262,7 @@ pub(super) fn build_methodology(
 
     let mut audit_facts = vec![
         (
-            key("Barrierefreiheits-Score", "Accessibility score"),
+            key("Barrierefreiheitswert", "Accessibility score"),
             accessibility_score_value,
         ),
         (

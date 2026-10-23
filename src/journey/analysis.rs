@@ -520,9 +520,9 @@ pub fn journey_friction_text(
                 "Keine H1-Überschrift — Seitenzweck nicht sofort erkennbar".into()
             },
             if en {
-                "Users do not understand what this page is about".into()
+                "Users may not be able to tell what this page is about".into()
             } else {
-                "Nutzer verstehen nicht, worum es auf dieser Seite geht".into()
+                "Nutzer erkennen möglicherweise nicht, worum es auf dieser Seite geht".into()
             },
             if en {
                 "Set a meaningful H1 heading".into()
@@ -571,9 +571,9 @@ pub fn journey_friction_text(
                 "Wenig sichtbarer Text im oberen Seitenbereich".into()
             },
             if en {
-                "Users get no immediate orientation".into()
+                "The page offers little immediate orientation".into()
             } else {
-                "Nutzer erhalten keine sofortige Orientierung".into()
+                "Die Seite bietet Nutzern wenig unmittelbare Orientierung".into()
             },
             if en {
                 "Place relevant introductory text above the fold".into()
@@ -640,9 +640,9 @@ pub fn journey_friction_text(
                 "Kaum Zwischenüberschriften zur Orientierung".into()
             },
             if en {
-                "Users cannot scan the content".into()
+                "Content without structure is harder to scan".into()
             } else {
-                "Nutzer können Inhalte nicht scannen".into()
+                "Ohne Gliederung lassen sich Inhalte schwerer überfliegen".into()
             },
             if en {
                 "Structure the content with H2/H3 headings".into()
@@ -660,9 +660,9 @@ pub fn journey_friction_text(
                 )
             },
             if en {
-                "Users cannot distinguish where links lead".into()
+                "Users may find it hard to tell where links lead".into()
             } else {
-                "Nutzer können nicht unterscheiden, wohin Links führen".into()
+                "Wohin Links führen, ist für Nutzer möglicherweise schwer zu unterscheiden".into()
             },
             if en {
                 "Write descriptive link text that names the destination".into()
@@ -694,9 +694,10 @@ pub fn journey_friction_text(
                 format!("{} doppelte Linktexte auf der Seite", count)
             },
             if en {
-                "The same label for different destinations confuses users".into()
+                "The same label for different destinations makes them hard to tell apart".into()
             } else {
-                "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into()
+                "Gleiche Beschriftung für unterschiedliche Ziele erschwert die Unterscheidung"
+                    .into()
             },
             if en {
                 "Make link texts unambiguous or differentiate them with aria-label".into()
@@ -711,9 +712,9 @@ pub fn journey_friction_text(
                 format!("{} Buttons ohne erkennbare Beschriftung", count)
             },
             if en {
-                "Users do not know what a button triggers".into()
+                "Screen reader users do not learn what the button triggers".into()
             } else {
-                "Nutzer wissen nicht, was ein Button auslöst".into()
+                "Screenreader-Nutzer erfahren nicht, was der Button auslöst".into()
             },
             if en {
                 "Give every button descriptive text or an aria-label".into()
@@ -728,9 +729,9 @@ pub fn journey_friction_text(
                 format!("{} Formularfelder ohne Label", count)
             },
             if en {
-                "Users do not know what input is expected".into()
+                "Screen reader users do not learn what input is expected".into()
             } else {
-                "Nutzer wissen nicht, welche Eingabe erwartet wird".into()
+                "Screenreader-Nutzer erfahren nicht, welche Eingabe erwartet wird".into()
             },
             if en {
                 "Connect every form field to a visible <label> or aria-label".into()
@@ -766,9 +767,9 @@ pub fn journey_friction_text(
                 "Die H1-Überschrift ist zu kurz, um den Seitenzweck zu benennen".into()
             },
             if en {
-                "Visitors cannot tell from the heading whether they are in the right place".into()
+                "The heading may not tell visitors whether they are in the right place".into()
             } else {
-                "Besucher erkennen an der Überschrift nicht, ob sie richtig sind".into()
+                "Die Überschrift zeigt Besuchern möglicherweise nicht, ob sie richtig sind".into()
             },
             if en {
                 "Name the subject of the page in the H1".into()
@@ -851,9 +852,9 @@ pub fn journey_friction_text(
                 "Kein erkennbarer Call-to-Action auf der Seite".into()
             },
             if en {
-                "Users have no clear prompt to act".into()
+                "No clear call to action was detected".into()
             } else {
-                "Nutzer haben keine klare Handlungsaufforderung".into()
+                "Keine klare Handlungsaufforderung erkannt".into()
             },
             if en {
                 "Define a primary CTA and place it prominently".into()

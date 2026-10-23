@@ -533,9 +533,9 @@ fn build_problem_type_label(
     match issue_pattern {
         IssuePattern::Minimal => {
             if en {
-                "No violations found — full conformance within the audited scope".into()
+                "No violations found within the automated audit scope".into()
             } else {
-                "Keine Verstöße gefunden — volle Konformität im geprüften Umfang".into()
+                "Keine Verstöße im automatisierten Prüfumfang gefunden".into()
             }
         }
         IssuePattern::SingleDominant => {

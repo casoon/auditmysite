@@ -148,9 +148,9 @@ pub(super) fn build_batch_assessment(
     } else if score < 75 {
         if dist.critical > 0 {
             if en {
-                "Usable, but legally risky".to_string()
+                "Usable, but with critical barriers".to_string()
             } else {
-                "Nutzbar, aber rechtlich riskant".to_string()
+                "Nutzbar, aber mit kritischen Barrieren".to_string()
             }
         } else if dist.high > 0 {
             if en {
@@ -166,9 +166,9 @@ pub(super) fn build_batch_assessment(
     } else if score < 90 {
         if dist.critical > 0 {
             if en {
-                "Technically stable, but legally risky".to_string()
+                "Technically stable, but with critical barriers".to_string()
             } else {
-                "Technisch stabil, aber rechtlich riskant".to_string()
+                "Technisch stabil, aber mit kritischen Barrieren".to_string()
             }
         } else if dist.high > 0 {
             if en {

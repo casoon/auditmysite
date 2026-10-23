@@ -254,11 +254,11 @@ impl ManagementRiskKind {
             } => {
                 let base = if en {
                     format!(
-                        "{legal_flags} legal flags, {critical} critical and {high} high WCAG findings detected automatically."
+                        "{legal_flags} findings with possible legal relevance, {critical} critical and {high} high WCAG findings detected automatically."
                     )
                 } else {
                     format!(
-                        "{legal_flags} rechtlich relevante Marker, {critical} kritische und {high} hohe WCAG-Befunde automatisiert erkannt."
+                        "{legal_flags} Befunde mit möglicher Rechtsrelevanz, {critical} kritische und {high} hohe WCAG-Befunde automatisiert erkannt."
                     )
                 };
                 if *blocking_issues == 0 {

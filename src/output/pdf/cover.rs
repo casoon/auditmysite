@@ -29,9 +29,9 @@ pub(super) fn cover_band_phrase(
     let base = match verdict {
         Verdict::Fail => {
             if en {
-                "Not passed — action required"
+                "Not passed in the automated audit scope — action required"
             } else {
-                "Nicht bestanden — Handlungsbedarf"
+                "Im automatischen Prüfumfang nicht bestanden — Handlungsbedarf"
             }
         }
         // Warn and Pass keep the score-derived phrase: the score band is the

@@ -65,7 +65,7 @@ pub(super) fn render_score_driver_table(
             Label::new(if en {
                 "A different question from the accessibility score on the cover, which is what this report assesses."
             } else {
-                "Eine andere Frage als der Barrierefreiheits-Wert auf dem Deckblatt, um den es in diesem Bericht geht."
+                "Eine andere Frage als der Barrierefreiheitswert auf dem Deckblatt, um den es in diesem Bericht geht."
             })
             .with_size("10.5pt")
             .with_color(design::tokens::NEUTRAL),
