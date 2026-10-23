@@ -57,11 +57,33 @@ pub fn extract_page_topics(report: &AuditReport) -> Vec<String> {
     top_terms_from_segments(&weighted_segments, 5)
 }
 
+/// Terms on at least 80% of five or more pages: they tell no pages apart.
+fn site_wide_terms(url_details: &[CompactUrlSummary]) -> HashSet<&str> {
+    let mut page_counts: HashMap<&str, usize> = HashMap::new();
+    for detail in url_details {
+        let unique: HashSet<&str> = detail.topic_terms.iter().map(String::as_str).collect();
+        for term in unique {
+            *page_counts.entry(term).or_default() += 1;
+        }
+    }
+    let pages = url_details.len();
+    page_counts
+        .into_iter()
+        .filter(|(_, count)| pages >= 5 && count * 5 >= pages * 4)
+        .map(|(term, _)| term)
+        .collect()
+}
+
+/// The most common topic terms across pages. Site-wide terms (brand names,
+/// boilerplate) are no topic and stay out (plan 90).
 pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, usize)> {
+    let site_wide = site_wide_terms(url_details);
     let mut counts: HashMap<String, usize> = HashMap::new();
     for detail in url_details {
         for term in &detail.topic_terms {
-            *counts.entry(term.clone()).or_default() += 1;
+            if !site_wide.contains(term.as_str()) {
+                *counts.entry(term.clone()).or_default() += 1;
+            }
         }
     }
 
@@ -74,19 +96,7 @@ pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, u
 /// least 80% of five or more pages (brand names, boilerplate) tell no pages
 /// apart and are left out of the comparison (plan 90).
 pub fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<TopicOverlapPair> {
-    let mut page_counts: HashMap<&str, usize> = HashMap::new();
-    for detail in url_details {
-        let unique: HashSet<&str> = detail.topic_terms.iter().map(String::as_str).collect();
-        for term in unique {
-            *page_counts.entry(term).or_default() += 1;
-        }
-    }
-    let pages = url_details.len();
-    let site_wide: HashSet<&str> = page_counts
-        .into_iter()
-        .filter(|(_, count)| pages >= 5 && count * 5 >= pages * 4)
-        .map(|(term, _)| term)
-        .collect();
+    let site_wide = site_wide_terms(url_details);
 
     let mut pairs = Vec::new();
     for (idx, left) in url_details.iter().enumerate() {
@@ -249,5 +259,7 @@ mod tests {
         );
         assert_eq!(pairs[0].shared_terms, vec!["hafen", "kaikante"]);
         assert!(pairs[0].similarity_percent <= 100);
+        let topics = derive_domain_topics(&pages);
+        assert!(!topics.iter().any(|(t, _)| t == "inros" || t == "lackner"));
     }
 }

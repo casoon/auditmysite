@@ -691,7 +691,11 @@ fn render_consistency_overlap_pairs(
             .map(|pair| {
                 let terms = pair.shared_terms.join(", ");
                 ChecklistRow::new(
-                    format!("{} ↔ {}", pair.url_a, pair.url_b),
+                    format!(
+                        "{} ↔ {}",
+                        short_url(&pair.url_a, 40),
+                        short_url(&pair.url_b, 40)
+                    ),
                     if en {
                         format!(
                             "Topic-term similarity {} % · shared terms: {terms}",

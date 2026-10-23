@@ -505,18 +505,19 @@ pub(super) fn render_batch_decision_actions(
             severity_label_i18n(group.severity, i18n),
             crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
             effort_label_i18n(group.effort, i18n),
-            if en {
-                format!(
-                    "{} occurrences / {} URLs",
-                    group.occurrence_count,
-                    group.affected_urls.len()
-                )
-            } else {
-                format!(
-                    "{} Vorkommen / {} URLs",
-                    group.occurrence_count,
-                    group.affected_urls.len()
-                )
+            {
+                let urls = group.affected_urls.len();
+                let url_unit = if urls == 1 { "URL" } else { "URLs" };
+                if en {
+                    let occ = if group.occurrence_count == 1 {
+                        "occurrence"
+                    } else {
+                        "occurrences"
+                    };
+                    format!("{} {occ} / {urls} {url_unit}", group.occurrence_count)
+                } else {
+                    format!("{} Vorkommen / {urls} {url_unit}", group.occurrence_count)
+                }
             },
         ]);
         count += 1;
