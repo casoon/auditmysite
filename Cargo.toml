@@ -74,7 +74,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "gzip"] }
 
 # Zip extraction for Chromium installer
-zip = "2.2"
+zip = "9"
 
 # Home directory detection
 dirs = "5.0"
@@ -106,7 +106,7 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # reqwest/ureq/wasi/wstd HTTP clients for online OCSP/trust-list/remote-manifest
 # fetching) — this module only reads manifests already embedded in fetched image
 # bytes and must stay fully offline, never phoning out on its own.
-c2pa = { version = "0.90.3", optional = true, default-features = false, features = ["rust_native_crypto"] }
+c2pa = { version = "0.91.4", optional = true, default-features = false, features = ["rust_native_crypto"] }
 
 # DNS record queries (CAA/DNSKEY/MX/TXT) for the opt-in network::dns module (#545).
 hickory-resolver = "0.26.1"
