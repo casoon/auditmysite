@@ -4,7 +4,7 @@
     { "rule_id": "aria/owns-conflict", "verdict": "violation" },
     { "rule_id": "forms/autocomplete-invalid", "verdict": "violation" },
     { "rule_id": "forms/purpose-missing", "verdict": "needs_review" },
-    { "rule_id": "help", "verdict": "violation" },
+    { "rule_id": "manual/help", "verdict": "needs_review" },
     { "rule_id": "forms/group-missing", "verdict": "violation" },
     { "rule_id": "label-in-name/mismatch", "verdict": "violation" },
     { "rule_id": "images/server-side-map", "verdict": "violation" },

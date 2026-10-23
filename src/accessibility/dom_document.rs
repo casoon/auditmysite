@@ -254,6 +254,10 @@ const SNAPSHOT_STYLES: &[&str] = &[
     "list-style-type",
     "text-decoration-line",
     "border-bottom-style",
+    "appearance",
+    "border-top-style",
+    "border-top-width",
+    "border-top-color",
     "overflow-x",
     "overflow-y",
     "clip",
@@ -641,6 +645,11 @@ fn computed_style(
         font_style: owned("font-style"),
         font_family: owned("font-family"),
         border_bottom_style: owned("border-bottom-style"),
+        appearance: owned("appearance"),
+        border_top_style: owned("border-top-style"),
+        border_top_width_px: get("border-top-width").and_then(parse_px),
+        border_top_color: get("border-top-color").and_then(parse_color),
+        own_background_color: get("background-color").and_then(parse_color),
     }
 }
 
@@ -1693,7 +1702,10 @@ impl<'n> Walk<'_, 'n> {
             .filter(|s| s.shadow_root_type != Some(ShadowRootType::UserAgent))
         {
             is_host = true;
+            // Eigener Baumbereich: IDs darin gelten nur dort (#700).
+            self.with(|b| b.shadow_root());
             self.children(shadow);
+            self.with(|b| b.end_scope());
         }
 
         let assigned: Vec<&'n CdpNode> = if name == "slot" {
@@ -1706,9 +1718,13 @@ impl<'n> Walk<'_, 'n> {
             Vec::new()
         };
         if !assigned.is_empty() {
+            // Eingesetzter Inhalt gehört zum Bereich außen um die Shadow Root,
+            // auch wenn er im flachen Baum unter dem Slot hängt.
+            self.with(|b| b.slotted());
             for child in assigned {
                 self.node(child);
             }
+            self.with(|b| b.end_scope());
         } else if !is_host {
             // Ein Slot ohne Zuweisung zeigt seinen Ersatzinhalt.
             self.children(node);
@@ -2046,16 +2062,48 @@ mod tests {
         color: &'a str,
         bg: &'a str,
         bg_image: &'a str,
-    ) -> [&'a str; 31] {
+    ) -> [&'a str; 35] {
         [
-            display, "visible", color, color, bg, bg_image, "16px", "400", "normal", "Arial",
-            "disc", "none", "none", "visible", "visible", "auto", "none", "0px", "static", "1",
-            "row", "0", "auto", "auto", "none", "0s", "1", "running", "auto", "auto", "auto",
+            display,
+            "visible",
+            color,
+            color,
+            bg,
+            bg_image,
+            "16px",
+            "400",
+            "normal",
+            "Arial",
+            "disc",
+            "none",
+            "none",
+            "none",
+            "none",
+            "0px",
+            "rgb(0, 0, 0)",
+            "visible",
+            "visible",
+            "auto",
+            "none",
+            "0px",
+            "static",
+            "1",
+            "row",
+            "0",
+            "auto",
+            "auto",
+            "none",
+            "0s",
+            "1",
+            "running",
+            "auto",
+            "auto",
+            "auto",
         ]
     }
 
     /// Setzt einen Wert aus [`SNAPSHOT_STYLES`] beim Namen.
-    fn mit<'a>(mut v: [&'a str; 31], property: &str, value: &'a str) -> [&'a str; 31] {
+    fn mit<'a>(mut v: [&'a str; 35], property: &str, value: &'a str) -> [&'a str; 35] {
         v[SNAPSHOT_STYLES.iter().position(|p| *p == property).unwrap()] = value;
         v
     }
@@ -2135,13 +2183,13 @@ mod tests {
 
     /// `body` > `div` je Muster > `span` mit Text. Gemeldet wird, ob der
     /// `span` als optisch verborgen gilt.
-    fn verborgen(div: [&str; 31], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+    fn verborgen(div: [&str; 35], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
         let span = werte("inline", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
         verborgen_mit(div, div_rect, span, span_rect)
     }
 
     /// Wie [`verborgen`], der `span` absolut positioniert.
-    fn verborgen_absolut(div: [&str; 31], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
+    fn verborgen_absolut(div: [&str; 35], div_rect: [f64; 4], span_rect: [f64; 4]) -> Option<bool> {
         let span = mit(
             werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none"),
             "position",
@@ -2151,9 +2199,9 @@ mod tests {
     }
 
     fn verborgen_mit(
-        div: [&str; 31],
+        div: [&str; 35],
         div_rect: [f64; 4],
-        span: [&str; 31],
+        span: [&str; 35],
         span_rect: [f64; 4],
     ) -> Option<bool> {
         let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
@@ -2231,15 +2279,15 @@ mod tests {
     /// `figcaption` > `p` mit Text). Überschneidet der Wrapper den Text, ist
     /// der Hintergrund nicht bestimmbar (#716 Fall 6, spiegel.de
     /// Bildnachweis).
-    fn hintergrund_neben(wrapper: [&str; 31], wrapper_rect: [f64; 4]) -> Option<Color> {
+    fn hintergrund_neben(wrapper: [&str; 35], wrapper_rect: [f64; 4]) -> Option<Color> {
         let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
         hintergrund_unter(wrapper, wrapper_rect, figure)
     }
 
     fn hintergrund_unter(
-        wrapper: [&str; 31],
+        wrapper: [&str; 35],
         wrapper_rect: [f64; 4],
-        caption: [&str; 31],
+        caption: [&str; 35],
     ) -> Option<Color> {
         let body = werte("block", "rgb(0, 0, 0)", "rgb(255, 255, 255)", "none");
         let figure = werte("block", "rgb(0, 0, 0)", "rgba(0, 0, 0, 0)", "none");
@@ -2530,7 +2578,10 @@ mod tests {
                     .iter()
                     .map(|s| Some(s.to_string()))
                     .collect();
-            v[14] = Some(y.to_string());
+            v[SNAPSHOT_STYLES
+                .iter()
+                .position(|p| *p == "overflow-y")
+                .unwrap()] = Some(y.to_string());
             SnapshotValues(v)
         };
         let scroll = Some(Rect {
@@ -2769,6 +2820,99 @@ mod tests {
 
         assert!(elements(&doc).all(|n| !n.is_element("span")));
         assert!(elements(&doc).any(|n| n.is_element("button")));
+    }
+
+    /// IDs gelten je Baumbereich (#700, casoon/barrierlab#23): zwei
+    /// Instanzen derselben Komponente mit `id="hilfe"` sind kein Duplikat,
+    /// ein Verweis aus dem Light DOM in eine Shadow Root trifft nichts, und
+    /// per Slot eingesetzter Inhalt gehört zum äußeren Bereich.
+    #[test]
+    fn ids_gelten_je_baumbereich() {
+        let komponente = |host: i64| {
+            serde_json::json!({
+                "nodeId": host, "backendNodeId": host, "nodeType": 1,
+                "nodeName": "X-FELD", "localName": "x-feld", "nodeValue": "",
+                "children": [],
+                "shadowRoots": [{
+                    "nodeId": host + 1, "backendNodeId": host + 1, "nodeType": 11,
+                    "nodeName": "#document-fragment", "localName": "", "nodeValue": "",
+                    "shadowRootType": "closed",
+                    "children": [
+                        element(host + 2, "input",
+                            &["aria-describedby", "hilfe", "aria-label", "Name"],
+                            serde_json::json!([])),
+                        element(host + 3, "p", &["id", "hilfe"], serde_json::json!([]))
+                    ]
+                }]
+            })
+        };
+        let slot = serde_json::json!({
+            "nodeId": 32, "backendNodeId": 32, "nodeType": 1,
+            "nodeName": "SLOT", "localName": "slot", "nodeValue": "", "children": [],
+            "distributedNodes": [{"nodeType": 1, "nodeName": "INPUT", "backendNodeId": 33}]
+        });
+        let rahmen = serde_json::json!({
+            "nodeId": 30, "backendNodeId": 30, "nodeType": 1,
+            "nodeName": "X-RAHMEN", "localName": "x-rahmen", "nodeValue": "",
+            "children": [element(33, "input",
+                &["aria-label", "Ort", "aria-describedby", "aussen"],
+                serde_json::json!([]))],
+            "shadowRoots": [{
+                "nodeId": 31, "backendNodeId": 31, "nodeType": 11,
+                "nodeName": "#document-fragment", "localName": "", "nodeValue": "",
+                "shadowRootType": "open",
+                "children": [slot, element(34, "span", &["id", "innen"], serde_json::json!([]))]
+            }]
+        });
+        let body = element(
+            3,
+            "body",
+            &[],
+            serde_json::json!([
+                element(4, "p", &["id", "aussen"], serde_json::json!([])),
+                element(
+                    5,
+                    "button",
+                    &["aria-labelledby", "innen"],
+                    serde_json::json!([])
+                ),
+                komponente(10),
+                komponente(20),
+                rahmen
+            ]),
+        );
+        let doc = build_document(
+            &cdp(serde_json::json!({
+                "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+                "nodeName": "#document", "localName": "", "nodeValue": "",
+                "children": [element(2, "html", &["lang", "de"], serde_json::json!([body]))]
+            })),
+            &leerer_ax(),
+        )
+        .unwrap();
+
+        let report = a11y_rules::run(&doc);
+        let verweise: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == "aria/reference-missing")
+            .map(|f| f.location.node.clone())
+            .collect();
+        let knopf = elements(&doc).find(|n| n.is_element("button")).unwrap();
+        assert_eq!(verweise, [Some(knopf.id().to_string())]);
+        assert!(report.findings.iter().all(|f| f.rule_id != "ids/duplicate"));
+
+        let ort = elements(&doc)
+            .find(|n| n.attr("aria-label") == Some("Ort"))
+            .unwrap();
+        assert_eq!(ort.tree_scope(), a11y_dom::TreeScope(0));
+        assert_ne!(
+            elements(&doc)
+                .find(|n| n.is_element("slot"))
+                .unwrap()
+                .tree_scope(),
+            a11y_dom::TreeScope(0)
+        );
     }
 
     /// Muster von sachsen-anhalt.de: Die Liste liegt im Shadow-Root, die

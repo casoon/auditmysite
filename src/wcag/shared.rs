@@ -1591,6 +1591,81 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
+    // Ersetzen die sieben Prüfhinweis-Stubs (#722, casoon/barrierlab#39):
+    // `pointer_gestures`, `motion_actuation`, `no_timing`, `no_interruptions`,
+    // `re_authenticate`, `unusual_words` und `help`. Wie zuvor `UNTESTED`,
+    // einmal je Seite; gewollt anders: nur noch, wenn die Seite etwas
+    // enthält, für das das Kriterium gilt (Gesten-Widgets, Bewegungs-Skript,
+    // Felder, Live-Regionen, Anmeldung, Text). Der heuristische Teil von
+    // `help` — jedes Textfeld ohne `aria-describedby` als 3.3.5-Verstoß —
+    // entfällt: Fehlende Beschreibung ist kein Nachweis fehlender Hilfe.
+    SharedRule {
+        id: "manual/pointer-gestures",
+        criterion: "2.5.1",
+        level: WcagLevel::A,
+        name: "Pointer Gestures",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-gestures.html",
+    },
+    SharedRule {
+        id: "manual/motion-actuation",
+        criterion: "2.5.4",
+        level: WcagLevel::A,
+        name: "Motion Actuation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/motion-actuation.html",
+    },
+    SharedRule {
+        id: "manual/no-timing",
+        criterion: "2.2.3",
+        level: WcagLevel::AAA,
+        name: "No Timing",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/no-timing.html",
+    },
+    SharedRule {
+        id: "manual/interruptions",
+        criterion: "2.2.4",
+        level: WcagLevel::AAA,
+        name: "Interruptions",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/interruptions.html",
+    },
+    SharedRule {
+        id: "manual/re-authenticating",
+        criterion: "2.2.5",
+        level: WcagLevel::AAA,
+        name: "Re-authenticating",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/re-authenticating.html",
+    },
+    SharedRule {
+        id: "manual/unusual-words",
+        criterion: "3.1.3",
+        level: WcagLevel::AAA,
+        name: "Unusual Words",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/unusual-words.html",
+    },
+    SharedRule {
+        id: "manual/help",
+        criterion: "3.3.5",
+        level: WcagLevel::AAA,
+        name: "Help",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/help.html",
+    },
+    // Ersetzen `wcag::rules::non_text_contrast_css` (`non-text-contrast-css`,
+    // #698, casoon/barrierlab#21): Rahmen, `appearance` und eigene Fläche aus
+    // dem DOMSnapshot. Gewollt anders: Fehlt der Hintergrund hinter dem
+    // Element, `UNTESTED` statt eines Vergleichs gegen Weiß.
+    SharedRule {
+        id: "contrast/control-insufficient",
+        criterion: "1.4.11",
+        level: WcagLevel::AA,
+        name: "Non-text Contrast",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+    },
+    SharedRule {
+        id: "contrast/control-undetermined",
+        criterion: "1.4.11",
+        level: WcagLevel::AA,
+        name: "Non-text Contrast",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
@@ -1637,6 +1712,15 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ),
     ("lists/role-redundant", "redundant-role"),
     ("targets/size", "target-size-minimum"),
+    ("manual/pointer-gestures", "pointer-gestures"),
+    ("manual/motion-actuation", "motion-actuation"),
+    ("manual/no-timing", "no-timing"),
+    ("manual/interruptions", "no-interruptions"),
+    ("manual/re-authenticating", "re-authenticate"),
+    ("manual/unusual-words", "unusual-words"),
+    ("manual/help", "help"),
+    ("contrast/control-insufficient", "non-text-contrast-css"),
+    ("contrast/control-undetermined", "non-text-contrast-css"),
     ("targets/size-enhanced", "target-size"),
     ("order/visual-mismatch", "css-order-reading-sequence"),
     ("motion/infinite-animation", "pause-stop-hide"),

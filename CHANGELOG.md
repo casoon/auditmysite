@@ -5,6 +5,27 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Prüfhinweise, Bedienelement-Kontrast und Baumbereiche aus `a11y-rules` 0.23.0
+  (#722, #698, #700, #738; casoon/barrierlab#39, #21, #23, #41):**
+  Die sieben Prüfhinweis-Stubs `pointer_gestures`, `motion_actuation`, `no_timing`,
+  `no_interruptions`, `re_authenticate`, `unusual_words` und `help` laufen als `manual/*` im
+  geteilten Bestand. Weiter `UNTESTED`, einmal je Seite, aber nur noch mit Anlass
+  (Gesten-Widgets, Inline-Skript mit Bewegungssensoren, Felder, Live-Regionen, Anmeldung, Text).
+  Der heuristische Teil von `help` (jedes Textfeld ohne `aria-describedby` als 3.3.5-Verstoß)
+  entfällt. `non_text_contrast_css` läuft als `contrast/control-insufficient` /
+  `contrast/control-undetermined` (1.4.11) mit `appearance`, `border-top-*` und eigener Fläche
+  aus dem DOMSnapshot; fehlt der Hintergrund, `UNTESTED` statt Vergleich gegen Weiß. Gelöscht:
+  acht Regeldateien; die alten Kennungen lösen über `LEGACY_RULE_IDS` und `LEGACY_WCAG_MAP` auf.
+  Der CDP-Walk markiert jetzt Shadow Roots und per Slot eingesetzten Inhalt als eigene
+  Baumbereiche, IDs gelten je Bereich. `html-conform` 0.3.2 nimmt `<legend>` nach Leerraum im
+  `<fieldset>` nicht mehr als ungültig.
+  Live vorher → nachher (2026-10-23, AA, Desktop): upscale.casoon.dev/aufgaben/ Score 92 → 97
+  (`html-content-model` am `<legend>` entfällt); bund.de `ids/duplicate` 1 → 0 (`#content`),
+  sachsen-anhalt.de 2 → 0 (`#panel`, `#card__heading`) — IDs aus den Shadow Roots der
+  muse-Komponenten, Scores unverändert. bundesregierung.de (AAA): neu je ein Hinweis für 2.5.1
+  (Slick-Karussell), 2.2.3, 2.2.4, 3.1.3 und 3.3.5; 2.2.5 und 2.5.4 ohne Anlass still.
+  Detektionskorpus (Chrome) grün, Erwartungen auf die neuen Kennungen umgestellt.
+
 - **Unreleased — Zielgroesse, Reihenfolge, Endlos-Animation und Nur-Zeiger aus `a11y-rules`
   (#698, barrierlab#49):** `targets/size` (2.5.8 AA) und `targets/size-enhanced` (2.5.5 AAA, nur
   was 2.5.8 nicht schon meldet) ersetzen `target-size-minimum` und `target-size`;

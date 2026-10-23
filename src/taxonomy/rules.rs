@@ -572,6 +572,32 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     // Heuristiken ueber Layout-Angaben (#698): auf die Eintraege der
     // abgeloesten Regeln; `keyboard/pointer-only` auf den der Klick-Handler
     // ohne Tastatur.
+    // Prüfhinweise (#722) und Bedienelement-Kontrast (#698): auf die
+    // Einträge der abgelösten Regeln.
+    (
+        "manual/pointer-gestures",
+        "a11y.pointer_gestures.missing_alternative",
+    ),
+    (
+        "manual/motion-actuation",
+        "a11y.motion_actuation.missing_alternative",
+    ),
+    ("manual/no-timing", "a11y.timing.essential"),
+    ("manual/interruptions", "a11y.interruptions.uncontrollable"),
+    ("manual/re-authenticating", "a11y.re_authenticate.data_loss"),
+    (
+        "manual/unusual-words",
+        "a11y.unusual_words.missing_definition",
+    ),
+    ("manual/help", "a11y.help.missing"),
+    (
+        "contrast/control-insufficient",
+        "a11y.non_text_contrast.weak",
+    ),
+    (
+        "contrast/control-undetermined",
+        "a11y.non_text_contrast.weak",
+    ),
     ("targets/size", "a11y.target_size_minimum.small"),
     ("targets/size-enhanced", "a11y.target_size_enhanced.small"),
     ("order/visual-mismatch", "a11y.meaningful_sequence.invalid"),

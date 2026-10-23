@@ -28,11 +28,8 @@ use super::{
     check_accessible_authentication_with_page, check_display_modes_with_page,
     check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
     check_frame_tested_with_page, check_media_alternative_with_page,
-    check_modern_attributes_with_page, check_motion_actuation_with_page,
-    check_no_interruptions_with_page, check_no_timing_with_page,
-    check_non_text_contrast_css_with_page, check_on_input_with_page, check_orientation_with_page,
+    check_modern_attributes_with_page, check_on_input_with_page, check_orientation_with_page,
     check_page_titled_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_re_authenticate_with_page,
     check_same_origin_iframes_with_page, check_text_spacing_with_page, check_timeouts_with_page,
     check_timing_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
@@ -120,22 +117,10 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // AAA) — previously misclassified as AAA here and in each rule's own
     // RULE_META, which meant they silently never ran at the default AA level.
     PageRuleEntry {
-        rule_id: "2.5.1/pointer-gestures",
-        name: "pointer-gestures",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_pointer_gestures_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "2.5.2/pointer-cancellation",
         name: "pointer-cancellation",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.4/motion-actuation",
-        name: "motion-actuation",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_motion_actuation_with_page(p)),
     },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
@@ -143,12 +128,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "orientation",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_orientation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.4.11/non-text-contrast-css",
-        name: "CSS non-text contrast",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_non_text_contrast_css_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.12/text-spacing",
@@ -174,24 +153,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "visual-presentation",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_visual_presentation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.2.3/no-timing",
-        name: "no-timing",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_no_timing_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.2.4/no-interruptions",
-        name: "no-interruptions",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_no_interruptions_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.2.5/re-authenticate",
-        name: "re-authenticate",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_re_authenticate_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.2.6/timeouts",
@@ -295,7 +256,10 @@ mod tests {
         // - meaningful-sequence und pause-stop-hide: laufen als
         //   `order/visual-mismatch` und `motion/infinite-animation` mit den
         //   Layout-Angaben aus dem DOMSnapshot im geteilten Bestand (#698) = 11
-        assert_eq!(count, 11);
+        // - pointer-gestures und motion-actuation: laufen als
+        //   `manual/pointer-gestures` und `manual/motion-actuation` im
+        //   geteilten Bestand (#722) = 9
+        assert_eq!(count, 9);
     }
 
     #[test]
@@ -357,7 +321,10 @@ mod tests {
         //   target-size-minimum (AA) laufen als `order/visual-mismatch`,
         //   `motion/infinite-animation` und `targets/size` im geteilten
         //   Bestand (#698) = 16.
-        assert_eq!(count, 16);
+        // - pointer-gestures, motion-actuation (Level A, #722) und
+        //   non-text-contrast-css (AA, als `contrast/control-*`, #698) im
+        //   geteilten Bestand = 13.
+        assert_eq!(count, 13);
     }
 
     #[test]

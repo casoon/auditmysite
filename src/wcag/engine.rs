@@ -5,13 +5,11 @@
 use tracing::{debug, info};
 
 use super::rules::{
-    check_accessible_name, check_focus_visible, check_help, check_keyboard, check_link_purpose,
-    check_link_purpose_link_only, check_text_alternatives, check_unusual_words,
+    check_accessible_name, check_focus_visible, check_keyboard, check_link_purpose,
+    check_link_purpose_link_only, check_text_alternatives,
 };
 pub use super::rules::{
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
-    check_orientation_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_re_authenticate_with_page, check_reflow_with_page,
+    check_orientation_with_page, check_pointer_cancellation_with_page, check_reflow_with_page,
     check_timeouts_with_page, check_timing_with_page, check_visual_presentation_with_page,
 };
 use super::types::{Violation, WcagResults};
@@ -313,11 +311,8 @@ fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFi
     // page-rule table as check_media_alternative_with_page (DOM + transcript
     // detection needs live page access, not just the AXTree).
 
-    // 3.1.3 Unusual Words (Level AAA)
-    run_if_allowed!(filter, "unusual-words", check_unusual_words, results, tree);
-
-    // 3.3.5 Help (Level AAA)
-    run_if_allowed!(filter, "help", check_help, results, tree);
+    // 3.1.3 Unusual Words und 3.3.5 Help laufen als `manual/unusual-words`
+    // und `manual/help` im geteilten Bestand (#722).
 
     debug!("Level AAA rules executed");
 }
