@@ -84,12 +84,29 @@ pub(super) fn render_batch_cover(
             );
         if let Some(sample) = &batch.sample {
             let source = i18n.t(&format!("batch-source-{}", sample.source));
+            // Share and selection method, and that `first_n` is no
+            // representative choice (plan 80).
+            let pct = if sample.total_discovered > 0 {
+                let pct = sample.audited as f64 * 100.0 / sample.total_discovered as f64;
+                if is_english(i18n) {
+                    format!("{pct:.1}")
+                } else {
+                    format!("{pct:.1}").replace('.', ",")
+                }
+            } else {
+                "0".to_string()
+            };
             let scope = if sample.is_sample {
                 i18n.t_args(
-                    "batch-scope-sample",
+                    if sample.selection == "first_n" {
+                        "batch-scope-sample"
+                    } else {
+                        "batch-scope-sample-filtered"
+                    },
                     &[
                         ("audited", sample.audited.to_string()),
                         ("total", sample.total_discovered.to_string()),
+                        ("pct", pct),
                         ("source", source),
                     ],
                 )
@@ -103,6 +120,35 @@ pub(super) fn render_batch_cover(
                 )
             };
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
+        }
+        // The three sets a reader must not mix up: audited in the browser,
+        // failed, and only HTTP-checked (plans 80, 87).
+        if !batch.errors.is_empty() {
+            cover_meta = cover_meta.add(
+                i18n.t("batch-cover-frame-failed"),
+                i18n.t_args(
+                    "batch-cover-frame-failed-value",
+                    &[
+                        ("failed", batch.errors.len().to_string()),
+                        (
+                            "selected",
+                            (batch.errors.len() + batch.reports.len()).to_string(),
+                        ),
+                    ],
+                ),
+            );
+        }
+        if let Some(diagnostics) = &batch.sitemap_diagnostics {
+            cover_meta = cover_meta.add(
+                i18n.t("batch-cover-frame-http"),
+                i18n.t_args(
+                    "batch-cover-frame-http-value",
+                    &[
+                        ("checked", diagnostics.checked_urls.to_string()),
+                        ("audited", batch.reports.len().to_string()),
+                    ],
+                ),
+            );
         }
         // #653: the display mode every score in this report belongs to.
         {

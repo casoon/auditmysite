@@ -234,10 +234,10 @@ pub(super) fn render_batch_impact_summary(
 
     let user_impact = match (a11y_avg, en) {
         (s, true) if s < 50 => {
-            "Critical — core functions are unreachable for users with disabilities"
+            "Critical — on the audited pages, barriers severely hamper use with assistive technologies"
         }
         (s, false) if s < 50 => {
-            "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar"
+            "Kritisch — auf den geprüften Seiten erschweren Barrieren die Nutzung mit Hilfstechnologien erheblich"
         }
         (s, true) if s < 70 => {
             "Limited — structural issues impede users with assistive technologies"
@@ -255,10 +255,12 @@ pub(super) fn render_batch_impact_summary(
         (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
     };
     let business_impact = if dist.critical > 0 {
+        // About the audited pages: how far beyond the sample the barriers
+        // reach is not measured (plan 80).
         if en {
-            "Large parts of the website are unusable or barely usable for certain user groups."
+            "The audited pages contain critical barriers for certain user groups; how far they reach beyond these pages is not measured."
         } else {
-            "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+            "Die geprüften Seiten enthalten kritische Barrieren für bestimmte Nutzergruppen; wie weit sie über diese Seiten hinausreichen, ist nicht gemessen."
         }
     } else if dist.high > 0 {
         if en {
@@ -267,9 +269,9 @@ pub(super) fn render_batch_impact_summary(
             "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
         }
     } else if en {
-        "Low impact — users can fundamentally use the website."
+        "Low impact on the audited pages — no critical or high barriers detected automatically."
     } else {
-        "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
+        "Geringe Auswirkung auf den geprüften Seiten — automatisiert keine kritischen oder hohen Barrieren erkannt."
     };
     let legal_impact = if dist.critical > 0 {
         if en {
