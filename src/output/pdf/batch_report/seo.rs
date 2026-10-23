@@ -7,7 +7,7 @@ use renderreport::prelude::*;
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 pub(super) fn render_batch_seo_section(
     mut builder: renderreport::engine::ReportBuilder,
@@ -80,7 +80,7 @@ fn render_seo_weakest_pages(
         let mut list = KeyValueList::new().with_title(i18n.t("batch-seo-weakest-title"));
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
             list = list.add(
-                truncate_url(url, 50),
+                short_url(url, 50),
                 i18n.t_args(
                     "batch-seo-weakest-value",
                     &[
@@ -152,8 +152,8 @@ fn render_seo_near_duplicates(
                 i18n.t("batch-seo-risk-medium")
             };
             table = table.add_row(vec![
-                truncate_url(url_a, 35),
-                truncate_url(url_b, 35),
+                short_url(url_a, 35),
+                short_url(url_b, 35),
                 format!("{sim}%"),
                 risk.to_string(),
             ]);
@@ -190,7 +190,7 @@ fn render_seo_duplicate_content(
                 .urls
                 .iter()
                 .take(3)
-                .map(|u| truncate_url(u, 30))
+                .map(|u| short_url(u, 30))
                 .collect::<Vec<_>>()
                 .join(", ");
             table = table.add_row(vec![
@@ -263,7 +263,7 @@ fn render_seo_canonical_issues(
             } else {
                 issue.detail.clone()
             };
-            table = table.add_row(vec![kind_label, truncate_url(&issue.url, 35), detail]);
+            table = table.add_row(vec![kind_label, short_url(&issue.url, 35), detail]);
         }
         builder = builder.add_component(table);
     }
@@ -286,8 +286,8 @@ fn render_seo_hreflang_issues(
 
         for issue in &pres.portfolio_summary.hreflang_issues {
             table = table.add_row(vec![
-                truncate_url(&issue.source_url, 32),
-                truncate_url(&issue.target_url, 32),
+                short_url(&issue.source_url, 32),
+                short_url(&issue.target_url, 32),
                 issue.lang.clone(),
             ]);
         }
@@ -357,9 +357,9 @@ fn render_seo_sitemap_http_issues(
         .with_title(i18n.t("batch-sitemap-redirects-title"));
         for (target, sources) in groups.into_iter().take(10) {
             table = table.add_row(vec![
-                truncate_url(target, 48),
+                short_url(target, 48),
                 sources.len().to_string(),
-                truncate_url(&sources[0].url, 48),
+                short_url(&sources[0].url, 48),
             ]);
         }
         builder = builder.add_component(table);
@@ -389,12 +389,12 @@ fn render_seo_sitemap_http_issues(
             };
             table = table.add_row(vec![
                 kind_label,
-                truncate_url(&issue.url, 35),
+                short_url(&issue.url, 35),
                 issue
                     .status_code
                     .map(|code| code.to_string())
                     .unwrap_or_else(|| "n/a".to_string()),
-                truncate_url(&issue.detail, 45),
+                short_url(&issue.detail, 45),
             ]);
         }
         builder = builder.add_component(table);
@@ -427,13 +427,13 @@ fn render_seo_sitemap_orphans(
         for url in pres.portfolio_summary.orphan_sitemap_urls.iter().take(cap) {
             table = table.add_row(vec![
                 i18n.t("batch-sitemap-kind-orphan"),
-                truncate_url(url, 50),
+                short_url(url, 50),
             ]);
         }
         for url in pres.portfolio_summary.linked_not_in_sitemap.iter().take(20) {
             table = table.add_row(vec![
                 i18n.t("batch-sitemap-kind-linked-missing"),
-                truncate_url(url, 50),
+                short_url(url, 50),
             ]);
         }
         builder = builder.add_component(table);
@@ -464,7 +464,7 @@ fn render_seo_robots_conflicts(
         .with_title(i18n.t("batch-seo-robots-conflicts-title"));
 
         for conflict in &pres.portfolio_summary.robots_conflicts {
-            table = table.add_row(vec![truncate_url(&conflict.url, 45), conflict.rule.clone()]);
+            table = table.add_row(vec![short_url(&conflict.url, 45), conflict.rule.clone()]);
         }
         builder = builder.add_component(table);
     }
@@ -492,7 +492,7 @@ fn render_seo_crawl_depth(
         let mut intro = i18n.t_args(
             "batch-crawl-depth-intro",
             &[
-                ("start_url", truncate_url(&diag.start_url, 50)),
+                ("start_url", short_url(&diag.start_url, 50)),
                 ("histogram", histogram_summary),
             ],
         );
@@ -520,14 +520,14 @@ fn render_seo_crawl_depth(
             for entry in &diag.deepest_pages {
                 table = table.add_row(vec![
                     i18n.t("batch-crawl-depth-kind-deepest"),
-                    truncate_url(&entry.url, 50),
+                    short_url(&entry.url, 50),
                     entry.depth.to_string(),
                 ]);
             }
             for url in &diag.unreachable_pages {
                 table = table.add_row(vec![
                     i18n.t("batch-crawl-depth-kind-unreachable"),
-                    truncate_url(url, 50),
+                    short_url(url, 50),
                     "—".to_string(),
                 ]);
             }
@@ -640,7 +640,7 @@ fn render_seo_strongest_pages(
 
         for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
             strengths = strengths.add_row(vec![
-                truncate_url(url, 42),
+                short_url(url, 42),
                 page_type.clone(),
                 format!("{score}/100"),
             ]);

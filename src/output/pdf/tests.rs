@@ -1936,7 +1936,7 @@ mod tests {
         assert!(de.contains("2 von 3 URLs — 1 nicht auditierbar und in keinem Score enthalten"));
         assert!(de.contains("Scores decken 2 von 3 URLs ab"));
         assert!(de.contains("Eine URL konnte nicht auditiert werden."));
-        assert!(de.contains("https://example.com/heavy-webgl"));
+        assert!(de.contains("example.com/heavy-webgl"));
 
         let en = unescape_typ(
             &generate_batch_typ(
@@ -1951,7 +1951,7 @@ mod tests {
         assert!(en.contains("2 of 3 URLs — 1 could not be audited and are not in any score"));
         assert!(en.contains("Scores cover 2 of 3 URLs"));
         assert!(en.contains("One URL could not be audited."));
-        assert!(en.contains("https://example.com/heavy-webgl"));
+        assert!(en.contains("example.com/heavy-webgl"));
 
         let complete = BatchReport::from_reports(
             vec![AuditReport::new(

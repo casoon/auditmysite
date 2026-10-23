@@ -7,7 +7,7 @@ use renderreport::prelude::*;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::design::tokens;
 use super::appendix::render_batch_crawl_links;
@@ -323,7 +323,7 @@ pub(super) fn render_batch_url_ranking(
         .map(|(i, u)| {
             let mut row = BenchmarkRow::new(
                 (i + 1) as u32,
-                &truncate_url(&u.url, 35),
+                &short_url(&u.url, 35),
                 u.overall_score,
                 u.score as u32,
                 u.critical_violations as u32,
@@ -397,10 +397,10 @@ pub(super) fn render_batch_tech_url_matrix(
             .unwrap_or_else(|| "—".to_string());
         matrix = matrix.add_row(vec![
             row.rank.to_string(),
-            truncate_url(&row.url, 34),
+            short_url(&row.url, 34),
             row.title
                 .as_deref()
-                .map(|t| truncate_url(t, 36))
+                .map(|t| short_url(t, 36))
                 .unwrap_or_else(|| "—".to_string()),
             row.inbound_links.to_string(),
             row.outbound_links.to_string(),
@@ -421,17 +421,17 @@ pub(super) fn render_batch_tech_url_matrix(
 
         for detail in pres.url_details.iter().take(10) {
             focus_table = focus_table.add_row(vec![
-                truncate_url(&detail.url, 38),
+                short_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
                 if detail.page_attributes.is_empty() {
                     "—".to_string()
                 } else {
-                    truncate_url(&detail.page_attributes.join(", "), 40)
+                    short_url(&detail.page_attributes.join(", "), 40)
                 },
                 if detail.top_issues.is_empty() {
                     "—".to_string()
                 } else {
-                    truncate_url(&detail.top_issues.join(", "), 52)
+                    short_url(&detail.top_issues.join(", "), 52)
                 },
             ]);
         }

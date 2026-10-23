@@ -14,7 +14,7 @@ use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::cover::{
     batch_certificate_label, build_batch_cover_score_row, certificate_badge_path,
@@ -266,7 +266,7 @@ fn render_batch_unaudited_urls(
     let args = unaudited_args(batch);
     let mut list = List::new().with_title(i18n.t("batch-unaudited-list-title"));
     for error in batch.errors.iter().take(MAX_LISTED_UNAUDITED_URLS) {
-        list = list.add_item(truncate_url(&error.url, 90));
+        list = list.add_item(short_url(&error.url, 90));
     }
     if batch.errors.len() > MAX_LISTED_UNAUDITED_URLS {
         list = list.add_item(i18n.t_args(

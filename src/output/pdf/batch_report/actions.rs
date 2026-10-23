@@ -6,7 +6,7 @@ use renderreport::prelude::*;
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::findings::first_sentence;
 use super::super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
@@ -383,7 +383,7 @@ pub(super) fn render_batch_action_plan_section(
                 other => other.to_string(),
             };
             table = table.add_row(vec![
-                truncate_url(&entry.url, 45),
+                short_url(&entry.url, 45),
                 kind_label,
                 entry.minified_on_count.to_string(),
                 entry.unminified_on_count.to_string(),
@@ -417,11 +417,11 @@ pub(super) fn render_batch_action_plan_section(
             let chain_str = entry
                 .chain
                 .iter()
-                .map(|u| truncate_url(u, 20))
+                .map(|u| short_url(u, 20))
                 .collect::<Vec<_>>()
                 .join(" → ");
             table = table.add_row(vec![
-                truncate_url(&entry.url, 35),
+                short_url(&entry.url, 35),
                 entry.hop_count.to_string(),
                 type_label,
                 chain_str,

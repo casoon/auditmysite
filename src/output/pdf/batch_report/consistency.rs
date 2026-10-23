@@ -5,7 +5,7 @@ use renderreport::components::{AuditTable, TableColumn};
 
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 /// Render cross-page consistency analysis (issues #44/#45/#46).
 /// Shows navigation, heading, and canonical consistency stats with any
@@ -548,7 +548,7 @@ fn render_consistency_page_type_matrix(
         });
         for row in &structured.page_type_matrix {
             table = table.add_row(vec![
-                truncate_url(&row.url, 48),
+                short_url(&row.url, 48),
                 row.page_kind.clone(),
                 row.coverage_status.clone(),
                 format!(

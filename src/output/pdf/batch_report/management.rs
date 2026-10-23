@@ -6,7 +6,7 @@ use renderreport::prelude::*;
 use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use crate::util::truncate_url;
+use crate::util::short_url;
 
 use super::super::helpers::{effort_label_i18n, severity_label_i18n};
 
@@ -390,8 +390,8 @@ pub(super) fn render_batch_internal_comparison(
         }
         rows.push(vec![
             module,
-            format!("{} ({}/100)", truncate_url(best_url, 34), best_score),
-            format!("{} ({}/100)", truncate_url(worst_url, 34), worst_score),
+            format!("{} ({}/100)", short_url(best_url, 34), best_score),
+            format!("{} ({}/100)", short_url(worst_url, 34), worst_score),
         ]);
     }
     if !rows.is_empty() {
@@ -421,14 +421,14 @@ pub(super) fn render_batch_internal_comparison(
                 if en {
                     format!(
                         "{}: {} / 100 ({} points below average)",
-                        truncate_url(&url.url, 70),
+                        short_url(&url.url, 70),
                         url.score.round() as u32,
                         delta.abs()
                     )
                 } else {
                     format!(
                         "{}: {} / 100 ({} Punkte unter Durchschnitt)",
-                        truncate_url(&url.url, 70),
+                        short_url(&url.url, 70),
                         url.score.round() as u32,
                         delta.abs()
                     )
