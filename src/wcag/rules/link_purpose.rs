@@ -158,7 +158,12 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
     results
 }
 
-/// Check if the link has a descriptive context
+/// Whether the link has a programmatically determinable context (WCAG 2.4.4):
+/// a description, text in the same paragraph, list item or table cell, or
+/// a heading it follows within its component (technique H80) — a teaser card
+/// "Building Information Modeling … Mehr erfahren" names its purpose that
+/// way (plan 71, inros-lackner 2026-10-23). Looks a few ancestors up, not the
+/// whole page: a heading far away is no context for this link.
 fn has_link_context(node: &AXNode, tree: &AXTree) -> bool {
     if let Some(desc) = &node.description {
         if !desc.trim().is_empty() {
@@ -166,29 +171,83 @@ fn has_link_context(node: &AXNode, tree: &AXTree) -> bool {
         }
     }
 
-    if let Some(parent_id) = &node.parent_id {
-        if let Some(parent) = tree.get_node(parent_id) {
-            for child_id in &parent.child_ids {
-                if child_id == &node.node_id {
-                    continue;
-                }
-                if let Some(sibling) = tree.get_node(child_id) {
-                    if !sibling.ignored {
-                        let text = sibling.name.as_deref().unwrap_or("").trim();
-                        if !text.is_empty()
-                            && matches!(
-                                sibling.role.as_deref(),
-                                Some("StaticText" | "text" | "paragraph")
-                            )
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
+    let mut current = node;
+    for depth in 0..4 {
+        let Some(parent) = current.parent_id.as_ref().and_then(|id| tree.get_node(id)) else {
+            break;
+        };
+        let container = matches!(
+            parent.role.as_deref(),
+            Some("paragraph" | "listitem" | "cell" | "gridcell")
+        );
+        if (depth == 0 && has_sibling_text(parent, node, tree))
+            || (container && has_text_besides(parent, node, tree))
+            || heading_before(parent, node, tree)
+        {
+            return true;
         }
+        current = parent;
     }
 
+    false
+}
+
+/// Non-empty text directly next to the link under `parent`.
+fn has_sibling_text(parent: &AXNode, link: &AXNode, tree: &AXTree) -> bool {
+    parent
+        .child_ids
+        .iter()
+        .filter(|id| **id != link.node_id)
+        .filter_map(|id| tree.get_node(id))
+        .any(|sibling| !sibling.ignored && is_text(sibling))
+}
+
+fn is_text(node: &AXNode) -> bool {
+    matches!(
+        node.role.as_deref(),
+        Some("StaticText" | "text" | "paragraph")
+    ) && !node.name.as_deref().unwrap_or("").trim().is_empty()
+}
+
+/// Text anywhere in `container`'s subtree outside the link itself.
+fn has_text_besides(container: &AXNode, link: &AXNode, tree: &AXTree) -> bool {
+    let mut stack: Vec<&str> = container.child_ids.iter().map(String::as_str).collect();
+    while let Some(id) = stack.pop() {
+        if id == link.node_id {
+            continue;
+        }
+        let Some(n) = tree.get_node(id) else { continue };
+        if n.ignored {
+            continue;
+        }
+        if is_text(n) {
+            return true;
+        }
+        stack.extend(n.child_ids.iter().map(String::as_str));
+    }
+    false
+}
+
+/// A named heading before the link in document order within `container`.
+fn heading_before(container: &AXNode, link: &AXNode, tree: &AXTree) -> bool {
+    let mut stack: Vec<&str> = container
+        .child_ids
+        .iter()
+        .rev()
+        .map(String::as_str)
+        .collect();
+    while let Some(id) = stack.pop() {
+        if id == link.node_id {
+            return false;
+        }
+        let Some(n) = tree.get_node(id) else { continue };
+        if n.role.as_deref() == Some("heading")
+            && !n.name.as_deref().unwrap_or("").trim().is_empty()
+        {
+            return true;
+        }
+        stack.extend(n.child_ids.iter().rev().map(String::as_str));
+    }
     false
 }
 
@@ -554,6 +613,93 @@ mod tests {
                 .any(|v| v.message.contains("generic text")),
             "generic text with context must not be a confirmed violation"
         );
+    }
+
+    fn node(
+        id: &str,
+        role: &str,
+        name: Option<&str>,
+        parent: Option<&str>,
+        children: &[&str],
+    ) -> AXNode {
+        AXNode {
+            node_id: id.to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some(role.to_string()),
+            name: name.map(String::from),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: children.iter().map(|c| c.to_string()).collect(),
+            parent_id: parent.map(String::from),
+            backend_dom_node_id: None,
+        }
+    }
+
+    /// Plan 71: a teaser card names the link's purpose through the heading
+    /// it follows (H80), two levels up — "Mehr erfahren" there is a review
+    /// hint, not a confirmed violation. Without heading or text it stays one.
+    #[test]
+    fn generic_link_after_card_heading_has_context() {
+        let card = |with_heading: bool| {
+            let mut children = vec![];
+            if with_heading {
+                children.push("h");
+            }
+            children.push("actions");
+            let mut nodes = vec![
+                node("card", "generic", None, None, &children),
+                node("actions", "generic", None, Some("card"), &["link"]),
+                node("link", "link", Some("Mehr erfahren"), Some("actions"), &[]),
+            ];
+            if with_heading {
+                nodes.push(node(
+                    "h",
+                    "heading",
+                    Some("Building Information Modeling"),
+                    Some("card"),
+                    &[],
+                ));
+            }
+            check_link_purpose(&AXTree::from_nodes(nodes))
+        };
+        let with = card(true);
+        assert!(with
+            .violations
+            .iter()
+            .all(|v| !v.message.contains("generic text")));
+        assert!(with
+            .warnings
+            .iter()
+            .any(|v| v.message.contains("generic text")));
+        let without = card(false);
+        assert!(without
+            .violations
+            .iter()
+            .any(|v| v.message.contains("generic text")));
+    }
+
+    /// A heading after the link is no context for it.
+    #[test]
+    fn heading_after_the_link_is_no_context() {
+        let tree = AXTree::from_nodes(vec![
+            node("card", "generic", None, None, &["link", "h"]),
+            node("link", "link", Some("Mehr erfahren"), Some("card"), &[]),
+            node(
+                "h",
+                "heading",
+                Some("Nächster Abschnitt"),
+                Some("card"),
+                &[],
+            ),
+        ]);
+        let results = check_link_purpose(&tree);
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("generic text")));
     }
 
     #[test]

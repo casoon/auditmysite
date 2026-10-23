@@ -562,11 +562,13 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             user_impact:
                 "Screenreader-Nutzer, die per Landmark-Navigation zwischen Hauptinhalt, \
                  Navigation und Fußzeile wechseln, überspringen dieses Element unbemerkt — \
-                 es erscheint in keiner der angesteuerten Regionen.",
+                 es erscheint in keiner der angesteuerten Regionen. Im Lesemodus und per Tab \
+                 bleibt es erreichbar.",
             user_impact_en:
                 "Screen reader users who switch between main content, navigation, and footer \
                  via landmark navigation skip over this element without noticing — it does not \
-                 appear in any of the regions they navigate to.",
+                 appear in any of the regions they navigate to. It stays reachable in reading \
+                 mode and by Tab.",
             typical_cause:
                 "Markup, das per JavaScript nachträglich außerhalb des Haupt-Layouts \
                  eingefügt wird, Reste von Drittanbieter-Widgets, oder Inhalte, die vor dem \
@@ -2299,11 +2301,15 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                 "Give every page exactly one H1 naming the main topic, placed near the top \
                  of the content.",
             technical_note:
-                "WCAG 1.3.1 (Info and Relationships, Level A) und gängige SEO-Praxis \
-                 verlangen eine eindeutige, programmatisch erkennbare H1 pro Seite.",
+                "Für sich kein WCAG-Verstoß: WCAG 2.2 verlangt in 1.3.1 (Technik H42) und \
+                 2.4.6, dass Überschriften als solche ausgezeichnet sind und ihr Thema \
+                 beschreiben, nicht eine H1. Eine H1 für das Seitenthema ist eine \
+                 verbreitete Empfehlung für Orientierung und Suchmaschinen.",
             technical_note_en:
-                "WCAG 1.3.1 (Info and Relationships, Level A) and standard SEO practice \
-                 both expect one unambiguous, programmatically determinable H1 per page.",
+                "Not a WCAG failure on its own: WCAG 2.2 asks in 1.3.1 (technique H42) and \
+                 2.4.6 that headings are marked up as such and describe their topic, not \
+                 for an H1. One H1 naming the page topic is a common recommendation for \
+                 orientation and search engines.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
             example_bad: Some("<div class=\"page-title\">Page title</div>"),
@@ -2317,21 +2323,21 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             customer_title: "Mehrere H1-Überschriften",
             customer_title_en: "Multiple H1 headings",
             customer_description:
-                "Die Seite enthält mehr als eine H1-Überschrift. Das untergräbt die \
-                 inhaltliche Hierarchie — Suchmaschinen und Screenreader können keinen \
-                 eindeutigen Hauptfokus der Seite ableiten.",
+                "Die Seite enthält mehr als eine H1-Überschrift. Das ist zulässig, kann \
+                 aber den Hauptfokus der Seite unklar machen, wenn nicht erkennbar ist, \
+                 welche H1 das Seitenthema benennt.",
             customer_description_en:
-                "The page contains more than one H1 heading. This undermines the content \
-                 hierarchy — search engines and screen readers cannot derive a single main \
-                 focus for the page.",
+                "The page contains more than one H1 heading. That is allowed, but it can \
+                 blur the page's main focus when it is unclear which H1 names the page \
+                 topic.",
             user_impact:
-                "Screenreader-Nutzer, die per Überschriftenliste navigieren, sehen mehrere \
-                 gleichrangige Haupttitel und können das eigentliche Seitenthema nicht \
-                 eindeutig zuordnen.",
+                "Wer per Überschriftenliste navigiert, sieht mehrere Überschriften der \
+                 obersten Ebene. Ob das stört, hängt davon ab, ob sie das Seitenthema und \
+                 sinnvolle Hauptbereiche bezeichnen — das lässt sich nur von Hand beurteilen.",
             user_impact_en:
-                "Screen reader users navigating via the heading list see several \
-                 equally-ranked top-level titles and can't reliably identify the page's \
-                 actual topic.",
+                "Users navigating by the heading list see several top-level headings. \
+                 Whether that gets in the way depends on whether they name the page topic \
+                 and meaningful main sections — only a manual check can tell.",
             typical_cause:
                 "Ein wiederverwendbarer Baustein (z. B. ein Hero- oder Logo-Bereich) setzt \
                  selbst eine H1, unabhängig davon, ob die Seite bereits eine eigene hat.",
@@ -2339,17 +2345,23 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                 "A reusable component (e.g. a hero or logo block) emits its own H1 \
                  regardless of whether the page already has one.",
             recommendation:
-                "Genau eine H1 pro Seite verwenden. Wiederverwendbare Bausteine sollten \
-                 ihre Überschriftenebene konfigurierbar machen statt sie fest auf H1 zu setzen.",
+                "Prüfen, ob die Überschriften den Inhalt sinnvoll gliedern. Empfohlen ist \
+                 eine H1 für das Seitenthema; wiederverwendbare Bausteine sollten ihre \
+                 Überschriftenebene konfigurierbar machen statt sie fest auf H1 zu setzen.",
             recommendation_en:
-                "Use exactly one H1 per page. Reusable components should make their \
+                "Check that the headings structure the content meaningfully. One H1 for \
+                 the page topic is recommended; reusable components should make their \
                  heading level configurable rather than hard-coding H1.",
             technical_note:
-                "WCAG 1.3.1 (Info and Relationships, Level A) und SEO-Praxis erwarten eine \
-                 eindeutige H1 pro Seite; mehrere H1 gelten als schwaches Strukturmerkmal.",
+                "Für sich kein WCAG-Verstoß: WCAG 2.2 (1.3.1, Technik H42; 2.4.6) und HTML \
+                 lassen mehrere H1 zu. Ein Verstoß entsteht erst, wenn die Hierarchie die \
+                 Gliederung falsch wiedergibt. Eine H1 pro Seite ist eine Empfehlung für \
+                 Orientierung und Suchmaschinen.",
             technical_note_en:
-                "WCAG 1.3.1 (Info and Relationships, Level A) and SEO practice both expect \
-                 a single H1 per page; multiple H1s are treated as a weak structural signal.",
+                "Not a WCAG failure on its own: WCAG 2.2 (1.3.1, technique H42; 2.4.6) and \
+                 HTML allow several H1s. A failure arises only when the hierarchy misstates \
+                 the structure. One H1 per page is a recommendation for orientation and \
+                 search engines.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
             example_bad: Some("<h1>Site name</h1>\n...\n<h1>Article title</h1>"),

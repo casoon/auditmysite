@@ -340,9 +340,9 @@ pub fn source_quality_signal_text(
                 }
             } else if h1_count != 1 {
                 if en {
-                    format!("{h1_count} H1 headings found (should be exactly one)")
+                    format!("{h1_count} H1 headings found (one is recommended)")
                 } else {
-                    format!("{h1_count} H1-Überschriften gefunden (sollte genau eine sein)")
+                    format!("{h1_count} H1-Überschriften gefunden (empfohlen ist eine)")
                 }
             } else if !starts_with_h1 {
                 if en {

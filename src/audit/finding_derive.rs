@@ -32,7 +32,10 @@ pub(super) fn derive_confidence(rule_id: &str, subcategory: &str, issue_class: &
         subcategory.to_ascii_lowercase(),
         issue_class.to_ascii_lowercase()
     );
-    if key.contains("alt_text.weak")
+    // "weak" rules detect a pattern reliably (a generic link text, a vague
+    // alt) but not the violation itself — the same key that makes the false
+    // positive risk medium caps the confidence at medium (plan 71).
+    if key.contains("weak")
         || key.contains("understand")
         || key.contains("readability")
         || subcategory.eq_ignore_ascii_case("content")
@@ -504,6 +507,24 @@ mod tests {
     // bucket just because of that substring collision. Subcategory/issue_class
     // are passed as the German labels actually used at the call site
     // (`subcategory_de`/`issue_class_de`), not their English names.
+    /// Plan 71: a generic link text is detected reliably, the 2.4.4 failure
+    /// is not — confidence follows the claim, as the review status does.
+    #[test]
+    fn weak_rules_are_not_very_high_confidence() {
+        assert_eq!(
+            derive_confidence("a11y.link_purpose.weak", "Navigation & Operation", "Weak"),
+            "medium"
+        );
+        assert_eq!(
+            derive_verification(&derive_false_positive_risk(
+                "a11y.link_purpose.weak",
+                "Navigation & Operation",
+                "Weak"
+            )),
+            "manual_review_recommended"
+        );
+    }
+
     #[test]
     fn derive_confidence_does_not_downgrade_content_on_hover_rule() {
         assert_eq!(

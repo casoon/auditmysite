@@ -532,19 +532,19 @@ pub fn journey_friction_text(
         ),
         MultipleH1 => (
             if en {
-                format!("{} H1 headings — unclear page focus", count)
+                format!("{} H1 headings — check the page focus", count)
             } else {
-                format!("{} H1-Überschriften — unklarer Seitenfokus", count)
+                format!("{} H1-Überschriften — Seitenfokus prüfen", count)
             },
             if en {
-                "Users cannot tell what the main content is".into()
+                "The page's main focus can be unclear".into()
             } else {
-                "Nutzer wissen nicht, was der Hauptinhalt ist".into()
+                "Der Hauptfokus der Seite kann unklar sein".into()
             },
             if en {
-                "Use exactly one H1 heading per page".into()
+                "Check the headings; one H1 for the page topic is recommended".into()
             } else {
-                "Genau eine H1-Überschrift pro Seite verwenden".into()
+                "Überschriften prüfen; empfohlen ist eine H1 für das Seitenthema".into()
             },
         ),
         NoPageTitle => (

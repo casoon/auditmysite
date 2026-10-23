@@ -130,19 +130,19 @@ mod tests {
             },
             {
               "affected_node_ids": [],
-              "message": "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
+              "message": "No header area (banner landmark) present. Screen reader users cannot reach the page header through landmark navigation; its content stays reachable in reading mode.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
+              "message": "No navigation landmark present. Screen reader users cannot jump to the navigation through landmark navigation; the links stay reachable in reading and tab order.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
+              "message": "No footer landmark (contentinfo) present. Screen reader users cannot reach the footer through landmark navigation; its content stays reachable in reading mode.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             }

@@ -413,29 +413,29 @@ fn detect_missing_required_landmarks(
     const REQUIRED_EN: &[(&str, &str)] = &[
         (
             "banner",
-            "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
+            "No header area (banner landmark) present. Screen reader users cannot reach the page header through landmark navigation; its content stays reachable in reading mode.",
         ),
         (
             "navigation",
-            "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
+            "No navigation landmark present. Screen reader users cannot jump to the navigation through landmark navigation; the links stay reachable in reading and tab order.",
         ),
         (
             "contentinfo",
-            "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
+            "No footer landmark (contentinfo) present. Screen reader users cannot reach the footer through landmark navigation; its content stays reachable in reading mode.",
         ),
     ];
     const REQUIRED_DE: &[(&str, &str)] = &[
         (
             "banner",
-            "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
+            "Kein Header-Bereich (banner-Landmark) vorhanden. Screenreader-Nutzer erreichen den Seitenkopf nicht über die Landmark-Navigation; im Lesemodus bleibt sein Inhalt erreichbar.",
         ),
         (
             "navigation",
-            "Keine Navigations-Landmark vorhanden. Tastaturnutzer können nicht direkt zur Navigation springen.",
+            "Keine Navigations-Landmark vorhanden. Screenreader-Nutzer können nicht über die Landmark-Navigation zur Navigation springen; im Lesemodus und per Tab bleiben die Links erreichbar.",
         ),
         (
             "contentinfo",
-            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Die Seitenstruktur ist für Screen Reader unvollständig.",
+            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Screenreader-Nutzer erreichen die Fußzeile nicht über die Landmark-Navigation; im Lesemodus bleibt ihr Inhalt erreichbar.",
         ),
     ];
 
