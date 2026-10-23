@@ -224,9 +224,39 @@ pub(super) fn render_batch_top_issues(
         // one-word-per-line sliver spanning dozens of page-breaking rows
         // (see #518). `headline` already embeds the selector via
         // `{ $selector }` interpolation, so nothing is lost.
+        //
+        // One entry per place: two rules at the same selector (the skip link
+        // on inros-lackner: landmark and positive tabindex) are one place
+        // with two findings, listed underneath — not two causes (plan 85).
         let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
+        let mut seen: Vec<&str> = Vec::new();
         for cluster in &pres.template_clusters {
-            template_list = template_list.add_item(&cluster.headline);
+            if seen.contains(&cluster.selector.as_str()) {
+                continue;
+            }
+            seen.push(cluster.selector.as_str());
+            let children = pres
+                .template_clusters
+                .iter()
+                .filter(|c| c.selector == cluster.selector)
+                .map(|c| renderreport::components::advanced::ListItem {
+                    content: pres
+                        .top_issues
+                        .iter()
+                        .find(|g| g.rule_id == c.rule_id)
+                        .map(|g| g.title.clone())
+                        .unwrap_or_else(|| c.rule_id.clone()),
+                    icon: None,
+                    children: Vec::new(),
+                })
+                .collect();
+            template_list
+                .items
+                .push(renderreport::components::advanced::ListItem {
+                    content: cluster.headline.clone(),
+                    icon: None,
+                    children,
+                });
         }
         builder = builder.add_component(template_list);
     }

@@ -489,12 +489,12 @@ pub(super) fn render_batch_decision_actions(
         let root: String = if let Some(cluster) = cluster {
             cluster.decision_label.clone()
         } else if group.is_component_issue || group.affected_urls.len() > 1 {
+            // Recurring is observed; a shared component is not (plan 85).
             if en {
-                "likely shared component/template"
+                format!("recurs on {} pages, cause open", group.affected_urls.len())
             } else {
-                "vermutlich Komponente/Template"
+                format!("auf {} Seiten, Ursache offen", group.affected_urls.len())
             }
-            .to_string()
         } else if en {
             "page-specific".to_string()
         } else {
