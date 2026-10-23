@@ -1365,7 +1365,7 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
 }
 
 /// Points each issue takes off the security score, in `issues` order — the
-/// one contribution list behind [`calculate_security_score`] and
+/// one contribution list behind `calculate_security_score` and
 /// [`calculate_security_category_scores`] (plan 72).
 ///
 /// - Context-dependent and not-assessable headers cost nothing: whether
