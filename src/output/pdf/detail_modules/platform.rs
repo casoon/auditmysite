@@ -93,7 +93,9 @@ pub(in crate::output::pdf) fn render_security(
             TableColumn::new(i18n.t("pdf-seo-value")),
         ])
         .with_title("Security Headers");
-        for (name, status, tier, val) in &sec.headers {
+        // The tuple is (name, status, value, tier); the columns read
+        // Header · Status · Kategorie (tier) · Wert (value).
+        for (name, status, val, tier) in &sec.headers {
             table = table.add_row(vec![
                 name.as_str(),
                 status.as_str(),
@@ -107,6 +109,19 @@ pub(in crate::output::pdf) fn render_security(
                 .with_size("8.8pt")
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         );
+    }
+
+    if sec.score_rows.len() > 2 {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("pdf-sec-score-component")).with_width("56%"),
+            TableColumn::new(i18n.t("pdf-sec-header-tier-column")).with_width("26%"),
+            TableColumn::new(i18n.t("pdf-sec-score-points")).with_width("18%"),
+        ])
+        .with_title(i18n.t("pdf-sec-score-title"));
+        for (component, tier, points) in &sec.score_rows {
+            table = table.add_row(vec![component.as_str(), tier.as_str(), points.as_str()]);
+        }
+        builder = builder.add_component(table);
     }
 
     if !sec.ssl_info.is_empty() {

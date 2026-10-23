@@ -127,6 +127,7 @@ pub(super) fn build_security_details(
                     (name.to_string(), status, val, tier)
                 })
                 .collect(),
+            score_rows: security_score_rows(locale, sec, security_score),
             ssl_info,
             issues: sec
                 .issues
@@ -154,6 +155,65 @@ pub(super) fn build_security_details(
             has_cdn: sec.protection.has_cdn,
         }
     })
+}
+
+/// The security score as a sum: 100, one row per issue with the deduction it
+/// carries in the shared contribution list, the HSTS bonus and the
+/// vulnerable-library penalty from Best Practices (plan 72).
+fn security_score_rows(
+    locale: &str,
+    sec: &crate::security::SecurityAnalysis,
+    security_score: u32,
+) -> Vec<(String, String, String)> {
+    let mut rows = vec![(
+        localized_label(locale, "Ausgangswert", "Starting value"),
+        String::new(),
+        "100".to_string(),
+    )];
+    let mut deducted = 0u32;
+    for issue in &sec.issues {
+        deducted += issue.score_deduction;
+        rows.push((
+            format!(
+                "{} — {}",
+                issue.header,
+                security_issue_kind_label(locale, &issue.issue_type)
+            ),
+            security_header_tier_label(locale, issue.tier),
+            if issue.score_deduction == 0 {
+                localized_label(locale, "0 (nicht belastet)", "0 (not charged)")
+            } else {
+                format!("−{}", issue.score_deduction)
+            },
+        ));
+    }
+    let before_bonus = 100u32.saturating_sub(deducted);
+    let bonus = sec.score.saturating_sub(before_bonus);
+    if bonus > 0 {
+        rows.push((
+            localized_label(locale, "HSTS-Bonus", "HSTS bonus"),
+            String::new(),
+            format!("+{bonus}"),
+        ));
+    }
+    let vulnerable_libraries = sec.score.saturating_sub(security_score);
+    if vulnerable_libraries > 0 {
+        rows.push((
+            localized_label(
+                locale,
+                "Bekannt verwundbare Bibliotheken (Best Practices)",
+                "Known-vulnerable libraries (Best Practices)",
+            ),
+            String::new(),
+            format!("−{vulnerable_libraries}"),
+        ));
+    }
+    rows.push((
+        localized_label(locale, "Sicherheitswert", "Security score"),
+        String::new(),
+        security_score.to_string(),
+    ));
+    rows
 }
 
 /// A table label in the run language; these tables printed German labels

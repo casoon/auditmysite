@@ -249,6 +249,11 @@ pub struct SecurityIssue {
     /// rebuild the sentence in another language instead of parsing `message`.
     #[serde(default, skip_serializing_if = "SecurityIssueValues::is_empty")]
     pub values: SecurityIssueValues,
+    /// Points this issue took off the module score — its entry in the one
+    /// contribution list behind the module and category scores
+    /// ([`issue_deductions`], plan 72). Absent in older reports.
+    #[serde(default)]
+    pub score_deduction: u32,
 }
 
 /// The canonical identity of a security finding — the single key
@@ -646,6 +651,7 @@ fn security_issue(
         severity,
         tier,
         values,
+        score_deduction: 0,
     }
 }
 
@@ -736,6 +742,10 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
 
     // Calculate score
     let score = calculate_security_score(&headers, &ssl, &issues);
+    let deductions = issue_deductions(&issues);
+    for (issue, points) in issues.iter_mut().zip(deductions) {
+        issue.score_deduction = points;
+    }
     let grade = calculate_grade(score);
 
     info!(
@@ -953,7 +963,15 @@ pub(crate) fn generate_security_issues(
         ));
     }
 
-    if headers.x_frame_options.is_none() {
+    // A CSP `frame-ancestors` supersedes X-Frame-Options (CSP Level 2;
+    // browsers ignore XFO when both are set) — missing XFO is no gap then
+    // (plan 72).
+    if headers.x_frame_options.is_none()
+        && !headers
+            .content_security_policy
+            .as_deref()
+            .is_some_and(csp_sets_frame_ancestors)
+    {
         issues.push(security_issue(
             "X-Frame-Options",
             SecurityIssueKind::MissingXFrameOptions,
@@ -1093,6 +1111,14 @@ fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
         issues.retain(|issue| other.iter().any(|o| o.issue_type == issue.issue_type));
     }
     issues
+}
+
+/// Whether some policy in the CSP value sets `frame-ancestors`.
+fn csp_sets_frame_ancestors(policy: &str) -> bool {
+    csp_parse::parse_policy_list(policy)
+        .policies
+        .iter()
+        .any(|p| csp_directives(p).contains_key("frame-ancestors"))
 }
 
 fn policy_quality_issues(policy: &csp_parse::Policy) -> Vec<SecurityIssue> {
@@ -1338,37 +1364,52 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
     recommendations
 }
 
+/// Points each issue takes off the security score, in `issues` order — the
+/// one contribution list behind [`calculate_security_score`] and
+/// [`calculate_security_category_scores`] (plan 72).
+///
+/// - Context-dependent and not-assessable headers cost nothing: whether
+///   COOP/CORP or CORS matter depends on a deployment context a page fetch
+///   cannot establish, so their absence is no confirmed gap.
+/// - A *present* CSP (even a permissive one) provides partial protection, so
+///   the CSP-quality issues together never cost more than a *missing* CSP
+///   (High = 15) — otherwise an imperfect CSP would score worse than none.
+pub fn issue_deductions(issues: &[SecurityIssue]) -> Vec<u32> {
+    const MISSING_CSP_PENALTY: u32 = 15;
+    let mut csp_quality_left = MISSING_CSP_PENALTY;
+    issues
+        .iter()
+        .map(|issue| {
+            if matches!(
+                header_tier(&issue.header),
+                HeaderTier::ContextDependent | HeaderTier::NotAssessable
+            ) {
+                return 0;
+            }
+            let points = match issue.severity {
+                Severity::Critical => 25,
+                Severity::High => 15,
+                Severity::Medium => 10,
+                Severity::Low => 5,
+            };
+            if issue.header == "Content-Security-Policy" && issue.issue_type != "missing_header" {
+                let capped = points.min(csp_quality_left);
+                csp_quality_left -= capped;
+                capped
+            } else {
+                points
+            }
+        })
+        .collect()
+}
+
 pub(crate) fn calculate_security_score(
     _headers: &SecurityHeaders,
     ssl: &SslInfo,
     issues: &[SecurityIssue],
 ) -> u32 {
-    let mut score = 100u32;
-
-    // A *present* CSP (even a permissive one) provides partial protection, so its
-    // cumulative quality penalty must never exceed the penalty for a *missing*
-    // CSP — otherwise a site with an imperfect CSP scores worse than one with no
-    // CSP at all, which is backwards. We therefore bucket CSP-quality issues and
-    // cap their combined deduction at the missing-CSP penalty (High = 15).
-    const MISSING_CSP_PENALTY: u32 = 15;
-    let deduction = |sev: &Severity| match sev {
-        Severity::Critical => 25,
-        Severity::High => 15,
-        Severity::Medium => 10,
-        Severity::Low => 5,
-    };
-    let mut csp_quality_penalty = 0u32;
-    for issue in issues {
-        let is_csp_quality =
-            issue.header == "Content-Security-Policy" && issue.issue_type != "missing_header";
-        if is_csp_quality {
-            csp_quality_penalty += deduction(&issue.severity);
-        } else {
-            // Deduct for issues (includes missing HTTPS as a critical issue)
-            score = score.saturating_sub(deduction(&issue.severity));
-        }
-    }
-    score = score.saturating_sub(csp_quality_penalty.min(MISSING_CSP_PENALTY));
+    let deducted: u32 = issue_deductions(issues).iter().sum();
+    let mut score = 100u32.saturating_sub(deducted);
 
     // Bonus for HSTS
     if ssl.has_hsts {
@@ -1465,22 +1506,17 @@ impl SecurityCategory {
 pub fn calculate_security_category_scores(
     issues: &[SecurityIssue],
 ) -> Vec<(SecurityCategory, u32)> {
-    let deduction = |sev: &Severity| match sev {
-        Severity::Critical => 25,
-        Severity::High => 15,
-        Severity::Medium => 10,
-        Severity::Low => 5,
-    };
+    let deductions = issue_deductions(issues);
     SecurityCategory::all()
         .into_iter()
         .map(|category| {
-            let mut score = 100u32;
-            for issue in issues {
-                if SecurityCategory::for_header(&issue.header) == category {
-                    score = score.saturating_sub(deduction(&issue.severity));
-                }
-            }
-            (category, score)
+            let lost: u32 = issues
+                .iter()
+                .zip(&deductions)
+                .filter(|(issue, _)| SecurityCategory::for_header(&issue.header) == category)
+                .map(|(_, points)| points)
+                .sum();
+            (category, 100u32.saturating_sub(lost))
         })
         .collect()
 }
@@ -1580,6 +1616,7 @@ mod tests {
             severity: Severity::Low,
             tier: HeaderTier::Baseline,
             values: SecurityIssueValues::default(),
+            score_deduction: 0,
         };
         assert_eq!(issue.kind(), None);
         assert_eq!(issue.localized_message(false), "stored message");
@@ -1738,6 +1775,7 @@ mod tests {
             severity: Severity::High,
             tier: HeaderTier::Baseline,
             values: Default::default(),
+            score_deduction: 0,
         }];
         let permissive_csp: Vec<SecurityIssue> = [
             "unsafe_inline_script",
@@ -1754,6 +1792,7 @@ mod tests {
             severity: Severity::High,
             tier: HeaderTier::Baseline,
             values: Default::default(),
+            score_deduction: 0,
         })
         .collect();
         let s_missing = calculate_security_score(&SecurityHeaders::default(), &ssl, &missing_csp);
@@ -2045,6 +2084,58 @@ mod tests {
         assert!(recs.iter().any(|r| r.contains("Content-Security-Policy")));
         assert!(recs.iter().any(|r| r.contains("X-Content-Type-Options")));
         assert!(recs.iter().any(|r| r.contains("Strict-Transport-Security")));
+    }
+
+    /// Plan 72, inros-lackner 2026-10-23: four baseline gaps, two
+    /// architecture-dependent and two context-dependent headers missing. COOP
+    /// and CORP now cost nothing (30 → 40); the category scores come from the
+    /// same contribution list and lose exactly what the total loses.
+    #[test]
+    fn context_dependent_headers_cost_nothing_and_categories_add_up() {
+        let ssl = SslInfo {
+            https: true,
+            valid_certificate: true,
+            ..Default::default()
+        };
+        let headers = SecurityHeaders::default();
+        let issues = generate_security_issues(&headers, true);
+        let deductions = issue_deductions(&issues);
+        for (issue, points) in issues.iter().zip(&deductions) {
+            if matches!(
+                issue.header.as_str(),
+                "Cross-Origin-Opener-Policy" | "Cross-Origin-Resource-Policy"
+            ) {
+                assert_eq!(*points, 0, "{}", issue.header);
+            }
+        }
+        let score = calculate_security_score(&headers, &ssl, &issues);
+        assert_eq!(score, 40);
+        let lost_in_categories: u32 = calculate_security_category_scores(&issues)
+            .iter()
+            .map(|(_, s)| 100 - s)
+            .sum();
+        assert_eq!(lost_in_categories, 100 - score);
+    }
+
+    /// A CSP with frame-ancestors supersedes X-Frame-Options: no second
+    /// charge for the same protection.
+    #[test]
+    fn frame_ancestors_replaces_x_frame_options() {
+        let with = SecurityHeaders {
+            content_security_policy: Some("default-src 'self'; frame-ancestors 'self'".to_string()),
+            ..Default::default()
+        };
+        let without = SecurityHeaders {
+            content_security_policy: Some("default-src 'self'".to_string()),
+            ..Default::default()
+        };
+        let xfo = |h: &SecurityHeaders| {
+            generate_security_issues(h, true)
+                .iter()
+                .any(|i| i.header == "X-Frame-Options")
+        };
+        assert!(!xfo(&with));
+        assert!(xfo(&without));
     }
 
     #[test]

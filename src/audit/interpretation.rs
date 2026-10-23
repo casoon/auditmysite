@@ -304,8 +304,8 @@ fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedTe
             "Inadequate — relevant security issues or misconfigurations were found.",
         ),
         (Security, Critical) => (
-            "Kritisch — es bestehen erhebliche Sicherheitsrisiken mit unmittelbarem Handlungsbedarf.",
-            "Critical — significant security risks exist that require immediate action.",
+            "Kritisch — im geprüften Umfang fehlen grundlegende Schutzmaßnahmen. Das ist kein Nachweis einer ausnutzbaren Lücke, sollte aber vorrangig behoben werden.",
+            "Critical — basic protections are missing within the scope checked. That is no proof of an exploitable flaw, but it should be fixed with priority.",
         ),
 
         (HtmlConform, Excellent) => (
@@ -1045,6 +1045,7 @@ mod tests {
             severity: Severity::Low,
             tier,
             values: Default::default(),
+            score_deduction: 0,
         }
     }
 
@@ -1093,6 +1094,7 @@ mod tests {
             severity: Severity::High,
             tier: crate::security::HeaderTier::Baseline,
             values: Default::default(),
+            score_deduction: 0,
         }
     }
 
@@ -1177,6 +1179,7 @@ mod tests {
                 severity: Severity::Critical,
                 tier: HeaderTier::Baseline,
                 values: Default::default(),
+                score_deduction: 0,
             },
             low_severity_context_issue("Cross-Origin-Opener-Policy", HeaderTier::ContextDependent),
         ];
