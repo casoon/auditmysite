@@ -360,7 +360,7 @@ impl BrowserInstaller {
                 None => continue,
             };
 
-            if file.name().ends_with('/') {
+            if file.is_dir() {
                 fs::create_dir_all(&outpath).map_err(|e| AuditError::BrowserLaunchFailed {
                     reason: format!("Failed to create directory during extraction: {}", e),
                 })?;
@@ -429,5 +429,35 @@ impl BrowserInstaller {
             }
             Ok(_) => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Verzeichniseinträge werden angelegt, Dateien geschrieben, und ein
+    /// Eintrag, der aus dem Ziel herausführt, wird übergangen.
+    #[test]
+    fn extract_archive_writes_dirs_and_files_and_skips_escaping_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("chrome.zip");
+        let mut zip = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
+        let options = zip::write::SimpleFileOptions::default();
+        zip.add_directory("chrome-mac/", options).unwrap();
+        zip.start_file("chrome-mac/chrome", options).unwrap();
+        zip.write_all(b"binary").unwrap();
+        zip.start_file("../escape", options).unwrap();
+        zip.write_all(b"x").unwrap();
+        zip.finish().unwrap();
+
+        let dest = tmp.path().join("out");
+        fs::create_dir_all(&dest).unwrap();
+        BrowserInstaller::extract_archive(&archive, &dest).unwrap();
+
+        assert!(dest.join("chrome-mac").is_dir());
+        assert_eq!(fs::read(dest.join("chrome-mac/chrome")).unwrap(), b"binary");
+        assert!(!tmp.path().join("escape").exists());
     }
 }

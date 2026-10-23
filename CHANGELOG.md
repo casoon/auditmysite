@@ -5,6 +5,12 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Sicherheitsmeldungen vom Oktober 2026:** `rustls` 0.23.46, `rustls-webpki`
+  0.103.16 und `webpki-roots` 1.0.11 im Lockfile (RUSTSEC-2026-0347/0348/0349, -0381, -0382);
+  `zip` 2 → 9 und `c2pa` 0.90 → 0.91 (RUSTSEC-2026-0367/0368/0369, beide Kopien von `zip`).
+  Der Browser-Installer erkennt Verzeichniseinträge jetzt über `ZipFile::is_dir()`, neuer
+  Unit-Test zum Entpacken. `cargo audit`: keine Schwachstellen.
+
 - **Unreleased — Zielgroesse, Reihenfolge, Endlos-Animation und Nur-Zeiger aus `a11y-rules`
   (#698, barrierlab#49):** `targets/size` (2.5.8 AA) und `targets/size-enhanced` (2.5.5 AAA, nur
   was 2.5.8 nicht schon meldet) ersetzen `target-size-minimum` und `target-size`;
