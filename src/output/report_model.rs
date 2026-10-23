@@ -1478,7 +1478,7 @@ pub struct PortfolioSummary {
     pub strongest_content_pages: Vec<(String, String, u32)>,
     pub weakest_content_pages: Vec<(String, String, u32)>,
     pub top_topics: Vec<(String, usize)>,
-    pub overlap_pairs: Vec<(String, String, u32)>,
+    pub overlap_pairs: Vec<TopicOverlapPair>,
     /// Near-duplicate content pairs detected via SimHash (url_a, url_b, similarity_pct)
     pub near_duplicates: Vec<(String, String, u8)>,
     pub crawl_links: Option<CrawlLinkSummary>,
@@ -1609,4 +1609,16 @@ pub struct BatchAppendixData {
 pub struct UrlAppendix {
     pub url: String,
     pub violations: Vec<AppendixViolation>,
+}
+
+/// Two audited pages whose topic terms overlap strongly (plan 90).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TopicOverlapPair {
+    pub url_a: String,
+    pub url_b: String,
+    /// Weighted Jaccard/overlap similarity of the two term sets, 0-100.
+    /// Not a count of terms.
+    pub similarity_percent: u32,
+    /// The topic terms both pages share, without site-wide terms.
+    pub shared_terms: Vec<String>,
 }

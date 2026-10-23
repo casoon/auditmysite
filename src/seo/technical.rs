@@ -75,6 +75,11 @@ pub struct TechnicalSeo {
     pub form_security: FormSecurityAnalysis,
     /// Visible text excerpt for topic analysis and redundancy checks
     pub text_excerpt: String,
+    /// Where `text_excerpt` comes from: `main` (a single main landmark with
+    /// at least 200 characters) or `body` (fallback, includes header and
+    /// navigation). Empty in reports from before plan 90.
+    #[serde(default)]
+    pub text_excerpt_source: String,
     /// Uses externally hosted Google Fonts assets
     pub uses_remote_google_fonts: bool,
     /// Matching Google Fonts assets or stylesheets
@@ -287,7 +292,15 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         // Word count (approximate)
         const text = document.body ? document.body.innerText : '';
         result.wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-        result.textExcerpt = text.slice(0, 4000);
+        // Excerpt from the main content where it is unambiguous and long
+        // enough; header, navigation and consent texts otherwise make every
+        // page look alike (plan 90).
+        const mains = Array.from(document.querySelectorAll('main, [role="main"]'))
+            .filter(m => !m.parentElement || !m.parentElement.closest('main, [role="main"]'));
+        const mainText = mains.length === 1 ? (mains[0].innerText || '').trim() : '';
+        const useMain = mainText.length >= 200;
+        result.textExcerpt = (useMain ? mainText : text).slice(0, 4000);
+        result.textExcerptSource = useMain ? 'main' : 'body';
 
         // Links
         const links = document.querySelectorAll('a[href]');
@@ -552,6 +565,10 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let internal_link_targets = parse_string_array(&parsed["internalLinkTargets"]);
     let internal_link_check_targets = parse_string_array(&parsed["internalLinkCheckTargets"]);
     let text_excerpt = parsed["textExcerpt"].as_str().unwrap_or("").to_string();
+    let text_excerpt_source = parsed["textExcerptSource"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     let stylesheet_urls = parse_string_array(&parsed["stylesheetUrls"]);
     let script_urls = parse_string_array(&parsed["scriptUrls"]);
     let resource_urls = parse_string_array(&parsed["resourceUrls"]);
@@ -646,6 +663,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         amp,
         form_security,
         text_excerpt,
+        text_excerpt_source,
         uses_remote_google_fonts: !google_fonts_sources.is_empty(),
         google_fonts_sources,
         tracking_cookies,

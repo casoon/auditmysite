@@ -654,13 +654,20 @@ fn render_consistency_overlap_pairs(
             .overlap_pairs
             .iter()
             .take(10)
-            .map(|(url_a, url_b, shared)| {
+            .map(|pair| {
+                let terms = pair.shared_terms.join(", ");
                 ChecklistRow::new(
-                    format!("{url_a} ↔ {url_b}"),
+                    format!("{} ↔ {}", pair.url_a, pair.url_b),
                     if en {
-                        format!("{shared} shared topic terms")
+                        format!(
+                            "Topic-term similarity {} % · shared terms: {terms}",
+                            pair.similarity_percent
+                        )
                     } else {
-                        format!("{shared} gemeinsame Themenbegriffe")
+                        format!(
+                            "Begriffsähnlichkeit {} % · gemeinsame Begriffe: {terms}",
+                            pair.similarity_percent
+                        )
                     },
                 )
                 .with_status("warn")

@@ -909,8 +909,15 @@ fn build_site_analysis(
             "top_terms": portfolio.top_topics.iter().map(|(term, pages)| serde_json::json!({
                 "term": term, "page_count": pages,
             })).collect::<Vec<_>>(),
-            "overlap_pairs": portfolio.overlap_pairs.iter().map(|(url_a, url_b, shared_terms)| serde_json::json!({
-                "url_a": url_a, "url_b": url_b, "shared_terms": shared_terms,
+            // `shared_terms` always held the similarity (0-100), never a term
+            // count; kept with that value for compatibility, deprecated in
+            // favour of `similarity_percent` (plan 90).
+            "overlap_pairs": portfolio.overlap_pairs.iter().map(|pair| serde_json::json!({
+                "url_a": pair.url_a,
+                "url_b": pair.url_b,
+                "similarity_percent": pair.similarity_percent,
+                "shared_terms": pair.similarity_percent,
+                "shared_topic_terms": pair.shared_terms,
             })).collect::<Vec<_>>(),
         },
         "duplicates": {
