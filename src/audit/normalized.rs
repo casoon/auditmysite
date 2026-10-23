@@ -2327,12 +2327,14 @@ mod tests {
                 warnings: vec![],
                 error_count: 0,
                 warning_count: 0,
+                collected: true,
             },
             vulnerable_libraries: VulnerableLibrariesAnalysis {
                 detected: vec![],
                 vulnerable: vec![],
                 has_vulnerabilities: false,
                 duplicate_libraries: vec![],
+                checked: true,
             },
             score: 90,
         });
@@ -2356,6 +2358,69 @@ mod tests {
             norm.raw_best_practices.is_some(),
             "raw_best_practices must be passed through"
         );
+    }
+
+    /// Plan 69: a Best Practices run where neither collector worked keeps its
+    /// default 100 in the raw payload but is marked `not_measured`, and one
+    /// failed collector alone still counts as measured (partial).
+    #[test]
+    fn best_practices_without_any_collection_is_not_measured() {
+        use crate::best_practices::{
+            BestPracticesAnalysis, ConsoleErrorsAnalysis, VulnerableLibrariesAnalysis,
+        };
+
+        let analysis = |collected: bool, checked: bool| BestPracticesAnalysis {
+            console_errors: ConsoleErrorsAnalysis {
+                errors: vec![],
+                warnings: vec![],
+                error_count: 0,
+                warning_count: 0,
+                collected,
+            },
+            vulnerable_libraries: VulnerableLibrariesAnalysis {
+                detected: vec![],
+                vulnerable: vec![],
+                has_vulnerabilities: false,
+                duplicate_libraries: vec![],
+                checked,
+            },
+            score: 100,
+        };
+        let measurement = |collected: bool, checked: bool| {
+            let mut report = AuditReport::new(
+                "https://example.com".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            );
+            report.best_practices = Some(analysis(collected, checked));
+            normalize(&report)
+                .normalized
+                .module_scores
+                .iter()
+                .find(|m| m.name == "Best Practices")
+                .unwrap()
+                .measurement_type
+                .clone()
+        };
+
+        assert_eq!(measurement(false, false), "not_measured");
+        assert_eq!(measurement(true, false), "measured");
+        assert_eq!(measurement(true, true), "measured");
+    }
+
+    /// Reports written before plan 69 have no `collected`/`checked` and stay
+    /// measured when read back.
+    #[test]
+    fn best_practices_from_old_json_counts_as_measured() {
+        let old = serde_json::json!({
+            "console_errors": {"errors": [], "warnings": [], "error_count": 0, "warning_count": 0},
+            "vulnerable_libraries": {"detected": [], "vulnerable": [], "has_vulnerabilities": false},
+            "score": 100
+        });
+        let bp: crate::best_practices::BestPracticesAnalysis = serde_json::from_value(old).unwrap();
+        assert!(!bp.is_unmeasured());
+        assert!(bp.console_errors.collected && bp.vulnerable_libraries.checked);
     }
 
     #[test]
@@ -2388,6 +2453,7 @@ mod tests {
                 warnings: vec![],
                 error_count: 0,
                 warning_count: 0,
+                collected: true,
             },
             vulnerable_libraries: VulnerableLibrariesAnalysis {
                 detected: vec![],
@@ -2409,6 +2475,7 @@ mod tests {
                 ],
                 has_vulnerabilities: true,
                 duplicate_libraries: vec![],
+                checked: true,
             },
             score: 60,
         });

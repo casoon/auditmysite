@@ -39,7 +39,15 @@ pub(super) fn build_modules_block_from_normalized(
         warn_threshold: 50,
     }];
 
-    if let Some(p) = normalized.raw_performance {
+    // No Web Vitals measured: no gauge or card — a 0 there would read as
+    // "unusably slow" (plan 69, #QA-023 for the overall score).
+    let performance_measured = normalized
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Performance")
+        .is_none_or(|m| m.measurement_type != "not_measured");
+    if let Some(p) = normalized.raw_performance.filter(|_| performance_measured) {
         let score = normalized_module_score(&normalized.normalized, "Performance")
             .unwrap_or(p.score.overall);
         dashboard.push(ModuleScore {

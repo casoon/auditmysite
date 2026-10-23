@@ -16,6 +16,79 @@ pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_registry_docs_urls_well_formed(findings);
     check_source_quality_signals_match_findings(report, findings);
     check_accessibility_breakdown_reconciles(report, findings);
+    check_unmeasured_modules_carry_no_result(report, findings);
+}
+
+// ─── Measurement status ───────────────────────────────────────────────────
+
+const CHECK_UNMEASURED_MODULES: &str = "unmeasured_module_carries_no_result";
+
+/// Module runs whose score has an entry in `module_scores`, by run name.
+const SCORED_RUNS: &[(&str, &str)] = &[("best_practices", "Best Practices")];
+
+/// A module that measured nothing must not show up as a result (plan 69): a
+/// `not_measured` entry never feeds the overall score, and a run that failed
+/// outright never has a score entry claiming `measured`.
+fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<LintFinding>) {
+    let Some(pages) = report.get("pages").and_then(Value::as_array) else {
+        return;
+    };
+    for (i, page) in pages.iter().enumerate() {
+        let scores = page
+            .get("module_scores")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for entry in scores {
+            let unmeasured =
+                entry.get("measurement_type").and_then(Value::as_str) == Some("not_measured");
+            let contributes = entry
+                .get("contributes_to_overall")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if unmeasured && contributes {
+                findings.push(LintFinding {
+                    check_id: CHECK_UNMEASURED_MODULES,
+                    evidence_path: format!(
+                        "pages[{i}].module_scores[{}]",
+                        field_str(entry, "name")
+                    ),
+                    expected: "contributes_to_overall = false for not_measured".to_string(),
+                    actual: "contributes_to_overall = true".to_string(),
+                    severity: Severity::High,
+                });
+            }
+        }
+        let runs = page
+            .get("module_runs")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for run in runs {
+            if run.get("status").and_then(Value::as_str) != Some("failed") {
+                continue;
+            }
+            let module = field_str(run, "module");
+            let Some((_, score_name)) = SCORED_RUNS.iter().find(|(r, _)| *r == module) else {
+                continue;
+            };
+            let measured = scores
+                .iter()
+                .find(|e| field_str(e, "name") == *score_name)
+                .filter(|e| {
+                    e.get("measurement_type").and_then(Value::as_str) != Some("not_measured")
+                });
+            if measured.is_some() {
+                findings.push(LintFinding {
+                    check_id: CHECK_UNMEASURED_MODULES,
+                    evidence_path: format!("pages[{i}].module_runs[{module}]"),
+                    expected: format!("{score_name} marked not_measured after a failed run"),
+                    actual: "a measured score entry".to_string(),
+                    severity: Severity::High,
+                });
+            }
+        }
+    }
 }
 
 // ─── Accessibility breakdown ──────────────────────────────────────────────
@@ -1104,5 +1177,43 @@ mod tests {
         assert!(findings
             .iter()
             .any(|f| f.check_id == CHECK_PDF_CERTIFICATE_TRACEABLE));
+    }
+}
+
+#[cfg(test)]
+mod measurement_status_tests {
+    use super::*;
+
+    fn lint(page: Value) -> Vec<&'static str> {
+        let mut findings = Vec::new();
+        check_unmeasured_modules_carry_no_result(
+            &serde_json::json!({ "pages": [page] }),
+            &mut findings,
+        );
+        findings.into_iter().map(|f| f.check_id).collect()
+    }
+
+    #[test]
+    fn unmeasured_module_must_not_count_or_claim_a_result() {
+        let not_measured = |contributes: bool| {
+            serde_json::json!({ "module_scores": [{
+                "name": "Performance", "score": 0,
+                "measurement_type": "not_measured", "contributes_to_overall": contributes
+            }]})
+        };
+        assert!(lint(not_measured(false)).is_empty());
+        assert_eq!(lint(not_measured(true)), [CHECK_UNMEASURED_MODULES]);
+
+        let failed_run = |measurement: &str| {
+            serde_json::json!({
+                "module_runs": [{"module": "best_practices", "status": "failed"}],
+                "module_scores": [{
+                    "name": "Best Practices", "score": 100,
+                    "measurement_type": measurement, "contributes_to_overall": false
+                }]
+            })
+        };
+        assert!(lint(failed_run("not_measured")).is_empty());
+        assert_eq!(lint(failed_run("measured")), [CHECK_UNMEASURED_MODULES]);
     }
 }

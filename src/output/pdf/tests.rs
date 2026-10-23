@@ -453,6 +453,7 @@ mod tests {
             }],
             score: 60,
             grade: "C".to_string(),
+            audited_stacks: vec!["WordPress".to_string()],
         });
         let typ = generate_typ(
             &report,
@@ -1070,6 +1071,7 @@ mod tests {
             }],
             score: 60,
             grade: "C".to_string(),
+            audited_stacks: vec!["WordPress".to_string()],
         });
 
         let config = ReportConfig {

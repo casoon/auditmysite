@@ -26,10 +26,23 @@ pub struct TechStackAnalysis {
     pub detected: Vec<DetectedTech>,
     /// Stack-specific security and privacy findings.
     pub findings: Vec<StackFinding>,
-    /// Hardening score 0–100 (100 = no issues found).
+    /// Hardening score 0–100 (100 = no issues found). Only a result for the
+    /// stacks in `audited_stacks`; with none audited it is 100 by default and
+    /// says nothing (plan 69).
     pub score: u32,
     /// Letter grade derived from score.
     pub grade: String,
+    /// Stacks whose hardening probes ran (WordPress, Drupal, Joomla,
+    /// Next.js). Empty: nothing was probed, `score` is no assessment.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audited_stacks: Vec<String>,
+}
+
+impl TechStackAnalysis {
+    /// Whether `score` rests on at least one stack-specific hardening probe.
+    pub fn is_hardening_assessed(&self) -> bool {
+        !self.audited_stacks.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,7 +288,12 @@ async fn detect_technologies(page: &Page) -> Vec<DetectedTech> {
 
 // ── Stack-specific HTTP probes ────────────────────────────────────────────────
 
-async fn run_stack_audits(detected: &[DetectedTech], base_url: &str) -> Vec<StackFinding> {
+/// Runs the hardening probes for each detected stack that has some, and
+/// returns their findings together with the stacks actually probed.
+async fn run_stack_audits(
+    detected: &[DetectedTech],
+    base_url: &str,
+) -> (Vec<StackFinding>, Vec<String>) {
     let client = match Client::builder()
         .timeout(Duration::from_secs(8))
         .user_agent("auditmysite-stackcheck/1.0")
@@ -285,12 +303,13 @@ async fn run_stack_audits(detected: &[DetectedTech], base_url: &str) -> Vec<Stac
         Ok(c) => c,
         Err(e) => {
             warn!("Could not build HTTP client for stack audits: {}", e);
-            return vec![];
+            return (vec![], vec![]);
         }
     };
 
     let base = base_url.trim_end_matches('/');
     let mut findings = Vec::new();
+    let mut audited = Vec::new();
 
     for tech in detected {
         let mut new_findings = match tech.name.as_str() {
@@ -298,12 +317,13 @@ async fn run_stack_audits(detected: &[DetectedTech], base_url: &str) -> Vec<Stac
             "Drupal" => audit_drupal(&client, base, tech).await,
             "Joomla" => audit_joomla(&client, base, tech).await,
             "Next.js" => audit_nextjs(&client, base).await,
-            _ => vec![],
+            _ => continue,
         };
+        audited.push(tech.name.clone());
         findings.append(&mut new_findings);
     }
 
-    findings
+    (findings, audited)
 }
 
 /// Perform a HEAD/GET request and return the status code, or None on error.
@@ -565,7 +585,7 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
     info!("Running tech stack detection for {}", base_url);
 
     let detected = detect_technologies(page).await;
-    let findings = run_stack_audits(&detected, base_url).await;
+    let (findings, audited_stacks) = run_stack_audits(&detected, base_url).await;
     let score = calculate_score(&findings);
     let grade = module_score_grade(score).to_string();
 
@@ -581,6 +601,7 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
         findings,
         score,
         grade,
+        audited_stacks,
     })
 }
 
@@ -596,6 +617,22 @@ mod tests {
     /// the multi-word variants, where the Debug spelling is clearly not a
     /// presentable label (single-word variants like `Framework` coincide
     /// with their Debug form and aren't a useful signal either way).
+    /// Plan 69: nothing probed — the default 100 is no hardening result.
+    /// Older reports without `audited_stacks` read as not assessed.
+    #[test]
+    fn hardening_is_assessed_only_with_an_audited_stack() {
+        let analysis: super::TechStackAnalysis = serde_json::from_value(serde_json::json!({
+            "detected": [], "findings": [], "score": 100, "grade": "A"
+        }))
+        .unwrap();
+        assert!(!analysis.is_hardening_assessed());
+        let audited = super::TechStackAnalysis {
+            audited_stacks: vec!["WordPress".to_string()],
+            ..analysis
+        };
+        assert!(audited.is_hardening_assessed());
+    }
+
     #[test]
     fn tech_category_label_is_a_readable_string_not_the_debug_identifier() {
         assert_eq!(TechCategory::Cms.label(), "CMS");

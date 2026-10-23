@@ -664,12 +664,14 @@ fn all_active_modules_report() -> AuditReport {
             warnings: vec![],
             error_count: 0,
             warning_count: 0,
+            collected: true,
         },
         vulnerable_libraries: crate::best_practices::VulnerableLibrariesAnalysis {
             detected: vec![],
             vulnerable: vec![],
             has_vulnerabilities: false,
             duplicate_libraries: vec![],
+            checked: true,
         },
         score: 100,
     })
@@ -678,6 +680,7 @@ fn all_active_modules_report() -> AuditReport {
         findings: vec![],
         score: 100,
         grade: "A".into(),
+        audited_stacks: Vec::new(),
     })
     .with_patterns(crate::patterns::PatternAnalysis {
         recognized: vec![],

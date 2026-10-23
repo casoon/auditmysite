@@ -290,11 +290,34 @@ pub(super) fn aggregate_report(
     }
 
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
+        let assessed = tech_stack.is_hardening_assessed();
         report = report.with_tech_stack(tech_stack);
+        // Detection ran either way; the hardening score only means something
+        // when a stack-specific probe ran (plan 69).
+        if !assessed {
+            if let Some(run) = report
+                .accessibility
+                .execution
+                .module_runs
+                .iter_mut()
+                .find(|run| run.module == "tech_stack")
+            {
+                run.subchecks = vec![crate::audit::SubcheckRun {
+                    subcheck: "hardening".to_string(),
+                    status: crate::audit::ExecutionStatus::NotApplicable,
+                    reason_code: Some("no_auditable_stack_detected".to_string()),
+                }];
+            }
+        }
     }
 
     if let Some(bp) = snapshot.best_practices.clone() {
+        let checks = [
+            ("console_errors", bp.console_errors.collected),
+            ("vulnerable_libraries", bp.vulnerable_libraries.checked),
+        ];
         report = report.with_best_practices(bp);
+        attach_subchecks(&mut report, "best_practices", &checks, true);
     }
 
     // Post-processing modules (source_quality, ai_visibility, content_visibility)
@@ -365,12 +388,27 @@ fn attach_performance_subchecks(report: &mut AuditReport) {
         ("animations", performance.animations.is_some()),
         ("coverage", performance.coverage.is_some()),
     ];
+    // The score comes from the Web Vitals, not these sub-analyses: losing
+    // all of them leaves a partial run, not a failed one.
+    attach_subchecks(report, "performance", &checks, false);
+}
+
+/// Records each sub-analysis of `module` as completed or failed. One failed
+/// sub-analysis makes the module run `Partial`; when the sub-analyses are the
+/// whole module (`whole_module`), all of them failing makes it `Failed` — an
+/// empty result from a collector that never ran is no measurement (plan 69).
+fn attach_subchecks(
+    report: &mut AuditReport,
+    module: &str,
+    checks: &[(&str, bool)],
+    whole_module: bool,
+) {
     if let Some(run) = report
         .accessibility
         .execution
         .module_runs
         .iter_mut()
-        .find(|run| run.module == "performance")
+        .find(|run| run.module == module)
     {
         run.subchecks = checks
             .iter()
@@ -384,7 +422,10 @@ fn attach_performance_subchecks(report: &mut AuditReport) {
                 reason_code: (!available).then(|| "subanalysis_unavailable".to_string()),
             })
             .collect();
-        if checks.iter().any(|(_, available)| !available) {
+        if whole_module && checks.iter().all(|(_, available)| !available) {
+            run.status = crate::audit::ExecutionStatus::Failed;
+            run.reason_code = Some("all_subanalyses_unavailable".to_string());
+        } else if checks.iter().any(|(_, available)| !available) {
             run.status = crate::audit::ExecutionStatus::Partial;
             run.reason_code = Some("one_or_more_subanalyses_unavailable".to_string());
         }
@@ -615,4 +656,51 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
         partial_or_failed_modules,
         reasons,
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{ExecutionStatus, ModuleRun};
+    use crate::cli::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    fn report_with_run(module: &str) -> AuditReport {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+        report.accessibility.execution.module_runs.push(ModuleRun {
+            module: module.to_string(),
+            status: ExecutionStatus::Completed,
+            ..Default::default()
+        });
+        report
+    }
+
+    /// Plan 69: a collector that never ran makes the run partial, none at
+    /// all makes it failed — not "completed" with an empty, passing result.
+    #[test]
+    fn subchecks_mark_partial_and_failed_runs() {
+        let status = |checks: &[(&str, bool)]| {
+            let mut report = report_with_run("best_practices");
+            attach_subchecks(&mut report, "best_practices", checks, true);
+            let run = &report.accessibility.execution.module_runs[0];
+            (run.status, run.subchecks.len())
+        };
+        assert!(matches!(
+            status(&[("console_errors", true), ("vulnerable_libraries", true)]),
+            (ExecutionStatus::Completed, 2)
+        ));
+        assert!(matches!(
+            status(&[("console_errors", false), ("vulnerable_libraries", true)]),
+            (ExecutionStatus::Partial, 2)
+        ));
+        assert!(matches!(
+            status(&[("console_errors", false), ("vulnerable_libraries", false)]),
+            (ExecutionStatus::Failed, 2)
+        ));
+    }
 }
