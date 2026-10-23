@@ -352,37 +352,44 @@ pub(super) fn render_additional_score_drivers(
 
 /// Splits a list of `(label, score)` pairs into "critical weaknesses"
 /// (below the shared FIVE_BAND "Verbesserungswürdig"/"Needs improvement"
-/// cutoff at 60 — no new threshold invented) and "comparatively stable",
-/// then renders a compact callout per module, matching the review's own
-/// example format (plan/5-module-accessibility-security-driver-detail.md
-/// and plan/21-accessibility-subcategory-breakdown-uniform-gap.md).
-/// Handles both contrast (two-line) and uniform (single-line) distributions;
-/// renders nothing only for an empty input (module didn't run).
+/// cutoff at 60 — no new threshold invented), other sub-areas, and sub-areas
+/// without any assigned finding, then renders a compact callout per module
+/// (plan/5-module-accessibility-security-driver-detail.md,
+/// plan/21-accessibility-subcategory-breakdown-uniform-gap.md).
+///
+/// A sub-area score only reflects the findings assigned to it, not how much
+/// was checked there. A 100 is therefore named "no findings assigned", never
+/// a strength, and `critical` (finding title, localized sub-area) names where
+/// each critical finding is counted — an unnamed link sits under Technical
+/// Robustness (4.1.2), so "Forms & Interaction 100" must not read as
+/// "interaction is fine" (plan 70). Renders nothing for an empty input
+/// (module didn't run).
 pub(super) fn render_subcategory_breakdown(
     mut builder: renderreport::engine::ReportBuilder,
     title: &str,
     entries: &[(String, u32)],
+    critical: &[(String, String)],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
     if entries.is_empty() {
         return builder;
     }
-    const STABLE_CUTOFF: f32 = 60.0; // registry::FIVE_BAND's "Needs improvement" cutoff
+    const STABLE_CUTOFF: u32 = 60; // registry::FIVE_BAND's "Needs improvement" cutoff
 
-    let mut weak: Vec<&(String, u32)> = entries
+    let mut weak: Vec<&(String, u32)> =
+        entries.iter().filter(|(_, s)| *s < STABLE_CUTOFF).collect();
+    let mut partial: Vec<&(String, u32)> = entries
         .iter()
-        .filter(|(_, score)| (*score as f32) < STABLE_CUTOFF)
+        .filter(|(_, s)| (STABLE_CUTOFF..100).contains(s))
         .collect();
-    let mut stable: Vec<&(String, u32)> = entries
+    let clean: Vec<&str> = entries
         .iter()
-        .filter(|(_, score)| (*score as f32) >= STABLE_CUTOFF)
+        .filter(|(_, s)| *s >= 100)
+        .map(|(name, _)| name.as_str())
         .collect();
-    if weak.is_empty() && stable.is_empty() {
-        return builder;
-    }
     weak.sort_by_key(|(_, score)| *score);
-    stable.sort_by_key(|(_, score)| std::cmp::Reverse(*score));
+    partial.sort_by_key(|(_, score)| std::cmp::Reverse(*score));
 
     let render_side = |items: &[&(String, u32)]| -> String {
         items
@@ -392,43 +399,50 @@ pub(super) fn render_subcategory_breakdown(
             .join(" · ")
     };
 
-    // "Stronger sub-areas within {title}" rather than "comparatively stable"
-    // (feedback 2026-09-07): at an overall score of e.g. 20, a subcategory at
-    // 67 read as "stable" on its own, contradicting the module's headline
-    // "Kritisch" grade a few lines above. Framing it as relative-within-the-
-    // module keeps the same information without the contradiction.
-    let body = if !weak.is_empty() && !stable.is_empty() {
-        if en {
-            format!(
-                "Critical weaknesses: {}\nStronger sub-areas within {title}: {}",
-                render_side(&weak),
-                render_side(&stable)
-            )
-        } else {
-            format!(
-                "Kritische Schwächen: {}\nStärkere Teilbereiche innerhalb der {title}: {}",
-                render_side(&weak),
-                render_side(&stable)
-            )
-        }
-    } else if !weak.is_empty() {
-        if en {
+    let mut lines = Vec::new();
+    if !weak.is_empty() {
+        lines.push(if en {
             format!("Critical weaknesses: {}", render_side(&weak))
         } else {
             format!("Kritische Schwächen: {}", render_side(&weak))
-        }
-    } else if en {
-        format!(
-            "Stronger sub-areas within {title}: {}",
-            render_side(&stable)
-        )
-    } else {
-        format!(
-            "Stärkere Teilbereiche innerhalb der {title}: {}",
-            render_side(&stable)
-        )
-    };
-    builder = builder.add_component(Callout::info(body).with_title(title));
+        });
+    }
+    if !partial.is_empty() {
+        lines.push(if en {
+            format!("Other sub-areas within {title}: {}", render_side(&partial))
+        } else {
+            format!(
+                "Weitere Teilbereiche der {title}: {}",
+                render_side(&partial)
+            )
+        });
+    }
+    if !clean.is_empty() {
+        lines.push(if en {
+            format!(
+                "No findings assigned (100): {}. That says nothing was counted there, not that the area was checked and found free of defects.",
+                clean.join(" · ")
+            )
+        } else {
+            format!(
+                "Ohne zugeordnete Befunde (100): {}. Das heißt nur, dass dort nichts gezählt wurde — nicht, dass der Bereich geprüft und mängelfrei ist.",
+                clean.join(" · ")
+            )
+        });
+    }
+    if !critical.is_empty() {
+        let items = critical
+            .iter()
+            .map(|(finding, area)| format!("{finding} → {area}"))
+            .collect::<Vec<_>>()
+            .join(" · ");
+        lines.push(if en {
+            format!("Critical findings and the sub-area they count in: {items}")
+        } else {
+            format!("Kritische Befunde und der Teilbereich, in dem sie zählen: {items}")
+        });
+    }
+    builder = builder.add_component(Callout::info(lines.join("\n")).with_title(title));
     builder
 }
 
@@ -469,12 +483,12 @@ mod tests {
             ("Landmarks".to_string(), 20),
             ("Semantik".to_string(), 50),
         ];
-        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &i18n);
+        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &[], &i18n);
         let report = builder.build();
         assert_eq!(report.components.len(), 1);
         let json = serde_json::to_string(&report.components[0]).unwrap();
         assert!(json.contains("Kritische Schwächen:"));
-        assert!(!json.contains("Stärkere Teilbereiche"));
+        assert!(!json.contains("Ohne zugeordnete Befunde"));
         assert!(json.contains("ARIA 10"));
     }
 
@@ -486,13 +500,15 @@ mod tests {
             ("Formulare".to_string(), 100),
             ("Alternativtexte".to_string(), 90),
         ];
-        let builder = render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &i18n);
+        let builder =
+            render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &[], &i18n);
         let report = builder.build();
         assert_eq!(report.components.len(), 1);
         let json = serde_json::to_string(&report.components[0]).unwrap();
         assert!(!json.contains("Kritische Schwächen"));
-        assert!(json.contains("Stärkere Teilbereiche innerhalb der Barrierefreiheit:"));
-        assert!(json.contains("Formulare 100"));
+        assert!(json.contains("Weitere Teilbereiche der Barrierefreiheit: Alternativtexte 90"));
+        assert!(json.contains("Ohne zugeordnete Befunde (100): Formulare."));
+        assert!(!json.contains("Stärkere"));
     }
 
     #[test]
@@ -500,12 +516,38 @@ mod tests {
         let i18n = I18n::new("de").unwrap();
         let builder = renderreport::engine::ReportBuilder::new("single");
         let entries = vec![("ARIA".to_string(), 10), ("Formulare".to_string(), 100)];
-        let builder = render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &i18n);
+        let builder =
+            render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &[], &i18n);
         let report = builder.build();
         assert_eq!(report.components.len(), 1);
         let json = serde_json::to_string(&report.components[0]).unwrap();
         assert!(json.contains("Kritische Schwächen:"));
-        assert!(json.contains("Stärkere Teilbereiche innerhalb der Barrierefreiheit:"));
+        assert!(json.contains("Ohne zugeordnete Befunde (100): Formulare."));
+    }
+
+    /// Plan 70 (inros-lackner 2026-10-23): seven unnamed links count under
+    /// Technical Robustness (4.1.2) while "Forms & Interaction" stays at 100.
+    /// The callout names where the critical finding counts instead of listing
+    /// the 100 as a strength.
+    #[test]
+    fn subcategory_breakdown_names_where_critical_findings_count() {
+        let i18n = I18n::new("de").unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("single");
+        let entries = vec![
+            ("Technische Robustheit".to_string(), 49),
+            ("Formulare & Interaktion".to_string(), 100),
+        ];
+        let critical = vec![(
+            "Formularelement, Link oder Button ohne zugänglichen Namen".to_string(),
+            "Technische Robustheit".to_string(),
+        )];
+        let builder =
+            render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &critical, &i18n);
+        let json = serde_json::to_string(&builder.build().components[0]).unwrap();
+        assert!(json.contains(
+            "Formularelement, Link oder Button ohne zugänglichen Namen → Technische Robustheit"
+        ));
+        assert!(!json.contains("Stärkere"));
     }
 
     #[test]
@@ -513,7 +555,7 @@ mod tests {
         let i18n = I18n::new("de").unwrap();
         let builder = renderreport::engine::ReportBuilder::new("single");
         let entries: Vec<(String, u32)> = vec![];
-        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &i18n);
+        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &[], &i18n);
         let report = builder.build();
         assert_eq!(report.components.len(), 0);
     }

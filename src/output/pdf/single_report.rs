@@ -889,7 +889,29 @@ pub(super) fn render_management_page(
         .iter()
         .map(|s| (s.subcategory_kind.label(en).to_string(), s.score))
         .collect();
-    builder = render_subcategory_breakdown(builder, en_label, &accessibility_entries, i18n);
+    // Where each critical accessibility finding counts, from the findings'
+    // own sub-area (plan 70).
+    let accessibility_critical: Vec<(String, String)> = vm
+        .findings
+        .all_findings
+        .iter()
+        .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
+        .filter_map(|f| {
+            let area = vm
+                .modules
+                .accessibility_subcategory_scores
+                .iter()
+                .find(|s| Some(s.subcategory_kind.label(true)) == f.subcategory.as_deref())?;
+            Some((f.title.clone(), area.subcategory_kind.label(en).to_string()))
+        })
+        .collect();
+    builder = render_subcategory_breakdown(
+        builder,
+        en_label,
+        &accessibility_entries,
+        &accessibility_critical,
+        i18n,
+    );
 
     let security_label = if en { "Security" } else { "Sicherheit" };
     let security_entries: Vec<(String, u32)> = vm
@@ -898,7 +920,7 @@ pub(super) fn render_management_page(
         .iter()
         .map(|s| (s.category_kind.label(en).to_string(), s.score))
         .collect();
-    builder = render_subcategory_breakdown(builder, security_label, &security_entries, i18n);
+    builder = render_subcategory_breakdown(builder, security_label, &security_entries, &[], i18n);
 
     // 3. Strengths vs. priorities as card groups
     builder = render_module_split_dashboards(builder, vm, i18n);
