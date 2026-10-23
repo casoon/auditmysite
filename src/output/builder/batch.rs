@@ -218,10 +218,15 @@ pub fn build_batch_presentation_with_normalized(
             }
         })
         .collect();
+    // Accessibility ascending — the report's main score (plan 83). Ties go
+    // to more critical/high findings first, then the lower overall score,
+    // then the URL, so the order never depends on audit completion order.
     url_ranking.sort_by(|a, b| {
         a.score
-            .partial_cmp(&b.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .total_cmp(&b.score)
+            .then_with(|| b.critical_violations.cmp(&a.critical_violations))
+            .then_with(|| a.overall_score.cmp(&b.overall_score))
+            .then_with(|| a.url.cmp(&b.url))
     });
 
     let url_details: Vec<CompactUrlSummary> = batch
@@ -303,9 +308,9 @@ pub fn build_batch_presentation_with_normalized(
         .zip(normalized_reports.iter())
         .collect();
     sorted_by_score.sort_by(|a, b| {
-        (a.1.score as f32)
-            .partial_cmp(&(b.1.score as f32))
-            .unwrap_or(std::cmp::Ordering::Equal)
+        a.1.score
+            .cmp(&b.1.score)
+            .then_with(|| a.0.url.cmp(&b.0.url))
     });
     let worst_urls: Vec<(String, f32)> = sorted_by_score
         .iter()
@@ -1680,6 +1685,31 @@ mod duplicate_content_tests {
 
         // "Unique" title and "Other" H1 appear once → not grouped.
         assert!(!groups.iter().any(|g| g.value == "Unique"));
+    }
+
+    /// Plan 83: equal accessibility scores rank by URL, so the order is the
+    /// same whatever order the audits finished in.
+    #[test]
+    fn url_ranking_does_not_depend_on_input_order() {
+        let urls = ["https://x.test/c", "https://x.test/a", "https://x.test/b"];
+        let ranking = |order: &[usize]| {
+            let reports = order
+                .iter()
+                .map(|&i| report_with(urls[i], urls[i], "H"))
+                .collect();
+            build_batch_presentation(&crate::audit::BatchReport::from_reports(
+                reports,
+                vec![],
+                100,
+            ))
+            .url_ranking
+            .into_iter()
+            .map(|u| u.url)
+            .collect::<Vec<_>>()
+        };
+        let expected = vec!["https://x.test/a", "https://x.test/b", "https://x.test/c"];
+        assert_eq!(ranking(&[0, 1, 2]), expected);
+        assert_eq!(ranking(&[2, 0, 1]), expected);
     }
 
     #[test]

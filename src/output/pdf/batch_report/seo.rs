@@ -1,4 +1,3 @@
-use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
 };
@@ -74,34 +73,26 @@ fn render_seo_weakest_pages(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // The five pages with the lowest content profile, listed as such: a low
+    // profile is no observed problem, and a word count is no basis for
+    // "+300–800 words" or a guessed ranking impact (plan 84).
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-        let issues_title = i18n.t("batch-seo-issues-title");
-        let mut issues_kv = KeyValueList::new().with_title(issues_title);
+        let mut list = KeyValueList::new().with_title(i18n.t("batch-seo-weakest-title"));
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
-            let relevance =
-                super::super::business_relevance(Some(page_type.as_str()), url, i18n.locale());
-            let high_marker = if is_english(i18n) { "high" } else { "hoch" };
-            let impact = if relevance == high_marker {
-                i18n.t("batch-seo-impact-ranking-loss")
-            } else if *score < 30 {
-                i18n.t("batch-seo-impact-weak-visibility")
-            } else {
-                i18n.t("batch-seo-impact-opt-potential")
-            };
-            let value = i18n.t_args(
-                "batch-seo-recommendation-words",
-                &[("page_type", page_type.clone()), ("impact", impact)],
+            list = list.add(
+                truncate_url(url, 50),
+                i18n.t_args(
+                    "batch-seo-weakest-value",
+                    &[
+                        ("page_type", page_type.clone()),
+                        ("score", score.to_string()),
+                    ],
+                ),
             );
-            let key_str = i18n.t_args(
-                "batch-seo-profile-label",
-                &[
-                    ("url", truncate_url(url, 35)),
-                    ("score", format!("{score}")),
-                ],
-            );
-            issues_kv = issues_kv.add(key_str, value);
         }
-        builder = builder.add_component(issues_kv);
+        builder = builder
+            .add_component(list)
+            .add_component(TextBlock::new(i18n.t("batch-seo-weakest-note")));
     }
 
     builder

@@ -113,45 +113,10 @@ pub(super) fn output_scope_callout(i18n: &I18n) -> Callout {
     }
 }
 
-/// Map page type + URL to business relevance (hoch/mittel/niedrig)
 pub(super) fn format_word_count(n: u32) -> String {
     if n >= 1_000 {
         format!("{}.{:03}", n / 1_000, n % 1_000)
     } else {
         n.to_string()
-    }
-}
-
-pub(super) fn business_relevance(page_type: Option<&str>, url: &str, locale: &str) -> &'static str {
-    let en = locale == "en";
-    let high = if en { "high" } else { "hoch" };
-    let medium = if en { "medium" } else { "mittel" };
-    let low = if en { "low" } else { "niedrig" };
-
-    // URL-based heuristics first
-    let path = url.to_lowercase();
-    if path.contains("impressum")
-        || path.contains("datenschutz")
-        || path.contains("agb")
-        || path.contains("imprint")
-        || path.contains("privacy")
-        || path.contains("terms")
-    {
-        return low;
-    }
-    if path.ends_with('/') && path.matches('/').count() <= 3 {
-        return high; // homepage or top-level pages
-    }
-
-    // Page type based
-    match page_type {
-        Some("Marketing / Landing Page") => high,
-        Some("Transaktional / Utility") | Some("Transactional / Utility") => high,
-        Some("Editorial / Artikel") | Some("Editorial / Article") => medium,
-        Some("Strukturierter Wissensinhalt") | Some("Structured knowledge content") => medium,
-        Some("Navigations- / Hub-Seite") | Some("Navigation / Hub page") => medium,
-        Some("Medienorientierte Seite") | Some("Media-oriented page") => medium,
-        Some("Thin / Minimal Content") => low,
-        _ => medium,
     }
 }
