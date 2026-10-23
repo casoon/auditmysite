@@ -308,7 +308,7 @@ fn render_seo_sitemap_http_issues(
         return builder;
     }
     builder =
-        builder.add_component(Section::new(i18n.t("batch-seo-sitemap-http-title")).with_level(3));
+        builder.add_component(Section::new(i18n.t("batch-seo-sitemap-http-title")).with_level(2));
 
     // Measured distribution over every checked URL, not "all minus the
     // issues" (plan 87).

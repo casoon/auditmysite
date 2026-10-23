@@ -2059,6 +2059,28 @@ mod tests {
         assert_pdf_ua_structure(&pdf, "de");
     }
 
+    /// The sitemap HTTP section sits under the level-1 SEO header; a
+    /// level-3 heading there broke PDF/UA compilation on a live sitemap run.
+    #[test]
+    fn test_batch_pdf_renders_sitemap_status_section() {
+        let mut batch = BatchReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://example.com"),
+                pdf_fixture_report_for_url("https://example.com/about"),
+            ],
+            vec![],
+            2_400,
+        );
+        batch.sitemap_diagnostics = Some(crate::audit::SitemapDiagnostics {
+            status_counts: [("2xx".to_string(), 40), ("3xx".to_string(), 2)]
+                .into_iter()
+                .collect(),
+            checked_urls: 42,
+            ..Default::default()
+        });
+        generate_batch_pdf(&batch, &ReportConfig::default()).expect("batch PDF");
+    }
+
     #[test]
     fn test_batch_pdf_is_pdf_ua_tagged() {
         let batch = BatchReport::from_reports(
