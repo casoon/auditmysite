@@ -222,6 +222,15 @@ pub(super) fn render_batch_cover(
             i18n,
         )?)
         .add_component(
+            Label::new(format!(
+                "{}: {}",
+                i18n.t("cover-card-average"),
+                i18n.t("batch-cover-overall-score-note")
+            ))
+            .with_size("8.5pt")
+            .with_color(crate::output::pdf::design::tokens::MUTED),
+        )
+        .add_component(
             TextBlock::new(&pres.portfolio_summary.verdict_text)
                 .with_size("11pt")
                 .with_line_height("1.4em")
