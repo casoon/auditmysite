@@ -14,7 +14,7 @@ The public methodology/landing-page numbers are frozen in
 - Automated WCAG A/AA criteria: 30 (a criterion counts only if its rule can
   report a violation; rules that only emit review hints or `untested` entries
   are listed as manual review)
-- Manual-review criteria: 21
+- Manual-review criteria: 25
 
 When the WCAG coverage manifest changes, update the contract and this document
 in the same change.
