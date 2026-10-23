@@ -498,6 +498,7 @@ pub fn build_batch_presentation_with_normalized(
         linked_not_in_sitemap,
         robots_conflicts,
         crawl_depth_diagnostics,
+        crawl_depths_unavailable,
     ) = batch
         .sitemap_diagnostics
         .as_ref()
@@ -508,6 +509,7 @@ pub fn build_batch_presentation_with_normalized(
                 diagnostics.linked_not_in_sitemap.clone(),
                 diagnostics.robots_conflicts.clone(),
                 diagnostics.crawl_depths.clone(),
+                diagnostics.crawl_depths_unavailable.is_some(),
             )
         })
         .unwrap_or_default();
@@ -844,6 +846,7 @@ pub fn build_batch_presentation_with_normalized(
             minification_inconsistencies,
             redirect_chain_issues,
             crawl_depth_diagnostics,
+            crawl_depths_unavailable,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,

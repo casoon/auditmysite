@@ -1,5 +1,6 @@
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
+use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
 
 use crate::i18n::I18n;
@@ -370,20 +371,26 @@ fn render_consistency_orphan_pages(
             .map(|url| {
                 ChecklistRow::new(
                     if en {
-                        "Orphan candidate"
+                        "No inbound link observed"
                     } else {
-                        "Mögliche verwaiste Seite"
+                        "Kein eingehender Link beobachtet"
                     },
                     url,
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Pages without inbound links within the audited URL set"
-        } else {
-            "Seiten ohne eingehende Links innerhalb der geprüften URLs"
-        }));
+        builder = builder
+            .add_component(ChecklistPanel::new(rows).with_title(if en {
+                "Pages without an observed inbound link within the audited URLs"
+            } else {
+                "Seiten ohne beobachteten eingehenden Link innerhalb der geprüften URLs"
+            }))
+            .add_component(TextBlock::new(if en {
+                "Only the links of the audited pages were observed. A page listed here can still be linked from pages outside the sample, a search or a sitemap page — it is a candidate, not a confirmed orphan."
+            } else {
+                "Beobachtet wurden nur die Links der geprüften Seiten. Eine hier genannte Seite kann von Seiten außerhalb der Stichprobe, über die Suche oder eine Sitemap-Seite verlinkt sein — sie ist ein Kandidat, keine bestätigte verwaiste Seite."
+            }));
     }
 
     builder

@@ -354,7 +354,15 @@ fn render_seo_sitemap_orphans(
         ])
         .with_title(i18n.t("batch-seo-sitemap-orphan-title"));
 
-        for url in pres.portfolio_summary.orphan_sitemap_urls.iter().take(20) {
+        // Candidates from a partial graph: a short list, not a site-wide
+        // verdict (plan 82).
+        let partial = pres
+            .portfolio_summary
+            .crawl_depth_diagnostics
+            .as_ref()
+            .is_none_or(|d| d.partial_batch);
+        let cap = if partial { 10 } else { 20 };
+        for url in pres.portfolio_summary.orphan_sitemap_urls.iter().take(cap) {
             table = table.add_row(vec![
                 i18n.t("batch-sitemap-kind-orphan"),
                 truncate_url(url, 50),
@@ -367,6 +375,15 @@ fn render_seo_sitemap_orphans(
             ]);
         }
         builder = builder.add_component(table);
+        if !pres.portfolio_summary.orphan_sitemap_urls.is_empty() {
+            builder = builder.add_component(TextBlock::new(i18n.t_args(
+                "batch-sitemap-orphan-note",
+                &[(
+                    "count",
+                    pres.portfolio_summary.orphan_sitemap_urls.len().to_string(),
+                )],
+            )));
+        }
     }
 
     builder
@@ -410,13 +427,17 @@ fn render_seo_crawl_depth(
             })
             .collect::<Vec<_>>()
             .join(" · ");
-        let intro = i18n.t_args(
+        let mut intro = i18n.t_args(
             "batch-crawl-depth-intro",
             &[
                 ("start_url", truncate_url(&diag.start_url, 50)),
                 ("histogram", histogram_summary),
             ],
         );
+        if diag.start_source == "fetched_homepage" {
+            intro.push(' ');
+            intro.push_str(&i18n.t("batch-crawl-depth-fetched-homepage"));
+        }
 
         builder = builder
             .add_component(Section::new(i18n.t("batch-crawl-depth-section")).with_level(1))
@@ -450,6 +471,10 @@ fn render_seo_crawl_depth(
             }
             builder = builder.add_component(table);
         }
+    } else if pres.portfolio_summary.crawl_depths_unavailable {
+        builder = builder
+            .add_component(Section::new(i18n.t("batch-crawl-depth-section")).with_level(1))
+            .add_component(TextBlock::new(i18n.t("batch-crawl-depth-unavailable")));
     }
 
     builder
