@@ -469,8 +469,11 @@ mod tests {
             typ.contains("CRITICAL"),
             "expected English severity label \"CRITICAL\" in EN-locale Typst source"
         );
+        // Component templates carry German fallback defaults
+        // (`default: "Kritisch"`); only the report content counts.
         assert!(
-            !typ.contains("Kritisch"),
+            !typ.replace("default: \"Kritisch\"", "")
+                .contains("Kritisch"),
             "German severity label \"Kritisch\" leaked into EN-locale Typst source"
         );
     }
