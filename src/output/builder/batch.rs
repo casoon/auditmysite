@@ -348,6 +348,30 @@ pub fn build_batch_presentation_with_normalized(
             low,
         }
     };
+    let occurrence_distribution = {
+        let critical = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.critical)
+            .sum();
+        let high = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.high)
+            .sum();
+        let medium = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.medium)
+            .sum();
+        let low = normalized_reports
+            .iter()
+            .map(|nr| nr.occurrence_counts.low)
+            .sum();
+        SeverityDistribution {
+            critical,
+            high,
+            medium,
+            low,
+        }
+    };
 
     let en = is_english(i18n);
     let mut page_type_counts: HashMap<String, usize> = HashMap::new();
@@ -789,6 +813,7 @@ pub fn build_batch_presentation_with_normalized(
             worst_urls,
             best_urls,
             severity_distribution,
+            occurrence_distribution,
             risk_level,
             risk_summary,
             module_averages,

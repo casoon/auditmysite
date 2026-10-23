@@ -109,10 +109,10 @@ score-note-high-with-critical = The score weighs frequency and severity. Individ
 score-note-perfect-automated-scope = No confirmed accessibility violations were found within the automatically tested scope. Context-dependent WCAG criteria still require manual review.
 
 # Verdict (batch audit)
-verdict-batch-excellent = Across { $total_urls } audited URLs the site reaches an overall score of { $score }/100 — a very good result.
-verdict-batch-solid = On average the { $total_urls } audited URLs reach an overall score of { $score }/100. The foundation is stable, but recurring issues exist in individual modules.
-verdict-batch-deficient = The { $total_urls } audited URLs reach on average only { $score }/100 points. There are significant systematic problems.
-verdict-batch-critical = The { $total_urls } audited URLs reach on average only { $score }/100 points. Urgent action required across multiple modules.
+verdict-batch-excellent = Across { $total_urls } audited URLs accessibility averages { $score }/100 — a very good result within the automated scope.
+verdict-batch-solid = The { $total_urls } audited URLs average { $score }/100 for accessibility. The foundation is stable, but recurring issues exist.
+verdict-batch-deficient = The { $total_urls } audited URLs average { $score }/100 for accessibility. There are significant recurring problems.
+verdict-batch-critical = The { $total_urls } audited URLs average only { $score }/100 for accessibility. The recurring barriers should be fixed with priority.
 
 # Site state (audit summary)
 site-state-polished = Strong
@@ -156,7 +156,7 @@ cover-card-critical-high-suffix = critical/high
 cover-card-average = Average overall score
 batch-cover-overall-score-note = Average of the module-weighted overall scores for all audited URLs (0–100; higher is better).
 cover-card-urls = URLs
-cover-card-violations-suffix = violations
+cover-card-violations-suffix = finding occurrences (all modules)
 batch-cover-eyebrow = Automated batch audit report
 batch-cover-title = Accessibility audit report
 batch-cover-kicker = Domain-wide website check focused on accessibility, SEO and performance

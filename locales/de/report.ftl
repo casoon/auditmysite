@@ -109,10 +109,10 @@ score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufig
 score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Verstöße gefunden. Kontextabhängige WCAG-Kriterien benötigen weiterhin manuelle Prüfung.
 
 # Verdict (batch audit)
-verdict-batch-excellent = Über { $total_urls } geprüfte URLs hinweg erreicht die Website einen Gesamtscore von { $score }/100 — ein sehr gutes Ergebnis.
-verdict-batch-solid = Im Durchschnitt erreichen die { $total_urls } geprüften URLs einen Gesamtscore von { $score }/100. Die Grundlage ist stabil, es bestehen aber wiederkehrende Probleme in einzelnen Modulen.
-verdict-batch-deficient = Die { $total_urls } geprüften URLs erreichen im Schnitt nur { $score }/100 Punkte. Es bestehen erhebliche systematische Probleme.
-verdict-batch-critical = Die { $total_urls } geprüften URLs erreichen im Schnitt nur { $score }/100 Punkte. Dringender Handlungsbedarf in mehreren Modulen.
+verdict-batch-excellent = Über { $total_urls } geprüfte URLs erreicht die Barrierefreiheit im Schnitt { $score }/100 — ein sehr gutes Ergebnis im automatisch geprüften Umfang.
+verdict-batch-solid = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist stabil, es bestehen aber wiederkehrende Probleme.
+verdict-batch-deficient = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Es bestehen erhebliche wiederkehrende Probleme.
+verdict-batch-critical = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt nur { $score }/100. Die wiederkehrenden Barrieren sollten vorrangig behoben werden.
 
 # Site state (audit summary)
 site-state-polished = Stark
@@ -156,7 +156,7 @@ cover-card-critical-high-suffix = kritisch/hoch
 cover-card-average = Gesamtscore Ø
 batch-cover-overall-score-note = Mittelwert der modulgewichteten Gesamtscores aller geprüften URLs (0–100; höher ist besser).
 cover-card-urls = URLs
-cover-card-violations-suffix = Verstöße
+cover-card-violations-suffix = Befundvorkommen (alle Module)
 batch-cover-eyebrow = Automatisierter Batch-Audit-Report
 batch-cover-title = Barrierefreiheits-Prüfbericht
 batch-cover-kicker = Domainweiter Website-Check mit Fokus auf Accessibility, SEO und Performance

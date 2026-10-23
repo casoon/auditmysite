@@ -522,18 +522,21 @@ pub(super) fn build_batch_key_points(
     let en = is_english(i18n);
     let mut points = Vec::with_capacity(3);
 
-    // Point 1: Critical/high count across all URLs
+    // Point 1: critical/high WCAG occurrences, with the per-page finding
+    // groups they form — two different counts, both named (plan 79).
     let ch = dist.critical + dist.high;
+    let occ = &pres.portfolio_summary.occurrence_distribution;
+    let ch_occurrences = occ.critical + occ.high;
     if ch > 0 {
         if en {
             points.push(format!(
-                "{} critical/high violations across {} URLs",
-                ch, pres.portfolio_summary.total_urls
+                "{} critical/high WCAG occurrences on {} URLs ({} findings, grouped per page)",
+                ch_occurrences, pres.portfolio_summary.total_urls, ch
             ));
         } else {
             points.push(format!(
-                "{} kritische/hohe Verstöße über {} URLs hinweg",
-                ch, pres.portfolio_summary.total_urls
+                "{} kritische/hohe WCAG-Vorkommen auf {} URLs ({} Befunde, je Seite gruppiert)",
+                ch_occurrences, pres.portfolio_summary.total_urls, ch
             ));
         }
     }

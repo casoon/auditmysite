@@ -267,12 +267,15 @@ pub(super) fn render_batch_status_section(
     builder = render_batch_unaudited_urls(builder, batch, i18n);
 
     // Score overview cards
+    // Both counts are WCAG occurrences: `total_violations` sums every
+    // module's findings, `dist` counts per-page groups (plan 79).
     let score = pres.portfolio_summary.average_score.round() as u32;
+    let occ = &pres.portfolio_summary.occurrence_distribution;
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,
         score,
-        pres.portfolio_summary.total_violations as u32,
-        (dist.critical + dist.high) as u32,
+        (occ.critical + occ.high + occ.medium + occ.low) as u32,
+        (occ.critical + occ.high) as u32,
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
             (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
         }),
@@ -449,11 +452,7 @@ pub(super) fn build_batch_overview_grid(
             Some(score_quality_color(average_score)),
         ),
         (
-            if en {
-                "Sites audited"
-            } else {
-                "Geprüfte Websites"
-            },
+            if en { "URLs audited" } else { "Geprüfte URLs" },
             total_urls.to_string(),
             Some("#0f766e"),
         ),
@@ -468,9 +467,9 @@ pub(super) fn build_batch_overview_grid(
         ),
         (
             if en {
-                "Critical + High"
+                "Critical + high occurrences"
             } else {
-                "Kritisch + Hoch"
+                "Kritisch + Hoch (Vorkommen)"
             },
             critical_and_high.to_string(),
             Some("#dc2626"),
