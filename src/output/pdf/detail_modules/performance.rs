@@ -616,6 +616,11 @@ pub(in crate::output::pdf) fn render_performance(
                 ),
                 _ => format!("{}%", localized_decimal(used_pct, is_english(i18n))),
             };
+            let rules_str = if cov.css_partial {
+                format!("{rules_str} {}", i18n.t("pdf-perf-cov-css-partial"))
+            } else {
+                rules_str
+            };
             kv = kv.add(i18n.t("pdf-perf-cov-css-used"), rules_str);
         }
         builder = builder.add_component(kv);

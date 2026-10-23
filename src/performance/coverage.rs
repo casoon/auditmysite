@@ -144,9 +144,11 @@ pub struct UnusedJsAnalysis {
 /// Unused CSS analysis (#107).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnusedCssAnalysis {
-    /// Total CSS rules observed by the browser
+    /// Style rules in the stylesheets whose text could be read (including
+    /// those nested in `@media`/`@supports`; no `@keyframes`/`@font-face`).
     pub total_rules: u32,
-    /// Rules that matched at least one element during the audit
+    /// Of those, the rules the browser reported as used between navigation
+    /// and the end of the analysis.
     pub used_rules: u32,
     /// Percentage of rules that were used (0–100), or null when CDP returned no CSS data.
     pub used_pct: Option<f64>,
@@ -432,83 +434,91 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     };
 
     // ── CSS coverage ──────────────────────────────────────────────────────────
+    // `stopRuleUsageTracking` returns the rules *used* since tracking began —
+    // not every rule — so its length is no denominator: it made 316 of 316
+    // (100 %) on inros-lackner, and nearly every page 100 % (plan 78). The
+    // denominator is the style rules in each stylesheet the page added, read
+    // back with `getStyleSheetText`.
     let css_coverage = match page.execute(StopRuleUsageTrackingParams::default()).await {
-        Ok(resp) => resp.result.rule_usage,
+        Ok(resp) => Some(resp.result.rule_usage),
         Err(e) => {
             warn!("CSS.stopRuleUsageTracking failed: {e}");
-            vec![]
+            None
         }
     };
 
-    let total_rules = css_coverage.len() as u32;
-    let used_rules = css_coverage.iter().filter(|r| r.used).count() as u32;
-    let (css_used_pct, css_measurement, measurement_warnings) = if total_rules > 0 {
-        (
-            Some((used_rules as f64 / total_rules as f64 * 100.0).clamp(0.0, 100.0)),
-            "measured".to_string(),
-            vec![],
-        )
-    } else {
-        (
-            None,
-            "not_available".to_string(),
-            vec!["css_coverage_unavailable".to_string()],
-        )
-    };
-
-    let unused_css = UnusedCssAnalysis {
-        total_rules,
-        used_rules,
-        used_pct: css_used_pct,
-        measurement: css_measurement,
-    };
-
-    // Duplicate CSS detection (#551): resolve style_sheet_id -> URL from the
-    // pre-navigation `styleSheetAdded` listener registered in
-    // `prepare_coverage_collection`, then fetch each unique stylesheet's text
-    // (already resident in the browser's memory, not a new download) to hash it.
-    let mut css_duplicate_entries: Vec<(String, String, String)> = Vec::new();
+    let mut stylesheets: Vec<(StyleSheetId, String)> = Vec::new();
     if let Some(mut stream) = stylesheet_listeners().lock().await.remove(page.target_id()) {
-        let mut stylesheet_urls: HashMap<StyleSheetId, String> = HashMap::new();
+        let mut seen: HashSet<StyleSheetId> = HashSet::new();
         while let Some(Some(event)) = stream.next().now_or_never() {
             let url = event.header.source_url.clone();
-            if !url.is_empty()
-                && !url.starts_with("chrome-extension://")
-                && !url.starts_with("data:")
-            {
-                stylesheet_urls
-                    .entry(event.header.style_sheet_id.clone())
-                    .or_insert(url);
+            if url.starts_with("chrome-extension://") {
+                continue;
             }
-            if stylesheet_urls.len() >= MAX_DUPLICATE_STYLESHEET_EVENTS {
+            if seen.insert(event.header.style_sheet_id.clone()) {
+                stylesheets.push((event.header.style_sheet_id.clone(), url));
+            }
+            if stylesheets.len() >= MAX_DUPLICATE_STYLESHEET_EVENTS {
                 break;
             }
         }
+    }
 
-        if !stylesheet_urls.is_empty() {
-            let mut seen_ids: HashSet<StyleSheetId> = HashSet::new();
-            for rule in &css_coverage {
-                let style_sheet_id = rule.style_sheet_id.clone();
-                if !seen_ids.insert(style_sheet_id.clone()) {
-                    continue;
-                }
-                let Some(url) = stylesheet_urls.get(&style_sheet_id) else {
-                    continue;
-                };
-                match page
-                    .execute(GetStyleSheetTextParams::new(style_sheet_id.clone()))
-                    .await
-                {
-                    Ok(resp) => css_duplicate_entries.push((
+    let mut css_duplicate_entries: Vec<(String, String, String)> = Vec::new();
+    let mut read_sheets: HashSet<StyleSheetId> = HashSet::new();
+    let mut total_rules = 0u32;
+    for (style_sheet_id, url) in &stylesheets {
+        match page
+            .execute(GetStyleSheetTextParams::new(style_sheet_id.clone()))
+            .await
+        {
+            Ok(resp) => {
+                total_rules += count_style_rules(&resp.result.text);
+                read_sheets.insert(style_sheet_id.clone());
+                // Duplicate CSS detection (#551): only files with a URL.
+                if !url.is_empty() && !url.starts_with("data:") {
+                    css_duplicate_entries.push((
                         style_sheet_id.inner().clone(),
                         url.clone(),
                         resp.result.text,
-                    )),
-                    Err(e) => warn!("CSS.getStyleSheetText failed for {url}: {e}"),
+                    ));
                 }
             }
+            Err(e) => warn!("CSS.getStyleSheetText failed for {url}: {e}"),
         }
     }
+    let used_rules = css_coverage
+        .iter()
+        .flatten()
+        .filter(|r| r.used && read_sheets.contains(&r.style_sheet_id))
+        .count() as u32;
+    let complete = read_sheets.len() == stylesheets.len();
+    let (css_used_pct, css_measurement, measurement_warnings) =
+        if css_coverage.is_none() || total_rules == 0 {
+            (
+                None,
+                "not_available".to_string(),
+                vec!["css_coverage_unavailable".to_string()],
+            )
+        } else {
+            let pct = (used_rules as f64 / total_rules as f64 * 100.0).clamp(0.0, 100.0);
+            if complete {
+                (Some(pct), "measured".to_string(), vec![])
+            } else {
+                (
+                    Some(pct),
+                    "partial".to_string(),
+                    vec!["css_coverage_partial".to_string()],
+                )
+            }
+        };
+
+    let unused_css = UnusedCssAnalysis {
+        total_rules,
+        used_rules: used_rules.min(total_rules),
+        used_pct: css_used_pct,
+        measurement: css_measurement,
+    };
 
     let mut duplicate_assets = group_duplicate_assets("script", js_duplicate_entries);
     duplicate_assets.extend(group_duplicate_assets("stylesheet", css_duplicate_entries));
@@ -531,6 +541,24 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
         measurement_warnings,
         duplicate_assets,
     })
+}
+
+/// Style rules in a stylesheet, the unit Chrome reports usage for: every
+/// style rule, also inside `@media`/`@supports`/`@layer` blocks and nested
+/// rules; `@keyframes`, `@font-face` and other at-rules are not style rules.
+fn count_style_rules(css: &str) -> u32 {
+    fn count(rules: &[stylesheet_parse::Rule]) -> u32 {
+        rules
+            .iter()
+            .map(|rule| match rule {
+                stylesheet_parse::Rule::Style(style) => 1 + count(&style.nested),
+                stylesheet_parse::Rule::Media(media) => count(&media.rules),
+                stylesheet_parse::Rule::Group(group) => count(&group.rules),
+                _ => 0,
+            })
+            .sum()
+    }
+    count(&stylesheet_parse::parse_stylesheet(css).rules)
 }
 
 /// Groups fetched source texts by content hash, returning one
@@ -594,6 +622,19 @@ fn sha256_hex(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// Plan 78: the denominator counts style rules wherever they sit, and
+    /// nothing that is no style rule.
+    #[test]
+    fn count_style_rules_counts_nested_and_grouped_rules_only() {
+        let css = "a{color:red} b,c{color:blue} @media (min-width:1px){d{x:1} e{x:2}} \
+                   @supports (display:grid){f{x:1}} @keyframes k{from{x:1} to{x:2}} \
+                   @font-face{font-family:x} g{x:1; &:hover{x:2}}";
+        // a, "b,c" (one rule), d, e, f, g and its nested &:hover.
+        assert_eq!(count_style_rules(css), 7);
+        assert_eq!(count_style_rules(""), 0);
+    }
+
     use super::*;
 
     #[test]

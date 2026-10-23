@@ -891,6 +891,9 @@ pub struct CoveragePresentation {
     pub css_used_pct: Option<f64>,
     pub css_total_rules: Option<u32>,
     pub css_used_rules: Option<u32>,
+    /// Not every stylesheet's text could be read: the share covers the
+    /// readable ones only (plan 78).
+    pub css_partial: bool,
     /// Same file served under 2+ URLs (#551), empty unless found.
     pub duplicate_assets: Vec<DuplicateAssetRow>,
 }
