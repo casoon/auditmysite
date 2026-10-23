@@ -9,7 +9,7 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
-use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives, Color};
+use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives};
 
 // ---------------------------------------------------------------------------
 // Helper constructors
@@ -208,103 +208,6 @@ fn test_244_multiple_links_mixed() {
 // 1.4.4 Resize Text: der Viewport laeuft seit #690 als `zoom/*` im geteilten
 // Bestand (siehe `wcag::shared`) -- der AX-Baum hat keine
 // `viewport`-Eigenschaft (#QA-030).
-
-// ---------------------------------------------------------------------------
-// Color parsing and contrast ratio — the helpers behind the CSS-level 1.4.11
-// check. Text contrast (1.4.3/1.4.6) runs as `contrast/text-*` in the shared
-// rule set since #698; its tests live in `a11y-rules`.
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_color_parse_rgb() {
-    let c = Color::from_css("rgb(255, 0, 0)").expect("should parse");
-    assert_eq!(c.r, 255);
-    assert_eq!(c.g, 0);
-    assert_eq!(c.b, 0);
-}
-
-#[test]
-fn test_color_parse_rgba() {
-    let c = Color::from_css("rgba(0, 128, 255, 0.5)").expect("should parse");
-    assert_eq!(c.r, 0);
-    assert_eq!(c.g, 128);
-    assert_eq!(c.b, 255);
-}
-
-#[test]
-fn test_color_parse_hex6() {
-    let c = Color::from_css("#FF0000").expect("should parse");
-    assert_eq!(c.r, 255);
-    assert_eq!(c.g, 0);
-    assert_eq!(c.b, 0);
-}
-
-#[test]
-fn test_color_parse_hex3() {
-    let c = Color::from_css("#F00").expect("should parse");
-    assert_eq!(c.r, 255);
-    assert_eq!(c.g, 0);
-    assert_eq!(c.b, 0);
-}
-
-#[test]
-fn test_color_invalid_input_returns_none() {
-    assert!(Color::from_css("not-a-color").is_none());
-    assert!(Color::from_css("").is_none());
-    assert!(Color::from_css("hsl(120, 100%, 50%)").is_none());
-}
-
-#[test]
-fn test_relative_luminance_white() {
-    let white = Color::new(255, 255, 255);
-    let lum = white.relative_luminance();
-    assert!(
-        (lum - 1.0).abs() < 0.01,
-        "White luminance should be ~1.0, got {}",
-        lum
-    );
-}
-
-#[test]
-fn test_relative_luminance_black() {
-    let black = Color::new(0, 0, 0);
-    let lum = black.relative_luminance();
-    assert!(lum < 0.01, "Black luminance should be ~0.0, got {}", lum);
-}
-
-#[test]
-fn test_contrast_ratio_black_on_white() {
-    let black = Color::new(0, 0, 0);
-    let white = Color::new(255, 255, 255);
-    let ratio = black.contrast_ratio(&white);
-    assert!(
-        (ratio - 21.0).abs() < 0.1,
-        "Black/white contrast ratio should be ~21:1, got {}",
-        ratio
-    );
-}
-
-#[test]
-fn test_contrast_ratio_identical_colors() {
-    let red = Color::new(255, 0, 0);
-    let ratio = red.contrast_ratio(&red);
-    assert!(
-        (ratio - 1.0).abs() < 0.01,
-        "Same color should yield 1:1 ratio, got {}",
-        ratio
-    );
-}
-
-#[test]
-fn test_is_transparent_various_inputs() {
-    assert!(Color::is_transparent("transparent"));
-    assert!(Color::is_transparent("rgba(0, 0, 0, 0)"));
-    assert!(Color::is_transparent("rgba(255, 255, 255, 0.0)"));
-    assert!(!Color::is_transparent("rgba(0, 0, 0, 0.5)"));
-    assert!(!Color::is_transparent("rgba(0, 0, 0, 1)"));
-    assert!(!Color::is_transparent("rgb(255, 255, 255)"));
-    assert!(!Color::is_transparent("#ffffff"));
-}
 
 // ---------------------------------------------------------------------------
 // Engine integration: check_all runs rules on a minimal tree

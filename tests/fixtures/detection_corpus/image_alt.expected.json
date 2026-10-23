@@ -3,14 +3,14 @@
   "expectations": [
     { "rule_id": "images/alt-missing", "verdict": "violation" },
     { "rule_id": "image-alt", "verdict": "pass" },
-    { "rule_id": "unusual-words", "verdict": "needs_review" },
+    { "rule_id": "manual/unusual-words", "verdict": "needs_review" },
     { "rule_id": "keyboard-trap", "verdict": "needs_review" },
-    { "rule_id": "pointer-gestures", "verdict": "needs_review" },
+    { "rule_id": "manual/pointer-gestures", "verdict": "absent" },
     { "rule_id": "pointer-cancellation", "verdict": "needs_review" },
-    { "rule_id": "motion-actuation", "verdict": "needs_review" },
-    { "rule_id": "no-timing", "verdict": "needs_review" },
-    { "rule_id": "no-interruptions", "verdict": "needs_review" },
-    { "rule_id": "re-authenticate", "verdict": "needs_review" },
+    { "rule_id": "manual/motion-actuation", "verdict": "absent" },
+    { "rule_id": "manual/no-timing", "verdict": "absent" },
+    { "rule_id": "manual/interruptions", "verdict": "absent" },
+    { "rule_id": "manual/re-authenticating", "verdict": "absent" },
     { "rule_id": "timeouts", "verdict": "needs_review" }
   ]
 }

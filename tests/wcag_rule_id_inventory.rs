@@ -39,8 +39,8 @@ fn wcag_rule_id_inventory_contains_a_known_id_from_each_shape() {
     // the rule is invoked as a tree rule, a DOM page rule, or wired directly
     // into the pipeline.
     assert!(
-        ids.contains("non-text-contrast-css"),
-        "non_text_contrast_css.rs's NON_TEXT_CONTRAST_CSS_RULE"
+        ids.contains("text-spacing"),
+        "text_spacing.rs's TEXT_SPACING_RULE"
     );
     assert!(ids.contains("image-alt"), "text_alternatives.rs");
 

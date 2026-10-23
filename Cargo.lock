@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5b894cdb87122649431438f3091f0e9322e7d1c8ca1813a6380f8191252662"
+checksum = "13065cd25dd0c8d3f067223964c2824459b4f38cf98adfbc23c1b91f85490a3b"
 
 [[package]]
 name = "a11y-perception"
@@ -19,18 +19,18 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5977922b1185c08e78f4860ccd119474285e6dd7ed70324e8285b5c95ab0e1"
+checksum = "aa4953ba5fd0733b4396db4c24985df02b7431ea52523dbf69633e8f9a0b16a6"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06c943ff902dc8bd1a7b06cad3ab043564cd2fc6b836995048279b09a9ce0c90"
+checksum = "f2415c78d68bd55fbddf5dfa414cdbcfc5b886e8aa215e0939764ae7aec95589"
 dependencies = [
  "a11y-dom",
  "a11y-report",
@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e928d4bf52ae6dd875e2eee116a56c0478d1ede81f2fb4d599a707e22e86d7"
+checksum = "a571ab66c8ef54c34f53fbca0f4d6d5cc92868be6ec3383a58dd975d0621bb8a"
 dependencies = [
  "a11y-dom",
 ]
@@ -2487,9 +2487,9 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "561deac238454531cedaedb7af0b79cef7d85c10d1b20f691c43a53f6949fdb4"
+checksum = "d6f8ac01a08ae645d800ad4b5bbf2fa948b48327fbb7a7c4bd6e5954a2c0acb7"
 dependencies = [
  "csp-parse",
  "encoding_rs",
@@ -4695,9 +4695,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "relax-ng"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c379ffde14c5045576e89c49ba93812aad1f61986485a434198037be3316e17e"
+checksum = "27b2efa2e54ad1aad613278b6a6ae9b08186b4a4cc92467f06300f3b3ab695e0"
 dependencies = [
  "regex",
  "roxmltree 0.21.1",
