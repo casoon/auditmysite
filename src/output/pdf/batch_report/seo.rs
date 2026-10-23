@@ -524,14 +524,30 @@ fn render_seo_crawl_depth(
                     entry.depth.to_string(),
                 ]);
             }
-            for url in &diag.unreachable_pages {
-                table = table.add_row(vec![
-                    i18n.t("batch-crawl-depth-kind-unreachable"),
-                    short_url(url, 50),
-                    "—".to_string(),
-                ]);
+            // In a sample most pages have no observed path; a row each pushed
+            // the measured depths off the page. The count stays, the list
+            // is in the JSON (plan 91).
+            if diag.partial_batch {
+                builder = builder.add_component(table);
+                // The JSON list is capped; the count is audited minus reached.
+                let reached: usize = diag.depth_histogram.values().sum();
+                let unobserved = pres.portfolio_summary.total_urls.saturating_sub(reached);
+                if unobserved > 0 {
+                    builder = builder.add_component(TextBlock::new(i18n.t_args(
+                        "batch-crawl-depth-unobserved-count",
+                        &[("count", unobserved.to_string())],
+                    )));
+                }
+            } else {
+                for url in &diag.unreachable_pages {
+                    table = table.add_row(vec![
+                        i18n.t("batch-crawl-depth-kind-unreachable"),
+                        short_url(url, 50),
+                        "—".to_string(),
+                    ]);
+                }
+                builder = builder.add_component(table);
             }
-            builder = builder.add_component(table);
         }
     } else if pres.portfolio_summary.crawl_depths_unavailable {
         builder = builder
