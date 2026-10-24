@@ -23,9 +23,9 @@ pub(super) fn render_batch_consistency(
         "Seitenübergreifende Konsistenz"
     };
     let intro = if en {
-        "Checks that shared structural elements are consistent across all audited pages: navigation and headings (WCAG 3.2.3 / 3.2.4) and canonical URLs (a search-engine signal, not a WCAG criterion)."
+        "Checks that shared elements are consistent across all audited pages: navigation and headings (WCAG 3.2.3 / 3.2.4), canonical URLs (a search-engine signal, not a WCAG criterion) and security headers."
     } else {
-        "Prüft, ob geteilte strukturelle Elemente auf allen geprüften Seiten konsistent sind: Navigation und Überschriften (WCAG 3.2.3 / 3.2.4) sowie Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium)."
+        "Prüft, ob geteilte Elemente auf allen geprüften Seiten konsistent sind: Navigation und Überschriften (WCAG 3.2.3 / 3.2.4), Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header."
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
 
@@ -234,6 +234,8 @@ pub(super) fn render_batch_consistency(
         rows
     };
     builder = builder.add_component(ChecklistPanel::new(canon_rows).with_title(&canon_title));
+
+    builder = render_security_header_consistency(builder, pres, en);
 
     builder = render_consistency_wcag_cross_page(builder, consistency, en);
 
@@ -577,6 +579,98 @@ fn render_consistency_page_type_matrix(
     }
 
     builder
+}
+
+/// Security headers across the audited pages (plan 93, step 5): deviations
+/// one row each, uniform headers in one summary row.
+fn render_security_header_consistency(
+    builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    en: bool,
+) -> renderreport::engine::ReportBuilder {
+    let headers = &pres.portfolio_summary.security_header_consistency;
+    let Some(checked) = headers.first().map(|h| h.pages_checked) else {
+        return builder;
+    };
+    let mut rows = Vec::new();
+    let mut uniform_set = Vec::new();
+    let mut uniform_missing = Vec::new();
+    for h in headers {
+        let partial = h.pages_present > 0 && h.pages_present < h.pages_checked;
+        if partial {
+            let examples = h
+                .missing_on
+                .iter()
+                .map(|u| short_url(u, 40))
+                .collect::<Vec<_>>()
+                .join(", ");
+            rows.push(
+                ChecklistRow::new(
+                    &h.header,
+                    if en {
+                        format!(
+                            "Sent on {} of {} pages; missing e.g. on {examples}.",
+                            h.pages_present, h.pages_checked
+                        )
+                    } else {
+                        format!(
+                            "Auf {} von {} Seiten gesetzt; fehlt z. B. auf {examples}.",
+                            h.pages_present, h.pages_checked
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        } else if h.distinct_values > 1 {
+            rows.push(
+                ChecklistRow::new(
+                    &h.header,
+                    if en {
+                        format!(
+                            "{} different values across {} pages.",
+                            h.distinct_values, h.pages_present
+                        )
+                    } else {
+                        format!(
+                            "{} verschiedene Werte auf {} Seiten.",
+                            h.distinct_values, h.pages_present
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        } else if h.pages_present == h.pages_checked {
+            uniform_set.push(h.header.as_str());
+        } else {
+            uniform_missing.push(h.header.as_str());
+        }
+    }
+    if !uniform_set.is_empty() || !uniform_missing.is_empty() {
+        let mut parts = Vec::new();
+        if !uniform_set.is_empty() {
+            parts.push(if en {
+                format!("same value on all pages: {}", uniform_set.join(", "))
+            } else {
+                format!("überall gleich gesetzt: {}", uniform_set.join(", "))
+            });
+        }
+        if !uniform_missing.is_empty() {
+            parts.push(if en {
+                format!("missing on all pages: {}", uniform_missing.join(", "))
+            } else {
+                format!("auf keiner Seite gesetzt: {}", uniform_missing.join(", "))
+            });
+        }
+        rows.push(
+            ChecklistRow::new(if en { "Uniform" } else { "Einheitlich" }, parts.join("; "))
+                .with_status("info"),
+        );
+    }
+    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+        format!("Security headers across pages ({checked} pages with a security check)")
+    } else {
+        format!("Sicherheits-Header über die Seiten ({checked} Seiten mit Sicherheitsprüfung)")
+    }))
 }
 
 /// Page-type key of the schema matrix in the run language; the JSON keeps

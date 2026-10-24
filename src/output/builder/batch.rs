@@ -872,6 +872,7 @@ pub fn build_batch_presentation_with_normalized(
             duplicate_content,
             missing_tag_prevalence,
             canonical_issues,
+            security_header_consistency: build_security_header_consistency(&batch.reports),
             hreflang_issues,
             sitemap_http_issues,
             sitemap_status_counts,
@@ -1250,6 +1251,78 @@ fn build_shared_blocking_resources(
     out.sort_by(|a, b| b.pages.cmp(&a.pages).then_with(|| a.url.cmp(&b.url)));
     out.truncate(10);
     out
+}
+
+/// Each security header across the pages with a security measurement (plan
+/// 93, step 5): how many pages send it and how many different values they
+/// send. One page does not compare, so fewer than two measured pages yield
+/// nothing. The values are compared as sent; their meaning is the single
+/// page's security check.
+fn build_security_header_consistency(
+    reports: &[crate::audit::AuditReport],
+) -> Vec<SecurityHeaderConsistency> {
+    let measured: Vec<(&str, &crate::security::SecurityHeaders)> = reports
+        .iter()
+        .filter_map(|r| r.security.as_ref().map(|s| (r.url.as_str(), &s.headers)))
+        .collect();
+    if measured.len() < 2 {
+        return Vec::new();
+    }
+    type Field = fn(&crate::security::SecurityHeaders) -> &Option<String>;
+    let headers: [(&str, Field); 10] = [
+        ("Content-Security-Policy", |h| &h.content_security_policy),
+        ("Strict-Transport-Security", |h| {
+            &h.strict_transport_security
+        }),
+        ("X-Content-Type-Options", |h| &h.x_content_type_options),
+        ("X-Frame-Options", |h| &h.x_frame_options),
+        ("Referrer-Policy", |h| &h.referrer_policy),
+        ("Permissions-Policy", |h| &h.permissions_policy),
+        ("Cross-Origin-Opener-Policy", |h| {
+            &h.cross_origin_opener_policy
+        }),
+        ("Cross-Origin-Resource-Policy", |h| {
+            &h.cross_origin_resource_policy
+        }),
+        ("Access-Control-Allow-Origin", |h| {
+            &h.access_control_allow_origin
+        }),
+        ("Access-Control-Allow-Credentials", |h| {
+            &h.access_control_allow_credentials
+        }),
+    ];
+    headers
+        .iter()
+        .map(|(name, field)| {
+            let values: Vec<Option<&str>> = measured
+                .iter()
+                .map(|(_, h)| field(h).as_deref().map(str::trim))
+                .collect();
+            let present: Vec<&str> = values.iter().flatten().copied().collect();
+            let distinct = present
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len();
+            let missing_on = if present.is_empty() {
+                Vec::new()
+            } else {
+                measured
+                    .iter()
+                    .zip(&values)
+                    .filter(|(_, v)| v.is_none())
+                    .take(3)
+                    .map(|((url, _), _)| url.to_string())
+                    .collect()
+            };
+            SecurityHeaderConsistency {
+                header: name.to_string(),
+                pages_checked: measured.len(),
+                pages_present: present.len(),
+                distinct_values: distinct,
+                missing_on,
+            }
+        })
+        .collect()
 }
 
 /// Detect canonical-tag conflicts per page (#423): a canonical pointing away
@@ -2375,6 +2448,59 @@ mod minification_inconsistency_tests {
             })
             .collect();
         report
+    }
+
+    fn report_with_headers(url: &str, csp: Option<&str>, hsts: Option<&str>) -> AuditReport {
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_security(
+            crate::security::SecurityAnalysis {
+                score: 80,
+                grade: "A".to_string(),
+                headers: crate::security::SecurityHeaders {
+                    content_security_policy: csp.map(str::to_string),
+                    strict_transport_security: hsts.map(str::to_string),
+                    ..Default::default()
+                },
+                ssl: Default::default(),
+                issues: vec![],
+                recommendations: vec![],
+                protection: Default::default(),
+                sourcemap_leaks: Default::default(),
+            },
+        )
+    }
+
+    /// Plan 93, step 5: a header missing on some pages, one with two values,
+    /// and the uniform ones.
+    #[test]
+    fn security_headers_compared_across_pages() {
+        let reports = vec![
+            report_with_headers(
+                "https://x.test/a",
+                Some("default-src 'self'"),
+                Some("max-age=1"),
+            ),
+            report_with_headers("https://x.test/b", Some("default-src *"), Some("max-age=1")),
+            report_with_headers("https://x.test/c", None, Some("max-age=1")),
+        ];
+        let headers = build_security_header_consistency(&reports);
+        let get = |name: &str| headers.iter().find(|h| h.header == name).unwrap();
+
+        let csp = get("Content-Security-Policy");
+        assert_eq!(
+            (csp.pages_checked, csp.pages_present, csp.distinct_values),
+            (3, 2, 2)
+        );
+        assert_eq!(csp.missing_on, vec!["https://x.test/c".to_string()]);
+
+        let hsts = get("Strict-Transport-Security");
+        assert_eq!((hsts.pages_present, hsts.distinct_values), (3, 1));
+        assert!(hsts.missing_on.is_empty());
+
+        // Sent nowhere: no page to name as "missing".
+        assert!(get("Permissions-Policy").missing_on.is_empty());
+
+        // One measured page compares nothing.
+        assert!(build_security_header_consistency(&reports[..1]).is_empty());
     }
 
     /// Plan 93: a file is counted once per page, versions stay distinct,

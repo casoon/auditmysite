@@ -14,6 +14,7 @@ and verification for each change is in the
 - **Batch:** Page-type groups with an explicit page count and their most common finding, and a table of render-blocking files shared by several pages (`site_analysis.page_type_groups`, `performance.shared_blocking_resources`).
 - **Batch:** The sitemap check reports the measured HTTP status distribution of every sitemap URL and groups redirects by target.
 - **Batch:** Canonical targets that the sitemap check saw redirect or fail are reported as canonical conflicts.
+- **Batch:** Security headers are compared across the pages: headers missing on some pages or sent with different values are listed, uniform ones summarized (`site_analysis.security.header_consistency`).
 
 ### Changed
 
