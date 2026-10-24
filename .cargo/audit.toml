@@ -15,6 +15,17 @@ ignore = [
     # public certificates in third-party C2PA manifests.
     "RUSTSEC-2023-0071",
 
+    # crypto-bigint 0.5.5, pulled in only by the optional `ai-transparency`
+    # feature via c2pa -> c2pa_raw_crypto -> elliptic-curve 0.13. The fix is
+    # crypto-bigint >= 0.7.6, which needs elliptic-curve 0.14; c2pa 0.91.5
+    # and c2pa_raw_crypto 0.1.2 (latest, 2026-10-24) still pin 0.13, so a
+    # Cargo.lock update cannot reach it. The advisory is about timing
+    # variability in operations meant to be constant-time — exploitable
+    # against secret keys. auditmysite holds no private keys; c2pa only
+    # verifies ECDSA signatures on public certificates in third-party C2PA
+    # manifests, so the timed data is public.
+    "RUSTSEC-2026-0387",
+
     # quick-xml, two transitive copies (0.38.4 via citationberg -> hayagriva
     # -> typst-library; 0.39.4 via plist -> syntect -> two-face ->
     # typst-library), both already at the ceiling their respective parent
