@@ -14,6 +14,7 @@ and verification for each change is in the
 - **Batch:** Page-type groups with an explicit page count and their most common finding, and a table of render-blocking files shared by several pages (`site_analysis.page_type_groups`, `performance.shared_blocking_resources`).
 - **Batch:** The sitemap check reports the measured HTTP status distribution of every sitemap URL and groups redirects by target.
 - **Batch:** Canonical targets that the sitemap check saw redirect or fail are reported as canonical conflicts.
+- **Batch:** Security headers are compared across the pages: headers missing on some pages or sent with different values are listed, uniform ones summarized (`site_analysis.security.header_consistency`).
 
 ### Changed
 
@@ -36,8 +37,9 @@ and verification for each change is in the
 
 ### Fixed
 
+- **SEO:** Articles under news, blog or press routes (`/news/`, `/aktuelles/`, `/blog/`, `/presse/` …) count as editorial pages in the schema check instead of corporate pages that expect `Organization`/`LocalBusiness`.
 - **Reports:** Best Practices and Tech Stack show a check status instead of a score of 100 when nothing was collected.
-- **PDF:** No blank pages after finding cards, no headings left alone at the bottom of a page, no tech-stack chapter without findings, and the batch cover note no longer overlaps the text below.
+- **PDF:** No blank pages after finding cards, no headings left alone at the bottom of a page (finding titles, the content-visibility "manual review" panel), no tech-stack chapter without findings, and the batch cover note no longer overlaps the text below.
 - **PDF:** The batch PDF no longer fails PDF/UA compilation when sitemap status counts are present.
 - **Batch:** Render-blocking resources are counted once per file instead of once per page.
 - **Performance:** CSS coverage no longer reports 100 % on every page; the denominator is the style rules of the captured stylesheets.

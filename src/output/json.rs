@@ -936,6 +936,9 @@ fn build_site_analysis(
             })).collect::<Vec<_>>(),
             "shared_blocking_resources": portfolio.shared_blocking_resources,
         },
+        "security": {
+            "header_consistency": portfolio.security_header_consistency,
+        },
         "structured_data": {
             "type_distribution": portfolio.schema_distribution.iter().map(|(schema_type, pages)| serde_json::json!({
                 "schema_type": schema_type, "page_count": pages,

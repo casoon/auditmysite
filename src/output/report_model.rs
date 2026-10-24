@@ -1492,6 +1492,8 @@ pub struct PortfolioSummary {
     /// Render-blocking resources (exact URL) found on two or more pages
     /// (plan 93).
     pub shared_blocking_resources: Vec<SharedBlockingResource>,
+    /// Security headers compared across the audited pages (plan 93, step 5).
+    pub security_header_consistency: Vec<SecurityHeaderConsistency>,
     /// Schema type distribution: (schema_type_label, url_count) sorted descending
     pub schema_distribution: Vec<(String, usize)>,
     /// Number of pages with no structured data at all
@@ -1651,4 +1653,19 @@ pub struct SharedBlockingResource {
     pub pages: usize,
     /// Largest transfer size seen for this URL, in bytes.
     pub transfer_bytes: u64,
+}
+
+/// One security header across the audited pages with security data.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SecurityHeaderConsistency {
+    /// Header name as sent, e.g. `Content-Security-Policy`.
+    pub header: String,
+    /// Pages with a security measurement.
+    pub pages_checked: usize,
+    /// Pages that send the header.
+    pub pages_present: usize,
+    /// Different values among the pages that send it.
+    pub distinct_values: usize,
+    /// Up to three pages without the header, when others have it.
+    pub missing_on: Vec<String>,
 }
