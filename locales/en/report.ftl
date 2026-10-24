@@ -36,6 +36,9 @@ role-projectmanagement = Project Management
 effort-quick = Low effort
 effort-medium = Medium effort
 effort-structural = Structural
+effort-short-quick = low
+effort-short-medium = medium
+effort-short-structural = structural
 severity-critical = Critical
 severity-high = High
 severity-medium = Medium
@@ -499,7 +502,7 @@ narrative-cause-performance = This typically results from unoptimized assets or 
 narrative-cause-security = This typically results from missing or misconfigured HTTP security headers.
 narrative-cause-mobile = This typically results from a layout or sizing issue not adapted for small screens.
 narrative-cause-default = This typically results from a configuration or implementation gap.
-narrative-impact-critical = This blocks a critical user interaction — affected users cannot complete the task.
+narrative-impact-critical = This can seriously impede or prevent a key user interaction for affected user groups; only testing the task itself shows whether it is fully blocked.
 narrative-impact-high = This significantly impairs usability for affected user groups.
 narrative-impact-medium = This causes a noticeable friction point for some users.
 narrative-impact-low = This is a minor issue that may affect a subset of users.
@@ -903,11 +906,15 @@ pdf-cv-area-topical-authority = Topical Authority (heuristic)
 
 batch-top-issues-intro = The following problem groups occur across multiple URLs. Fixing them yields the largest improvement because they affect many pages simultaneously.
 batch-col-affected-urls = Affected URLs
-batch-meta-global = Global — affects all pages
-batch-meta-individual = Specific pages — isolated content
+batch-meta-global = All audited pages
+batch-meta-some-pages = { $count } of { $total } pages
+batch-meta-single-page = One page — page-specific
 batch-meta-occurrences = occurrences
-batch-meta-affected-urls = affected URLs
-batch-meta-effort = Effort
+batch-meta-affected-urls = { $count ->
+    [one] affected URL
+   *[other] affected URLs
+}
+batch-meta-effort = Effort per instance (estimate)
 batch-meta-scope = Scope
 batch-meta-impact-user = Impact (user)
 batch-meta-impact-business = Impact (business)

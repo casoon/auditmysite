@@ -9,7 +9,9 @@ use crate::output::report_model::*;
 use crate::util::short_url;
 
 use super::super::findings::first_sentence;
-use super::super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
+use super::super::helpers::{
+    effort_label_i18n, effort_short_label_i18n, priority_label_i18n, role_label_i18n,
+};
 use super::management::render_batch_decision_actions;
 
 /// Concrete quick actions for batch report
@@ -289,9 +291,8 @@ pub(super) fn render_batch_top_issues(
 
     // Unified problem blocks
     let scope_global_word = i18n.t("batch-meta-global");
-    let scope_individual = i18n.t("batch-meta-individual");
+    let scope_single_page = i18n.t("batch-meta-single-page");
     let occurrences_word_top = i18n.t("batch-meta-occurrences");
-    let affected_urls_word = i18n.t("batch-meta-affected-urls");
     let effort_word = i18n.t("batch-meta-effort");
     let scope_word = i18n.t("batch-meta-scope");
     let impact_user_label = i18n.t("batch-meta-impact-user");
@@ -300,17 +301,27 @@ pub(super) fn render_batch_top_issues(
     let meta_label = i18n.t("batch-meta-classification");
 
     for group in pres.top_issues.iter().take(5) {
-        let scope = if group.affected_urls.len() >= pres.portfolio_summary.total_urls {
-            &scope_global_word
+        // Three tiers: a finding on 9 of 20 pages is neither global nor
+        // "isolated content" (plan 99).
+        let urls = group.affected_urls.len();
+        let total_urls = pres.portfolio_summary.total_urls;
+        let scope = if urls >= total_urls {
+            scope_global_word.clone()
+        } else if urls <= 1 {
+            scope_single_page.clone()
         } else {
-            &scope_individual
+            i18n.t_args(
+                "batch-meta-some-pages",
+                &[("count", urls as i64), ("total", total_urls as i64)],
+            )
         };
-        let effort_label = effort_label_i18n(group.effort, i18n);
+        let affected_urls_word = i18n.t_args("batch-meta-affected-urls", &[("count", urls as i64)]);
+        let effort_label = effort_short_label_i18n(group.effort, i18n);
         let meta_line = format!(
             "{} {} · {} {} · {}: {} · {}: {}",
             group.occurrence_count,
             occurrences_word_top,
-            group.affected_urls.len(),
+            urls,
             affected_urls_word,
             effort_word,
             effort_label,

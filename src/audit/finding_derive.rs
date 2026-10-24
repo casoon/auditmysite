@@ -200,28 +200,15 @@ pub(super) fn derive_complexity(
 }
 
 /// Expected-score-effect classification embedded in [`ExpectedImpactKind`].
-/// Same three-tier decision `derive_expected_impact` always used — kept as an
-/// enum rather than a raw string so bake time and post-merge recompute apply
-/// the identical label mapping in either language.
+/// A severity × count heuristic, not a simulation: it orders findings and is
+/// kept in the JSON for compatibility, but no report sentence states it as a
+/// score effect (plan 99; a simulated value is plan 107).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ScoreEffect {
     High,
     Medium,
     #[default]
     Low,
-}
-
-impl ScoreEffect {
-    fn label(self, en: bool) -> &'static str {
-        match (self, en) {
-            (ScoreEffect::High, true) => "high",
-            (ScoreEffect::High, false) => "hoch",
-            (ScoreEffect::Medium, true) => "medium",
-            (ScoreEffect::Medium, false) => "mittel",
-            (ScoreEffect::Low, true) => "low",
-            (ScoreEffect::Low, false) => "niedrig",
-        }
-    }
 }
 
 fn score_effect(severity: Severity, occurrence_count: usize) -> ScoreEffect {
@@ -289,47 +276,45 @@ impl ExpectedImpactKind {
 /// calls it with `en = true` to bake canonical English; the PDF layer
 /// re-derives in the run language (#406).
 pub fn expected_impact_text(kind: &ExpectedImpactKind, en: bool) -> String {
+    // Names the reach only. Whether one fix removes every occurrence (shared
+    // cause unconfirmed) and how far the score moves (not simulated) are not
+    // known here, so the sentence claims neither; `score_effect` stays in the
+    // kind for ordering (plan 99).
     match kind {
         ExpectedImpactKind::Wcag {
             occurrence_count,
-            score_effect,
             wcag_level,
+            ..
         } => {
             let n = *occurrence_count;
             if en {
                 format!(
-                    "Fixes {} occurrence{}; expected score impact: {}; WCAG level: {}.",
+                    "Addresses {} occurrence{}; WCAG level: {}. Score effect not quantified.",
                     n,
                     if n == 1 { "" } else { "s" },
-                    score_effect.label(true),
                     wcag_level
                 )
             } else {
                 format!(
-                    "Behebt {} Vorkommen; erwartete Auswirkung auf den Score: {}; WCAG-Level: {}.",
-                    n,
-                    score_effect.label(false),
-                    wcag_level
+                    "Betrifft {} Vorkommen; WCAG-Level: {}. Wirkung auf den Score nicht beziffert.",
+                    n, wcag_level
                 )
             }
         }
         ExpectedImpactKind::Other {
-            occurrence_count,
-            score_effect,
+            occurrence_count, ..
         } => {
             let n = *occurrence_count;
             if en {
                 format!(
-                    "Fixes {} occurrence{}; expected visibility/structure impact: {}.",
+                    "Addresses {} occurrence{}; affects visibility/structure. Score effect not quantified.",
                     n,
-                    if n == 1 { "" } else { "s" },
-                    score_effect.label(true)
+                    if n == 1 { "" } else { "s" }
                 )
             } else {
                 format!(
-                    "Behebt {} Vorkommen; erwartete Auswirkung auf Sichtbarkeit/Struktur: {}.",
-                    n,
-                    score_effect.label(false)
+                    "Betrifft {} Vorkommen; wirkt auf Sichtbarkeit/Struktur. Wirkung auf den Score nicht beziffert.",
+                    n
                 )
             }
         }
@@ -426,7 +411,7 @@ mod tests {
 
     /// Guard against German leaking into the canonical `complexity_reason`/
     /// `expected_impact` text baked with `en = true` (#406), and against the
-    /// "Fixes 1 occurrences" singular/plural bug regressing.
+    /// "Addresses 1 occurrences" singular/plural bug regressing.
     #[test]
     fn complexity_and_expected_impact_text_en_has_no_german_umlauts_and_correct_plural() {
         let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
@@ -498,6 +483,34 @@ mod tests {
             plural.contains("3 occurrences;"),
             "plural phrasing missing: {plural}"
         );
+    }
+
+    /// Plan 99: the sentence names the reach, never a fix guarantee or a
+    /// score effect derived from severity × count — even for `High`.
+    #[test]
+    fn expected_impact_text_claims_no_fix_or_score_effect() {
+        let kind = ExpectedImpactKind::Wcag {
+            occurrence_count: 20,
+            score_effect: ScoreEffect::High,
+            wcag_level: "A".to_string(),
+        };
+        let en = expected_impact_text(&kind, true);
+        let de = expected_impact_text(&kind, false);
+        assert_eq!(
+            en,
+            "Addresses 20 occurrences; WCAG level: A. Score effect not quantified."
+        );
+        assert_eq!(
+            de,
+            "Betrifft 20 Vorkommen; WCAG-Level: A. Wirkung auf den Score nicht beziffert."
+        );
+        for text in [&en, &de] {
+            assert!(
+                !text.contains("Fixes") && !text.contains("Behebt"),
+                "{text}"
+            );
+            assert!(!text.contains("high") && !text.contains("hoch"), "{text}");
+        }
     }
 
     // Regression: the taxonomy rule id "a11y.hover.content_visibility" (the

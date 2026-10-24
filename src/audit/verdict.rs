@@ -51,9 +51,20 @@ pub struct VerdictResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerdictReasonKind {
     LegalFlags(usize),
-    BlockingIssues(usize),
-    ScoreBelowFailThreshold { score: u32, threshold: u32 },
-    ScoreBelowWarnThreshold { score: u32, threshold: u32 },
+    /// `keyboard` is the subset not operable by keyboard (2.1.1); the rest
+    /// lack an accessible name or role and stay operable.
+    BlockingIssues {
+        total: usize,
+        keyboard: usize,
+    },
+    ScoreBelowFailThreshold {
+        score: u32,
+        threshold: u32,
+    },
+    ScoreBelowWarnThreshold {
+        score: u32,
+        threshold: u32,
+    },
     AuditQualityNotComplete,
     FindingsPresent(usize),
 }
@@ -68,12 +79,9 @@ impl VerdictReasonKind {
                 (false, 1) => "1 Befund mit möglicher Rechtsrelevanz (BFSG/EAA)".to_string(),
                 (false, n) => format!("{n} Befunde mit möglicher Rechtsrelevanz (BFSG/EAA)"),
             },
-            VerdictReasonKind::BlockingIssues(n) => match (en, n) {
-                (true, 1) => "1 control not operable with assistive technology".to_string(),
-                (true, n) => format!("{n} controls not operable with assistive technology"),
-                (false, 1) => "1 Bedienelement nicht mit Hilfsmitteln bedienbar".to_string(),
-                (false, n) => format!("{n} Bedienelemente nicht mit Hilfsmitteln bedienbar"),
-            },
+            VerdictReasonKind::BlockingIssues { total, keyboard } => {
+                super::management_risk::blocking_controls_text(total, keyboard, en)
+            }
             VerdictReasonKind::ScoreBelowFailThreshold { score, threshold } => {
                 if en {
                     format!("score {score} below the fail threshold of {threshold}")
@@ -123,9 +131,10 @@ pub fn compute_verdict(normalized: &NormalizedReport, config: &VerdictConfig) ->
             "blocking_issues: {}",
             normalized.risk.blocking_issues
         ));
-        fail_kinds.push(VerdictReasonKind::BlockingIssues(
-            normalized.risk.blocking_issues,
-        ));
+        fail_kinds.push(VerdictReasonKind::BlockingIssues {
+            total: normalized.risk.blocking_issues,
+            keyboard: normalized.risk.keyboard_blocking_issues,
+        });
     }
     if let Some(threshold) = config.fail_below_score {
         if threshold > 0 && normalized.score < threshold {
@@ -296,9 +305,20 @@ mod tests {
                 "4 findings with possible legal relevance (BFSG/EAA)",
             ),
             (
-                BlockingIssues(1),
-                "1 Bedienelement nicht mit Hilfsmitteln bedienbar",
-                "1 control not operable with assistive technology",
+                BlockingIssues {
+                    total: 1,
+                    keyboard: 0,
+                },
+                "1 Bedienelement ohne zugänglichen Namen oder Rolle",
+                "1 control without an accessible name or role",
+            ),
+            (
+                BlockingIssues {
+                    total: 3,
+                    keyboard: 1,
+                },
+                "2 Bedienelemente ohne zugänglichen Namen oder Rolle und 1 Bedienelement nicht per Tastatur bedienbar",
+                "2 controls without an accessible name or role and 1 control not operable by keyboard",
             ),
             (FindingsPresent(1), "1 offener Befund", "1 open finding"),
             (FindingsPresent(3), "3 offene Befunde", "3 open findings"),
@@ -314,7 +334,10 @@ mod tests {
         use super::VerdictReasonKind::*;
         for kind in [
             LegalFlags(2),
-            BlockingIssues(2),
+            BlockingIssues {
+                total: 2,
+                keyboard: 1,
+            },
             ScoreBelowFailThreshold {
                 score: 10,
                 threshold: 40,
@@ -354,7 +377,10 @@ mod tests {
             .contains(&super::VerdictReasonKind::LegalFlags(3)));
         assert!(result
             .reason_kinds
-            .contains(&super::VerdictReasonKind::BlockingIssues(7)));
+            .contains(&super::VerdictReasonKind::BlockingIssues {
+                total: 7,
+                keyboard: 0
+            }));
     }
 
     #[test]

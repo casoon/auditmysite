@@ -572,6 +572,10 @@ pub struct RiskAssessment {
     pub legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
+    /// Subset of `blocking_issues` not operable by keyboard (WCAG 2.1.1).
+    /// The rest lack an accessible name or role and stay operable.
+    #[serde(default)]
+    pub keyboard_blocking_issues: usize,
     /// Number of critical findings from the interactive journey layer.
     pub interactive_critical_issues: usize,
     /// Number of high-severity findings from the interactive journey layer.
@@ -642,7 +646,7 @@ impl RiskAssessment {
 /// (`legal_flags`) or a blocking interactive issue (`blocking_issues`) fails the
 /// audit regardless of the risk band — so a positive tier (e.g. "GUT" on a
 /// medium-risk page) must be downgraded too, not just on High/Critical risk.
-fn gate_certificate_by_risk(
+pub(crate) fn gate_certificate_by_risk(
     certificate: String,
     risk_level: &RiskLevel,
     legal_flags: usize,

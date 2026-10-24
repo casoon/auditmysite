@@ -197,6 +197,16 @@ pub(super) fn effort_label_i18n(effort: Effort, i18n: &I18n) -> String {
     }
 }
 
+/// Kurzform für Fließtext nach einem eigenen Label („Aufwand je Stelle: gering“),
+/// damit das Wort Aufwand nicht doppelt steht.
+pub(super) fn effort_short_label_i18n(effort: Effort, i18n: &I18n) -> String {
+    match effort {
+        Effort::Quick => i18n.t("effort-short-quick"),
+        Effort::Medium => i18n.t("effort-short-medium"),
+        Effort::Structural => i18n.t("effort-short-structural"),
+    }
+}
+
 pub(super) fn score_quality_label(score: u32) -> &'static str {
     match score {
         85..=100 => "Stark",

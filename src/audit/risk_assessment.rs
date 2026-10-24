@@ -60,8 +60,13 @@ pub(super) fn compute_risk_assessment(
     // same menu element, which read as "3 Bedienelemente". Occurrences are
     // identified by node, or by selector where the node is a placeholder;
     // occurrences a finding counts but does not list stay counted as distinct.
+    // Keyboard blockers (2.1.1) are tracked as their own subset: a control
+    // without a name stays operable, one under 2.1.1 does not, and the
+    // report texts must not say the one about the other (plan 99).
     let mut blocking_elements = std::collections::HashSet::new();
+    let mut keyboard_elements = std::collections::HashSet::new();
     let mut blocking_unlisted = 0usize;
+    let mut keyboard_unlisted = 0usize;
     for f in findings.iter().filter(|f| {
         (f.wcag_criterion == "2.1.1"
             || (f.wcag_criterion == "4.1.2"
@@ -76,11 +81,19 @@ pub(super) fn compute_risk_assessment(
                 ("document", Some(selector)) => format!("sel:{selector}"),
                 (node, _) => format!("node:{node}"),
             };
+            if f.wcag_criterion == "2.1.1" {
+                keyboard_elements.insert(key.clone());
+            }
             blocking_elements.insert(key);
         }
-        blocking_unlisted += f.occurrence_count.saturating_sub(f.occurrences.len());
+        let unlisted = f.occurrence_count.saturating_sub(f.occurrences.len());
+        blocking_unlisted += unlisted;
+        if f.wcag_criterion == "2.1.1" {
+            keyboard_unlisted += unlisted;
+        }
     }
     let blocking_issues = blocking_elements.len() + blocking_unlisted;
+    let keyboard_blocking_issues = keyboard_elements.len() + keyboard_unlisted;
     let interactive_critical_issues = interactive_findings
         .iter()
         .filter(|f| f.severity == Severity::Critical)
@@ -290,6 +303,7 @@ pub(super) fn compute_risk_assessment(
         high_issues,
         legal_flags,
         blocking_issues,
+        keyboard_blocking_issues,
         interactive_critical_issues,
         interactive_high_issues,
         summary,

@@ -63,17 +63,22 @@ pub enum ManagementRiskKind {
         critical: usize,
         high: usize,
         blocking_issues: usize,
+        /// Teilmenge von `blocking_issues`, die per Tastatur nicht bedienbar
+        /// ist (2.1.1). Der Rest hat keinen Namen und bleibt bedienbar.
+        keyboard_blocking: usize,
     },
     AssistiveTechnology {
         critical: usize,
         high: usize,
         blocking_issues: usize,
+        keyboard_blocking: usize,
     },
     Conversion {
         accessibility: u32,
         performance: Option<u32>,
         mobile: Option<u32>,
         blocking_issues: usize,
+        keyboard_blocking: usize,
     },
     Seo {
         score: Option<u32>,
@@ -104,6 +109,7 @@ impl ManagementRiskKind {
                 critical,
                 high,
                 blocking_issues,
+                ..
             } => {
                 if *legal_flags > 0 || *critical > 0 || *blocking_issues >= 5 {
                     RiskTier::High
@@ -117,6 +123,7 @@ impl ManagementRiskKind {
                 critical,
                 high,
                 blocking_issues,
+                ..
             } => {
                 if *critical > 0 || *blocking_issues >= 5 {
                     RiskTier::High
@@ -131,6 +138,7 @@ impl ManagementRiskKind {
                 performance,
                 mobile,
                 blocking_issues,
+                ..
             } => {
                 if *accessibility < 60
                     || performance.is_some_and(|s| s < 50)
@@ -251,6 +259,7 @@ impl ManagementRiskKind {
                 critical,
                 high,
                 blocking_issues,
+                keyboard_blocking,
             } => {
                 let base = if en {
                     format!(
@@ -264,23 +273,18 @@ impl ManagementRiskKind {
                 if *blocking_issues == 0 {
                     return base;
                 }
+                let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
                 if en {
-                    format!(
-                        "{base} {blocking_issues} blocking interaction {} (missing accessible name/role) also affect BFSG/EAA operability requirements.",
-                        if *blocking_issues == 1 { "issue" } else { "issues" }
-                    )
+                    format!("{base} In addition: {controls} (WCAG 4.1.2/2.1.1, also referenced by BFSG/EAA).")
                 } else {
-                    format!(
-                        "{base} Zusätzlich {blocking_issues} blockierende{} Bedienelement{} ohne zugänglichen Namen oder Rolle — betrifft die BFSG/EAA-Anforderungen an die Bedienbarkeit.",
-                        if *blocking_issues == 1 { "s" } else { "" },
-                        if *blocking_issues == 1 { "" } else { "e" }
-                    )
+                    format!("{base} Zusätzlich: {controls} (WCAG 4.1.2/2.1.1, auf die auch BFSG/EAA verweisen).")
                 }
             }
             ManagementRiskKind::AssistiveTechnology {
                 critical,
                 high,
                 blocking_issues,
+                keyboard_blocking,
             } => {
                 if *critical == 0 && *high == 0 && *blocking_issues == 0 {
                     return if en {
@@ -292,17 +296,24 @@ impl ManagementRiskKind {
                 // Blockers are counted per occurrence and can be medium
                 // findings, so they are no subset of the critical/high count
                 // ("0 critical and 0 high findings, 3 of them …" on gov.uk).
-                match (en, *blocking_issues) {
-                    (true, 0) => format!("{critical} critical and {high} high findings."),
-                    (true, n) => format!(
-                        "{critical} critical and {high} high findings; {n} {} without an accessible name or role, or not operable by keyboard — screen reader and keyboard use is obstructed at those points.",
-                        if n == 1 { "control" } else { "controls" }
-                    ),
-                    (false, 0) => format!("{critical} kritische und {high} hohe Befunde."),
-                    (false, n) => format!(
-                        "{critical} kritische und {high} hohe Befunde; {n} {} ohne zugänglichen Namen oder Rolle oder nicht per Tastatur bedienbar — Screenreader- und Tastaturnutzung ist an diesen Stellen behindert.",
-                        if n == 1 { "Bedienelement" } else { "Bedienelemente" }
-                    ),
+                if *blocking_issues == 0 {
+                    return if en {
+                        format!("{critical} critical and {high} high findings.")
+                    } else {
+                        format!("{critical} kritische und {high} hohe Befunde.")
+                    };
+                }
+                let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
+                let consequence =
+                    blocking_consequence_text(*blocking_issues, *keyboard_blocking, en);
+                if en {
+                    format!(
+                        "{critical} critical and {high} high findings; {controls}. {consequence}"
+                    )
+                } else {
+                    format!(
+                        "{critical} kritische und {high} hohe Befunde; {controls}. {consequence}"
+                    )
                 }
             }
             ManagementRiskKind::Conversion {
@@ -310,6 +321,7 @@ impl ManagementRiskKind {
                 performance,
                 mobile,
                 blocking_issues,
+                keyboard_blocking,
             } => {
                 let perf = score_or_not_measured(*performance, en);
                 let mob = score_or_not_measured(*mobile, en);
@@ -323,16 +335,16 @@ impl ManagementRiskKind {
                 if *blocking_issues == 0 {
                     return base;
                 }
+                let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
+                // A nameless control still works; only a keyboard blocker can
+                // stop a task, and no task was run to completion (plan 99).
                 if en {
                     format!(
-                        "{base} {blocking_issues} interactive element{} cannot be operated with assistive technology, so any task routed through {} cannot be completed that way.",
-                        if *blocking_issues == 1 { "" } else { "s" },
-                        if *blocking_issues == 1 { "it" } else { "them" }
+                        "{base} {controls}: tasks routed through them are harder to complete with assistive technology. Whether a task is fully blocked was not tested."
                     )
                 } else {
                     format!(
-                        "{base} {blocking_issues} {} mit Hilfsmitteln nicht bedienen — Abläufe, die darüber führen, sind so nicht abschließbar.",
-                        if *blocking_issues == 1 { "Bedienelement lässt sich" } else { "Bedienelemente lassen sich" }
+                        "{base} {controls}: Abläufe, die darüber führen, sind mit Hilfsmitteln erschwert. Ob ein Ablauf vollständig blockiert ist, wurde nicht geprüft."
                     )
                 }
             }
@@ -418,6 +430,71 @@ impl ManagementRiskKind {
     }
 }
 
+/// Die blockierenden Bedienelemente, nach Ursache getrennt: ohne Namen oder
+/// Rolle (bleibt bedienbar, Zweck für Screenreader unklar) und per Tastatur
+/// nicht bedienbar (2.1.1). `keyboard` ist eine Teilmenge von `total`.
+pub(crate) fn blocking_controls_text(total: usize, keyboard: usize, en: bool) -> String {
+    let unnamed = total.saturating_sub(keyboard);
+    let mut parts = Vec::with_capacity(2);
+    if unnamed > 0 {
+        parts.push(if en {
+            format!(
+                "{unnamed} {} without an accessible name or role",
+                if unnamed == 1 { "control" } else { "controls" }
+            )
+        } else {
+            format!(
+                "{unnamed} {} ohne zugänglichen Namen oder Rolle",
+                if unnamed == 1 {
+                    "Bedienelement"
+                } else {
+                    "Bedienelemente"
+                }
+            )
+        });
+    }
+    if keyboard > 0 {
+        parts.push(if en {
+            format!(
+                "{keyboard} {} not operable by keyboard",
+                if keyboard == 1 { "control" } else { "controls" }
+            )
+        } else {
+            format!(
+                "{keyboard} {} nicht per Tastatur bedienbar",
+                if keyboard == 1 {
+                    "Bedienelement"
+                } else {
+                    "Bedienelemente"
+                }
+            )
+        });
+    }
+    parts.join(if en { " and " } else { " und " })
+}
+
+/// Was die blockierenden Bedienelemente für Hilfsmittel bedeuten — je Ursache
+/// nur die Folge, die sie tatsächlich hat.
+fn blocking_consequence_text(total: usize, keyboard: usize, en: bool) -> &'static str {
+    let unnamed = total.saturating_sub(keyboard);
+    match (unnamed > 0, keyboard > 0, en) {
+        (true, false, true) => {
+            "Screen readers cannot convey their purpose; no keyboard blocker was detected at those points."
+        }
+        (true, false, false) => {
+            "Screenreader können deren Zweck nicht vermitteln; eine Tastaturblockade wurde an diesen Stellen nicht erkannt."
+        }
+        (false, _, true) => "Keyboard users cannot reach or trigger them.",
+        (false, _, false) => "Tastaturnutzende können sie nicht erreichen oder auslösen.",
+        (true, true, true) => {
+            "Screen readers cannot convey the purpose of the unnamed ones; keyboard users cannot reach or trigger the others."
+        }
+        (true, true, false) => {
+            "Screenreader können den Zweck der namenlosen nicht vermitteln; die übrigen sind per Tastatur nicht erreichbar oder auslösbar."
+        }
+    }
+}
+
 fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
     match score {
         Some(score) => format!("{score}/100"),
@@ -438,6 +515,10 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     // "fail", 4 blocking issues, yet every dimension read "low" because this
     // field was never consulted.
     let blocking_issues: usize = reports.iter().map(|r| r.risk.blocking_issues).sum();
+    let keyboard_blocking: usize = reports
+        .iter()
+        .map(|r| r.risk.keyboard_blocking_issues)
+        .sum();
 
     let accessibility = if reports.is_empty() {
         0
@@ -500,17 +581,20 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
             critical,
             high,
             blocking_issues,
+            keyboard_blocking,
         },
         ManagementRiskKind::AssistiveTechnology {
             critical,
             high,
             blocking_issues,
+            keyboard_blocking,
         },
         ManagementRiskKind::Conversion {
             accessibility,
             performance,
             mobile,
             blocking_issues,
+            keyboard_blocking,
         },
         ManagementRiskKind::Seo { score: seo },
         ManagementRiskKind::PerformanceMobile {
@@ -527,4 +611,93 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
             pages,
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Plan 99: seven nameless links are not "inoperable". The texts name the
+    /// cause that was measured and claim no blocked task.
+    #[test]
+    fn nameless_controls_are_not_called_inoperable() {
+        let kinds = [
+            ManagementRiskKind::Legal {
+                legal_flags: 2,
+                critical: 1,
+                high: 2,
+                blocking_issues: 7,
+                keyboard_blocking: 0,
+            },
+            ManagementRiskKind::AssistiveTechnology {
+                critical: 1,
+                high: 2,
+                blocking_issues: 7,
+                keyboard_blocking: 0,
+            },
+            ManagementRiskKind::Conversion {
+                accessibility: 49,
+                performance: Some(76),
+                mobile: Some(80),
+                blocking_issues: 7,
+                keyboard_blocking: 0,
+            },
+        ];
+        for kind in &kinds {
+            let en = kind.rationale(true);
+            let de = kind.rationale(false);
+            assert!(
+                en.contains("7 controls without an accessible name or role"),
+                "{en}"
+            );
+            assert!(
+                de.contains("7 Bedienelemente ohne zugänglichen Namen oder Rolle"),
+                "{de}"
+            );
+            for text in [&en, &de] {
+                for banned in [
+                    "cannot be operated",
+                    "cannot be completed",
+                    "not operable by keyboard",
+                    "nicht bedienen",
+                    "nicht abschließbar",
+                    "nicht per Tastatur",
+                ] {
+                    assert!(!text.contains(banned), "{banned:?} in {text}");
+                }
+            }
+            assert!(!en.chars().any(|c| "äöüÄÖÜß".contains(c)), "{en}");
+        }
+        assert!(
+            kinds[2].rationale(true).contains("was not tested"),
+            "conversion must say a blocked task was not tested"
+        );
+    }
+
+    #[test]
+    fn keyboard_blockers_are_named_separately() {
+        let kind = ManagementRiskKind::AssistiveTechnology {
+            critical: 0,
+            high: 1,
+            blocking_issues: 3,
+            keyboard_blocking: 1,
+        };
+        assert_eq!(
+            kind.rationale(true),
+            "0 critical and 1 high findings; 2 controls without an accessible name or role and 1 control not operable by keyboard. Screen readers cannot convey the purpose of the unnamed ones; keyboard users cannot reach or trigger the others."
+        );
+        let only_keyboard = ManagementRiskKind::Conversion {
+            accessibility: 70,
+            performance: None,
+            mobile: None,
+            blocking_issues: 2,
+            keyboard_blocking: 2,
+        };
+        let de = only_keyboard.rationale(false);
+        assert!(
+            de.contains("2 Bedienelemente nicht per Tastatur bedienbar"),
+            "{de}"
+        );
+        assert!(!de.contains("ohne zugänglichen Namen"), "{de}");
+    }
 }

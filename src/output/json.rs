@@ -11,8 +11,7 @@ use serde::Serialize;
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::audit::verdict::{Verdict, VerdictResult};
 use crate::audit::{
-    compute_recurring_rules, AccessibilityScorer, AuditReport, BatchReport, RecurringRule,
-    SampleMetadata,
+    compute_recurring_rules, AuditReport, BatchReport, RecurringRule, SampleMetadata,
 };
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
@@ -1046,17 +1045,16 @@ impl UnifiedReport {
         let occurrence_counts = aggregate_occurrences(&pages);
         let accessibility_score = batch_report.summary.average_score.round() as u32;
         let overall_score_batch = presentation.portfolio_summary.average_overall_score;
+        // Accessibility plus risk gate, like the single report — they followed
+        // the overall score here, so 49/100 accessibility read "STABIL" (plan 111).
+        let (grade, certificate) = batch_report.summary.grade_and_certificate();
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,
             overall_score: overall_score_batch,
             score: overall_score_batch,
-            // Grade/certificate derive from the same field as `score`/`overall_score`
-            // (overall_score_batch), consistent with single-report semantics where
-            // grade is derived from overall_score, not accessibility_score alone.
-            grade: AccessibilityScorer::calculate_grade(overall_score_batch as f32).to_string(),
-            certificate: AccessibilityScorer::calculate_certificate(overall_score_batch as f32)
-                .to_string(),
+            grade,
+            certificate,
             risk_level: batch_report.summary.risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
             finding_count: pages.iter().map(|p| p.finding_count).sum(),

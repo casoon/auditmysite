@@ -887,6 +887,10 @@
           "type": "integer",
           "minimum": 0
         },
+        "keyboard_blocking_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
         "interactive_critical_issues": {
           "type": "integer",
           "minimum": 0

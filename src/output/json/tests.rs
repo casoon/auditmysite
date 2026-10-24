@@ -95,7 +95,13 @@ fn test_management_risks_reflect_blocking_issues_not_just_legal_flags() {
         .find(|r| r.dimension == "Legal / BFSG-EAA")
         .expect("Legal / BFSG-EAA risk must be present");
     assert_ne!(legal.level, "low", "rationale: {}", legal.rationale);
-    assert!(legal.rationale.contains("4 blocking"));
+    assert!(
+        legal
+            .rationale
+            .contains("4 controls without an accessible name or role"),
+        "rationale: {}",
+        legal.rationale
+    );
 
     let usability = risks
         .iter()
@@ -1251,4 +1257,66 @@ fn test_collection_errors_serialized_when_present() {
     assert_eq!(detail_errs[0]["module"], "tech_stack");
     // suppress unused warning from the first mut binding
     let _ = &mut unified;
+}
+
+/// Plan 111: batch grade and certificate describe accessibility, like the
+/// single report. They used to follow the weighted overall, so inros-lackner
+/// (accessibility 49, overall 62) read "D" / "STABIL" and report-lint failed.
+#[test]
+fn test_batch_grade_and_certificate_follow_accessibility_not_overall() {
+    let mut batch = BatchReport::from_reports(
+        vec![AuditReport::new(
+            "https://example.com/a".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )],
+        vec![],
+        100,
+    );
+    batch.summary.average_score = 49.0;
+
+    let json: serde_json::Value =
+        serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
+    let summary = &json["summary"];
+    assert_eq!(summary["accessibility_score"], 49);
+    assert!(
+        summary["overall_score"].as_u64().unwrap() > 49,
+        "fixture must separate the two scores: {summary}"
+    );
+    assert_eq!(summary["grade"], "F");
+    assert_ne!(summary["certificate"], "STABIL");
+
+    let lint = crate::lint::lint(&json, None);
+    assert!(
+        lint.findings
+            .iter()
+            .all(|f| !f.check_id.contains("grade") && !f.check_id.contains("certificate")),
+        "{:?}",
+        lint.findings
+    );
+}
+
+/// Plan 111: the certificate is gated by the batch risk the same way the
+/// single report gates it.
+#[test]
+fn test_batch_certificate_is_risk_gated() {
+    let mut batch = BatchReport::from_reports(
+        vec![AuditReport::new(
+            "https://example.com/a".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )],
+        vec![],
+        100,
+    );
+    batch.summary.average_score = 80.0;
+    batch.summary.blocking_issues = 3;
+    let (grade, certificate) = batch.summary.grade_and_certificate();
+    assert_eq!(
+        grade,
+        crate::audit::AccessibilityScorer::calculate_grade(80.0)
+    );
+    assert_eq!(certificate, "EINGESCHRÄNKT");
 }

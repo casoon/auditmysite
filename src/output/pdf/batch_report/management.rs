@@ -8,7 +8,7 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::helpers::{effort_label_i18n, severity_label_i18n};
+use super::super::helpers::severity_label_i18n;
 
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
 
@@ -467,7 +467,12 @@ pub(super) fn render_batch_decision_actions(
         .with_width("34%"),
         TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
         TableColumn::new(if en { "Impact" } else { "Wirkung" }).with_width("24%"),
-        TableColumn::new(if en { "Complexity" } else { "Komplexität" }).with_width("14%"),
+        TableColumn::new(if en {
+            "Scope of change"
+        } else {
+            "Umfang der Änderung"
+        })
+        .with_width("14%"),
         TableColumn::new(if en { "Reach" } else { "Reichweite" }).with_width("16%"),
     ])
     .with_title(if en {
@@ -488,12 +493,20 @@ pub(super) fn render_batch_decision_actions(
             .find(|c| c.rule_id == group.rule_id);
         let root: String = if let Some(cluster) = cluster {
             cluster.decision_label.clone()
-        } else if group.is_component_issue || group.affected_urls.len() > 1 {
+        } else if group.affected_urls.len() > 1 {
             // Recurring is observed; a shared component is not (plan 85).
             if en {
                 format!("recurs on {} pages, cause open", group.affected_urls.len())
             } else {
                 format!("auf {} Seiten, Ursache offen", group.affected_urls.len())
+            }
+        } else if group.occurrence_count > 1 {
+            // Repetition within one page says nothing about other pages
+            // ("auf 1 Seiten, Ursache offen", plan 99).
+            if en {
+                format!("{} occurrences on one page", group.occurrence_count)
+            } else {
+                format!("{} Vorkommen auf einer Seite", group.occurrence_count)
             }
         } else if en {
             "page-specific".to_string()
@@ -504,7 +517,10 @@ pub(super) fn render_batch_decision_actions(
             format!("{} — {}", group.title, root),
             severity_label_i18n(group.severity, i18n),
             crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
-            effort_label_i18n(group.effort, i18n),
+            // The column shows the scope derived from the data, the same value
+            // as `top_actions[].complexity` in the JSON — not the per-rule
+            // effort estimate, which read "low" where the JSON said "high".
+            change_scope_label(&group.complexity, en),
             {
                 let urls = group.affected_urls.len();
                 let url_unit = if urls == 1 { "URL" } else { "URLs" };
@@ -526,6 +542,18 @@ pub(super) fn render_batch_decision_actions(
         return builder;
     }
     builder.add_component(table)
+}
+
+fn change_scope_label(complexity: &str, en: bool) -> String {
+    match (complexity, en) {
+        ("high", true) => "high",
+        ("high", false) => "hoch",
+        ("medium", true) => "medium",
+        ("medium", false) => "mittel",
+        (_, true) => "low",
+        (_, false) => "gering",
+    }
+    .to_string()
 }
 
 /// 3 key takeaways for batch report
