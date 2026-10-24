@@ -646,7 +646,7 @@ impl RiskAssessment {
 /// (`legal_flags`) or a blocking interactive issue (`blocking_issues`) fails the
 /// audit regardless of the risk band — so a positive tier (e.g. "GUT" on a
 /// medium-risk page) must be downgraded too, not just on High/Critical risk.
-fn gate_certificate_by_risk(
+pub(crate) fn gate_certificate_by_risk(
     certificate: String,
     risk_level: &RiskLevel,
     legal_flags: usize,

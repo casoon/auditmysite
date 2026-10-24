@@ -994,6 +994,24 @@ pub struct BatchSummary {
     pub audit_quality: AuditQuality,
 }
 
+impl BatchSummary {
+    /// Grade and certificate of the batch, by the single-report rule: both
+    /// describe the average accessibility score, not the weighted overall,
+    /// and the certificate is gated by the batch risk (plan 29, D1). The JSON
+    /// summary and the PDF read this one function (plan 111).
+    pub fn grade_and_certificate(&self) -> (String, String) {
+        let accessibility = self.average_score.round() as f32;
+        let grade = AccessibilityScorer::calculate_grade(accessibility).to_string();
+        let certificate = crate::audit::normalized::gate_certificate_by_risk(
+            AccessibilityScorer::calculate_certificate(accessibility).to_string(),
+            &self.risk,
+            self.legal_flags,
+            self.blocking_issues,
+        );
+        (grade, certificate)
+    }
+}
+
 /// Compute top-10 recurring WCAG rules and total violated-rule count across
 /// a set of normalized reports. Used by `BatchReport::from_reports` and the
 /// JSON formatter for single-page summary blocks.

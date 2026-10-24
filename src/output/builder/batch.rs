@@ -4,9 +4,7 @@ use crate::output::localized::is_english;
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedFinding;
-use crate::audit::{
-    normalize, AccessibilityScorer, BatchReport, BrokenLinkSeverity, NormalizedReport,
-};
+use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;
@@ -803,11 +801,7 @@ pub fn build_batch_presentation_with_normalized(
     // The literal band tables that used to stand here were a third and fourth
     // cutoff set (95/90/85/80/70/60 for the grade), so the same score could
     // be graded differently depending on which report a reader was holding.
-    let average_accessibility_score = batch.summary.average_score.round() as u32;
-    let certificate =
-        AccessibilityScorer::calculate_certificate(average_accessibility_score as f32).to_string();
-    let grade =
-        AccessibilityScorer::calculate_grade(average_accessibility_score as f32).to_string();
+    let (grade, certificate) = batch.summary.grade_and_certificate();
 
     let en = is_english(i18n);
     let template_clusters: Vec<TemplateClusterView> = batch

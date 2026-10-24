@@ -1,11 +1,11 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 275
-expression: value
+assertion_line: 300
+expression: sort_json_keys(value)
 ---
 {
   "average_score": 49.0,
-  "certificate": "AUSBAUFÄHIG",
+  "certificate": "NICHT BESTANDEN",
   "grade": "F",
   "module_averages": [
     {
