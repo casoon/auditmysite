@@ -100,7 +100,11 @@ in dieser Reihenfolge:
    die manuell bewerteten Live-Seiten aus `tests/fixtures/reference_sites.json` und meldet jede,
    die ihr Band verlässt (Plan 47). Blockiert nicht automatisch: Live-Seiten ändern sich, also
    erst die Seite neu bewerten, dann das Werkzeug verdächtigen — aber jede Abweichung vor dem Tag
-   klären.
+   klären. **Bänder wandern mit:** Ein PR, der den Wert einer Referenzseite bewusst verschiebt
+   (Fehlalarm behoben, Regel umgezogen, Gewichtung geändert), zieht deren Band in
+   `reference_sites.json` im selben PR nach, mit Begründung in `notes`. Sonst meldet erst der
+   Lauf vor dem Tag den längst behobenen Fall als Abweichung (1.8.0: bundesregierung.de und
+   berlin.de, Fixes vom 04./05.10.).
 1. **Tag `vX.Y.Z` setzen und pushen.** Das startet `release.yml`: Versionsabgleich, volle CI,
    Binaries, GitHub-Release.
 2. **Auf den Job `docs.rs Build (sandbox parity)` warten.** Er läuft **nur auf Tags** und baut die
