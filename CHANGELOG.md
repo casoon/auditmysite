@@ -7,6 +7,8 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-24
+
 ### Added
 
 - **WCAG:** Link purpose runs on the shared `a11y-rules` 0.24 ids `links/generic-name`, `links/url-name`, `links/single-character-name`, `links/new-window-unannounced` (3.2.5, now tests `target="_blank"`) and `links/purpose-link-only` (2.4.9); old ids resolve through `LEGACY_RULE_IDS`.
@@ -18,6 +20,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **WCAG:** Breaking: findings of the rules moved to `a11y-rules` (forms, landmarks, links and pointer, images and media, tables, document and language, link purpose) carry the shared ids, e.g. `links/generic-name` instead of `link-name`; `[rules]` filters with the old ids still apply.
 - **WCAG:** Browser-free rules moved to the shared `a11y-rules` crate in batches B3–B7 (forms, landmarks and structure, links and pointer, images and media, tables, document and language), followed by contrast, target size, reading order, motion and stylesheet rules; deleted local rules keep their old ids resolvable.
 - **WCAG:** Generic link text is a review hint instead of a violation; with surrounding context its severity is Low.
 - **Scoring:** The per-viewport overall score uses the published module weights, and an unmeasured Performance module no longer counts.
@@ -37,11 +40,11 @@ and verification for each change is in the
 
 ### Fixed
 
-- **SEO:** Articles under news, blog or press routes (`/news/`, `/aktuelles/`, `/blog/`, `/presse/` …) count as editorial pages in the schema check instead of corporate pages that expect `Organization`/`LocalBusiness`.
 - **Reports:** Best Practices and Tech Stack show a check status instead of a score of 100 when nothing was collected.
 - **PDF:** No blank pages after finding cards, no headings left alone at the bottom of a page (finding titles, the content-visibility "manual review" panel), no tech-stack chapter without findings, and the batch cover note no longer overlaps the text below.
 - **PDF:** The batch PDF no longer fails PDF/UA compilation when sitemap status counts are present.
 - **Batch:** Render-blocking resources are counted once per file instead of once per page.
+- **SEO:** Articles under news, blog or press routes (`/news/`, `/aktuelles/`, `/blog/`, `/presse/` …) count as editorial pages in the schema check instead of corporate pages that expect `Organization`/`LocalBusiness`.
 - **Performance:** CSS coverage no longer reports 100 % on every page; the denominator is the style rules of the captured stylesheets.
 - **Mobile:** The smallest font size only counts readable text (#740).
 - **UX:** The dark-mode check counts dark-only pages as supported (#739).

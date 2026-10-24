@@ -173,7 +173,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
   in die Orchestrierung `audit/pipeline`. Bestehende Rückwärtskanten nicht vermehren — der Umbau
   läuft schrittweise über Plan 96, nicht nebenbei in Feature-PRs.
 
-## Current State (v1.7.3)
+## Current State (v1.8.0)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets
 a short entry under `## [Unreleased]` in the same commit, `**Area:**` first, English; at a release
 `[Unreleased]` becomes `## [x.y.z] - YYYY-MM-DD`. The detailed development log up to 2026-10-24
