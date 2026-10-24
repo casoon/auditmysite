@@ -37,7 +37,7 @@ and verification for each change is in the
 - **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
 - **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
 - **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
-- **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks).
+- **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks), and a missing viewport no longer costs SEO points; it counts under mobile and accessibility.
 
 ## [1.8.0] - 2026-10-24
 

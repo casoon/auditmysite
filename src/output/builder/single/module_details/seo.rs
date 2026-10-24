@@ -64,6 +64,15 @@ pub(super) fn build_seo_details(
                         "{} — zählt auch in der Barrierefreiheit (WCAG {c})",
                         i.message
                     ),
+                    // Charged by Mobile and Accessibility, listed here only.
+                    None if i.field == "viewport" && locale == "en" => format!(
+                        "{} — counted under mobile and accessibility, not in the SEO score",
+                        i.message
+                    ),
+                    None if i.field == "viewport" => format!(
+                        "{} — zählt bei Mobile und Barrierefreiheit, nicht im SEO-Wert",
+                        i.message
+                    ),
                     None => i.message.clone(),
                 };
                 (i.field.clone(), i.severity, message)
