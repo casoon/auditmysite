@@ -39,7 +39,7 @@ and verification for each change is in the
 
 - **SEO:** Articles under news, blog or press routes (`/news/`, `/aktuelles/`, `/blog/`, `/presse/` …) count as editorial pages in the schema check instead of corporate pages that expect `Organization`/`LocalBusiness`.
 - **Reports:** Best Practices and Tech Stack show a check status instead of a score of 100 when nothing was collected.
-- **PDF:** No blank pages after finding cards, no headings left alone at the bottom of a page, no tech-stack chapter without findings, and the batch cover note no longer overlaps the text below.
+- **PDF:** No blank pages after finding cards, no headings left alone at the bottom of a page (finding titles, the content-visibility "manual review" panel), no tech-stack chapter without findings, and the batch cover note no longer overlaps the text below.
 - **PDF:** The batch PDF no longer fails PDF/UA compilation when sitemap status counts are present.
 - **Batch:** Render-blocking resources are counted once per file instead of once per page.
 - **Performance:** CSS coverage no longer reports 100 % on every page; the denominator is the style rules of the captured stylesheets.

@@ -565,11 +565,11 @@ pub(in crate::output::pdf) fn render_content_visibility(
         }
     }
 
+    // The panel carries the title itself. A separate heading repeated it and,
+    // not kept with the panel, could end a page on its own (inros, p. 68).
     if !not_testable_rows.is_empty() {
         let title = i18n.t("pdf-cv-manual-review-title");
-        builder = builder
-            .add_component(Section::new(&title).with_level(3))
-            .add_component(ChecklistPanel::new(not_testable_rows).with_title(&title));
+        builder = builder.add_component(ChecklistPanel::new(not_testable_rows).with_title(&title));
     }
 
     builder
