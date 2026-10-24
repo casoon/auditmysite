@@ -630,6 +630,15 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("text/line-height-tight", "a11y.visual_presentation.weak"),
     ("focus-visible", "a11y.focus_visible.missing"),
     ("link-name", "a11y.link_purpose.weak"),
+    // Linkzweck aus dem geteilten Bestand (Plan 98).
+    ("links/generic-name", "a11y.link_purpose.weak"),
+    ("links/url-name", "a11y.link_purpose.weak"),
+    ("links/single-character-name", "a11y.link_purpose.weak"),
+    ("links/purpose-link-only", "a11y.link_purpose_only.weak"),
+    (
+        "links/new-window-unannounced",
+        "a11y.new_window.unannounced",
+    ),
     // ── Display-mode convention (#653) — best-practice, own entries so the
     // five checks do not merge into the 2.2.2 / 1.1.1 buckets.
     ("display/toggle-missing", "a11y.display_toggle.missing"),
@@ -1365,6 +1374,30 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Users must read the entire paragraph to understand a link's destination.",
         technical_impact: "Generischer Linktext wie 'Mehr lesen' oder 'Hier klicken'.",
         technical_impact_en: "Generic link text such as 'read more' or 'click here'.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    // Plan 98: `links/new-window-unannounced` (Technik G201, 3.2.5 AAA).
+    Rule {
+        id: "a11y.new_window.unannounced",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 3.2.5"),
+        external_level: Some("AAA"),
+        axe_id: None,
+        title: "Neues Fenster ohne Ankündigung (AAA)",
+        title_en: "New window without notice (AAA)",
+        description: "Ein Link öffnet ein neues Fenster oder Tab, ohne es im Linktext anzukündigen.",
+        user_impact: "Nutzer verlieren unerwartet den Kontext; der Zurück-Button führt nicht zurück.",
+        user_impact_en: "Users unexpectedly lose context; the back button does not lead back.",
+        technical_impact: "target=\"_blank\" ohne Hinweis im zugänglichen Namen.",
+        technical_impact_en: "target=\"_blank\" without a notice in the accessible name.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,

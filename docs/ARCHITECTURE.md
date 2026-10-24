@@ -68,10 +68,9 @@ src/
 │   ├── types.rs         # Violation, Severity, WcagResults
 │   ├── coverage.rs      # WCAG success-criterion coverage accounting
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation
-│   └── rules/           # Individual WCAG rules (85+ files, Level A/AA/AAA)
+│   └── rules/           # Local WCAG rules that need the browser or have no shared id (22 files; the rest runs via wcag::shared)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
-│       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
 │       ├── target_size_minimum.rs # 2.5.8
 │       ├── text_spacing.rs       # 1.4.12

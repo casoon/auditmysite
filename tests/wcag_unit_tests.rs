@@ -9,7 +9,7 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
-use auditmysite::wcag::rules::{check_link_purpose, check_text_alternatives};
+use auditmysite::wcag::rules::check_text_alternatives;
 
 // ---------------------------------------------------------------------------
 // Helper constructors
@@ -98,84 +98,6 @@ fn test_111_whitespace_only_name_treated_as_missing() {
     let results = check_text_alternatives(&tree);
     // Whitespace-only name is not a valid accessible name
     assert_eq!(results.violations.len(), 1);
-}
-
-// ---------------------------------------------------------------------------
-// 2.4.4 Link Purpose — check_link_purpose
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_244_empty_link_flagged() {
-    // Empty links are handled by a11y.name_role.missing (4.1.2).
-    // This rule (2.4.4) skips them to avoid double-reporting.
-    let tree = AXTree::from_nodes(vec![node("1", "link", None)]);
-    let results = check_link_purpose(&tree);
-    assert!(
-        results.violations.is_empty(),
-        "Empty links must not be reported by link_purpose — covered by name_role.missing"
-    );
-}
-
-#[test]
-fn test_244_generic_click_here_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "link", Some("click here"))]);
-    let results = check_link_purpose(&tree);
-    assert!(!results.violations.is_empty());
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("generic text")));
-}
-
-#[test]
-fn test_244_generic_read_more_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "link", Some("read more"))]);
-    let results = check_link_purpose(&tree);
-    assert!(!results.violations.is_empty());
-}
-
-#[test]
-fn test_244_url_as_link_text_flagged() {
-    let tree = AXTree::from_nodes(vec![node(
-        "1",
-        "link",
-        Some("https://example.com/long/path"),
-    )]);
-    let results = check_link_purpose(&tree);
-    assert!(!results.warnings.is_empty());
-    assert!(results
-        .warnings
-        .iter()
-        .any(|v| v.message.contains("raw URL")));
-}
-
-#[test]
-fn test_244_descriptive_link_passes() {
-    let tree = AXTree::from_nodes(vec![node(
-        "1",
-        "link",
-        Some("View our accessibility statement"),
-    )]);
-    let results = check_link_purpose(&tree);
-    assert!(results.violations.is_empty());
-    assert_eq!(results.passes, 1);
-}
-
-#[test]
-fn test_244_multiple_links_mixed() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "link", Some("Download the annual report PDF")),
-        node("2", "link", None),
-        node("3", "link", Some("here")),
-    ]);
-    let results = check_link_purpose(&tree);
-    // "here" violates; descriptive passes; empty is handled by
-    // name_role.missing (skipped here to avoid double-reporting).
-    assert!(!results.violations.is_empty());
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.to_lowercase().contains("generic")));
 }
 
 // ---------------------------------------------------------------------------

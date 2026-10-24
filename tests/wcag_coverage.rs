@@ -14,8 +14,7 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
-    check_accessible_name, check_focus_visible, check_keyboard, check_link_purpose,
-    check_text_alternatives,
+    check_accessible_name, check_focus_visible, check_keyboard, check_text_alternatives,
 };
 use auditmysite::wcag::WcagResults;
 
@@ -70,7 +69,6 @@ macro_rules! rule_smoke_test {
 
 rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
-rule_smoke_test!(smoke_check_link_purpose, check_link_purpose);
 rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
@@ -627,10 +625,10 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
     }
 
     // Sanity floor, not a pin: the count shrinks as rules move to the shared
-    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49, area/audio 47, stylesheets 45, rendering tier 42, layout heuristics 36, manual/* and control contrast 28).
+    // `a11y-rules` bestand (#693 left 77, #694 67, #695 64, #696 58, #697 49, area/audio 47, stylesheets 45, rendering tier 42, layout heuristics 36, manual/* and control contrast 28, link purpose 25).
     assert!(
-        all_entries.len() >= 26,
-        "Expected ~28 RuleMetadata declarations across src/wcag/rules/, found {}. \
+        all_entries.len() >= 23,
+        "Expected ~25 RuleMetadata declarations across src/wcag/rules/, found {}. \
          The parser in extract_rule_metadata_entries may have broken (field \
          layout changed?) — verify before trusting this test's other assertions.",
         all_entries.len()
