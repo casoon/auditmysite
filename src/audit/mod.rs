@@ -37,8 +37,9 @@ pub use artifacts::{
 };
 pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{
-    analyze_sitemap_diagnostics, count_sitemap_entries_shallow, parse_sitemap, read_url_file,
-    run_concurrent_batch, BatchAuditError, BatchConfig, BatchResult, ProgressCallback,
+    analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
+    count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch,
+    BatchAuditError, BatchConfig, BatchResult, ProgressCallback,
 };
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use catalog::AuditCatalog;

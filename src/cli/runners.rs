@@ -12,7 +12,7 @@ use tracing::info;
 
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, analyze_sitemap_diagnostics, cache_matches_signature,
+    analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cache_matches_signature,
     compute_batch_verdict, compute_verdict, crawl_site, hydrate_cached_report, load_artifacts,
     parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, to_audit_report,
     BatchConfig, CrawlResult, PipelineConfig, Verdict,
@@ -580,8 +580,22 @@ async fn run_batch(
     batch_report = batch_report.with_sample(sample);
 
     if url_source == "sitemap" {
-        let diagnostics =
-            analyze_sitemap_diagnostics(&full_sitemap_urls, &batch_report.reports).await;
+        // The audited pages are done, but the sitemap check still requests
+        // every sitemap URL — a second stage on the same bar, so 20/20 does
+        // not read as finished while it runs.
+        presenter.start(full_sitemap_urls.len(), "Checking sitemap URLs");
+        let sitemap_progress: auditmysite::audit::ProgressCallback = {
+            let presenter = Arc::clone(&presenter);
+            Arc::new(move |current, _total, url: &str, _error: Option<&str>| {
+                presenter.advance(current, url);
+            })
+        };
+        let diagnostics = analyze_sitemap_diagnostics_with_progress(
+            &full_sitemap_urls,
+            &batch_report.reports,
+            Some(sitemap_progress),
+        )
+        .await;
         presenter.notice(&format!(
             "Sitemap check: {} URLs checked, {} sitemap issues",
             diagnostics.checked_urls,

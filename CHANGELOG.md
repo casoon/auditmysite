@@ -7,6 +7,15 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
+- **Dependencies:** `runemark` 0.9.
+
+### Fixed
+
+- **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
+
 ## [1.8.0] - 2026-10-24
 
 ### Added

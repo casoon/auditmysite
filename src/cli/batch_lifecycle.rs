@@ -59,8 +59,11 @@ impl BatchLifecyclePresenter {
         Self { sink }
     }
 
+    /// Starts a stage. Called again for a later stage, it rewinds the bar to
+    /// 0 — `start` alone keeps the previous stage's position.
     pub(crate) fn start(&self, total: usize, stage: &str) {
         self.sink.start(total as u64, stage);
+        self.sink.advance(0, stage);
     }
 
     /// Advances to `completed` with the (truncated) URL just finished.

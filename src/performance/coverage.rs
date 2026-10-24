@@ -29,8 +29,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 use chromiumoxide::cdp::browser_protocol::css::{
-    EnableParams as CssEnableParams, EventStyleSheetAdded, GetStyleSheetTextParams,
-    StartRuleUsageTrackingParams, StopRuleUsageTrackingParams, StyleSheetId,
+    EnableParams as CssEnableParams, EventStyleSheetAdded, EventStyleSheetRemoved,
+    GetStyleSheetTextParams, StartRuleUsageTrackingParams, StopRuleUsageTrackingParams,
+    StyleSheetId,
 };
 use chromiumoxide::cdp::browser_protocol::dom::EnableParams as DomEnableParams;
 use chromiumoxide::cdp::browser_protocol::target::TargetId;
@@ -68,6 +69,17 @@ const MAX_DUPLICATE_STYLESHEET_EVENTS: usize = 500;
 /// `MAX_DUPLICATE_STYLESHEET_EVENTS`.
 const MAX_DUPLICATE_SCRIPT_EVENTS: usize = 500;
 
+/// Pre-navigation `CSS.styleSheetAdded` / `CSS.styleSheetRemoved` listener
+/// pair for one page. A sheet the page adds and removes again while loading
+/// (an inline `<style>` a script swaps out) no longer exists when
+/// `take_coverage_results` reads it back: `getStyleSheetText` fails with
+/// "No style sheet with given id found", and counting it would mark the CSS
+/// coverage `partial` although every sheet still on the page was read.
+struct StylesheetStreams {
+    added: EventStream<EventStyleSheetAdded>,
+    removed: EventStream<EventStyleSheetRemoved>,
+}
+
 /// Pre-navigation `CSS.styleSheetAdded` listeners, keyed by CDP target id.
 ///
 /// `prepare_coverage_collection` must register this listener *before*
@@ -85,10 +97,10 @@ const MAX_DUPLICATE_SCRIPT_EVENTS: usize = 500;
 /// (called several layers away, from `PerformanceModule::collect`, with only
 /// a `&Page`) — same constraint and same fix shape as `network::dns`'s
 /// per-host cache.
-static STYLESHEET_LISTENERS: OnceLock<Mutex<HashMap<TargetId, EventStream<EventStyleSheetAdded>>>> =
+static STYLESHEET_LISTENERS: OnceLock<Mutex<HashMap<TargetId, StylesheetStreams>>> =
     OnceLock::new();
 
-fn stylesheet_listeners() -> &'static Mutex<HashMap<TargetId, EventStream<EventStyleSheetAdded>>> {
+fn stylesheet_listeners() -> &'static Mutex<HashMap<TargetId, StylesheetStreams>> {
     STYLESHEET_LISTENERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -224,18 +236,26 @@ pub async fn prepare_coverage_collection(page: &Page) -> Result<()> {
     } else if let Err(e) = page.execute(CssEnableParams::default()).await {
         warn!("CSS.enable failed, skipping duplicate CSS detection: {e}");
     } else {
-        // Register a `styleSheetAdded` listener *before* navigation, so
-        // `take_coverage_results` can later resolve `style_sheet_id -> URL`
-        // for duplicate-CSS detection (#551). Best-effort/non-fatal:
-        // duplicate CSS detection is silently skipped if this fails.
-        match page.event_listener::<EventStyleSheetAdded>().await {
-            Ok(stream) => {
-                stylesheet_listeners()
-                    .lock()
-                    .await
-                    .insert(page.target_id().clone(), stream);
+        // Register the `styleSheetAdded`/`styleSheetRemoved` listeners
+        // *before* navigation, so `take_coverage_results` can later resolve
+        // `style_sheet_id -> URL` for duplicate-CSS detection (#551) and skip
+        // sheets the page removed again. Best-effort/non-fatal: duplicate CSS
+        // detection is silently skipped if this fails.
+        let streams = match (
+            page.event_listener::<EventStyleSheetAdded>().await,
+            page.event_listener::<EventStyleSheetRemoved>().await,
+        ) {
+            (Ok(added), Ok(removed)) => Some(StylesheetStreams { added, removed }),
+            (Err(e), _) | (_, Err(e)) => {
+                warn!("CSS stylesheet listener setup failed: {e}");
+                None
             }
-            Err(e) => warn!("CSS.styleSheetAdded listener setup failed: {e}"),
+        };
+        if let Some(streams) = streams {
+            stylesheet_listeners()
+                .lock()
+                .await
+                .insert(page.target_id().clone(), streams);
         }
     }
 
@@ -448,11 +468,17 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     };
 
     let mut stylesheets: Vec<(StyleSheetId, String)> = Vec::new();
-    if let Some(mut stream) = stylesheet_listeners().lock().await.remove(page.target_id()) {
+    if let Some(mut streams) = stylesheet_listeners().lock().await.remove(page.target_id()) {
+        let mut removed: HashSet<StyleSheetId> = HashSet::new();
+        while let Some(Some(event)) = streams.removed.next().now_or_never() {
+            removed.insert(event.style_sheet_id.clone());
+        }
         let mut seen: HashSet<StyleSheetId> = HashSet::new();
-        while let Some(Some(event)) = stream.next().now_or_never() {
+        while let Some(Some(event)) = streams.added.next().now_or_never() {
             let url = event.header.source_url.clone();
-            if url.starts_with("chrome-extension://") {
+            if url.starts_with("chrome-extension://")
+                || removed.contains(&event.header.style_sheet_id)
+            {
                 continue;
             }
             if seen.insert(event.header.style_sheet_id.clone()) {
