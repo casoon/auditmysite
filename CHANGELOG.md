@@ -34,6 +34,7 @@ and verification for each change is in the
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
 - **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
 - **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
+- **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
 
 ## [1.8.0] - 2026-10-24
 
