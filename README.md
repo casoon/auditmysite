@@ -764,11 +764,14 @@ This repository uses Git hooks with a fast local `pre-commit` gate and a full `p
 `pre-commit` runs:
 
 - `nosecrets` on staged changes
-- `cargo fmt -- --check`
+- `rustfmt --check` on the staged `.rs` files
 - `cargo clippy --lib --bins --all-features -- -D warnings`
 
 `pre-push` runs:
 
+- a guard that refuses the push while a local `[patch]` to `../barrierlab` is
+  active in `.cargo/config.toml`, or `Cargo.lock` lists barrierlab crates without
+  a crates.io source (not skippable via `SKIP_RUST_CHECKS`)
 - `scripts/check-version-match.sh` for pushed `v*` tags
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `cargo test`

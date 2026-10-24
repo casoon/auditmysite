@@ -77,10 +77,19 @@ cargo test --lib               # Unit tests only
 ```
 
 **Vor jedem Push `cargo check --all-features` ausführen.** CI prüft immer mit allen Features und Clippy.
-Ein pre-push Hook ist unter `.git/hooks/pre-push` eingerichtet und läuft automatisch.
+Die Hooks liegen versioniert unter `.githooks/` (`git config core.hooksPath .githooks`);
+`pre-push` blockiert u. a. einen aktiven barrierlab-`[patch]`.
 
 Häufige Falle: neue Felder in `NormalizedReport` brechen Struct-Initialisierer in
 `src/audit/normalized.rs` und `src/audit/summary.rs`. Immer beide prüfen.
+Ebenso bricht jedes neue Feld in `PipelineConfig` (öffentlich, ohne `Default`) Studio und das
+Doku-Beispiel in `src/lib.rs` — beides mitziehen (Plan 96, Schritt 7).
+
+## Workflows (`.github/workflows/`)
+- Repo ist öffentlich: CI läuft auf PR und Push nach `main`; vor Änderungen Skill `ci-budget` laden.
+- Werkzeuge nie ungepinnt installieren (kein `cargo install … --git` ohne `--rev`, kein Tool ohne
+  Version); Actions per Commit-SHA, Tag als Kommentar. `cross` in `release.yml` ist auf einen Commit gepinnt.
+- Jeder neue Job bekommt `timeout-minutes`.
 
 ## Release & `cargo publish` (PFLICHT — #588)
 Eine auf crates.io veröffentlichte Version lässt sich **nie** ersetzen, nur zurückziehen. Und
@@ -158,6 +167,11 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 - Output formatters go in `src/output/`, support both single and batch reports
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
+- **Abhängigkeitsrichtung (Zielbild Plan 96, gilt für neuen Code ab sofort):** Analysemodule
+  (`seo`, `security`, `performance`, `ux`, …) und `wcag` importieren weder `cli` noch `output`;
+  neue gemeinsame Typen (Level, Status, Report-Modelle) gehören nicht nach `cli/args.rs` und nicht
+  in die Orchestrierung `audit/pipeline`. Bestehende Rückwärtskanten nicht vermehren — der Umbau
+  läuft schrittweise über Plan 96, nicht nebenbei in Feature-PRs.
 
 ## Current State (v1.7.3)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets

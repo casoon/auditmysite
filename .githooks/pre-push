@@ -5,6 +5,25 @@ set -eu
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
+# Kein Push mit aktiver lokaler Umleitung auf ../barrierlab (CLAUDE.md, "Grenze zu barrierlab").
+# Läuft vor SKIP_RUST_CHECKS: das ist kein Rust-Check, sondern ein Veröffentlichungs-Guard.
+if [ -f .cargo/config.toml ] && grep -Eq '^[[:space:]]*\[patch' .cargo/config.toml; then
+  echo "pre-push: [patch] in .cargo/config.toml aktiv. Erst gegen die veröffentlichte Version bauen."
+  exit 1
+fi
+# Ein Lockfile, das unter aktivem Patch geschrieben wurde, führt barrierlab-Crates ohne `source`.
+local_pkgs=$(git show HEAD:Cargo.lock | awk '
+  /^\[\[package\]\]/ { if (name != "" && src == 0) print name; name = ""; src = 0 }
+  /^name = / { gsub(/"/, "", $3); name = $3 }
+  /^source = / { src = 1 }
+  END { if (name != "" && src == 0) print name }' |
+  grep -Ex 'a11y-(dom|report|rules|perception|wasm)|accname|web-checks|html-conform|html5-parser|xpath-eval|relax-ng|schematron-engine|csp-parse|media-query-parse' || true)
+if [ -n "$local_pkgs" ]; then
+  echo "pre-push: Cargo.lock führt lokale barrierlab-Crates ohne crates.io-Quelle:"
+  echo "$local_pkgs"
+  exit 1
+fi
+
 if [ "${SKIP_RUST_CHECKS:-0}" = "1" ]; then
   echo "pre-push: skipping Rust checks because SKIP_RUST_CHECKS=1"
   exit 0
