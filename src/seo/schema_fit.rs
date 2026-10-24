@@ -311,6 +311,40 @@ pub fn assess_schema_fit_with_facts(
         && !route_ends_with(&path, &["/team", "/team/", "/personen", "/personen/"]);
     let location_path = contains_any(&path, &["/standort/", "/standorte/", "/location/"])
         && !route_ends_with(&path, &["/standorte", "/standorte/"]);
+    // A single article under a news, blog or press route. The route is the
+    // evidence, not the page's own schema (that would confirm itself);
+    // overview routes such as `/news/` alone stay with the visible intent.
+    let editorial_path = contains_any(
+        &path,
+        &[
+            "/news/",
+            "/aktuelles/",
+            "/blog/",
+            "/artikel/",
+            "/presse/",
+            "/press/",
+            "/magazin/",
+            "/journal/",
+        ],
+    ) && !route_ends_with(
+        &path,
+        &[
+            "/news",
+            "/news/",
+            "/aktuelles",
+            "/aktuelles/",
+            "/blog",
+            "/blog/",
+            "/presse",
+            "/presse/",
+            "/press",
+            "/press/",
+            "/magazin",
+            "/magazin/",
+            "/journal",
+            "/journal/",
+        ],
+    );
     let editorial_review = page_intent == PageIntent::Editorial
         && (contains_any(&path, &["/test/", "/review/", "/vergleich/"])
             || contains_any(&visible_heading, &["test", "review", "vergleich"]));
@@ -378,6 +412,13 @@ pub fn assess_schema_fit_with_facts(
             85,
             &["LocalBusiness", "Organization"],
             vec!["URL path indicates a single business location".to_string()],
+        )
+    } else if editorial_path && page_intent != PageIntent::Shop {
+        (
+            SchemaPageKind::EditorialContent,
+            85,
+            &["Article", "BlogPosting", "NewsArticle"],
+            vec!["URL path indicates a single news, blog or press article".to_string()],
         )
     } else if software_path && matches!(page_intent, PageIntent::Marketing | PageIntent::LeadGen) {
         (
@@ -587,6 +628,34 @@ mod tests {
             fit.product_context(),
             ProductRuleContext::MerchantProductDetail
         );
+    }
+
+    /// inros-lackner.de, 2026-10-23: a news article under `/aktuelles/news/`
+    /// was a "corporate page" expecting Organization/LocalBusiness although
+    /// it carries NewsArticle. The route decides, not the visible intent.
+    #[test]
+    fn news_route_is_editorial_even_with_corporate_intent() {
+        let data = structured_data(serde_json::json!({
+            "@context": "https://schema.org",
+            "@type": "NewsArticle",
+            "headline": "Landstrompremiere"
+        }));
+        let fit = assess_schema_fit(
+            "https://www.inros-lackner.de/aktuelles/news/landstrompremiere",
+            PageIntent::Corporate,
+            &data,
+        );
+        assert_eq!(fit.page_kind, SchemaPageKind::EditorialContent);
+        assert_eq!(fit.fit_status, SchemaFitStatus::Matched);
+        assert_eq!(fit.coverage_status, SchemaCoverageStatus::Complete);
+
+        // The overview route itself stays with the visible intent.
+        let overview = assess_schema_fit(
+            "https://www.inros-lackner.de/aktuelles/news/",
+            PageIntent::Hub,
+            &StructuredData::default(),
+        );
+        assert_eq!(overview.page_kind, SchemaPageKind::HubPage);
     }
 
     #[test]
