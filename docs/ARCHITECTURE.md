@@ -267,7 +267,7 @@ src/
 ├── commerce/            # Shop audit (derive-only, shop-gated): product schema-completeness,
 │   └── mod.rs, module.rs # mandatory/trust-page links, page-kind (PDP/Category only), batch roll-up
 │
-├── source_quality/      # Source quality signals (headers, schema, HTTPS)
+├── source_quality/      # Technical preparation indicator (publisher/security signals, on-page consistency)
 │   └── mod.rs, module.rs
 │
 ├── tech_stack/          # CMS/framework detection from in-page signals

@@ -42,22 +42,28 @@ pub(in crate::output::pdf) fn render_source_quality(
     if let Some(note) = super::derived_from_note(i18n, "Source Quality") {
         builder = builder.add_component(note);
     }
+    builder = builder.add_component(
+        Label::new(i18n.t("pdf-sq-unweighted"))
+            .with_size("10.5pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    );
 
-    // "All signals fine" only when every dimension is: gov.uk scored 80+
-    // overall with Substanz at 70 and two failed signals, and the PDF said
-    // nothing needed doing.
-    if [&sq.substance, &sq.consistency, &sq.authority]
+    // Structural signals are indicators (plan 103): the values, no score and
+    // no pass/fail marker — a word count is not a verdict on substance.
+    let scored = [&sq.consistency, &sq.authority];
+    let all_fine = scored
         .iter()
-        .all(|dim| dim.score >= 75)
-    {
-        return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
-    }
+        .filter(|dim| !dim.signals.is_empty())
+        .all(|dim| dim.score >= 75);
 
-    for dim in [&sq.substance, &sq.consistency, &sq.authority] {
+    for dim in [&sq.consistency, &sq.authority] {
         let dim_name = source_quality_dimension_name(dim.kind, en);
-        let dim_label = source_quality_dimension_label(dim.score, en);
         builder = builder.add_component(Section::new(dim_name).with_level(3));
-
+        if dim.signals.is_empty() {
+            builder = builder.add_component(TextBlock::new(i18n.t("pdf-sq-not-checked")));
+            continue;
+        }
+        let dim_label = source_quality_dimension_label(dim.score, en);
         builder = builder.add_component(
             // Label and colour from the same five-level band: "Solide" in
             // green above "Verbesserungswürdig" (70 on gov.uk) mixed three
@@ -73,22 +79,42 @@ pub(in crate::output::pdf) fn render_source_quality(
             .with_description(&dim_label)
             .with_thresholds(75, 40),
         );
-
-        if !dim.signals.is_empty() {
-            let mut table = AuditTable::new(vec![
-                TableColumn::new("Signal"),
-                TableColumn::new("Status"),
-                TableColumn::new("Detail"),
-            ]);
-
-            for signal in &dim.signals {
-                let (name, detail) =
-                    source_quality_signal_text(signal.kind, signal.present, &signal.values, en);
-                let status = if signal.present { "✓" } else { "✗" };
-                table = table.add_row(vec![name, status.to_string(), detail]);
-            }
-            builder = builder.add_component(table);
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Signal"),
+            TableColumn::new("Status"),
+            TableColumn::new("Detail"),
+        ]);
+        for signal in &dim.signals {
+            let (name, detail) =
+                source_quality_signal_text(signal.kind, signal.present, &signal.values, en);
+            let status = if signal.present { "✓" } else { "✗" };
+            table = table.add_row(vec![name, status.to_string(), detail]);
         }
+        builder = builder.add_component(table);
+        if dim.kind == crate::source_quality::DimensionKind::Consistency {
+            builder = builder.add_component(TextBlock::new(i18n.t("pdf-sq-cross-page-note")));
+        }
+    }
+    if all_fine {
+        builder = builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
+    }
+
+    if !sq.substance.signals.is_empty() {
+        builder = builder
+            .add_component(
+                Section::new(source_quality_dimension_name(sq.substance.kind, en)).with_level(3),
+            )
+            .add_component(TextBlock::new(i18n.t("pdf-sq-indicators-intro")));
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Signal"),
+            TableColumn::new(if en { "Observed" } else { "Beobachtet" }),
+        ]);
+        for signal in &sq.substance.signals {
+            let (name, detail) =
+                source_quality_signal_text(signal.kind, signal.present, &signal.values, en);
+            table = table.add_row(vec![name, detail]);
+        }
+        builder = builder.add_component(table);
     }
 
     builder

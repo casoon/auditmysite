@@ -102,9 +102,10 @@ pub fn module_derived_from(name: &str) -> &'static [&'static str] {
         // Reads SEO's own signals: canonical URL, social meta, structured
         // data, headings.
         "AI Visibility" => &["seo"],
-        // Reads SEO, Security headers/HTTPS, and the image-alt and
-        // interactive-name counts from the Accessibility result.
-        "Source Quality" => &["seo", "security", "accessibility"],
+        // Scores SEO metadata, Security headers/HTTPS and the contact/imprint/
+        // privacy links the UX module detected. Accessibility counts appear
+        // only as unscored structural indicators (plan 103).
+        "Source Quality" => &["seo", "security", "ux"],
         _ => &[],
     }
 }

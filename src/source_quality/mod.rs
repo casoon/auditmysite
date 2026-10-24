@@ -3,10 +3,22 @@
 //! Interprets data from existing audit modules (Accessibility, SEO, Security,
 //! UX) to assess the quality of a website **as an information source**.
 //!
-//! Three dimensions are scored:
-//! - **Substance** — Does the site treat its content as valuable?
-//! - **Consistency** — Does the site maintain its own standards?
-//! - **Authority** — Does the site present itself as a trustworthy source?
+//! Shown in the report as "technical preparation for machine processing";
+//! the JSON keeps the `source_quality` key. Two dimensions are scored, one
+//! is reported as indicators only (plan 103):
+//! - **Structural signals** (`substance`) — headings, word count, structured
+//!   data, metadata. Indicators: they say nothing about whether the content
+//!   is substantial, so they no longer score. `substance.score` is still
+//!   computed for JSON compatibility and is removed in 2.0.
+//! - **Consistency** — contradictions a page can show on its own (declared
+//!   language vs. `og:locale`, `<title>` vs. `og:title`, structured data
+//!   vs. visible content); across pages, uniform metadata coverage.
+//! - **Publisher and security signals** (`authority`) — HTTPS, headers,
+//!   publisher markup, canonical, Open Graph, and contact/imprint/privacy
+//!   links as detected.
+//!
+//! Accessibility results feed none of the scored dimensions; they are
+//! reported by the Accessibility module (plan 29, D3; plan 103).
 //!
 //! **Disclaimer**: This is a purely technical assessment based on structural,
 //! semantic, and metadata signals. It does NOT evaluate whether the content
@@ -98,12 +110,22 @@ pub enum QualitySignalKind {
     CanonicalUrl,
     SocialMeta,
     TrustSignals,
-    // Consistency (single page)
+    // Consistency (single page). HeadingHierarchy, NamedControls,
+    // NoCriticalErrors and LanguageConsistency are no longer emitted (they
+    // re-counted accessibility findings or the language declaration, plan
+    // 103) and stay only so older reports still deserialize.
     HeadingHierarchy,
     NamedControls,
     NoCriticalErrors,
     LanguageConsistency,
-    // Consistency (batch / cross-page)
+    /// Declared `lang` and `og:locale` name the same language.
+    LocaleAgreement,
+    /// `<title>` shares a term with `og:title`.
+    TitleAgreement,
+    /// JSON-LD values match the visible content (`content_parity`).
+    SchemaContentParity,
+    // Consistency (batch / cross-page). ScoreStability and ErrorFreePages
+    // read accessibility results and are no longer emitted (plan 103).
     ScoreStability,
     MetaDescriptionCoverage,
     StructuredDataCoverage,
@@ -153,6 +175,17 @@ pub struct SignalValues {
     /// Cross-page standard deviation (ScoreStability)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub std_dev: Option<f32>,
+    /// Declared `og:locale` (LocaleAgreement)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
+    /// How many values were compared (SchemaContentParity); `count` then
+    /// holds the deviating ones.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<u32>,
+    /// Canonical keys of what was not detected: `contact`/`imprint`/`privacy`
+    /// (TrustSignals).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub keys: Vec<String>,
 }
 
 /// A single measurable signal contributing to a dimension score
@@ -241,12 +274,12 @@ pub fn source_quality_disclaimer(en: bool) -> String {
 /// Localized dimension name for a [`DimensionKind`].
 pub fn source_quality_dimension_name(kind: DimensionKind, en: bool) -> &'static str {
     match (kind, en) {
-        (DimensionKind::Substance, true) => "Substance",
-        (DimensionKind::Substance, false) => "Substanz",
+        (DimensionKind::Substance, true) => "Structural signals",
+        (DimensionKind::Substance, false) => "Struktursignale",
         (DimensionKind::Consistency, true) => "Consistency",
         (DimensionKind::Consistency, false) => "Konsistenz",
-        (DimensionKind::Authority, true) => "Authority",
-        (DimensionKind::Authority, false) => "Autorität",
+        (DimensionKind::Authority, true) => "Publisher and security signals",
+        (DimensionKind::Authority, false) => "Herausgeber- und Sicherheitssignale",
     }
 }
 
@@ -303,8 +336,8 @@ pub fn source_quality_signal_text(
         (CanonicalUrl, _) => "Canonical URL".into(),
         (SocialMeta, true) => "Social meta".into(),
         (SocialMeta, false) => "Social-Meta".into(),
-        (TrustSignals, true) => "Trust signals".into(),
-        (TrustSignals, false) => "Vertrauenssignale".into(),
+        (TrustSignals, true) => "Contact, imprint, privacy".into(),
+        (TrustSignals, false) => "Kontakt, Impressum, Datenschutz".into(),
         (HeadingHierarchy, true) => "Heading hierarchy".into(),
         (HeadingHierarchy, false) => "Überschriften-Hierarchie".into(),
         (NamedControls, true) => "Named controls".into(),
@@ -313,6 +346,12 @@ pub fn source_quality_signal_text(
         (NoCriticalErrors, false) => "Keine kritischen Fehler".into(),
         (LanguageConsistency, true) => "Language consistency".into(),
         (LanguageConsistency, false) => "Sprachkonsistenz".into(),
+        (LocaleAgreement, true) => "Language: lang vs. og:locale".into(),
+        (LocaleAgreement, false) => "Sprache: lang und og:locale".into(),
+        (TitleAgreement, true) => "Title: <title> and og:title".into(),
+        (TitleAgreement, false) => "Titel: <title> und og:title".into(),
+        (SchemaContentParity, true) => "Structured data vs. visible content".into(),
+        (SchemaContentParity, false) => "Strukturierte Daten und sichtbarer Inhalt".into(),
         (ScoreStability, true) => "Score stability".into(),
         (ScoreStability, false) => "Score-Stabilität".into(),
         (MetaDescriptionCoverage, true) => "Meta descriptions".into(),
@@ -363,27 +402,13 @@ pub fn source_quality_signal_text(
             }
         }
         ContentVolume => {
+            // A count, not a verdict: 200 words can answer a question and
+            // 2,000 can miss it (plan 103).
             let word_count = values.word_count.unwrap_or(0);
             if en {
-                format!(
-                    "{} words{}",
-                    word_count,
-                    if present {
-                        ""
-                    } else {
-                        " (heuristic: typically ≥ 300 words recommended)"
-                    }
-                )
+                format!("{word_count} words")
             } else {
-                format!(
-                    "{} Wörter{}",
-                    word_count,
-                    if present {
-                        ""
-                    } else {
-                        " (Heuristik: typisch ≥ 300 Wörter empfohlen)"
-                    }
-                )
+                format!("{word_count} Wörter")
             }
         }
         StructuredData => {
@@ -526,19 +551,38 @@ pub fn source_quality_signal_text(
             }
         }
         TrustSignals => {
-            let score = values.score.unwrap_or(0.0);
-            if en {
-                format!(
-                    "UX trust score: {:.0}{}",
-                    score,
-                    if present { "" } else { " (weak)" }
-                )
+            // Reports from before plan 103 carry the UX trust score instead.
+            if let Some(score) = values.score {
+                if en {
+                    format!("UX trust score: {score:.0}")
+                } else {
+                    format!("UX Trust-Score: {score:.0}")
+                }
+            } else if values.keys.is_empty() {
+                if en {
+                    "Contact, imprint and privacy links detected".into()
+                } else {
+                    "Kontakt, Impressum und Datenschutz erkannt".into()
+                }
             } else {
-                format!(
-                    "UX Trust-Score: {:.0}{}",
-                    score,
-                    if present { "" } else { " (schwach)" }
-                )
+                let names: Vec<&str> = values
+                    .keys
+                    .iter()
+                    .map(|key| match (key.as_str(), en) {
+                        ("contact", true) => "contact",
+                        ("contact", false) => "Kontakt",
+                        ("imprint", true) => "imprint",
+                        ("imprint", false) => "Impressum",
+                        ("privacy", true) => "privacy policy",
+                        ("privacy", false) => "Datenschutz",
+                        (other, _) => other,
+                    })
+                    .collect();
+                if en {
+                    format!("Not detected: {}", names.join(", "))
+                } else {
+                    format!("Nicht erkannt: {}", names.join(", "))
+                }
             }
         }
         HeadingHierarchy => {
@@ -578,6 +622,32 @@ pub fn source_quality_signal_text(
                 format!("{} critical violations", count)
             } else {
                 format!("{} kritische Verstöße", count)
+            }
+        }
+        LocaleAgreement => {
+            let lang = values.lang.as_deref().unwrap_or("?");
+            let locale = values.locale.as_deref().unwrap_or("?");
+            match (present, en) {
+                (true, true) => format!("lang {lang} matches og:locale {locale}"),
+                (true, false) => format!("lang {lang} passt zu og:locale {locale}"),
+                (false, true) => format!("lang {lang} differs from og:locale {locale}"),
+                (false, false) => format!("lang {lang} weicht von og:locale {locale} ab"),
+            }
+        }
+        TitleAgreement => match (present, en) {
+            (true, true) => "<title> and og:title share terms".into(),
+            (true, false) => "<title> und og:title teilen Begriffe".into(),
+            (false, true) => "<title> and og:title share no term".into(),
+            (false, false) => "<title> und og:title teilen keinen Begriff".into(),
+        },
+        SchemaContentParity => {
+            let checked = values.checked.unwrap_or(0);
+            if en {
+                format!("{count} of {checked} compared values differ from the visible content")
+            } else {
+                format!(
+                    "{count} von {checked} verglichenen Werten weichen vom sichtbaren Inhalt ab"
+                )
             }
         }
         LanguageConsistency => {
@@ -667,11 +737,20 @@ pub fn analyze_source_quality(report: &AuditReport) -> SourceQualityAnalysis {
     let consistency = evaluate_single_page_consistency(report);
     let authority = evaluate_authority(report);
 
-    let score = weighted_average(&[
-        (substance.score, 40),
-        (consistency.score, 25),
-        (authority.score, 35),
-    ]);
+    // Structural signals are indicators and carry no weight (plan 103). The
+    // three on-page consistency checks run only where both sides exist; the
+    // dimension carries its 25 % share in proportion to the checks that ran,
+    // so one passed comparison does not count like three (inros-lackner.de:
+    // one title check would have lifted the indicator from 44 to 66).
+    let consistency_weight = 25
+        * consistency
+            .signals
+            .len()
+            .min(SINGLE_PAGE_CONSISTENCY_CHECKS) as u32;
+    let score = weighted_average(&scored(&[
+        (&consistency, consistency_weight),
+        (&authority, 35 * SINGLE_PAGE_CONSISTENCY_CHECKS as u32),
+    ]));
 
     SourceQualityAnalysis {
         score,
@@ -703,11 +782,7 @@ pub fn analyze_source_quality_batch(reports: &[AuditReport]) -> SourceQualityAna
     // Cross-page consistency (the real batch value)
     let consistency = evaluate_cross_page_consistency(reports);
 
-    let score = weighted_average(&[
-        (avg_substance.score, 35),
-        (consistency.score, 30),
-        (avg_authority.score, 35),
-    ]);
+    let score = weighted_average(&scored(&[(&consistency, 30), (&avg_authority, 35)]));
 
     SourceQualityAnalysis {
         score,
@@ -936,15 +1011,27 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     // both numbers, so the report read as two independent assessments that
     // happened to agree (plan 29, D3).
 
-    // 6. Trust signals from UX module
+    // 6. Contact, imprint and privacy links as the UX module detected them.
+    // The UX trust score used to stand here: a score derived from another
+    // derived score, with its own keyword-density penalty (plan 103).
     if let Some(ux) = &report.ux {
-        let trust_good = ux.trust_signals.score >= 70;
-        signals.push(QualitySignal::new(
+        use crate::ux::UxIssueKind;
+        let missing: Vec<String> = [
+            (UxIssueKind::NoContact, "contact"),
+            (UxIssueKind::NoImprint, "imprint"),
+            (UxIssueKind::NoPrivacy, "privacy"),
+        ]
+        .iter()
+        .filter(|(kind, _)| ux.issues.iter().any(|issue| issue.kind == *kind))
+        .map(|(_, key)| key.to_string())
+        .collect();
+        signals.push(QualitySignal::graded(
             TrustSignals,
-            trust_good,
+            missing.is_empty(),
+            (3 - missing.len()) as f32 / 3.0,
             0.15,
             SignalValues {
-                score: Some(ux.trust_signals.score as f32),
+                keys: missing,
                 ..Default::default()
             },
         ));
@@ -955,76 +1042,110 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
 
 // ─── Consistency (single page) ───────────────────────────────────────────────
 
+/// Locale, title and structured-data comparison.
+const SINGLE_PAGE_CONSISTENCY_CHECKS: usize = 3;
+
 fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     use QualitySignalKind::*;
     let mut signals = Vec::new();
 
-    // 1. Heading hierarchy (no skips)
-    if let Some(seo) = &report.discoverability.seo {
-        let issue_count = seo.headings.issues.len();
+    // Only contradictions one page can show on its own; each check runs only
+    // when both sides exist. Heading hierarchy, unnamed controls and critical
+    // violations used to stand here — accessibility findings counted a second
+    // time, the same seven links twice on inros-lackner.de (plan 103).
+    let Some(seo) = &report.discoverability.seo else {
+        return build_dimension(DimensionKind::Consistency, signals);
+    };
+
+    // 1. Declared language vs. og:locale, compared by primary subtag
+    // (`de-DE` and `de_DE` agree).
+    let og_locale = seo
+        .social
+        .open_graph
+        .as_ref()
+        .and_then(|og| og.locale.clone());
+    if let (Some(lang), Some(locale)) = (seo.technical.lang.clone(), og_locale) {
+        let agree = primary_language(&lang) == primary_language(&locale);
         signals.push(QualitySignal::new(
-            HeadingHierarchy,
-            issue_count == 0,
-            0.25,
+            LocaleAgreement,
+            agree,
+            0.30,
             SignalValues {
-                count: Some(issue_count as u32),
+                lang: Some(lang),
+                locale: Some(locale),
                 ..Default::default()
             },
         ));
     }
 
-    // 2. All interactive elements named: violations whose taxonomy rule is a
-    // missing name or role, mapped the way the normalization maps them
-    // (#574: one definition, not a second filter). Counting all of 4.1.2 and
-    // 1.1.1 also counted duplicate IDs and images, and the JSON findings,
-    // which carry 4.1.2 for `aria-hidden-focus` since plan 61, then
-    // contradicted a "present" signal (report-lint on 5 rankinglab reports).
-    let unnamed_interactive = report
-        .accessibility
-        .wcag_results
-        .violations
+    // 2. <title> vs. og:title: two declared titles of the same page without a
+    // single shared term usually mean one is a site-wide template value. The
+    // H1 is deliberately not compared — a homepage titled with the company
+    // name under a slogan H1 is normal, not a contradiction (inros-lackner.de,
+    // plan 103).
+    let og_title = seo
+        .social
+        .open_graph
+        .as_ref()
+        .and_then(|og| og.title.clone());
+    if let (Some(title), Some(og_title)) = (seo.meta.title.as_deref(), og_title) {
+        let title_terms = significant_terms(title);
+        let og_terms = significant_terms(&og_title);
+        if !title_terms.is_empty() && !og_terms.is_empty() {
+            signals.push(QualitySignal::new(
+                TitleAgreement,
+                !title_terms.is_disjoint(&og_terms),
+                0.30,
+                SignalValues::default(),
+            ));
+        }
+    }
+
+    // 3. Structured data vs. visible content, as the schema parity check
+    // compared it (only values it could evaluate).
+    let evaluated: Vec<_> = seo
+        .structured_data
+        .content_parity
         .iter()
-        .filter(|v| {
-            crate::taxonomy::RuleLookup::by_legacy_wcag_id(
-                crate::audit::normalized::wcag_group_key(v),
-            )
-            .is_some_and(|rule| crate::taxonomy::is_missing_name_or_role(rule.id))
-        })
-        .count();
-    signals.push(QualitySignal::new(
-        NamedControls,
-        unnamed_interactive == 0,
-        0.25,
-        SignalValues {
-            count: Some(unnamed_interactive as u32),
-            ..Default::default()
-        },
-    ));
-
-    // 3. No critical WCAG violations
-    let critical = report.accessibility.statistics.critical;
-    signals.push(QualitySignal::new(
-        NoCriticalErrors,
-        critical == 0,
-        0.25,
-        SignalValues {
-            count: Some(critical as u32),
-            ..Default::default()
-        },
-    ));
-
-    // 4. Language consistency
-    if let Some(seo) = &report.discoverability.seo {
-        let has_lang = seo.technical.has_lang;
-        signals.push(QualitySignal::new(
-            LanguageConsistency,
-            has_lang,
-            0.25,
-            SignalValues::default(),
+        .filter(|p| p.status != crate::seo::schema_parity::ContentParityStatus::NotEvaluated)
+        .collect();
+    if !evaluated.is_empty() {
+        let mismatches = evaluated
+            .iter()
+            .filter(|p| p.status == crate::seo::schema_parity::ContentParityStatus::Mismatch)
+            .count();
+        signals.push(QualitySignal::graded(
+            SchemaContentParity,
+            mismatches == 0,
+            (evaluated.len() - mismatches) as f32 / evaluated.len() as f32,
+            0.40,
+            SignalValues {
+                count: Some(mismatches as u32),
+                checked: Some(evaluated.len() as u32),
+                ..Default::default()
+            },
         ));
     }
 
     build_dimension(DimensionKind::Consistency, signals)
+}
+
+/// Primary language subtag, lower case: `de-DE`, `de_DE`, `DE` → `de`.
+fn primary_language(tag: &str) -> String {
+    tag.split(['-', '_'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+}
+
+/// Lower-case words of at least three letters — enough to tell whether two
+/// titles talk about the same thing, without stemming or stopword lists.
+fn significant_terms(text: &str) -> std::collections::HashSet<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|word| word.chars().count() >= 3)
+        .map(|word| word.to_lowercase())
+        .collect()
 }
 
 // ─── Consistency (batch / cross-page) ────────────────────────────────────────
@@ -1034,23 +1155,9 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let total = reports.len() as f32;
     let mut signals = Vec::new();
 
-    // 1. Score stability (low standard deviation = consistent)
-    let scores: Vec<f32> = reports.iter().map(|r| r.accessibility.score).collect();
-    let mean = scores.iter().sum::<f32>() / total;
-    let variance = scores.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / total;
-    let std_dev = variance.sqrt();
-    // Tapers from fully met at a standard deviation of 15 to nothing at 30,
-    // rather than falling off a cliff at 15.
-    signals.push(QualitySignal::graded(
-        ScoreStability,
-        std_dev < 15.0,
-        ((30.0 - std_dev) / 15.0).clamp(0.0, 1.0),
-        0.20,
-        SignalValues {
-            std_dev: Some(std_dev),
-            ..Default::default()
-        },
-    ));
+    // Score stability and error-free pages used to open this list. Both read
+    // the accessibility result, which the Accessibility module reports
+    // (plan 103).
 
     // 2. Meta description coverage
     let with_meta: usize = reports
@@ -1140,24 +1247,6 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
         },
     ));
 
-    // 6. No pages with critical violations
-    let pages_with_critical: usize = reports
-        .iter()
-        .filter(|r| r.accessibility.statistics.critical > 0)
-        .count();
-    let clean_pct = ((total as usize - pages_with_critical) as f32 / total * 100.0) as u32;
-    // `clean_pct` was computed and then discarded in favour of the bool.
-    signals.push(QualitySignal::graded(
-        ErrorFreePages,
-        pages_with_critical == 0,
-        clean_pct as f32 / 100.0,
-        0.20,
-        SignalValues {
-            percent: Some(clean_pct),
-            ..Default::default()
-        },
-    ));
-
     build_dimension(DimensionKind::Consistency, signals)
 }
 
@@ -1218,6 +1307,16 @@ fn average_dimensions(dims: &[DimensionScore], kind: DimensionKind) -> Dimension
         label: source_quality_dimension_label(avg, true),
         signals,
     }
+}
+
+/// Score/weight pairs of the dimensions that have at least one signal. A
+/// dimension with nothing applicable reads "No data" and must not pull the
+/// overall towards 0.
+fn scored(dims: &[(&DimensionScore, u32)]) -> Vec<(u32, u32)> {
+    dims.iter()
+        .filter(|(dim, _)| !dim.signals.is_empty())
+        .map(|(dim, weight)| (dim.score, *weight))
+        .collect()
 }
 
 fn weighted_average(items: &[(u32, u32)]) -> u32 {
@@ -1517,13 +1616,13 @@ mod tests {
             false,
         );
         assert_eq!(name, "Inhaltsumfang");
-        assert!(detail.contains("Wörter"));
-        assert!(detail.contains("Heuristik"));
+        // A count, not a recommendation (plan 103).
+        assert_eq!(detail, "120 Wörter");
 
         // Dimension label + disclaimer localize too.
         assert_eq!(
             source_quality_dimension_name(DimensionKind::Authority, false),
-            "Autorität"
+            "Herausgeber- und Sicherheitssignale"
         );
         assert_eq!(source_quality_dimension_label(95, false), "Sehr gut");
         assert!(source_quality_disclaimer(false).contains("ausschließlich"));
@@ -1811,5 +1910,205 @@ mod tests {
             substance_signal(&clean_report, QualitySignalKind::SemanticStructure).present,
             "zero landmark violations (and no missing <main>) must be flagged present"
         );
+    }
+
+    // ─── Plan 103 ────────────────────────────────────────────────────────────
+
+    fn seo_with(
+        lang: Option<&str>,
+        og: Option<crate::seo::OpenGraph>,
+        title: Option<&str>,
+        h1: Option<&str>,
+    ) -> crate::seo::SeoAnalysis {
+        use crate::seo::{HeadingInfo, HeadingStructure, MetaTags, SeoAnalysis, TechnicalSeo};
+        SeoAnalysis {
+            meta: MetaTags {
+                title: title.map(str::to_string),
+                ..Default::default()
+            },
+            headings: HeadingStructure {
+                h1_count: usize::from(h1.is_some()),
+                h1_text: h1.map(str::to_string),
+                headings: h1
+                    .map(|text| {
+                        vec![HeadingInfo {
+                            level: 1,
+                            text: text.to_string(),
+                            length: text.len(),
+                            is_question: false,
+                            in_faq_context: false,
+                            word_count_after: 10,
+                        }]
+                    })
+                    .unwrap_or_default(),
+                issues: vec![],
+                total_count: usize::from(h1.is_some()),
+            },
+            technical: TechnicalSeo {
+                has_lang: lang.is_some(),
+                lang: lang.map(str::to_string),
+                ..Default::default()
+            },
+            social: crate::seo::SocialTags {
+                open_graph: og,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Plan 103: consistency counted the same seven nameless links twice
+    /// (named controls + critical violations). Accessibility findings now
+    /// move no scored dimension.
+    #[test]
+    fn accessibility_violations_do_not_move_any_scored_dimension() {
+        let clean = minimal_report();
+        let mut broken = minimal_report();
+        broken.accessibility.statistics.critical = 7;
+        let a = analyze_source_quality(&clean);
+        let b = analyze_source_quality(&broken);
+        assert_eq!(a.consistency.score, b.consistency.score);
+        assert_eq!(a.authority.score, b.authority.score);
+        assert_eq!(a.score, b.score);
+        for kind in [
+            QualitySignalKind::NamedControls,
+            QualitySignalKind::NoCriticalErrors,
+            QualitySignalKind::HeadingHierarchy,
+            QualitySignalKind::LanguageConsistency,
+        ] {
+            assert!(
+                b.consistency.signals.iter().all(|s| s.kind != kind),
+                "{kind:?} must no longer be emitted"
+            );
+        }
+    }
+
+    #[test]
+    fn declared_language_is_compared_with_og_locale_by_primary_subtag() {
+        let og = |locale: &str| crate::seo::OpenGraph {
+            locale: Some(locale.to_string()),
+            ..Default::default()
+        };
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(seo_with(Some("de-DE"), Some(og("de_DE")), None, None));
+        let agree = analyze_source_quality(&report)
+            .consistency
+            .signals
+            .into_iter()
+            .find(|s| s.kind == QualitySignalKind::LocaleAgreement)
+            .expect("locale signal");
+        assert!(agree.present, "{}", agree.detail);
+
+        report.discoverability.seo = Some(seo_with(Some("de-DE"), Some(og("en_US")), None, None));
+        let differ = analyze_source_quality(&report)
+            .consistency
+            .signals
+            .into_iter()
+            .find(|s| s.kind == QualitySignalKind::LocaleAgreement)
+            .expect("locale signal");
+        assert!(!differ.present);
+        assert_eq!(differ.detail, "lang de-DE differs from og:locale en_US");
+    }
+
+    #[test]
+    fn title_is_compared_with_og_title_but_not_with_the_h1() {
+        let og = |title: &str| crate::seo::OpenGraph {
+            title: Some(title.to_string()),
+            ..Default::default()
+        };
+        let title_signal = |report: &AuditReport| {
+            analyze_source_quality(report)
+                .consistency
+                .signals
+                .into_iter()
+                .find(|s| s.kind == QualitySignalKind::TitleAgreement)
+        };
+        let mut report = minimal_report();
+        // Company name as title, slogan as H1: normal on a homepage.
+        report.discoverability.seo = Some(seo_with(
+            None,
+            Some(og("INROS LACKNER SE")),
+            Some("INROS LACKNER SE - INROS LACKNER SE"),
+            Some("BIM – Visionen gestalten"),
+        ));
+        assert!(title_signal(&report).expect("title signal").present);
+
+        report.discoverability.seo = Some(seo_with(
+            None,
+            Some(og("Willkommen")),
+            Some("Hafenplanung | Beispiel GmbH"),
+            None,
+        ));
+        let signal = title_signal(&report).expect("title signal");
+        assert!(!signal.present);
+        assert_eq!(signal.detail, "<title> and og:title share no term");
+
+        // No og:title: nothing to compare, no signal.
+        report.discoverability.seo = Some(seo_with(None, None, Some("Hafenplanung"), Some("X")));
+        assert!(title_signal(&report).is_none());
+    }
+
+    /// Without any applicable comparison the consistency dimension is not
+    /// checked, and the overall is the publisher/security dimension alone —
+    /// not dragged towards 0 by an empty dimension.
+    #[test]
+    fn overall_ignores_unchecked_consistency_and_structural_indicators() {
+        let analysis = analyze_source_quality(&minimal_report());
+        assert!(analysis.consistency.signals.is_empty());
+        assert_eq!(analysis.score, analysis.authority.score);
+    }
+
+    /// One applicable consistency check carries a third of the dimension's
+    /// weight, not all of it.
+    #[test]
+    fn consistency_weight_follows_the_checks_that_ran() {
+        let og = crate::seo::OpenGraph {
+            title: Some("Hafenplanung".to_string()),
+            ..Default::default()
+        };
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(seo_with(None, Some(og), Some("Hafenplanung"), None));
+        let analysis = analyze_source_quality(&report);
+        assert_eq!(analysis.consistency.signals.len(), 1);
+        assert_eq!(analysis.consistency.score, 100);
+        let expected = weighted_average(&[
+            (analysis.consistency.score, 25),
+            (analysis.authority.score, 105),
+        ]);
+        assert_eq!(analysis.score, expected);
+    }
+
+    #[test]
+    fn trust_signals_name_what_was_not_detected_instead_of_a_ux_score() {
+        let dim = serde_json::json!({
+            "kind": "TrustSignals", "name": "", "score": 50, "weight": 0.2, "summary": ""
+        });
+        let issue = |kind: &str| {
+            serde_json::json!({
+                "kind": kind, "dimension": "", "severity": "", "problem": "",
+                "impact": "", "recommendation": ""
+            })
+        };
+        let ux: crate::ux::UxAnalysis = serde_json::from_value(serde_json::json!({
+            "score": 50, "grade": "D",
+            "cta_clarity": dim, "visual_hierarchy": dim, "content_clarity": dim,
+            "trust_signals": dim, "cognitive_load": dim,
+            "issues": [issue("NoImprint"), issue("WeakTrustSignals")]
+        }))
+        .expect("ux fixture");
+        let mut report = minimal_report();
+        report.ux = Some(ux);
+        let signal = analyze_source_quality(&report)
+            .authority
+            .signals
+            .into_iter()
+            .find(|s| s.kind == QualitySignalKind::TrustSignals)
+            .expect("trust signal");
+        assert_eq!(signal.values.keys, vec!["imprint".to_string()]);
+        assert!(signal.values.score.is_none(), "no UX score is fed in");
+        assert_eq!(signal.detail, "Not detected: imprint");
+        let (_, de) =
+            source_quality_signal_text(signal.kind, signal.present, &signal.values, false);
+        assert_eq!(de, "Nicht erkannt: Impressum");
     }
 }

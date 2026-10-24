@@ -1983,9 +1983,9 @@ pub(super) fn render_module_sections(
                 SectionHeaderSplit::new(
                     if en { "AI & Trust" } else { "KI & Vertrauen" },
                     if en {
-                        "Source quality, AI readability and content visibility — trust and discoverability indicators."
+                        "Technical preparation, AI readability and content visibility — unweighted indicators from technical signals."
                     } else {
-                        "Quellenqualität, KI-Lesbarkeit und Content-Sichtbarkeit — Vertrauens- und Auffindbarkeits-Indikatoren."
+                        "Technische Aufbereitung, KI-Lesbarkeit und Content-Sichtbarkeit — ungewichtete Indikatoren aus technischen Signalen."
                     },
                 )
                 .with_eyebrow(if en { "TRUST" } else { "VERTRAUEN" })
