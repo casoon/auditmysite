@@ -4882,9 +4882,9 @@ dependencies = [
 
 [[package]]
 name = "runemark"
-version = "0.6.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3839c05cc3013660ff516337b30b2efabf876d00da9eb5e253b73e2f782bbfd"
+checksum = "b6f49b5865f135ce65790ffbee27dac4a5a5efb4ef1fc28ed5958e4ff45be37d"
 dependencies = [
  "indicatif",
  "unicode-width",
