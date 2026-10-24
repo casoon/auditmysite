@@ -41,10 +41,10 @@
       "url": "https://www.bundesregierung.de/",
       "expected": {
         "min": 35,
-        "max": 76
+        "max": 88
       },
-      "reviewed": "2026-10-01",
-      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point. B2 (#692): three label-in-name false positives at CSS-hidden text (button#navigation \"schließen\", two toggles outside the reading order) are gone, and the cookie dialog without aria-modal is a review (dialog/modal-unmarked); 61 -> 68. B4 (#694): landmark-unique is a review, dialog-no-focusable no longer fires on the cookie dialog whose buttons sit deeper than direct children, and content-outside counts per block; 72 -> 73."
+      "reviewed": "2026-10-24",
+      "notes": "Contrast failures, orientation lock, two h1; own statement: partially conformant. B1 (#691): a missing aria-selected is now one REVIEW per tablist and only if no tab is selected (ARIA SHOULD), instead of six findings per slider tab; that adds about one point. B2 (#692): three label-in-name false positives at CSS-hidden text (button#navigation \"schließen\", two toggles outside the reading order) are gone, and the cookie dialog without aria-modal is a review (dialog/modal-unmarked); 61 -> 68. B4 (#694): landmark-unique is a review, dialog-no-focusable no longer fires on the cookie dialog whose buttons sit deeper than direct children, and content-outside counts per block; 72 -> 73. Re-review for 1.8.0 (83; 1.7.3 gives 72 on the same day): the 5 target-size findings were skip links at -99999 px (#705/#706), 4 presentation-semantic-children were false positives against WAI-ARIA 1.2 (dropped in #743), landmark-unique is a review and content-outside counts per block (B4), reduced-motion is 2.3.3 AAA and no longer runs at AA, and the 'orientation lock' was a media query for <=479 px in landscape, not a lock. Remaining: contrast undetermined (4), infinite animation hint, one high finding."
     },
     {
       "url": "https://www.dm.de/",
@@ -59,10 +59,10 @@
       "url": "https://www.berlin.de/",
       "expected": {
         "min": 15,
-        "max": 48
+        "max": 56
       },
-      "reviewed": "2026-10-01",
-      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. B1 (#691): the swiper lists (li[role=group]) are now lists/invalid-structure (Medium) instead of aria-roles (High), same two places, so the score sits about 7 points higher. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports."
+      "reviewed": "2026-10-24",
+      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. B1 (#691): the swiper lists (li[role=group]) are now lists/invalid-structure (Medium) instead of aria-roles (High), same two places, so the score sits about 7 points higher. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports. Re-review for 1.8.0 (49; 1.7.3 gives 42 on the same day), as announced on 2026-10-05: most of the 12-13 contrast failures were image credits and teaser titles over photos measured against an ancestor colour; with pixel sampling (#698) they pass over the photos, 1/3 real failures remain (e.g. a.title 3.98:1). Plus landmark-unique as a review (B4)."
     },
     {
       "url": "https://www.basf.com/",
