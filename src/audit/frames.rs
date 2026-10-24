@@ -47,12 +47,7 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `focus-visible` (fires only when the whole page has
 /// nothing focusable), `unusual-words` and `help`.
-pub const FRAME_TREE_RULES: &[&str] = &[
-    "image-alt",
-    "keyboard",
-    "link-name",
-    "description-duplicates-name",
-];
+pub const FRAME_TREE_RULES: &[&str] = &["image-alt", "keyboard", "description-duplicates-name"];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
 /// element-level ones. Left out, as page-level: `document/lang-*` (the
@@ -157,6 +152,12 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "patterns/accordion-controls-missing",
     "keyboard/click-handler-not-focusable",
     "links/used-as-button",
+    // Linkzweck (Plan 98): beurteilt einzelne Links, läuft auch in Frames.
+    "links/generic-name",
+    "links/url-name",
+    "links/single-character-name",
+    "links/new-window-unannounced",
+    "links/purpose-link-only",
     "images/area-alt-missing",
     "images/input-alt-missing",
     "objects/alt-missing",
@@ -649,7 +650,7 @@ mod tests {
         for page_level in ["focus-visible", "heading-order", "unusual-words", "help"] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in ["description-duplicates-name", "link-name", "image-alt"] {
+        for element in ["description-duplicates-name", "image-alt"] {
             assert!(filter.should_run(element), "{element}");
         }
     }

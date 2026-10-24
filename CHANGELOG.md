@@ -5,6 +5,19 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Unreleased — Linkzweck aus `a11y-rules` 0.24.0 (Plan 98, casoon/barrierlab#13, #51):**
+  `link_purpose` und `link_purpose_link_only` waren bei B5 (#743) liegen geblieben, obwohl #690
+  sie dorthin verschoben hatte. Sie laufen jetzt im geteilten Bestand, beide Dateien sind
+  gelöscht, die alten Kennungen lösen über `LEGACY_RULE_IDS` auf. `links/generic-name` nutzt
+  die bisherige lokale Liste (15 Sprachen, auch Navigationswörter wie „Start“) und die
+  Kontextauswertung aus #569/Plan 71; mit Kontext Low statt einer eigenen Kennung
+  `link-name-context`. Neu: `links/url-name`, `links/single-character-name`,
+  `links/new-window-unannounced` (prüft `target="_blank"` statt `aria-haspopup`, 3.2.5 AAA mit
+  eigenem Taxonomie-Eintrag und Erklärungstext) und `links/purpose-link-only` (2.4.9). Alle sind
+  `REVIEW`; generische Linktexte ohne Kontext waren lokal Verstöße. 2.4.9 und 3.2.5 zählen
+  damit als „nur Hinweise“, die AA-Zahlen (30/25) bleiben. Live inros-lackner.de: 5 ×
+  `link-name-context` → 5 × `links/generic-name` (Low); Detektionskorpus mit Chrome grün.
+
 - **Unreleased — Berichtsqualität nach dem inros-Review (Pläne 69–93, 94):**
   Ein externes Review des Einzel- und des Sitemap-Berichts für inros-lackner.de wurde Punkt für
   Punkt gegen Code und Live-Seite geprüft; nur bestätigte Befunde sind geändert, widerlegte

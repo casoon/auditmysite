@@ -228,6 +228,10 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
         "click-events-have-key-events",
     ),
     ("links/used-as-button", "link-as-button"),
+    // Linkzweck (Plan 98): die 2.4.4-Erklärung der früheren `link-name`.
+    ("links/generic-name", "2.4.4"),
+    ("links/url-name", "2.4.4"),
+    ("links/single-character-name", "2.4.4"),
     // #696: Bilder und Medien mit dem Text der abgeloesten Regel.
     ("images/area-alt-missing", "area-alt"),
     ("images/input-alt-missing", "input-image-alt"),
@@ -1485,6 +1489,52 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // the 2.4.4 fallback above is written for the no-context case and reads
     // as an unconditional rewrite instruction, which overclaims what an
     // automated check can confirm here (#571).
+    // Plan 98: `links/new-window-unannounced` (G201, 3.2.5 AAA).
+    (
+        "links/new-window-unannounced",
+        RuleExplanation {
+            customer_title: "Neues Fenster ohne Ankündigung",
+            customer_title_en: "New window without notice",
+            customer_description:
+                "Ein Link öffnet ein neues Fenster oder Tab (target=\"_blank\"), ohne das im \
+                 Linktext anzukündigen. WCAG 3.2.5 (AAA) verlangt, dass solche Kontextwechsel \
+                 nur auf Anforderung geschehen; die Ankündigung im Linktext ist die übliche \
+                 Lösung.",
+            customer_description_en:
+                "A link opens a new window or tab (target=\"_blank\") without saying so in \
+                 its text. WCAG 3.2.5 (AAA) asks that such context changes happen only on \
+                 request; announcing it in the link text is the usual way.",
+            user_impact:
+                "Screenreader- und Lupennutzer merken den Fensterwechsel oft nicht; der \
+                 Zurück-Button führt dann nicht zur vorherigen Seite.",
+            user_impact_en:
+                "Screen reader and magnifier users often miss the window change; the back \
+                 button then does not return to the previous page.",
+            typical_cause:
+                "Externe Links oder PDF-Downloads, die per target=\"_blank\" geöffnet werden.",
+            typical_cause_en:
+                "External links or PDF downloads opened with target=\"_blank\".",
+            recommendation:
+                "Im Linktext ankündigen, z. B. \"(öffnet in neuem Fenster)\", oder auf \
+                 target=\"_blank\" verzichten.",
+            recommendation_en:
+                "Announce it in the link text, e.g. \"(opens in a new window)\", or drop \
+                 target=\"_blank\".",
+            technical_note:
+                "Ein sichtbares Symbol reicht nur mit Textalternative im zugänglichen Namen \
+                 (Technik G201).",
+            technical_note_en:
+                "A visible icon only counts with a text alternative in the accessible name \
+                 (technique G201).",
+            responsible_role: Role::Editorial,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<a href=\"/prices.pdf\" target=\"_blank\">Price list</a>"),
+            example_good: Some(
+                "<a href=\"/prices.pdf\" target=\"_blank\">Price list (PDF, opens in a new window)</a>",
+            ),
+            example_decorative: None,
+        },
+    ),
     (
         "link-name-context",
         RuleExplanation {

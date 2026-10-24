@@ -5,8 +5,7 @@
 use tracing::{debug, info};
 
 use super::rules::{
-    check_accessible_name, check_focus_visible, check_keyboard, check_link_purpose,
-    check_link_purpose_link_only, check_text_alternatives,
+    check_accessible_name, check_focus_visible, check_keyboard, check_text_alternatives,
 };
 pub use super::rules::{
     check_orientation_with_page, check_pointer_cancellation_with_page, check_reflow_with_page,
@@ -97,11 +96,11 @@ pub fn check_all_excluding(
         run_level_aa_rules(tree, &mut run, filter);
     }
 
-    // Run Level AAA rules if requested
-    if level == WcagLevel::AAA {
-        debug!("Running Level AAA rules...");
-        run_level_aaa_rules(tree, &mut run, filter);
-    }
+    // Level AAA hat keine Baumregeln mehr: 1.4.6 (`contrast/text-enhanced`,
+    // #698), 2.4.9 (`links/purpose-link-only`, Plan 98), 2.4.10
+    // (`headings/section-without-heading`, #697), 3.1.3/3.3.5 (`manual/*`,
+    // #722) laufen im geteilten Bestand, 1.2.8 als Page-Rule
+    // (`check_media_alternative_with_page`).
 
     info!(
         "WCAG check complete: {} violations found",
@@ -172,8 +171,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // DOM-Page-Rule `check_page_titled_with_page`. Der AX-Baum taugt dafuer
     // nicht: Sein Wurzelname faellt ohne Titel auf die URL zurueck.
 
-    // 2.4.4 Link Purpose (In Context) (Level A)
-    run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
+    // 2.4.4 Link Purpose (In Context) und 2.4.9 (AAA) laufen als
+    // `links/generic-name`, `links/url-name`, `links/single-character-name`
+    // und `links/purpose-link-only` im geteilten Bestand (Plan 98).
 
     // 3.1.1 Language of Page (Level A) laeuft als geteilte Regel
     // (`document/lang-missing`, `document/lang-invalid`, siehe wcag::shared)
@@ -288,33 +288,6 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFil
 
     // 2.4.1 / 1.3.1 Landmark Regions laufen als `landmarks/*` im geteilten
     // Bestand.
-}
-
-/// Run all Level AAA rules
-fn run_level_aaa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
-    // 1.4.6 Contrast (Enhanced) laeuft als `contrast/text-enhanced` im
-    // geteilten Bestand (#698).
-
-    // 2.4.10 Section Headings laeuft als `headings/section-without-heading`
-    // im geteilten Bestand (#697).
-
-    // 2.4.9 Link Purpose (Link Only) (Level AAA)
-    run_if_allowed!(
-        filter,
-        "link-name",
-        check_link_purpose_link_only,
-        results,
-        tree
-    );
-
-    // 1.2.8 Media Alternative (Prerecorded) (Level AAA) — moved to the
-    // page-rule table as check_media_alternative_with_page (DOM + transcript
-    // detection needs live page access, not just the AXTree).
-
-    // 3.1.3 Unusual Words und 3.3.5 Help laufen als `manual/unusual-words`
-    // und `manual/help` im geteilten Bestand (#722).
-
-    debug!("Level AAA rules executed");
 }
 
 #[cfg(test)]

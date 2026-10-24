@@ -196,6 +196,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("a11y.link_purpose.weak", Semantics),
     ("a11y.link_purpose_context.weak", Semantics),
     ("a11y.link_purpose_only.weak", Semantics),
+    ("a11y.new_window.unannounced", Semantics),
     ("a11y.location.missing", Semantics),
     // ── 2.4.6 / 2.4.10 — Überschriften ──
     ("a11y.headings.missing", HeadingStructure),

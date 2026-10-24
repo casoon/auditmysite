@@ -469,6 +469,48 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Link Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
+    // Ersetzen `wcag::rules::link_purpose` und `link_purpose_link_only`
+    // (Plan 98, barrierlab#13). Alle fünf sind `REVIEW`; die lokale Regel
+    // meldete generische Linktexte ohne Kontext als Verstoß. Der Kontext
+    // (Text daneben, Absatz/Listenpunkt/Zelle, Überschrift davor) senkt dort
+    // die Schwere auf Low, statt eine eigene Kennung `link-name-context` zu
+    // vergeben. Das neue Fenster prüft `target="_blank"` statt
+    // `aria-haspopup` und gehört zu 3.2.5 (AAA), nicht zu 2.4.4.
+    SharedRule {
+        id: "links/generic-name",
+        criterion: "2.4.4",
+        level: WcagLevel::A,
+        name: "Link Purpose (In Context)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
+    },
+    SharedRule {
+        id: "links/url-name",
+        criterion: "2.4.4",
+        level: WcagLevel::A,
+        name: "Link Purpose (In Context)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
+    },
+    SharedRule {
+        id: "links/single-character-name",
+        criterion: "2.4.4",
+        level: WcagLevel::A,
+        name: "Link Purpose (In Context)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
+    },
+    SharedRule {
+        id: "links/new-window-unannounced",
+        criterion: "3.2.5",
+        level: WcagLevel::AAA,
+        name: "Change on Request (New Window)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/change-on-request.html",
+    },
+    SharedRule {
+        id: "links/purpose-link-only",
+        criterion: "2.4.9",
+        level: WcagLevel::AAA,
+        name: "Link Purpose (Link Only)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-link-only.html",
+    },
     SharedRule {
         id: "buttons/name-missing",
         criterion: "4.1.2",
@@ -1727,6 +1769,11 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ("focus/outline-removed", "focus-visible-outline-none"),
     ("motion/reduced-motion-ignored", "prefers-reduced-motion"),
     ("links/used-as-button", "link-as-button"),
+    ("links/generic-name", "link-name"),
+    ("links/url-name", "link-name"),
+    ("links/single-character-name", "link-name"),
+    ("links/new-window-unannounced", "link-name"),
+    ("links/purpose-link-only", "link-name-only"),
     (
         "keyboard/click-handler-not-focusable",
         "click-events-have-key-events",
@@ -2195,8 +2242,8 @@ mod tests {
         let label = r
             .rule_outcomes
             .iter()
-            .find(|o| o.rule_id == "links/generic-name")
-            .expect("Vermerk zu links/generic-name");
+            .find(|o| o.rule_id == "links/ambiguous-name")
+            .expect("Vermerk zu links/ambiguous-name");
         assert!(crate::wcag::rule_run_skipped(label));
         assert_eq!(label.reason.as_deref(), Some("shared_rule_not_yet_adopted"));
     }
