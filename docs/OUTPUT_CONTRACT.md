@@ -15,11 +15,12 @@
 - Every `report.module_scores[]` entry includes `measurement_type` and `band`.
 - `band` is the canonical English qualitative label for `score`; it is present on every entry.
 - `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `overall_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
-- `derived_from` lists the modules an entry re-reads instead of measuring anything new; it is absent when the module measures its own subject. `UX` and `Journey` are charged an explicit accessibility penalty, `AI Visibility` re-reads SEO signals, and `Source Quality` re-reads SEO, Security and Accessibility. Agreement between such a module and its sources is not independent confirmation.
+- `derived_from` lists the modules an entry re-reads instead of measuring anything new; it is absent when the module measures its own subject. `UX` and `Journey` are charged an explicit accessibility penalty, `AI Visibility` re-reads SEO signals, and `Source Quality` re-reads SEO, Security and UX. Agreement between such a module and its sources is not independent confirmation.
 - The same rule applies to the heuristic module payloads: `source_quality` and `ai_visibility` carry `band`, not `grade`, and `dark_mode` carries `band`.
 - `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
 - `measurement_type = "heuristic"` means the score is an indicator inferred from structural signals. These values are report guidance, not direct measurements.
 - `measurement_type = "optional"` means the module scores an optional, non-normative product feature (currently: Dark Mode) — a low score reflects the absence of that feature, not a compliance deficiency. It does not contribute to `overall_score`.
+- `source_quality.score` combines the `consistency` and `authority` dimensions only. `source_quality.substance` holds structural indicators (word count, headings, structured data, metadata); its `score` is deprecated, is not part of `source_quality.score`, and is removed in 2.0.
 - Heuristic top-level module payloads such as `source_quality`, `ai_visibility`, and `content_visibility` include `measurement_type = "heuristic"` when present. The `dark_mode` module payload includes `measurement_type = "optional"` when present.
 
 ## Score and Count Semantics

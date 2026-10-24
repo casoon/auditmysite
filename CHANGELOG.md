@@ -13,6 +13,9 @@ and verification for each change is in the
 - **Dependencies:** `runemark` 0.9.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
 - **Reports:** The expected impact of an action states the occurrences it addresses instead of "Fixes N occurrences; expected score impact: high", which no simulation backed.
+- **Reports:** "Source quality" is shown as "Technical preparation for machine processing", an unweighted indicator. Its score combines on-page consistency and publisher/security signals; structural signals (word count, headings, structured data, metadata) are listed as observed values without a rating. `source_quality.substance.score` is deprecated and removed in 2.0.
+- **Reports:** Consistency compares what a page can contradict on its own — declared language vs. `og:locale`, `<title>` vs. `og:title`, structured data vs. visible content — and weighs only the checks that applied.
+- **Reports:** The trust signal lists contact, imprint and privacy links that were not detected instead of reusing the UX trust score.
 
 ### Fixed
 
@@ -20,6 +23,7 @@ and verification for each change is in the
 - **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".
 - **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
+- **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
 
 ## [1.8.0] - 2026-10-24
 

@@ -942,6 +942,7 @@
           ]
         },
         "source_quality": {
+          "description": "Shown as 'Technical preparation for machine processing'. `score` combines `consistency` and `authority`; `substance` holds structural indicators and its `score` is deprecated (not part of `score`, removed in 2.0).",
           "type": [
             "object",
             "null"

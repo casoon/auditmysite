@@ -126,7 +126,8 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
         ("Journey", false) => "Journey",
         ("AI Visibility", false) => "KI-Sichtbarkeit",
         ("Content Visibility", false) => "Content Visibility",
-        ("Source Quality", false) => "Source Quality",
+        ("Source Quality", false) => "Technische Aufbereitung",
+        ("Source Quality", true) => "Technical preparation",
         ("Tech Stack", false) => "Tech-Stack",
         _ => name,
     }
