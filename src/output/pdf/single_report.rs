@@ -2202,12 +2202,14 @@ pub(super) mod risk_and_strength_tests {
                 critical: 2,
                 high: 1,
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::Conversion {
                 accessibility: 45,
                 performance: Some(95),
                 mobile: Some(95),
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::Seo { score: Some(95) },
             ManagementRiskKind::PerformanceMobile {
@@ -2246,17 +2248,20 @@ pub(super) mod risk_and_strength_tests {
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::AssistiveTechnology {
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::Conversion {
                 accessibility: 95,
                 performance: Some(95),
                 mobile: Some(95),
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::Seo { score: Some(95) },
             ManagementRiskKind::PerformanceMobile {
@@ -2293,11 +2298,13 @@ pub(super) mod risk_and_strength_tests {
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::AssistiveTechnology {
                 critical: 0,
                 high: 1,
                 blocking_issues: 0,
+                keyboard_blocking: 0,
             },
             ManagementRiskKind::Seo { score: Some(50) },
             ManagementRiskKind::PerformanceMobile {

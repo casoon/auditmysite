@@ -572,6 +572,10 @@ pub struct RiskAssessment {
     pub legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
+    /// Subset of `blocking_issues` not operable by keyboard (WCAG 2.1.1).
+    /// The rest lack an accessible name or role and stay operable.
+    #[serde(default)]
+    pub keyboard_blocking_issues: usize,
     /// Number of critical findings from the interactive journey layer.
     pub interactive_critical_issues: usize,
     /// Number of high-severity findings from the interactive journey layer.

@@ -36,6 +36,9 @@ role-projectmanagement = Projektleitung
 effort-quick = Geringer Aufwand
 effort-medium = Mittlerer Aufwand
 effort-structural = Strukturell
+effort-short-quick = gering
+effort-short-medium = mittel
+effort-short-structural = strukturell
 severity-critical = Kritisch
 severity-high = Hoch
 severity-medium = Mittel
@@ -499,7 +502,7 @@ narrative-cause-performance = Dies resultiert typischerweise aus nicht optimiert
 narrative-cause-security = Dies resultiert typischerweise aus fehlenden oder falsch konfigurierten HTTP-Sicherheits-Headern.
 narrative-cause-mobile = Dies resultiert typischerweise aus einem Layout- oder Größenproblem, das nicht für kleine Bildschirme angepasst wurde.
 narrative-cause-default = Dies resultiert typischerweise aus einer Konfigurations- oder Implementierungslücke.
-narrative-impact-critical = Dies blockiert eine kritische Nutzerinteraktion — betroffene Nutzer können die Aufgabe nicht abschließen.
+narrative-impact-critical = Dies kann eine zentrale Nutzerinteraktion für betroffene Nutzergruppen erheblich erschweren oder verhindern; ob ein Ablauf vollständig blockiert ist, zeigt erst dessen Prüfung.
 narrative-impact-high = Dies beeinträchtigt die Nutzbarkeit für betroffene Nutzergruppen erheblich.
 narrative-impact-medium = Dies verursacht einen spürbaren Reibungspunkt für bestimmte Nutzer.
 narrative-impact-low = Dies ist ein kleineres Problem, das eine Teilgruppe der Nutzer betreffen kann.
@@ -903,11 +906,15 @@ pdf-cv-area-topical-authority = Topical Authority (Heuristik)
 
 batch-top-issues-intro = Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, da sie viele Seiten gleichzeitig betreffen.
 batch-col-affected-urls = Betr. URLs
-batch-meta-global = Global — betrifft alle Seiten
-batch-meta-individual = Einzelne Seiten — isolierter Inhalt
+batch-meta-global = Alle geprüften Seiten
+batch-meta-some-pages = { $count } von { $total } Seiten
+batch-meta-single-page = Eine Seite — seitenspezifisch
 batch-meta-occurrences = Vorkommen
-batch-meta-affected-urls = betroffene URLs
-batch-meta-effort = Aufwand
+batch-meta-affected-urls = { $count ->
+    [one] betroffene URL
+   *[other] betroffene URLs
+}
+batch-meta-effort = Aufwand je Stelle (Schätzung)
 batch-meta-scope = Reichweite
 batch-meta-impact-user = Auswirkung (Nutzer)
 batch-meta-impact-business = Auswirkung (Business)

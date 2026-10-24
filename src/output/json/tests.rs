@@ -95,7 +95,13 @@ fn test_management_risks_reflect_blocking_issues_not_just_legal_flags() {
         .find(|r| r.dimension == "Legal / BFSG-EAA")
         .expect("Legal / BFSG-EAA risk must be present");
     assert_ne!(legal.level, "low", "rationale: {}", legal.rationale);
-    assert!(legal.rationale.contains("4 blocking"));
+    assert!(
+        legal
+            .rationale
+            .contains("4 controls without an accessible name or role"),
+        "rationale: {}",
+        legal.rationale
+    );
 
     let usability = risks
         .iter()
