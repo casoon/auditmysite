@@ -464,16 +464,19 @@ pub(super) fn render_batch_decision_actions(
         } else {
             "Maßnahme / Root Cause"
         })
-        .with_width("34%"),
+        .with_width("44%"),
         TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
-        TableColumn::new(if en { "Impact" } else { "Wirkung" }).with_width("24%"),
+        // The WCAG level instead of the expected-impact sentence: since plan
+        // 99 that sentence only repeated the reach column and "score effect
+        // not quantified" on every row (plan 108).
+        TableColumn::new("WCAG").with_width("10%"),
         TableColumn::new(if en {
             "Scope of change"
         } else {
             "Umfang der Änderung"
         })
         .with_width("14%"),
-        TableColumn::new(if en { "Reach" } else { "Reichweite" }).with_width("16%"),
+        TableColumn::new(if en { "Reach" } else { "Reichweite" }).with_width("20%"),
     ])
     .with_title(if en {
         "Decision-oriented top actions"
@@ -516,7 +519,11 @@ pub(super) fn render_batch_decision_actions(
         table = table.add_row(vec![
             format!("{} — {}", group.title, root),
             severity_label_i18n(group.severity, i18n),
-            crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
+            if group.wcag_level.is_empty() {
+                "–".to_string()
+            } else {
+                group.wcag_level.clone()
+            },
             // The column shows the scope derived from the data, the same value
             // as `top_actions[].complexity` in the JSON — not the per-rule
             // effort estimate, which read "low" where the JSON said "high".
