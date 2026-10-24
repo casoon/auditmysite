@@ -100,7 +100,11 @@ in dieser Reihenfolge:
    die manuell bewerteten Live-Seiten aus `tests/fixtures/reference_sites.json` und meldet jede,
    die ihr Band verlässt (Plan 47). Blockiert nicht automatisch: Live-Seiten ändern sich, also
    erst die Seite neu bewerten, dann das Werkzeug verdächtigen — aber jede Abweichung vor dem Tag
-   klären.
+   klären. **Bänder wandern mit:** Ein PR, der den Wert einer Referenzseite bewusst verschiebt
+   (Fehlalarm behoben, Regel umgezogen, Gewichtung geändert), zieht deren Band in
+   `reference_sites.json` im selben PR nach, mit Begründung in `notes`. Sonst meldet erst der
+   Lauf vor dem Tag den längst behobenen Fall als Abweichung (1.8.0: bundesregierung.de und
+   berlin.de, Fixes vom 04./05.10.).
 1. **Tag `vX.Y.Z` setzen und pushen.** Das startet `release.yml`: Versionsabgleich, volle CI,
    Binaries, GitHub-Release.
 2. **Auf den Job `docs.rs Build (sandbox parity)` warten.** Er läuft **nur auf Tags** und baut die
@@ -173,7 +177,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
   in die Orchestrierung `audit/pipeline`. Bestehende Rückwärtskanten nicht vermehren — der Umbau
   läuft schrittweise über Plan 96, nicht nebenbei in Feature-PRs.
 
-## Current State (v1.7.3)
+## Current State (v1.8.0)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets
 a short entry under `## [Unreleased]` in the same commit, `**Area:**` first, English; at a release
 `[Unreleased]` becomes `## [x.y.z] - YYYY-MM-DD`. The detailed development log up to 2026-10-24
