@@ -7,10 +7,16 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Added
+
+- **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
+
 ### Changed
 
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
+- **Dependencies:** `renderreport` 0.7.1.
+- **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
 - **Reports:** The expected impact of an action states the occurrences it addresses instead of "Fixes N occurrences; expected score impact: high", which no simulation backed.
@@ -24,8 +30,10 @@ and verification for each change is in the
 - **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".
 - **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".
 - **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
+- **PDF:** The contents page no longer lists its own heading or the cover title, and table rows no longer split across a page break.
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
 - **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
+- **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
 
 ## [1.8.0] - 2026-10-24
 

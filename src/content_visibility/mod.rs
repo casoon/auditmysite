@@ -110,6 +110,9 @@ pub enum ContentVisibilitySignalKind {
     ArticleAuthorMissing,
     PublicationDate,
     PublicationDateMissing,
+    // AuthorityStrong/Weak/HardlyAny and SubstanceGood/Weak re-read Source
+    // Quality scores and are no longer emitted (plan 105); they stay so older
+    // reports still deserialize.
     AuthorityStrong,
     AuthorityWeak,
     AuthorityHardlyAny,
@@ -749,9 +752,8 @@ pub fn analyze_content_visibility(report: &AuditReport) -> ContentVisibilityAnal
         let lb_signals = build_local_business(seo);
         out.local_business = lb_signals;
 
-        out.eeat = build_eeat(seo, report.discoverability.source_quality.as_ref());
-        out.content_depth =
-            build_content_depth(seo, report.discoverability.source_quality.as_ref());
+        out.eeat = build_eeat(seo);
+        out.content_depth = build_content_depth(seo);
         out.topical_authority = build_topical_authority(
             seo,
             report.discoverability.ai_visibility.as_ref(),
@@ -1240,10 +1242,7 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     signals
 }
 
-fn build_eeat(
-    seo: &crate::seo::SeoAnalysis,
-    source_quality: Option<&crate::source_quality::SourceQualityAnalysis>,
-) -> Vec<ContentSignal> {
+fn build_eeat(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     use ContentVisibilitySignalKind::*;
     let mut signals = Vec::new();
 
@@ -1353,55 +1352,14 @@ fn build_eeat(
         });
     }
 
-    // Source quality authority
-    if let Some(sq) = source_quality {
-        let auth_score = sq.authority.score;
-        signals.push(if auth_score >= 70 {
-            signal(
-                ContentArea::SourceQuality,
-                AssessmentLevel::Positive,
-                EvidenceConfidence::Medium,
-                AuthorityStrong,
-                ContentSignalValues::score(auth_score),
-            )
-            .with_evidence(ContentEvidence::new(
-                EvidenceSource::Computed,
-                EvidenceConfidence::Medium,
-            ))
-        } else if auth_score >= 40 {
-            signal(
-                ContentArea::SourceQuality,
-                AssessmentLevel::Warning,
-                EvidenceConfidence::Medium,
-                AuthorityWeak,
-                ContentSignalValues::score(auth_score),
-            )
-            .with_evidence(ContentEvidence::new(
-                EvidenceSource::Computed,
-                EvidenceConfidence::Medium,
-            ))
-        } else {
-            signal(
-                ContentArea::SourceQuality,
-                AssessmentLevel::Violation,
-                EvidenceConfidence::Medium,
-                AuthorityHardlyAny,
-                ContentSignalValues::score(auth_score),
-            )
-            .with_evidence(ContentEvidence::new(
-                EvidenceSource::Computed,
-                EvidenceConfidence::Medium,
-            ))
-        });
-    }
+    // The Source Quality authority score used to stand here: a score of
+    // another indicator, read as an E-E-A-T signal (plan 105). Publisher
+    // markup and HTTPS are read from SEO and the page directly.
 
     signals
 }
 
-fn build_content_depth(
-    seo: &crate::seo::SeoAnalysis,
-    source_quality: Option<&crate::source_quality::SourceQualityAnalysis>,
-) -> Vec<ContentSignal> {
+fn build_content_depth(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     use ContentVisibilitySignalKind::*;
     let mut signals = Vec::new();
     let tech = &seo.technical;
@@ -1518,35 +1476,9 @@ fn build_content_depth(
         )
     });
 
-    // Source quality substance
-    if let Some(sq) = source_quality {
-        let sub_score = sq.substance.score;
-        signals.push(if sub_score >= 70 {
-            signal(
-                ContentArea::SourceQuality,
-                AssessmentLevel::Positive,
-                EvidenceConfidence::Medium,
-                SubstanceGood,
-                ContentSignalValues::score(sub_score),
-            )
-            .with_evidence(ContentEvidence::new(
-                EvidenceSource::Computed,
-                EvidenceConfidence::Medium,
-            ))
-        } else {
-            signal(
-                ContentArea::SourceQuality,
-                AssessmentLevel::Warning,
-                EvidenceConfidence::Medium,
-                SubstanceWeak,
-                ContentSignalValues::score(sub_score),
-            )
-            .with_evidence(ContentEvidence::new(
-                EvidenceSource::Computed,
-                EvidenceConfidence::Medium,
-            ))
-        });
-    }
+    // The Source Quality substance score used to stand here. It is a count
+    // of structural signals, deprecated and removed in 2.0 (plans 103, 105);
+    // word count and headings are read from SEO directly above.
 
     signals
 }
@@ -1967,7 +1899,7 @@ mod tests {
     fn content_depth_word_count_signals() {
         let mut seo = minimal_seo();
         seo.technical.word_count = 50;
-        let signals = build_content_depth(&seo, None);
+        let signals = build_content_depth(&seo);
         assert!(signals.iter().any(|s| s.level.is_problem()));
     }
 
@@ -2024,7 +1956,7 @@ mod tests {
     #[test]
     fn eeat_no_organization_schema_is_warning() {
         let seo = minimal_seo();
-        let signals = build_eeat(&seo, None);
+        let signals = build_eeat(&seo);
         assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
             && s.cv_kind == Some(ContentVisibilitySignalKind::OrganizationSchemaMissing)));
     }
@@ -2054,7 +1986,7 @@ mod tests {
             )],
             ..Default::default()
         };
-        let signals = build_eeat(&seo, None);
+        let signals = build_eeat(&seo);
         assert!(signals.iter().any(|s| s.level == AssessmentLevel::Positive
             && s.cv_kind == Some(ContentVisibilitySignalKind::OrganizationSchema)));
     }

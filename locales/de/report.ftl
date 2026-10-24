@@ -1063,6 +1063,7 @@ module-accessibility = Barrierefreiheit
 module-security = Sicherheit
 module-performance = Performance
 module-seo = SEO
+module-html-conformance = HTML-Konformität
 module-mobile = Mobile
 module-ux = UX
 module-journey = Journey

@@ -424,7 +424,7 @@ mod tests {
     #[test]
     fn test_module_scores_in_viewmodel_match_normalized() {
         // Module scores in NormalizedReport must all appear in vm.summary.metrics.
-        // Performance, Search Experience, Security, UX each produce a dashboard card.
+        // Performance, SEO, Security, Search Experience, UX each produce a dashboard card.
         // (Journey is intentionally absent from the dashboard — it has its own detail section.)
         let report = make_topic_report_with_modules(
             "https://example.com/",
@@ -447,11 +447,14 @@ mod tests {
         let vm = build_view_model(&normalized, &config);
 
         // Each non-Journey module must have a matching dashboard card.
+        // The weighted modules carry their own card (SEO included, plan 105);
+        // the Search Experience composite and UX follow as indicators.
         let dashboard_modules = [
             "Accessibility",
             "Performance",
-            "Search Experience",
+            "SEO",
             "Security",
+            "Search Experience",
             "UX",
         ];
         for &expected in &dashboard_modules {
@@ -546,7 +549,16 @@ mod tests {
             "composite score should correct SEO-only score"
         );
         assert!(sx.interpretation.contains("Technisch auffindbar"));
-        assert!(vm.modules.dashboard.iter().all(|m| m.name != "SEO"));
+        // Plan 105: the composite no longer replaces the weighted SEO card —
+        // both are shown, SEO as measured, the composite as an indicator.
+        assert_eq!(sx.measurement_type, "composite");
+        let seo = vm
+            .modules
+            .dashboard
+            .iter()
+            .find(|m| m.name == "SEO")
+            .expect("weighted SEO card");
+        assert_eq!(seo.measurement_type, "measured");
     }
 
     fn make_topic_report(

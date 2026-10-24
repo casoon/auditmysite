@@ -125,18 +125,22 @@ fn build_single_report(
         en,
     );
     let domain = extract_domain(&vm.cover.domain);
-    let module_gauges: Vec<CoverModuleGauge> = vm
+    // Two strips: the six modules that make up the overall score, and below
+    // them, smaller and neutral, the indicators that only re-read them
+    // (composite, UX, Journey) — one row made a derived 71 look like the
+    // SEO score the overall counted as 65 (plan 105).
+    let (measured, indicators): (Vec<_>, Vec<_>) = vm
         .modules
         .dashboard
         .iter()
-        .map(|m| {
-            let name = self::helpers::module_name_with_taxonomy_suffix(
-                &m.name,
-                &m.measurement_type,
-                &i18n,
-            );
-            CoverModuleGauge::new(name, m.score)
-        })
+        .partition(|m| m.measurement_type == "measured");
+    let module_gauges: Vec<CoverModuleGauge> = measured
+        .iter()
+        .map(|m| CoverModuleGauge::new(&m.name, m.score))
+        .collect();
+    let indicator_gauges: Vec<CoverModuleGauge> = indicators
+        .iter()
+        .map(|m| CoverModuleGauge::new(&m.name, m.score))
         .collect();
     // The gauge strip's label carries the scope qualifier: a bare
     // "Barrierefreiheit 100" on the cover reads as "fully accessible", which
@@ -145,7 +149,7 @@ fn build_single_report(
         (
             "ACCESSIBILITY · AUTOMATED SCOPE",
             "WCAG OCCURRENCES",
-            "MODULES · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER",
+            "MODULES IN THE OVERALL SCORE · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER",
             "critical/high",
             "0 critical/high",
         )
@@ -153,7 +157,7 @@ fn build_single_report(
         (
             "BARRIEREFREIHEIT · AUTOMATISIERTER PRÜFUMFANG",
             "WCAG-VORKOMMEN",
-            "MODULE · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER",
+            "MODULE IM GESAMTWERT · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER",
             "kritisch/hoch",
             "0 kritisch/hoch",
         )
@@ -190,6 +194,14 @@ fn build_single_report(
         .with_band_phrase(&band_phrase)
         .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
         .with_module_gauges(module_gauges)
+        .with_indicator_gauges(
+            if en {
+                "DERIVED INDICATORS · NOT PART OF THE OVERALL SCORE"
+            } else {
+                "ABGELEITETE INDIKATOREN · NICHT IM GESAMTWERT"
+            },
+            indicator_gauges,
+        )
         .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit);
     if let Some(logo) = custom_logo {
         cover = cover.with_logo(logo);

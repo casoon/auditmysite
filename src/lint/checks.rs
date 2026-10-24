@@ -17,6 +17,7 @@ pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_source_quality_signals_match_findings(report, findings);
     check_accessibility_breakdown_reconciles(report, findings);
     check_unmeasured_modules_carry_no_result(report, findings);
+    check_indicators_carry_no_weight(report, findings);
 }
 
 // ─── Measurement status ───────────────────────────────────────────────────
@@ -87,6 +88,49 @@ fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<L
                     severity: Severity::High,
                 });
             }
+        }
+    }
+}
+
+// ─── Weighted modules vs. indicators (plan 105) ───────────────────────────
+
+const CHECK_INDICATOR_WEIGHT: &str = "indicator_carries_no_weight";
+
+/// A module either feeds the overall score — with a weight above 0 — or it
+/// is an indicator: weight 0 and no letter grade (OUTPUT_CONTRACT). Anything
+/// in between would let a derived value count twice or look like a graded
+/// module without counting.
+fn check_indicators_carry_no_weight(report: &Value, findings: &mut Vec<LintFinding>) {
+    let Some(pages) = report.get("pages").and_then(Value::as_array) else {
+        return;
+    };
+    for (i, page) in pages.iter().enumerate() {
+        let scores = page
+            .get("module_scores")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for entry in scores {
+            let contributes = entry
+                .get("contributes_to_overall")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let weight = entry.get("weight_pct").and_then(Value::as_u64).unwrap_or(0);
+            let graded = entry.get("grade").is_some_and(|g| !g.is_null());
+            let actual = match (contributes, weight > 0, graded) {
+                (true, false, _) => "contributes_to_overall with weight_pct 0",
+                (false, true, _) => "weight_pct above 0 without contributing",
+                (false, false, true) => "a letter grade on an unweighted indicator",
+                _ => continue,
+            };
+            findings.push(LintFinding {
+                check_id: CHECK_INDICATOR_WEIGHT,
+                evidence_path: format!("pages[{i}].module_scores[{}]", field_str(entry, "name")),
+                expected: "weighted (weight > 0, contributes) or indicator (weight 0, no grade)"
+                    .to_string(),
+                actual: actual.to_string(),
+                severity: Severity::High,
+            });
         }
     }
 }
@@ -1215,5 +1259,33 @@ mod measurement_status_tests {
         };
         assert!(lint(failed_run("not_measured")).is_empty());
         assert_eq!(lint(failed_run("measured")), [CHECK_UNMEASURED_MODULES]);
+    }
+
+    #[test]
+    fn a_module_is_either_weighted_or_an_ungraded_indicator() {
+        let check = |entry: Value| {
+            let mut findings = Vec::new();
+            check_indicators_carry_no_weight(
+                &serde_json::json!({ "pages": [{ "module_scores": [entry] }] }),
+                &mut findings,
+            );
+            findings.into_iter().map(|f| f.check_id).collect::<Vec<_>>()
+        };
+        let weighted = serde_json::json!({
+            "name": "SEO", "score": 65, "grade": "D", "weight_pct": 15,
+            "contributes_to_overall": true
+        });
+        let indicator = serde_json::json!({
+            "name": "UX", "score": 68, "weight_pct": 0, "contributes_to_overall": false
+        });
+        assert!(check(weighted).is_empty());
+        assert!(check(indicator.clone()).is_empty());
+
+        let mut graded_indicator = indicator.clone();
+        graded_indicator["grade"] = "D".into();
+        assert_eq!(check(graded_indicator), [CHECK_INDICATOR_WEIGHT]);
+        let mut weighted_indicator = indicator;
+        weighted_indicator["weight_pct"] = 10.into();
+        assert_eq!(check(weighted_indicator), [CHECK_INDICATOR_WEIGHT]);
     }
 }
