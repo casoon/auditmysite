@@ -11,12 +11,14 @@ and verification for each change is in the
 
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
+- **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
 - **Reports:** The expected impact of an action states the occurrences it addresses instead of "Fixes N occurrences; expected score impact: high", which no simulation backed.
 
 ### Fixed
 
 - **Batch:** `summary.grade` and `summary.certificate` describe the average accessibility score and are gated by the batch risk, as in the single report and the batch PDF; they followed the weighted overall score, so 49/100 accessibility read "D" / "STABIL".
+- **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".
 - **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".
 - **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.

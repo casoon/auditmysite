@@ -235,12 +235,25 @@ pub(super) fn render_batch_cover(
                 .with_size("11pt")
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
-        )
-        .add_component(super::super::output_scope_callout(i18n))
-        .add_component(PageBreak::new());
+        );
 
+    // The scope note used to close page 2, which it overflowed onto an
+    // otherwise empty page 3 (plan 108). It now opens the contents page; an
+    // executive report has no contents page and keeps it on page 2.
+    let en = crate::output::localized::is_english(i18n);
     if config.level != ReportLevel::Executive {
-        builder = builder.add_component(TableOfContents::new().with_depth(1));
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(super::super::output_scope_callout(i18n))
+            .add_component(
+                TableOfContents::new()
+                    .with_title(if en { "Contents" } else { "Inhalt" })
+                    .with_depth(1),
+            );
+    } else {
+        builder = builder
+            .add_component(super::super::output_scope_callout(i18n))
+            .add_component(PageBreak::new());
     }
 
     Ok(builder)
