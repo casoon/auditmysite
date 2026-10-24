@@ -1824,6 +1824,25 @@ mod tests {
         }
     }
 
+    /// a11y-rules 0.24.1: a zoom limit between 200 % and 500 % meets 1.4.4
+    /// and is a best practice — it may raise neither a legal flag nor more
+    /// than low BFSG relevance (inros-lackner.de, `maximum-scale=2`).
+    #[test]
+    fn viewport_scale_limit_is_a_best_practice() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new("1.4.4", "x", WcagLevel::AA, Severity::High, "x", "n1")
+                .with_rule_id("zoom/viewport-scale-limited")
+                .with_tags(vec!["best-practice".into()]),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let norm = normalize(&report).normalized;
+        let finding = &norm.findings[0];
+        assert_eq!(finding.rule_id, "a11y.viewport_zoom.restricted");
+        assert_eq!(finding.bfsg_relevance, "low");
+        assert!(!finding.is_legal_flag());
+    }
+
     #[test]
     fn test_normalize_empty() {
         let report = AuditReport::new(

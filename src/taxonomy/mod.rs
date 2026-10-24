@@ -41,6 +41,9 @@ pub fn is_missing_name_or_role(rule_id: &str) -> bool {
 const BEST_PRACTICE_RULES: &[&str] = &[
     "a11y.title_only_description.weak",
     "a11y.description_duplicates_name.redundant",
+    // `zoom/viewport-scale-limited`: a zoom limit between 200 % and 500 %
+    // meets 1.4.4; a11y-rules 0.24.1 reports it as best practice.
+    "a11y.viewport_zoom.restricted",
 ];
 
 /// Whether a taxonomy rule id checks the BarrierLab display-mode convention
