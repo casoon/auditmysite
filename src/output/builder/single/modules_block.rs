@@ -62,24 +62,23 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
-    if let Some(search_experience) = build_search_experience(normalized, i18n) {
+    // SEO is one of the six weighted modules; the "Sichtbarkeit &
+    // Nutzerverständnis" composite used to stand in its place, so the cover
+    // showed 71 where the overall score counted 65 (plan 105). The composite
+    // follows below with the indicators.
+    if let Some(score) = normalized
+        .raw_seo
+        .and_then(|_| normalized_module_score(&normalized.normalized, "SEO"))
+    {
+        let interpretation = module_interpretation(&normalized.normalized, "seo", locale);
         dashboard.push(ModuleScore {
-            name: search_experience.label.clone(),
-            score: search_experience.score,
-            measurement_type: "composite".into(),
-            interpretation: search_experience.interpretation.clone(),
-            card_context: search_experience.interpretation.clone(),
-            score_context: search_experience
-                .components
-                .iter()
-                .map(|c| format!("{} {}%: {}/100", c.label, c.weight_pct, c.score))
-                .collect::<Vec<_>>()
-                .join(", "),
-            key_lever: search_experience
-                .warnings
-                .first()
-                .cloned()
-                .unwrap_or_else(|| search_experience.interpretation.clone()),
+            name: localized_module_name("SEO", i18n),
+            score,
+            measurement_type: "measured".into(),
+            card_context: interpretation.clone(),
+            score_context: interpretation.clone(),
+            key_lever: interpretation.clone(),
+            interpretation,
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -108,6 +107,45 @@ pub(super) fn build_modules_block_from_normalized(
             card_context: derive_mobile_card_context(i18n, m),
             score_context: derive_mobile_context(i18n, m),
             key_lever: derive_mobile_lever(i18n, m),
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(score) = normalized
+        .raw_html_conform
+        .and_then(|_| normalized_module_score(&normalized.normalized, "HTML Conformance"))
+    {
+        let interpretation = module_interpretation(&normalized.normalized, "html_conform", locale);
+        dashboard.push(ModuleScore {
+            name: localized_module_name("HTML Conformance", i18n),
+            score,
+            measurement_type: "measured".into(),
+            card_context: interpretation.clone(),
+            score_context: interpretation.clone(),
+            key_lever: interpretation.clone(),
+            interpretation,
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(search_experience) = build_search_experience(normalized, i18n) {
+        dashboard.push(ModuleScore {
+            name: search_experience.label.clone(),
+            score: search_experience.score,
+            measurement_type: "composite".into(),
+            interpretation: search_experience.interpretation.clone(),
+            card_context: search_experience.interpretation.clone(),
+            score_context: search_experience
+                .components
+                .iter()
+                .map(|c| format!("{} {}%: {}/100", c.label, c.weight_pct, c.score))
+                .collect::<Vec<_>>()
+                .join(", "),
+            key_lever: search_experience
+                .warnings
+                .first()
+                .cloned()
+                .unwrap_or_else(|| search_experience.interpretation.clone()),
             good_threshold: 75,
             warn_threshold: 50,
         });

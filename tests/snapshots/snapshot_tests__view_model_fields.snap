@@ -1,6 +1,7 @@
 ---
 source: tests/snapshot_tests.rs
-expression: value
+assertion_line: 265
+expression: sort_json_keys(value)
 ---
 {
   "action_column_count": 1,
@@ -16,12 +17,13 @@ expression: value
     "a11y.name_role.missing",
     "a11y.structure.missing"
   ],
-  "module_count": 7,
+  "module_count": 8,
   "module_names": [
     "Barrierefreiheit",
     "Journey",
     "Mobile",
     "Performance",
+    "SEO",
     "Sicherheit",
     "Sichtbarkeit & Nutzerverständnis",
     "UX"
