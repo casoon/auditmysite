@@ -160,7 +160,8 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.7.3)
-See `CHANGELOG.md` for the detailed, chronological development history (findings, fixes,
-verification) — extracted here (plan/11-claude-md-version-drift.md) to keep this file focused on
-working rules. Update the version number above whenever `Cargo.toml`'s version bumps, and add new
-entries to `CHANGELOG.md`, not here.
+`CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets
+a short entry under `## [Unreleased]` in the same commit, `**Area:**` first, English; at a release
+`[Unreleased]` becomes `## [x.y.z] - YYYY-MM-DD`. The detailed development log up to 2026-10-24
+(finding, fix, verification) is `docs/reference/development-history.md`. Update the version
+number above whenever `Cargo.toml`'s version bumps; no change history in this file.

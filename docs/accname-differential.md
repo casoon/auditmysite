@@ -139,7 +139,7 @@ Unterseiten ist ein Befund, nicht dreißig.
 - Der Vergleich läuft gegen **eine** Engine. Eine Übereinstimmung mit Chrome ist
   kein Nachweis von Spezifikationstreue, nur Abwesenheit eines Unterschieds.
 - Ein einzelner Seitenlauf ist eine Stichprobe. Aussagekraft entsteht erst über
-  einen Korpus (`--url-file`); Verlauf und Entscheidungen im `CHANGELOG.md` und in
+  einen Korpus (`--url-file`); Verlauf und Entscheidungen in `docs/reference/development-history.md` und in
   `barrierlab/plan/01-accname-findings-from-auditmysite.md`.
 - Der Rollenvergleich ist heuristisch abgegrenzt, siehe oben.
 
