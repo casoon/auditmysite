@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Added
+
+- **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
+
 ### Changed
 
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
@@ -24,6 +28,7 @@ and verification for each change is in the
 - **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
 - **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
+- **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
 
 ## [1.8.0] - 2026-10-24
 
