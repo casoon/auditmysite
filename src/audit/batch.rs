@@ -309,16 +309,37 @@ pub async fn analyze_sitemap_diagnostics(
     sitemap_urls: &[String],
     reports: &[AuditReport],
 ) -> SitemapDiagnostics {
+    analyze_sitemap_diagnostics_with_progress(sitemap_urls, reports, None).await
+}
+
+/// [`analyze_sitemap_diagnostics`] that reports each checked sitemap URL to
+/// `progress` — the HTTP check walks the whole sitemap, which on a large site
+/// takes minutes after the audited pages are done.
+pub async fn analyze_sitemap_diagnostics_with_progress(
+    sitemap_urls: &[String],
+    reports: &[AuditReport],
+    progress: Option<ProgressCallback>,
+) -> SitemapDiagnostics {
     let client = Client::builder()
         .redirect(Policy::none())
         .timeout(Duration::from_secs(10))
         .build()
         .unwrap_or_else(|_| Client::new());
 
+    let client = &client;
+    let total = sitemap_urls.len();
+    let mut checked = 0usize;
     let checks: Vec<(&'static str, Option<SitemapHttpIssue>)> =
         futures::stream::iter(sitemap_urls.iter())
-            .map(|url| check_sitemap_url(&client, url))
+            .map(|url| async move { (url, check_sitemap_url(client, url).await) })
             .buffer_unordered(8)
+            .map(|(url, check)| {
+                checked += 1;
+                if let Some(cb) = &progress {
+                    cb(checked, total, url, None);
+                }
+                check
+            })
             .collect()
             .await;
     let mut status_counts: BTreeMap<String, usize> = BTreeMap::new();
