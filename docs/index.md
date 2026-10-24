@@ -26,6 +26,6 @@ description: auditmysite audits rendered web pages against WCAG 2.2 AA through C
 ## Release notes
 
 Each release has notes on [GitHub Releases](https://github.com/casoon/auditmysite/releases).
-The repository's [CHANGELOG.md](https://github.com/casoon/auditmysite/blob/main/CHANGELOG.md)
-is a detailed, chronological development log (in German): each entry records a finding, the fix
-and how it was verified.
+The [changelog](https://github.com/casoon/auditmysite/blob/main/CHANGELOG.md) lists the changes
+of each release. The [development history](reference/development-history/) keeps the detailed
+log (in German): each entry records a finding, the fix and how it was verified.

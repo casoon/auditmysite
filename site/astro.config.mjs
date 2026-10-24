@@ -31,9 +31,8 @@ export default defineConfig({
         concepts: 'Concepts',
         reference: 'Reference',
       },
-      // CHANGELOG.md is a chronological development log, not Keep a Changelog;
-      // release notes live on GitHub Releases (linked in the footer and the docs).
-      changelog: false,
+      // ../CHANGELOG.md (Keep a Changelog) is the default changelog source; the
+      // detailed development log is docs/reference/development-history.md.
     }),
   ],
 });

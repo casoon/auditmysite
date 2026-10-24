@@ -33,4 +33,4 @@ Bewusste, über alle Phasen hinweg getroffene Entscheidung statt einer nachträg
   (Baseline-Speicherung/-Regenerierung über Font-Hinting/Anti-Aliasing-Unterschiede zwischen
   Maschinen hinweg) wurde stattdessen strukturell umgangen: #510s konkrete Fälle (Blank-Page,
   Seiten-Explosion, die "umgebrochene Dual-Viewport-Zelle") werden über **Struktur-/Same-Run-
-  Differenzprüfungen** statt gespeicherter Pixel-Baselines erkannt, siehe Phase-5-Eintrag in `CHANGELOG.md`.
+  Differenzprüfungen** statt gespeicherter Pixel-Baselines erkannt, siehe Phase-5-Eintrag in `docs/reference/development-history.md`.
