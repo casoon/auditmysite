@@ -16,6 +16,7 @@ and verification for each change is in the
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
+- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.24.1.
 - **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
 - **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
@@ -38,6 +39,7 @@ and verification for each change is in the
 - **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
 - **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
 - **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks), and a missing viewport no longer costs SEO points; it counts under mobile and accessibility.
+- **WCAG:** A zoom limit between 200 % and 500 % (`zoom/viewport-scale-limited`) is a best practice: 1.4.4 requires 200 % and is met, so it raises no legal flag and only low BFSG relevance.
 
 ## [1.8.0] - 2026-10-24
 
