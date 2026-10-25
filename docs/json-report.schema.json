@@ -607,7 +607,7 @@
         "complexity",
         "occurrence_count",
         "url_count",
-        "root_cause",
+        "finding_id",
         "expected_impact"
       ],
       "additionalProperties": false,
@@ -637,8 +637,13 @@
           "type": "integer",
           "minimum": 0
         },
-        "root_cause": {
-          "type": "string"
+        "finding_id": {
+          "type": "string",
+          "description": "Id of the finding behind this action; the same id as in pages[].findings[].id."
+        },
+        "root_cause_id": {
+          "type": "string",
+          "description": "Most widespread root cause of this rule (batch only); the same id as in summary.root_causes[].id and pages[].findings[].patterns[].id."
         },
         "expected_impact": {
           "type": "string"

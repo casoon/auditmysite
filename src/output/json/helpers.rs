@@ -427,12 +427,21 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
 
 /// Top actions, one per rule across all pages, in the order the PDF lists
 /// them (plans 58, 64).
-pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
+pub(super) fn build_decision_actions(
+    reports: &[NormalizedReport],
+    root_causes: &[crate::audit::RootCause],
+) -> Vec<DecisionAction> {
     crate::audit::normalized::aggregate_batch_findings(reports)
         .into_iter()
         .take(8)
         .map(|batch| {
             let finding = batch.finding;
+            // `root_causes` is sorted by reach, so the first match is the
+            // rule's most widespread pattern.
+            let root_cause_id = root_causes
+                .iter()
+                .find(|cause| cause.rule_id == finding.rule_id)
+                .map(|cause| cause.id.clone());
             DecisionAction {
                 rule_id: finding.rule_id,
                 title: finding.title,
@@ -441,11 +450,8 @@ pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<Decisi
                 complexity: finding.complexity,
                 occurrence_count: finding.occurrence_count,
                 url_count: batch.urls.len(),
-                root_cause: if finding.occurrence_count >= 10 || batch.urls.len() > 1 {
-                    "Likely shared component or template".to_string()
-                } else {
-                    finding.subcategory
-                },
+                finding_id: finding.id,
+                root_cause_id,
                 expected_impact: finding.expected_impact,
             }
         })

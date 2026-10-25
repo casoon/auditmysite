@@ -217,7 +217,14 @@ pub(super) fn render_batch_top_issues(
     // Verified template causes — evidence-backed root-cause clusters, ahead
     // of the plain frequency table so the "one fix, N pages" claims are read
     // before the raw occurrence counts.
-    if !pres.template_clusters.is_empty() {
+    // Template causes are the confirmed and likely root causes; an open one
+    // makes no claim about a shared component.
+    let template_causes: Vec<&TemplateClusterView> = pres
+        .template_clusters
+        .iter()
+        .filter(|c| c.confidence != "open")
+        .collect();
+    if !template_causes.is_empty() {
         builder = builder.add_component(TextBlock::new(i18n.t("batch-template-section-intro")));
         // A plain bullet list, not a KeyValueList: `cluster.selector` is an
         // arbitrary-length CSS path with no natural wrap points short
@@ -232,13 +239,12 @@ pub(super) fn render_batch_top_issues(
         // with two findings, listed underneath — not two causes (plan 85).
         let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
         let mut seen: Vec<&str> = Vec::new();
-        for cluster in &pres.template_clusters {
+        for cluster in &template_causes {
             if seen.contains(&cluster.selector.as_str()) {
                 continue;
             }
             seen.push(cluster.selector.as_str());
-            let children = pres
-                .template_clusters
+            let children = template_causes
                 .iter()
                 .filter(|c| c.selector == cluster.selector)
                 .map(|c| renderreport::components::advanced::ListItem {

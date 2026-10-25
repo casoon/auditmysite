@@ -19,9 +19,11 @@ and verification for each change is in the
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
 - **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.24.1.
+- **JSON:** Breaking: `top_actions[].root_cause` (free text that called anything with 10 occurrences or two pages a "likely shared component") is replaced by `finding_id` and, in batch reports, `root_cause_id` pointing into `summary.root_causes`.
 - **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
 - **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
+- **PDF:** The batch report builds its template causes and the cause column of the top actions from `root_causes`: the action names the element (`a.mainnav-toggle: recurring, identical markup not established (20 pages)`), and patterns without enough evidence read "cause open" instead of a template claim.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
 - **Reports:** The expected impact of an action states the occurrences it addresses instead of "Fixes N occurrences; expected score impact: high", which no simulation backed.
 - **Reports:** "Source quality" is shown as "Technical preparation for machine processing", an unweighted indicator. Its score combines on-page consistency and publisher/security signals; structural signals (word count, headings, structured data, metadata) are listed as observed values without a rating. `source_quality.substance.score` is deprecated and removed in 2.0.

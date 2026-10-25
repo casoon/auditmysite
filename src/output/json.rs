@@ -487,7 +487,13 @@ pub struct DecisionAction {
     pub occurrence_count: usize,
     /// Pages the rule occurs on (1 in a single report).
     pub url_count: usize,
-    pub root_cause: String,
+    /// `pages[].findings[].id` of the finding behind this action.
+    pub finding_id: String,
+    /// The rule's most widespread entry in `summary.root_causes` (batch
+    /// only). Replaces the free-text `root_cause`, which called anything
+    /// with 10 occurrences or two pages a "likely shared component".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root_cause_id: Option<String>,
     pub expected_impact: String,
 }
 
@@ -1100,7 +1106,10 @@ impl UnifiedReport {
                 accessibility_score,
             ),
             management_risks: build_management_risks(&normalized_reports),
-            top_actions: build_decision_actions(&normalized_reports),
+            top_actions: build_decision_actions(
+                &normalized_reports,
+                &batch_report.summary.root_causes,
+            ),
             duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
             missing_tag_prevalence: presentation
                 .portfolio_summary
@@ -1296,7 +1305,7 @@ impl UnifiedReport {
                 page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
-            top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized), &[]),
             duplicate_content: Vec::new(),
             missing_tag_prevalence: Vec::new(),
             canonical_issues: Vec::new(),
@@ -1394,7 +1403,7 @@ impl UnifiedReport {
                 page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
-            top_actions: build_decision_actions(std::slice::from_ref(normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(normalized), &[]),
             duplicate_content: Vec::new(),
             missing_tag_prevalence: Vec::new(),
             canonical_issues: Vec::new(),

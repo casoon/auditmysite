@@ -1344,6 +1344,8 @@ pub struct BatchPresentation {
 /// claim is only ever used for `"confirmed"` clusters, `"likely"` clusters
 /// always read as unconfirmed/probable.
 pub struct TemplateClusterView {
+    /// `summary.root_causes[].id`, the pattern id of the findings.
+    pub id: String,
     pub rule_id: String,
     pub selector: String,
     pub confidence: String,
