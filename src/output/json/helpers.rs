@@ -760,6 +760,7 @@ mod tests {
 
     fn make_finding(rule_id: &str, description: &str) -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.3.4".into(),

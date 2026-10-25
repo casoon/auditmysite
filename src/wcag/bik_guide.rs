@@ -345,6 +345,7 @@ mod tests {
         occurrence_count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: wcag_criterion.into(),

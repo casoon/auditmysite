@@ -243,6 +243,12 @@ fn default_finding_category() -> String {
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedFinding {
+    /// Stable finding id (`F-` + 8 hex), `a11y_report::FindingId` over the
+    /// rule and the normalized selectors of *all* occurrences — the same on
+    /// every page that shows the same pattern and in every run while rule
+    /// and markup pattern stay the same (2.0 finding model, plan 100).
+    #[serde(default)]
+    pub id: String,
     /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
     #[serde(default = "default_finding_category")]
     pub category: String,
@@ -889,7 +895,17 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .map(|r| r.title_en.to_string())
                 .unwrap_or_else(|| first.rule_name.clone());
 
+            // All occurrences, not the capped `occurrences` sample.
+            let id = a11y_report::FindingId::new(
+                &tax_id,
+                violations
+                    .iter()
+                    .map(|v| v.selector.as_deref().unwrap_or("document")),
+            )
+            .to_string();
+
             NormalizedFinding {
+                id,
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
                 wcag_criterion: wcag_criterion_of(&first.rule),
@@ -1159,6 +1175,8 @@ fn aggregate_seo_findings(
         let remediation_priority =
             derive_remediation_priority(first.severity, occurrence_count, &complexity);
         findings.push(NormalizedFinding {
+            // Page-level SEO checks have no element: the page is the pattern.
+            id: a11y_report::FindingId::new(&rule_id, std::iter::empty()).to_string(),
             category: "seo".to_string(),
             rule_id: rule_id.clone(),
             wcag_criterion: String::new(),
@@ -1841,6 +1859,30 @@ mod tests {
         assert_eq!(finding.rule_id, "a11y.viewport_zoom.restricted");
         assert_eq!(finding.bfsg_relevance, "low");
         assert!(!finding.is_legal_flag());
+    }
+
+    /// 2.0 finding model: the id is the same for the same rule and element
+    /// pattern on two pages, whatever the order of the occurrences, and
+    /// differs for another pattern (plan 100).
+    #[test]
+    fn finding_id_is_stable_across_pages_and_order() {
+        let page = |selectors: &[&str]| {
+            let mut results = WcagResults::new();
+            for selector in selectors {
+                results.add_violation(
+                    Violation::new("4.1.2", "x", WcagLevel::A, Severity::High, "x", "n")
+                        .with_rule_id("buttons/name-missing")
+                        .with_selector(selector.to_string()),
+                );
+            }
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            normalize(&report).normalized.findings[0].id.clone()
+        };
+        let a = page(&["nav > a.toggle-1", "footer a.icon"]);
+        let b = page(&["footer a.icon", "nav > a.toggle-7"]);
+        assert!(a.starts_with("F-") && a.len() == 10, "{a}");
+        assert_eq!(a, b);
+        assert_ne!(a, page(&["nav > a.toggle-1"]));
     }
 
     #[test]

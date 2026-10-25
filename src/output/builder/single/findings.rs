@@ -185,6 +185,7 @@ mod fallback_tests {
     /// to a raw-English marker that must never surface as `customer_description`.
     fn uncovered_rule_finding() -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             category: "wcag".into(),
             rule_id: "a11y.timing.unadjustable".into(),
             wcag_criterion: "2.2.1".into(),
@@ -255,6 +256,7 @@ mod fallback_tests {
     /// specific enough to identify this as a landmark/region finding (#571).
     fn region_finding() -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             rule_id: "a11y.structure.missing".into(),
             wcag_criterion: "1.3.1".into(),
             axe_id: Some("region".into()),
@@ -296,6 +298,7 @@ mod fallback_tests {
     /// live against a real report (plan/1-root-cause-title-occurrence-mismatch.md).
     fn landmark_unique_finding() -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             rule_id: "a11y.landmark_unique.invalid".into(),
             wcag_criterion: "1.3.1".into(),
             axe_id: Some("landmark-unique".into()),

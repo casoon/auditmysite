@@ -300,6 +300,7 @@ mod tests {
     fn make_finding(rule_id: &str, occurrences: Vec<OccurrenceDetail>) -> NormalizedFinding {
         let count = occurrences.len();
         NormalizedFinding {
+            id: String::new(),
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "2.5.3".into(),

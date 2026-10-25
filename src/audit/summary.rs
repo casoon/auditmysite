@@ -605,6 +605,7 @@ mod tests {
         count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.1.1".into(),
