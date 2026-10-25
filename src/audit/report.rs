@@ -990,6 +990,10 @@ pub struct BatchSummary {
     /// across multiple pages — see `audit::template_dedup`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub template_clusters: Vec<crate::audit::template_dedup::TemplateCluster>,
+    /// Finding patterns that recur on two or more pages, by pattern id —
+    /// see `audit::template_dedup::detect_root_causes` (2.0 finding model).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub root_causes: Vec<crate::audit::template_dedup::RootCause>,
     #[serde(default)]
     pub audit_quality: AuditQuality,
 }
@@ -1190,6 +1194,7 @@ impl BatchReport {
             compute_recurring_rules(&normalized_reports);
         let template_clusters =
             crate::audit::template_dedup::detect_template_clusters(&normalized_reports);
+        let root_causes = crate::audit::template_dedup::detect_root_causes(&normalized_reports);
         let legal_flags = compute_legal_flags(&normalized_reports);
         let blocking_issues = normalized_reports
             .iter()
@@ -1256,6 +1261,7 @@ impl BatchReport {
                 risk,
                 verdict_key,
                 template_clusters,
+                root_causes,
                 audit_quality,
             },
             crawl_diagnostics: None,

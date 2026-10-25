@@ -197,6 +197,145 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
     result
 }
 
+/// A rule at one element pattern that recurs on several audited pages —
+/// the batch view of a finding pattern (2.0 finding model, plan 100).
+///
+/// `id` is the pattern id of the findings (`a11y_report::RootCauseId`), so a
+/// root cause links straight to `findings[].patterns[]` on every page.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RootCause {
+    pub id: String,
+    pub rule_id: String,
+    pub title: String,
+    pub wcag_criterion: String,
+    pub severity: Severity,
+    /// Shortest raw selector seen for this pattern.
+    pub selector: String,
+    /// `confirmed`: same markup shape on every page; `likely`: same pattern,
+    /// coverage thresholds met; `open`: recurs, but below the thresholds or
+    /// too generic to say more. Never raised beyond what the evidence shows.
+    pub confidence: a11y_report::CauseConfidence,
+    pub url_count: usize,
+    /// `url_count / audited pages`, rounded.
+    pub page_coverage_pct: u32,
+    pub occurrence_count: usize,
+    /// Every page with this pattern.
+    pub urls: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub html_snippet: Option<String>,
+}
+
+/// Root causes across a batch: every finding pattern that occurs on at least
+/// two pages. Built from `findings[].patterns[]` (all occurrences), and the
+/// markup evidence from the stored occurrence sample — the same thresholds
+/// and shape check as [`detect_template_clusters`]. A pattern on one page is
+/// no root cause claim; it stays in its finding.
+pub fn detect_root_causes(reports: &[NormalizedReport]) -> Vec<RootCause> {
+    use a11y_report::{normalize_selector, CauseConfidence};
+
+    struct Acc {
+        rule_id: String,
+        title: String,
+        wcag_criterion: String,
+        severity: Severity,
+        selector: String,
+        urls: Vec<String>,
+        occurrence_count: usize,
+        shapes: HashSet<String>,
+        pages_without_snippet: usize,
+        html_snippet: Option<String>,
+    }
+
+    let total_pages = reports.len();
+    let mut by_id: HashMap<String, Acc> = HashMap::new();
+    for report in reports {
+        for finding in report.findings.iter().filter(|f| f.category == "wcag") {
+            for pattern in &finding.patterns {
+                let normalized = normalize_selector(&pattern.selector);
+                let snippets: Vec<&str> = finding
+                    .occurrences
+                    .iter()
+                    .filter(|o| {
+                        normalize_selector(o.selector.as_deref().unwrap_or("document"))
+                            == normalized
+                    })
+                    .filter_map(|o| o.html_snippet.as_deref())
+                    .filter(|h| !h.trim().is_empty())
+                    .collect();
+                let acc = by_id.entry(pattern.id.clone()).or_insert_with(|| Acc {
+                    rule_id: finding.rule_id.clone(),
+                    title: finding.title.clone(),
+                    wcag_criterion: finding.wcag_criterion.clone(),
+                    severity: finding.severity,
+                    selector: pattern.selector.clone(),
+                    urls: Vec::new(),
+                    occurrence_count: 0,
+                    shapes: HashSet::new(),
+                    pages_without_snippet: 0,
+                    html_snippet: None,
+                });
+                if pattern.selector.len() < acc.selector.len() {
+                    acc.selector = pattern.selector.clone();
+                }
+                if finding.severity > acc.severity {
+                    acc.severity = finding.severity;
+                }
+                if !acc.urls.contains(&report.url) {
+                    acc.urls.push(report.url.clone());
+                    if snippets.is_empty() {
+                        acc.pages_without_snippet += 1;
+                    }
+                }
+                acc.occurrence_count += pattern.occurrence_count;
+                for snippet in snippets {
+                    acc.shapes.insert(snippet_shape_hash(snippet));
+                    if acc.html_snippet.is_none() {
+                        acc.html_snippet = Some(snippet.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let mut causes: Vec<RootCause> = by_id
+        .into_iter()
+        .filter(|(_, acc)| acc.urls.len() >= 2)
+        .map(|(id, acc)| {
+            let url_count = acc.urls.len();
+            let coverage = url_count as f64 / total_pages.max(1) as f64 * 100.0;
+            let thresholds_met = url_count >= MIN_DISTINCT_PAGES && coverage >= MIN_COVERAGE_PCT;
+            let same_markup = acc.pages_without_snippet == 0 && acc.shapes.len() == 1;
+            let specific = acc.selector == "document" || is_specific_selector(&acc.selector);
+            let confidence = match (thresholds_met, same_markup, specific) {
+                (true, true, _) => CauseConfidence::Confirmed,
+                (true, false, true) => CauseConfidence::Likely,
+                _ => CauseConfidence::Open,
+            };
+            RootCause {
+                id,
+                rule_id: acc.rule_id,
+                title: acc.title,
+                wcag_criterion: acc.wcag_criterion,
+                severity: acc.severity,
+                selector: acc.selector,
+                confidence,
+                url_count,
+                page_coverage_pct: coverage.round() as u32,
+                occurrence_count: acc.occurrence_count,
+                urls: acc.urls,
+                html_snippet: acc.html_snippet,
+            }
+        })
+        .collect();
+    causes.sort_by(|a, b| {
+        b.url_count
+            .cmp(&a.url_count)
+            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
+            .then_with(|| a.id.cmp(&b.id))
+    });
+    causes
+}
+
 fn selector_region(selector: &str) -> Option<String> {
     let selector = selector.to_ascii_lowercase();
     ["header", "nav", "main", "footer"]
@@ -555,5 +694,81 @@ mod tests {
         assert_eq!(clusters.len(), 1);
         assert_eq!(clusters[0].selector, "document");
         assert_eq!(clusters[0].confidence, "likely");
+    }
+
+    // ── Root causes (2.0 finding model) ─────────────────────────────────────
+
+    fn page_with(url: &str, selector: &str, snippet: Option<&str>) -> NormalizedReport {
+        use crate::wcag::{Violation, WcagResults};
+        let mut violation = Violation::new(
+            "4.1.2",
+            "x",
+            crate::cli::WcagLevel::A,
+            Severity::High,
+            "The link has no accessible name.",
+            "n1",
+        )
+        .with_rule_id("buttons/name-missing")
+        .with_selector(selector.to_string());
+        if let Some(snippet) = snippet {
+            violation = violation.with_html_snippet(snippet.to_string());
+        }
+        let mut results = WcagResults::new();
+        results.add_violation(violation);
+        let report =
+            crate::audit::AuditReport::new(url.to_string(), crate::cli::WcagLevel::AA, results, 1);
+        crate::audit::normalize(&report).normalized
+    }
+
+    #[test]
+    fn root_cause_confidence_follows_the_evidence() {
+        use a11y_report::CauseConfidence;
+        let markup = Some("<a class=\"mainnav-toggle\" href=\"#\"></a>");
+        let same: Vec<_> = (0..3)
+            .map(|i| page_with(&format!("https://e.x/{i}"), "a.mainnav-toggle", markup))
+            .collect();
+        let causes = detect_root_causes(&same);
+        assert_eq!(causes.len(), 1);
+        assert_eq!(causes[0].confidence, CauseConfidence::Confirmed);
+        assert_eq!(causes[0].url_count, 3);
+        assert_eq!(
+            causes[0].id, same[0].findings[0].patterns[0].id,
+            "root cause id is the pattern id of the findings"
+        );
+
+        let differing: Vec<_> = (0..3)
+            .map(|i| {
+                let html = format!(
+                    "<a class=\"mainnav-toggle\"><span>{}</span><b/></a>",
+                    "x".repeat(i + 1)
+                );
+                page_with(&format!("https://e.x/{i}"), "a.mainnav-toggle", Some(&html))
+            })
+            .collect();
+        assert_eq!(
+            detect_root_causes(&differing)[0].confidence,
+            CauseConfidence::Likely
+        );
+
+        let mut sparse: Vec<_> = (0..2)
+            .map(|i| page_with(&format!("https://e.x/{i}"), "a.mainnav-toggle", markup))
+            .collect();
+        sparse.extend(
+            (2..5).map(|i| page_with(&format!("https://e.x/{i}"), "footer a.other", markup)),
+        );
+        let open = detect_root_causes(&sparse)
+            .into_iter()
+            .find(|c| c.selector == "a.mainnav-toggle")
+            .expect("recurring pattern");
+        assert_eq!(open.confidence, CauseConfidence::Open, "2 of 5 pages");
+    }
+
+    #[test]
+    fn a_pattern_on_one_page_is_no_root_cause() {
+        let pages = vec![
+            page_with("https://e.x/a", "a.only-here", None),
+            page_with("https://e.x/b", "a.elsewhere", None),
+        ];
+        assert!(detect_root_causes(&pages).is_empty());
     }
 }

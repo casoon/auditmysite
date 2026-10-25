@@ -398,6 +398,7 @@ mod tests {
             risk: crate::audit::normalized::RiskLevel::Low,
             verdict_key: String::new(),
             template_clusters: Vec::new(),
+            root_causes: Vec::new(),
             audit_quality: crate::audit::AuditQuality {
                 status: crate::audit::AuditQualityStatus::Partial,
                 qualified_results: true,

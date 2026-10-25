@@ -219,6 +219,10 @@ pub struct UnifiedSummary {
     /// across multiple pages (batch only; always empty on single reports).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub template_clusters: Vec<crate::audit::TemplateCluster>,
+    /// Finding patterns that recur on two or more pages; `id` matches
+    /// `pages[].findings[].patterns[].id` (batch only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub root_causes: Vec<crate::audit::RootCause>,
     /// Domain-wide EN 301 549 clause roll-up: worst status per clause across
     /// all pages plus the affected-page count (batch only; always empty on
     /// single reports, which carry the full per-page annex under
@@ -1075,6 +1079,7 @@ impl UnifiedReport {
             violated_rule_count: batch_report.summary.violated_rule_count,
             top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
             template_clusters: batch_report.summary.template_clusters.clone(),
+            root_causes: batch_report.summary.root_causes.clone(),
             en301549_rollup: build_en301549_batch_rollup(&normalized_reports),
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
@@ -1256,6 +1261,7 @@ impl UnifiedReport {
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
+            root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(&ctx.normalized, "Performance"),
             seo_score: normalized_module_score(&ctx.normalized, "SEO"),
@@ -1368,6 +1374,7 @@ impl UnifiedReport {
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
+            root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),

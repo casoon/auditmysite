@@ -62,5 +62,7 @@ pub use report::{
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
-pub use template_dedup::{detect_template_clusters, TemplateCluster};
+pub use template_dedup::{
+    detect_root_causes, detect_template_clusters, RootCause, TemplateCluster,
+};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};
