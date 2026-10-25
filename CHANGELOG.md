@@ -16,6 +16,7 @@ and verification for each change is in the
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
+- **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
 - **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
@@ -23,6 +24,7 @@ and verification for each change is in the
 - **Reports:** "Source quality" is shown as "Technical preparation for machine processing", an unweighted indicator. Its score combines on-page consistency and publisher/security signals; structural signals (word count, headings, structured data, metadata) are listed as observed values without a rating. `source_quality.substance.score` is deprecated and removed in 2.0.
 - **Reports:** Consistency compares what a page can contradict on its own — declared language vs. `og:locale`, `<title>` vs. `og:title`, structured data vs. visible content — and weighs only the checks that applied.
 - **Reports:** The trust signal lists contact, imprint and privacy links that were not detected instead of reusing the UX trust score.
+- **SEO:** A missing `lang` attribute or page title is marked as also counted under accessibility (WCAG 3.1.1 / 2.4.2).
 
 ### Fixed
 
@@ -34,6 +36,8 @@ and verification for each change is in the
 - **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
 - **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
 - **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
+- **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
+- **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks), and a missing viewport no longer costs SEO points; it counts under mobile and accessibility.
 
 ## [1.8.0] - 2026-10-24
 

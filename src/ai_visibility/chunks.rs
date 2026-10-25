@@ -453,14 +453,17 @@ pub(crate) fn detail_hierarchical(present: bool, en: bool) -> String {
 pub(crate) fn detail_semantic_html(present: bool, en: bool) -> String {
     if present {
         if en {
-            "Semantic elements (article, section, nav) — eases region detection".into()
+            "Main content region with article/section structure — eases region detection".into()
         } else {
-            "Semantische Elemente (article, section, nav) — erleichtert Bereichs-Erkennung".into()
+            "Hauptinhaltsbereich mit article-/section-Gliederung — erleichtert Bereichs-Erkennung"
+                .into()
         }
     } else if en {
-        "Hardly any semantic HTML — chunks only heading-based".into()
+        "No main content region with article/section structure detected — chunks only heading-based"
+            .into()
     } else {
-        "Kaum semantisches HTML — Chunks nur heading-basiert möglich".into()
+        "Kein Hauptinhaltsbereich mit article-/section-Gliederung erkannt — Chunks nur heading-basiert möglich"
+            .into()
     }
 }
 

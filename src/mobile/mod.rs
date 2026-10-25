@@ -305,6 +305,22 @@ fn mobile_issue(
     }
 }
 
+/// Summed penalty of the mobile issues. A locked zoom is the accessibility
+/// finding for WCAG 1.4.4 under the same condition; counting it here as well
+/// made one observation lower two weighted modules (plan 105). It stays listed.
+fn mobile_penalty(issues: &[MobileIssue]) -> u32 {
+    issues
+        .iter()
+        .filter(|issue| issue.issue_type != "not_scalable")
+        .map(|issue| match issue.severity {
+            Severity::Critical => 20,
+            Severity::High => 20,
+            Severity::Medium => 10,
+            Severity::Low => 5,
+        })
+        .sum()
+}
+
 /// Analyze mobile friendliness of a page
 /// Convert the summed issue penalty into a mobile-friendliness score.
 ///
@@ -601,7 +617,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             MobileIssueKind::NotScalable,
             MobileIssueValues::default(),
             Severity::Critical,
-            "Users with visual impairments cannot zoom",
+            "Users with visual impairments cannot zoom; counted under accessibility (WCAG 1.4.4), not in this score",
         ));
     }
 
@@ -670,16 +686,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         ));
     }
 
-    // Calculate score
-    let raw_penalty: u32 = issues
-        .iter()
-        .map(|issue| match issue.severity {
-            Severity::Critical => 20,
-            Severity::High => 20,
-            Severity::Medium => 10,
-            Severity::Low => 5,
-        })
-        .sum();
+    let raw_penalty = mobile_penalty(&issues);
     let score = mobile_score_from_penalty(raw_penalty);
 
     info!(
@@ -739,6 +746,26 @@ mod localization_tests {
             small_target_samples: vec!["a.inline-flex (37×44px)".to_string()],
             smallest_font_px: Some(11.0),
         }
+    }
+
+    #[test]
+    fn locked_zoom_is_listed_but_not_deducted() {
+        let locked = mobile_issue(
+            "viewport",
+            MobileIssueKind::NotScalable,
+            MobileIssueValues::default(),
+            Severity::Critical,
+            "counted under accessibility",
+        );
+        let small = mobile_issue(
+            "fonts",
+            MobileIssueKind::SmallFonts,
+            sample_values(),
+            Severity::Medium,
+            "hard to read",
+        );
+        assert_eq!(mobile_penalty(std::slice::from_ref(&locked)), 0);
+        assert_eq!(mobile_penalty(&[locked, small]), 10);
     }
 
     /// #406 guard: every kind renders differently per language and the English

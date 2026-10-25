@@ -44,7 +44,39 @@ pub(super) fn build_seo_details(
         let meta_issues: Vec<(String, crate::wcag::Severity, String)> = s
             .meta_issues
             .iter()
-            .map(|i| (i.field.clone(), i.severity, i.message.clone()))
+            .map(|i| {
+                // A missing lang or page title is also an accessibility
+                // finding (WCAG 3.1.1 / 2.4.2) and costs points there too —
+                // two perspectives, stated so the overlap is visible (plan 105).
+                let criterion = match (i.field.as_str(), i.severity) {
+                    ("lang", _) => Some("3.1.1"),
+                    ("title", crate::wcag::Severity::High) => Some("2.4.2"),
+                    _ => None,
+                };
+                let message = match criterion {
+                    Some(c) if locale == "en" => {
+                        format!(
+                            "{} — also counted under accessibility (WCAG {c})",
+                            i.message
+                        )
+                    }
+                    Some(c) => format!(
+                        "{} — zählt auch in der Barrierefreiheit (WCAG {c})",
+                        i.message
+                    ),
+                    // Charged by Mobile and Accessibility, listed here only.
+                    None if i.field == "viewport" && locale == "en" => format!(
+                        "{} — counted under mobile and accessibility, not in the SEO score",
+                        i.message
+                    ),
+                    None if i.field == "viewport" => format!(
+                        "{} — zählt bei Mobile und Barrierefreiheit, nicht im SEO-Wert",
+                        i.message
+                    ),
+                    None => i.message.clone(),
+                };
+                (i.field.clone(), i.severity, message)
+            })
             .collect();
 
         // Re-derive the content profile in the report locale. `s.content_profile`
