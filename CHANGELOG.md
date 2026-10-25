@@ -16,6 +16,7 @@ and verification for each change is in the
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
+- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.24.1.
 - **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
