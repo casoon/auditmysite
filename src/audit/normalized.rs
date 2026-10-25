@@ -240,15 +240,72 @@ fn default_finding_category() -> String {
     "wcag".to_string()
 }
 
+/// One element pattern of a finding: the rule at elements whose selectors
+/// normalize to the same form (`a11y_report::normalize_selector`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FindingPattern {
+    /// `RC-` + 8 hex, `a11y_report::RootCauseId` over rule and pattern.
+    pub id: String,
+    /// Shortest raw selector seen for this pattern.
+    pub selector: String,
+    pub occurrence_count: usize,
+}
+
+/// Patterns stored per finding; `pattern_count` keeps the full number.
+pub const MAX_PATTERNS: usize = 20;
+
+/// Group selectors into patterns: one entry per normalized selector, with
+/// the shortest raw selector as representative, most occurrences first.
+fn finding_patterns<'a>(
+    rule_id: &str,
+    selectors: impl IntoIterator<Item = &'a str>,
+) -> (Vec<FindingPattern>, usize) {
+    let mut by_pattern: std::collections::BTreeMap<String, (String, usize)> =
+        std::collections::BTreeMap::new();
+    for selector in selectors {
+        let entry = by_pattern
+            .entry(a11y_report::normalize_selector(selector))
+            .or_insert_with(|| (selector.to_string(), 0));
+        if selector.len() < entry.0.len() {
+            entry.0 = selector.to_string();
+        }
+        entry.1 += 1;
+    }
+    let pattern_count = by_pattern.len();
+    let mut patterns: Vec<FindingPattern> = by_pattern
+        .into_values()
+        .map(|(selector, occurrence_count)| FindingPattern {
+            id: a11y_report::RootCauseId::new(rule_id, &selector).to_string(),
+            selector,
+            occurrence_count,
+        })
+        .collect();
+    // Stable order: occurrences, then selector.
+    patterns.sort_by(|a, b| {
+        b.occurrence_count
+            .cmp(&a.occurrence_count)
+            .then_with(|| a.selector.cmp(&b.selector))
+    });
+    patterns.truncate(MAX_PATTERNS);
+    (patterns, pattern_count)
+}
+
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedFinding {
-    /// Stable finding id (`F-` + 8 hex), `a11y_report::FindingId` over the
-    /// rule and the normalized selectors of *all* occurrences — the same on
-    /// every page that shows the same pattern and in every run while rule
-    /// and markup pattern stay the same (2.0 finding model, plan 100).
+    /// Stable finding id (`F-` + 8 hex) from the rule alone: a finding is one
+    /// rule on one page, so the id stays the same on every page and in every
+    /// run, also when an element is added (2.0 finding model, plan 100).
     #[serde(default)]
     pub id: String,
+    /// The element patterns of this finding, most occurrences first, at most
+    /// [`MAX_PATTERNS`]. A pattern id equals the root-cause id of that rule
+    /// and pattern, so the same template on several pages shares it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub patterns: Vec<FindingPattern>,
+    /// Number of distinct patterns, also those beyond [`MAX_PATTERNS`].
+    #[serde(default)]
+    pub pattern_count: usize,
     /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
     #[serde(default = "default_finding_category")]
     pub category: String,
@@ -895,17 +952,19 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .map(|r| r.title_en.to_string())
                 .unwrap_or_else(|| first.rule_name.clone());
 
+            let id = a11y_report::FindingId::new(&tax_id, std::iter::empty()).to_string();
             // All occurrences, not the capped `occurrences` sample.
-            let id = a11y_report::FindingId::new(
+            let (patterns, pattern_count) = finding_patterns(
                 &tax_id,
                 violations
                     .iter()
                     .map(|v| v.selector.as_deref().unwrap_or("document")),
-            )
-            .to_string();
+            );
 
             NormalizedFinding {
                 id,
+                patterns,
+                pattern_count,
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
                 wcag_criterion: wcag_criterion_of(&first.rule),
@@ -1177,6 +1236,8 @@ fn aggregate_seo_findings(
         findings.push(NormalizedFinding {
             // Page-level SEO checks have no element: the page is the pattern.
             id: a11y_report::FindingId::new(&rule_id, std::iter::empty()).to_string(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "seo".to_string(),
             rule_id: rule_id.clone(),
             wcag_criterion: String::new(),
@@ -1861,11 +1922,11 @@ mod tests {
         assert!(!finding.is_legal_flag());
     }
 
-    /// 2.0 finding model: the id is the same for the same rule and element
-    /// pattern on two pages, whatever the order of the occurrences, and
-    /// differs for another pattern (plan 100).
+    /// 2.0 finding model: a finding is one rule on one page; its id comes
+    /// from the rule alone. Its patterns carry ids that are the same for the
+    /// same rule and pattern on any page, whatever the order (plan 100).
     #[test]
-    fn finding_id_is_stable_across_pages_and_order() {
+    fn finding_and_pattern_ids_are_stable() {
         let page = |selectors: &[&str]| {
             let mut results = WcagResults::new();
             for selector in selectors {
@@ -1876,13 +1937,28 @@ mod tests {
                 );
             }
             let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
-            normalize(&report).normalized.findings[0].id.clone()
+            normalize(&report).normalized.findings[0].clone()
         };
-        let a = page(&["nav > a.toggle-1", "footer a.icon"]);
-        let b = page(&["footer a.icon", "nav > a.toggle-7"]);
-        assert!(a.starts_with("F-") && a.len() == 10, "{a}");
-        assert_eq!(a, b);
-        assert_ne!(a, page(&["nav > a.toggle-1"]));
+        let a = page(&["nav > a.toggle-1", "footer a.icon", "footer a.icon"]);
+        let b = page(&["nav > a.toggle-7", "footer a.icon"]);
+        assert!(a.id.starts_with("F-") && a.id.len() == 10, "{}", a.id);
+        assert_eq!(a.id, b.id, "finding id depends on the rule only");
+        assert_eq!(a.pattern_count, 2);
+        assert_eq!(a.patterns[0].selector, "footer a.icon");
+        assert_eq!(a.patterns[0].occurrence_count, 2);
+        let toggle = |f: &NormalizedFinding| {
+            f.patterns
+                .iter()
+                .find(|p| p.selector.starts_with("nav"))
+                .map(|p| p.id.clone())
+                .expect("toggle pattern")
+        };
+        assert!(toggle(&a).starts_with("RC-"));
+        assert_eq!(toggle(&a), toggle(&b), "same pattern on two pages");
+        assert_eq!(
+            toggle(&a),
+            a11y_report::RootCauseId::new(&a.rule_id, "nav > a.toggle-3").to_string()
+        );
     }
 
     #[test]

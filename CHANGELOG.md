@@ -9,7 +9,7 @@ and verification for each change is in the
 
 ### Added
 
-- **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) built from the rule and the normalized selectors of all its occurrences; the same pattern on several pages and in later runs keeps the same id.
+- **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) from its rule, and `patterns[]` with the element patterns of all its occurrences (normalized selector, occurrence count, `RC-` id that is the same for the same rule and pattern on every page); `pattern_count` gives the full number.
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 
 ### Changed

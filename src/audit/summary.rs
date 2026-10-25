@@ -606,6 +606,8 @@ mod tests {
     ) -> NormalizedFinding {
         NormalizedFinding {
             id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.1.1".into(),

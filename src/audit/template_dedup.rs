@@ -301,6 +301,8 @@ mod tests {
         let count = occurrences.len();
         NormalizedFinding {
             id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "2.5.3".into(),

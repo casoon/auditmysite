@@ -186,6 +186,8 @@ mod fallback_tests {
     fn uncovered_rule_finding() -> NormalizedFinding {
         NormalizedFinding {
             id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "wcag".into(),
             rule_id: "a11y.timing.unadjustable".into(),
             wcag_criterion: "2.2.1".into(),
@@ -257,6 +259,8 @@ mod fallback_tests {
     fn region_finding() -> NormalizedFinding {
         NormalizedFinding {
             id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             rule_id: "a11y.structure.missing".into(),
             wcag_criterion: "1.3.1".into(),
             axe_id: Some("region".into()),
@@ -299,6 +303,8 @@ mod fallback_tests {
     fn landmark_unique_finding() -> NormalizedFinding {
         NormalizedFinding {
             id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             rule_id: "a11y.landmark_unique.invalid".into(),
             wcag_criterion: "1.3.1".into(),
             axe_id: Some("landmark-unique".into()),
