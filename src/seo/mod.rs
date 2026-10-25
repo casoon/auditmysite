@@ -192,9 +192,13 @@ fn calculate_seo_score(
 ) -> u32 {
     let mut score = 100u32;
 
-    // Meta tags — cap total penalty at 20 to avoid collapse from many minor issues
+    // Meta tags — cap total penalty at 20 to avoid collapse from many minor issues.
+    // A missing lang or canonical is charged once, in the technical section
+    // below; the meta list reported it a second time. A missing viewport is
+    // charged by Mobile and Accessibility, not here as well (plan 105).
     let meta_penalty: u32 = meta_issues
         .iter()
+        .filter(|issue| !matches!(issue.field.as_str(), "lang" | "canonical" | "viewport"))
         .map(|issue| match issue.severity {
             crate::taxonomy::Severity::Critical => 15,
             crate::taxonomy::Severity::High => 10,
@@ -261,4 +265,89 @@ fn calculate_seo_score(
     let floor = baseline_signals.iter().filter(|present| **present).count() as u32 * 10;
 
     score.max(floor).min(100)
+}
+
+#[cfg(test)]
+mod score_tests {
+    use super::*;
+
+    fn issue(field: &str, severity: crate::taxonomy::Severity) -> MetaValidation {
+        MetaValidation {
+            field: field.to_string(),
+            message: String::new(),
+            severity,
+            suggestion: None,
+        }
+    }
+
+    /// Plan 105: a missing lang or canonical showed up in the meta list and
+    /// in the technical checks, and cost points in both. It counts once.
+    #[test]
+    fn missing_lang_and_canonical_are_charged_once() {
+        use crate::taxonomy::Severity;
+        let technical = TechnicalSeo {
+            https: true,
+            has_canonical: false,
+            has_lang: false,
+            ..Default::default()
+        };
+        let social = SocialTags {
+            open_graph: Some(Default::default()),
+            twitter_card: Some(Default::default()),
+            ..Default::default()
+        };
+        let headings = HeadingStructure {
+            h1_count: 1,
+            ..Default::default()
+        };
+        let meta = MetaTags::default();
+        let without_meta_issues =
+            calculate_seo_score(&meta, &[], &headings, &social, &technical, None);
+        let with_meta_issues = calculate_seo_score(
+            &meta,
+            &[
+                issue("lang", Severity::Medium),
+                issue("canonical", Severity::Low),
+            ],
+            &headings,
+            &social,
+            &technical,
+            None,
+        );
+        assert_eq!(with_meta_issues, without_meta_issues);
+        assert_eq!(without_meta_issues, 100 - 5 - 3);
+    }
+
+    /// Plan 105: a missing viewport is charged by Mobile and Accessibility;
+    /// SEO lists it without a deduction.
+    #[test]
+    fn missing_viewport_costs_seo_nothing() {
+        let technical = TechnicalSeo {
+            https: true,
+            has_canonical: true,
+            has_lang: true,
+            ..Default::default()
+        };
+        let social = SocialTags {
+            open_graph: Some(Default::default()),
+            twitter_card: Some(Default::default()),
+            ..Default::default()
+        };
+        let headings = HeadingStructure {
+            h1_count: 1,
+            ..Default::default()
+        };
+        let meta = MetaTags::default();
+        assert_eq!(
+            calculate_seo_score(
+                &meta,
+                &[issue("viewport", crate::taxonomy::Severity::High)],
+                &headings,
+                &social,
+                &technical,
+                None,
+            ),
+            100
+        );
+    }
 }

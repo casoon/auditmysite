@@ -230,6 +230,68 @@ fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
     );
 }
 
+/// Plan 105: the chunking signal read "no landmark violations" from the
+/// accessibility result, so one landmark finding moved the AI score too. It
+/// now reads the main content region the SEO extraction found.
+#[test]
+fn landmark_violations_do_not_move_ai_chunking() {
+    use crate::ai_visibility::analyze_ai_visibility;
+    use crate::seo::{HeadingInfo, HeadingStructure, SeoAnalysis, TechnicalSeo};
+
+    // Three headings make the section-structure half of the signal true, so
+    // only the landmark/main-region input decides it.
+    let heading = |level: u8, text: &str| HeadingInfo {
+        level,
+        text: text.to_string(),
+        length: text.len(),
+        is_question: false,
+        in_faq_context: false,
+        word_count_after: 120,
+    };
+    let with_main = |results: WcagResults| {
+        let mut report = make_report(results);
+        report.discoverability.seo = Some(SeoAnalysis {
+            headings: HeadingStructure {
+                h1_count: 1,
+                h1_text: Some("Title".to_string()),
+                headings: vec![
+                    heading(1, "Title"),
+                    heading(2, "Part"),
+                    heading(3, "Detail"),
+                ],
+                issues: vec![],
+                total_count: 3,
+            },
+            technical: TechnicalSeo {
+                text_excerpt_source: "main".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        report
+    };
+    let mut broken = WcagResults::new();
+    broken.add_violation(Violation::new(
+        "1.3.1",
+        "Landmark",
+        WcagLevel::A,
+        Severity::Medium,
+        "Content outside landmark regions",
+        "n1",
+    ));
+    assert_eq!(
+        analyze_ai_visibility(&with_main(WcagResults::new()))
+            .chunks
+            .dimension
+            .score,
+        analyze_ai_visibility(&with_main(broken))
+            .chunks
+            .dimension
+            .score,
+        "a landmark finding still moves the AI chunking score"
+    );
+}
+
 /// Plan 29, D1: the headline classification describes accessibility. It used
 /// to hang off the weighted overall score, so an accessibility score of 20
 /// reached the cover as a 39 that five other modules had lifted.

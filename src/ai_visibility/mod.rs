@@ -982,13 +982,10 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
 
     let total_word_count = seo.map_or(0, |s| s.technical.word_count);
 
-    // Check for semantic HTML from accessibility tree or mobile analysis
-    let has_nav_landmarks = report
-        .accessibility
-        .wcag_results
-        .violations
-        .iter()
-        .all(|v| !v.rule_name.contains("Landmark"));
+    // A unique <main> region, as the SEO text extraction found it. This used
+    // to be "no landmark violations" from the accessibility result — an
+    // accessibility finding moving an indicator a second time (plan 105).
+    let has_main_region = seo.is_some_and(|s| s.technical.text_excerpt_source == "main");
     // article/section tags not directly available from technical SEO extraction.
     // Heuristic: if page has article schema, it likely uses <article> markup.
     let has_article_tag = seo.is_some_and(|s| {
@@ -1000,7 +997,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
         })
     });
     let has_section_tags = headings.len() >= 3; // pages with 3+ headings likely use <section>
-    let has_semantic_html = has_nav_landmarks && (has_article_tag || has_section_tags);
+    let has_semantic_html = has_main_region && (has_article_tag || has_section_tags);
 
     chunks::ChunkInput {
         headings,
