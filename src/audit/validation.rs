@@ -137,12 +137,6 @@ impl NormalizedReport {
             occurrence_counts[index] =
                 occurrence_counts[index].saturating_add(finding.occurrence_count);
             occurrence_counts[4] = occurrence_counts[4].saturating_add(finding.occurrence_count);
-            check(
-                finding.occurrence_count > 0,
-                "finding_occurrences",
-                format!("findings[{}]", finding.rule_id),
-                "a finding must retain at least one occurrence".into(),
-            );
         }
         let c = &self.severity_counts;
         check(
@@ -354,6 +348,132 @@ impl NormalizedReport {
                 ),
             );
         }
+        // The decision is the contract's result under its own stored
+        // profile (#781); another value means a projection changed it.
+        check(
+            self.decision.contract == super::DECISION_CONTRACT,
+            "decision_contract",
+            "decision.contract".into(),
+            format!(
+                "decision contract {} is not {}",
+                self.decision.contract,
+                super::DECISION_CONTRACT
+            ),
+        );
+        let expected = super::compute_verdict(self, &self.decision.profile);
+        check(
+            expected.verdict == self.decision.verdict && expected.reasons == self.decision.reasons,
+            "decision",
+            "decision".into(),
+            format!(
+                "profile {} decides {:?} ({}), stored {:?} ({})",
+                self.decision.profile.name,
+                expected.verdict,
+                expected.reasons.join(", "),
+                self.decision.verdict,
+                self.decision.reasons.join(", ")
+            ),
+        );
+
+        // Every collected problem has one representation (#780).
+        let mut finding_ids = HashSet::new();
+        for finding in &self.findings {
+            check(
+                finding_ids.insert(finding.id.as_str()),
+                "finding_identity",
+                format!("findings[{}]", finding.rule_id),
+                "finding ids must be unique on a page".into(),
+            );
+            check(
+                finding.category == finding.contract.domain.category(),
+                "finding_domain",
+                format!("findings[{}].contract.domain", finding.rule_id),
+                "category must name the contract domain".into(),
+            );
+            check(
+                finding.occurrence_count > 0,
+                "finding_occurrences",
+                format!("findings[{}]", finding.rule_id),
+                "a finding must retain at least one occurrence".into(),
+            );
+        }
+        for entry in &self.finding_inventory {
+            let path = format!("finding_inventory[{}.{}]", entry.source, entry.check);
+            match &entry.disposition {
+                super::finding_contract::Disposition::Finding { finding_id } => {
+                    let finding = self.findings.iter().find(|f| &f.id == finding_id);
+                    check(
+                        finding.is_some_and(|f| {
+                            f.occurrence_count == entry.collected
+                                && f.contract.source == entry.source
+                                && f.contract.check == entry.check
+                        }),
+                        "finding_inventory",
+                        path,
+                        format!(
+                            "{} collected problems are not represented by finding {finding_id}",
+                            entry.collected
+                        ),
+                    );
+                }
+                super::finding_contract::Disposition::Excluded { .. } => check(
+                    entry.collected > 0,
+                    "finding_inventory",
+                    path,
+                    "an exclusion must account for collected problems".into(),
+                ),
+            }
+        }
+        for finding in self.findings.iter().filter(|f| f.category != "wcag") {
+            check(
+                self.finding_inventory.iter().any(|entry| {
+                    matches!(&entry.disposition,
+                        super::finding_contract::Disposition::Finding { finding_id }
+                            if finding_id == &finding.id)
+                }),
+                "finding_inventory",
+                format!("findings[{}]", finding.rule_id),
+                "a finding without inventory entry has no traceable source".into(),
+            );
+        }
+        // One score charges a cause once: grouping by cause is separate from
+        // scoring, and a second charging finding must be a reference.
+        let mut charged: HashSet<(&str, &str)> = HashSet::new();
+        for finding in &self.findings {
+            let scoring = &finding.contract.scoring;
+            if !scoring.charges() {
+                continue;
+            }
+            let owner = scoring.owner.as_deref().unwrap_or("");
+            check(
+                charged.insert((owner, finding.contract.cause.as_str())),
+                "cause_charged_twice",
+                format!("findings[{}].contract.scoring", finding.rule_id),
+                format!(
+                    "cause {} is already charged in {owner}",
+                    finding.contract.cause
+                ),
+            );
+        }
+        // A gate caps its owner's score; a published score above the cap
+        // contradicts the finding.
+        if self.findings.iter().any(|f| {
+            f.contract.scoring.effect == super::finding_contract::ScoringEffect::Gate
+                && f.contract.scoring.owner.as_deref() == Some("SEO")
+        }) {
+            if let Some(seo) = self.module_scores.iter().find(|m| m.name == "SEO") {
+                check(
+                    seo.score <= crate::seo::INDEXABILITY_BLOCKER_CAP,
+                    "gate_score_cap",
+                    "module_scores[SEO]".into(),
+                    format!(
+                        "a technical blocker caps SEO at {}",
+                        crate::seo::INDEXABILITY_BLOCKER_CAP
+                    ),
+                );
+            }
+        }
+
         let q = &self.execution.quality;
         let gaps = capture_gaps(&self.execution);
         check(
@@ -411,10 +531,14 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
             }));
         }
         total += u64::from(context.normalized.score);
-        passed += usize::from(
-            super::compute_verdict(&context.normalized, &Default::default()).verdict
-                == super::Verdict::Pass,
-        );
+        passed += usize::from(context.normalized.decision.verdict == super::Verdict::Pass);
+        if &context.normalized.decision.profile != summary_profile(batch) {
+            violations.push(ContractViolation {
+                code: "decision_profile",
+                path: format!("reports[{index}].run_context.decision_profile"),
+                message: "every page of a batch is decided under the batch's profile".into(),
+            });
+        }
     }
     let count = batch.reports.len();
     let expected_average = if count == 0 {
@@ -433,6 +557,13 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
             summary.passed == passed && summary.failed == count - passed,
             "passed",
             "pass/fail counts must follow the canonical verdict",
+        ),
+        (
+            summary.decision.contract == super::DECISION_CONTRACT
+                && summary.decision
+                    == super::compute_batch_verdict(summary, &summary.decision.profile),
+            "decision",
+            "the stored batch decision must follow from its own profile",
         ),
         (
             summary.average_score.is_finite()
@@ -460,6 +591,10 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
         }
     }
     finish(violations)
+}
+
+fn summary_profile(batch: &BatchReport) -> &super::DecisionProfile {
+    &batch.summary.decision.profile
 }
 
 fn finish(violations: Vec<ContractViolation>) -> Result<(), ReportContractError> {

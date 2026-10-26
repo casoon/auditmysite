@@ -1936,6 +1936,7 @@ mod tests {
 
     fn minimal_seo() -> SeoAnalysis {
         SeoAnalysis {
+            indexability: Default::default(),
             meta: MetaTags::default(),
             meta_issues: vec![],
             headings: HeadingStructure {

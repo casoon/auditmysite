@@ -1808,6 +1808,7 @@ mod tests {
             HeadingStructure, MetaTags, SeoAnalysis, SocialTags, StructuredData, TechnicalSeo,
         };
         SeoAnalysis {
+            indexability: Default::default(),
             meta: MetaTags {
                 title: Some("Test Page Example Site Accessibility".to_string()),
                 description: Some("A test description that is long enough for SEO purposes and fits perfectly within the recommended 120 to 160 character limit for meta descriptions.".to_string()),
@@ -2014,6 +2015,7 @@ mod tests {
         use crate::cli::WcagLevel;
         use crate::wcag::WcagResults;
         AuditReport {
+            run_context: Default::default(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),

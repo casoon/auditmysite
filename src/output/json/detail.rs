@@ -53,6 +53,8 @@ pub(super) fn build_page(
         risk: normalized.risk.clone(),
         principle_coverage: normalized.principle_coverage.clone(),
         findings: normalized.findings.clone(),
+        finding_inventory: normalized.finding_inventory.clone(),
+        decision: normalized.decision.clone(),
         audit_flags: normalized.audit_flags.clone(),
         audit_quality: normalized.execution.quality.clone(),
         module_runs: normalized.execution.module_runs.clone(),

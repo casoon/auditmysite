@@ -1229,6 +1229,7 @@ mod tests {
 
     fn minimal_report() -> AuditReport {
         AuditReport {
+            run_context: Default::default(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),
@@ -1331,6 +1332,7 @@ mod tests {
         // Bare SEO so every "missing"/"weak" branch contributes a string.
         let mut report = minimal_report();
         report.discoverability.seo = Some(SeoAnalysis {
+            indexability: Default::default(),
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

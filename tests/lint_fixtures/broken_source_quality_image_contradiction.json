@@ -4,7 +4,6 @@
   "summary": {
     "accessibility_score": 82,
     "overall_score": 82,
-    "score": 82,
     "grade": "B",
     "certificate": "GUT",
     "severity_counts": { "critical": 0, "high": 1, "medium": 0, "low": 0, "total": 1 },

@@ -55,8 +55,15 @@ pub struct NormalizedReport {
     /// Certificate aus `score`, gegebenenfalls durch das Risiko-Veto begrenzt
     pub certificate: String,
 
-    /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
+    /// Every collected problem of every domain, grouped per rule or check,
+    /// with the shared finding contract (#780).
     pub findings: Vec<NormalizedFinding>,
+    /// How each collected non-WCAG problem is represented: a finding id or an
+    /// explicit exclusion. WCAG rule runs are accounted in `rule_outcomes`.
+    pub finding_inventory: Vec<crate::audit::finding_contract::InventoryEntry>,
+    /// The decision under the stored profile (#781): the one PASS/WARN/FAIL
+    /// every output projects.
+    pub decision: crate::audit::verdict::VerdictResult,
     /// Severity-Zähler — zählt **Findings** (eine Zeile pro Regel + Severity).
     pub severity_counts: SeverityCounts,
     /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
@@ -257,7 +264,7 @@ pub const MAX_PATTERNS: usize = 20;
 
 /// Group selectors into patterns: one entry per normalized selector, with
 /// the shortest raw selector as representative, most occurrences first.
-fn finding_patterns<'a>(
+pub(super) fn finding_patterns<'a>(
     rule_id: &str,
     selectors: impl IntoIterator<Item = &'a str>,
 ) -> (Vec<FindingPattern>, usize) {
@@ -397,6 +404,9 @@ pub struct NormalizedFinding {
     pub remediation_priority: String,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
+    /// Domain, source, outcome, applicability, cause and scoring
+    /// responsibility — the contract every domain shares (#780).
+    pub contract: crate::audit::finding_contract::FindingContract,
 }
 
 impl NormalizedFinding {
@@ -950,6 +960,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .unwrap_or_else(|| first.rule_name.clone());
 
             let id = a11y_report::FindingId::new(&tax_id, std::iter::empty()).to_string();
+            let contract = crate::audit::finding_contract::FindingContract::wcag(&tax_id, &id);
             // All occurrences, not the capped `occurrences` sample.
             let (patterns, pattern_count) = finding_patterns(
                 &tax_id,
@@ -995,6 +1006,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 bfsg_relevance,
                 remediation_priority,
                 occurrences,
+                contract,
             }
         })
         .collect();
@@ -1025,7 +1037,9 @@ pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFindin
     let mut aggregated: Vec<BatchFinding> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     for report in reports {
-        for finding in &report.findings {
+        // Actions are primary findings: references and derived indicator
+        // findings stay on the page, not in the batch action list (#780).
+        for finding in report.findings.iter().filter(|f| f.contract.is_primary()) {
             match index.get(&finding.aggregation_key) {
                 Some(&i) => {
                     let entry = &mut aggregated[i];
@@ -1199,97 +1213,6 @@ pub fn seo_heading_finding_text(
     (title, technical_impact)
 }
 
-fn aggregate_seo_findings(
-    seo: &crate::seo::SeoAnalysis,
-    max_occurrences: usize,
-) -> Vec<NormalizedFinding> {
-    let mut heading_groups: HashMap<&str, Vec<&crate::seo::HeadingIssue>> = HashMap::new();
-    for issue in &seo.headings.issues {
-        heading_groups
-            .entry(&issue.issue_type)
-            .or_default()
-            .push(issue);
-    }
-    let mut findings = Vec::new();
-    for (issue_type, issues) in heading_groups {
-        let first = issues[0];
-        let occurrence_count = issues.len();
-        let rule_id = format!("seo.headings.{}", issue_type);
-        // Canonical English is baked into the finding (→ JSON); the PDF re-derives
-        // German via `seo_heading_finding_text(.., false)` at render time (#406).
-        let (title, technical_impact) = seo_heading_finding_text(issue_type, true, &first.message);
-        let priority_score = calculate_priority_score(first.severity, occurrence_count, &rule_id);
-        let confidence = derive_confidence(&rule_id, "Content", "issue");
-        let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");
-        let verification = derive_verification(&false_positive_risk);
-        let (complexity, complexity_kind) = derive_complexity(occurrence_count, &rule_id, "issue");
-        let complexity_reason = complexity_text(complexity_kind, true);
-        let expected_impact_kind =
-            derive_expected_impact(first.severity, occurrence_count, "seo", "");
-        let expected_impact = expected_impact_text(&expected_impact_kind, true);
-        let bfsg_relevance = derive_bfsg_relevance("", "seo", "", "", first.severity);
-        let remediation_priority =
-            derive_remediation_priority(first.severity, occurrence_count, &complexity);
-        findings.push(NormalizedFinding {
-            // Page-level SEO checks have no element: the page is the pattern.
-            id: a11y_report::FindingId::new(&rule_id, std::iter::empty()).to_string(),
-            patterns: Vec::new(),
-            pattern_count: 0,
-            category: "seo".to_string(),
-            rule_id: rule_id.clone(),
-            wcag_criterion: String::new(),
-            axe_id: None,
-            wcag_level: String::new(),
-            dimension: "SEO".to_string(),
-            subcategory: "Content".to_string(),
-            issue_class: "issue".to_string(),
-            dimension_kind: crate::taxonomy::Dimension::Seo,
-            subcategory_kind: crate::taxonomy::Subcategory::ContentStructure,
-            issue_class_kind: crate::taxonomy::IssueClass::Weak,
-            severity: first.severity,
-            user_impact: String::new(),
-            technical_impact,
-            score_impact: ScoreImpactData {
-                base_penalty: 0.0,
-                max_penalty: 0.0,
-                scaling: "none".to_string(),
-            },
-            report_visibility: ReportVisibilityData::default(),
-            aggregation_key: rule_id,
-            title,
-            description: first.message.clone(),
-            help_url: None,
-            occurrence_count,
-            priority_score,
-            confidence,
-            false_positive_risk,
-            verification,
-            complexity,
-            complexity_reason,
-            complexity_kind,
-            expected_impact,
-            expected_impact_kind,
-            bfsg_relevance,
-            remediation_priority,
-            occurrences: issues
-                .iter()
-                .take(max_occurrences)
-                .map(|i| OccurrenceDetail {
-                    node_id: i.issue_type.clone(),
-                    message: i.message.clone(),
-                    selector: None,
-                    fix_suggestion: None,
-                    html_snippet: None,
-                    suggested_code: None,
-                    tags: vec!["seo".to_string()],
-                    ..Default::default()
-                })
-                .collect(),
-        });
-    }
-    findings
-}
-
 fn filter_aria_hidden_interactive(
     interactive_findings: &mut Vec<InteractiveFinding>,
     findings: &[NormalizedFinding],
@@ -1416,14 +1339,29 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     let mut findings = build_wcag_findings(violations);
-    if let Some(seo) = &report.discoverability.seo {
-        findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
-    }
-
-    findings.sort_by(crate::audit::prioritization::action_order);
 
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
+    let removed_interactive = report.interactive_findings.len() - interactive_findings.len();
+
+    let screen_reader = report
+        .screen_reader_audit
+        .as_ref()
+        .map(crate::screen_reader::ScreenReaderSummary::from_report);
+
+    // Every other domain joins the same finding set under the shared
+    // contract; the inventory accounts for each collected problem (#780).
+    let (domain_findings, finding_inventory) =
+        crate::audit::finding_contract::build_domain_findings(
+            report,
+            &interactive_findings,
+            removed_interactive,
+            screen_reader.as_ref(),
+            MAX_OCCURRENCES,
+        );
+    findings.extend(domain_findings);
+
+    findings.sort_by(crate::audit::prioritization::action_order);
 
     let score = report
         .viewport_scores
@@ -1641,11 +1579,6 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         });
     }
 
-    let screen_reader = report
-        .screen_reader_audit
-        .as_ref()
-        .map(crate::screen_reader::ScreenReaderSummary::from_report);
-
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = compute_risk_assessment(
         &findings,
@@ -1688,6 +1621,8 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         grade,
         certificate,
         findings,
+        finding_inventory,
+        decision: crate::audit::verdict::VerdictResult::undecided(),
         severity_counts,
         occurrence_counts,
         accessibility_assessments: normalize_assessments(&report.accessibility.wcag_results),
@@ -1741,6 +1676,12 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_commerce: report.commerce.as_ref(),
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
+    // Last: the decision reads the finished report, under the profile the
+    // run declared (#781).
+    ctx.normalized.decision = crate::audit::verdict::compute_verdict(
+        &ctx.normalized,
+        &report.run_context.decision_profile,
+    );
     ctx
 }
 
