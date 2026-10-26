@@ -43,6 +43,7 @@ fn make_security_from_headers(
         recommendations: vec![],
         protection: Default::default(),
         sourcemap_leaks: Default::default(),
+        fetch: Default::default(),
     }
 }
 

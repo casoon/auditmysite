@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
 - **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
 - **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings. Release checks require positive and negative corpus evidence for every inventoried WCAG, security, schema and library check; deferred checks do not satisfy this gate.
 - **Release:** Version 2.x requires completion of the 26 foundation-audit issues and their tracker in the 2.0 milestone. Missing issues, open prerequisites, non-completion closures and GitHub API failures block the release before artifact builds.
@@ -19,6 +20,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **DNS:** CAA and DNSKEY are looked up on the host and its parent domains; `caa_present`, `dnssec_detected` and `mx_present` are `null` when the resolver gave no answer.
 - **Performance:** Each core metric (`performance.lcp`, `fcp`, `cls`, `tbt`) and sub-analysis reports its collection state; a throttled profile without all four core metrics has no score (`score: null`) and is not adopted as the canonical measurement.
 - **Performance:** LCP is the last candidate before the read, also one painted after `load`; TBT counts long tasks over FCP→TTI (Lighthouse window) instead of up to load + 100 ms. TTI is the end of the last long task before the first 5 s quiet window.
 - **Scoring:** A module that lost a collection its score depends on is shown as partial and no longer counts toward the overall score; derived indicators are not computed over a failed module.
@@ -50,6 +52,8 @@ and verification for each change is in the
 
 ### Fixed
 
+- **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
+- **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.
 - **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.
 - **Collection:** A request or script that did not answer no longer becomes a finding (e.g. "HTTP/1.1 only", "www not consolidated", "invalid manifest", "broken link") or a clean result (e.g. "no cookies", "no console errors", 100 image-efficiency points).
 - **Content visibility:** The SSR content-gap check loads the page itself instead of measuring the blank tab left after interactive journeys.

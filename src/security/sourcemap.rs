@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 use url::Url;
 
+use crate::audit::collection::{reason, Collected};
+
 /// Cap on how many JS/CSS assets get their sourceMappingURL checked, largest
 /// pages first in document order — bounds probe time on asset-heavy pages.
 const MAX_ASSETS_CHECKED: usize = 20;
@@ -42,7 +44,10 @@ pub struct SourceMapLeak {
 /// Fetches the page HTML itself (independent of any CDP session — this is a
 /// pure HTTP check, matching the rest of the security module) to find asset
 /// URLs, then probes each asset's own trailing sourceMappingURL comment.
-pub async fn audit_source_maps(page_url: &str) -> SourceMapLeakAudit {
+///
+/// A page that could not be fetched is no page without leaks; assets that
+/// could not be fetched make the check partial (#774).
+pub async fn audit_source_maps(page_url: &str) -> Collected<SourceMapLeakAudit> {
     let client = match reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(5))
         .timeout(std::time::Duration::from_secs(8))
@@ -50,24 +55,26 @@ pub async fn audit_source_maps(page_url: &str) -> SourceMapLeakAudit {
         .build()
     {
         Ok(client) => client,
-        Err(_) => return SourceMapLeakAudit::default(),
+        Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
     };
 
     let Ok(page_resp) = client.get(page_url).send().await else {
-        return SourceMapLeakAudit::default();
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
     let Ok(html) = page_resp.text().await else {
-        return SourceMapLeakAudit::default();
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
 
     let asset_urls = extract_asset_urls(page_url, &html);
     if asset_urls.is_empty() {
-        return SourceMapLeakAudit::default();
+        return Collected::Empty(SourceMapLeakAudit::default());
     }
 
     let mut audit = SourceMapLeakAudit::default();
+    let mut unanswered = 0usize;
     for asset_url in asset_urls.iter().take(MAX_ASSETS_CHECKED) {
         let Ok(resp) = client.get(asset_url).send().await else {
+            unanswered += 1;
             continue;
         };
         if !resp.status().is_success() {
@@ -104,7 +111,32 @@ pub async fn audit_source_maps(page_url: &str) -> SourceMapLeakAudit {
         }
     }
 
-    audit
+    sourcemap_outcome(audit, unanswered)
+}
+
+#[cfg(test)]
+pub(crate) fn sourcemap_outcome_for_tests(
+    audit: SourceMapLeakAudit,
+    unanswered: usize,
+) -> Collected<SourceMapLeakAudit> {
+    sourcemap_outcome(audit, unanswered)
+}
+
+/// Every asset answered: measured; some: partial; none: failed.
+fn sourcemap_outcome(
+    audit: SourceMapLeakAudit,
+    unanswered: usize,
+) -> Collected<SourceMapLeakAudit> {
+    if unanswered == 0 {
+        Collected::Measured(audit)
+    } else if audit.assets_checked == 0 && audit.leaks.is_empty() {
+        Collected::Failed(reason::HTTP_REQUEST_FAILED)
+    } else {
+        Collected::Partial {
+            value: audit,
+            gaps: vec!["asset_request"],
+        }
+    }
 }
 
 /// Extract distinct `<script src>` and `<link rel="stylesheet" href>` asset

@@ -550,6 +550,7 @@ fn test_modules_under_page_detail() {
         recommendations: vec![],
         protection: Default::default(),
         sourcemap_leaks: Default::default(),
+        fetch: Default::default(),
     })
     .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
     .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
@@ -625,6 +626,7 @@ fn all_active_modules_report() -> AuditReport {
         recommendations: vec![],
         protection: Default::default(),
         sourcemap_leaks: Default::default(),
+        fetch: Default::default(),
     })
     .with_html_conform(crate::html_conform::HtmlConformAnalysis {
         score: 90,

@@ -2462,6 +2462,7 @@ mod minification_inconsistency_tests {
                 recommendations: vec![],
                 protection: Default::default(),
                 sourcemap_leaks: Default::default(),
+                fetch: Default::default(),
             },
         )
     }

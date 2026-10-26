@@ -315,6 +315,7 @@ mod tests {
                 recommendations: vec![],
                 protection: Default::default(),
                 sourcemap_leaks: Default::default(),
+                fetch: Default::default(),
             })
             .with_seo({
                 let mut seo = SeoAnalysis::default();

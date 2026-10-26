@@ -429,6 +429,10 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::performance::coverage::JS_COVERAGE,
     &crate::performance::coverage::CSS_COVERAGE,
     &crate::performance::third_party::ISOLATION,
+    &crate::security::HEADERS,
+    &crate::security::SOURCE_MAPS,
+    &crate::security::CERTIFICATE,
+    &crate::security::DOCUMENT_MATCH,
     &crate::network::dns::module::CAA,
     &crate::network::dns::module::DNSKEY,
     &crate::network::dns::module::MX,
@@ -699,6 +703,10 @@ mod tests {
                 "performance.third_party_isolation",
                 crate::performance::third_party::counter_cases,
             ),
+            ("security.headers", crate::security::counter_cases),
+            ("security.source_maps", crate::security::counter_cases),
+            ("security.certificate", crate::security::counter_cases),
+            ("security.document_match", crate::security::counter_cases),
             ("network_dns.caa", crate::network::dns::counter_cases),
             ("network_dns.dnskey", crate::network::dns::counter_cases),
             ("network_dns.mx", crate::network::dns::counter_cases),
@@ -725,11 +733,16 @@ mod tests {
     #[test]
     fn every_collector_has_counter_cases() {
         let cases = counter_cases();
+        // Several collectors share one function; each runs once.
+        let mut ran: Vec<fn()> = Vec::new();
         for spec in COLLECTORS {
             let Some((_, case)) = cases.iter().find(|(id, _)| *id == spec.id) else {
                 panic!("collector {} has no counter-cases", spec.id);
             };
-            case();
+            if !ran.iter().any(|done| std::ptr::fn_addr_eq(*done, *case)) {
+                case();
+                ran.push(*case);
+            }
         }
         for (id, _) in &cases {
             assert!(

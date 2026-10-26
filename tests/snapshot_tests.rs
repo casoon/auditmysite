@@ -135,6 +135,7 @@ fn make_full_report() -> AuditReport {
         recommendations: vec![],
         protection: Default::default(),
         sourcemap_leaks: Default::default(),
+        fetch: Default::default(),
     })
     .with_mobile(MobileFriendliness {
         score: 85,

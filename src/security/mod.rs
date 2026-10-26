@@ -3,7 +3,7 @@
 //! Analyzes HTTP security headers and SSL/TLS configuration.
 
 pub mod module;
-mod sourcemap;
+pub(crate) mod sourcemap;
 pub use module::SecurityModule;
 pub use sourcemap::{audit_source_maps, SourceMapLeak, SourceMapLeakAudit};
 
@@ -53,6 +53,127 @@ pub struct SecurityAnalysis {
     /// Publicly reachable source maps for loaded scripts/stylesheets (#538)
     #[serde(default)]
     pub sourcemap_leaks: SourceMapLeakAudit,
+    /// Where the analysed headers came from (#774).
+    #[serde(default)]
+    pub fetch: HeaderFetch,
+}
+
+/// Provenance of the response whose headers the security analysis reads.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeaderFetch {
+    /// `http_probe`: a request outside the browser, not the browser's own
+    /// document response.
+    pub source: String,
+    /// The method that produced the analysed response (`HEAD` or `GET`).
+    pub method: String,
+    pub status: u16,
+    pub requested_url: String,
+    /// The URL after redirects — its scheme is the transport the headers
+    /// were served over (#775).
+    pub final_url: String,
+    /// Status of a rejected `HEAD` that made the probe fall back to `GET`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_status: Option<u16>,
+}
+
+/// The security headers of the audited URL, fetched outside the browser.
+pub(crate) static HEADERS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "security.headers",
+        module: "security",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 2,
+        scoring: true,
+    };
+
+/// Public source maps of the page's assets.
+pub(crate) static SOURCE_MAPS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "security.source_maps",
+        module: "security",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 2,
+        scoring: true,
+    };
+
+/// TLS certificate state as the browser saw it.
+pub(crate) static CERTIFICATE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "security.certificate",
+        module: "security",
+        method: crate::audit::collection::CollectionMethod::Cdp,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// Whether the probe's final document is the one the browser audited:
+/// same scheme and host after redirects (#775).
+pub(crate) static DOCUMENT_MATCH: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "security.document_match",
+        module: "security",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 1,
+        scoring: true,
+    };
+
+/// Fetch the response whose headers are analysed: `HEAD`, and `GET` when
+/// `HEAD` fails or is rejected (405, 403, …). A request that does not
+/// complete, times out or ends in an error status is no measurement — an
+/// error page's headers are not the site's (#774).
+pub(crate) async fn fetch_headers(
+    client: &reqwest::Client,
+    url: &str,
+) -> crate::audit::collection::Collected<(HeaderMap, HeaderFetch)> {
+    use crate::audit::collection::Collected;
+    let head = client.head(url).send().await;
+    let head_status = match &head {
+        Ok(response) if response.status().is_success() => None,
+        Ok(response) => Some(response.status().as_u16()),
+        Err(_) => None,
+    };
+    let (method, response) = match head {
+        Ok(response) if response.status().is_success() => ("HEAD", response),
+        _ => match client.get(url).send().await {
+            Ok(response) => ("GET", response),
+            Err(error) if error.is_timeout() => return Collected::Failed("http_timeout"),
+            Err(error) if error.is_connect() => return Collected::Failed("http_connect_failed"),
+            Err(_) => {
+                return Collected::Failed(crate::audit::collection::reason::HTTP_REQUEST_FAILED)
+            }
+        },
+    };
+    if !response.status().is_success() {
+        return Collected::Failed("http_error_status");
+    }
+    let fetch = HeaderFetch {
+        source: "http_probe".to_string(),
+        method: method.to_string(),
+        status: response.status().as_u16(),
+        requested_url: url.to_string(),
+        final_url: response.url().to_string(),
+        head_status,
+    };
+    Collected::Measured((response.headers().clone(), fetch))
+}
+
+/// Same scheme and host: the probe analysed the document the browser loaded.
+pub(crate) fn document_match(
+    fetch: &HeaderFetch,
+    browser_final_url: Option<&str>,
+) -> crate::audit::collection::Collected<()> {
+    use crate::audit::collection::Collected;
+    let Some(browser) = browser_final_url.and_then(|u| url::Url::parse(u).ok()) else {
+        return Collected::Failed("browser_final_url_unknown");
+    };
+    let Ok(probe) = url::Url::parse(&fetch.final_url) else {
+        return Collected::Failed("probe_final_url_invalid");
+    };
+    if probe.scheme() == browser.scheme() && probe.host_str() == browser.host_str() {
+        Collected::Measured(())
+    } else {
+        Collected::Failed("probe_document_mismatch")
+    }
 }
 
 /// Security headers status
@@ -656,7 +777,10 @@ fn security_issue(
 }
 
 /// Analyze security headers of a URL
-pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
+pub async fn analyze_security(
+    url: &str,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<SecurityAnalysis> {
     info!("Analyzing security headers for {}...", url);
 
     let client = reqwest::Client::builder()
@@ -664,19 +788,13 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
         .danger_accept_invalid_certs(false)
         .build()
         .map_err(AuditError::HttpError)?;
-    let response = match client.head(url).send().await {
-        Ok(response) if response.status().is_success() => response,
-        _ => client
-            .get(url)
-            .send()
-            .await
-            .map_err(AuditError::HttpError)?,
-    }
-    .error_for_status()
-    .map_err(AuditError::HttpError)?;
-    let https = response.url().scheme() == "https";
-    let headers = extract_security_headers(response.headers());
-    let protection = detect_protection(response.headers());
+    let (response_headers, fetch) = log
+        .record(&HEADERS, fetch_headers(&client, url).await)
+        .into_result(&HEADERS)?;
+    // The transport the headers were served over, after redirects (#775).
+    let https = fetch.final_url.starts_with("https://");
+    let headers = extract_security_headers(&response_headers);
+    let protection = detect_protection(&response_headers);
 
     // Analyze SSL
     let ssl = analyze_ssl(https, &headers);
@@ -713,7 +831,10 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
     }
 
     // Public source-map leak check (#538)
-    let sourcemap_leaks = audit_source_maps(url).await;
+    let sourcemap_leaks = log
+        .record(&SOURCE_MAPS, audit_source_maps(url).await)
+        .into_value()
+        .unwrap_or_default();
     if !sourcemap_leaks.leaks.is_empty() {
         issues.push(security_issue(
             "Source Map",
@@ -760,6 +881,7 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
         recommendations,
         protection,
         sourcemap_leaks,
+        fetch,
     })
 }
 
@@ -1516,6 +1638,144 @@ fn calculate_grade(score: u32) -> String {
     crate::registry::SECURITY_GRADE
         .label(score as f32, false)
         .to_string()
+}
+
+/// Counter-cases of the security collectors (#774, #775), against a local
+/// server: refused connection, timeout, `HEAD` rejected with 405, 403 and a
+/// redirect — none of them may turn into analysed headers except the
+/// successful `GET` fallback and the redirect target.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{Collected, CollectionState};
+    use std::io::{Read, Write};
+
+    /// Answers `(method, path)` with a raw response; `None` hangs.
+    fn serve(routes: Vec<(&'static str, &'static str, Option<String>)>) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let routes = routes.clone();
+                std::thread::spawn(move || {
+                    let mut stream = stream;
+                    let mut buf = [0u8; 2048];
+                    let n = stream.read(&mut buf).unwrap_or(0);
+                    let request = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let mut parts = request.split_whitespace();
+                    let (method, path) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
+                    match routes
+                        .iter()
+                        .find(|(m, p, _)| *m == method && *p == path)
+                        .map(|(_, _, r)| r.clone())
+                    {
+                        Some(Some(response)) => {
+                            let _ = stream.write_all(response.as_bytes());
+                        }
+                        Some(None) => std::thread::sleep(std::time::Duration::from_secs(5)),
+                        None => {
+                            let _ = stream
+                                .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+                        }
+                    }
+                });
+            }
+        });
+        base
+    }
+    fn status(code: u16, extra: &str) -> Option<String> {
+        Some(format!(
+            "HTTP/1.1 {code} X\r\nContent-Length: 0\r\nConnection: close\r\n{extra}\r\n"
+        ))
+    }
+    fn fetch(url: &str) -> Collected<(HeaderMap, HeaderFetch)> {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(500))
+            .build()
+            .unwrap();
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(fetch_headers(&client, url))
+    }
+    let reason = |c: &Collected<(HeaderMap, HeaderFetch)>| match c {
+        Collected::Failed(r) => *r,
+        other => panic!("expected a failure, got {:?}", other.state()),
+    };
+
+    // Refused connection and timeout: no headers, no score.
+    let refused = fetch("http://127.0.0.1:9/");
+    assert_eq!(reason(&refused), "http_connect_failed");
+    let hanging = serve(vec![("HEAD", "/", None), ("GET", "/", None)]);
+    assert_eq!(reason(&fetch(&format!("{hanging}/"))), "http_timeout");
+
+    // HEAD rejected with 405: the GET answer is analysed, and says so.
+    let head_rejected = serve(vec![
+        ("HEAD", "/", status(405, "")),
+        ("GET", "/", status(200, "X-Frame-Options: DENY\r\n")),
+    ]);
+    let collected = fetch(&format!("{head_rejected}/"));
+    assert_eq!(collected.state(), CollectionState::Measured);
+    let (headers, provenance) = collected.into_value().unwrap();
+    assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
+    assert_eq!(provenance.method, "GET");
+    assert_eq!(provenance.head_status, Some(405));
+    assert_eq!(provenance.source, "http_probe");
+
+    // 403 (a WAF page): its headers are not the site's.
+    let forbidden = serve(vec![
+        ("HEAD", "/", status(403, "")),
+        ("GET", "/", status(403, "")),
+    ]);
+    assert_eq!(
+        reason(&fetch(&format!("{forbidden}/"))),
+        "http_error_status"
+    );
+
+    // Redirect: the final URL is recorded; its scheme is the transport.
+    let redirect = serve(vec![
+        ("HEAD", "/", status(301, "Location: /final\r\n")),
+        ("HEAD", "/final", status(200, "")),
+    ]);
+    let (_, provenance) = fetch(&format!("{redirect}/")).into_value().unwrap();
+    assert!(provenance.final_url.ends_with("/final"), "{provenance:?}");
+    assert_eq!(provenance.method, "HEAD");
+
+    // The probe's document vs. the browser's.
+    let probe = HeaderFetch {
+        final_url: "http://example.com/".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        document_match(&probe, Some("https://example.com/")).state(),
+        CollectionState::Failed
+    );
+    assert_eq!(
+        document_match(&probe, Some("http://example.com/other")).state(),
+        CollectionState::Measured
+    );
+    assert_eq!(
+        document_match(&probe, None).state(),
+        CollectionState::Failed
+    );
+
+    // Source maps: unreachable assets make the check partial or failed.
+    let audit = SourceMapLeakAudit {
+        assets_checked: 2,
+        leaks: vec![],
+    };
+    assert_eq!(
+        sourcemap::sourcemap_outcome_for_tests(audit.clone(), 1).state(),
+        CollectionState::Partial
+    );
+    assert_eq!(
+        sourcemap::sourcemap_outcome_for_tests(SourceMapLeakAudit::default(), 3).state(),
+        CollectionState::Failed
+    );
+    assert_eq!(
+        sourcemap::sourcemap_outcome_for_tests(audit, 0).state(),
+        CollectionState::Measured
+    );
 }
 
 #[cfg(test)]

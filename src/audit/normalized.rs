@@ -2551,6 +2551,7 @@ mod tests {
             issues: vec![],
             protection: Default::default(),
             sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
             recommendations: vec![],
         });
         report.best_practices = Some(BestPracticesAnalysis {

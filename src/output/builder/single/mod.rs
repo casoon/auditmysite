@@ -869,7 +869,9 @@ mod tests {
             ssl: Default::default(),
             issues: vec![],
             recommendations: vec![],
-            protection: Default::default(),            sourcemap_leaks: Default::default(),
+            protection: Default::default(),
+            sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
         })
         .with_html_conform(crate::html_conform::HtmlConformAnalysis {
             score: 90,
