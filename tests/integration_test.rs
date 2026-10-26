@@ -2429,12 +2429,13 @@ async fn excluded_hits_do_not_spend_a_capped_rules_budget() {
     let report = audit_with_cli_args(&manager, &url, &["--level", "aaa"]).await;
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
+    // Failures and review items alike: `links/used-as-button` is `REVIEW`
+    // since a11y-rules 0.26 (#779), and the cap applies either way.
+    let wcag = &report.accessibility.wcag_results;
     let rule_selectors = |rule: &str| -> Vec<String> {
-        report
-            .accessibility
-            .wcag_results
-            .violations
+        wcag.violations
             .iter()
+            .chain(&wcag.warnings)
             .filter(|v| v.rule_id.as_deref() == Some(rule))
             .filter_map(|v| v.selector.clone())
             .collect()

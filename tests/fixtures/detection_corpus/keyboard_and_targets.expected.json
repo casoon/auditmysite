@@ -8,6 +8,6 @@
     { "rule_id": "targets/size", "selector": "button#lone", "verdict": "absent" },
     { "rule_id": "targets/size", "selector": "a#inline", "verdict": "absent" },
     { "rule_id": "targets/size-enhanced", "selector": "a#inline", "verdict": "absent" },
-    { "rule_id": "forms/no-submit", "verdict": "violation" }
+    { "rule_id": "forms/no-submit", "verdict": "needs_review" }
   ]
 }

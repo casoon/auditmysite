@@ -23,7 +23,8 @@ and verification for each change is in the
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
-- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.24.1.
+- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.0.
+- **Accessibility:** Best-practice rules such as a missing `h1` or landmark rules no longer fail a WCAG criterion, and checks whose markup alone does not prove a violation (e.g. a referenced duplicate ID or positive `tabindex`) are listed for review; for 2.4.1 a `main` landmark or skip link counts as bypass.
 - **JSON:** Breaking: `top_actions[].root_cause` (free text that called anything with 10 occurrences or two pages a "likely shared component") is replaced by `finding_id` and, in batch reports, `root_cause_id` pointing into `summary.root_causes`.
 - **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
 - **PDF:** The cover shows the six modules that make up the overall score in one row (SEO and HTML conformance included) and, below them in neutral grey, the derived indicators (Search Experience, UX, Journey) marked as not part of the overall score; the Search Experience composite no longer stands in for the SEO score.
@@ -47,7 +48,6 @@ and verification for each change is in the
 - **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.
 - **Reports:** Different rules sharing a criterion and selector survive viewport merging. Critical accessibility limits survive viewport averaging; raw, terminal and JSON pass decisions use the canonical verdict. Failed batch URLs qualify audit completeness, and compact-export grades describe their exported score.
 - **Collection:** Invalid collector responses and failed HTTP/DNS probes no longer become successful empty measurements. Missing performance observers and invalid numeric metrics remain unmeasured; SEO and security transport checks use the final response/page scheme.
-- **Baseline:** Comparisons preserve concrete rule identity, severity and duplicate multiplicity, use stable selectors across browser reloads and record the actual calendar date.
 - **AI transparency:** Image provenance fetches reject redirects and enforce the body-size limit while reading the response.
 - **Batch:** `summary.grade` and `summary.certificate` describe the average accessibility score and are gated by the batch risk, as in the single report and the batch PDF; they followed the weighted overall score, so 49/100 accessibility read "D" / "STABIL".
 - **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".

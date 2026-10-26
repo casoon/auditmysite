@@ -3,6 +3,6 @@
   "expectations": [
     { "rule_id": "forms/no-submit", "selector": "form#toggles", "verdict": "pass" },
     { "rule_id": "forms/no-submit", "selector": "form#toggles", "verdict": "needs_review" },
-    { "rule_id": "forms/no-submit", "selector": "form#filter", "verdict": "violation" }
+    { "rule_id": "forms/no-submit", "selector": "form#filter", "verdict": "needs_review" }
   ]
 }

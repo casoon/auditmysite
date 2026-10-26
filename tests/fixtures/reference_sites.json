@@ -50,10 +50,10 @@
       "url": "https://www.dm.de/",
       "expected": {
         "min": 15,
-        "max": 48
+        "max": 61
       },
-      "reviewed": "2026-10-01",
-      "notes": "40x prohibited aria-label (star ratings), invalid ARIA values, unlabeled field. B1 (#691): the search field's aria-controls=\"suggestions\" with aria-expanded=false is no longer a finding (the list only exists once expanded; a11y-rules 0.13.2, like axe), which removes one High rule and adds about 10 points (28 -> 38)."
+      "reviewed": "2026-10-26",
+      "notes": "40x prohibited aria-label (star ratings), invalid ARIA values. B1 (#691): the search field's aria-controls=\"suggestions\" with aria-expanded=false is no longer a finding (the list only exists once expanded; a11y-rules 0.13.2, like axe), which removes one High rule and adds about 10 points (28 -> 38). #779 (a11y-rules 0.26): the search field input#input-search-composing-search-input-field has only a placeholder, now forms/placeholder-as-label (REVIEW) instead of a critical forms/label-missing, and the svg without role img is svg/name-missing REVIEW; same live page measured 42 with 0.25 and 55 with 0.26, so the upper bound moves by 13."
     },
     {
       "url": "https://www.berlin.de/",

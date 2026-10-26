@@ -27,7 +27,7 @@
     },
     {
       "rule_id": "tables/header-missing",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "zoom/viewport-scale-limited",

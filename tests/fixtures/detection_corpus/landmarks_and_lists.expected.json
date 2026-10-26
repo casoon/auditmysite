@@ -15,7 +15,7 @@
     },
     {
       "rule_id": "forms/group-missing",
-      "verdict": "violation"
+      "verdict": "needs_review"
     }
   ]
 }
