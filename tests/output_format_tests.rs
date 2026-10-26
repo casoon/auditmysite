@@ -193,6 +193,51 @@ fn test_report_score_calculation() {
 /// plain batch test above has no recurring pattern and would not notice a
 /// schema that rejects them.
 #[test]
+fn test_json_with_collection_records_matches_schema() {
+    // #777: a lost scoring collection is published with its state, method
+    // and reason, and the module score it fed is partial.
+    let mut report = create_test_report().with_seo(auditmysite::seo::SeoAnalysis {
+        score: 40,
+        ..Default::default()
+    });
+    report
+        .accessibility
+        .execution
+        .module_runs
+        .push(auditmysite::audit::ModuleRun {
+            module: "seo".into(),
+            status: auditmysite::audit::ExecutionStatus::Partial,
+            subchecks: vec![auditmysite::audit::collection::CollectionRecord {
+                collector: "seo.image_efficiency".into(),
+                module: "seo".into(),
+                state: auditmysite::audit::collection::CollectionState::Failed,
+                method: auditmysite::audit::collection::CollectionMethod::JavaScript,
+                method_version: 1,
+                scoring: true,
+                reason_code: Some("evaluation_failed".into()),
+                gaps: vec![],
+            }
+            .into()],
+            ..Default::default()
+        });
+    report.accessibility.execution.quality.status = auditmysite::audit::AuditQualityStatus::Partial;
+    report.accessibility.execution.quality.qualified_results = true;
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&unified.to_json(false).expect("JSON generation failed"))
+            .expect("Invalid JSON");
+    let text = parsed.to_string();
+    assert!(
+        text.contains("\"reason_code\":\"evaluation_failed\""),
+        "{text}"
+    );
+    assert!(text.contains("\"state\":\"failed\""), "{text}");
+    assert!(text.contains("\"method\":\"java_script\""), "{text}");
+    assert_matches_schema(&parsed, "json-report.schema.json");
+}
+
+#[test]
 fn test_batch_json_with_root_causes_matches_schema() {
     let page = |url: &str| {
         let mut results = WcagResults::new();

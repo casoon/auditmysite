@@ -14,10 +14,12 @@ and verification for each change is in the
 - **Release:** Version 2.x requires completion of the 26 foundation-audit issues and their tracker in the 2.0 milestone. Missing issues, open prerequisites, non-completion closures and GitHub API failures block the release before artifact builds.
 - **Batch:** `summary.root_causes[]` lists finding patterns that recur on two or more pages, with all URLs, occurrence count and confidence (`confirmed` same markup, `likely` same pattern above the coverage thresholds, `open` otherwise); `id` matches `findings[].patterns[].id`.
 - **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) from its rule, and `patterns[]` with the element patterns of all its occurrences (normalized selector, occurrence count, `RC-` id that is the same for the same rule and pattern on every page); `pattern_count` gives the full number.
+- **JSON:** Every collector (JavaScript, CDP, HTTP, DNS) reports its outcome in `module_runs[].subchecks[]` with `state` (`measured`, `empty`, `partial`, `failed`, `unsupported`, `not_applicable`), `method`, `method_version`, `reason_code` and `scoring`.
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 
 ### Changed
 
+- **Scoring:** A module that lost a collection its score depends on is shown as partial and no longer counts toward the overall score; derived indicators are not computed over a failed module.
 - **Scoring:** The overall score always uses the published module weights, including dual-viewport audits. Incomplete performance measurements and unchecked HTML conformance do not contribute; estimated Speed Index remains diagnostic. Principle coverage uses execution records instead of assuming every catalogued criterion passed.
 - **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.7 and describes conditional exploitability.
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
@@ -45,6 +47,9 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Collection:** A request or script that did not answer no longer becomes a finding (e.g. "HTTP/1.1 only", "www not consolidated", "invalid manifest", "broken link") or a clean result (e.g. "no cookies", "no console errors", 100 image-efficiency points).
+- **Content visibility:** The SSR content-gap check loads the page itself instead of measuring the blank tab left after interactive journeys.
+- **Accessibility:** Text spacing, reflow, page title, on-input and orientation report a technical rule failure instead of passing when the page gives no answer.
 - **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.
 - **Reports:** Different rules sharing a criterion and selector survive viewport merging. Critical accessibility limits survive viewport averaging; raw, terminal and JSON pass decisions use the canonical verdict. Failed batch URLs qualify audit completeness, and compact-export grades describe their exported score.
 - **Collection:** Invalid collector responses and failed HTTP/DNS probes no longer become successful empty measurements. Missing performance observers and invalid numeric metrics remain unmeasured; SEO and security transport checks use the final response/page scheme.
