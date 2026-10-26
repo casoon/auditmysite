@@ -2699,6 +2699,19 @@ mod tests {
             errors.to_string().contains("collection_gap_scored"),
             "{errors}"
         );
+
+        // Replay: the stored raw report keeps the collection state, so a
+        // re-normalized report is partial again (#777).
+        let stored = serde_json::to_string(&report).unwrap();
+        let replayed: AuditReport = serde_json::from_str(&stored).unwrap();
+        let subcheck = &replayed.accessibility.execution.module_runs[0].subchecks[0];
+        assert_eq!(
+            subcheck.state,
+            Some(crate::audit::collection::CollectionState::Failed)
+        );
+        assert!(subcheck.is_scoring_gap());
+        let renormalized = normalize(&replayed).normalized;
+        assert_eq!(renormalized.overall_score, norm.overall_score);
     }
 
     #[test]
