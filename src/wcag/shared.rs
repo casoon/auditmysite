@@ -136,7 +136,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // genommen kein Erfolgskriterium mehr. Ein Verstoß bleibt sie dort, wo ein
     // IDREF auf sie zeigt: Dann ist nicht mehr bestimmbar, welches Element
     // gemeint ist, und Name/Rolle/Wert der referenzierenden Beziehung bricht.
-    // Genau dieser Fall wird gemeldet, und zwar als 4.1.2 — dieselbe
+    // Genau dieser Fall wird gemeldet, und zwar als 4.1.2 (seit a11y-rules
+    // 0.26 als `REVIEW`, #779) — dieselbe
     // Zuordnung, die axe-core für `duplicate-id-aria` führt (Plan 54 §2).
     // Seit a11y-rules 0.12 entscheidet das die geteilte Regel selbst; bis
     // dahin filterte auditmysite hier nach, und die Kennung hieß in den
@@ -2361,9 +2362,11 @@ mod tests {
 
     fn duplikat_befunde(verweis: Option<&str>) -> Vec<Violation> {
         let doc = build_document(&seite_mit_doppelter_id(verweis), &AXTree::new()).unwrap();
-        run_shared_rules(&doc, "en")
+        let results = run_shared_rules(&doc, "en");
+        results
             .violations
             .into_iter()
+            .chain(results.warnings)
             .filter(|v| v.rule_id.as_deref() == Some("ids/duplicate"))
             .collect()
     }
@@ -2372,13 +2375,15 @@ mod tests {
     /// Kennung aus — beide müssen dieselbe meinen, sonst liefe der Filter ins
     /// Leere.
     /// Plan 54 §2: Zeigt ein IDREF auf die doppelt vergebene ID, ist die
-    /// Beziehung mehrdeutig -- das ist ein Verstoss gegen 4.1.2, nicht mehr
-    /// gegen das gestrichene 4.1.1.
+    /// Beziehung mehrdeutig -- das fällt unter 4.1.2, nicht mehr unter das
+    /// gestrichene 4.1.1. Seit a11y-rules 0.26 als `REVIEW`: Ob der Browser
+    /// das gemeinte Element auflöst, zeigt das Markup nicht (#779).
     #[test]
     fn referenzierte_doppelte_id_faellt_unter_4_1_2() {
         let befunde = duplikat_befunde(Some("dopplung"));
         assert_eq!(befunde.len(), 1, "{befunde:?}");
         assert_eq!(befunde[0].rule, "4.1.2");
+        assert_eq!(befunde[0].kind, Outcome::Review);
     }
 
     /// Und ohne Verweis darauf gibt es seit der Streichung von 4.1.1 kein
