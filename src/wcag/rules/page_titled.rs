@@ -45,11 +45,16 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
         }
     };
 
-    let title = result
-        .value()
-        .and_then(|value| value.as_str())
-        .unwrap_or("")
-        .trim();
+    // The script always returns a string; anything else is no answer, and
+    // an unread title must not pass as a specific one (#777).
+    let Some(title) = result.value().and_then(|value| value.as_str()) else {
+        return vec![crate::wcag::technical_rule_failure_for(
+            "document-title",
+            crate::cli::WcagLevel::A,
+            "missing_evaluation_value",
+        )];
+    };
+    let title = title.trim();
 
     if title.is_empty() || !is_generic_title(title) {
         return vec![];

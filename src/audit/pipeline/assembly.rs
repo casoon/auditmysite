@@ -296,35 +296,16 @@ pub(super) fn aggregate_report(
         report = report.with_network_dns(network_dns);
     }
 
+    // Whether the hardening probes ran, answered or did not apply is recorded
+    // by the `tech_stack.hardening_probes` collection (#777).
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
-        let assessed = tech_stack.is_hardening_assessed();
         report = report.with_tech_stack(tech_stack);
-        // Detection ran either way; the hardening score only means something
-        // when a stack-specific probe ran (plan 69).
-        if !assessed {
-            if let Some(run) = report
-                .accessibility
-                .execution
-                .module_runs
-                .iter_mut()
-                .find(|run| run.module == "tech_stack")
-            {
-                run.subchecks = vec![crate::audit::SubcheckRun {
-                    subcheck: "hardening".to_string(),
-                    status: crate::audit::ExecutionStatus::NotApplicable,
-                    reason_code: Some("no_auditable_stack_detected".to_string()),
-                }];
-            }
-        }
     }
 
+    // The console and library collections are recorded under the collection
+    // contract (#777); their records already sit in the module run.
     if let Some(bp) = snapshot.best_practices.clone() {
-        let checks = [
-            ("console_errors", bp.console_errors.collected),
-            ("vulnerable_libraries", bp.vulnerable_libraries.checked),
-        ];
         report = report.with_best_practices(bp);
-        attach_subchecks(&mut report, "best_practices", &checks, true);
     }
 
     // Post-processing modules (source_quality, ai_visibility, content_visibility)
@@ -431,6 +412,7 @@ fn attach_subchecks(
                     crate::audit::ExecutionStatus::Failed
                 },
                 reason_code: (!available).then(|| "subanalysis_unavailable".to_string()),
+                ..Default::default()
             })
             .collect();
         if whole_module && checks.iter().all(|(_, available)| !available) {
@@ -598,15 +580,40 @@ pub(super) fn consolidate_module_runs(
                 module,
                 status,
                 viewports,
-                subchecks: items
-                    .iter()
-                    .flat_map(|run| run.subchecks.iter().cloned())
-                    .collect(),
+                subchecks: merge_viewport_subchecks(
+                    items.iter().flat_map(|run| run.subchecks.iter()),
+                ),
                 reason_code: items.iter().find_map(|run| run.reason_code.clone()),
                 message: items.iter().find_map(|run| run.message.clone()),
             }
         })
         .collect()
+}
+
+/// One entry per subcheck across viewports. When the viewports disagree, the
+/// one that lost its measurement wins: a result measured on desktop only is
+/// not a complete measurement of the page.
+fn merge_viewport_subchecks<'a>(
+    subchecks: impl Iterator<Item = &'a crate::audit::SubcheckRun>,
+) -> Vec<crate::audit::SubcheckRun> {
+    let mut merged: Vec<crate::audit::SubcheckRun> = Vec::new();
+    for subcheck in subchecks {
+        let lost = |s: &crate::audit::SubcheckRun| {
+            s.state.map_or(
+                matches!(
+                    s.status,
+                    crate::audit::ExecutionStatus::Failed | crate::audit::ExecutionStatus::Partial
+                ),
+                |state| state.is_gap(),
+            )
+        };
+        match merged.iter_mut().find(|m| m.subcheck == subcheck.subcheck) {
+            Some(existing) if !lost(existing) && lost(subcheck) => *existing = subcheck.clone(),
+            Some(_) => {}
+            None => merged.push(subcheck.clone()),
+        }
+    }
+    merged
 }
 
 pub(super) fn update_audit_quality(report: &mut AuditReport) {

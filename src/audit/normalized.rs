@@ -2640,6 +2640,81 @@ mod tests {
     }
 
     #[test]
+    fn failed_scoring_collection_makes_the_module_partial_and_non_contributing() {
+        // #777: SEO computed without its image inventory is no measured
+        // score. It stays visible as partial but leaves the overall score,
+        // and the contract rejects any report that still counts it.
+        let seo = crate::seo::SeoAnalysis {
+            score: 40,
+            ..Default::default()
+        };
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )
+        .with_seo(seo);
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: "seo".into(),
+                status: crate::audit::ExecutionStatus::Partial,
+                subchecks: vec![crate::audit::collection::CollectionRecord {
+                    collector: "seo.image_efficiency".into(),
+                    module: "seo".into(),
+                    state: crate::audit::collection::CollectionState::Failed,
+                    method: crate::audit::collection::CollectionMethod::JavaScript,
+                    method_version: 1,
+                    scoring: true,
+                    reason_code: Some("evaluation_failed".into()),
+                    gaps: vec![],
+                }
+                .into()],
+                ..Default::default()
+            });
+
+        let norm = normalize(&report).normalized;
+        let seo = norm
+            .module_scores
+            .iter()
+            .find(|m| m.name == "SEO")
+            .expect("SEO entry");
+        assert_eq!(seo.measurement_type, "partial");
+        assert!(!seo.contributes_to_overall);
+        assert_eq!(
+            norm.overall_score, 100,
+            "SEO 40 must not pull the overall down"
+        );
+
+        let mut counted = norm.clone();
+        if let Some(m) = counted.module_scores.iter_mut().find(|m| m.name == "SEO") {
+            m.measurement_type = "measured".into();
+            m.contributes_to_overall = true;
+        }
+        let errors = counted.validate().unwrap_err();
+        assert!(
+            errors.to_string().contains("collection_gap_scored"),
+            "{errors}"
+        );
+
+        // Replay: the stored raw report keeps the collection state, so a
+        // re-normalized report is partial again (#777).
+        let stored = serde_json::to_string(&report).unwrap();
+        let replayed: AuditReport = serde_json::from_str(&stored).unwrap();
+        let subcheck = &replayed.accessibility.execution.module_runs[0].subchecks[0];
+        assert_eq!(
+            subcheck.state,
+            Some(crate::audit::collection::CollectionState::Failed)
+        );
+        assert!(subcheck.is_scoring_gap());
+        let renormalized = normalize(&replayed).normalized;
+        assert_eq!(renormalized.overall_score, norm.overall_score);
+    }
+
+    #[test]
     fn test_unmeasured_performance_excluded_from_overall_score() {
         // QA-023: a performance module that ran but collected zero Core Web
         // Vitals must not drag the overall score down as if it scored 0 — it

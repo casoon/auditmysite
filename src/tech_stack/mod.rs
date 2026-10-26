@@ -15,7 +15,26 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+use crate::audit::collection::{reason, Collected, CollectionLog, CollectionMethod, CollectorSpec};
 use crate::error::Result;
+
+/// Technology fingerprints on the page (globals, markup, asset paths).
+pub(crate) static DETECTION: CollectorSpec = CollectorSpec {
+    id: "tech_stack.detection",
+    module: "tech_stack",
+    method: CollectionMethod::JavaScript,
+    method_version: 1,
+    scoring: false,
+};
+
+/// Stack-specific hardening probes (admin paths, user enumeration, …).
+pub(crate) static HARDENING_PROBES: CollectorSpec = CollectorSpec {
+    id: "tech_stack.hardening_probes",
+    module: "tech_stack",
+    method: CollectionMethod::Http,
+    method_version: 1,
+    scoring: true,
+};
 use crate::taxonomy::{module_score_grade, Severity};
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -221,20 +240,25 @@ const DETECT_JS: &str = r#"
 
 // ── Detection ─────────────────────────────────────────────────────────────────
 
-async fn detect_technologies(page: &Page) -> Vec<DetectedTech> {
-    let js_result = match page.evaluate(DETECT_JS).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("Tech stack JS detection failed: {}", e);
-            return vec![];
+/// The detected technologies. A script that did not answer is a failure,
+/// not a page without a recognizable stack (#777).
+async fn detect_technologies(page: &Page) -> Collected<Vec<DetectedTech>> {
+    let val = match crate::audit::collection::evaluate_js_value::<
+        serde_json::Map<String, serde_json::Value>,
+    >(page, DETECT_JS)
+    .await
+    .into_measurement()
+    {
+        Ok(map) => serde_json::Value::Object(map),
+        Err(failure) => {
+            warn!("Tech stack JS detection failed");
+            return failure;
         }
     };
+    Collected::Measured(technologies_from(&val)).empty_if(Vec::is_empty)
+}
 
-    let val = match js_result.value() {
-        Some(v) => v.clone(),
-        None => return vec![],
-    };
-
+fn technologies_from(val: &serde_json::Value) -> Vec<DetectedTech> {
     let mut detected = Vec::new();
 
     macro_rules! detect {
@@ -290,10 +314,29 @@ async fn detect_technologies(page: &Page) -> Vec<DetectedTech> {
 
 /// Runs the hardening probes for each detected stack that has some, and
 /// returns their findings together with the stacks actually probed.
+/// Requests made and lost by a stack's hardening probes.
+#[derive(Default)]
+struct ProbeTally {
+    attempted: std::sync::atomic::AtomicUsize,
+    failed: std::sync::atomic::AtomicUsize,
+}
+
+/// Runs the hardening probes for each detected stack that has some. A stack
+/// counts as audited only when at least one of its probes answered; the
+/// collection is partial when some did not (#777).
 async fn run_stack_audits(
     detected: &[DetectedTech],
     base_url: &str,
-) -> (Vec<StackFinding>, Vec<String>) {
+) -> Collected<(Vec<StackFinding>, Vec<String>)> {
+    use std::sync::atomic::Ordering;
+    if !detected.iter().any(|tech| {
+        matches!(
+            tech.name.as_str(),
+            "WordPress" | "Drupal" | "Joomla" | "Next.js"
+        )
+    }) {
+        return Collected::NotApplicable("no_auditable_stack_detected");
+    }
     let client = match Client::builder()
         .timeout(Duration::from_secs(8))
         .user_agent("auditmysite-stackcheck/1.0")
@@ -303,38 +346,66 @@ async fn run_stack_audits(
         Ok(c) => c,
         Err(e) => {
             warn!("Could not build HTTP client for stack audits: {}", e);
-            return (vec![], vec![]);
+            return Collected::Failed(reason::HTTP_REQUEST_FAILED);
         }
     };
 
     let base = base_url.trim_end_matches('/');
     let mut findings = Vec::new();
     let mut audited = Vec::new();
+    let mut lost_requests = false;
 
     for tech in detected {
+        let tally = ProbeTally::default();
         let mut new_findings = match tech.name.as_str() {
-            "WordPress" => audit_wordpress(&client, base, tech).await,
-            "Drupal" => audit_drupal(&client, base, tech).await,
-            "Joomla" => audit_joomla(&client, base, tech).await,
-            "Next.js" => audit_nextjs(&client, base).await,
+            "WordPress" => audit_wordpress(&client, &tally, base, tech).await,
+            "Drupal" => audit_drupal(&client, &tally, base, tech).await,
+            "Joomla" => audit_joomla(&client, &tally, base, tech).await,
+            "Next.js" => audit_nextjs(&client, &tally, base).await,
             _ => continue,
         };
-        audited.push(tech.name.clone());
+        let attempted = tally.attempted.load(Ordering::Relaxed);
+        let failed = tally.failed.load(Ordering::Relaxed);
+        lost_requests |= failed > 0;
+        // Without any answer the stack was not probed: its findings would be
+        // the probe-free ones only, and "hardened" would be invented.
+        if attempted > failed {
+            audited.push(tech.name.clone());
+        }
         findings.append(&mut new_findings);
     }
 
-    (findings, audited)
-}
-
-/// Perform a HEAD/GET request and return the status code, or None on error.
-async fn probe(client: &Client, url: &str) -> Option<u16> {
-    match client.get(url).send().await {
-        Ok(r) => Some(r.status().as_u16()),
-        Err(_) => None,
+    if audited.is_empty() {
+        Collected::Failed(reason::HTTP_REQUEST_FAILED)
+    } else if lost_requests {
+        Collected::Partial {
+            value: (findings, audited),
+            gaps: vec!["probe_request"],
+        }
+    } else {
+        Collected::Measured((findings, audited))
     }
 }
 
-async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Vec<StackFinding> {
+/// Perform a GET request and return the status code, or None on error.
+async fn probe(client: &Client, tally: &ProbeTally, url: &str) -> Option<u16> {
+    use std::sync::atomic::Ordering;
+    tally.attempted.fetch_add(1, Ordering::Relaxed);
+    match client.get(url).send().await {
+        Ok(r) => Some(r.status().as_u16()),
+        Err(_) => {
+            tally.failed.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+}
+
+async fn audit_wordpress(
+    client: &Client,
+    tally: &ProbeTally,
+    base: &str,
+    tech: &DetectedTech,
+) -> Vec<StackFinding> {
     let mut findings = Vec::new();
 
     // Version disclosure via meta generator
@@ -358,7 +429,7 @@ async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Ve
 
     // /wp-admin/ — login page exposure
     let admin_url = format!("{base}/wp-admin/");
-    if let Some(status) = probe(client, &admin_url).await {
+    if let Some(status) = probe(client, tally, &admin_url).await {
         if status == 200 || (300..400).contains(&(status as u32)) {
             findings.push(StackFinding {
                 tech: "WordPress".into(),
@@ -380,7 +451,7 @@ async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Ve
 
     // /wp-json/wp/v2/users — user enumeration
     let users_url = format!("{base}/wp-json/wp/v2/users");
-    if let Some(200) = probe(client, &users_url).await {
+    if let Some(200) = probe(client, tally, &users_url).await {
         findings.push(StackFinding {
             tech: "WordPress".into(),
             title: "WordPress REST API exposes user list".into(),
@@ -402,7 +473,7 @@ async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Ve
 
     // /xmlrpc.php — XML-RPC interface
     let xmlrpc_url = format!("{base}/xmlrpc.php");
-    if let Some(status) = probe(client, &xmlrpc_url).await {
+    if let Some(status) = probe(client, tally, &xmlrpc_url).await {
         // xmlrpc.php returns 200 + XML body or 405 when accessible
         if status == 200 || status == 405 {
             findings.push(StackFinding {
@@ -427,7 +498,12 @@ async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Ve
     findings
 }
 
-async fn audit_drupal(client: &Client, base: &str, tech: &DetectedTech) -> Vec<StackFinding> {
+async fn audit_drupal(
+    client: &Client,
+    tally: &ProbeTally,
+    base: &str,
+    tech: &DetectedTech,
+) -> Vec<StackFinding> {
     let mut findings = Vec::new();
 
     if let Some(ref version) = tech.version {
@@ -448,7 +524,7 @@ async fn audit_drupal(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
     }
 
     let login_url = format!("{base}/user/login");
-    if let Some(200) = probe(client, &login_url).await {
+    if let Some(200) = probe(client, tally, &login_url).await {
         findings.push(StackFinding {
             tech: "Drupal".into(),
             title: "Drupal user login page accessible".into(),
@@ -467,7 +543,7 @@ async fn audit_drupal(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
     }
 
     let admin_url = format!("{base}/admin/");
-    if let Some(status) = probe(client, &admin_url).await {
+    if let Some(status) = probe(client, tally, &admin_url).await {
         if status == 200 {
             findings.push(StackFinding {
                 tech: "Drupal".into(),
@@ -488,7 +564,12 @@ async fn audit_drupal(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
     findings
 }
 
-async fn audit_joomla(client: &Client, base: &str, tech: &DetectedTech) -> Vec<StackFinding> {
+async fn audit_joomla(
+    client: &Client,
+    tally: &ProbeTally,
+    base: &str,
+    tech: &DetectedTech,
+) -> Vec<StackFinding> {
     let mut findings = Vec::new();
 
     if let Some(ref version) = tech.version {
@@ -510,7 +591,7 @@ async fn audit_joomla(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
     }
 
     let admin_url = format!("{base}/administrator/");
-    if let Some(status) = probe(client, &admin_url).await {
+    if let Some(status) = probe(client, tally, &admin_url).await {
         if status == 200 || (300..400).contains(&(status as u32)) {
             findings.push(StackFinding {
                 tech: "Joomla".into(),
@@ -533,12 +614,12 @@ async fn audit_joomla(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
     findings
 }
 
-async fn audit_nextjs(client: &Client, base: &str) -> Vec<StackFinding> {
+async fn audit_nextjs(client: &Client, tally: &ProbeTally, base: &str) -> Vec<StackFinding> {
     let mut findings = Vec::new();
 
     // /__nextjs_original-stack-frames — should only be active in dev mode
     let debug_url = format!("{base}/__nextjs_original-stack-frames");
-    if let Some(status) = probe(client, &debug_url).await {
+    if let Some(status) = probe(client, tally, &debug_url).await {
         if status != 404 {
             findings.push(StackFinding {
                 tech: "Next.js".into(),
@@ -581,11 +662,24 @@ fn calculate_score(findings: &[StackFinding]) -> u32 {
 // ── Public entry point ────────────────────────────────────────────────────────
 
 /// Detect the technology stack of the loaded page and run stack-specific audits.
-pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStackAnalysis> {
+pub async fn analyze_tech_stack(
+    page: &Page,
+    base_url: &str,
+    log: &CollectionLog,
+) -> Result<TechStackAnalysis> {
     info!("Running tech stack detection for {}", base_url);
 
-    let detected = detect_technologies(page).await;
-    let (findings, audited_stacks) = run_stack_audits(&detected, base_url).await;
+    let detected = log
+        .record(&DETECTION, detect_technologies(page).await)
+        .into_result(&DETECTION)?;
+    // Probe-derived findings only stand when the probes answered.
+    let (findings, audited_stacks) = log
+        .record(
+            &HARDENING_PROBES,
+            run_stack_audits(&detected, base_url).await,
+        )
+        .into_value()
+        .unwrap_or_default();
     let score = calculate_score(&findings);
     let grade = module_score_grade(score).to_string();
 
@@ -603,6 +697,41 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
         grade,
         audited_stacks,
     })
+}
+
+/// Counter-cases of [`DETECTION`] and [`HARDENING_PROBES`] (#777): probes
+/// that got no answer audit nothing, and a page without an auditable stack
+/// is not applicable rather than hardened.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{assert_js_value_contract, CollectionState};
+    assert_js_value_contract::<serde_json::Map<String, serde_json::Value>>(serde_json::json!({}));
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(f)
+    }
+    let wordpress = DetectedTech {
+        name: "WordPress".into(),
+        category: TechCategory::Cms,
+        version: None,
+        confidence: Confidence::High,
+        signals: vec![],
+    };
+    let unanswered = block_on(run_stack_audits(
+        std::slice::from_ref(&wordpress),
+        "http://127.0.0.1:9",
+    ));
+    assert_eq!(unanswered.state(), CollectionState::Failed);
+    let react = DetectedTech {
+        name: "React".into(),
+        category: TechCategory::JsLibrary,
+        ..wordpress.clone()
+    };
+    let none = block_on(run_stack_audits(&[react], "http://127.0.0.1:9"));
+    assert_eq!(none.state(), CollectionState::NotApplicable);
 }
 
 #[cfg(test)]

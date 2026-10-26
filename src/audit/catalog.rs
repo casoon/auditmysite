@@ -237,6 +237,34 @@ impl AuditCatalog {
                     module.id(),
                     "source_quality" | "ai_visibility" | "content_visibility" | "commerce"
                 );
+                // A derived indicator over an upstream module that failed
+                // would read the missing data as absent signals (#777): it is
+                // not derived. Over a partial upstream it is partial too.
+                let upstream = |status: crate::audit::ExecutionStatus| {
+                    module.depends_on().iter().any(|dep| {
+                        report
+                            .accessibility
+                            .execution
+                            .module_runs
+                            .iter()
+                            .any(|run| run.module == *dep && run.status == status)
+                    })
+                };
+                if derive_module && upstream(crate::audit::ExecutionStatus::Failed) {
+                    report
+                        .accessibility
+                        .execution
+                        .module_runs
+                        .push(crate::audit::ModuleRun {
+                            module: module.id().to_string(),
+                            status: crate::audit::ExecutionStatus::Skipped,
+                            reason_code: Some("upstream_module_failed".to_string()),
+                            ..Default::default()
+                        });
+                    continue;
+                }
+                let upstream_partial =
+                    derive_module && upstream(crate::audit::ExecutionStatus::Partial);
                 match module.derive(report, &cfg.lang) {
                     Ok(()) if derive_module => {
                         let available = match module.id() {
@@ -254,13 +282,18 @@ impl AuditCatalog {
                             .module_runs
                             .push(crate::audit::ModuleRun {
                                 module: module.id().to_string(),
-                                status: if available {
-                                    crate::audit::ExecutionStatus::Completed
-                                } else {
+                                status: if !available {
                                     crate::audit::ExecutionStatus::NotApplicable
+                                } else if upstream_partial {
+                                    crate::audit::ExecutionStatus::Partial
+                                } else {
+                                    crate::audit::ExecutionStatus::Completed
                                 },
-                                reason_code: (!available)
-                                    .then(|| "no_applicable_signals".to_string()),
+                                reason_code: if !available {
+                                    Some("no_applicable_signals".to_string())
+                                } else {
+                                    upstream_partial.then(|| "upstream_module_partial".to_string())
+                                },
                                 ..Default::default()
                             });
                     }
@@ -471,6 +504,40 @@ mod tests {
             .with_module(boxed(StubModule::new("twin")));
         let msg = expect_config_error(cat.topo_sorted());
         assert!(msg.contains("twin"));
+    }
+
+    #[test]
+    fn derived_indicator_is_not_built_over_a_failed_upstream() {
+        // #777: AI visibility over an SEO module that failed would read the
+        // missing robots.txt, headings and text as absent signals.
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            crate::cli::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            100,
+        );
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: "seo".into(),
+                status: crate::audit::ExecutionStatus::Failed,
+                ..Default::default()
+            });
+        AuditCatalog::standard()
+            .derive_all(&mut report, &cfg())
+            .unwrap();
+        assert!(report.discoverability.ai_visibility.is_none());
+        let run = report
+            .accessibility
+            .execution
+            .module_runs
+            .iter()
+            .find(|run| run.module == "ai_visibility")
+            .expect("ai_visibility run");
+        assert_eq!(run.status, crate::audit::ExecutionStatus::Skipped);
+        assert_eq!(run.reason_code.as_deref(), Some("upstream_module_failed"));
     }
 
     #[test]

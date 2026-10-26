@@ -88,8 +88,29 @@ pub async fn prepare_console_collection(page: &Page) -> Result<()> {
     Ok(())
 }
 
-/// Read console errors collected after the page has loaded.
-pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> {
+/// Console errors and warnings captured since navigation; the best-practices
+/// score reads them.
+pub(crate) static CONSOLE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "best_practices.console",
+        module: "best_practices",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
+#[derive(serde::Deserialize)]
+pub(crate) struct RawMsg {
+    level: String,
+    msg: String,
+}
+
+/// Read console errors collected after the page has loaded. A collector that
+/// was never installed, or a result that is not the message list, is no
+/// measurement — not a clean console (#777).
+pub async fn take_console_results(
+    page: &Page,
+) -> crate::audit::collection::Collected<ConsoleErrorsAnalysis> {
     info!("Taking console error results...");
 
     let js = r#"
@@ -101,25 +122,13 @@ pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> 
     })()
     "#;
 
-    let result = page
-        .evaluate(js)
+    crate::audit::collection::evaluate_js(page, js)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Console results JS failed: {e}")))?;
+        .map(console_analysis)
+}
 
-    let Some(json_str) = result.value().and_then(|v| v.as_str()) else {
-        return Err(AuditError::CdpError(
-            "Console collector was not installed on this page".into(),
-        ));
-    };
-
-    #[derive(serde::Deserialize)]
-    struct RawMsg {
-        level: String,
-        msg: String,
-    }
-
-    let raw: Vec<RawMsg> = serde_json::from_str(json_str).unwrap_or_default();
-
+/// The analysis of a collected message list.
+pub(crate) fn console_analysis(raw: Vec<RawMsg>) -> ConsoleErrorsAnalysis {
     let mut errors: Vec<ConsoleMessage> = Vec::new();
     let mut warnings: Vec<ConsoleMessage> = Vec::new();
 
@@ -143,13 +152,24 @@ pub async fn take_console_results(page: &Page) -> Result<ConsoleErrorsAnalysis> 
         error_count, warning_count
     );
 
-    Ok(ConsoleErrorsAnalysis {
+    ConsoleErrorsAnalysis {
         errors,
         warnings,
         error_count,
         warning_count,
         collected: true,
-    })
+    }
+}
+
+/// Counter-cases of [`CONSOLE`] (#777): no installed collector (`null`) and
+/// a malformed list are failures; an empty list is a clean console.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{assert_js_contract, decode_js, CollectionState};
+    assert_js_contract::<Vec<RawMsg>>(serde_json::json!([{"level": "error", "msg": "x"}]));
+    let empty = decode_js::<Vec<RawMsg>>(Some(&serde_json::json!("[]"))).map(console_analysis);
+    assert_eq!(empty.state(), CollectionState::Measured);
+    assert_eq!(empty.value().map(|c| c.error_count), Some(0));
 }
 
 #[cfg(test)]

@@ -418,7 +418,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         });
     }
 
-    if !a.uses_http2 {
+    if a.uses_http2 == Some(false) {
         issues.push(PageHealthIssue {
             issue_type: "http1_only".to_string(),
             message: if en {
@@ -430,7 +430,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         });
     }
 
-    if !a.has_compression {
+    if a.has_compression == Some(false) {
         issues.push(PageHealthIssue {
             issue_type: "missing_compression".to_string(),
             message: if en {
@@ -908,7 +908,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     }
 
     if let Some(ref canon) = a.url_canonicalization {
-        if canon.trailing_slash_inconsistent {
+        if canon.trailing_slash_inconsistent == Some(true) {
             issues.push(PageHealthIssue {
                 issue_type: "trailing_slash_inconsistent".to_string(),
                 message: if en {
@@ -919,7 +919,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
                 severity: "medium".to_string(),
             });
         }
-        if canon.http_to_https_missing {
+        if canon.http_to_https_missing == Some(true) {
             let status_text = canon.http_status.map(|s| s.to_string()).unwrap_or_else(|| {
                 if en {
                     "unreachable".to_string()

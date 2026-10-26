@@ -68,9 +68,10 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
 
         let analysis = analyze_vulnerable_libraries(&page)
             .await
-            .unwrap_or_else(|e| {
+            .into_value()
+            .unwrap_or_else(|| {
                 panic!(
-                    "analyze_vulnerable_libraries failed for case '{}': {e}",
+                    "analyze_vulnerable_libraries collected nothing for case '{}'",
                     case.case
                 )
             });

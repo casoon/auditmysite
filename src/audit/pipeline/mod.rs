@@ -262,6 +262,27 @@ impl SnapshotData {
     }
 }
 
+impl SnapshotData {
+    /// Attach each collector's record to its module's run (#777). A module
+    /// that returned data but lost (part of) a collection is `Partial`, not
+    /// `Completed`: its result rests on fewer measurements than it claims.
+    fn apply_collection_records(
+        &mut self,
+        records: Vec<crate::audit::collection::CollectionRecord>,
+    ) {
+        crate::audit::collection::fold_records(&mut self.module_runs, records);
+    }
+
+    /// Whether `module` lost a scoring collection in this viewport.
+    fn scoring_gap(&self, module: &str) -> bool {
+        self.module_runs
+            .iter()
+            .filter(|run| run.module == module)
+            .flat_map(|run| &run.subchecks)
+            .any(crate::audit::SubcheckRun::is_scoring_gap)
+    }
+}
+
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
 /// Audit pipeline configuration
@@ -624,9 +645,19 @@ async fn audit_on_page(
     // the catalog's derive phase inside `audit_page`) must already exist so
     // the finding can be appended to it.
     if config.check_ssr_content {
-        if let Some(gap) =
-            crate::content_visibility::ssr_gap::measure_ssr_content_gap(page, browser, url).await
-        {
+        let log = crate::audit::collection::CollectionLog::new();
+        let gap = log
+            .record(
+                &crate::content_visibility::ssr_gap::SSR_GAP,
+                crate::content_visibility::ssr_gap::measure_ssr_content_gap(page, browser, url)
+                    .await,
+            )
+            .into_value();
+        crate::audit::collection::fold_records(
+            &mut report.accessibility.execution.module_runs,
+            log.into_records(),
+        );
+        if let Some(gap) = gap {
             if let Some(cv) = report.discoverability.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
@@ -738,9 +769,7 @@ pub async fn audit_page(
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
-    if config.check_performance {
-        prepare_pass_collection(page, "desktop").await;
-    }
+    prepare_pass_collection(page, "desktop", config).await;
     let desktop_refresh = browser.navigate(page, url).await?;
     if let (Some(sec), Some(details)) = (
         &mut security,
@@ -794,9 +823,7 @@ pub async fn audit_page(
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
     set_viewport(page, Viewport::Mobile).await?;
-    if config.check_performance {
-        prepare_pass_collection(page, "mobile").await;
-    }
+    prepare_pass_collection(page, "mobile", config).await;
     let mobile_refresh = browser.navigate(page, url).await?;
 
     // ── Post-navigation: consent banner may reappear after mobile reload ──────
@@ -872,19 +899,29 @@ pub async fn audit_page(
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
     // the blend as `module_scores` drops it from the overall (plan 73).
+    // A module that lost a scoring collection is partial and drops out the
+    // same way (#777).
     let measured = |p: &crate::audit::PerformanceResults| p.score.has_core_metrics();
     let desktop_perf_input = desktop_snap
         .performance
         .as_ref()
-        .filter(|p| measured(p))
+        .filter(|p| measured(p) && !desktop_snap.scoring_gap("performance"))
         .map(|p| p.score.overall);
     let mobile_perf_input = mobile_snap
         .performance
         .as_ref()
-        .filter(|p| measured(p))
+        .filter(|p| measured(p) && !mobile_snap.scoring_gap("performance"))
         .map(|p| p.score.overall);
-    let mobile_seo_score = mobile_snap.seo.as_ref().map(|s| s.score);
-    let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
+    let mobile_seo_score = mobile_snap
+        .seo
+        .as_ref()
+        .filter(|_| !mobile_snap.scoring_gap("seo"))
+        .map(|s| s.score);
+    let mobile_mf_score = mobile_snap
+        .mobile
+        .as_ref()
+        .filter(|_| !mobile_snap.scoring_gap("mobile"))
+        .map(|m| m.score);
     let mobile_hc_score = mobile_snap
         .html_conform
         .as_ref()
@@ -987,6 +1024,7 @@ pub async fn audit_page(
                 },
                 reason_code: security_listener_failed
                     .then(|| "security_listener_setup_failed".to_string()),
+                ..Default::default()
             }],
             reason_code: primary_snap
                 .security
@@ -1000,17 +1038,25 @@ pub async fn audit_page(
     // Pattern violations come from the AXTree and reference real DOM nodes, so
     // they can be enriched with selectors just like WCAG violations. Running this
     // here (rather than inside aggregate_report) gives us access to the live page.
+    // Page-level collections outside the module catalog; folded into the
+    // accessibility run once it exists (#777).
+    let page_collection = crate::audit::collection::CollectionLog::new();
     let mut pattern_analysis = crate::patterns::analyze(&primary_snap.ax_tree);
     // Easy-language ("Leichte Sprache") availability needs raw DOM access
     // (CSS class names, <link hreflang> in <head>) not present in the
     // AXTree, so it runs as a separate async pass against the live page
     // rather than from the synchronous `analyze()` above (plan
     // 09-easy-language-detection.md).
-    crate::patterns::easy_language::detect(page, &primary_snap.ax_tree, &mut pattern_analysis)
-        .await;
+    crate::patterns::easy_language::detect(
+        page,
+        &primary_snap.ax_tree,
+        &mut pattern_analysis,
+        &page_collection,
+    )
+    .await;
     // Help mechanisms (WCAG 3.2.6) likewise need the DOM: landmark regions
     // and `mailto:`/`tel:` targets. Recorded per page, compared in the batch.
-    crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis).await;
+    crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis, &page_collection).await;
     let (mut pattern_violations, excluded_patterns) = crate::audit::exclusion::filter_findings(
         page,
         &mobile_exclusion,
@@ -1068,7 +1114,8 @@ pub async fn audit_page(
     }
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
     // Before the journeys: they may operate the display toggle.
-    report.accessibility.execution.display_modes = crate::display::detect(page).await;
+    report.accessibility.execution.display_modes =
+        crate::display::detect(page, &page_collection).await;
     report.accessibility.execution.navigation.meta_refresh =
         [("desktop", desktop_refresh), ("mobile", mobile_refresh)]
             .into_iter()
@@ -1190,6 +1237,10 @@ pub async fn audit_page(
     report.accessibility.execution.frames = Some(frame_coverage);
 
     ensure_requested_module_runs(&mut report);
+    crate::audit::collection::fold_records(
+        &mut report.accessibility.execution.module_runs,
+        page_collection.into_records(),
+    );
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
     update_audit_quality(&mut report);
@@ -1202,17 +1253,24 @@ pub async fn audit_page(
     Ok((report, primary_snap))
 }
 
-/// Inject the per-pass performance collectors (vitals observer, coverage,
-/// console) before a viewport pass navigates. Failures are logged, not fatal.
-async fn prepare_pass_collection(page: &Page, pass: &str) {
-    if let Err(e) = prepare_vitals_collection(page).await {
-        warn!("Vitals observer injection failed ({pass}): {}", e);
+/// Inject the per-pass collectors before a viewport pass navigates: the
+/// performance observers (vitals, coverage) for performance, the console
+/// collector whenever best practices run — a security-only audit reads the
+/// console too (#777). Failures are logged here and surface as failed
+/// collections when the results are read.
+async fn prepare_pass_collection(page: &Page, pass: &str, config: &PipelineConfig) {
+    if config.check_performance {
+        if let Err(e) = prepare_vitals_collection(page).await {
+            warn!("Vitals observer injection failed ({pass}): {}", e);
+        }
+        if let Err(e) = prepare_coverage_collection(page).await {
+            warn!("Coverage collection setup failed ({pass}): {}", e);
+        }
     }
-    if let Err(e) = prepare_coverage_collection(page).await {
-        warn!("Coverage collection setup failed ({pass}): {}", e);
-    }
-    if let Err(e) = prepare_console_collection(page).await {
-        warn!("Console collection setup failed ({pass}): {}", e);
+    if config.check_performance || config.check_security {
+        if let Err(e) = prepare_console_collection(page).await {
+            warn!("Console collection setup failed ({pass}): {}", e);
+        }
     }
 }
 
@@ -1371,6 +1429,7 @@ async fn extract_snapshot(
     // here — per-pass configs set `check_security = false` so it stays None
     // in the snapshot and the top-level fetch in `audit_page` provides the
     // actual SecurityAnalysis.
+    let collection = crate::audit::collection::CollectionLog::new();
     let collected = {
         let catalog = AuditCatalog::standard();
         let ctx = ModuleContext {
@@ -1379,6 +1438,7 @@ async fn extract_snapshot(
             viewport,
             ax_tree: &ax_tree,
             pipeline_config: config,
+            collection: &collection,
         };
         catalog.collect_all(&ctx).await?
     };
@@ -1404,6 +1464,7 @@ async fn extract_snapshot(
     for (id, data) in collected {
         snapshot.apply_module_data(id, viewport, data);
     }
+    snapshot.apply_collection_records(collection.into_records());
 
     Ok(snapshot)
 }

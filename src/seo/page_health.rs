@@ -8,11 +8,9 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::error::Result;
-
-mod dom;
+pub(crate) mod dom;
 mod issues;
-mod probes;
+pub(crate) mod probes;
 
 use dom::run_dom_inspection;
 pub use issues::collect_issues;
@@ -136,10 +134,14 @@ pub struct PageHealthAnalysis {
     pub dns_prefetch_hints: u32,
     /// Preload hints that don't match any loaded resource (orphaned)
     pub orphaned_preload_count: u32,
-    /// True when the main page is served over HTTP/2 or HTTP/3
-    pub uses_http2: bool,
-    /// True when the main page response is compressed (gzip/br/zstd)
-    pub has_compression: bool,
+    /// True when the main page is served over HTTP/2 or HTTP/3; `None` when
+    /// the header probe did not answer.
+    #[serde(default)]
+    pub uses_http2: Option<bool>,
+    /// True when the main page response is compressed (gzip/br/zstd); `None`
+    /// when neither the header probe nor Navigation Timing could tell.
+    #[serde(default)]
+    pub has_compression: Option<bool>,
     /// Main document decoded body size from Navigation Timing, when available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub document_decoded_bytes: Option<u64>,
@@ -294,14 +296,18 @@ pub struct UrlCanonicalizationCheck {
     pub trailing_slash_variant_status: Option<u16>,
     /// True when the original URL and its trailing-slash variant both
     /// answer 200 independently instead of one redirecting to the other —
-    /// a duplicate-content risk.
-    pub trailing_slash_inconsistent: bool,
+    /// a duplicate-content risk. `None` for the root path or when either
+    /// request did not answer.
+    #[serde(default)]
+    pub trailing_slash_inconsistent: Option<bool>,
     /// HTTP status of the plain `http://` version of an `https://` page.
     /// `None` when the audited URL is not `https://`.
     pub http_status: Option<u16>,
     /// True when the audited URL is `https://` and its `http://` version
-    /// does not redirect to `https://`.
-    pub http_to_https_missing: bool,
+    /// answers without redirecting to `https://`. `None` when the URL is not
+    /// `https://` or the `http://` version did not answer.
+    #[serde(default)]
+    pub http_to_https_missing: Option<bool>,
 }
 
 /// Canonical kind of an HTML validation finding (#406).
@@ -509,7 +515,14 @@ pub struct PageHealthIssue {
 }
 
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
-pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
+///
+/// `None` when the DOM inspection failed: most fields come from it, and a
+/// default in their place would read as a clean page (#777).
+pub async fn analyze_page_health(
+    page: &Page,
+    url: &str,
+    log: &crate::audit::collection::CollectionLog,
+) -> Option<PageHealthAnalysis> {
     let mut analysis = PageHealthAnalysis {
         html_validator_status: "delegated".to_string(),
         html_validator_detail: Some(html_validator_delegated_text(true).to_string()),
@@ -520,18 +533,19 @@ pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAna
     analyze_url(url, &mut analysis);
 
     // DOM inspection via single JS evaluate
-    if let Err(e) = run_dom_inspection(page, url, &mut analysis).await {
-        warn!("Page health DOM inspection failed: {}", e);
+    if !run_dom_inspection(page, url, &mut analysis, log).await {
+        warn!("Page health DOM inspection failed");
+        return None;
     }
 
     // HTTP probes (reqwest, concurrent)
-    run_http_probes(url, &mut analysis).await;
+    run_http_probes(url, &mut analysis, log).await;
 
     // Aggregate issues — the stored report (and thus JSON) is always canonical
     // English; the PDF re-derives localized issues at presentation time (#406).
     analysis.issues = collect_issues(&analysis, true);
 
-    Ok(analysis)
+    Some(analysis)
 }
 
 // ─── URL analysis ────────────────────────────────────────────────────────────
@@ -615,9 +629,9 @@ mod tests {
         let a = PageHealthAnalysis {
             url_canonicalization: Some(UrlCanonicalizationCheck {
                 trailing_slash_variant_status: Some(200),
-                trailing_slash_inconsistent: true,
+                trailing_slash_inconsistent: Some(true),
                 http_status: Some(200),
-                http_to_https_missing: true,
+                http_to_https_missing: Some(true),
             }),
             ..Default::default()
         };
@@ -635,9 +649,9 @@ mod tests {
         let a = PageHealthAnalysis {
             url_canonicalization: Some(UrlCanonicalizationCheck {
                 trailing_slash_variant_status: Some(301),
-                trailing_slash_inconsistent: false,
+                trailing_slash_inconsistent: Some(false),
                 http_status: Some(301),
-                http_to_https_missing: false,
+                http_to_https_missing: Some(false),
             }),
             ..Default::default()
         };
@@ -733,8 +747,8 @@ mod tests {
             lcp_image_without_preload: true,
             lcp_image_url: Some("https://example.com/hero.jpg".to_string()),
             deprecated_api_count: 2,
-            uses_http2: false,
-            has_compression: false,
+            uses_http2: Some(false),
+            has_compression: Some(false),
             has_efficient_cache: false,
             cache_control: Some("max-age=60".to_string()),
             resource_cache: ResourceCacheAudit {
@@ -779,9 +793,9 @@ mod tests {
             }),
             url_canonicalization: Some(UrlCanonicalizationCheck {
                 trailing_slash_variant_status: Some(200),
-                trailing_slash_inconsistent: true,
+                trailing_slash_inconsistent: Some(true),
                 http_status: Some(200),
-                http_to_https_missing: true,
+                http_to_https_missing: Some(true),
             }),
             charset_header: Some("iso-8859-1".to_string()),
             declared_charset: Some("UTF-8".to_string()),
@@ -840,7 +854,7 @@ mod tests {
     #[test]
     fn missing_compression_issue_suppressed_when_timing_shows_compression() {
         let a = PageHealthAnalysis {
-            has_compression: true,
+            has_compression: Some(true),
             document_transfer_bytes: Some(21_814),
             document_decoded_bytes: Some(1_233_280),
             ..Default::default()

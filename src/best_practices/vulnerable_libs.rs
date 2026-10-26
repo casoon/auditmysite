@@ -8,8 +8,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
-
 /// A detected JavaScript library with its version.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DetectedLibrary {
@@ -68,7 +66,31 @@ pub struct DuplicateLibraryVersions {
 }
 
 /// Detect JS libraries and check for known vulnerabilities.
-pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibrariesAnalysis> {
+/// Library globals and `<script src>` URLs; the best-practices score reads
+/// the vulnerable libraries found in them.
+pub(crate) static LIBRARIES: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "best_practices.libraries",
+        module: "best_practices",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
+#[derive(serde::Deserialize)]
+pub(crate) struct RawLib {
+    name: String,
+    version: String,
+    source: String,
+}
+
+/// Detected libraries and their known vulnerabilities. A script result that
+/// is missing or malformed is no measurement — not a page without
+/// libraries (#777).
+pub async fn analyze_vulnerable_libraries(
+    page: &Page,
+) -> crate::audit::collection::Collected<VulnerableLibrariesAnalysis> {
+    use crate::audit::collection::{evaluate_js, Collected};
     info!("Analyzing vulnerable JavaScript libraries...");
 
     // Read versions from well-known window globals
@@ -128,24 +150,11 @@ pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibra
     })()
     "#;
 
-    let globals_result = page
-        .evaluate(globals_js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Vulnerable libs globals JS failed: {e}")))?;
-
-    let globals_str = globals_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("[]");
-
-    #[derive(serde::Deserialize)]
-    struct RawLib {
-        name: String,
-        version: String,
-        source: String,
-    }
-
-    let mut global_libs: Vec<RawLib> = serde_json::from_str(globals_str).unwrap_or_default();
+    let mut global_libs: Vec<RawLib> = match evaluate_js(page, globals_js).await.into_measurement()
+    {
+        Ok(libs) => libs,
+        Err(failure) => return failure,
+    };
 
     // Also scan script URLs for version patterns
     let scripts_js = r#"
@@ -155,17 +164,10 @@ pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibra
     })()
     "#;
 
-    let scripts_result = page
-        .evaluate(scripts_js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Vulnerable libs scripts JS failed: {e}")))?;
-
-    let scripts_str = scripts_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("[]");
-
-    let script_urls: Vec<String> = serde_json::from_str(scripts_str).unwrap_or_default();
+    let script_urls: Vec<String> = match evaluate_js(page, scripts_js).await.into_measurement() {
+        Ok(urls) => urls,
+        Err(failure) => return failure,
+    };
 
     // Every URL-based match, kept even when a name repeats — needed to spot
     // two different versions of the same library loaded at once (#547).
@@ -218,7 +220,7 @@ pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibra
         vulnerable.len()
     );
 
-    Ok(VulnerableLibrariesAnalysis {
+    Collected::Measured(VulnerableLibrariesAnalysis {
         detected,
         vulnerable,
         has_vulnerabilities,
@@ -488,6 +490,16 @@ fn parse_semver(version: &str) -> Option<(u32, u32, u32)> {
         })
         .unwrap_or(0);
     Some((major, minor, patch))
+}
+
+/// Counter-cases of [`LIBRARIES`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::assert_js_contract;
+    assert_js_contract::<Vec<RawLib>>(
+        serde_json::json!([{"name": "jQuery", "version": "1.0.0", "source": "global"}]),
+    );
+    assert_js_contract::<Vec<String>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

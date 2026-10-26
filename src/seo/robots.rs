@@ -160,16 +160,70 @@ impl From<web_checks::robots::BotClass> for BotClass {
 
 // ─── Fetch ───────────────────────────────────────────────────────────────────
 
+/// robots.txt of the audited origin.
+pub(crate) static ROBOTS_TXT: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.robots_txt",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// The first sitemap declared in robots.txt, read for the noindex check.
+pub(crate) static SITEMAP_NOINDEX: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.sitemap_noindex",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 1,
+        scoring: false,
+    };
+
 /// Fetch and parse the robots.txt for the given URL's domain.
 /// If `canonical_url` is provided and `is_noindex` is true, also checks
-/// whether the page appears in any declared sitemap.xml.
-/// Never returns an error — failures are recorded in `RobotsAudit.error`.
+/// whether the page appears in the first declared sitemap.
+///
+/// `None` when robots.txt could not be requested: an unanswered request is
+/// no evidence of a missing robots.txt (#777). An error status is a
+/// measured result (`fetched: false`).
 pub async fn audit_robots_txt(
     url: &str,
     canonical_url: Option<&str>,
     is_noindex: bool,
     locale: &str,
-) -> RobotsAudit {
+    log: &crate::audit::collection::CollectionLog,
+) -> Option<RobotsAudit> {
+    use crate::audit::collection::{reason, Collected};
+    let audit = fetch_robots_txt(url, locale).await;
+    let mut audit = log.record(&ROBOTS_TXT, audit).into_value()?;
+
+    // noindex-in-sitemap check: only run when page is noindex and we have a canonical URL
+    if is_noindex && audit.fetched {
+        if let Some(canon) = canonical_url {
+            let checked = match audit.sitemaps.first() {
+                None => Collected::NotApplicable("no_sitemap_declared"),
+                Some(sitemap_url) => match Client::builder()
+                    .timeout(Duration::from_secs(10))
+                    .user_agent("auditmysite/1.0")
+                    .build()
+                {
+                    Ok(client) => check_noindex_in_sitemap(sitemap_url, canon, &client).await,
+                    Err(_) => Collected::Failed(reason::HTTP_REQUEST_FAILED),
+                },
+            };
+            audit.noindex_in_sitemap = log.record(&SITEMAP_NOINDEX, checked).into_value();
+        }
+    }
+
+    Some(audit)
+}
+
+async fn fetch_robots_txt(
+    url: &str,
+    locale: &str,
+) -> crate::audit::collection::Collected<RobotsAudit> {
+    use crate::audit::collection::{reason, Collected};
     let base = extract_base(url);
     let robots_url = format!("{}/robots.txt", base.trim_end_matches('/'));
 
@@ -179,75 +233,52 @@ pub async fn audit_robots_txt(
         .build()
     {
         Ok(c) => c,
-        Err(e) => {
-            return RobotsAudit {
-                error: Some(format!("HTTP-Client konnte nicht erstellt werden: {e}")),
-                ..Default::default()
-            }
-        }
+        Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
     };
 
     let text = match client.get(&robots_url).send().await {
         Ok(resp) if resp.status().is_success() => match resp.text().await {
             Ok(t) => t,
-            Err(e) => {
-                return RobotsAudit {
-                    error: Some(format!("robots.txt konnte nicht gelesen werden: {e}")),
-                    ..Default::default()
-                }
-            }
+            Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
         },
+        // The server answered: there is no usable robots.txt. That is a
+        // measurement, not a failure.
         Ok(resp) => {
-            return RobotsAudit {
+            return Collected::Measured(RobotsAudit {
                 error: Some(format!("HTTP {}", resp.status())),
                 ..Default::default()
-            }
+            })
         }
-        Err(e) => {
-            return RobotsAudit {
-                error: Some(format!("Netzwerkfehler: {e}")),
-                ..Default::default()
-            }
-        }
+        Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
     };
 
     let mut audit = parse_robots_txt(&text, locale);
     audit.fetched = true;
-
-    // noindex-in-sitemap check: only run when page is noindex and we have a canonical URL
-    if is_noindex {
-        if let Some(canon) = canonical_url {
-            audit.noindex_in_sitemap =
-                Some(check_noindex_in_sitemap(&audit.sitemaps, canon, &client).await);
-        }
-    }
-
-    audit
+    Collected::Measured(audit)
 }
 
-/// Fetch the first declared sitemap and check whether `canonical_url` appears as a `<loc>` entry.
+/// Fetch the declared sitemap and check whether `canonical_url` appears as a
+/// `<loc>` entry. A sitemap that could not be read says nothing about the
+/// page (#777).
 async fn check_noindex_in_sitemap(
-    sitemaps: &[String],
+    sitemap_url: &str,
     canonical_url: &str,
     client: &Client,
-) -> bool {
-    let Some(sitemap_url) = sitemaps.first() else {
-        return false;
-    };
-
+) -> crate::audit::collection::Collected<bool> {
+    use crate::audit::collection::{reason, Collected};
     let Ok(resp) = client
         .get(sitemap_url)
         .timeout(Duration::from_secs(8))
         .send()
         .await
     else {
-        return false;
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
     if !resp.status().is_success() {
-        return false;
+        return Collected::Failed("sitemap_not_readable");
     }
     let Ok(body) = resp.text().await else {
-        return false;
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
 
     // Normalise URL for comparison: strip trailing slash
@@ -261,14 +292,14 @@ async fn check_noindex_in_sitemap(
         if let Some(end) = body[abs..].find("</loc>") {
             let loc = norm(&body[abs..abs + end]);
             if loc == target {
-                return true;
+                return Collected::Measured(true);
             }
             pos = abs + end + 6;
         } else {
             break;
         }
     }
-    false
+    Collected::Measured(false)
 }
 
 fn extract_base(url: &str) -> String {
@@ -408,6 +439,44 @@ pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+/// Counter-cases of [`ROBOTS_TXT`] and [`SITEMAP_NOINDEX`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{CollectionLog, CollectionState};
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(f)
+    }
+    // Nothing answers on the discard port: no robots.txt verdict at all.
+    let log = CollectionLog::new();
+    let audit = block_on(audit_robots_txt(
+        "http://127.0.0.1:9/page",
+        Some("http://127.0.0.1:9/page"),
+        true,
+        "en",
+        &log,
+    ));
+    assert!(
+        audit.is_none(),
+        "an unanswered request is no missing robots.txt"
+    );
+    let records = log.into_records();
+    assert_eq!(records.len(), 1, "no sitemap check without robots.txt");
+    assert_eq!(records[0].state, CollectionState::Failed);
+
+    // An unreadable sitemap says nothing about the page.
+    let client = Client::new();
+    let checked = block_on(check_noindex_in_sitemap(
+        "http://127.0.0.1:9/sitemap.xml",
+        "http://127.0.0.1:9/page",
+        &client,
+    ));
+    assert_eq!(checked.state(), CollectionState::Failed);
+}
 
 #[cfg(test)]
 mod tests {

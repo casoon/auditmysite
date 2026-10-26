@@ -74,12 +74,15 @@ async fn schema_rules_detection_corpus_matches_real_detector_run() {
             .await
             .expect("navigation failed");
 
-        let structured_data = detect_structured_data(&page).await.unwrap_or_else(|e| {
-            panic!(
-                "detect_structured_data failed for case '{}': {e}",
-                case.case
-            )
-        });
+        let structured_data =
+            detect_structured_data(&page, &auditmysite::audit::collection::CollectionLog::new())
+                .await
+                .unwrap_or_else(|e| {
+                    panic!(
+                        "detect_structured_data failed for case '{}': {e}",
+                        case.case
+                    )
+                });
 
         fixture.stop();
 

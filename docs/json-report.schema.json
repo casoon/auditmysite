@@ -748,7 +748,10 @@
           "$ref": "#/$defs/auditQuality"
         },
         "module_runs": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moduleRun"
+          }
         },
         "rule_outcomes": {
           "type": "array"
@@ -1128,6 +1131,8 @@
           "type": "string",
           "enum": [
             "measured",
+            "partial",
+            "not_measured",
             "heuristic",
             "optional"
           ]
@@ -1736,6 +1741,110 @@
         "occurrence_count": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "moduleRun": {
+      "type": "object",
+      "required": [
+        "module",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "skipped",
+            "not_applicable",
+            "not_requested"
+          ]
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subchecks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/subcheckRun"
+          }
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "subcheckRun": {
+      "type": "object",
+      "description": "One sub-analysis or collector of a module run. Collectors under the collection contract also carry their state, method and version; a scoring collection that lost its measurement makes the module score partial and non-contributing.",
+      "required": [
+        "subcheck",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "subcheck": {
+          "type": "string",
+          "description": "Collector id `<module>.<collector>` (or a legacy sub-analysis name)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "skipped",
+            "not_applicable",
+            "not_requested"
+          ]
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "empty",
+            "partial",
+            "failed",
+            "unsupported",
+            "not_applicable"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "java_script",
+            "cdp",
+            "http",
+            "dns"
+          ]
+        },
+        "method_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scoring": {
+          "type": "boolean"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

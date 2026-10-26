@@ -757,47 +757,55 @@ fn tracking_summary_rows(
                 "Cookie-Inventar"
             }
             .to_string(),
-            if s.technical.cookie_inventory.is_empty() {
-                if en {
-                    "No cookies detected".to_string()
-                } else {
-                    "Keine Cookies erkannt".to_string()
-                }
-            } else {
-                let risky = s
-                    .technical
-                    .cookie_inventory
-                    .iter()
-                    .filter(|cookie| !cookie.secure || cookie.same_site.is_none())
-                    .count();
-                let category_suffix = tracking_category_summary(
-                    s.technical
-                        .cookie_inventory
-                        .iter()
-                        .filter_map(|cookie| cookie.category.as_deref()),
-                )
-                .map(|summary| {
+            match s.technical.cookie_inventory.as_deref() {
+                None => {
                     if en {
-                        format!("; categories: {summary}")
+                        "Not collected: the browser cookie jar could not be read".to_string()
                     } else {
-                        format!("; Kategorien: {summary}")
+                        "Nicht erhoben: Der Cookie-Speicher des Browsers war nicht lesbar"
+                            .to_string()
                     }
-                })
-                .unwrap_or_default();
-                if en {
-                    format!(
-                        "{} cookies, {} without Secure/SameSite signal{}",
-                        s.technical.cookie_inventory.len(),
-                        risky,
-                        category_suffix
+                }
+                Some([]) => {
+                    if en {
+                        "No cookies detected".to_string()
+                    } else {
+                        "Keine Cookies erkannt".to_string()
+                    }
+                }
+                Some(cookie_inventory) => {
+                    let risky = cookie_inventory
+                        .iter()
+                        .filter(|cookie| !cookie.secure || cookie.same_site.is_none())
+                        .count();
+                    let category_suffix = tracking_category_summary(
+                        cookie_inventory
+                            .iter()
+                            .filter_map(|cookie| cookie.category.as_deref()),
                     )
-                } else {
-                    format!(
-                        "{} Cookies, {} ohne Secure/SameSite-Signal{}",
-                        s.technical.cookie_inventory.len(),
-                        risky,
-                        category_suffix
-                    )
+                    .map(|summary| {
+                        if en {
+                            format!("; categories: {summary}")
+                        } else {
+                            format!("; Kategorien: {summary}")
+                        }
+                    })
+                    .unwrap_or_default();
+                    if en {
+                        format!(
+                            "{} cookies, {} without Secure/SameSite signal{}",
+                            cookie_inventory.len(),
+                            risky,
+                            category_suffix
+                        )
+                    } else {
+                        format!(
+                            "{} Cookies, {} ohne Secure/SameSite-Signal{}",
+                            cookie_inventory.len(),
+                            risky,
+                            category_suffix
+                        )
+                    }
                 }
             },
         ),

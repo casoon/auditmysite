@@ -8,6 +8,7 @@ mod batch;
 pub mod batch_consistency;
 pub mod budget;
 pub mod catalog;
+pub mod collection;
 mod crawl;
 pub mod duplicate;
 pub mod exclusion;

@@ -6,7 +6,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 use crate::seo::meta::MetaValidation;
 use crate::taxonomy::Severity;
 use web_checks::social;
@@ -129,8 +129,21 @@ impl SocialTags {
     }
 }
 
+/// Open Graph / Twitter card script; the SEO score reads it.
+pub(crate) static SOCIAL: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.social",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
 /// Extract social media meta tags
-pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
+pub async fn extract_social_tags(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<SocialTags> {
     info!("Extracting social media tags...");
 
     let js_code = r#"
@@ -155,12 +168,16 @@ pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Social tags extraction failed: {}", e)))?;
-
-    let parsed = crate::util::decode_collector_object(js_result.value(), "seo extraction")?;
+    let parsed = serde_json::Value::Object(
+        log.record(
+            &SOCIAL,
+            crate::audit::collection::evaluate_js::<crate::audit::collection::JsObject>(
+                page, js_code,
+            )
+            .await,
+        )
+        .into_result(&SOCIAL)?,
+    );
 
     let (open_graph, twitter_card) = parse_social_tags(&parsed);
 
@@ -234,6 +251,20 @@ fn parse_social_tags(parsed: &serde_json::Value) -> (Option<OpenGraph>, Option<T
     .iter()
     .any(|t| twitter_card.content(t).is_some());
     (og_any.then_some(open_graph), tw_any.then_some(twitter_card))
+}
+
+/// Counter-cases of [`SOCIAL`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"og": {}, "twitter": {}}),
+    );
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
+            .into_result(&SOCIAL)
+            .is_err()
+    );
 }
 
 #[cfg(test)]

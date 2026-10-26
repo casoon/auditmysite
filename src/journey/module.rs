@@ -56,6 +56,34 @@ const EARLY_TEXT_JS: &str = r#"
   return total;
 "#;
 
+/// `<main>` in the DOM when the accessibility tree shows none.
+pub(crate) static DOM_MAIN: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "journey.dom_main",
+        module: "journey",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// Visible text length above the fold.
+pub(crate) static EARLY_TEXT: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "journey.early_text",
+        module: "journey",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// Counter-cases of [`DOM_MAIN`] and [`EARLY_TEXT`] (#777): a missing or
+/// mistyped answer is a failure, not `false` or `0`.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_value_contract::<bool>(serde_json::json!(true));
+    crate::audit::collection::assert_js_value_contract::<u64>(serde_json::json!(0));
+}
+
 pub struct JourneyModule;
 
 #[async_trait]
@@ -77,14 +105,21 @@ impl AuditModule for JourneyModule {
             .ax_tree
             .iter()
             .any(|n| n.role.as_deref() == Some("main"));
+        // Without a DOM answer the accessibility tree's verdict stands: it is
+        // what assistive technology sees, not an invented "no".
         let dom_has_main = if ax_has_main {
             true
         } else {
-            ctx.page
-                .evaluate("!!document.querySelector('main, [role=\"main\"]')")
-                .await
-                .ok()
-                .and_then(|r| r.value().and_then(|v| v.as_bool()))
+            ctx.collection
+                .record(
+                    &DOM_MAIN,
+                    crate::audit::collection::evaluate_js_value::<bool>(
+                        ctx.page,
+                        "!!document.querySelector('main, [role=\"main\"]')",
+                    )
+                    .await,
+                )
+                .into_value()
                 .unwrap_or(false)
         };
         // `None` when the page cannot answer: the fallback in
@@ -98,11 +133,16 @@ impl AuditModule for JourneyModule {
         ]
         .concat();
         let measured_early_text = ctx
-            .page
-            .evaluate(early_text_js.as_str())
-            .await
-            .ok()
-            .and_then(|r| r.value().and_then(|v| v.as_u64()))
+            .collection
+            .record(
+                &EARLY_TEXT,
+                crate::audit::collection::evaluate_js_value::<u64>(
+                    ctx.page,
+                    early_text_js.as_str(),
+                )
+                .await,
+            )
+            .into_value()
             .map(|len| len as usize);
 
         let journey =

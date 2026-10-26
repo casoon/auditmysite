@@ -110,9 +110,18 @@ pub async fn check_text_spacing_with_page(page: &Page) -> Vec<Violation> {
         }
     };
 
+    // `null` is the probe's "nothing clipped"; a missing or non-string value
+    // is no answer and must not pass (#777).
     let selector = match result.value() {
-        Some(v) if !v.is_null() => v.as_str().unwrap_or("unknown element").to_string(),
-        _ => return vec![],
+        Some(serde_json::Value::String(selector)) => selector.clone(),
+        None if crate::wcag::types::returned_null(&result) => return vec![],
+        _ => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "text-spacing",
+                crate::cli::WcagLevel::AA,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     vec![Violation::new(

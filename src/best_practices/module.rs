@@ -28,7 +28,7 @@ impl AuditModule for BestPracticesModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_best_practices(ctx.page).await {
+        match analyze_best_practices(ctx.page, ctx.collection).await {
             Ok(bp) => Ok(ModuleData::BestPractices(Box::new(bp))),
             Err(e) => {
                 warn!("Best practices analysis failed: {}", e);

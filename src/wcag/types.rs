@@ -295,6 +295,16 @@ async fn evaluate_and_extract(page: &Page, js: &str) -> Result<serde_json::Value
     result.value().cloned().ok_or(EvalFailure::MissingValue)
 }
 
+/// Whether a script deliberately returned `null`. CDP reports `null` without
+/// a `value`, exactly like a result that never arrived; only the subtype
+/// tells "nothing found" from "no answer" (#777).
+pub fn returned_null(result: &chromiumoxide::js::EvaluationResult) -> bool {
+    matches!(
+        result.object().subtype,
+        Some(chromiumoxide::cdp::js_protocol::runtime::RemoteObjectSubtype::Null)
+    )
+}
+
 fn eval_failure_reason(err: &EvalFailure) -> &'static str {
     match err {
         EvalFailure::PageError(_) => "page_evaluation_failed",

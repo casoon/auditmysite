@@ -50,12 +50,47 @@ pub struct ModuleRun {
     pub message: Option<String>,
 }
 
+/// One sub-analysis or collector of a module run. Collectors under the
+/// collection contract (#777) also carry their `state`, method and version;
+/// `scoring` marks collections the module score depends on.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SubcheckRun {
     pub subcheck: String,
     pub status: ExecutionStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<super::collection::CollectionState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<super::collection::CollectionMethod>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method_version: Option<u32>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub scoring: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gaps: Vec<String>,
+}
+
+impl SubcheckRun {
+    /// A scoring collection that lost (part of) its measurement.
+    pub fn is_scoring_gap(&self) -> bool {
+        self.scoring && self.state.is_some_and(|state| state.is_gap())
+    }
+}
+
+impl From<super::collection::CollectionRecord> for SubcheckRun {
+    fn from(record: super::collection::CollectionRecord) -> Self {
+        Self {
+            subcheck: record.collector,
+            status: record.state.execution_status(),
+            reason_code: record.reason_code,
+            state: Some(record.state),
+            method: Some(record.method),
+            method_version: Some(record.method_version),
+            scoring: record.scoring,
+            gaps: record.gaps,
+        }
+    }
 }
 
 /// Requested audit scope, independent of whether the measurements succeeded.
