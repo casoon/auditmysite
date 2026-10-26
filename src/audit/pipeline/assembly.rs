@@ -296,27 +296,10 @@ pub(super) fn aggregate_report(
         report = report.with_network_dns(network_dns);
     }
 
+    // Whether the hardening probes ran, answered or did not apply is recorded
+    // by the `tech_stack.hardening_probes` collection (#777).
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
-        let assessed = tech_stack.is_hardening_assessed();
         report = report.with_tech_stack(tech_stack);
-        // Detection ran either way; the hardening score only means something
-        // when a stack-specific probe ran (plan 69).
-        if !assessed {
-            if let Some(run) = report
-                .accessibility
-                .execution
-                .module_runs
-                .iter_mut()
-                .find(|run| run.module == "tech_stack")
-            {
-                run.subchecks = vec![crate::audit::SubcheckRun {
-                    subcheck: "hardening".to_string(),
-                    status: crate::audit::ExecutionStatus::NotApplicable,
-                    reason_code: Some("no_auditable_stack_detected".to_string()),
-                    ..Default::default()
-                }];
-            }
-        }
     }
 
     // The console and library collections are recorded under the collection

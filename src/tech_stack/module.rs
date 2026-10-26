@@ -26,7 +26,7 @@ impl AuditModule for TechStackModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_tech_stack(ctx.page, ctx.url).await {
+        match analyze_tech_stack(ctx.page, ctx.url, ctx.collection).await {
             Ok(ts) => Ok(ModuleData::TechStack(Box::new(ts))),
             Err(e) => {
                 warn!("Tech stack analysis failed: {}", e);

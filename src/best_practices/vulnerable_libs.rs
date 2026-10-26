@@ -229,16 +229,6 @@ pub async fn analyze_vulnerable_libraries(
     })
 }
 
-/// Counter-cases of [`LIBRARIES`] (#777).
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    use crate::audit::collection::assert_js_contract;
-    assert_js_contract::<Vec<RawLib>>(
-        serde_json::json!([{"name": "jQuery", "version": "1.0.0", "source": "global"}]),
-    );
-    assert_js_contract::<Vec<String>>(serde_json::json!([]));
-}
-
 /// Group URL-detected libraries by name and return those with more than one
 /// distinct version string (#547).
 fn find_duplicate_versions(url_libs: &[RawLibOwned]) -> Vec<DuplicateLibraryVersions> {
@@ -500,6 +490,16 @@ fn parse_semver(version: &str) -> Option<(u32, u32, u32)> {
         })
         .unwrap_or(0);
     Some((major, minor, patch))
+}
+
+/// Counter-cases of [`LIBRARIES`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::assert_js_contract;
+    assert_js_contract::<Vec<RawLib>>(
+        serde_json::json!([{"name": "jQuery", "version": "1.0.0", "source": "global"}]),
+    );
+    assert_js_contract::<Vec<String>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

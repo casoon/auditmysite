@@ -359,6 +359,8 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::seo::page_health::probes::WWW_CONSOLIDATION,
     &crate::seo::page_health::probes::URL_CANONICALIZATION,
     &crate::mobile::MOBILE,
+    &crate::tech_stack::DETECTION,
+    &crate::tech_stack::HARDENING_PROBES,
     &crate::best_practices::console_errors::CONSOLE,
     &crate::best_practices::vulnerable_libs::LIBRARIES,
     &crate::design_quality::CANDIDATES,
@@ -543,6 +545,11 @@ mod tests {
                 probes::partial_result,
             ),
             ("mobile.friendliness", crate::mobile::counter_cases),
+            ("tech_stack.detection", crate::tech_stack::counter_cases),
+            (
+                "tech_stack.hardening_probes",
+                crate::tech_stack::counter_cases,
+            ),
             (
                 "best_practices.console",
                 crate::best_practices::console_errors::counter_cases,
