@@ -18,6 +18,7 @@ pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_accessibility_breakdown_reconciles(report, findings);
     check_unmeasured_modules_carry_no_result(report, findings);
     check_indicators_carry_no_weight(report, findings);
+    super::invariants::check(report, findings);
 }
 
 // ─── Measurement status ───────────────────────────────────────────────────
@@ -150,6 +151,15 @@ const CHECK_BREAKDOWN_RECONCILES: &str = "accessibility_breakdown_reconciles_wit
 ///
 /// Tolerance is +/-2 points to absorb rounding in the apportionment.
 fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<LintFinding>) {
+    // No measured pages means no lost points to apportion. The zero score
+    // of an all-failed batch is a sentinel, not a measured accessibility score.
+    if report
+        .get("pages")
+        .and_then(Value::as_array)
+        .is_some_and(|p| p.is_empty())
+    {
+        return;
+    }
     let Some(summary) = report.get("summary") else {
         return;
     };
@@ -277,7 +287,12 @@ fn risk_gate_inputs(node: &Value) -> (Option<&str>, i64, i64) {
         (level, legal_flags, blocking_issues)
     } else {
         let level = node.get("risk_level").and_then(Value::as_str);
-        (level, 0, 0)
+        let legal_flags = node.get("legal_flags").and_then(Value::as_i64).unwrap_or(0);
+        let blocking_issues = node
+            .get("blocking_issues")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        (level, legal_flags, blocking_issues)
     }
 }
 
@@ -367,10 +382,15 @@ fn check_grade_certificate_consistency(report: &Value, findings: &mut Vec<LintFi
     let pages = report.get("pages").and_then(Value::as_array);
 
     if let Some(summary) = report.get("summary") {
+        let batch_risk = serde_json::json!({
+            "risk_level": summary["risk_level"],
+            "legal_flags": pages.into_iter().flatten().filter_map(|p| p["risk"]["legal_flags"].as_u64()).sum::<u64>(),
+            "blocking_issues": pages.into_iter().flatten().filter_map(|p| p["risk"]["blocking_issues"].as_u64()).sum::<u64>(),
+        });
         let risk_source = if report_type == "single" {
             pages.and_then(|p| p.first()).unwrap_or(summary)
         } else {
-            summary
+            &batch_risk
         };
         check_grade_and_certificate(summary, risk_source, "summary", findings);
     }

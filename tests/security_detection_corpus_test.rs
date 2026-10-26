@@ -10,6 +10,22 @@
 
 mod common;
 
+#[tokio::test]
+async fn foundation_unreachable_security_headers_are_not_missing_headers() {
+    let socket = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", socket.local_addr().unwrap());
+    drop(socket);
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        auditmysite::security::analyze_security(&url),
+    )
+    .await;
+    assert!(
+        result.expect("bounded failed collection").is_err(),
+        "a failed fetch must not become measured missing-header findings"
+    );
+}
+
 use auditmysite::analyze_security;
 use common::detection_corpus::{
     load_corpus_dir, load_structurally_deferred, nonwcag_detection_corpus_dir, Verdict,

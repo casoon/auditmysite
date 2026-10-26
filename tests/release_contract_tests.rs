@@ -197,3 +197,59 @@ fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
         "`coverage` must be skipped when ci.yml runs for a release tag"
     );
 }
+
+#[test]
+fn release_requires_positive_and_negative_rule_contracts() {
+    let ci = read_repo_file(".github/workflows/ci.yml");
+    let browser = workflow_job_body(&ci, "browser-smoke");
+    let local = read_repo_file("scripts/release-check.sh");
+    for runner in [browser, local.as_str()] {
+        assert!(
+            runner.contains("detection_corpus_completeness nonwcag_detection_corpus_completeness")
+        );
+        assert!(runner.contains("release_ -- --ignored --nocapture"));
+        assert!(
+            runner.contains("||"),
+            "one coverage failure must not hide the other inventory"
+        );
+    }
+    for test in [
+        "tests/detection_corpus_completeness.rs",
+        "tests/nonwcag_detection_corpus_completeness.rs",
+    ] {
+        let source = read_repo_file(test);
+        let gate = source
+            .split("fn release_")
+            .nth(1)
+            .expect("strict release gate missing");
+        let gate = gate.split("\n}\n").next().expect("gate body missing");
+        assert!(gate.contains("Verdict::Pass") && gate.contains("Verdict::Violation"));
+        assert!(gate.contains("gaps.is_empty()"));
+        assert!(
+            !gate.contains("load_structurally_deferred"),
+            "deferral is not tested evidence"
+        );
+    }
+}
+
+#[test]
+fn release_requires_completed_v2_milestone_before_build() {
+    let workflow = read_repo_file(".github/workflows/release.yml");
+    let verify = workflow_job_body(&workflow, "verify-version");
+    assert!(verify.contains("check-v2-readiness.py --version \"$GITHUB_REF_NAME\""));
+    assert!(!verify.contains("continue-on-error"));
+    assert!(
+        workflow_job_body(&workflow, "build").contains("needs: [verify-version, quality-gates]")
+    );
+    assert!(read_repo_file("scripts/release-check.sh").contains("check-v2-readiness.py"));
+    let result = std::process::Command::new("python3")
+        .arg("scripts/test_check_v2_readiness.py")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("Python 3.11+ is required for release gate tests");
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}

@@ -11,8 +11,7 @@
 //!
 //! `#[ignore]`-gated like the existing Chrome-dependent tests in
 //! `tests/integration_test.rs` — run with `cargo test -- --ignored`. If the
-//! corpus directory is ever empty (e.g. a fresh checkout missing fixtures),
-//! this test is a no-op rather than a failure.
+//! corpus directory is ever empty, the test fails: no fixtures are no evidence.
 
 mod common;
 
@@ -43,11 +42,10 @@ struct CaseDiff {
 async fn detection_corpus_matches_real_audit_run() {
     let corpus_dir = detection_corpus_dir();
     let cases = load_corpus_dir(&corpus_dir);
-    if cases.is_empty() {
-        // Nothing to check yet — the corpus starts empty and is populated
-        // incrementally by #556. Not a failure.
-        return;
-    }
+    assert!(
+        !cases.is_empty(),
+        "empty detection corpus cannot verify an audit"
+    );
 
     let manager = ci_browser().await;
     let mut diffs: Vec<CaseDiff> = Vec::new();
@@ -76,6 +74,25 @@ async fn detection_corpus_matches_real_audit_run() {
         let (report, _snapshot) = audit_page(&page, &fixture.url, &config, &manager)
             .await
             .unwrap_or_else(|e| panic!("Audit failed for case '{}': {e}", case.case));
+
+        let normalized = auditmysite::audit::normalize(&report);
+        let exported = auditmysite::output::UnifiedReport::single(&normalized, &report);
+        if let Err(error) = exported.to_json(false) {
+            let evidence =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/corpus-failures");
+            std::fs::create_dir_all(&evidence).unwrap();
+            std::fs::write(
+                evidence.join(format!("{}.json", case.case)),
+                serde_json::to_vec_pretty(&serde_json::json!({"raw":report, "export":exported}))
+                    .unwrap(),
+            )
+            .unwrap();
+            panic!(
+                "Export invariants failed for case '{}': {error}; evidence: {}",
+                case.case,
+                evidence.display()
+            );
+        }
 
         fixture.stop();
 
@@ -112,6 +129,16 @@ async fn detection_corpus_matches_real_audit_run() {
                     }
                 }
                 Verdict::Pass => {
+                    let ran = wcag
+                        .rule_outcomes
+                        .iter()
+                        .any(|run| run.rule_id == exp.rule_id && run.not_run.is_none());
+                    if !ran {
+                        false_negatives.push(expectation_label(
+                            exp,
+                            "expected a successful check, but it did not run",
+                        ));
+                    }
                     if matches_violations {
                         false_positives
                             .push(expectation_label(exp, "expected pass, found violation"));
@@ -124,7 +151,13 @@ async fn detection_corpus_matches_real_audit_run() {
                     }
                 }
                 Verdict::NeedsReview => {
-                    if !matches_violations && !matches_warnings && !matches_not_testable {
+                    if matches_violations {
+                        false_positives.push(expectation_label(
+                            exp,
+                            "review was escalated to a confirmed violation",
+                        ));
+                    }
+                    if !matches_warnings && !matches_not_testable {
                         false_negatives.push(expectation_label(
                             exp,
                             "expected needs_review, found neither",
@@ -133,6 +166,8 @@ async fn detection_corpus_matches_real_audit_run() {
                 }
             }
         }
+
+        let _ = page.close().await;
 
         if let Some(expected) = &case.screen_reader_bfsg_verdict {
             let found = report

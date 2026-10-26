@@ -461,19 +461,6 @@ auditmysite https://example.com -f ai -o findings.json
 
 Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, and `help_url` — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
 
-### Baseline and CI diff
-
-Save a baseline snapshot and compare future runs against it:
-
-```bash
-# Save baseline
-auditmysite https://example.com -f json -o baseline.json
-
-# Future CI runs can diff against the baseline programmatically via the Rust API
-```
-
-The `Baseline` type in the `audit` module supports `from_violations`, `diff`, `load`, and `save`.
-
 ### Non-goals (deliberately deferred)
 
 These are recognized as potentially useful but deliberately not on the roadmap right now —
@@ -487,9 +474,10 @@ for a disproportionate amount of new surface area:
   (comparable in scope to the existing `ai_transparency` module) for a feature that only applies
   when a page happens to link PDFs. Out of scope for now; revisit only as a dedicated,
   separately-scoped module if real demand shows up.
-- **Full audit-history / report-diffing as a first-class feature.** The `Baseline` API above
-  covers programmatic before/after diffing of WCAG violations for a single URL. A richer,
-  built-in "compare this report against an older report" mode with its own CLI flag, PDF section,
+- **Full audit-history / report-diffing as a first-class feature.** Findings carry stable ids
+  (`findings[].id`, `findings[].patterns[].id`) that stay the same across runs while rule and
+  element pattern stay the same, so two saved JSON reports can be compared by id. A built-in
+  "compare this report against an older report" mode with its own CLI flag, PDF section,
   and batch-vs-single/methodology-consistency handling is not planned — that turns the tool from
   a stateless auditor into a report-history manager, a different product shape. A JSON-to-JSON
   diff against two saved reports is straightforward to script externally (e.g. with `jq`) without

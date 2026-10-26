@@ -41,6 +41,7 @@ fn build_batch_report(
     std::sync::Arc<renderreport::Engine>,
     renderreport::RenderRequest,
 )> {
+    crate::audit::validate_batch(batch)?;
     let engine = super::helpers::create_engine();
     let i18n = I18n::new(&config.locale)?;
     // Use the locale-aware presentation builder — `build_batch_presentation`

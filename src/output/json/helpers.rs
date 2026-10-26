@@ -427,12 +427,21 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
 
 /// Top actions, one per rule across all pages, in the order the PDF lists
 /// them (plans 58, 64).
-pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
+pub(super) fn build_decision_actions(
+    reports: &[NormalizedReport],
+    root_causes: &[crate::audit::RootCause],
+) -> Vec<DecisionAction> {
     crate::audit::normalized::aggregate_batch_findings(reports)
         .into_iter()
         .take(8)
         .map(|batch| {
             let finding = batch.finding;
+            // `root_causes` is sorted by reach, so the first match is the
+            // rule's most widespread pattern.
+            let root_cause_id = root_causes
+                .iter()
+                .find(|cause| cause.rule_id == finding.rule_id)
+                .map(|cause| cause.id.clone());
             DecisionAction {
                 rule_id: finding.rule_id,
                 title: finding.title,
@@ -441,11 +450,8 @@ pub(super) fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<Decisi
                 complexity: finding.complexity,
                 occurrence_count: finding.occurrence_count,
                 url_count: batch.urls.len(),
-                root_cause: if finding.occurrence_count >= 10 || batch.urls.len() > 1 {
-                    "Likely shared component or template".to_string()
-                } else {
-                    finding.subcategory
-                },
+                finding_id: finding.id,
+                root_cause_id,
                 expected_impact: finding.expected_impact,
             }
         })
@@ -508,43 +514,12 @@ pub(super) fn build_internal_comparison(reports: &[NormalizedReport]) -> Interna
         })
         .collect();
 
-    let mut root_map: std::collections::BTreeMap<
-        String,
-        (usize, std::collections::BTreeSet<String>),
-    > = std::collections::BTreeMap::new();
-    for report in reports {
-        for finding in &report.findings {
-            let entry = root_map
-                .entry(finding.title.clone())
-                .or_insert_with(|| (0, std::collections::BTreeSet::new()));
-            entry.0 += finding.occurrence_count;
-            entry.1.insert(report.url.clone());
-        }
-    }
-    let mut root_causes: Vec<_> = root_map
-        .into_iter()
-        .map(|(title, (occurrence_count, urls))| RootCauseSummary {
-            title,
-            occurrence_count,
-            affected_urls: urls.len(),
-            classification: if urls.len() >= 2 || occurrence_count >= 10 {
-                "likely_template_or_component".to_string()
-            } else {
-                "page_specific".to_string()
-            },
-        })
-        .collect();
-    root_causes.sort_by(|a, b| {
-        b.affected_urls
-            .cmp(&a.affected_urls)
-            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
-    });
-    root_causes.truncate(10);
-
+    // The former `root_causes` list here called anything on two pages or
+    // with 10 occurrences a "likely template or component"; recurring
+    // patterns are `summary.root_causes` now (2.0 finding model).
     InternalComparison {
         module_extremes,
         outlier_urls,
-        root_causes,
     }
 }
 
@@ -760,6 +735,9 @@ mod tests {
 
     fn make_finding(rule_id: &str, description: &str) -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.3.4".into(),

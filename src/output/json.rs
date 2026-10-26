@@ -10,9 +10,7 @@ use serde::Serialize;
 
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::audit::verdict::{Verdict, VerdictResult};
-use crate::audit::{
-    compute_recurring_rules, AuditReport, BatchReport, RecurringRule, SampleMetadata,
-};
+use crate::audit::{AuditReport, BatchReport, SampleMetadata};
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
 use crate::output::module::ReportModule as _;
@@ -44,6 +42,7 @@ pub fn format_json_normalized(
     report: &AuditReport,
     pretty: bool,
 ) -> Result<String> {
+    ctx.normalized.validate()?;
     UnifiedReport::single(ctx, report).to_json(pretty)
 }
 
@@ -52,11 +51,13 @@ pub fn format_json_normalized(
 /// Module detail is limited to whatever the cached `NormalizedReport` still
 /// carries (raw module data is not persisted, so `detail.modules` is sparse).
 pub fn format_json_cached(normalized: &NormalizedReport, pretty: bool) -> Result<String> {
+    normalized.validate()?;
     UnifiedReport::single_from_normalized(normalized).to_json(pretty)
 }
 
 /// Generate batch-report JSON. `pages[i].detail` is omitted.
 pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<String> {
+    crate::audit::validate_batch(batch_report)?;
     UnifiedReport::batch(batch_report).to_json(pretty)
 }
 
@@ -211,14 +212,10 @@ pub struct UnifiedSummary {
     /// (über alle Pages dedupliziert).
     #[serde(default)]
     pub violated_rule_count: usize,
-    /// Häufigste WCAG-Regelverstöße (max. 10 Einträge, sortiert nach Occurrences).
-    /// Bei Single-Reports bezogen auf die eine Seite; bei Batch über alle Pages aggregiert.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub top_recurring_rules: Vec<RecurringRule>,
-    /// WCAG findings verified to share one template/component root cause
-    /// across multiple pages (batch only; always empty on single reports).
+    /// Finding patterns that recur on two or more pages; `id` matches
+    /// `pages[].findings[].patterns[].id` (batch only).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub template_clusters: Vec<crate::audit::TemplateCluster>,
+    pub root_causes: Vec<crate::audit::RootCause>,
     /// Domain-wide EN 301 549 clause roll-up: worst status per clause across
     /// all pages plus the affected-page count (batch only; always empty on
     /// single reports, which carry the full per-page annex under
@@ -483,7 +480,13 @@ pub struct DecisionAction {
     pub occurrence_count: usize,
     /// Pages the rule occurs on (1 in a single report).
     pub url_count: usize,
-    pub root_cause: String,
+    /// `pages[].findings[].id` of the finding behind this action.
+    pub finding_id: String,
+    /// The rule's most widespread entry in `summary.root_causes` (batch
+    /// only). Replaces the free-text `root_cause`, which called anything
+    /// with 10 occurrences or two pages a "likely shared component".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root_cause_id: Option<String>,
     pub expected_impact: String,
 }
 
@@ -491,7 +494,6 @@ pub struct DecisionAction {
 pub struct InternalComparison {
     pub module_extremes: Vec<ModuleExtreme>,
     pub outlier_urls: Vec<UrlOutlier>,
-    pub root_causes: Vec<RootCauseSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -510,14 +512,6 @@ pub struct UrlOutlier {
     pub batch_average: u32,
     pub delta_points: i32,
     pub reason: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RootCauseSummary {
-    pub title: String,
-    pub occurrence_count: usize,
-    pub affected_urls: usize,
-    pub classification: String,
 }
 
 /// One audited page. `detail` is present for single reports, omitted for batch.
@@ -783,40 +777,6 @@ pub struct ReportMetadata {
     pub execution_time_ms: u64,
 }
 
-fn aggregate_audit_quality(reports: &[NormalizedReport]) -> crate::audit::AuditQuality {
-    let failed_rule_checks = reports
-        .iter()
-        .map(|report| report.execution.quality.failed_rule_checks)
-        .sum();
-    let partial_or_failed_modules = reports
-        .iter()
-        .map(|report| report.execution.quality.partial_or_failed_modules)
-        .sum();
-    let status = if reports.iter().any(|report| {
-        report.execution.quality.status == crate::audit::AuditQualityStatus::Insufficient
-    }) {
-        crate::audit::AuditQualityStatus::Insufficient
-    } else if reports
-        .iter()
-        .any(|report| report.execution.quality.status == crate::audit::AuditQualityStatus::Partial)
-    {
-        crate::audit::AuditQualityStatus::Partial
-    } else {
-        crate::audit::AuditQualityStatus::Complete
-    };
-    crate::audit::AuditQuality {
-        status,
-        qualified_results: status != crate::audit::AuditQualityStatus::Complete,
-        failed_rule_checks,
-        partial_or_failed_modules,
-        reasons: reports
-            .iter()
-            .filter(|report| report.execution.quality.qualified_results)
-            .map(|report| format!("qualified_page:{}", report.url))
-            .collect(),
-    }
-}
-
 fn build_site_analysis(
     batch: &BatchReport,
     presentation: &crate::output::report_model::BatchPresentation,
@@ -1073,8 +1033,7 @@ impl UnifiedReport {
                     .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
             ),
             violated_rule_count: batch_report.summary.violated_rule_count,
-            top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
-            template_clusters: batch_report.summary.template_clusters.clone(),
+            root_causes: batch_report.summary.root_causes.clone(),
             en301549_rollup: build_en301549_batch_rollup(&normalized_reports),
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
@@ -1095,7 +1054,10 @@ impl UnifiedReport {
                 accessibility_score,
             ),
             management_risks: build_management_risks(&normalized_reports),
-            top_actions: build_decision_actions(&normalized_reports),
+            top_actions: build_decision_actions(
+                &normalized_reports,
+                &batch_report.summary.root_causes,
+            ),
             duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
             missing_tag_prevalence: presentation
                 .portfolio_summary
@@ -1187,7 +1149,7 @@ impl UnifiedReport {
             execution_environment: normalized_reports
                 .first()
                 .map(|report| report.execution.environment.clone()),
-            audit_quality: aggregate_audit_quality(&normalized_reports),
+            audit_quality: batch_report.summary.audit_quality.clone(),
             metric_context: metric_context("batch"),
             summary,
             sample: batch_report.sample.clone(),
@@ -1207,10 +1169,33 @@ impl UnifiedReport {
 
     /// Serialize to a JSON string.
     pub fn to_json(&self, pretty: bool) -> Result<String> {
+        let value = serde_json::to_value(self)?;
+        let violations = crate::lint::lint(&value, None);
+        let blocking: Vec<_> = violations
+            .findings
+            .iter()
+            .filter(|finding| {
+                matches!(
+                    finding.severity,
+                    crate::taxonomy::Severity::High | crate::taxonomy::Severity::Critical
+                )
+            })
+            .map(|finding| {
+                format!(
+                    "{} at {}: expected {}, found {}",
+                    finding.check_id, finding.evidence_path, finding.expected, finding.actual
+                )
+            })
+            .collect();
+        if !blocking.is_empty() {
+            return Err(crate::error::AuditError::ReportGenerationFailed {
+                reason: format!("Report invariant violation: {}", blocking.join("; ")),
+            });
+        }
         let output = if pretty {
-            serde_json::to_string_pretty(self)
+            serde_json::to_string_pretty(&value)
         } else {
-            serde_json::to_string(self)
+            serde_json::to_string(&value)
         };
         output.map_err(|e| crate::error::AuditError::OutputError {
             reason: format!("JSON serialization failed: {}", e),
@@ -1225,15 +1210,11 @@ impl UnifiedReport {
     }
 
     fn wrap_single(ctx: &AuditContext<'_>, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
-        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
-        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            crate::audit::compute_verdict(&ctx.normalized, &Default::default()).verdict
+                == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
-        let (top_recurring_rules, _) =
-            compute_recurring_rules(std::slice::from_ref(&ctx.normalized));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -1254,8 +1235,7 @@ impl UnifiedReport {
             attempted_url_count: None,
             exclusions: None,
             violated_rule_count,
-            top_recurring_rules,
-            template_clusters: Vec::new(),
+            root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(&ctx.normalized, "Performance"),
             seo_score: normalized_module_score(&ctx.normalized, "SEO"),
@@ -1290,7 +1270,7 @@ impl UnifiedReport {
                 page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
-            top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized), &[]),
             duplicate_content: Vec::new(),
             missing_tag_prevalence: Vec::new(),
             canonical_issues: Vec::new(),
@@ -1338,14 +1318,11 @@ impl UnifiedReport {
 
     /// Wrap a single page (cached/from-normalized path — no raw module data available).
     fn wrap_single_from_normalized(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
-        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
-        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            crate::audit::compute_verdict(normalized, &Default::default()).verdict
+                == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
-        let (top_recurring_rules, _) = compute_recurring_rules(std::slice::from_ref(normalized));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -1366,8 +1343,7 @@ impl UnifiedReport {
             attempted_url_count: None,
             exclusions: None,
             violated_rule_count,
-            top_recurring_rules,
-            template_clusters: Vec::new(),
+            root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),
@@ -1387,7 +1363,7 @@ impl UnifiedReport {
                 page.accessibility_score,
             ),
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
-            top_actions: build_decision_actions(std::slice::from_ref(normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(normalized), &[]),
             duplicate_content: Vec::new(),
             missing_tag_prevalence: Vec::new(),
             canonical_issues: Vec::new(),

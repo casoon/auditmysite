@@ -416,14 +416,15 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                 });
             }
         "Handlebars"
-            // Handlebars < 4.5.3: prototype pollution / RCE in template compilation
-            if v < (4, 5, 3) => {
+            // CVE-2021-23369, GHSA-f2jv-r9rf-7988: <4.7.7, not only <4.5.3.
+            // https://github.com/advisories/GHSA-f2jv-r9rf-7988
+            if v < (4, 7, 7) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
                     severity: "high".to_string(),
-                    description: "Prototype pollution and potential remote code execution in template compilation (CVE-2019-19919).".to_string(),
-                    safe_version: "4.5.3+".to_string(),
+                    description: "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.".to_string(),
+                    safe_version: "4.7.7+ (for CVE-2021-23369)".to_string(),
                 });
             }
         "Lodash"
@@ -492,6 +493,19 @@ fn parse_semver(version: &str) -> Option<(u32, u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn foundation_handlebars_advisory_boundaries_are_preserved() {
+        // Independent advisory boundary: GHSA-f2jv-r9rf-7988 (<4.7.7).
+        for version in ["4.5.2", "4.5.3", "4.6.0", "4.7.6"] {
+            let finding = check_vulnerability("Handlebars", version).expect(version);
+            assert!(finding.description.contains("CVE-2021-23369"));
+        }
+        for version in ["4.7.7", "4.7.8"] {
+            assert!(check_vulnerability("Handlebars", version).is_none());
+        }
+        assert!(check_vulnerability("Handlebars", "unknown").is_none());
+    }
 
     #[test]
     fn find_duplicate_versions_flags_two_distinct_versions() {

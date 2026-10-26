@@ -804,11 +804,13 @@ pub fn build_batch_presentation_with_normalized(
     let (grade, certificate) = batch.summary.grade_and_certificate();
 
     let en = is_english(i18n);
+    // From the root causes (finding patterns on two or more pages), most
+    // widespread first; open ones keep their own label (2.0 finding model).
     let template_clusters: Vec<TemplateClusterView> = batch
         .summary
-        .template_clusters
+        .root_causes
         .iter()
-        .map(|cluster| build_template_cluster_view(cluster, batch.summary.total_urls, i18n))
+        .map(|cause| build_template_cluster_view(cause, batch.summary.total_urls, i18n))
         .collect();
     BatchPresentation {
         cover: CoverData {
@@ -897,45 +899,46 @@ pub fn build_batch_presentation_with_normalized(
 /// wording so a report never implies more certainty than the evidence
 /// supports.
 fn build_template_cluster_view(
-    cluster: &crate::audit::TemplateCluster,
+    cause: &crate::audit::RootCause,
     total_pages: usize,
     i18n: &I18n,
 ) -> TemplateClusterView {
-    let n = cluster.affected_pages.to_string();
+    use a11y_report::CauseConfidence;
+    let n = cause.url_count.to_string();
     let total = total_pages.to_string();
-    let confirmed = cluster.confidence == "confirmed";
-
-    let headline = if confirmed {
-        i18n.t_args(
-            "batch-template-confirmed-headline",
-            &[
-                ("selector", cluster.selector.clone()),
-                ("n", n.clone()),
-                ("total", total),
-            ],
-        )
-    } else {
-        i18n.t_args(
-            "batch-template-likely-headline",
-            &[
-                ("selector", cluster.selector.clone()),
-                ("n", n.clone()),
-                ("total", total),
-            ],
-        )
+    let args = || {
+        [
+            ("selector", cause.selector.clone()),
+            ("n", n.clone()),
+            ("total", total.clone()),
+        ]
     };
-
-    let decision_label = if confirmed {
-        i18n.t_args("batch-template-decision-confirmed", &[("n", n)])
-    } else {
-        i18n.t_args("batch-template-decision-likely", &[("n", n)])
+    let (headline, decision_label, confidence) = match cause.confidence {
+        CauseConfidence::Confirmed => (
+            i18n.t_args("batch-template-confirmed-headline", &args()),
+            i18n.t_args("batch-template-decision-confirmed", &[("n", n.clone())]),
+            "confirmed",
+        ),
+        CauseConfidence::Likely => (
+            i18n.t_args("batch-template-likely-headline", &args()),
+            i18n.t_args("batch-template-decision-likely", &[("n", n.clone())]),
+            "likely",
+        ),
+        // No template claim: not listed under template causes, only named
+        // as recurring where the action table refers to it.
+        CauseConfidence::Open => (
+            String::new(),
+            i18n.t_args("batch-template-decision-open", &[("n", n.clone())]),
+            "open",
+        ),
     };
 
     TemplateClusterView {
-        rule_id: cluster.rule_id.clone(),
-        selector: cluster.selector.clone(),
-        confidence: cluster.confidence.clone(),
-        affected_pages: cluster.affected_pages,
+        id: cause.id.clone(),
+        rule_id: cause.rule_id.clone(),
+        selector: cause.selector.clone(),
+        confidence: confidence.to_string(),
+        affected_pages: cause.url_count,
         headline,
         decision_label,
     }
@@ -1821,7 +1824,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
         execution_priority,
         examples,
         // plan/4-root-cause-confidence-wording.md: this threshold is a raw
-        // occurrence count across pages, not `TemplateCluster.confidence`
+        // occurrence count across pages, not `RootCause.confidence`
         // ("confirmed" vs "likely" HTML-snippet-shape evidence, see
         // `render_template_cluster_card` above) — a high count alone does
         // not confirm the occurrences share one component/template any

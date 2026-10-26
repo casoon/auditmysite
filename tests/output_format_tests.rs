@@ -188,6 +188,54 @@ fn test_report_score_calculation() {
     assert!(report_with_issues.accessibility.score < clean_report.accessibility.score);
 }
 
+/// 2.0 finding model: a batch whose pages share a finding pattern carries
+/// `summary.root_causes` and `findings[].patterns`; both must validate. The
+/// plain batch test above has no recurring pattern and would not notice a
+/// schema that rejects them.
+#[test]
+fn test_batch_json_with_root_causes_matches_schema() {
+    let page = |url: &str| {
+        let mut results = WcagResults::new();
+        results.violations.push(
+            Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::High,
+                "The link has no accessible name.",
+                "n1",
+            )
+            .with_selector("a.mainnav-toggle")
+            .with_html_snippet("<a class=\"mainnav-toggle\" href=\"#\"></a>"),
+        );
+        let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, results, 1500);
+        report.timestamp = fixed_timestamp();
+        report
+    };
+    let batch = BatchReport::from_reports(
+        vec![
+            page("https://e.x/a"),
+            page("https://e.x/b"),
+            page("https://e.x/c"),
+        ],
+        vec![],
+        1500,
+    );
+    let json = format_json_batch(&batch, false).expect("Batch JSON generation failed");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid batch JSON");
+
+    let causes = parsed["summary"]["root_causes"]
+        .as_array()
+        .expect("root_causes");
+    assert_eq!(causes.len(), 1);
+    assert_eq!(causes[0]["confidence"], "confirmed");
+    assert_eq!(
+        causes[0]["id"],
+        parsed["pages"][0]["findings"][0]["patterns"][0]["id"]
+    );
+    assert_matches_schema(&parsed, "json-batch-report.schema.json");
+}
+
 #[test]
 fn test_batch_json_report_generation() {
     let report = create_test_report();

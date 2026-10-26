@@ -452,22 +452,9 @@ pub async fn analyze_dark_mode_with_base_media(
 ) -> Result<DarkModeAnalysis> {
     // ── 1. Static detection ─────────────────────────────────────────────────
     let static_info = detect_static_support(page).await?;
-    let print = analyze_print_stylesheet(page, base)
-        .await
-        .unwrap_or_else(|e| {
-            warn!("Print stylesheet analysis failed: {e}");
-            PrintStylesheetAnalysis::default()
-        });
-    let forced_colors = analyze_forced_colors(page, base).await.unwrap_or_else(|e| {
-        warn!("Forced-colors analysis failed: {e}");
-        ForcedColorsAnalysis::default()
-    });
-    let vision_deficiency = analyze_vision_deficiency(page, wcag_level)
-        .await
-        .unwrap_or_else(|e| {
-            warn!("Vision-deficiency analysis failed: {e}");
-            VisionDeficiencyAnalysis::default()
-        });
+    let print = analyze_print_stylesheet(page, base).await?;
+    let forced_colors = analyze_forced_colors(page, base).await?;
+    let vision_deficiency = analyze_vision_deficiency(page, wcag_level).await?;
 
     // ── 2. Contrast comparison (only when dark mode CSS exists) ─────────────
     let (light_viols, dark_viols) = if static_info.has_dark_media_query
@@ -1000,8 +987,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Dark mode detection failed: {e}")))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed = crate::util::decode_collector_object(js_result.value(), "dark_mode extraction")?;
 
     Ok(StaticDarkModeInfo {
         has_dark_media_query: parsed["hasDarkMediaQuery"].as_bool().unwrap_or(false),
@@ -1383,8 +1369,7 @@ async fn eval_json(page: &Page, js: &str, context: &str) -> Result<serde_json::V
         .evaluate(js)
         .await
         .map_err(|e| AuditError::CdpError(format!("{context}: {e}")))?;
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-    Ok(serde_json::from_str(json_str).unwrap_or_default())
+    crate::util::decode_collector_object(js_result.value(), context)
 }
 
 // ─── Contrast comparison ─────────────────────────────────────────────────────

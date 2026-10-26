@@ -39,7 +39,7 @@ use self::single_report::{
     render_appendix_full, render_management_page, render_module_sections, render_part_divider,
     render_tech_details,
 };
-use crate::audit::{normalize, AuditReport};
+use crate::audit::{normalize_checked, AuditReport};
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::builder::{build_view_model, extract_domain};
@@ -91,8 +91,8 @@ fn build_single_report(
     std::sync::Arc<renderreport::Engine>,
     renderreport::RenderRequest,
 )> {
+    let normalized = normalize_checked(report)?;
     let engine = create_engine();
-    let normalized = normalize(report);
     let vm = build_view_model(&normalized, config);
     let i18n = I18n::new(&config.locale)?;
 

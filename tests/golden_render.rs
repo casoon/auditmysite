@@ -29,9 +29,6 @@
 //!   (`ai_visibility/knowledge_graph.rs`) is `skip_serializing_if` without
 //!   `default`, so most cached `report.json` files fail to parse here (and are
 //!   silent cache misses in the CLI);
-//! - `summary.top_recurring_rules` (`compute_recurring_rules` in
-//!   `audit/report.rs`): HashMap order, sort without a rule_id tie-break, then
-//!   `truncate(10)`, so even the content varies;
 //! - schema entity conflicts (`audit/batch_consistency.rs`, JSON
 //!   `consistency.schema_graph.conflicts` / `structured_data.entity_conflicts`,
 //!   batch Typst "Schema entity identity conflicts"): unsorted HashMap order;

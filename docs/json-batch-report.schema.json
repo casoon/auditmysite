@@ -455,9 +455,6 @@
           "type": "integer",
           "minimum": 0
         },
-        "top_recurring_rules": {
-          "type": "array"
-        },
         "performance_score": {
           "type": "integer",
           "minimum": 0,
@@ -526,6 +523,13 @@
         },
         "exclusions": {
           "$ref": "#/$defs/batchExclusionSummary"
+        },
+        "root_causes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rootCause"
+          },
+          "description": "Batch only: finding patterns on two or more pages, most widespread first."
         }
       }
     },
@@ -1006,7 +1010,7 @@
         "complexity",
         "occurrence_count",
         "url_count",
-        "root_cause",
+        "finding_id",
         "expected_impact"
       ],
       "additionalProperties": false,
@@ -1036,8 +1040,13 @@
           "type": "integer",
           "minimum": 0
         },
-        "root_cause": {
-          "type": "string"
+        "finding_id": {
+          "type": "string",
+          "description": "Id of the finding behind this action; the same id as in pages[].findings[].id."
+        },
+        "root_cause_id": {
+          "type": "string",
+          "description": "Most widespread root cause of this rule (batch only); the same id as in summary.root_causes[].id and pages[].findings[].patterns[].id."
         },
         "expected_impact": {
           "type": "string"
@@ -1048,8 +1057,7 @@
       "type": "object",
       "required": [
         "module_extremes",
-        "outlier_urls",
-        "root_causes"
+        "outlier_urls"
       ],
       "additionalProperties": false,
       "properties": {
@@ -1063,12 +1071,6 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/urlOutlier"
-          }
-        },
-        "root_causes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/rootCauseSummary"
           }
         }
       }
@@ -1133,32 +1135,6 @@
           "type": "integer"
         },
         "reason": {
-          "type": "string"
-        }
-      }
-    },
-    "rootCauseSummary": {
-      "type": "object",
-      "required": [
-        "title",
-        "occurrence_count",
-        "affected_urls",
-        "classification"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "occurrence_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "affected_urls": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "classification": {
           "type": "string"
         }
       }
@@ -1436,6 +1412,77 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "rootCause": {
+      "type": "object",
+      "required": [
+        "id",
+        "rule_id",
+        "title",
+        "wcag_criterion",
+        "severity",
+        "selector",
+        "confidence",
+        "url_count",
+        "page_coverage_pct",
+        "occurrence_count",
+        "urls"
+      ],
+      "additionalProperties": false,
+      "description": "A finding pattern that recurs on two or more pages. `id` matches pages[].findings[].patterns[].id.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "RC- and eight hex digits: rule and normalized selector."
+        },
+        "rule_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "wcag_criterion": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string",
+          "description": "Shortest raw selector seen for this pattern."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "confirmed",
+            "likely",
+            "open"
+          ],
+          "description": "confirmed: same markup on every page; likely: same pattern, coverage thresholds met; open: otherwise."
+        },
+        "url_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "page_coverage_pct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "html_snippet": {
+          "type": "string"
         }
       }
     }

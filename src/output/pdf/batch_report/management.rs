@@ -495,7 +495,14 @@ pub(super) fn render_batch_decision_actions(
             .iter()
             .find(|c| c.rule_id == group.rule_id);
         let root: String = if let Some(cluster) = cluster {
-            cluster.decision_label.clone()
+            // Name the place: the element of the rule's most widespread
+            // pattern. The full CSS path stays in the template list; a long
+            // path in this narrow column broke the layout before (#518).
+            format!(
+                "{}: {}",
+                selector_tail(&cluster.selector),
+                cluster.decision_label
+            )
         } else if group.affected_urls.len() > 1 {
             // Recurring is observed; a shared component is not (plan 85).
             if en {
@@ -549,6 +556,15 @@ pub(super) fn render_batch_decision_actions(
         return builder;
     }
     builder.add_component(table)
+}
+
+/// The last compound of a CSS selector — the element itself:
+/// `nav > div.menu a.mainnav-toggle` → `a.mainnav-toggle`.
+fn selector_tail(selector: &str) -> &str {
+    selector
+        .rsplit(|c: char| c.is_whitespace() || c == '>' || c == '+' || c == '~')
+        .find(|part| !part.is_empty())
+        .unwrap_or(selector)
 }
 
 fn change_scope_label(complexity: &str, en: bool) -> String {
@@ -645,4 +661,19 @@ pub(super) fn build_batch_key_points(
     }
 
     points
+}
+
+#[cfg(test)]
+mod tests {
+    use super::selector_tail;
+
+    #[test]
+    fn selector_tail_names_the_element() {
+        assert_eq!(
+            selector_tail("nav > div.menu a.mainnav-toggle"),
+            "a.mainnav-toggle"
+        );
+        assert_eq!(selector_tail("a#skip"), "a#skip");
+        assert_eq!(selector_tail("ul > li + li"), "li");
+    }
 }

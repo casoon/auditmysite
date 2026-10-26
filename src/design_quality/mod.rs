@@ -13,7 +13,6 @@ pub use module::DesignQualityModule;
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::error::{AuditError, Result};
 
@@ -187,11 +186,11 @@ struct RawAltCandidate {
 
 #[derive(Debug, Default, Deserialize)]
 struct RawCandidates {
-    #[serde(default, rename = "textCandidates")]
+    #[serde(rename = "textCandidates")]
     text_candidates: Vec<RawTextCandidate>,
-    #[serde(default, rename = "clipCandidates")]
+    #[serde(rename = "clipCandidates")]
     clip_candidates: Vec<RawClipCandidate>,
-    #[serde(default, rename = "altCandidates")]
+    #[serde(rename = "altCandidates")]
     alt_candidates: Vec<RawAltCandidate>,
 }
 
@@ -219,16 +218,13 @@ pub async fn analyze_design_quality(page: &Page) -> Result<DesignQualityAnalysis
         .await
         .map_err(|e| AuditError::CdpError(format!("Design quality extraction JS failed: {e}")))?;
 
-    let raw: RawCandidates = match eval_result.value() {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_else(|e| {
-            warn!("Failed to parse design-quality candidates JSON: {}", e);
-            RawCandidates::default()
-        }),
-        None => {
-            warn!("No value returned from design-quality extraction JS");
-            RawCandidates::default()
-        }
-    };
+    let raw: RawCandidates =
+        serde_json::from_value(eval_result.value().cloned().ok_or_else(|| {
+            AuditError::CdpError("Design quality collector returned no result".into())
+        })?)
+        .map_err(|_| {
+            AuditError::CdpError("Design quality collector returned an invalid result".into())
+        })?;
 
     let mut findings = Vec::new();
     findings.extend(check_overflow_clip(&raw.clip_candidates));

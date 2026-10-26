@@ -52,7 +52,7 @@ const EXTRACT_JS: &str = include_str!("extract.js");
 
 #[derive(Debug, Default, serde::Deserialize)]
 struct RawImageUrls {
-    #[serde(default, rename = "imageUrls")]
+    #[serde(rename = "imageUrls")]
     image_urls: Vec<String>,
 }
 
@@ -65,10 +65,13 @@ pub(super) async fn analyze_ai_transparency(page: &Page) -> Result<AiTransparenc
         AuditError::CdpError(format!("AI transparency image extraction failed: {e}"))
     })?;
 
-    let raw: RawImageUrls = match eval_result.value() {
-        Some(value) => serde_json::from_value(value.clone()).unwrap_or_default(),
-        None => RawImageUrls::default(),
-    };
+    let raw: RawImageUrls =
+        serde_json::from_value(eval_result.value().cloned().ok_or_else(|| {
+            AuditError::CdpError("Image provenance collector returned no result".into())
+        })?)
+        .map_err(|_| {
+            AuditError::CdpError("Image provenance collector returned an invalid result".into())
+        })?;
 
     let mut findings = Vec::new();
     let mut images_checked = 0usize;
@@ -105,12 +108,13 @@ async fn safe_fetch_image(url: &str) -> Option<(Vec<u8>, String)> {
 
     let client = Client::builder()
         .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS))
+        .redirect(reqwest::redirect::Policy::none())
         .user_agent("auditmysite/1.0")
         .resolve(&host, safe_addr)
         .build()
         .ok()?;
 
-    let resp = client.get(url).send().await.ok()?;
+    let mut resp = client.get(url).send().await.ok()?;
     if !resp.status().is_success() {
         return None;
     }
@@ -127,13 +131,13 @@ async fn safe_fetch_image(url: &str) -> Option<(Vec<u8>, String)> {
         .unwrap_or_default()
         .to_string();
 
-    let bytes = resp.bytes().await.ok()?;
-    if bytes.len() as u64 > MAX_IMAGE_FETCH_BYTES {
-        debug!(
-            "Skipping oversized image (actual {} bytes): {url}",
-            bytes.len()
-        );
-        return None;
+    let mut bytes = Vec::new();
+    while let Some(chunk) = resp.chunk().await.ok()? {
+        if bytes.len().saturating_add(chunk.len()) as u64 > MAX_IMAGE_FETCH_BYTES {
+            debug!("Skipping oversized streamed image: {url}");
+            return None;
+        }
+        bytes.extend_from_slice(&chunk);
     }
     Some((bytes.to_vec(), content_type))
 }

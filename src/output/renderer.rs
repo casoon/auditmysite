@@ -25,6 +25,7 @@ impl ReportRenderer for JsonRenderer {
         use crate::output::json::UnifiedReport;
         // This path is reached from a deserialized/cached NormalizedReport;
         // raw module data is no longer available, so we use single_from_normalized.
+        normalized.validate()?;
         UnifiedReport::single_from_normalized(normalized).to_json(self.pretty)
     }
 }

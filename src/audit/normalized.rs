@@ -108,12 +108,13 @@ pub struct NormalizedReport {
     /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
-    /// How `overall_score` was computed: `"module_weighted"` (standard) or
-    /// `"viewport_weighted"` (dual-pass: 70 % mobile + 30 % desktop + 10 % security).
+    /// How `overall_score` was computed: `"module_weighted"`, including
+    /// dual-pass audits. Viewport scores are diagnostic inputs, not a second
+    /// weighting model. Older reports may contain `"viewport_weighted"`.
     pub score_calculation_method: String,
     /// Exact inputs used to produce `overall_score`.
-    /// Present only for `viewport_weighted`; absent for `module_weighted` (module
-    /// `weight_pct` values are already exact in that case).
+    /// Legacy viewport breakdown, retained for reading older reports. Current
+    /// reports expose exact inputs through contributing `module_scores`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<ScoreBreakdown>,
 
@@ -240,9 +241,72 @@ fn default_finding_category() -> String {
     "wcag".to_string()
 }
 
+/// One element pattern of a finding: the rule at elements whose selectors
+/// normalize to the same form (`a11y_report::normalize_selector`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FindingPattern {
+    /// `RC-` + 8 hex, `a11y_report::RootCauseId` over rule and pattern.
+    pub id: String,
+    /// Shortest raw selector seen for this pattern.
+    pub selector: String,
+    pub occurrence_count: usize,
+}
+
+/// Patterns stored per finding; `pattern_count` keeps the full number.
+pub const MAX_PATTERNS: usize = 20;
+
+/// Group selectors into patterns: one entry per normalized selector, with
+/// the shortest raw selector as representative, most occurrences first.
+fn finding_patterns<'a>(
+    rule_id: &str,
+    selectors: impl IntoIterator<Item = &'a str>,
+) -> (Vec<FindingPattern>, usize) {
+    let mut by_pattern: std::collections::BTreeMap<String, (String, usize)> =
+        std::collections::BTreeMap::new();
+    for selector in selectors {
+        let entry = by_pattern
+            .entry(a11y_report::normalize_selector(selector))
+            .or_insert_with(|| (selector.to_string(), 0));
+        if selector.len() < entry.0.len() {
+            entry.0 = selector.to_string();
+        }
+        entry.1 += 1;
+    }
+    let pattern_count = by_pattern.len();
+    let mut patterns: Vec<FindingPattern> = by_pattern
+        .into_values()
+        .map(|(selector, occurrence_count)| FindingPattern {
+            id: a11y_report::RootCauseId::new(rule_id, &selector).to_string(),
+            selector,
+            occurrence_count,
+        })
+        .collect();
+    // Stable order: occurrences, then selector.
+    patterns.sort_by(|a, b| {
+        b.occurrence_count
+            .cmp(&a.occurrence_count)
+            .then_with(|| a.selector.cmp(&b.selector))
+    });
+    patterns.truncate(MAX_PATTERNS);
+    (patterns, pattern_count)
+}
+
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedFinding {
+    /// Stable finding id (`F-` + 8 hex) from the rule alone: a finding is one
+    /// rule on one page, so the id stays the same on every page and in every
+    /// run, also when an element is added (2.0 finding model, plan 100).
+    #[serde(default)]
+    pub id: String,
+    /// The element patterns of this finding, most occurrences first, at most
+    /// [`MAX_PATTERNS`]. A pattern id equals the root-cause id of that rule
+    /// and pattern, so the same template on several pages shares it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub patterns: Vec<FindingPattern>,
+    /// Number of distinct patterns, also those beyond [`MAX_PATTERNS`].
+    #[serde(default)]
+    pub pattern_count: usize,
     /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
     #[serde(default = "default_finding_category")]
     pub category: String,
@@ -466,7 +530,11 @@ impl ModuleScoreEntry {
         measurement_type: &str,
         contributes_to_overall: bool,
     ) -> Self {
-        let weight_pct = crate::taxonomy::module_weight(name);
+        let weight_pct = if contributes_to_overall {
+            crate::taxonomy::module_weight(name)
+        } else {
+            0
+        };
         Self {
             name: name.to_string(),
             score,
@@ -665,14 +733,6 @@ pub(crate) fn gate_certificate_by_risk(
         return "EINGESCHRÄNKT".to_string();
     }
     certificate
-}
-
-fn viewport_score_calculation_note() -> String {
-    "accessibility_score is the 70% mobile / 30% desktop blend of the displayed \
-     viewport accessibility scores. viewport_scores.weighted_overall blends the \
-     viewport module scores before security; overall_score is the canonical final \
-     score after the optional security blend."
-        .to_string()
 }
 
 /// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
@@ -889,7 +949,19 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .map(|r| r.title_en.to_string())
                 .unwrap_or_else(|| first.rule_name.clone());
 
+            let id = a11y_report::FindingId::new(&tax_id, std::iter::empty()).to_string();
+            // All occurrences, not the capped `occurrences` sample.
+            let (patterns, pattern_count) = finding_patterns(
+                &tax_id,
+                violations
+                    .iter()
+                    .map(|v| v.selector.as_deref().unwrap_or("document")),
+            );
+
             NormalizedFinding {
+                id,
+                patterns,
+                pattern_count,
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
                 wcag_criterion: wcag_criterion_of(&first.rule),
@@ -1159,6 +1231,10 @@ fn aggregate_seo_findings(
         let remediation_priority =
             derive_remediation_priority(first.severity, occurrence_count, &complexity);
         findings.push(NormalizedFinding {
+            // Page-level SEO checks have no element: the page is the pattern.
+            id: a11y_report::FindingId::new(&rule_id, std::iter::empty()).to_string(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "seo".to_string(),
             rule_id: rule_id.clone(),
             wcag_criterion: String::new(),
@@ -1354,6 +1430,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         .as_ref()
         .map(ViewportScores::weighted_accessibility)
         .unwrap_or_else(|| report.accessibility.score.round().max(1.0) as u32);
+    let score = AccessibilityScorer::cap_aggregated_score(score, violations);
 
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
@@ -1425,59 +1502,21 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let module_scores =
         build_module_scores(report, score, &occurrence_counts, vuln_security_penalty);
 
-    // Weighted overall score — 70/30 viewport weighting when dual-pass data present
-    let (overall_score, score_calculation_method, score_breakdown) =
-        if let Some(ref vs) = report.viewport_scores {
-            let security_adjusted = report
-                .security
-                .as_ref()
-                .map(|s| s.score.saturating_sub(vuln_security_penalty));
-            let blend_weight = if security_adjusted.is_some() {
-                90u32
-            } else {
-                100u32
-            };
-            let mut weighted = vs.weighted_overall as f64 * blend_weight as f64;
-            let mut total = blend_weight as f64;
-            if let Some(sec) = security_adjusted {
-                weighted += sec as f64 * 10.0;
-                total += 10.0;
-            }
-            let breakdown = ScoreBreakdown {
-                calculation_note: viewport_score_calculation_note(),
-                desktop_weight_pct: 30,
-                mobile_weight_pct: 70,
-                desktop_accessibility: vs.desktop.accessibility,
-                mobile_accessibility: vs.mobile.accessibility,
-                viewport_blended_accessibility: vs.weighted_accessibility(),
-                desktop_overall: vs.desktop.overall,
-                mobile_overall: vs.mobile.overall,
-                viewport_blended_overall: vs.weighted_overall,
-                viewport_blend_weight_pct: blend_weight,
-                security_score: security_adjusted,
-                security_weight_pct: security_adjusted.map(|_| 10u32),
-            };
+    // Viewport blending belongs inside Accessibility. Each independent module
+    // then contributes exactly once at the published product weight. Nesting
+    // separately normalized viewport averages changed those effective weights.
+    let (weighted_sum, total_weight) = module_scores
+        .iter()
+        .filter(|module| module.contributes_to_overall)
+        .fold((0u64, 0u64), |(sum, total), module| {
             (
-                (weighted / total).round() as u32,
-                "viewport_weighted".to_string(),
-                Some(breakdown),
+                sum + module.score as u64 * module.weight_pct as u64,
+                total + module.weight_pct as u64,
             )
-        } else {
-            let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
-            let (weighted_sum, total_weight) =
-                contributing_modules.fold((0.0, 0.0), |(sum, total), module| {
-                    (
-                        sum + module.score as f64 * module.weight_pct as f64,
-                        total + module.weight_pct as f64,
-                    )
-                });
-
-            (
-                (weighted_sum / total_weight).round() as u32,
-                "module_weighted".to_string(),
-                None,
-            )
-        };
+        });
+    let overall_score = (weighted_sum as f64 / total_weight as f64).round() as u32;
+    let score_calculation_method = "module_weighted".to_string();
+    let score_breakdown = None;
 
     // Grade and certificate describe the subject of the report: accessibility.
     //
@@ -1659,7 +1698,9 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         accessibility_subcategory_scores,
         security_category_scores,
         risk,
-        principle_coverage: AccessibilityScorer::calculate_coverage(violations),
+        principle_coverage: AccessibilityScorer::calculate_execution_coverage(
+            &report.accessibility.wcag_results,
+        ),
         audit_flags,
         consent_privacy: report.consent_privacy.clone(),
         has_screenshots: report.page_screenshots.is_some(),
@@ -1841,6 +1882,45 @@ mod tests {
         assert_eq!(finding.rule_id, "a11y.viewport_zoom.restricted");
         assert_eq!(finding.bfsg_relevance, "low");
         assert!(!finding.is_legal_flag());
+    }
+
+    /// 2.0 finding model: a finding is one rule on one page; its id comes
+    /// from the rule alone. Its patterns carry ids that are the same for the
+    /// same rule and pattern on any page, whatever the order (plan 100).
+    #[test]
+    fn finding_and_pattern_ids_are_stable() {
+        let page = |selectors: &[&str]| {
+            let mut results = WcagResults::new();
+            for selector in selectors {
+                results.add_violation(
+                    Violation::new("4.1.2", "x", WcagLevel::A, Severity::High, "x", "n")
+                        .with_rule_id("buttons/name-missing")
+                        .with_selector(selector.to_string()),
+                );
+            }
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            normalize(&report).normalized.findings[0].clone()
+        };
+        let a = page(&["nav > a.toggle-1", "footer a.icon", "footer a.icon"]);
+        let b = page(&["nav > a.toggle-7", "footer a.icon"]);
+        assert!(a.id.starts_with("F-") && a.id.len() == 10, "{}", a.id);
+        assert_eq!(a.id, b.id, "finding id depends on the rule only");
+        assert_eq!(a.pattern_count, 2);
+        assert_eq!(a.patterns[0].selector, "footer a.icon");
+        assert_eq!(a.patterns[0].occurrence_count, 2);
+        let toggle = |f: &NormalizedFinding| {
+            f.patterns
+                .iter()
+                .find(|p| p.selector.starts_with("nav"))
+                .map(|p| p.id.clone())
+                .expect("toggle pattern")
+        };
+        assert!(toggle(&a).starts_with("RC-"));
+        assert_eq!(toggle(&a), toggle(&b), "same pattern on two pages");
+        assert_eq!(
+            toggle(&a),
+            a11y_report::RootCauseId::new(&a.rule_id, "nav > a.toggle-3").to_string()
+        );
     }
 
     #[test]
@@ -2616,7 +2696,7 @@ mod tests {
     }
 
     #[test]
-    fn test_viewport_weighted_core_modules_contribute() {
+    fn test_dual_viewport_core_modules_use_published_module_weights() {
         use crate::audit::{ViewportScoreSet, ViewportScores};
         use crate::{WcagLevel, WcagResults};
         let mut report = AuditReport::new(
@@ -2648,13 +2728,8 @@ mod tests {
                 .map(|module| module.score),
             Some(38)
         );
-        assert_eq!(
-            norm.normalized.score_calculation_method,
-            "viewport_weighted"
-        );
-        assert!(norm.normalized.score_breakdown.as_ref().is_some_and(|b| {
-            b.calculation_note.contains("70% mobile") && b.viewport_blended_accessibility == 38
-        }));
+        assert_eq!(norm.normalized.score_calculation_method, "module_weighted");
+        assert!(norm.normalized.score_breakdown.is_none());
         let names_contributing: Vec<&str> = norm
             .normalized
             .module_scores
@@ -2664,7 +2739,7 @@ mod tests {
             .collect();
         assert!(
             names_contributing.contains(&"Accessibility"),
-            "Accessibility must contribute in viewport_weighted mode, got: {:?}",
+            "Accessibility must contribute in dual-viewport mode, got: {:?}",
             names_contributing
         );
     }

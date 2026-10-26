@@ -29,11 +29,17 @@ pub(super) fn build_module_scores(
         // No Core Web Vitals could be measured (e.g. collection failed) — a
         // score of 0 here means "not measured", not "unusably slow". Exclude
         // it from the weighted overall score rather than tanking it (#QA-023).
-        let measured = perf.score.metrics_available > 0;
+        let measured = perf.score.has_core_metrics();
         module_scores.push(ModuleScoreEntry::new(
             "Performance",
             perf.score.overall,
-            if measured { "measured" } else { "not_measured" },
+            if measured {
+                "measured"
+            } else if perf.score.metrics_available > 0 {
+                "partial"
+            } else {
+                "not_measured"
+            },
             measured,
         ));
     }
@@ -70,8 +76,12 @@ pub(super) fn build_module_scores(
         module_scores.push(ModuleScoreEntry::new(
             "HTML Conformance",
             hc.score,
-            "measured",
-            true,
+            if hc.checked {
+                "measured"
+            } else {
+                "not_measured"
+            },
+            hc.checked,
         ));
     }
     if let Some(ref ux) = report.ux {

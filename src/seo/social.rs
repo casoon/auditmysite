@@ -160,9 +160,7 @@ pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Social tags extraction failed: {}", e)))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed = crate::util::decode_collector_object(js_result.value(), "seo extraction")?;
 
     let (open_graph, twitter_card) = parse_social_tags(&parsed);
 

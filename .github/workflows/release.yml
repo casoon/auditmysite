@@ -21,11 +21,20 @@ jobs:
   verify-version:
     name: Verify Tag Matches Cargo.toml
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v7
 
       - name: Compare tag with package version
         run: ./scripts/check-version-match.sh
+
+      - name: Verify completed 2.0 prerequisites
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-v2-readiness.py --version "$GITHUB_REF_NAME"
 
   # Runs the CI job set (fmt, clippy, tests without and with PDF,
   # dependency-audit, browser integration and detection-corpus tests, ...)
