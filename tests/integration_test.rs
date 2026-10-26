@@ -48,7 +48,8 @@ async fn foundation_missing_observers_are_not_perfect_zero_metrics() {
     let manager = ci_browser().await;
     let unprepared = manager.new_page().await.unwrap();
     manager.navigate(&unprepared, &fixture.url).await.unwrap();
-    let missing = extract_web_vitals(&unprepared).await.unwrap();
+    let log = auditmysite::audit::collection::CollectionLog::new();
+    let missing = extract_web_vitals(&unprepared, &log).await.unwrap();
     assert!(
         missing.tbt.is_none(),
         "no observer must not mean zero blocking time"
@@ -57,12 +58,41 @@ async fn foundation_missing_observers_are_not_perfect_zero_metrics() {
         missing.cls.is_none(),
         "no observer must not mean zero layout shift"
     );
+    // #769: the state of each metric says why it is missing.
+    let records = log.into_records();
+    let state = |id: &str| {
+        records
+            .iter()
+            .find(|r| r.collector == id)
+            .map(|r| (r.state, r.reason_code.clone()))
+            .unwrap_or_else(|| panic!("no record for {id}: {records:?}"))
+    };
+    use auditmysite::audit::collection::CollectionState;
+    assert_eq!(state("performance.observers").0, CollectionState::Failed);
+    for metric in ["performance.tbt", "performance.cls"] {
+        assert_eq!(
+            state(metric),
+            (
+                CollectionState::Failed,
+                Some("observer_not_installed".to_string())
+            )
+        );
+    }
     unprepared.close().await.unwrap();
 
     let prepared = manager.new_page().await.unwrap();
     prepare_vitals_collection(&prepared).await.unwrap();
     manager.navigate(&prepared, &fixture.url).await.unwrap();
-    let measured = extract_web_vitals(&prepared).await.unwrap();
+    let log = auditmysite::audit::collection::CollectionLog::new();
+    let measured = extract_web_vitals(&prepared, &log).await.unwrap();
+    assert!(log
+        .into_records()
+        .iter()
+        .filter(
+            |r| ["performance.tbt", "performance.cls", "performance.fcp"]
+                .contains(&r.collector.as_str())
+        )
+        .all(|r| r.state == CollectionState::Measured));
     assert!(
         measured.tbt.is_some(),
         "supported observer must preserve a measured zero"
@@ -73,6 +103,111 @@ async fn foundation_missing_observers_are_not_perfect_zero_metrics() {
     );
     prepared.close().await.unwrap();
     fixture.stop();
+}
+
+/// Load a fixture with the vitals observers and return its web vitals.
+async fn vitals_of(
+    manager: &BrowserManager,
+    html: String,
+    slow_network: bool,
+) -> auditmysite::performance::WebVitals {
+    use auditmysite::performance::{extract_web_vitals, prepare_vitals_collection};
+    let fixture = common::fixture_server::serve_html(html);
+    let page = manager.new_page().await.unwrap();
+    if slow_network {
+        auditmysite::browser::throttle::apply_throttling(
+            &page,
+            auditmysite::browser::ThrottleProfile::Slow3G,
+        )
+        .await
+        .unwrap();
+    }
+    prepare_vitals_collection(&page).await.unwrap();
+    manager.navigate(&page, &fixture.url).await.unwrap();
+    let vitals = extract_web_vitals(&page, &auditmysite::audit::collection::CollectionLog::new())
+        .await
+        .unwrap();
+    page.close().await.unwrap();
+    fixture.stop();
+    vitals
+}
+
+/// #770: LCP is the last candidate, also one painted after `load` — the old
+/// load+100 ms cut-off kept the small initial text as LCP.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn lcp_includes_a_hero_rendered_after_load() {
+    let manager = ci_browser().await;
+    let vitals = vitals_of(
+        &manager,
+        r#"<!doctype html><html lang=en><title>Late hero</title><main><p>Loading</p></main>
+        <script>addEventListener('load', () => setTimeout(() => {
+          const hero = document.createElement('h1');
+          hero.style.fontSize = '64px';
+          hero.textContent = 'A large hero headline that renders late '.repeat(6);
+          document.querySelector('main').append(hero);
+        }, 600));</script></html>"#
+            .into(),
+        false,
+    )
+    .await;
+    let load = vitals.load_time.expect("load time");
+    let lcp = vitals.lcp.expect("lcp").value;
+    assert!(
+        lcp > load + 400.0,
+        "LCP {lcp} must include the late hero (load {load})"
+    );
+}
+
+/// #770: a long task after `load` but before the quiet window blocks — the
+/// old cut-off dropped every task that started after load+100 ms.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn tbt_counts_a_long_task_after_load() {
+    let manager = ci_browser().await;
+    let vitals = vitals_of(
+        &manager,
+        r#"<!doctype html><html lang=en><title>Late task</title><main><h1>Late task</h1></main>
+        <script>addEventListener('load', () => setTimeout(() => {
+          const end = performance.now() + 300;
+          while (performance.now() < end) {}
+        }, 400));</script></html>"#
+            .into(),
+        false,
+    )
+    .await;
+    let tbt = vitals.tbt.expect("tbt").value;
+    assert!(
+        tbt >= 150.0,
+        "the 300 ms task after load must block: TBT {tbt}"
+    );
+}
+
+/// #770: a static page on a slow network has a late LCP and no long tasks.
+/// TBT 0 is a measurement, and no warning calls it implausible.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn slow_static_page_measures_zero_blocking_time() {
+    let manager = ci_browser().await;
+    // A render-blocking stylesheet on the throttled connection holds the
+    // first paint until it has arrived (the fixture answers every path with
+    // the same ~110 KB document). No script runs at any point.
+    let body = "Static text without any script. ".repeat(3500);
+    let vitals = vitals_of(
+        &manager,
+        format!(
+            "<!doctype html><html lang=en><title>Slow static</title>\
+             <link rel=stylesheet href=/blocking.css><main><p>{body}</p></main></html>"
+        ),
+        true,
+    )
+    .await;
+    assert_eq!(vitals.tbt.as_ref().map(|m| m.value), Some(0.0));
+    let lcp = vitals.lcp.as_ref().expect("lcp").value;
+    assert!(lcp > 1000.0, "slow transfer must delay LCP: {lcp}");
+    assert!(auditmysite::performance::validate_metrics(&vitals)
+        .iter()
+        .all(|w| !w.contains("tbt")));
 }
 
 #[tokio::test]

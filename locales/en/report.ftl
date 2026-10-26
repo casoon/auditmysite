@@ -346,7 +346,6 @@ perf-lab-data-body = LCP, CLS and TBT are measured locally in headless Chrome un
 perf-render-blocking-analysis = Render-blocking analysis
 perf-measurement-warnings-title = Measurement limitations
 perf-warning-lcp-missing = LCP not captured: the PerformanceObserver returned no LCP entry (typical under heavy network throttling) — LCP score is absent from the rating.
-perf-warning-tbt-zero = TBT = 0 ms on a heavy page (LCP > 3 s): headless Chrome does not register long tasks — TBT is likely underestimated.
 perf-warning-si-fallback = Speed Index equals LCP: formula estimate without an independent measurement (0.35 × FCP + 0.65 × LCP).
 perf-warning-tti-fallback = TTI equals LCP: formula estimate without a direct interactivity value.
 perf-warning-inp-missing = INP not measurable: headless browsers generate no user input — interaction latency could not be captured.
@@ -597,6 +596,7 @@ pdf-perf-sub-resources = Resources & Payload Size
 pdf-perf-sub-bottlenecks = Loading Bottlenecks & Rendering
 pdf-perf-throttled-title = Performance under throttled conditions
 pdf-perf-throttled-profile = Profile
+pdf-perf-throttled-incomplete = Incomplete: not all core metrics measured
 pdf-perf-cls-title = CLS — Layout Shifts
 pdf-perf-cls-value = Shift
 pdf-perf-cls-time = Time

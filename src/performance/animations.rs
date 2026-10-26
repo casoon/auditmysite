@@ -18,7 +18,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
 use crate::util::truncate_ellipsis as truncate;
 
 /// A single non-composited animation or transition finding.
@@ -46,7 +45,9 @@ pub struct AnimationAnalysis {
 }
 
 /// Detect non-composited CSS animations and transitions on the loaded page.
-pub async fn analyze_non_composited_animations(page: &Page) -> Result<AnimationAnalysis> {
+pub async fn analyze_non_composited_animations(
+    page: &Page,
+) -> crate::audit::collection::Collected<AnimationAnalysis> {
     info!("Analyzing non-composited CSS animations...");
 
     // Properties that trigger layout (expensive) when animated.
@@ -143,14 +144,13 @@ pub async fn analyze_non_composited_animations(page: &Page) -> Result<AnimationA
         return JSON.stringify(findings);
     })()
     "#;
-
-    let result = page
-        .evaluate(js)
+    let raw: Vec<RawFinding> = match crate::audit::collection::evaluate_js(page, js)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Non-composited animation JS failed: {e}")))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-    let raw: Vec<RawFinding> = serde_json::from_str(json_str).unwrap_or_default();
+        .into_measurement()
+    {
+        Ok(v) => v,
+        Err(failure) => return failure,
+    };
 
     let findings: Vec<NonCompositedAnimation> = raw
         .into_iter()
@@ -178,7 +178,7 @@ pub async fn analyze_non_composited_animations(page: &Page) -> Result<AnimationA
         affected_properties.len()
     );
 
-    Ok(AnimationAnalysis {
+    crate::audit::collection::Collected::Measured(AnimationAnalysis {
         findings,
         total_count,
         affected_properties,
@@ -193,6 +193,12 @@ struct RawFinding {
     name: String,
     property: String,
     source: String,
+}
+
+/// Counter-cases of this collector (#769): an unread style scan is no page without animations.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<RawFinding>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

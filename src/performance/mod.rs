@@ -2,16 +2,16 @@
 //!
 //! Provides Core Web Vitals collection and performance scoring.
 
-mod animations;
-mod content_weight;
-mod coverage;
-mod critical_chain;
-mod minification;
+pub(crate) mod animations;
+pub(crate) mod content_weight;
+pub(crate) mod coverage;
+pub(crate) mod critical_chain;
+pub(crate) mod minification;
 pub mod module;
-mod render_blocking;
+pub(crate) mod render_blocking;
 mod scoring;
-mod third_party;
-mod vitals;
+pub(crate) mod third_party;
+pub(crate) mod vitals;
 
 pub use module::PerformanceModule;
 

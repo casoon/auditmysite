@@ -149,8 +149,9 @@ pub struct UnusedJsAnalysis {
     pub total_bytes: u64,
     /// Total unused bytes
     pub unused_bytes: u64,
-    /// Overall JS usage percentage (0–100)
-    pub used_pct: f64,
+    /// Overall JS usage percentage (0–100); `None` when no script bytes
+    /// were measured — no scripts, or the profiler gave no coverage (#769).
+    pub used_pct: Option<f64>,
 }
 
 /// Unused CSS analysis (#107).
@@ -288,7 +289,86 @@ pub async fn prepare_coverage_collection(page: &Page) -> Result<()> {
 }
 
 /// Read JS and CSS coverage results **after** the page has loaded.
-pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
+/// JS coverage via `Profiler.takePreciseCoverage`.
+pub(crate) static JS_COVERAGE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "performance.js_coverage",
+        module: "performance",
+        method: crate::audit::collection::CollectionMethod::Cdp,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// CSS rule usage via `CSS.stopRuleUsageTracking`.
+pub(crate) static CSS_COVERAGE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "performance.css_coverage",
+        module: "performance",
+        method: crate::audit::collection::CollectionMethod::Cdp,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// JS coverage: no answer from the profiler is a failure, an answer without
+/// script bytes a valid empty measurement.
+fn js_coverage_state(
+    js_measured: bool,
+    total_bytes: u64,
+) -> crate::audit::collection::Collected<()> {
+    use crate::audit::collection::{reason, Collected};
+    if !js_measured {
+        Collected::Failed(reason::CDP_COMMAND_FAILED)
+    } else if total_bytes == 0 {
+        Collected::Empty(())
+    } else {
+        Collected::Measured(())
+    }
+}
+
+/// CSS coverage from its `measurement` label: rule tracking that never
+/// answered is a failure, tracking without countable rules empty.
+fn css_coverage_state(measurement: &str, tracked: bool) -> crate::audit::collection::Collected<()> {
+    use crate::audit::collection::{reason, Collected};
+    match measurement {
+        "measured" => Collected::Measured(()),
+        "partial" => Collected::Partial {
+            value: (),
+            gaps: vec!["unreadable_stylesheet"],
+        },
+        _ if tracked => Collected::Empty(()),
+        _ => Collected::Failed(reason::CDP_COMMAND_FAILED),
+    }
+}
+
+/// Counter-cases of [`JS_COVERAGE`] and [`CSS_COVERAGE`] (#769): a profiler
+/// without an answer is no "100 % used".
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::CollectionState;
+    assert_eq!(js_coverage_state(false, 0).state(), CollectionState::Failed);
+    assert_eq!(js_coverage_state(true, 0).state(), CollectionState::Empty);
+    assert_eq!(
+        js_coverage_state(true, 10).state(),
+        CollectionState::Measured
+    );
+    assert_eq!(
+        css_coverage_state("not_available", false).state(),
+        CollectionState::Failed
+    );
+    assert_eq!(
+        css_coverage_state("not_available", true).state(),
+        CollectionState::Empty
+    );
+    assert_eq!(
+        css_coverage_state("partial", true).state(),
+        CollectionState::Partial
+    );
+}
+
+pub async fn take_coverage_results(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<CoverageAnalysis> {
     info!("Taking JS and CSS coverage results...");
 
     // Re-issue `Debugger.enable` defensively — `prepare_coverage_collection`
@@ -323,11 +403,13 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     }
 
     // ── JS coverage ───────────────────────────────────────────────────────────
-    let js_coverage = match page.execute(TakePreciseCoverageParams::default()).await {
-        Ok(resp) => resp.result.result,
+    // A failed take is no coverage — not "every byte used" (#769).
+    let (js_coverage, js_measured) = match page.execute(TakePreciseCoverageParams::default()).await
+    {
+        Ok(resp) => (resp.result.result, true),
         Err(e) => {
             warn!("Profiler.takePreciseCoverage failed: {e}");
-            vec![]
+            (vec![], false)
         }
     };
 
@@ -440,11 +522,10 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
         }
     }
 
-    let overall_used_pct = if total_bytes > 0 {
+    let overall_used_pct = (total_bytes > 0).then(|| {
         ((total_bytes - total_unused_bytes) as f64 / total_bytes as f64 * 100.0).clamp(0.0, 100.0)
-    } else {
-        100.0
-    };
+    });
+    log.record(&JS_COVERAGE, js_coverage_state(js_measured, total_bytes));
 
     let unused_js = UnusedJsAnalysis {
         scripts,
@@ -519,7 +600,7 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
         .filter(|r| r.used && read_sheets.contains(&r.style_sheet_id))
         .count() as u32;
     let complete = read_sheets.len() == stylesheets.len();
-    let (css_used_pct, css_measurement, measurement_warnings) =
+    let (css_used_pct, css_measurement, mut measurement_warnings) =
         if css_coverage.is_none() || total_rules == 0 {
             (
                 None,
@@ -539,6 +620,14 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
             }
         };
 
+    log.record(
+        &CSS_COVERAGE,
+        css_coverage_state(&css_measurement, css_coverage.is_some()),
+    );
+    if !js_measured {
+        measurement_warnings.push("js_coverage_unavailable".to_string());
+    }
+
     let unused_css = UnusedCssAnalysis {
         total_rules,
         used_rules: used_rules.min(total_rules),
@@ -551,8 +640,10 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     duplicate_assets.sort_by_key(|g| std::cmp::Reverse(g.bytes));
 
     info!(
-        "Coverage: JS {:.0}% used ({:.1} KB unused), CSS {} rules used ({}/{})",
-        overall_used_pct,
+        "Coverage: JS {} used ({:.1} KB unused), CSS {} rules used ({}/{})",
+        overall_used_pct
+            .map(|v| format!("{v:.0}%"))
+            .unwrap_or_else(|| "not available".to_string()),
         total_unused_bytes as f64 / 1024.0,
         css_used_pct
             .map(|v| format!("{v:.0}%"))
@@ -669,9 +760,9 @@ mod tests {
             scripts: vec![],
             total_bytes: 0,
             unused_bytes: 0,
-            used_pct: 100.0,
+            used_pct: None,
         };
-        assert_eq!(analysis.used_pct, 100.0);
+        assert_eq!(analysis.used_pct, None);
         assert!(analysis.scripts.is_empty());
     }
 

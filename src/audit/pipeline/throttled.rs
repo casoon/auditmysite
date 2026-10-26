@@ -20,15 +20,23 @@ pub(super) fn attach_throttled_profile_subchecks(
     let subchecks: Vec<crate::audit::SubcheckRun> = ThrottleProfile::AUTO_PROFILES
         .iter()
         .map(|profile| {
-            let completed = results.iter().any(|result| result.profile == *profile);
+            let result = results.iter().find(|result| result.profile == *profile);
+            let (status, reason_code) = match result {
+                Some(r) if r.score.is_some() => (crate::audit::ExecutionStatus::Completed, None),
+                // Measured, but without all core metrics (#769).
+                Some(_) => (
+                    crate::audit::ExecutionStatus::Partial,
+                    Some("core_metrics_incomplete".to_string()),
+                ),
+                None => (
+                    crate::audit::ExecutionStatus::Failed,
+                    Some("profile_measurement_failed".to_string()),
+                ),
+            };
             crate::audit::SubcheckRun {
                 subcheck: format!("throttled_profile:{}", profile.label()),
-                status: if completed {
-                    crate::audit::ExecutionStatus::Completed
-                } else {
-                    crate::audit::ExecutionStatus::Failed
-                },
-                reason_code: (!completed).then(|| "profile_measurement_failed".to_string()),
+                status,
+                reason_code,
                 ..Default::default()
             }
         })
@@ -43,7 +51,7 @@ pub(super) fn attach_throttled_profile_subchecks(
     {
         if subchecks
             .iter()
-            .any(|check| check.status == crate::audit::ExecutionStatus::Failed)
+            .any(|check| check.status != crate::audit::ExecutionStatus::Completed)
             && performance.status == crate::audit::ExecutionStatus::Completed
         {
             performance.status = crate::audit::ExecutionStatus::Partial;
@@ -113,12 +121,22 @@ pub(super) async fn collect_throttled_performance(
             continue;
         }
 
-        if let Err(e) = throttle::apply_cpu_throttling(page, profile).await {
-            warn!("CPU throttle apply failed for {:?}: {}", profile, e);
-        }
-
-        if let Err(e) = throttle::disable_cache(page).await {
-            warn!("Cache disable failed for {:?}: {}", profile, e);
+        // Without CPU throttling or with a warm cache the pass would be an
+        // unthrottled measurement stored under this profile's name (#769).
+        let setup_failure = match (
+            throttle::apply_cpu_throttling(page, profile).await,
+            throttle::disable_cache(page).await,
+        ) {
+            (Err(e), _) => Some(format!("CPU throttle apply failed for {profile:?}: {e}")),
+            (_, Err(e)) => Some(format!("Cache disable failed for {profile:?}: {e}")),
+            _ => None,
+        };
+        if let Some(failure) = setup_failure {
+            warn!("{failure}");
+            let _ = throttle::enable_cache(page).await;
+            let _ = throttle::disable_throttling(page).await;
+            let _ = throttle::disable_cpu_throttling(page).await;
+            continue;
         }
 
         let failure = match prepare_vitals_collection(page).await {
@@ -141,23 +159,23 @@ pub(super) async fn collect_throttled_performance(
             continue;
         }
 
-        match crate::performance::extract_web_vitals(page).await {
+        // The profile's per-metric states are folded into its own subcheck
+        // (`throttled_profile:*`), not into the headline run.
+        match crate::performance::extract_web_vitals(
+            page,
+            &crate::audit::collection::CollectionLog::new(),
+        )
+        .await
+        {
             Ok(vitals) => {
                 // Pass the headline content_weight so the size/JS/request caps
                 // apply to throttled profiles too — otherwise a throttled
                 // profile can out-score the headline (and Slow3G out-score
                 // Fast3G) purely because its caps were skipped (#456).
                 let score = calculate_performance_score(&vitals, content_weight);
-                // If LCP could not be measured under throttling (timeout or
-                // navigation pre-completion), the most important navigation
-                // metric is missing — do not let CLS/TBT alone push the score
-                // to 100. Cap to "AUSBAUFÄHIG" tier so the profile reflects
-                // that the measurement was incomplete.
-                let final_score = if vitals.lcp.is_none() {
-                    score.overall.min(50)
-                } else {
-                    score.overall
-                };
+                // A profile score needs every core metric; a subset would be a
+                // renormalized number that hides what is missing (#769).
+                let final_score = score.has_core_metrics().then_some(score.overall);
                 results.push(ThrottledPerfResult {
                     profile,
                     lcp_ms: vitals.lcp.as_ref().map(|v| v.value),
@@ -166,10 +184,9 @@ pub(super) async fn collect_throttled_performance(
                     score: final_score,
                 });
                 // LhMobile = Lighthouse mobile preset → canonical perf measurement.
-                // Only adopt when LCP could actually be measured; otherwise fall
-                // back to the unthrottled mobile pass so we don't report a
-                // capped-to-50 score that reflects measurement failure.
-                if profile == ThrottleProfile::LhMobile && vitals.lcp.is_some() {
+                // Only adopt a complete measurement; otherwise the unthrottled
+                // mobile pass stays the headline.
+                if let (ThrottleProfile::LhMobile, Some(final_score)) = (profile, final_score) {
                     let mut adopted_score = score.clone();
                     adopted_score.overall = final_score;
                     adopted_score.grade =

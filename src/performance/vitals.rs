@@ -5,9 +5,48 @@
 use chromiumoxide::cdp::browser_protocol::performance::GetMetricsParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
+use crate::audit::collection::{
+    evaluate_js, Collected, CollectionLog, CollectionMethod, CollectorSpec,
+};
 use crate::error::{AuditError, Result};
+
+const fn vitals_collector(
+    id: &'static str,
+    method: CollectionMethod,
+    scoring: bool,
+) -> CollectorSpec {
+    CollectorSpec {
+        id,
+        module: "performance",
+        method,
+        method_version: 2,
+        scoring,
+    }
+}
+
+/// The pre-injected PerformanceObserver globals (LCP, long tasks, shifts).
+pub(crate) static OBSERVERS: CollectorSpec =
+    vitals_collector("performance.observers", CollectionMethod::JavaScript, true);
+/// `Performance.getMetrics` (FCP, DOM size, heap).
+pub(crate) static CDP_METRICS: CollectorSpec =
+    vitals_collector("performance.cdp_metrics", CollectionMethod::Cdp, true);
+/// Navigation and paint timing (fallbacks, TTFB, load, domInteractive).
+pub(crate) static NAVIGATION_TIMING: CollectorSpec = vitals_collector(
+    "performance.navigation_timing",
+    CollectionMethod::JavaScript,
+    false,
+);
+/// The four core lab metrics, each with its own state (#769).
+pub(crate) static LCP: CollectorSpec =
+    vitals_collector("performance.lcp", CollectionMethod::JavaScript, true);
+pub(crate) static FCP: CollectorSpec =
+    vitals_collector("performance.fcp", CollectionMethod::Cdp, true);
+pub(crate) static CLS: CollectorSpec =
+    vitals_collector("performance.cls", CollectionMethod::JavaScript, true);
+pub(crate) static TBT: CollectorSpec =
+    vitals_collector("performance.tbt", CollectionMethod::JavaScript, true);
 
 /// Source element attribution for a single CLS layout-shift entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,11 +98,14 @@ pub struct WebVitals {
     /// First Input Delay (ms) - deprecated; always null in CDP/headless audits
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fid: Option<VitalMetric>,
-    /// Total Blocking Time (ms)
+    /// Total Blocking Time (ms) over FCP→TTI, from every long task the
+    /// observer saw (#770); `None` without FCP or the long-task observer.
     pub tbt: Option<VitalMetric>,
     /// Speed Index — heuristic proxy: 0.35·FCP + 0.65·LCP (#137)
     pub speed_index: Option<VitalMetric>,
-    /// Time to Interactive — simplified: max(domInteractive, last long-task end) (#137)
+    /// Time to Interactive, lab proxy: end of the last long task before the
+    /// first 5 s quiet window after FCP, at least domInteractive (#137, #770).
+    /// Lighthouse also waits for network quiet; marked estimated.
     pub tti: Option<VitalMetric>,
     /// Interaction to Next Paint — only populated when interaction events fire during audit
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -184,60 +226,39 @@ impl WebVitals {
 pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     let script = r#"
 (function() {
+    window.__ams_observers = true;
     window.__ams_tbt_available = false;
     window.__ams_cls_available = false;
-    // Load-window boundary: LCP candidates and long tasks are only counted up
-    // to (load event + 100ms grace), mirroring how Lighthouse bounds these
-    // metrics to the load phase. A headless audit fires no user-input or
-    // visibility-change event — the signals that normally stop LCP growth — so
-    // without this boundary the observers keep absorbing post-load paints
-    // (carousels, lazy hero swaps) and idle long tasks (analytics, late
-    // hydration), inflating LCP/TBT/TTI. Until load fires the boundary is
-    // +Infinity, so everything during loading is counted.
-    if (typeof window.__ams_load_ts === 'undefined') window.__ams_load_ts = Infinity;
-    window.addEventListener('load', function() {
-        window.__ams_load_ts = performance.now() + 100;
-    }, { once: true });
 
-    // LCP observer — keep the latest contentful paint within the load window.
+    // LCP observer — the latest candidate is the LCP. Candidates stop with
+    // the first user input, which a lab run never fires, so the value is the
+    // last candidate before the read (Lighthouse: before the trace ends).
+    // There is deliberately no load-event cut-off: a hero rendered after
+    // load *is* the largest contentful paint (#770).
     window.__ams_lcp = window.__ams_lcp || 0;
     try {
         var _lcpObs = new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
-                // LCP candidates grow monotonically in size; the last one that
-                // rendered within the load window is the LCP.
-                if (entries[i].startTime <= window.__ams_load_ts) {
-                    window.__ams_lcp = entries[i].startTime;
-                }
+                window.__ams_lcp = entries[i].startTime;
             }
         });
         _lcpObs.observe({ type: 'largest-contentful-paint', buffered: true });
         window.__ams_lcp_obs = _lcpObs;
     } catch(e) {}
 
-    // TBT + TTI via Long Tasks — sum blocking time; track last task end for TTI
-    window.__ams_tbt = window.__ams_tbt || 0;
-    window.__ams_last_task_end = window.__ams_last_task_end || 0;
-    window.__ams_tbt_seen = window.__ams_tbt_seen || new Set();
+    // Long tasks, raw. TTI and TBT are computed from this list in Rust over
+    // the reference window FCP→TTI (#770).
+    window.__ams_long_tasks = window.__ams_long_tasks || [];
+    window.__ams_long_task_seen = window.__ams_long_task_seen || new Set();
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
                 var e = entries[i];
-                if (window.__ams_tbt_seen.has(e.startTime)) continue;
-                window.__ams_tbt_seen.add(e.startTime);
-                // Only count long tasks that began within the load window; TBT
-                // is the blocking time during load (FCP→TTI), not the total
-                // over the whole time we keep the page open.
-                if (e.startTime > window.__ams_load_ts) continue;
-                if (e.duration > 50) {
-                    window.__ams_tbt += e.duration - 50;
-                }
-                var end = e.startTime + e.duration;
-                if (end > window.__ams_last_task_end) {
-                    window.__ams_last_task_end = end;
-                }
+                if (window.__ams_long_task_seen.has(e.startTime)) continue;
+                window.__ams_long_task_seen.add(e.startTime);
+                window.__ams_long_tasks.push({ start: e.startTime, duration: e.duration });
             }
         }).observe({ type: 'longtask', buffered: true });
         window.__ams_tbt_available = PerformanceObserver.supportedEntryTypes.includes('longtask');
@@ -324,60 +345,114 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
 /// Read the pre-injected globals after navigation to collect LCP, TBT, CLS, TTI, INP.
 ///
 /// Flushes and disconnects the LCP observer to capture any buffered entries.
-async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
-    let js = r#"
+/// The observers' globals. `null` when they were never installed — then
+/// nothing was observed, which is a failed collection, not a page without
+/// long tasks or shifts (#769).
+const READ_OBSERVERS_JS: &str = r#"
 (function() {
+    if (window.__ams_observers !== true) return null;
     // Finalize LCP — flush and disconnect observer
-    var lcp = 0;
     try {
         if (window.__ams_lcp_obs) {
             var recs = window.__ams_lcp_obs.takeRecords();
-            var bound = window.__ams_load_ts || Infinity;
             for (var i = 0; i < recs.length; i++) {
-                // Honor the load-window boundary here too, so a buffered
-                // post-load paint can't override the in-window LCP.
-                if (recs[i].startTime <= bound) {
-                    window.__ams_lcp = recs[i].startTime;
-                }
+                window.__ams_lcp = recs[i].startTime;
             }
             window.__ams_lcp_obs.disconnect();
         }
-        lcp = window.__ams_lcp || 0;
     } catch(e) {}
 
     return JSON.stringify({
-        lcp: lcp,
-        tbt: window.__ams_tbt || 0,
+        lcp: window.__ams_lcp || 0,
+        longTasks: window.__ams_long_tasks || [],
         tbtAvailable: window.__ams_tbt_available === true,
         cls: window.__ams_cls || 0,
         clsAvailable: window.__ams_cls_available === true,
-        lastTaskEnd: window.__ams_last_task_end || 0,
         clsShifts: window.__ams_cls_shifts || [],
         inpDuration: window.__ams_inp || 0
     });
 })()
 "#;
 
-    let result = page
-        .evaluate(js)
+async fn collect_preinjected_vitals(page: &Page) -> Collected<PreinjectedVitals> {
+    evaluate_js::<RawObservers>(page, READ_OBSERVERS_JS)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Preinjected vitals read failed: {}", e)))?;
+        .map(PreinjectedVitals::from)
+}
 
-    let parsed =
-        crate::util::decode_collector_object(result.value(), "Performance observer extraction")?;
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawObservers {
+    lcp: f64,
+    long_tasks: Vec<LongTask>,
+    tbt_available: bool,
+    cls: f64,
+    cls_available: bool,
+    cls_shifts: serde_json::Value,
+    inp_duration: f64,
+}
 
-    let cls_shifts = parse_cls_shifts(&parsed["clsShifts"]);
+impl From<RawObservers> for PreinjectedVitals {
+    fn from(raw: RawObservers) -> Self {
+        Self {
+            lcp: raw.lcp,
+            long_tasks: raw.long_tasks,
+            tbt_available: raw.tbt_available,
+            cls_available: raw.cls_available,
+            cls: raw.cls,
+            cls_shifts: parse_cls_shifts(&raw.cls_shifts),
+            inp_duration: raw.inp_duration,
+        }
+    }
+}
 
-    Ok(PreinjectedVitals {
-        lcp: parsed["lcp"].as_f64().unwrap_or(0.0),
-        tbt: parsed["tbt"].as_f64().unwrap_or(0.0),
-        tbt_available: parsed["tbtAvailable"].as_bool().unwrap_or(false),
-        cls_available: parsed["clsAvailable"].as_bool().unwrap_or(false),
-        cls: parsed["cls"].as_f64().unwrap_or(0.0),
-        last_task_end: parsed["lastTaskEnd"].as_f64().unwrap_or(0.0),
-        cls_shifts,
-        inp_duration: parsed["inpDuration"].as_f64().unwrap_or(0.0),
-    })
+/// One long task as the `longtask` observer reports it (ms since navigation).
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub(super) struct LongTask {
+    pub start: f64,
+    pub duration: f64,
+}
+
+impl LongTask {
+    fn end(&self) -> f64 {
+        self.start + self.duration
+    }
+}
+
+/// Lighthouse's quiet window: TTI is the end of the last long task before
+/// the first 5 s without long tasks after FCP.
+const TTI_QUIET_WINDOW_MS: f64 = 5_000.0;
+/// A task blocks the main thread for the part of it beyond 50 ms.
+const BLOCKING_THRESHOLD_MS: f64 = 50.0;
+
+/// Time to Interactive as a lab proxy of the Lighthouse definition: the end
+/// of the last long task before the first 5 s quiet window after FCP, and
+/// at least FCP and `domInteractive`. Lighthouse also requires network
+/// quiet, which this does not observe — the value stays marked estimated.
+pub(super) fn estimate_tti(fcp: f64, tasks: &[LongTask], dom_interactive: f64) -> f64 {
+    let mut ordered: Vec<&LongTask> = tasks.iter().filter(|t| t.end() > fcp).collect();
+    ordered.sort_by(|a, b| a.start.total_cmp(&b.start));
+    let mut tti = fcp;
+    for task in ordered {
+        if task.start - tti >= TTI_QUIET_WINDOW_MS {
+            break;
+        }
+        tti = tti.max(task.end());
+    }
+    tti.max(dom_interactive)
+}
+
+/// Total Blocking Time over the reference window FCP→TTI: each long task is
+/// clipped to the window, and the part of the clipped task beyond 50 ms
+/// blocks. Tasks before FCP or after TTI do not count (#770).
+pub(super) fn total_blocking_time(fcp: f64, tti: f64, tasks: &[LongTask]) -> f64 {
+    tasks
+        .iter()
+        .map(|task| {
+            let clipped = task.end().min(tti) - task.start.max(fcp);
+            (clipped - BLOCKING_THRESHOLD_MS).max(0.0)
+        })
+        .sum()
 }
 
 /// Parse CLS shift entries from the JSON value returned by the browser.
@@ -484,12 +559,11 @@ fn parse_shift_rect(val: &serde_json::Value) -> Option<ShiftRect> {
 /// Values collected by the pre-injected PerformanceObserver script.
 struct PreinjectedVitals {
     lcp: f64,
-    tbt: f64,
+    /// Every long task observed since navigation.
+    long_tasks: Vec<LongTask>,
     tbt_available: bool,
     cls_available: bool,
     cls: f64,
-    /// End time of the last long task (ms from navigation start); 0 = no long tasks
-    last_task_end: f64,
     /// Per-shift CLS entries (#135)
     cls_shifts: Vec<ClsShift>,
     /// Max event/interaction duration captured by event-timing or first-input (#134)
@@ -514,10 +588,11 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
 /// **Phase 1 – LCP**: polls `window.__ams_lcp` every 250 ms (up to ~3 s)
 /// until an LCP entry is captured.
 ///
-/// **Phase 2 – TBT settle**: JS bundles execute *after* LCP fires, so Long Tasks
-/// are not yet visible when LCP > 0. Polls `window.__ams_tbt` every 200 ms and
-/// breaks only when the value is stable for three consecutive reads (≥ 600 ms
-/// unchanged). Max 5 s — matches Lighthouse's quiet-window heuristic.
+/// **Phase 2 – CPU quiet**: JS bundles execute *after* LCP fires, so long
+/// tasks are not yet visible when LCP > 0. Polls the long-task count every
+/// 200 ms and stops once it has not changed for 1 s — Lighthouse's
+/// `cpuQuietThresholdMs` — or after 8 s. Late tasks inside that window are
+/// observed; whether they count is decided by the FCP→TTI window (#770).
 async fn wait_for_vitals_stable(page: &Page) {
     // Phase 1: wait for first LCP entry
     for _ in 0..11u8 {
@@ -533,29 +608,26 @@ async fn wait_for_vitals_stable(page: &Page) {
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     }
 
-    // Phase 2: wait for TBT to stop growing (Long Tasks settle after LCP)
-    let mut last_tbt = -1.0_f64;
+    // Phase 2: wait until no new long task appeared for 1 s.
+    let mut last_count = -1.0_f64;
     let mut stable_ticks: u8 = 0;
-    for _ in 0..25u8 {
-        let tbt = page
-            .evaluate("window.__ams_tbt || 0")
+    for _ in 0..40u8 {
+        let count = page
+            .evaluate("(window.__ams_long_tasks || []).length")
             .await
             .ok()
             .and_then(|r| r.value().and_then(|v| v.as_f64()))
             .unwrap_or(0.0);
-        if (tbt - last_tbt).abs() < 1.0 {
+        if count == last_count {
             stable_ticks += 1;
-            if stable_ticks >= 3 {
-                debug!(
-                    "TBT stable at {:.0}ms after {} settle ticks",
-                    tbt, stable_ticks
-                );
+            if stable_ticks >= 5 {
+                debug!("Main thread quiet with {count} long tasks");
                 break;
             }
         } else {
             stable_ticks = 0;
         }
-        last_tbt = tbt;
+        last_count = count;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }
@@ -568,47 +640,39 @@ async fn wait_for_vitals_stable(page: &Page) {
 /// # Returns
 /// * `Ok(WebVitals)` - The extracted performance metrics
 /// * `Err(AuditError)` - If extraction fails
-pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
+pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebVitals> {
     info!("Extracting Core Web Vitals...");
 
     wait_for_vitals_stable(page).await;
 
     let mut vitals = WebVitals::default();
 
-    // Read pre-injected observer globals first (Lighthouse-style, captures from first paint).
-    // Falls back gracefully when prepare_vitals_collection was not called.
-    let preinjected = collect_preinjected_vitals(page).await.unwrap_or_else(|e| {
-        warn!(
-            "Pre-injected vitals unavailable ({}), falling back to CDP",
-            e
-        );
-        PreinjectedVitals {
-            lcp: 0.0,
-            tbt: 0.0,
-            tbt_available: false,
-            cls_available: false,
-            cls: 0.0,
-            last_task_end: 0.0,
-            cls_shifts: vec![],
-            inp_duration: 0.0,
-        }
+    // Read pre-injected observer globals first (Lighthouse-style, captures
+    // from first paint). Without them LCP can still come from CDP, but CLS
+    // and TBT cannot be measured at all.
+    let observers = log
+        .record(&OBSERVERS, collect_preinjected_vitals(page).await)
+        .into_value();
+    let observed = observers.is_some();
+    let preinjected = observers.unwrap_or(PreinjectedVitals {
+        lcp: 0.0,
+        long_tasks: vec![],
+        tbt_available: false,
+        cls_available: false,
+        cls: 0.0,
+        cls_shifts: vec![],
+        inp_duration: 0.0,
     });
-    let last_task_end = preinjected.last_task_end;
 
-    // Apply pre-injected LCP and TBT when non-zero (0 = not captured / not injected)
+    // LCP from the observer (0 = no candidate captured).
     if preinjected.lcp > 0.0 && preinjected.lcp < 300_000.0 {
         vitals.lcp = Some(VitalMetric::new(preinjected.lcp, 2500.0, 4000.0));
         debug!("LCP (preinjected): {:.0}ms", preinjected.lcp);
     }
-    // TBT: 0 ms is a valid perfect score (no long tasks), always include like CLS.
-    vitals.tbt = preinjected
-        .tbt_available
-        .then(|| VitalMetric::new(preinjected.tbt, 200.0, 600.0));
-    debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
-    // CLS: 0.0 is a valid perfect score, always apply. Use the session-window
-    // maximum (the current CWV definition) computed from the per-shift list,
-    // not the cumulative sum the observer accumulates — the latter overcounts
-    // pages that shift repeatedly during lazy-loading.
+    // CLS: 0.0 is a valid perfect score when the observer ran. Use the
+    // session-window maximum (the current CWV definition) computed from the
+    // per-shift list, not the cumulative sum the observer accumulates — the
+    // latter overcounts pages that shift repeatedly during lazy-loading.
     let cls_session = session_window_cls(&preinjected.cls_shifts);
     vitals.cls = preinjected
         .cls_available
@@ -619,7 +683,7 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     );
 
     // CLS attribution (#135)
-    vitals.cls_attribution = preinjected.cls_shifts;
+    vitals.cls_attribution = preinjected.cls_shifts.clone();
 
     // INP (#134): event-timing or first-input duration; 0 = no interaction captured.
     // In headless audits interactions rarely fire, so 0 means "not measurable" and
@@ -630,10 +694,22 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     }
 
     // Get performance metrics via CDP for FCP, DCL, heap, node count
-    let metrics_response = page
-        .execute(GetMetricsParams::default())
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Failed to get metrics: {}", e)))?;
+    let metrics_response = match page.execute(GetMetricsParams::default()).await {
+        Ok(response) => {
+            log.record(&CDP_METRICS, Collected::Measured(()));
+            response
+        }
+        Err(e) => {
+            log.record(
+                &CDP_METRICS,
+                Collected::<()>::Failed(crate::audit::collection::reason::CDP_COMMAND_FAILED),
+            );
+            return Err(AuditError::CdpError(format!(
+                "Failed to get metrics: {}",
+                e
+            )));
+        }
+    };
 
     for metric in &metrics_response.metrics {
         let value = metric.value;
@@ -669,62 +745,61 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         }
     }
 
-    // Extract additional metrics via JavaScript (FCP fallback, TTFB, load time)
-    let js_metrics = extract_js_metrics(page).await?;
+    // Navigation and paint timing (FCP/LCP fallback, TTFB, load, domInteractive).
+    let js_metrics = log
+        .record(&NAVIGATION_TIMING, extract_js_metrics(page).await)
+        .into_value();
+    let mut dom_interactive_ms = 0.0;
+    if let Some(js_metrics) = js_metrics {
+        if vitals.fcp.is_none() {
+            vitals.fcp = js_metrics.vitals.fcp;
+        }
+        if vitals.lcp.is_none() {
+            vitals.lcp = js_metrics.vitals.lcp;
+        }
+        vitals.ttfb = js_metrics.vitals.ttfb;
+        vitals.load_time = js_metrics.vitals.load_time;
+        if vitals.dom_content_loaded.is_none() {
+            vitals.dom_content_loaded = js_metrics
+                .vitals
+                .dom_content_loaded
+                .filter(|dcl| *dcl > 0.0 && *dcl < 300_000.0);
+        }
+        dom_interactive_ms = js_metrics.dom_interactive;
+    }
 
-    if vitals.fcp.is_none() && js_metrics.fcp.is_some() {
-        vitals.fcp = js_metrics.fcp;
-    }
-    if vitals.lcp.is_none() && js_metrics.lcp.is_some() {
-        vitals.lcp = js_metrics.lcp;
-    }
-    if js_metrics.ttfb.is_some() {
-        vitals.ttfb = js_metrics.ttfb;
-    }
-    if js_metrics.load_time.is_some() {
-        vitals.load_time = js_metrics.load_time;
-    }
-    if vitals.dom_content_loaded.is_none() {
-        if let Some(js_dcl) = js_metrics.dom_content_loaded {
-            if js_dcl > 0.0 && js_dcl < 300_000.0 {
-                vitals.dom_content_loaded = Some(js_dcl);
-            }
+    // TTI and TBT over the reference window FCP→TTI (#770). Both need FCP;
+    // TBT also needs the long-task observer.
+    if let Some(fcp) = vitals.fcp.as_ref().map(|m| m.value) {
+        let tti_ms = estimate_tti(fcp, &preinjected.long_tasks, dom_interactive_ms);
+        if tti_ms > 0.0 && tti_ms < 300_000.0 {
+            vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0).estimated());
+            debug!("TTI (lab proxy): {:.0}ms", tti_ms);
+        }
+        if preinjected.tbt_available {
+            let tbt = total_blocking_time(fcp, tti_ms, &preinjected.long_tasks);
+            vitals.tbt = Some(VitalMetric::new(tbt, 200.0, 600.0));
+            debug!("TBT (FCP→TTI): {:.0}ms", tbt);
         }
     }
 
-    // TTI (#137): max(domInteractive, last_long_task_end).
-    // domInteractive = domContentLoadedEventStart (navigation timing).
-    // Thresholds from Lighthouse: good ≤3800ms, poor >7300ms.
-    let dom_interactive_ms: f64 = page
-        .evaluate("(function(){ var n = performance.getEntriesByType('navigation')[0]; return n ? n.domInteractive : 0; })()")
-        .await
-        .ok()
-        .and_then(|r| r.value().and_then(|v| v.as_f64()))
-        .unwrap_or(0.0);
-    let mut tti_ms = dom_interactive_ms.max(last_task_end);
-    if let Some(ref lcp_metric) = vitals.lcp {
-        tti_ms = tti_ms.max(lcp_metric.value);
-    }
-    if tti_ms > 0.0 && tti_ms < 300_000.0 {
-        vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0).estimated());
-        debug!("TTI (approx): {:.0}ms", tti_ms);
-    }
-
-    // Speed Index (#137): heuristic proxy = 0.35·FCP + 0.65·LCP.
-    // Real Speed Index requires video-frame analysis; this approximation
-    // correlates well for typical content-heavy pages.
-    // Thresholds from Lighthouse: good ≤3400ms, poor >5800ms.
+    // Speed Index (#137): heuristic proxy = 0.35·FCP + 0.65·LCP. Real Speed
+    // Index requires video-frame analysis; this estimate is diagnostic and
+    // carries no score weight.
     if let (Some(fcp), Some(lcp)) = (&vitals.fcp, &vitals.lcp) {
         let si = 0.35 * fcp.value + 0.65 * lcp.value;
         vitals.speed_index = Some(VitalMetric::new(si, 3400.0, 5800.0).estimated());
         debug!("Speed Index (heuristic): {:.0}ms", si);
     }
 
+    record_metric_states(log, &vitals, observed, &preinjected);
+
     info!(
-        "Web Vitals extracted: LCP={:?}ms, FCP={:?}ms, CLS={:?}, TTI={:?}ms, INP={:?}ms",
+        "Web Vitals extracted: LCP={:?}ms, FCP={:?}ms, CLS={:?}, TBT={:?}ms, TTI={:?}ms, INP={:?}ms",
         vitals.lcp.as_ref().map(|v| v.value as i64),
         vitals.fcp.as_ref().map(|v| v.value as i64),
         vitals.cls.as_ref().map(|v| v.value),
+        vitals.tbt.as_ref().map(|v| v.value as i64),
         vitals.tti.as_ref().map(|v| v.value as i64),
         vitals.inp.as_ref().map(|v| v.value as i64),
     );
@@ -732,8 +807,73 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     Ok(vitals)
 }
 
-/// Extract metrics via JavaScript Performance API
-async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
+/// One record per core metric: measured, failed (with why) or unsupported
+/// by the browser (#769).
+fn record_metric_states(
+    log: &CollectionLog,
+    vitals: &WebVitals,
+    observed: bool,
+    preinjected: &PreinjectedVitals,
+) {
+    let state = |metric: &Option<VitalMetric>, missing: Collected<()>| match metric {
+        Some(m) if m.value.is_finite() && m.value >= 0.0 => Collected::Measured(()),
+        Some(_) => Collected::Failed("invalid_metric_value"),
+        None => missing,
+    };
+    let observer_missing = |supported: bool| {
+        if !observed {
+            Collected::Failed("observer_not_installed")
+        } else if !supported {
+            Collected::Unsupported("entry_type_not_supported")
+        } else {
+            Collected::Failed("metric_not_captured")
+        }
+    };
+    log.record(
+        &LCP,
+        state(&vitals.lcp, Collected::Failed("metric_not_captured")),
+    );
+    log.record(
+        &FCP,
+        state(&vitals.fcp, Collected::Failed("metric_not_captured")),
+    );
+    log.record(
+        &CLS,
+        state(&vitals.cls, observer_missing(preinjected.cls_available)),
+    );
+    log.record(
+        &TBT,
+        state(
+            &vitals.tbt,
+            if vitals.fcp.is_none() && observed && preinjected.tbt_available {
+                Collected::Failed("fcp_not_captured")
+            } else {
+                observer_missing(preinjected.tbt_available)
+            },
+        ),
+    );
+}
+
+/// Navigation and paint timing read via the Performance API.
+struct JsMetrics {
+    vitals: WebVitals,
+    dom_interactive: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawNavigationTiming {
+    ttfb: Option<f64>,
+    load_time: Option<f64>,
+    dom_content_loaded: Option<f64>,
+    dom_interactive: Option<f64>,
+    fcp: Option<f64>,
+    lcp: Option<f64>,
+}
+
+/// Extract metrics via JavaScript Performance API. A missing or malformed
+/// result is a failed collection, not a page without timing (#769).
+async fn extract_js_metrics(page: &Page) -> Collected<JsMetrics> {
     let js_code = r#"
     (() => {
         const result = {};
@@ -742,6 +882,7 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
         const nav = performance.getEntriesByType('navigation')[0];
         if (nav) {
             result.ttfb = nav.responseStart - nav.requestStart;
+            result.domInteractive = nav.domInteractive;
             if (nav.loadEventEnd > 0) {
                 result.loadTime = nav.loadEventEnd - nav.startTime;
             }
@@ -768,34 +909,22 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
+    evaluate_js::<RawNavigationTiming>(page, js_code)
         .await
-        .map_err(|e| AuditError::CdpError(format!("JS metrics extraction failed: {}", e)))?;
-
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
-
-    let mut vitals = WebVitals::default();
-
-    if let Some(lcp) = parsed["lcp"].as_f64() {
-        vitals.lcp = Some(VitalMetric::new(lcp, 2500.0, 4000.0));
-    }
-    if let Some(fcp) = parsed["fcp"].as_f64() {
-        vitals.fcp = Some(VitalMetric::new(fcp, 1800.0, 3000.0));
-    }
-    if let Some(ttfb) = parsed["ttfb"].as_f64() {
-        vitals.ttfb = Some(VitalMetric::new(ttfb, 800.0, 1800.0));
-    }
-    if let Some(load_time) = parsed["loadTime"].as_f64() {
-        vitals.load_time = Some(load_time);
-    }
-    if let Some(dcl) = parsed["domContentLoaded"].as_f64() {
-        vitals.dom_content_loaded = Some(dcl);
-    }
-
-    Ok(vitals)
+        .map(|raw| {
+            let vitals = WebVitals {
+                lcp: raw.lcp.map(|lcp| VitalMetric::new(lcp, 2500.0, 4000.0)),
+                fcp: raw.fcp.map(|fcp| VitalMetric::new(fcp, 1800.0, 3000.0)),
+                ttfb: raw.ttfb.map(|ttfb| VitalMetric::new(ttfb, 800.0, 1800.0)),
+                load_time: raw.load_time,
+                dom_content_loaded: raw.dom_content_loaded,
+                ..Default::default()
+            };
+            JsMetrics {
+                vitals,
+                dom_interactive: raw.dom_interactive.unwrap_or(0.0),
+            }
+        })
 }
 
 /// Detect implausible or structurally unmeasurable metrics in a headless CDP audit.
@@ -805,7 +934,6 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
 ///
 /// Warning keys (issue #291):
 /// - `"lcp_not_measured"` — LCP absent (observer missed it, e.g. under LhMobile throttle)
-/// - `"tbt_zero_heavy_page"` — TBT=0 while LCP>3000ms (physically impossible)
 /// - `"speed_index_fallback_to_lcp"` — Speed Index equals LCP (no independent value)
 /// - `"tti_fallback_to_lcp"` — TTI equals LCP (no independent value)
 /// - `"inp_not_measured"` — INP absent (headless has no user interaction)
@@ -816,11 +944,8 @@ pub fn validate_metrics(vitals: &WebVitals) -> Vec<String> {
         warnings.push("lcp_not_measured".to_string());
     }
 
-    if let (Some(tbt), Some(lcp)) = (&vitals.tbt, &vitals.lcp) {
-        if tbt.value == 0.0 && lcp.value > 3000.0 {
-            warnings.push("tbt_zero_heavy_page".to_string());
-        }
-    }
+    // No "TBT = 0 on a slow page" warning: a static page on a slow network
+    // has a late LCP and no long tasks at all (#770).
 
     if let (Some(si), Some(lcp)) = (&vitals.speed_index, &vitals.lcp) {
         if (si.value - lcp.value).abs() < f64::EPSILON {
@@ -841,9 +966,120 @@ pub fn validate_metrics(vitals: &WebVitals) -> Vec<String> {
     warnings
 }
 
+/// Counter-cases of the vitals collectors (#769): observers that never ran
+/// leave CLS and TBT failed, not zero; a browser without the entry type
+/// leaves them unsupported; the script result decodes strictly.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{assert_js_contract, CollectionState};
+    assert_js_contract::<RawObservers>(serde_json::json!({
+        "lcp": 0, "longTasks": [], "tbtAvailable": true, "cls": 0,
+        "clsAvailable": true, "clsShifts": [], "inpDuration": 0
+    }));
+    assert_js_contract::<RawNavigationTiming>(serde_json::json!({}));
+
+    let states = |vitals: &WebVitals, observed: bool, supported: bool| {
+        let log = CollectionLog::new();
+        let preinjected = PreinjectedVitals {
+            lcp: 0.0,
+            long_tasks: vec![],
+            tbt_available: supported,
+            cls_available: supported,
+            cls: 0.0,
+            cls_shifts: vec![],
+            inp_duration: 0.0,
+        };
+        record_metric_states(&log, vitals, observed, &preinjected);
+        log.into_records()
+            .into_iter()
+            .map(|r| (r.collector, r.state, r.reason_code))
+            .collect::<Vec<_>>()
+    };
+    let none = WebVitals::default();
+    for (collector, state, reason) in states(&none, false, false) {
+        assert_eq!(state, CollectionState::Failed, "{collector}");
+        if collector == "performance.cls" || collector == "performance.tbt" {
+            assert_eq!(reason.as_deref(), Some("observer_not_installed"));
+        }
+    }
+    let unsupported = states(&none, true, false);
+    assert!(unsupported
+        .iter()
+        .any(|(c, s, _)| c == "performance.cls" && *s == CollectionState::Unsupported));
+    let measured = WebVitals {
+        lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+        fcp: Some(VitalMetric::new(500.0, 1800.0, 3000.0)),
+        cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
+        tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
+        ..Default::default()
+    };
+    assert!(states(&measured, true, true)
+        .iter()
+        .all(|(_, s, _)| *s == CollectionState::Measured));
+    let invalid = WebVitals {
+        cls: Some(VitalMetric::new(f64::NAN, 0.1, 0.25)),
+        ..measured
+    };
+    assert!(states(&invalid, true, true)
+        .iter()
+        .any(|(c, s, _)| c == "performance.cls" && *s == CollectionState::Failed));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn task(start: f64, duration: f64) -> LongTask {
+        LongTask { start, duration }
+    }
+
+    #[test]
+    fn tti_ends_with_the_last_task_before_a_quiet_window() {
+        // FCP 1000; tasks end at 1300 and 2500; a task 6 s later lies after
+        // the first 5 s quiet window and does not move TTI.
+        let tasks = [
+            task(1200.0, 100.0),
+            task(2300.0, 200.0),
+            task(8000.0, 300.0),
+        ];
+        assert_eq!(estimate_tti(1000.0, &tasks, 900.0), 2500.0);
+        // No long task after FCP: TTI is FCP (or domInteractive, if later).
+        assert_eq!(estimate_tti(1000.0, &[task(200.0, 300.0)], 1200.0), 1200.0);
+    }
+
+    #[test]
+    fn tbt_counts_only_the_fcp_to_tti_window() {
+        let tasks = [
+            task(0.0, 400.0),    // before FCP (500): not counted
+            task(450.0, 150.0),  // clipped to 500–600: 100 ms → 50 blocking
+            task(1000.0, 120.0), // 70 blocking
+            task(9000.0, 500.0), // after TTI: not counted
+        ];
+        let tti = estimate_tti(500.0, &tasks, 0.0);
+        assert_eq!(tti, 1120.0);
+        assert_eq!(total_blocking_time(500.0, tti, &tasks), 120.0);
+    }
+
+    #[test]
+    fn late_long_task_after_load_still_blocks() {
+        // #770: a task long after `load` but before the quiet window counts —
+        // the old load+100 ms cut-off dropped it.
+        let tasks = [task(3_000.0, 250.0)];
+        let tti = estimate_tti(800.0, &tasks, 600.0);
+        assert_eq!(total_blocking_time(800.0, tti, &tasks), 200.0);
+    }
+
+    #[test]
+    fn slow_static_page_is_no_tbt_warning() {
+        // #770: a late LCP without long tasks is a valid measurement.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(4_500.0, 2500.0, 4000.0)),
+            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
+            inp: Some(VitalMetric::new(50.0, 200.0, 500.0)),
+            ..Default::default()
+        };
+        assert!(validate_metrics(&vitals).is_empty());
+    }
 
     #[test]
     fn test_vital_metric_good() {
@@ -963,24 +1199,6 @@ mod tests {
         assert_eq!(
             v.speed_index.unwrap().measurement,
             MeasurementContext::EstimatedLab
-        );
-    }
-
-    #[test]
-    fn validate_metrics_tbt_zero_heavy_page() {
-        let vitals = WebVitals {
-            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
-            lcp: Some(VitalMetric::new(4500.0, 2500.0, 4000.0)),
-            ..Default::default()
-        };
-        let warnings = validate_metrics(&vitals);
-        assert!(
-            warnings.contains(&"tbt_zero_heavy_page".to_string()),
-            "must warn when TBT=0 and LCP>3000ms"
-        );
-        assert!(
-            warnings.contains(&"inp_not_measured".to_string()),
-            "inp_not_measured always present in headless"
         );
     }
 

@@ -1243,23 +1243,23 @@ impl UnifiedReport {
             mobile_score: normalized_module_score(&ctx.normalized, "Mobile"),
             ux_score: normalized_module_score(&ctx.normalized, "UX"),
             journey_score: normalized_module_score(&ctx.normalized, "Journey"),
+            // Only an average over complete profiles: one without all core
+            // metrics leaves no comparable average (#769).
             performance_throttled_avg_score: {
-                let scores: Vec<u32> = ctx
+                let scores: Option<Vec<u32>> = ctx
                     .raw_throttled_performance
                     .iter()
                     .map(|t| t.score)
                     .collect();
-                if scores.is_empty() {
-                    None
-                } else {
-                    Some(scores.iter().sum::<u32>() / scores.len() as u32)
-                }
+                scores
+                    .filter(|scores| !scores.is_empty())
+                    .map(|scores| scores.iter().sum::<u32>() / scores.len() as u32)
             },
             lh_mobile_score: ctx
                 .raw_throttled_performance
                 .iter()
                 .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
-                .map(|t| t.score),
+                .and_then(|t| t.score),
             wcag_coverage: build_wcag_coverage_summary(&ctx.normalized),
             overall_score_weight_basis: overall_score_weight_basis(std::slice::from_ref(
                 &ctx.normalized,

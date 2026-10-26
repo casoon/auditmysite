@@ -364,7 +364,7 @@ fn measurement_warnings_present_in_json_when_set() {
         minification: None,
         animations: None,
         coverage: None,
-        measurement_warnings: vec!["tbt_zero_heavy_page".to_string()],
+        measurement_warnings: vec!["lcp_not_measured".to_string()],
     });
     let normalized = crate::audit::normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
@@ -378,8 +378,8 @@ fn measurement_warnings_present_in_json_when_set() {
     );
     assert_eq!(
         warnings[0].as_str(),
-        Some("tbt_zero_heavy_page"),
-        "first warning key must be 'tbt_zero_heavy_page'"
+        Some("lcp_not_measured"),
+        "first warning key must be 'lcp_not_measured'"
     );
 }
 

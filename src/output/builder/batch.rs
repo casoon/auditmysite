@@ -2351,7 +2351,7 @@ mod minification_inconsistency_tests {
                     .collect(),
                 total_bytes: 1000,
                 unused_bytes: 0,
-                used_pct: 100.0,
+                used_pct: Some(100.0),
             },
             unused_css: UnusedCssAnalysis {
                 total_rules: 0,

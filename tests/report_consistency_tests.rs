@@ -1589,7 +1589,7 @@ fn test_json_report_includes_report_artifact_fields() {
         lcp_ms: Some(3200.0),
         tbt_ms: Some(180.0),
         cls: Some(0.03),
-        score: 72,
+        score: Some(72),
     }];
     report.patterns = Some(auditmysite::patterns::PatternAnalysis {
         recognized: vec![auditmysite::patterns::RecognizedPattern {

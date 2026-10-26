@@ -413,6 +413,22 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::best_practices::console_errors::CONSOLE,
     &crate::best_practices::vulnerable_libs::LIBRARIES,
     &crate::design_quality::CANDIDATES,
+    &crate::performance::vitals::OBSERVERS,
+    &crate::performance::vitals::CDP_METRICS,
+    &crate::performance::vitals::NAVIGATION_TIMING,
+    &crate::performance::vitals::LCP,
+    &crate::performance::vitals::FCP,
+    &crate::performance::vitals::CLS,
+    &crate::performance::vitals::TBT,
+    &crate::performance::module::CONTENT_WEIGHT,
+    &crate::performance::module::RENDER_BLOCKING,
+    &crate::performance::module::THIRD_PARTY,
+    &crate::performance::module::CRITICAL_CHAIN,
+    &crate::performance::module::MINIFICATION,
+    &crate::performance::module::ANIMATIONS,
+    &crate::performance::coverage::JS_COVERAGE,
+    &crate::performance::coverage::CSS_COVERAGE,
+    &crate::performance::third_party::ISOLATION,
     &crate::dark_mode::STATIC_SUPPORT,
     &crate::dark_mode::PRINT_STYLESHEET,
     &crate::dark_mode::PRINT_LAYOUT,
@@ -627,6 +643,58 @@ mod tests {
                 "design_quality.candidates",
                 crate::design_quality::counter_cases,
             ),
+            (
+                "performance.observers",
+                crate::performance::vitals::counter_cases,
+            ),
+            (
+                "performance.cdp_metrics",
+                crate::performance::vitals::counter_cases,
+            ),
+            (
+                "performance.navigation_timing",
+                crate::performance::vitals::counter_cases,
+            ),
+            ("performance.lcp", crate::performance::vitals::counter_cases),
+            ("performance.fcp", crate::performance::vitals::counter_cases),
+            ("performance.cls", crate::performance::vitals::counter_cases),
+            ("performance.tbt", crate::performance::vitals::counter_cases),
+            (
+                "performance.content_weight",
+                crate::performance::content_weight::counter_cases,
+            ),
+            (
+                "performance.render_blocking",
+                crate::performance::render_blocking::counter_cases,
+            ),
+            (
+                "performance.third_party",
+                crate::performance::third_party::counter_cases,
+            ),
+            (
+                "performance.critical_chain",
+                crate::performance::critical_chain::counter_cases,
+            ),
+            (
+                "performance.minification",
+                crate::performance::minification::counter_cases,
+            ),
+            (
+                "performance.animations",
+                crate::performance::animations::counter_cases,
+            ),
+            (
+                "performance.js_coverage",
+                crate::performance::coverage::counter_cases,
+            ),
+            (
+                "performance.css_coverage",
+                crate::performance::coverage::counter_cases,
+            ),
+            (
+                "performance.third_party_isolation",
+                crate::performance::third_party::counter_cases,
+            ),
             ("dark_mode.static_support", crate::dark_mode::counter_cases),
             (
                 "dark_mode.print_stylesheet",
@@ -661,6 +729,46 @@ mod tests {
                 "counter-cases for unknown collector {id}"
             );
         }
+    }
+
+    /// Plan 69 / #777: a lost collection makes the run partial, all of them
+    /// lost makes it failed — not "completed" with an empty, passing result.
+    #[test]
+    fn fold_marks_partial_and_failed_runs() {
+        use crate::audit::{ExecutionStatus, ModuleRun};
+        let record = |collector: &str, state| CollectionRecord {
+            collector: collector.into(),
+            module: "best_practices".into(),
+            state,
+            method: CollectionMethod::JavaScript,
+            method_version: 1,
+            scoring: true,
+            reason_code: None,
+            gaps: vec![],
+        };
+        let status = |states: [CollectionState; 2]| {
+            let mut runs = vec![ModuleRun {
+                module: "best_practices".into(),
+                status: ExecutionStatus::Completed,
+                ..Default::default()
+            }];
+            fold_records(
+                &mut runs,
+                vec![
+                    record("best_practices.console", states[0]),
+                    record("best_practices.libraries", states[1]),
+                ],
+            );
+            (runs[0].status, runs[0].subchecks.len())
+        };
+        use CollectionState::{Empty, Failed, Measured, NotApplicable};
+        assert_eq!(status([Measured, Empty]), (ExecutionStatus::Completed, 2));
+        assert_eq!(
+            status([Measured, NotApplicable]),
+            (ExecutionStatus::Completed, 2)
+        );
+        assert_eq!(status([Failed, Measured]), (ExecutionStatus::Partial, 2));
+        assert_eq!(status([Failed, Failed]), (ExecutionStatus::Failed, 2));
     }
 
     #[test]

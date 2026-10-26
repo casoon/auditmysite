@@ -615,14 +615,25 @@ async fn audit_on_page(
         });
         if let Some((baseline_tbt_ms, origins)) = baseline {
             if !origins.is_empty() {
-                let impacts = crate::performance::isolate_third_party_impact(
-                    page,
-                    browser,
-                    url,
-                    &origins,
-                    baseline_tbt_ms,
-                )
-                .await;
+                let log = crate::audit::collection::CollectionLog::new();
+                let impacts = log
+                    .record(
+                        &crate::performance::third_party::ISOLATION,
+                        crate::performance::isolate_third_party_impact(
+                            page,
+                            browser,
+                            url,
+                            &origins,
+                            baseline_tbt_ms,
+                        )
+                        .await,
+                    )
+                    .into_value()
+                    .unwrap_or_default();
+                crate::audit::collection::fold_records(
+                    &mut report.accessibility.execution.module_runs,
+                    log.into_records(),
+                );
                 if let Some(perf) = report.performance.as_mut() {
                     if let Some(third_party) = perf.third_party.as_mut() {
                         third_party.isolated_impact = impacts;
