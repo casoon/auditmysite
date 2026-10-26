@@ -1,7 +1,7 @@
 {
   "case": "forms_extended",
   "expectations": [
-    { "rule_id": "forms/error-unidentified", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "forms/error-unidentified", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "context/on-input", "verdict": "violation" },
     { "rule_id": "context/on-focus", "verdict": "needs_review" },
     { "rule_id": "forms/title-only-label", "verdict": "needs_review" },

@@ -22,15 +22,19 @@ use common::fixture_server::serve_html;
 // `table_missing_caption` sat in the Level-A band because the implicit
 // `<tbody>` under `<table><tr>` hid the rows from the required-children check
 // (a false 4.1.2 high, #659/#674). With that fixed it only carries the caption
-// review hint, so it is a practically clean page.
+// review hint, so it is a practically clean page. `svg_no_title` (an `<svg>`
+// without role `img`) and `patterns_disclosure` (a positive `tabindex`) carry
+// only a review item since a11y-rules 0.26: the markup alone does not prove
+// the failure (#779).
 const CLEAN: &[&str] = &[
     "wcag_fixtures/perfect.html",
     "fixtures/detection_corpus/table_missing_caption.html",
+    "fixtures/detection_corpus/svg_no_title.html",
+    "fixtures/detection_corpus/patterns_disclosure.html",
 ];
 
 const ONE_LEVEL_A_HIGH: &[&str] = &[
     "wcag_fixtures/missing_image_alt.html",
-    "fixtures/detection_corpus/svg_no_title.html",
     "fixtures/detection_corpus/object_no_alt.html",
     "fixtures/detection_corpus/frame_missing_title.html",
     "fixtures/detection_corpus/meta_refresh_present.html",
@@ -39,7 +43,6 @@ const ONE_LEVEL_A_HIGH: &[&str] = &[
     "wcag_fixtures/invalid_aria.html",
     "fixtures/detection_corpus/aria_invalid_attr_value.html",
     "fixtures/detection_corpus/table_headers_no_data.html",
-    "fixtures/detection_corpus/patterns_disclosure.html",
 ];
 
 const WITH_CRITICAL: &[&str] = &[
