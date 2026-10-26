@@ -281,6 +281,9 @@ mod tests {
 
     fn make_finding(rule_id: &str) -> NormalizedFinding {
         NormalizedFinding {
+            id: String::new(),
+            patterns: Vec::new(),
+            pattern_count: 0,
             category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.3.4".into(),

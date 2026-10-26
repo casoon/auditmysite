@@ -7,6 +7,7 @@
 //! that are either true or false, never a judgment call.
 
 mod checks;
+mod invariants;
 
 use serde::Serialize;
 

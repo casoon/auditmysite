@@ -127,7 +127,19 @@ pub(crate) fn score_from_penalties(
     // (90 = SEHR GUT): Level A is the conformance floor, a page failing it is
     // not conformant. Before, one missing alt text on an otherwise clean page
     // scored 92 (plan 47, calibration decision 2026-09-26).
-    let score_cap: f32 = if critical_occurrences >= 1 {
+    raw_score.min(semantic_cap(
+        critical_occurrences,
+        urgent_occurrences,
+        level_a_urgent_occurrences,
+    ))
+}
+
+pub(super) fn semantic_cap(
+    critical_occurrences: usize,
+    urgent_occurrences: usize,
+    level_a_urgent_occurrences: usize,
+) -> f32 {
+    if critical_occurrences >= 1 {
         49.0
     } else if level_a_urgent_occurrences >= 1 {
         89.0
@@ -135,12 +147,85 @@ pub(crate) fn score_from_penalties(
         92.0
     } else {
         100.0
-    };
-
-    raw_score.min(score_cap)
+    }
 }
 
 impl AccessibilityScorer {
+    /// Execution-backed coverage of the automated checks in this run.
+    /// Missing, failed and review-only checks must never become passes merely
+    /// because no violation was retained. This is not WCAG conformance.
+    pub fn calculate_execution_coverage(results: &crate::wcag::WcagResults) -> PrincipleCoverage {
+        let mut criteria: BTreeMap<String, bool> = BTreeMap::new();
+        for run in &results.rule_outcomes {
+            let ids = if run.wcag.is_empty() {
+                criterion_for_rule(&run.rule_id).into_iter().collect()
+            } else {
+                run.wcag.clone()
+            };
+            for id in ids {
+                let passed = run.not_run.is_none();
+                criteria
+                    .entry(id)
+                    .and_modify(|p| *p &= passed)
+                    .or_insert(passed);
+            }
+        }
+        for finding in results
+            .violations
+            .iter()
+            .chain(&results.warnings)
+            .chain(&results.not_testables)
+        {
+            if let Some(id) = criterion_for_rule(&finding.rule) {
+                criteria.insert(id, false);
+            }
+        }
+        let ratio_for = |principle| {
+            let entries: Vec<_> = criteria
+                .iter()
+                .filter(|(id, _)| principle_for_criterion(id) == Some(principle))
+                .collect();
+            let total = entries.len() as u32;
+            let passed = entries.iter().filter(|(_, passed)| **passed).count() as u32;
+            CoverageRatio {
+                passed,
+                total,
+                ratio: if total == 0 {
+                    0.0
+                } else {
+                    (passed as f32 / total as f32 * 10000.0).round() / 10000.0
+                },
+            }
+        };
+        PrincipleCoverage {
+            perceivable: ratio_for(WcagPrinciple::Perceivable),
+            operable: ratio_for(WcagPrinciple::Operable),
+            understandable: ratio_for(WcagPrinciple::Understandable),
+            robust: ratio_for(WcagPrinciple::Robust),
+        }
+    }
+
+    /// Apply the same safety limits after aggregating viewport scores.
+    /// A barrier in one supported viewport remains a barrier in the page.
+    pub(crate) fn cap_aggregated_score(score: u32, violations: &[Violation]) -> u32 {
+        let critical = violations
+            .iter()
+            .filter(|v| v.severity == Severity::Critical)
+            .count();
+        let urgent = violations
+            .iter()
+            .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
+            .count();
+        let level_a_urgent = violations
+            .iter()
+            .filter(|v| {
+                v.level == crate::cli::WcagLevel::A
+                    && matches!(v.severity, Severity::Critical | Severity::High)
+            })
+            .count();
+        score.min(semantic_cap(critical, urgent, level_a_urgent) as u32)
+    }
+
     /// Calculate accessibility score (0-100) based on violations
     ///
     /// Uses the taxonomy rule registry for per-rule score impacts.

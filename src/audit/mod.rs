@@ -4,7 +4,6 @@
 
 mod access_block;
 pub mod artifacts;
-pub mod baseline;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
@@ -29,13 +28,13 @@ mod risk_assessment;
 mod scoring;
 pub mod summary;
 pub mod template_dedup;
+pub mod validation;
 pub mod verdict;
 
 pub use artifacts::{
     cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, save_artifacts,
     to_audit_report, AuditArtifacts, FetchArtifact, SnapshotArtifact,
 };
-pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
     count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch,
@@ -49,18 +48,18 @@ pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
 pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
-    compute_recurring_rules, compute_worst_risk, AccessibilitySection, AuditExecution,
-    AuditQuality, AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchError,
-    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState,
-    ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
-    CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
-    ExecutionStatus, ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots,
-    PerformanceResults, RecurringRule, RedirectChain, RobotsSitemapConflict, SampleMetadata,
-    ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult,
-    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
-    ViewportScreenshot,
+    compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
+    AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchError, BatchReport,
+    BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState, ConsentCookieSignal,
+    ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry, CrawlDiagnostics,
+    DiscoverabilitySection, DualViewportResults, ExecutionEnvironment, ExecutionStatus,
+    ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots, PerformanceResults,
+    RedirectChain, RobotsSitemapConflict, SampleMetadata, ScreenshotStatus, SitemapDiagnostics,
+    SitemapHttpIssue, SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition,
+    ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
-pub use template_dedup::{detect_template_clusters, TemplateCluster};
+pub use template_dedup::{detect_root_causes, RootCause};
+pub use validation::{normalize_checked, validate_batch, ContractViolation, ReportContractError};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

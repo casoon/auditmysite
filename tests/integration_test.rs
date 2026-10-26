@@ -40,6 +40,173 @@ async fn ci_browser() -> BrowserManager {
 
 #[tokio::test]
 #[ignore = "needs Chrome"]
+async fn foundation_missing_observers_are_not_perfect_zero_metrics() {
+    use auditmysite::performance::{extract_web_vitals, prepare_vitals_collection};
+    let fixture = common::fixture_server::serve_html(
+        "<!doctype html><html lang=en><title>Vitals</title><main><h1>Vitals fixture</h1></main></html>".into(),
+    );
+    let manager = ci_browser().await;
+    let unprepared = manager.new_page().await.unwrap();
+    manager.navigate(&unprepared, &fixture.url).await.unwrap();
+    let missing = extract_web_vitals(&unprepared).await.unwrap();
+    assert!(
+        missing.tbt.is_none(),
+        "no observer must not mean zero blocking time"
+    );
+    assert!(
+        missing.cls.is_none(),
+        "no observer must not mean zero layout shift"
+    );
+    unprepared.close().await.unwrap();
+
+    let prepared = manager.new_page().await.unwrap();
+    prepare_vitals_collection(&prepared).await.unwrap();
+    manager.navigate(&prepared, &fixture.url).await.unwrap();
+    let measured = extract_web_vitals(&prepared).await.unwrap();
+    assert!(
+        measured.tbt.is_some(),
+        "supported observer must preserve a measured zero"
+    );
+    assert!(
+        measured.cls.is_some(),
+        "supported observer must preserve a measured zero"
+    );
+    prepared.close().await.unwrap();
+    fixture.stop();
+}
+
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
+    let fixture = common::fixture_server::serve_html(r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Viewport cap fixture</title><main><h1>Viewport cap fixture</h1><button id=control></button></main><script>
+    const narrow = matchMedia('(max-width: 700px)');
+    function update() { document.getElementById('control').textContent = narrow.matches ? 'Menu' : ''; }
+    narrow.addEventListener('change', update); update();
+    </script></html>"#.into());
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.unwrap();
+    manager.navigate(&page, &fixture.url).await.unwrap();
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .unwrap();
+    let scores = report.viewport_scores.as_ref().unwrap();
+    assert!(
+        scores.desktop.accessibility <= 49 && scores.mobile.accessibility > 49,
+        "fixture must isolate the critical defect to desktop: {scores:?}"
+    );
+    assert!(report.accessibility.score <= 49.0);
+    let normalized = auditmysite::audit::normalize(&report);
+    assert_eq!(
+        report.accessibility.score.round() as u32,
+        normalized.normalized.score
+    );
+    // #772: grade, certificate and verdict follow the capped score, not the
+    // uncapped mobile pass.
+    let capped = normalized.normalized.score as f32;
+    assert_eq!(
+        normalized.normalized.grade,
+        auditmysite::audit::AccessibilityScorer::calculate_grade(capped)
+    );
+    assert!(
+        !matches!(
+            normalized.normalized.certificate.as_str(),
+            "STABIL" | "GUT" | "SEHR GUT"
+        ),
+        "certificate {} for a capped score",
+        normalized.normalized.certificate
+    );
+    let verdict = auditmysite::audit::compute_verdict(
+        &normalized.normalized,
+        &auditmysite::cli::config::VerdictConfig::default(),
+    );
+    assert_eq!(verdict.verdict, auditmysite::audit::Verdict::Fail);
+    auditmysite::output::UnifiedReport::single(&normalized, &report)
+        .to_json(false)
+        .unwrap();
+    page.close().await.unwrap();
+    fixture.stop();
+}
+
+/// #766: different rules at the same element in the two viewport passes both
+/// survive the merge with their own viewport tag, and the same inner selector
+/// in two frames stays two findings (the composite frame selector keeps them
+/// apart; CDP frame ids differ between the passes and are no identity).
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_viewport_merge_keeps_rules_and_frames_apart() {
+    let fixture = common::fixture_server::serve_html(r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Viewport merge fixture</title><main><h1>Viewport merge fixture</h1><button id=probe>Probe</button><iframe title="First frame" srcdoc="<!doctype html><html lang=en><title>a</title><main><button></button></main></html>"></iframe><iframe title="Second frame" srcdoc="<!doctype html><html lang=en><title>b</title><main><button></button></main></html>"></iframe></main><script>
+    const narrow = matchMedia('(max-width: 700px)');
+    function update() {
+      const probe = document.getElementById('probe');
+      probe.removeAttribute('role');
+      probe.removeAttribute('aria-pressed');
+      if (narrow.matches) { probe.setAttribute('aria-pressed', 'maybe'); }
+      else { probe.setAttribute('role', 'bogus'); }
+    }
+    narrow.addEventListener('change', update); update();
+    </script></html>"#.into());
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.unwrap();
+    manager.navigate(&page, &fixture.url).await.unwrap();
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .unwrap();
+    let violations = &report.accessibility.wcag_results.violations;
+    let at_probe = |rule: &str| {
+        violations
+            .iter()
+            .find(|v| {
+                v.rule_id.as_deref() == Some(rule)
+                    && v.selector.as_deref().is_some_and(|s| s.contains("probe"))
+            })
+            .unwrap_or_else(|| panic!("{rule} at #probe missing: {violations:#?}"))
+    };
+    assert!(at_probe("aria/role-invalid")
+        .tags
+        .iter()
+        .any(|t| t == "desktop-only"));
+    assert!(at_probe("aria/attribute-value-invalid")
+        .tags
+        .iter()
+        .any(|t| t == "mobile-only"));
+
+    let frame_buttons: Vec<_> = violations
+        .iter()
+        .filter(|v| {
+            v.rule_id.as_deref() == Some("buttons/name-missing")
+                && v.selector.as_deref().is_some_and(|s| s.contains("[frame]"))
+        })
+        .collect();
+    assert_eq!(frame_buttons.len(), 2, "one per frame: {frame_buttons:#?}");
+    assert_ne!(frame_buttons[0].selector, frame_buttons[1].selector);
+    assert!(frame_buttons
+        .iter()
+        .all(|v| v.tags.iter().any(|t| t == "both-viewports")));
+
+    // The normalized report keeps both rules as their own findings.
+    let normalized = auditmysite::audit::normalize(&report);
+    for rule in [
+        "a11y.aria_roles.invalid",
+        "a11y.aria_valid_attr_value.invalid",
+    ] {
+        assert!(
+            normalized
+                .normalized
+                .findings
+                .iter()
+                .any(|f| f.rule_id == rule),
+            "{rule} missing in the normalized findings"
+        );
+    }
+    auditmysite::output::UnifiedReport::single(&normalized, &report)
+        .to_json(false)
+        .unwrap();
+    page.close().await.unwrap();
+    fixture.stop();
+}
+
+#[tokio::test]
+#[ignore = "needs Chrome"]
 async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
     let (url, shutdown) = serve_fixture("svg_graphics_roles.html");
     let manager = ci_browser().await;
@@ -306,6 +473,11 @@ async fn test_full_audit_with_all_modules() {
     let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
+
+    let normalized = auditmysite::audit::normalize(&report);
+    auditmysite::output::UnifiedReport::single(&normalized, &report)
+        .to_json(false)
+        .expect("full pipeline must preserve export invariants");
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 

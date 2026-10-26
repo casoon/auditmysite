@@ -106,20 +106,55 @@ pub struct PerformanceScore {
     pub is_capped: Option<bool>,
 }
 
+impl PerformanceScore {
+    /// A comparable headline score requires every core lab metric. A
+    /// renormalized subset may be shown diagnostically, never as a full run.
+    pub fn has_core_metrics(&self) -> bool {
+        self.lcp_score.is_some()
+            && self.fcp_score.is_some()
+            && self.cls_score.is_some()
+            && self.interactivity_score.is_some()
+    }
+}
+
 /// Calculate performance score from Web Vitals and Content Weight.
 ///
 /// Weights follow Lighthouse v10/v11 (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %, SI 10 %).
-/// The overall score is normalized to the metrics that were actually measured.
+/// Estimated Speed Index is diagnostic and carries no score weight. Subset
+/// scores are diagnostic too; only all four core metrics qualify the module
+/// for the weighted report score.
 /// Then deductions and caps are applied based on content size, request count, and DOM complexity.
 pub fn calculate_performance_score(
     vitals: &WebVitals,
     content_weight: Option<&ContentWeight>,
 ) -> PerformanceScore {
-    let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
-    let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
-    let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value));
-    let interactivity_score = vitals.tbt.as_ref().map(|v| score_interactivity(v.value));
-    let si_score = vitals.speed_index.as_ref().map(|v| score_si(v.value));
+    let valid = |v: &&super::VitalMetric| v.value.is_finite() && v.value >= 0.0;
+    let lcp_score = vitals
+        .lcp
+        .as_ref()
+        .filter(valid)
+        .map(|v| score_lcp(v.value));
+    let fcp_score = vitals
+        .fcp
+        .as_ref()
+        .filter(valid)
+        .map(|v| score_fcp(v.value));
+    let cls_score = vitals
+        .cls
+        .as_ref()
+        .filter(valid)
+        .map(|v| score_cls(v.value));
+    let interactivity_score = vitals
+        .tbt
+        .as_ref()
+        .filter(valid)
+        .map(|v| score_interactivity(v.value));
+    let si_score = vitals
+        .speed_index
+        .as_ref()
+        .filter(valid)
+        .filter(|v| !v.is_estimated())
+        .map(|v| score_si(v.value));
 
     let mut total = 0u32;
     let mut max_possible = 0u32;

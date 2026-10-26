@@ -1,0 +1,111 @@
+{
+  "repository": "casoon/auditmysite",
+  "milestone": 2,
+  "tracker": 792,
+  "requirements": [
+    {
+      "audit_id": "U01",
+      "issue": 766
+    },
+    {
+      "audit_id": "U02",
+      "issue": 767
+    },
+    {
+      "audit_id": "U03",
+      "issue": 768
+    },
+    {
+      "audit_id": "U04",
+      "issue": 769
+    },
+    {
+      "audit_id": "U05",
+      "issue": 770
+    },
+    {
+      "audit_id": "U06",
+      "issue": 771
+    },
+    {
+      "audit_id": "U07",
+      "issue": 772
+    },
+    {
+      "audit_id": "U08",
+      "issue": 773
+    },
+    {
+      "audit_id": "U09",
+      "issue": 774
+    },
+    {
+      "audit_id": "U10",
+      "issue": 775
+    },
+    {
+      "audit_id": "U11",
+      "issue": 776
+    },
+    {
+      "audit_id": "U12",
+      "issue": 777
+    },
+    {
+      "audit_id": "U13",
+      "issue": 778
+    },
+    {
+      "audit_id": "U14",
+      "issue": 779
+    },
+    {
+      "audit_id": "U15",
+      "issue": 780
+    },
+    {
+      "audit_id": "U16",
+      "issue": 781
+    },
+    {
+      "audit_id": "U17",
+      "issue": 782
+    },
+    {
+      "audit_id": "U18",
+      "issue": 783
+    },
+    {
+      "audit_id": "U19",
+      "issue": 784
+    },
+    {
+      "audit_id": "U20",
+      "issue": 785
+    },
+    {
+      "audit_id": "U21",
+      "issue": 786
+    },
+    {
+      "audit_id": "U22",
+      "issue": 787
+    },
+    {
+      "audit_id": "U23",
+      "issue": 788
+    },
+    {
+      "audit_id": "U24",
+      "issue": 789
+    },
+    {
+      "audit_id": "U25",
+      "issue": 790
+    },
+    {
+      "audit_id": "U26",
+      "issue": 791
+    }
+  ]
+}

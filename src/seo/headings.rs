@@ -133,9 +133,8 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
         .await
         .map_err(|e| AuditError::CdpError(format!("Heading analysis failed: {}", e)))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-
-    let headings: Vec<HeadingInfo> = serde_json::from_str(json_str).unwrap_or_default();
+    let headings: Vec<HeadingInfo> =
+        crate::util::decode_collector(js_result.value(), "Heading extraction")?;
 
     Ok(check_headings_structure(headings))
 }

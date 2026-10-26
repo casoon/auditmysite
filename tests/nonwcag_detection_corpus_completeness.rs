@@ -17,6 +17,52 @@ use common::detection_corpus::{
 };
 use std::collections::BTreeSet;
 
+#[test]
+#[ignore = "strict release gate: deferred checks are not verified checks"]
+fn release_nonwcag_coverage_is_complete() {
+    use common::detection_corpus::Verdict;
+    let mut gaps = Vec::new();
+    for (domain, ids) in [
+        (
+            "security",
+            common::nonwcag_rule_inventory::canonical_security_check_ids(),
+        ),
+        (
+            "schema_rules",
+            common::nonwcag_rule_inventory::canonical_schema_feature_ids(),
+        ),
+        (
+            "vulnerable_libs",
+            common::nonwcag_rule_inventory::canonical_vulnerable_library_ids(),
+        ),
+    ] {
+        let cases = load_corpus_dir(&nonwcag_detection_corpus_dir(domain));
+        for id in ids {
+            let expectations: Vec<_> = cases
+                .iter()
+                .flat_map(|case| &case.expectations)
+                .filter(|e| e.rule_id == id)
+                .collect();
+            let positive = expectations
+                .iter()
+                .any(|e| matches!(e.verdict, Verdict::Violation | Verdict::NeedsReview));
+            let negative = expectations
+                .iter()
+                .any(|e| matches!(e.verdict, Verdict::Pass | Verdict::Absent));
+            if !positive || !negative {
+                gaps.push(format!(
+                    "{domain}/{id}: positive={positive}, negative={negative}"
+                ));
+            }
+        }
+    }
+    assert!(
+        gaps.is_empty(),
+        "Unverified check contracts block release:\n{}",
+        gaps.join("\n")
+    );
+}
+
 /// Runs the shared gap-report/authoring-bug-guard logic for one domain.
 fn check_domain(domain: &str, canonical: BTreeSet<String>) {
     let corpus_dir = nonwcag_detection_corpus_dir(domain);

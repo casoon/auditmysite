@@ -204,9 +204,7 @@ pub async fn extract_meta_tags(page: &Page) -> Result<MetaTags> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Meta extraction failed: {}", e)))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-
-    let meta: MetaTags = serde_json::from_str(json_str).unwrap_or_default();
+    let meta: MetaTags = crate::util::decode_collector(js_result.value(), "Meta extraction")?;
 
     info!(
         "Meta tags: title={}, description={}, viewport={}",

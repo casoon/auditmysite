@@ -217,6 +217,7 @@ impl SnapshotData {
             "source_quality" | "ai_visibility" | "content_visibility" | "commerce"
         );
         let status = match &data {
+            ModuleData::HtmlConform(h) if !h.checked => crate::audit::ExecutionStatus::Failed,
             ModuleData::Error(_) => crate::audit::ExecutionStatus::Failed,
             ModuleData::None if derive_only => crate::audit::ExecutionStatus::Skipped,
             ModuleData::None => crate::audit::ExecutionStatus::Failed,
@@ -650,6 +651,9 @@ async fn audit_on_page(
         }
     }
 
+    update_audit_quality(&mut report);
+    super::normalize_checked(&report)?;
+
     // Persist now that the report is final (post canonical-performance), so a
     // cache hit renders identically to this fresh run (#404).
     if config.persist_artifacts {
@@ -824,7 +828,7 @@ pub async fn audit_page(
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile.
     // Filtered by the finding's own axe_id ("css-overflow-hidden", REFLOW_RULE.axe_id)
-    // rather than the "reflow" logging-only label used for RuleRun below, since
+    // with the same concrete ID used for RuleRun below, since
     // that's the id `[rules] disabled`/`enabled_only` in auditmysite.toml is
     // documented against and the one users actually see on the finding (#560).
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA)
@@ -832,8 +836,12 @@ pub async fn audit_page(
     {
         info!("Running reflow check at 320 CSS px...");
         let raw_reflow_findings = wcag::check_reflow_with_page(page).await;
-        let (reflow_outcome, reflow_findings) =
-            page_rule_outcome("reflow", Some("1.4.10"), "mobile", raw_reflow_findings);
+        let (reflow_outcome, reflow_findings) = page_rule_outcome(
+            "css-overflow-hidden",
+            Some("1.4.10"),
+            "mobile",
+            raw_reflow_findings,
+        );
         if !reflow_findings.is_empty() {
             info!("Found reflow violation at 320px");
         }
@@ -864,7 +872,7 @@ pub async fn audit_page(
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
     // the blend as `module_scores` drops it from the overall (plan 73).
-    let measured = |p: &crate::audit::PerformanceResults| p.score.metrics_available > 0;
+    let measured = |p: &crate::audit::PerformanceResults| p.score.has_core_metrics();
     let desktop_perf_input = desktop_snap
         .performance
         .as_ref()
@@ -877,7 +885,11 @@ pub async fn audit_page(
         .map(|p| p.score.overall);
     let mobile_seo_score = mobile_snap.seo.as_ref().map(|s| s.score);
     let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
-    let mobile_hc_score = mobile_snap.html_conform.as_ref().map(|h| h.score);
+    let mobile_hc_score = mobile_snap
+        .html_conform
+        .as_ref()
+        .filter(|h| h.checked)
+        .map(|h| h.score);
 
     let desktop_overall =
         compute_viewport_overall(desktop_acc, &[("Performance", desktop_perf_input)]);
@@ -1084,11 +1096,13 @@ pub async fn audit_page(
     };
     report.dual_viewport = Some(dual_viewport);
     report.viewport_scores = Some(viewport_scores);
-    // The report-wide accessibility score is the reproducible 70/30 blend of
-    // the two viewport scores shown in JSON/PDF. The merged finding union is
-    // still used for evidence, counts and remediation, but must not silently
-    // create a third, lower score beside the two viewport values.
-    report.accessibility.score = weighted_accessibility as f32;
+    // The viewport blend remains reproducible, with the same semantic caps
+    // as normalization. A critical finding in either view bounds the raw
+    // report too, so raw API consumers do not receive an inflated score.
+    report.accessibility.score = AccessibilityScorer::cap_aggregated_score(
+        weighted_accessibility,
+        &report.accessibility.wcag_results.violations,
+    ) as f32;
     report.accessibility.grade =
         AccessibilityScorer::calculate_grade(report.accessibility.score).to_string();
     report.accessibility.certificate =
@@ -1179,6 +1193,7 @@ pub async fn audit_page(
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
     update_audit_quality(&mut report);
+    super::normalize_checked(&report)?;
 
     // Persistence is deferred to the caller: the single-page path applies the
     // canonical (LhMobile) performance pass *after* audit_page returns, so
@@ -1614,11 +1629,48 @@ async fn run_rules(
             .split('/')
             .next()
             .filter(|id| id.chars().all(|c| c.is_ascii_digit() || c == '.'));
-        let (outcome, findings) =
+        let (mut outcome, findings) =
             page_rule_outcome(rule.rule_id, criterion, viewport_label, raw_findings);
         if !findings.is_empty() {
             info!("Found {} {} violations", findings.len(), rule.name);
         }
+        let mut concrete_ids: std::collections::BTreeSet<&str> =
+            rule.outcome_ids.iter().copied().collect();
+        concrete_ids.extend(
+            findings
+                .iter()
+                .filter_map(|finding| finding.rule_id.as_deref()),
+        );
+        for id in concrete_ids {
+            if id == rule.rule_id {
+                continue;
+            }
+            let mut concrete = outcome.clone();
+            concrete.rule_id = id.to_string();
+            concrete.wcag = crate::taxonomy::criterion_for_rule(id)
+                .into_iter()
+                .collect();
+            concrete.findings = findings
+                .iter()
+                .filter(|finding| {
+                    finding.rule_id.as_deref() == Some(id)
+                        && finding.kind == crate::wcag::Outcome::Fail
+                })
+                .count();
+            if !config.rule_filter.should_run(id) {
+                concrete.not_run = Some(crate::wcag::NotRun::Disabled);
+            }
+            wcag_results.rule_outcomes.push(concrete);
+        }
+        // The executor record describes execution. Concrete IDs above own
+        // the finding counts, so an aggregate ID cannot lose or double them.
+        outcome.findings = findings
+            .iter()
+            .filter(|finding| {
+                finding.rule_id.as_deref() == Some(rule.rule_id)
+                    && finding.kind == crate::wcag::Outcome::Fail
+            })
+            .count();
         wcag_results.rule_outcomes.push(outcome);
         wcag_results.extend_findings(findings);
     }
@@ -2553,7 +2605,7 @@ journey_budget_ms = 1234
     }
 
     #[test]
-    fn test_merge_wcag_violations_contradictory_severity_takes_mobile() {
+    fn test_merge_wcag_violations_contradictory_severity_preserves_critical() {
         use crate::wcag::Severity;
 
         let mut desktop_v = Violation::new(
@@ -2602,8 +2654,9 @@ journey_budget_ms = 1234
         let merged = merge_wcag_violations(&desktop, &mobile);
         assert_eq!(merged.violations.len(), 1);
         let v = &merged.violations[0];
-        // Shared violations take the mobile clone (mobile variant wins).
-        assert_eq!(v.severity, Severity::High);
+        // A supported viewport's critical finding cannot be downgraded by
+        // the other viewport's less severe observation of the same defect.
+        assert_eq!(v.severity, Severity::Critical);
         assert!(v.tags.contains(&"both-viewports".to_string()));
     }
 

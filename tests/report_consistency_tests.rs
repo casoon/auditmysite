@@ -22,6 +22,328 @@ use auditmysite::ux::{analyze_ux, UxAnalysis};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 use auditmysite::AXTree;
 
+// Cross-layer regressions: a locally plausible result must remain truthful
+// after normalization, aggregation and export.
+#[test]
+fn foundation_compact_export_grade_describes_its_score() {
+    let normalized = normalize(&make_full_report()).normalized;
+    assert_ne!(
+        normalized.grade,
+        auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.overall_score as f32)
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&auditmysite::output::format_summary(&normalized).unwrap()).unwrap();
+    assert_eq!(json["score"], normalized.overall_score);
+    assert_eq!(json["accessibilityScore"], normalized.score);
+    assert_eq!(
+        json["grade"],
+        auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.overall_score as f32)
+    );
+}
+
+#[test]
+fn foundation_invalid_performance_values_cannot_be_measured_successes() {
+    use auditmysite::performance::{calculate_performance_score, VitalMetric};
+    for value in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let metric = VitalMetric::new(value, 1.0, 2.0);
+        let vitals = WebVitals {
+            lcp: Some(metric.clone()),
+            fcp: Some(metric.clone()),
+            cls: Some(metric.clone()),
+            tbt: Some(metric.clone()),
+            speed_index: Some(metric),
+            ..Default::default()
+        };
+        let score = calculate_performance_score(&vitals, None);
+        assert_eq!(score.metrics_available, 0, "invalid measurement {value}");
+        assert!(!score.has_core_metrics());
+    }
+}
+
+#[test]
+fn foundation_coverage_requires_execution_and_no_unresolved_result() {
+    use auditmysite::wcag::{NotRun, RuleRun};
+    let mut report = AuditReport::new(
+        "https://example.com".into(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        1,
+    );
+    assert_eq!(
+        normalize(&report)
+            .normalized
+            .principle_coverage
+            .perceivable
+            .passed,
+        0
+    );
+    assert_eq!(
+        normalize(&report)
+            .normalized
+            .principle_coverage
+            .perceivable
+            .ratio,
+        0.0
+    );
+    let runs = &mut report.accessibility.wcag_results.rule_outcomes;
+    runs.push(
+        RuleRun::ran("images/alt-missing", 0)
+            .with_wcag(["1.1.1"])
+            .in_viewport("desktop"),
+    );
+    runs.push(
+        RuleRun::not_run("images/alt-missing", NotRun::Errored)
+            .with_wcag(["1.1.1"])
+            .in_viewport("mobile"),
+    );
+    let coverage = normalize(&report).normalized.principle_coverage.perceivable;
+    assert_eq!((coverage.passed, coverage.total), (0, 1));
+    report.accessibility.wcag_results.rule_outcomes.pop();
+    assert_eq!(
+        normalize(&report)
+            .normalized
+            .principle_coverage
+            .perceivable
+            .passed,
+        1
+    );
+    report
+        .accessibility
+        .wcag_results
+        .warnings
+        .push(Violation::new(
+            "1.1.1",
+            "Review",
+            WcagLevel::A,
+            Severity::Low,
+            "review required",
+            "image",
+        ));
+    assert_eq!(
+        normalize(&report)
+            .normalized
+            .principle_coverage
+            .perceivable
+            .passed,
+        0
+    );
+}
+
+#[test]
+fn foundation_unmeasured_html_never_contributes_to_a_score() {
+    let mut report = make_full_report();
+    let html = report.html_conform.as_mut().unwrap();
+    html.checked = false;
+    html.score = 100;
+    let normalized = normalize(&report).normalized;
+    let entry = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "HTML Conformance")
+        .unwrap();
+    assert_eq!(entry.measurement_type, "not_measured");
+    assert!(!entry.contributes_to_overall);
+    assert_eq!(entry.weight_pct, 0);
+    let json = serde_json::to_value(UnifiedReport::single(&normalize(&report), &report)).unwrap();
+    let entry = json["pages"][0]["module_scores"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["name"] == "HTML Conformance")
+        .unwrap();
+    assert_eq!(entry["contributes_to_overall"], false);
+}
+
+#[test]
+fn foundation_batch_errors_prevent_complete_and_pass() {
+    use auditmysite::audit::{compute_batch_verdict, AuditQualityStatus, BatchError, Verdict};
+    let clean = AuditReport::new(
+        "https://example.com".into(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        1,
+    );
+    for successful in [0, 1, 3] {
+        let batch = BatchReport::from_reports(
+            vec![clean.clone(); successful],
+            vec![BatchError {
+                url: "https://example.com/unreachable".into(),
+                error: "timeout".into(),
+                blocked_reason: None,
+            }],
+            1,
+        );
+        assert_ne!(
+            batch.summary.audit_quality.status,
+            AuditQualityStatus::Complete
+        );
+        assert_ne!(
+            compute_batch_verdict(&batch.summary, &Default::default()).verdict,
+            Verdict::Pass
+        );
+        let json: serde_json::Value =
+            serde_json::from_str(&auditmysite::output::format_json_batch(&batch, false).unwrap())
+                .unwrap();
+        assert_eq!(json["audit_quality"]["qualified_results"], true);
+        assert_eq!(json["summary"]["attempted_url_count"], successful + 1);
+    }
+}
+
+#[test]
+fn foundation_pass_policy_is_the_same_for_raw_and_normalized_results() {
+    use auditmysite::audit::{compute_verdict, Verdict};
+    for severity in [
+        Severity::Low,
+        Severity::Medium,
+        Severity::High,
+        Severity::Critical,
+    ] {
+        let mut wcag = WcagResults::new();
+        wcag.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                severity,
+                "Missing alt",
+                "image",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, wcag, 1);
+        let normalized = normalize(&report).normalized;
+        assert_eq!(
+            report.passed(),
+            compute_verdict(&normalized, &Default::default()).verdict == Verdict::Pass
+        );
+    }
+}
+
+#[test]
+fn foundation_viewport_blending_cannot_hide_critical_barriers() {
+    use auditmysite::audit::{ViewportScoreSet, ViewportScores};
+    let mut report = make_full_report();
+    for (desktop, mobile) in [(49, 100), (100, 49)] {
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: desktop,
+                performance: None,
+                overall: desktop,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: mobile,
+                performance: None,
+                overall: mobile,
+            },
+            weighted_overall: ((desktop as f64 * 0.3) + mobile as f64 * 0.7).round() as u32,
+        });
+        let normalized = normalize(&report).normalized;
+        assert!(
+            normalized.score <= 49,
+            "critical finding survived but score was {}",
+            normalized.score
+        );
+        assert_eq!(
+            normalized.grade,
+            auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.score as f32)
+        );
+    }
+}
+
+#[test]
+fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
+    use auditmysite::audit::{ViewportScoreSet, ViewportScores};
+    // Independent oracle: the published product weights, including subsets
+    // and boundary values. Viewport diagnostic values must not change them.
+    for mask in 0..32 {
+        for a11y in [0, 49, 70, 89, 100] {
+            let mut report = make_full_report();
+            report.accessibility.wcag_results = WcagResults::new();
+            report.accessibility.score = a11y as f32;
+            report.viewport_scores = Some(ViewportScores {
+                desktop: ViewportScoreSet {
+                    accessibility: a11y,
+                    performance: Some(0),
+                    overall: 0,
+                },
+                mobile: ViewportScoreSet {
+                    accessibility: a11y,
+                    performance: Some(100),
+                    overall: 100,
+                },
+                weighted_overall: 70,
+            });
+            if mask & 1 == 0 {
+                report.performance = None;
+            }
+            if mask & 2 == 0 {
+                report.discoverability.seo = None;
+            }
+            if mask & 4 == 0 {
+                report.security = None;
+            }
+            if mask & 8 == 0 {
+                report.experience.mobile = None;
+            }
+            if mask & 16 == 0 {
+                report.html_conform = None;
+            }
+            let scores = [
+                (Some(a11y), 40u32),
+                (report.performance.as_ref().map(|p| p.score.overall), 20),
+                (report.discoverability.seo.as_ref().map(|s| s.score), 15),
+                (report.security.as_ref().map(|s| s.score), 10),
+                (report.experience.mobile.as_ref().map(|m| m.score), 10),
+                (report.html_conform.as_ref().map(|h| h.score), 5),
+            ];
+            let (sum, denominator) = scores
+                .into_iter()
+                .filter_map(|(s, w)| s.map(|s| (s, w)))
+                .fold((0, 0), |(sum, weight), (s, w)| (sum + s * w, weight + w));
+            let expected = (sum as f64 / denominator as f64).round() as u32;
+            let normalized = normalize(&report).normalized;
+            assert_eq!(
+                normalized.overall_score, expected,
+                "subset {mask}, a11y {a11y}"
+            );
+        }
+    }
+}
+
+#[test]
+fn foundation_lint_rejects_consistent_looking_but_false_reports() {
+    let report = make_full_report();
+    let base = serde_json::to_value(UnifiedReport::single(&normalize(&report), &report)).unwrap();
+    let mut wrong_score = base.clone();
+    for value in ["score", "overall_score"] {
+        wrong_score["summary"][value] = 99.into();
+    }
+    wrong_score["pages"][0]["overall_score"] = 99.into();
+    let mut lost_rule = base.clone();
+    lost_rule["pages"][0]["rule_outcomes"] = serde_json::json!([
+        {"rule_id":"aria/role-invalid","wcag":["4.1.2"],"findings":1,"viewport":"desktop"}
+    ]);
+    let mut missing_check = base.clone();
+    missing_check["audit_scope"] = serde_json::json!({"requested_modules":["security"]});
+    missing_check["pages"][0]["module_runs"] = serde_json::json!([]);
+    let mut failed_page = base;
+    failed_page["errors"] =
+        serde_json::json!([{"url":"https://example.com/failed","error":"timeout"}]);
+    for (json, expected) in [
+        (wrong_score, "overall_score_matches_module_weights"),
+        (lost_rule, "rule_findings_preserved"),
+        (missing_check, "requested_module_has_outcome"),
+        (failed_page, "audit_completeness_matches_execution"),
+    ] {
+        let lint = auditmysite::lint::lint(&json, None);
+        assert!(
+            lint.findings.iter().any(|f| f.check_id == expected),
+            "{expected}: {:?}",
+            lint.findings
+        );
+    }
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────
 
 fn make_violations() -> WcagResults {
@@ -1563,4 +1885,223 @@ fn batch_top_actions_match_pdf_and_aggregate_across_pages() {
         "{}",
         structure["expected_impact"]
     );
+}
+
+// The domain model must reject contradictions before any formatter exists.
+#[test]
+fn domain_contract_rejects_mutated_facts_before_presentation() {
+    let valid = normalize(&make_full_report()).normalized;
+    valid
+        .validate()
+        .expect("fixture must satisfy the domain contract");
+    let mut cases: Vec<(&str, auditmysite::audit::NormalizedReport)> = Vec::new();
+    let mut changed = valid.clone();
+    changed.overall_score = (changed.overall_score + 1) % 101;
+    cases.push(("overall_score", changed));
+    let mut changed = valid.clone();
+    changed.grade = "A".into();
+    if changed.grade == valid.grade {
+        changed.grade = "F".into();
+    }
+    cases.push(("grade", changed));
+    let mut changed = valid.clone();
+    changed.severity_counts.total += 1;
+    cases.push(("severity_counts", changed));
+    let mut changed = valid.clone();
+    changed.occurrence_counts.total += 1;
+    cases.push(("occurrence_counts", changed));
+    let mut changed = valid.clone();
+    changed.module_scores.push(changed.module_scores[0].clone());
+    cases.push(("module_identity", changed));
+    let mut changed = valid.clone();
+    changed.module_scores[0].score = 101;
+    cases.push(("score_range", changed));
+    let mut changed = valid.clone();
+    for module in &mut changed.module_scores {
+        module.score = u32::MAX;
+        module.weight_pct = u32::MAX;
+    }
+    cases.push(("score_range", changed));
+    let mut changed = valid.clone();
+    changed.module_scores[0].measurement_type = "not_measured".into();
+    cases.push(("weighted_measurement", changed));
+    let mut changed = valid.clone();
+    changed.module_scores[0].weight_pct += 1;
+    cases.push(("module_weight", changed));
+    let mut changed = valid.clone();
+    changed
+        .execution
+        .scope
+        .requested_modules
+        .push("never_executed".into());
+    cases.push(("requested_execution", changed));
+    let mut changed = valid.clone();
+    changed.execution.quality.qualified_results = !changed.execution.quality.qualified_results;
+    cases.push(("quality_qualification", changed));
+    for (expected, report) in cases {
+        let error = report.validate().expect_err(expected);
+        assert!(
+            error.violations.iter().any(|v| v.code == expected),
+            "{expected}: {error}"
+        );
+    }
+}
+
+#[test]
+fn domain_contract_collects_errors_and_covers_batch_aggregation() {
+    use auditmysite::audit::validate_batch;
+    let mut report = normalize(&make_full_report()).normalized;
+    report.grade = "INVALID".into();
+    report.overall_score = 999;
+    let error = report.validate().unwrap_err();
+    assert!(error.violations.len() >= 2);
+
+    let clean = AuditReport::new(
+        "https://example.com".into(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        1,
+    );
+    let batch = BatchReport::from_reports(vec![clean], vec![], 1);
+    validate_batch(&batch).unwrap();
+    for field in ["average_score", "passed", "total_urls"] {
+        let mut changed = batch.clone();
+        match field {
+            "average_score" => changed.summary.average_score = 0.0,
+            "passed" => changed.summary.passed = 0,
+            _ => changed.summary.total_urls = 2,
+        }
+        assert!(validate_batch(&changed).is_err(), "{field}");
+    }
+}
+
+#[test]
+fn domain_contract_accepts_honest_partial_results_and_rejects_false_completeness() {
+    use auditmysite::audit::{AuditQualityStatus, ExecutionStatus, ModuleRun, SubcheckRun};
+    let mut normalized = normalize(&make_full_report()).normalized;
+    normalized
+        .execution
+        .scope
+        .requested_modules
+        .push("optional_probe".into());
+    normalized.execution.module_runs.push(ModuleRun {
+        module: "optional_probe".into(),
+        status: ExecutionStatus::Partial,
+        subchecks: vec![SubcheckRun {
+            subcheck: "detail".into(),
+            status: ExecutionStatus::Failed,
+            reason_code: Some("probe_timeout".into()),
+        }],
+        ..Default::default()
+    });
+    normalized.execution.quality.status = AuditQualityStatus::Partial;
+    normalized.execution.quality.qualified_results = true;
+    normalized.validate().unwrap();
+    normalized.execution.quality.status = AuditQualityStatus::Complete;
+    normalized.execution.quality.qualified_results = false;
+    assert!(normalized
+        .validate()
+        .unwrap_err()
+        .violations
+        .iter()
+        .any(|v| v.code == "execution_completeness"));
+    normalized.execution.module_runs[0].status = ExecutionStatus::NotRequested;
+    assert!(normalized
+        .validate()
+        .unwrap_err()
+        .violations
+        .iter()
+        .any(|v| v.code == "requested_execution"));
+}
+
+#[test]
+fn domain_contract_blocks_alternative_exports_of_invalid_cached_data() {
+    let mut normalized = normalize(&make_full_report()).normalized;
+    normalized.overall_score = 101;
+    assert!(auditmysite::output::format_summary(&normalized).is_err());
+    assert!(auditmysite::output::format_sarif(&[&normalized]).is_err());
+    assert!(auditmysite::output::format_json_cached(&normalized, false).is_err());
+}
+
+#[test]
+fn domain_contract_distinguishes_capture_gaps_from_intentional_scope() {
+    use auditmysite::audit::frames::{FrameCoverage, FrameEntry, FrameSkipReason};
+    use auditmysite::interaction::stability::{StabilityProvenance, StabilityStatus};
+    let valid = normalize(&make_full_report()).normalized;
+    for (reason, gap) in [
+        (Some(FrameSkipReason::Hidden), false),
+        (Some(FrameSkipReason::Excluded), false),
+        (Some(FrameSkipReason::CrossOrigin), true),
+        (Some(FrameSkipReason::AxTreeFailed), true),
+        (Some(FrameSkipReason::DocumentUnavailable), true),
+        (None, true),
+    ] {
+        let mut report = valid.clone();
+        report.execution.frames = Some(FrameCoverage {
+            skipped: vec![FrameEntry {
+                selector: "iframe".into(),
+                reason,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        assert_eq!(report.validate().is_err(), gap, "{reason:?}");
+    }
+    for (status, gap) in [
+        (StabilityStatus::Stable, false),
+        (StabilityStatus::ReadySignal, false),
+        (StabilityStatus::OngoingAnimation, false),
+        (StabilityStatus::Fallback, true),
+        (StabilityStatus::BudgetExhausted, true),
+    ] {
+        let mut report = valid.clone();
+        report
+            .execution
+            .navigation
+            .stability
+            .push(StabilityProvenance {
+                status,
+                ..Default::default()
+            });
+        assert_eq!(report.validate().is_err(), gap, "{status:?}");
+    }
+}
+
+#[test]
+fn domain_contract_detects_lost_findings_even_when_the_remaining_counts_agree() {
+    use auditmysite::wcag::RuleRun;
+    let mut raw = make_full_report();
+    let id = raw.accessibility.wcag_results.violations[0]
+        .rule_id
+        .clone()
+        .unwrap_or_else(|| raw.accessibility.wcag_results.violations[0].rule.clone());
+    raw.accessibility
+        .wcag_results
+        .rule_outcomes
+        .push(RuleRun::ran(id, 1));
+    let mut normalized = normalize(&raw).normalized;
+    normalized.validate().unwrap();
+    normalized.findings.clear();
+    normalized.severity_counts = Default::default();
+    normalized.occurrence_counts = Default::default();
+    assert!(normalized
+        .validate()
+        .unwrap_err()
+        .violations
+        .iter()
+        .any(|v| v.code == "rule_findings_preserved"));
+}
+
+#[cfg(feature = "pdf")]
+#[test]
+fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {
+    let mut report = make_full_report();
+    report.security.as_mut().unwrap().score = 101;
+    let error = auditmysite::output::generate_pdf(&report, &ReportConfig::default()).unwrap_err();
+    assert!(error.to_string().contains("score_range"));
+    let mut batch = BatchReport::from_reports(vec![make_full_report()], vec![], 1);
+    batch.summary.average_score = 999.0;
+    let error =
+        auditmysite::output::generate_batch_pdf(&batch, &ReportConfig::default()).unwrap_err();
+    assert!(error.to_string().contains("batch_aggregation"));
 }

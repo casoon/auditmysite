@@ -40,6 +40,8 @@ pub struct PageRuleEntry {
     /// Stable identifier used in log lines only (not the rule string that
     /// appears in findings — that comes from each check's own metadata).
     pub rule_id: &'static str,
+    /// Concrete finding IDs checked by this executor, including zero-result runs.
+    pub outcome_ids: &'static [&'static str],
     /// Short label for the `"Found N <name> violations"` log line, to match
     /// the previous inline wording exactly.
     pub name: &'static str,
@@ -56,30 +58,35 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level A ───────────────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "4.1.2/frame-tested",
+        outcome_ids: &["frame-tested"],
         name: "frame-tested",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_frame_tested_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.2.2/video-caption-track",
+        outcome_ids: &["video-caption"],
         name: "video-caption-track",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_video_caption_tracks_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "iframe/same-origin-content",
+        outcome_ids: &[],
         name: "same-origin iframe content",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_same_origin_iframes_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.4.2/document-title",
+        outcome_ids: &["document-title"],
         name: "document-title",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_page_titled_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.3.8/accessible-authentication",
+        outcome_ids: &["accessible-auth-paste-blocked"],
         name: "accessible-authentication",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_accessible_authentication_with_page(p)),
@@ -88,18 +95,21 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // `<meta http-equiv="refresh">` runs as `timing/meta-refresh`.
     PageRuleEntry {
         rule_id: "2.2.1/timing-adjustable",
+        outcome_ids: &["meta-refresh"],
         name: "timing-adjustable note",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_timing_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/modern-attributes",
+        outcome_ids: &["modern-attribute-misuse"],
         name: "modern interaction attributes",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_modern_attributes_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.2.2/on-input",
+        outcome_ids: &["context/on-input"],
         name: "on-input context change",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_on_input_with_page(p)),
@@ -109,6 +119,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // without `figure[data-viz]`/`html[data-display]`.
     PageRuleEntry {
         rule_id: "display/modes",
+        outcome_ids: &[
+            "display/init-missing",
+            "display/text-media-visible",
+            "display/text-not-visible",
+            "display/text-hidden",
+        ],
         name: "display-mode convention",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_display_modes_with_page(p)),
@@ -118,6 +134,7 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // RULE_META, which meant they silently never ran at the default AA level.
     PageRuleEntry {
         rule_id: "2.5.2/pointer-cancellation",
+        outcome_ids: &["pointer-cancellation"],
         name: "pointer-cancellation",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
@@ -125,18 +142,21 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.3.4/orientation",
+        outcome_ids: &["css-orientation-lock"],
         name: "orientation",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_orientation_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.12/text-spacing",
+        outcome_ids: &["text-spacing"],
         name: "text-spacing",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_text_spacing_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.4.11/focus-not-obscured-minimum",
+        outcome_ids: &["focus-not-obscured-minimum"],
         name: "focus-not-obscured-minimum",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
@@ -144,24 +164,28 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level AAA only ────────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.2.8/media-alternative",
+        outcome_ids: &["media-alt"],
         name: "media-alternative",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_media_alternative_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "1.4.8/visual-presentation",
+        outcome_ids: &["visual-presentation"],
         name: "visual-presentation",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_visual_presentation_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.2.6/timeouts",
+        outcome_ids: &["timeouts"],
         name: "timeouts",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_timeouts_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.4.12/focus-not-obscured-enhanced",
+        outcome_ids: &["focus-not-obscured-enhanced"],
         name: "focus-not-obscured-enhanced",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_focus_not_obscured_enhanced_with_page(p)),

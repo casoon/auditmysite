@@ -118,6 +118,9 @@ fn location_for(url: &str) -> SarifLocation {
 /// audited page URL as the artifact URI; element context (selector) is
 /// folded into the message text instead of a text region.
 pub fn format_sarif(reports: &[&NormalizedReport]) -> anyhow::Result<String> {
+    for report in reports {
+        report.validate()?;
+    }
     let mut rules: BTreeMap<String, SarifRule> = BTreeMap::new();
     let mut results = Vec::new();
 

@@ -1105,6 +1105,8 @@ mod tests {
             "en",
             None,
         ));
+        report.discoverability.source_quality =
+            Some(crate::source_quality::analyze_source_quality(&report));
         report
     }
 
@@ -1482,7 +1484,12 @@ mod tests {
                             || !matches!(item["wcag_level"].as_str(), Some("A") | Some("AA"))
                     })
                 }),
-                "score_breakdown" => !page["score_breakdown"].is_null(),
+                "score_breakdown" => {
+                    !page["score_breakdown"].is_null()
+                        || page["module_scores"]
+                            .as_array()
+                            .is_some_and(|m| !m.is_empty())
+                }
                 unknown => panic!("REPORT_AREAS contains unmapped JSON area: {unknown}"),
             };
 
@@ -1496,7 +1503,10 @@ mod tests {
                     group.tier == crate::output::report_model::CriticalityTier::Optimization
                         && group.total_findings > 0
                 }),
-                "score_breakdown" => normalized.normalized.score_breakdown.is_some(),
+                "score_breakdown" => {
+                    normalized.normalized.score_breakdown.is_some()
+                        || !normalized.normalized.module_scores.is_empty()
+                }
                 unknown => panic!("REPORT_AREAS contains unmapped PDF area: {unknown}"),
             };
 
