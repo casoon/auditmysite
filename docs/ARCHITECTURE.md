@@ -126,7 +126,6 @@ src/
 │   ├── prioritization.rs # Fix-guidance prioritization
 │   ├── verdict.rs       # Pass/fail verdict derivation
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
-│   ├── baseline.rs      # Baseline/compare-mode support
 │   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
 │   ├── budget.rs        # Concurrency/rate budgeting
 │   ├── crawl.rs         # Link crawling (html5ever-based)

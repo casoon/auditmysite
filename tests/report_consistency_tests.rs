@@ -251,52 +251,6 @@ fn foundation_viewport_blending_cannot_hide_critical_barriers() {
 }
 
 #[test]
-fn foundation_baseline_tracks_rules_and_uses_a_real_date() {
-    use auditmysite::audit::Baseline;
-    let finding = |id: &str| {
-        Violation::new(
-            "4.1.2",
-            "Name Role Value",
-            WcagLevel::A,
-            Severity::High,
-            id,
-            "same-node",
-        )
-        .with_rule_id(id)
-    };
-    let baseline =
-        Baseline::from_violations("https://example.com", &[finding("aria/role-invalid")]);
-    assert_eq!(
-        baseline.created_at,
-        chrono::Utc::now().format("%Y-%m-%d").to_string()
-    );
-    let diff = baseline.diff(&[finding("aria/attribute-value-invalid")]);
-    assert_eq!(diff.unchanged_count, 0);
-    assert_eq!(diff.new_violations.len(), 1);
-    assert_eq!(diff.resolved_violations.len(), 1);
-
-    let stable = finding("aria/role-invalid").with_selector("main button");
-    let baseline =
-        Baseline::from_violations("https://example.com", &[stable.clone(), stable.clone()]);
-    let mut reloaded = stable.clone();
-    reloaded.node_id = "different-after-reload".into();
-    let diff = baseline.diff(&[reloaded]);
-    assert_eq!(diff.unchanged_count, 1);
-    assert_eq!(
-        diff.resolved_violations.len(),
-        1,
-        "duplicates must match one-to-one"
-    );
-    assert!(
-        diff.new_violations.is_empty(),
-        "AX identifiers are not stable across runs"
-    );
-    let mut escalated = stable;
-    escalated.severity = Severity::Critical;
-    assert_eq!(baseline.diff(&[escalated]).new_violations.len(), 1);
-}
-
-#[test]
 fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
     use auditmysite::audit::{ViewportScoreSet, ViewportScores};
     // Independent oracle: the published product weights, including subsets

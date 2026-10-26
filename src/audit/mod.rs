@@ -4,7 +4,6 @@
 
 mod access_block;
 pub mod artifacts;
-pub mod baseline;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
@@ -36,7 +35,6 @@ pub use artifacts::{
     cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, save_artifacts,
     to_audit_report, AuditArtifacts, FetchArtifact, SnapshotArtifact,
 };
-pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
     count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch,

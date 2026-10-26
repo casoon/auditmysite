@@ -38,6 +38,7 @@ and verification for each change is in the
 
 ### Removed
 
+- **Library:** Breaking: the unfinished `audit::Baseline` API (`Baseline`, `BaselineDiff`, `BaselineViolation`, `WaivedViolation`). It was not wired into the CLI and identified findings by criterion and AX node id; a baseline comparison will build on the stable finding and pattern ids.
 - **JSON:** Breaking: `summary.template_clusters`, `summary.top_recurring_rules` and `internal_comparison.root_causes`. Recurring element patterns are `summary.root_causes` with their evidence grade; the former lists either duplicated it or called anything on two pages a "likely template or component".
 
 ### Fixed
