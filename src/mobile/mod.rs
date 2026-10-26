@@ -11,7 +11,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 use crate::taxonomy::Severity;
 
 /// Mobile friendliness analysis results
@@ -341,7 +341,21 @@ fn mobile_score_from_penalty(raw_penalty: u32) -> u32 {
     (100.0 - effective).round().clamp(5.0, 100.0) as u32
 }
 
-pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendliness> {
+/// Viewport, touch targets, font sizes and content width; the mobile score
+/// reads all of it.
+pub(crate) static MOBILE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "mobile.friendliness",
+        module: "mobile",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
+pub async fn analyze_mobile_friendliness(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<MobileFriendliness> {
     info!("Analyzing mobile friendliness...");
 
     let js_code = r#"
@@ -502,12 +516,16 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Mobile analysis failed: {}", e)))?;
-
-    let parsed = crate::util::decode_collector_object(js_result.value(), "mobile extraction")?;
+    let parsed = serde_json::Value::Object(
+        log.record(
+            &MOBILE,
+            crate::audit::collection::evaluate_js::<crate::audit::collection::JsObject>(
+                page, js_code,
+            )
+            .await,
+        )
+        .into_result(&MOBILE)?,
+    );
 
     // Parse viewport
     let vp = &parsed["viewport"];
@@ -701,6 +719,15 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         content_sizing,
         issues,
     })
+}
+
+/// Counter-cases of [`MOBILE`] (#777): without the script result there is no
+/// mobile analysis, not a page without viewport.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"viewport": {}}),
+    );
 }
 
 #[cfg(test)]

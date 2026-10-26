@@ -133,6 +133,8 @@ pub(super) fn build_module_scores(
             bp.score,
             if bp.is_unmeasured() {
                 "not_measured"
+            } else if scoring_gap("best_practices") {
+                "partial"
             } else {
                 "measured"
             },

@@ -1,8 +1,8 @@
 //! Best practices analysis — console errors (#121) and vulnerable libraries (#124).
 
-mod console_errors;
+pub(crate) mod console_errors;
 pub mod module;
-mod vulnerable_libs;
+pub(crate) mod vulnerable_libs;
 
 pub use console_errors::{
     prepare_console_collection, take_console_results, ConsoleErrorsAnalysis, ConsoleMessage,
@@ -15,7 +15,6 @@ pub use vulnerable_libs::{
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::error::Result;
 
@@ -34,34 +33,34 @@ pub struct BestPracticesAnalysis {
 ///
 /// `console_errors` must have been prepared via `prepare_console_collection`
 /// before navigation for results to be meaningful.
-pub async fn analyze_best_practices(page: &Page) -> Result<BestPracticesAnalysis> {
-    let console_errors = match take_console_results(page).await {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("Console error collection failed: {}", e);
-            ConsoleErrorsAnalysis {
-                errors: vec![],
-                warnings: vec![],
-                error_count: 0,
-                warning_count: 0,
-                collected: false,
-            }
-        }
-    };
+pub async fn analyze_best_practices(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<BestPracticesAnalysis> {
+    let console_errors = log
+        .record(&console_errors::CONSOLE, take_console_results(page).await)
+        .into_value()
+        .unwrap_or(ConsoleErrorsAnalysis {
+            errors: vec![],
+            warnings: vec![],
+            error_count: 0,
+            warning_count: 0,
+            collected: false,
+        });
 
-    let vulnerable_libraries = match analyze_vulnerable_libraries(page).await {
-        Ok(v) => v,
-        Err(e) => {
-            warn!("Vulnerable library detection failed: {}", e);
-            VulnerableLibrariesAnalysis {
-                detected: vec![],
-                vulnerable: vec![],
-                has_vulnerabilities: false,
-                duplicate_libraries: vec![],
-                checked: false,
-            }
-        }
-    };
+    let vulnerable_libraries = log
+        .record(
+            &vulnerable_libs::LIBRARIES,
+            analyze_vulnerable_libraries(page).await,
+        )
+        .into_value()
+        .unwrap_or(VulnerableLibrariesAnalysis {
+            detected: vec![],
+            vulnerable: vec![],
+            has_vulnerabilities: false,
+            duplicate_libraries: vec![],
+            checked: false,
+        });
 
     let score = calculate_score(&console_errors, &vulnerable_libraries);
 

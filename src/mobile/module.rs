@@ -26,7 +26,7 @@ impl AuditModule for MobileModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_mobile_friendliness(ctx.page).await {
+        match analyze_mobile_friendliness(ctx.page, ctx.collection).await {
             Ok(m) => Ok(ModuleData::Mobile(Box::new(m))),
             Err(e) => {
                 warn!("Mobile analysis failed: {}", e);

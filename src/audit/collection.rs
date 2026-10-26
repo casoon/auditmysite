@@ -156,6 +156,17 @@ impl<T> Collected<T> {
         }
     }
 
+    /// The value, or the state without one retyped — for collectors that
+    /// combine several collections and stop at the first without a value.
+    pub fn into_measurement<U>(self) -> Result<T, Collected<U>> {
+        match self {
+            Self::Measured(v) | Self::Empty(v) | Self::Partial { value: v, .. } => Ok(v),
+            Self::Failed(r) => Err(Collected::Failed(r)),
+            Self::Unsupported(r) => Err(Collected::Unsupported(r)),
+            Self::NotApplicable(r) => Err(Collected::NotApplicable(r)),
+        }
+    }
+
     /// For collectors whose caller cannot go on without the value: a
     /// missing measurement becomes an error naming the collector.
     pub fn into_result(self, spec: &CollectorSpec) -> crate::error::Result<T> {
@@ -347,6 +358,10 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::seo::page_health::probes::RESOURCE_CACHE,
     &crate::seo::page_health::probes::WWW_CONSOLIDATION,
     &crate::seo::page_health::probes::URL_CANONICALIZATION,
+    &crate::mobile::MOBILE,
+    &crate::best_practices::console_errors::CONSOLE,
+    &crate::best_practices::vulnerable_libs::LIBRARIES,
+    &crate::design_quality::CANDIDATES,
     &crate::dark_mode::STATIC_SUPPORT,
     &crate::dark_mode::PRINT_STYLESHEET,
     &crate::dark_mode::PRINT_LAYOUT,
@@ -355,6 +370,26 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::dark_mode::CONTRAST,
     &crate::dark_mode::LINK_INDISTINCT,
 ];
+
+/// Test support: [`assert_js_contract`] for scripts that return a plain
+/// value instead of a JSON string.
+#[cfg(test)]
+pub(crate) fn assert_js_value_contract<T: serde::de::DeserializeOwned>(valid: serde_json::Value) {
+    for input in [
+        None,
+        Some(serde_json::Value::Null),
+        Some(serde_json::json!("text")),
+    ] {
+        assert!(
+            decode_js_value::<T>(input.as_ref()).value().is_none(),
+            "{input:?} must fail"
+        );
+    }
+    assert!(
+        decode_js_value::<T>(Some(&valid)).value().is_some(),
+        "valid result must decode"
+    );
+}
 
 /// Test support: the generic counter-cases of a JavaScript collector. The
 /// script result missing, invalid, scalar or of the wrong shape is a
@@ -506,6 +541,19 @@ mod tests {
             (
                 "seo.page_health.url_canonicalization",
                 probes::partial_result,
+            ),
+            ("mobile.friendliness", crate::mobile::counter_cases),
+            (
+                "best_practices.console",
+                crate::best_practices::console_errors::counter_cases,
+            ),
+            (
+                "best_practices.libraries",
+                crate::best_practices::vulnerable_libs::counter_cases,
+            ),
+            (
+                "design_quality.candidates",
+                crate::design_quality::counter_cases,
             ),
             ("dark_mode.static_support", crate::dark_mode::counter_cases),
             (

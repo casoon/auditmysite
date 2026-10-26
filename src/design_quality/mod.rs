@@ -14,7 +14,7 @@ pub use module::DesignQualityModule;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 
 /// Severity-like classification for a design-quality finding.
 ///
@@ -202,7 +202,21 @@ const EXTRACT_JS: &str = include_str!("extract.js");
 /// Node runtime. A single `page.evaluate()` pass collects both the
 /// text-based candidates (line length, line height, all-caps) and the
 /// positioned/interactive candidates (overflow-clip) in one round trip.
-pub async fn analyze_design_quality(page: &Page) -> Result<DesignQualityAnalysis> {
+/// Candidate elements for the design-quality checks (clipping, line length,
+/// alt text, …).
+pub(crate) static CANDIDATES: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "design_quality.candidates",
+        module: "design_quality",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
+pub async fn analyze_design_quality(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<DesignQualityAnalysis> {
     let js_code = [
         "(() => {",
         crate::accessibility::js_helpers::CSS_SELECTOR_JS,
@@ -213,18 +227,12 @@ pub async fn analyze_design_quality(page: &Page) -> Result<DesignQualityAnalysis
     ]
     .concat();
 
-    let eval_result = page
-        .evaluate(js_code.as_str())
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Design quality extraction JS failed: {e}")))?;
-
-    let raw: RawCandidates =
-        serde_json::from_value(eval_result.value().cloned().ok_or_else(|| {
-            AuditError::CdpError("Design quality collector returned no result".into())
-        })?)
-        .map_err(|_| {
-            AuditError::CdpError("Design quality collector returned an invalid result".into())
-        })?;
+    let raw: RawCandidates = log
+        .record(
+            &CANDIDATES,
+            crate::audit::collection::evaluate_js_value(page, js_code.as_str()).await,
+        )
+        .into_result(&CANDIDATES)?;
 
     let mut findings = Vec::new();
     findings.extend(check_overflow_clip(&raw.clip_candidates));
@@ -832,6 +840,24 @@ fn layout_transition_advisories(
             message: finding_message_text("design.layout_transition", FindingLevel::Advisory, true),
         })
         .collect()
+}
+
+/// Counter-cases of [`CANDIDATES`] (#777): a missing or malformed candidate
+/// list is a failure, not a page without candidates.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_value_contract::<RawCandidates>(serde_json::json!({
+        "textCandidates": [],
+        "clipCandidates": [],
+        "altCandidates": []
+    }));
+    assert!(
+        crate::audit::collection::decode_js_value::<RawCandidates>(Some(
+            &serde_json::json!({"textCandidates": []})
+        ))
+        .value()
+        .is_none()
+    );
 }
 
 #[cfg(test)]

@@ -289,6 +289,24 @@ impl SnapshotData {
             }
             run.subchecks.push(record.into());
         }
+        // A module whose every collection was lost measured nothing, even if
+        // it returned a (default) payload.
+        for run in &mut self.module_runs {
+            let collections: Vec<_> = run.subchecks.iter().filter_map(|s| s.state).collect();
+            if !collections.is_empty()
+                && collections.iter().all(|state| {
+                    matches!(
+                        state,
+                        crate::audit::collection::CollectionState::Failed
+                            | crate::audit::collection::CollectionState::Unsupported
+                    )
+                })
+                && run.status == crate::audit::ExecutionStatus::Partial
+            {
+                run.status = crate::audit::ExecutionStatus::Failed;
+                run.reason_code = Some("all_collections_failed".to_string());
+            }
+        }
     }
 
     /// Whether `module` lost a scoring collection in this viewport.
@@ -777,9 +795,7 @@ pub async fn audit_page(
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
-    if config.check_performance {
-        prepare_pass_collection(page, "desktop").await;
-    }
+    prepare_pass_collection(page, "desktop", config).await;
     let desktop_refresh = browser.navigate(page, url).await?;
     if let (Some(sec), Some(details)) = (
         &mut security,
@@ -833,9 +849,7 @@ pub async fn audit_page(
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
     set_viewport(page, Viewport::Mobile).await?;
-    if config.check_performance {
-        prepare_pass_collection(page, "mobile").await;
-    }
+    prepare_pass_collection(page, "mobile", config).await;
     let mobile_refresh = browser.navigate(page, url).await?;
 
     // ── Post-navigation: consent banner may reappear after mobile reload ──────
@@ -1252,17 +1266,24 @@ pub async fn audit_page(
     Ok((report, primary_snap))
 }
 
-/// Inject the per-pass performance collectors (vitals observer, coverage,
-/// console) before a viewport pass navigates. Failures are logged, not fatal.
-async fn prepare_pass_collection(page: &Page, pass: &str) {
-    if let Err(e) = prepare_vitals_collection(page).await {
-        warn!("Vitals observer injection failed ({pass}): {}", e);
+/// Inject the per-pass collectors before a viewport pass navigates: the
+/// performance observers (vitals, coverage) for performance, the console
+/// collector whenever best practices run — a security-only audit reads the
+/// console too (#777). Failures are logged here and surface as failed
+/// collections when the results are read.
+async fn prepare_pass_collection(page: &Page, pass: &str, config: &PipelineConfig) {
+    if config.check_performance {
+        if let Err(e) = prepare_vitals_collection(page).await {
+            warn!("Vitals observer injection failed ({pass}): {}", e);
+        }
+        if let Err(e) = prepare_coverage_collection(page).await {
+            warn!("Coverage collection setup failed ({pass}): {}", e);
+        }
     }
-    if let Err(e) = prepare_coverage_collection(page).await {
-        warn!("Coverage collection setup failed ({pass}): {}", e);
-    }
-    if let Err(e) = prepare_console_collection(page).await {
-        warn!("Console collection setup failed ({pass}): {}", e);
+    if config.check_performance || config.check_security {
+        if let Err(e) = prepare_console_collection(page).await {
+            warn!("Console collection setup failed ({pass}): {}", e);
+        }
     }
 }
 

@@ -30,7 +30,7 @@ impl AuditModule for DesignQualityModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_design_quality(ctx.page).await {
+        match analyze_design_quality(ctx.page, ctx.collection).await {
             Ok(dq) => Ok(ModuleData::DesignQuality(Box::new(dq))),
             Err(e) => {
                 warn!("Design quality analysis failed: {}", e);

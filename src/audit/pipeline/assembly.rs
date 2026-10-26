@@ -319,13 +319,10 @@ pub(super) fn aggregate_report(
         }
     }
 
+    // The console and library collections are recorded under the collection
+    // contract (#777); their records already sit in the module run.
     if let Some(bp) = snapshot.best_practices.clone() {
-        let checks = [
-            ("console_errors", bp.console_errors.collected),
-            ("vulnerable_libraries", bp.vulnerable_libraries.checked),
-        ];
         report = report.with_best_practices(bp);
-        attach_subchecks(&mut report, "best_practices", &checks, true);
     }
 
     // Post-processing modules (source_quality, ai_visibility, content_visibility)
