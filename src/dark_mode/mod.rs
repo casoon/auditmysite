@@ -19,8 +19,46 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+use crate::audit::collection::{
+    evaluate_js, evaluate_js_value, reason, Collected, CollectionLog, CollectionMethod,
+    CollectorSpec, JsObject,
+};
 use crate::cli::WcagLevel;
-use crate::error::{AuditError, Result};
+use crate::error::Result;
+
+const fn dark_mode_collector(id: &'static str, method: CollectionMethod) -> CollectorSpec {
+    CollectorSpec {
+        id,
+        module: "dark_mode",
+        method,
+        method_version: 1,
+        scoring: true,
+    }
+}
+
+/// Static dark-mode signals (media queries, color-scheme, custom properties).
+pub(crate) static STATIC_SUPPORT: CollectorSpec =
+    dark_mode_collector("dark_mode.static_support", CollectionMethod::JavaScript);
+/// Print stylesheet presence.
+pub(crate) static PRINT_STYLESHEET: CollectorSpec =
+    dark_mode_collector("dark_mode.print_stylesheet", CollectionMethod::JavaScript);
+/// Print layout under emulated print media.
+pub(crate) static PRINT_LAYOUT: CollectorSpec =
+    dark_mode_collector("dark_mode.print_layout", CollectionMethod::Cdp);
+/// Forced-colors stylesheet presence and `forced-color-adjust` count.
+pub(crate) static FORCED_COLORS_STYLESHEET: CollectorSpec = dark_mode_collector(
+    "dark_mode.forced_colors_stylesheet",
+    CollectionMethod::JavaScript,
+);
+/// Layout under emulated `forced-colors: active`.
+pub(crate) static FORCED_COLORS_LAYOUT: CollectorSpec =
+    dark_mode_collector("dark_mode.forced_colors_layout", CollectionMethod::Cdp);
+/// Text contrast over a DOM snapshot (light, and dark when emulated).
+pub(crate) static CONTRAST: CollectorSpec =
+    dark_mode_collector("dark_mode.contrast", CollectionMethod::Cdp);
+/// Links distinguished by color only, over a DOM snapshot.
+pub(crate) static LINK_INDISTINCT: CollectorSpec =
+    dark_mode_collector("dark_mode.link_indistinct", CollectionMethod::Cdp);
 use crate::interaction::stability::settle;
 use crate::wcag::Violation;
 
@@ -436,8 +474,12 @@ fn selector_suffix(selectors: &[String], en: bool) -> String {
 /// 2. If dark mode is supported: emulate dark via CDP, re-run contrast, restore.
 /// 3. Build per-element contrast violation list with mode classification.
 /// 4. Build score and issue list.
-pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<DarkModeAnalysis> {
-    analyze_dark_mode_with_base_media(page, wcag_level, &[]).await
+pub async fn analyze_dark_mode(
+    page: &Page,
+    wcag_level: WcagLevel,
+    log: &CollectionLog,
+) -> Result<DarkModeAnalysis> {
+    analyze_dark_mode_with_base_media(page, wcag_level, &[], log).await
 }
 
 /// [`analyze_dark_mode`] on a page that already emulates media features —
@@ -445,22 +487,28 @@ pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<Dar
 /// replaces the page's whole feature list, so each one carries `base` along
 /// and restores to it, instead of silently dropping the mode's preference
 /// for the rest of the audit.
+///
+/// A detection that could not be read fails the whole analysis: the score
+/// and issues rest on every one of them, and a default in place of a missing
+/// answer would report "no print stylesheet" or "no contrast failures"
+/// (#777).
 pub async fn analyze_dark_mode_with_base_media(
     page: &Page,
     wcag_level: WcagLevel,
     base: &[MediaFeature],
+    log: &CollectionLog,
 ) -> Result<DarkModeAnalysis> {
     // ── 1. Static detection ─────────────────────────────────────────────────
-    let static_info = detect_static_support(page).await?;
-    let print = analyze_print_stylesheet(page, base).await?;
-    let forced_colors = analyze_forced_colors(page, base).await?;
-    let vision_deficiency = analyze_vision_deficiency(page, wcag_level).await?;
+    let static_info = detect_static_support(page, log).await?;
+    let print = analyze_print_stylesheet(page, base, log).await?;
+    let forced_colors = analyze_forced_colors(page, base, log).await?;
+    let vision_deficiency = analyze_vision_deficiency(page, wcag_level, log).await?;
 
     // ── 2. Contrast comparison (only when dark mode CSS exists) ─────────────
     let (light_viols, dark_viols) = if static_info.has_dark_media_query
         && matches!(wcag_level, WcagLevel::AA | WcagLevel::AAA)
     {
-        compare_contrast(page, wcag_level, base).await
+        compare_contrast(page, wcag_level, base, log).await?
     } else {
         (Vec::new(), Vec::new())
     };
@@ -617,7 +665,9 @@ fn build_issues(
             severity: "low".to_string(),
             selectors: Vec::new(),
         });
-    } else if !print.interactive_chrome_hidden || !print.content_not_clipped {
+    } else if print.emulation_supported
+        && (!print.interactive_chrome_hidden || !print.content_not_clipped)
+    {
         let kind = DarkModeIssueKind::PrintLayoutRisk {
             chrome_hidden: print.interactive_chrome_hidden,
             clipped_elements: print.clipped_elements,
@@ -645,7 +695,7 @@ fn build_issues(
             severity: "low".to_string(),
             selectors: Vec::new(),
         });
-    } else if !forced_colors.focus_indicators_visible {
+    } else if forced_colors.emulation_supported && !forced_colors.focus_indicators_visible {
         let kind = DarkModeIssueKind::ForcedColorsFocusRisk;
         let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
@@ -824,7 +874,7 @@ struct StaticDarkModeInfo {
     css_custom_properties: u32,
 }
 
-async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
+async fn detect_static_support(page: &Page, log: &CollectionLog) -> Result<StaticDarkModeInfo> {
     let js = r#"
     (() => {
         const result = {
@@ -982,12 +1032,10 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Dark mode detection failed: {e}")))?;
-
-    let parsed = crate::util::decode_collector_object(js_result.value(), "dark_mode extraction")?;
+    let parsed = serde_json::Value::Object(
+        log.record(&STATIC_SUPPORT, evaluate_js::<JsObject>(page, js).await)
+            .into_result(&STATIC_SUPPORT)?,
+    );
 
     Ok(StaticDarkModeInfo {
         has_dark_media_query: parsed["hasDarkMediaQuery"].as_bool().unwrap_or(false),
@@ -1025,15 +1073,23 @@ async fn emulate_media(
 async fn analyze_print_stylesheet(
     page: &Page,
     base: &[MediaFeature],
+    log: &CollectionLog,
 ) -> Result<PrintStylesheetAnalysis> {
-    let stylesheet_detected = detect_print_stylesheet(page).await?;
+    let stylesheet_detected = log
+        .record(&PRINT_STYLESHEET, detect_print_stylesheet(page).await)
+        .into_result(&PRINT_STYLESHEET)?;
     let mut analysis = PrintStylesheetAnalysis {
         stylesheet_detected,
         ..Default::default()
     };
 
     if let Err(e) = emulate_media(page, "print", base, None).await {
+        // Without emulation the print layout is unknown, not risky.
         warn!("Could not emulate print media: {e}");
+        log.record(
+            &PRINT_LAYOUT,
+            Collected::<()>::Unsupported("media_emulation_failed"),
+        );
         return Ok(analysis);
     }
     analysis.emulation_supported = true;
@@ -1042,7 +1098,9 @@ async fn analyze_print_stylesheet(
         warn!("Could not wait for print media layout settle: {e}");
     }
 
-    let metrics = evaluate_print_layout(page).await?;
+    let metrics = log
+        .record(&PRINT_LAYOUT, evaluate_print_layout(page).await)
+        .into_result(&PRINT_LAYOUT)?;
     analysis.interactive_chrome_hidden = metrics.interactive_chrome_hidden;
     analysis.content_not_clipped = metrics.clipped_elements == 0;
     analysis.clipped_elements = metrics.clipped_elements;
@@ -1054,11 +1112,27 @@ async fn analyze_print_stylesheet(
     Ok(analysis)
 }
 
-async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<ForcedColorsAnalysis> {
-    let stylesheet_detected = detect_forced_colors_stylesheet(page).await?;
+async fn analyze_forced_colors(
+    page: &Page,
+    base: &[MediaFeature],
+    log: &CollectionLog,
+) -> Result<ForcedColorsAnalysis> {
+    let detection = match (
+        detect_forced_colors_stylesheet(page).await,
+        count_forced_color_adjust(page).await,
+    ) {
+        (Collected::Measured(detected), Collected::Measured(count)) => {
+            Collected::Measured((detected, count))
+        }
+        (Collected::Failed(r), _) | (_, Collected::Failed(r)) => Collected::Failed(r),
+        _ => Collected::Failed(reason::NO_RESULT),
+    };
+    let (stylesheet_detected, forced_color_adjust_count) = log
+        .record(&FORCED_COLORS_STYLESHEET, detection)
+        .into_result(&FORCED_COLORS_STYLESHEET)?;
     let mut analysis = ForcedColorsAnalysis {
         stylesheet_detected,
-        forced_color_adjust_count: count_forced_color_adjust(page).await?,
+        forced_color_adjust_count,
         ..Default::default()
     };
 
@@ -1068,6 +1142,10 @@ async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<For
     };
     if let Err(e) = emulate_media(page, "", base, Some(feature)).await {
         warn!("Could not emulate forced colors: {e}");
+        log.record(
+            &FORCED_COLORS_LAYOUT,
+            Collected::<()>::Unsupported("media_emulation_failed"),
+        );
         return Ok(analysis);
     }
     analysis.emulation_supported = true;
@@ -1076,7 +1154,12 @@ async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<For
         warn!("Could not wait for forced-colors layout settle: {e}");
     }
 
-    let metrics = evaluate_forced_colors_layout(page).await?;
+    let metrics = log
+        .record(
+            &FORCED_COLORS_LAYOUT,
+            evaluate_forced_colors_layout(page).await,
+        )
+        .into_result(&FORCED_COLORS_LAYOUT)?;
     analysis.active_matches = metrics.active_matches;
     analysis.focus_indicators_visible = metrics.focus_indicators_visible;
 
@@ -1092,7 +1175,7 @@ async fn analyze_forced_colors(page: &Page, base: &[MediaFeature]) -> Result<For
 /// Verstöße bis zur geprüften Stufe (`contrast/text-enhanced` erst bei AAA).
 /// Nicht bestimmbarer Kontrast zählt nicht: Er ist kein Befund im hellen oder
 /// dunklen Modus, sondern ein Prüfhinweis.
-async fn contrast_failures(page: &Page, level: WcagLevel) -> Vec<Violation> {
+async fn contrast_failures(page: &Page, level: WcagLevel) -> Collected<Vec<Violation>> {
     let doc = match crate::accessibility::fetch_dom_document_with_layout(
         page,
         &crate::accessibility::AXTree::default(),
@@ -1102,25 +1185,27 @@ async fn contrast_failures(page: &Page, level: WcagLevel) -> Vec<Violation> {
         Ok(doc) => doc,
         Err(e) => {
             warn!("Could not capture the DOM for contrast/text-*: {e}");
-            return Vec::new();
+            return Collected::Failed(reason::CDP_COMMAND_FAILED);
         }
     };
     let mut results = crate::wcag::shared::run_shared_rules(&doc, "en");
     crate::wcag::shared::retain_up_to_level(&mut results, level);
-    results
-        .violations
-        .into_iter()
-        .filter(|v| {
-            v.rule_id
-                .as_deref()
-                .is_some_and(|id| id.starts_with("contrast/"))
-        })
-        .collect()
+    Collected::Measured(
+        results
+            .violations
+            .into_iter()
+            .filter(|v| {
+                v.rule_id
+                    .as_deref()
+                    .is_some_and(|id| id.starts_with("contrast/"))
+            })
+            .collect(),
+    )
 }
 
 /// Links im Fließtext, die sich nur durch Farbe abheben — die geteilte Regel
 /// `color/link-indistinct` über den DOMSnapshot der Seite.
-async fn link_indistinct_count(page: &Page) -> usize {
+async fn link_indistinct_count(page: &Page) -> Collected<usize> {
     let doc = match crate::accessibility::fetch_dom_document_with_layout(
         page,
         &crate::accessibility::AXTree::default(),
@@ -1130,22 +1215,28 @@ async fn link_indistinct_count(page: &Page) -> usize {
         Ok(doc) => doc,
         Err(e) => {
             warn!("Could not capture the DOM for color/link-indistinct: {e}");
-            return 0;
+            return Collected::Failed(reason::CDP_COMMAND_FAILED);
         }
     };
+    // Without layout the rule cannot judge link color against text color.
     let Some(rendered) = doc.rendered() else {
-        return 0;
+        return Collected::Failed("layout_unavailable");
     };
-    a11y_rules::run_full(&rendered)
-        .findings
-        .iter()
-        .filter(|f| f.rule_id == "color/link-indistinct" && f.outcome == a11y_report::Outcome::Fail)
-        .count()
+    Collected::Measured(
+        a11y_rules::run_full(&rendered)
+            .findings
+            .iter()
+            .filter(|f| {
+                f.rule_id == "color/link-indistinct" && f.outcome == a11y_report::Outcome::Fail
+            })
+            .count(),
+    )
 }
 
 async fn analyze_vision_deficiency(
     page: &Page,
     wcag_level: WcagLevel,
+    log: &CollectionLog,
 ) -> Result<VisionDeficiencyAnalysis> {
     if !matches!(wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         return Ok(VisionDeficiencyAnalysis::default());
@@ -1155,8 +1246,12 @@ async fn analyze_vision_deficiency(
     // damit `contrast/text-*` und `color/link-indistinct`, bleiben dieselben.
     // Einmal gezählt gilt es für jeden Modus — neue Kontrastbefunde kann die
     // Emulation über berechnete Stile nicht erzeugen.
-    let contrast = contrast_failures(page, wcag_level).await;
-    let use_of_color = link_indistinct_count(page).await;
+    let contrast = log
+        .record(&CONTRAST, contrast_failures(page, wcag_level).await)
+        .into_result(&CONTRAST)?;
+    let use_of_color = log
+        .record(&LINK_INDISTINCT, link_indistinct_count(page).await)
+        .into_result(&LINK_INDISTINCT)?;
 
     let modes = [
         ("protanopia", SetEmulatedVisionDeficiencyType::Protanopia),
@@ -1207,7 +1302,7 @@ async fn analyze_vision_deficiency(
     })
 }
 
-async fn detect_print_stylesheet(page: &Page) -> Result<bool> {
+async fn detect_print_stylesheet(page: &Page) -> Collected<bool> {
     let js = r#"
     (() => {
         try {
@@ -1228,10 +1323,10 @@ async fn detect_print_stylesheet(page: &Page) -> Result<bool> {
         return false;
     })()
     "#;
-    eval_bool(page, js, "Print stylesheet detection failed").await
+    evaluate_js_value(page, js).await
 }
 
-async fn detect_forced_colors_stylesheet(page: &Page) -> Result<bool> {
+async fn detect_forced_colors_stylesheet(page: &Page) -> Collected<bool> {
     let js = r#"
     (() => {
         try {
@@ -1251,10 +1346,10 @@ async fn detect_forced_colors_stylesheet(page: &Page) -> Result<bool> {
         return false;
     })()
     "#;
-    eval_bool(page, js, "Forced-colors stylesheet detection failed").await
+    evaluate_js_value(page, js).await
 }
 
-async fn count_forced_color_adjust(page: &Page) -> Result<u32> {
+async fn count_forced_color_adjust(page: &Page) -> Collected<u32> {
     let js = r#"
     (() => {
         let count = 0;
@@ -1267,15 +1362,17 @@ async fn count_forced_color_adjust(page: &Page) -> Result<u32> {
         return count;
     })()
     "#;
-    eval_u32(page, js, "Forced-color-adjust counting failed").await
+    evaluate_js_value(page, js).await
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PrintLayoutMetrics {
     interactive_chrome_hidden: bool,
     clipped_elements: u32,
 }
 
-async fn evaluate_print_layout(page: &Page) -> Result<PrintLayoutMetrics> {
+async fn evaluate_print_layout(page: &Page) -> Collected<PrintLayoutMetrics> {
     let js = r#"
     (() => {
         const isVisible = (el) => {
@@ -1304,19 +1401,17 @@ async fn evaluate_print_layout(page: &Page) -> Result<PrintLayoutMetrics> {
         });
     })()
     "#;
-    let value = eval_json(page, js, "Print layout evaluation failed").await?;
-    Ok(PrintLayoutMetrics {
-        interactive_chrome_hidden: value["interactiveChromeHidden"].as_bool().unwrap_or(false),
-        clipped_elements: value["clippedElements"].as_u64().unwrap_or(0) as u32,
-    })
+    evaluate_js::<PrintLayoutMetrics>(page, js).await
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ForcedColorsMetrics {
     active_matches: bool,
     focus_indicators_visible: bool,
 }
 
-async fn evaluate_forced_colors_layout(page: &Page) -> Result<ForcedColorsMetrics> {
+async fn evaluate_forced_colors_layout(page: &Page) -> Collected<ForcedColorsMetrics> {
     let js = r#"
     (() => {
         const active = matchMedia('(forced-colors: active)').matches;
@@ -1341,35 +1436,7 @@ async fn evaluate_forced_colors_layout(page: &Page) -> Result<ForcedColorsMetric
         return JSON.stringify({ activeMatches: active, focusIndicatorsVisible: visible });
     })()
     "#;
-    let value = eval_json(page, js, "Forced-colors layout evaluation failed").await?;
-    Ok(ForcedColorsMetrics {
-        active_matches: value["activeMatches"].as_bool().unwrap_or(false),
-        focus_indicators_visible: value["focusIndicatorsVisible"].as_bool().unwrap_or(false),
-    })
-}
-
-async fn eval_bool(page: &Page, js: &str, context: &str) -> Result<bool> {
-    let js_result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("{context}: {e}")))?;
-    Ok(js_result.value().and_then(|v| v.as_bool()).unwrap_or(false))
-}
-
-async fn eval_u32(page: &Page, js: &str, context: &str) -> Result<u32> {
-    let js_result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("{context}: {e}")))?;
-    Ok(js_result.value().and_then(|v| v.as_u64()).unwrap_or(0) as u32)
-}
-
-async fn eval_json(page: &Page, js: &str, context: &str) -> Result<serde_json::Value> {
-    let js_result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("{context}: {e}")))?;
-    crate::util::decode_collector_object(js_result.value(), context)
+    evaluate_js::<ForcedColorsMetrics>(page, js).await
 }
 
 // ─── Contrast comparison ─────────────────────────────────────────────────────
@@ -1380,23 +1447,37 @@ async fn compare_contrast(
     page: &Page,
     level: WcagLevel,
     base: &[MediaFeature],
-) -> (Vec<Violation>, Vec<Violation>) {
-    let light_violations = contrast_failures(page, level).await;
+    log: &CollectionLog,
+) -> Result<(Vec<Violation>, Vec<Violation>)> {
+    let light_violations = log
+        .record(&CONTRAST, contrast_failures(page, level).await)
+        .into_result(&CONTRAST)?;
 
     let dark_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),
         value: "dark".to_string(),
     };
     if let Err(e) = emulate_media(page, "", base, Some(dark_feature)).await {
+        // Without dark emulation there is no dark-mode contrast to compare —
+        // an empty list would read as "no dark-mode contrast failures".
         warn!("Could not emulate dark mode: {e}");
-        return (light_violations, Vec::new());
+        log.record(
+            &CONTRAST,
+            Collected::<()>::Unsupported("media_emulation_failed"),
+        );
+        return Err(crate::error::AuditError::CdpError(format!(
+            "{}: media_emulation_failed",
+            CONTRAST.id
+        )));
     }
 
     if let Err(e) = settle(page).await {
         warn!("Could not wait for dark mode layout settle: {e}");
     }
 
-    let dark_violations = contrast_failures(page, level).await;
+    let dark_violations = log
+        .record(&CONTRAST, contrast_failures(page, level).await)
+        .into_result(&CONTRAST)?;
 
     let light_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),
@@ -1406,7 +1487,7 @@ async fn compare_contrast(
         warn!("Could not restore light mode: {e}");
     }
 
-    (light_violations, dark_violations)
+    Ok((light_violations, dark_violations))
 }
 
 // ─── Scoring ─────────────────────────────────────────────────────────────────
@@ -1482,6 +1563,99 @@ fn compute_score(
     score -= vision_penalty;
 
     score.clamp(0, 100) as u32
+}
+
+/// Counter-cases of the dark-mode collectors (#777): a detection without an
+/// answer is a failure, not `false`, and layout risks need the emulation
+/// that would show them.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::{assert_js_contract, decode_js_value};
+    assert_js_contract::<JsObject>(serde_json::json!({}));
+    assert_js_contract::<PrintLayoutMetrics>(
+        serde_json::json!({"interactiveChromeHidden": true, "clippedElements": 0}),
+    );
+    assert_js_contract::<ForcedColorsMetrics>(
+        serde_json::json!({"activeMatches": true, "focusIndicatorsVisible": true}),
+    );
+    for value in [
+        None,
+        Some(serde_json::Value::Null),
+        Some(serde_json::json!("yes")),
+    ] {
+        assert!(
+            decode_js_value::<bool>(value.as_ref()).value().is_none(),
+            "{value:?}"
+        );
+        assert!(
+            decode_js_value::<u32>(value.as_ref()).value().is_none(),
+            "{value:?}"
+        );
+    }
+    assert_eq!(
+        decode_js_value::<bool>(Some(&serde_json::json!(false))),
+        Collected::Measured(false)
+    );
+
+    let info = StaticDarkModeInfo {
+        has_dark_media_query: true,
+        has_class_based_dark_mode: false,
+        dark_by_default: false,
+        color_scheme_css: true,
+        meta_color_scheme: None,
+        meta_theme_color_dark: false,
+        css_custom_properties: 5,
+    };
+    // Stylesheets present, emulation unavailable: layout fields keep their
+    // defaults, which must not read as a print or focus risk.
+    let print = PrintStylesheetAnalysis {
+        stylesheet_detected: true,
+        ..Default::default()
+    };
+    let forced = ForcedColorsAnalysis {
+        stylesheet_detected: true,
+        ..Default::default()
+    };
+    let issues = build_issues(
+        &info,
+        0,
+        0,
+        0,
+        &[],
+        &print,
+        &forced,
+        &VisionDeficiencyAnalysis::default(),
+    );
+    assert!(
+        !issues.iter().any(|i| matches!(
+            i.kind,
+            DarkModeIssueKind::PrintLayoutRisk { .. } | DarkModeIssueKind::ForcedColorsFocusRisk
+        )),
+        "layout risk without emulation"
+    );
+    // The same defaults measured under emulation are risks.
+    let issues = build_issues(
+        &info,
+        0,
+        0,
+        0,
+        &[],
+        &PrintStylesheetAnalysis {
+            emulation_supported: true,
+            ..print
+        },
+        &ForcedColorsAnalysis {
+            emulation_supported: true,
+            ..forced
+        },
+        &VisionDeficiencyAnalysis::default(),
+    );
+    assert!(issues
+        .iter()
+        .any(|i| matches!(i.kind, DarkModeIssueKind::PrintLayoutRisk { .. })));
+    assert!(issues
+        .iter()
+        .any(|i| matches!(i.kind, DarkModeIssueKind::ForcedColorsFocusRisk)));
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -2002,6 +2176,7 @@ mod tests {
             },
             &ForcedColorsAnalysis {
                 stylesheet_detected: true,
+                emulation_supported: true,
                 focus_indicators_visible: false,
                 ..Default::default()
             },

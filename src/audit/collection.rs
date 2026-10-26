@@ -234,6 +234,32 @@ pub async fn evaluate_js<T: serde::de::DeserializeOwned>(
     }
 }
 
+/// Evaluate a script that returns a plain value (a boolean, a count). A
+/// missing, `null` or differently typed value is a failure — never `false`
+/// or `0`.
+pub async fn evaluate_js_value<T: serde::de::DeserializeOwned>(
+    page: &chromiumoxide::Page,
+    script: &str,
+) -> Collected<T> {
+    let Ok(result) = page.evaluate(script).await else {
+        return Collected::Failed(reason::EVALUATION_FAILED);
+    };
+    decode_js_value(result.value())
+}
+
+/// See [`evaluate_js_value`].
+pub fn decode_js_value<T: serde::de::DeserializeOwned>(
+    value: Option<&serde_json::Value>,
+) -> Collected<T> {
+    match value {
+        None | Some(serde_json::Value::Null) => Collected::Failed(reason::NO_RESULT),
+        Some(value) => match serde_json::from_value(value.clone()) {
+            Ok(v) => Collected::Measured(v),
+            Err(_) => Collected::Failed(reason::SCHEMA_MISMATCH),
+        },
+    }
+}
+
 /// An object-shaped collection result, for scripts whose fields are read
 /// one by one. An array or scalar is a schema mismatch.
 pub type JsObject = serde_json::Map<String, serde_json::Value>;
@@ -321,6 +347,13 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::seo::page_health::probes::RESOURCE_CACHE,
     &crate::seo::page_health::probes::WWW_CONSOLIDATION,
     &crate::seo::page_health::probes::URL_CANONICALIZATION,
+    &crate::dark_mode::STATIC_SUPPORT,
+    &crate::dark_mode::PRINT_STYLESHEET,
+    &crate::dark_mode::PRINT_LAYOUT,
+    &crate::dark_mode::FORCED_COLORS_STYLESHEET,
+    &crate::dark_mode::FORCED_COLORS_LAYOUT,
+    &crate::dark_mode::CONTRAST,
+    &crate::dark_mode::LINK_INDISTINCT,
 ];
 
 /// Test support: the generic counter-cases of a JavaScript collector. The
@@ -474,6 +507,22 @@ mod tests {
                 "seo.page_health.url_canonicalization",
                 probes::partial_result,
             ),
+            ("dark_mode.static_support", crate::dark_mode::counter_cases),
+            (
+                "dark_mode.print_stylesheet",
+                crate::dark_mode::counter_cases,
+            ),
+            ("dark_mode.print_layout", crate::dark_mode::counter_cases),
+            (
+                "dark_mode.forced_colors_stylesheet",
+                crate::dark_mode::counter_cases,
+            ),
+            (
+                "dark_mode.forced_colors_layout",
+                crate::dark_mode::counter_cases,
+            ),
+            ("dark_mode.contrast", crate::dark_mode::counter_cases),
+            ("dark_mode.link_indistinct", crate::dark_mode::counter_cases),
         ]
     }
 

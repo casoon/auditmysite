@@ -154,7 +154,11 @@ pub(super) fn build_module_scores(
         module_scores.push(ModuleScoreEntry::new(
             "Dark Mode",
             dm.score,
-            "optional",
+            if scoring_gap("dark_mode") {
+                "partial"
+            } else {
+                "optional"
+            },
             false,
         ));
     }
