@@ -6,7 +6,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 use web_checks::structured_data::StructuralIssue;
 
 /// Structured data analysis
@@ -348,8 +348,21 @@ impl SchemaType {
     }
 }
 
+/// Structured data script (JSON-LD, microdata, RDFa).
+pub(crate) static STRUCTURED_DATA: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.structured_data",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
 /// Detect structured data on a page
-pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
+pub async fn detect_structured_data(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<StructuredData> {
     info!("Detecting structured data...");
 
     let js_code = r#"
@@ -372,12 +385,16 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Structured data detection failed: {}", e)))?;
-
-    let parsed = crate::util::decode_collector_object(js_result.value(), "seo extraction")?;
+    let parsed = serde_json::Value::Object(
+        log.record(
+            &STRUCTURED_DATA,
+            crate::audit::collection::evaluate_js::<crate::audit::collection::JsObject>(
+                page, js_code,
+            )
+            .await,
+        )
+        .into_result(&STRUCTURED_DATA)?,
+    );
     let scripts: Vec<String> = parsed["jsonLd"]
         .as_array()
         .map(|values| {
@@ -892,4 +909,18 @@ mod tests {
         assert!(issue_types.contains(&"jsonld_missing_context"));
         assert!(issue_types.contains(&"jsonld_missing_type"));
     }
+}
+
+/// Counter-cases of [`STRUCTURED_DATA`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"jsonLd": []}),
+    );
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
+            .into_result(&STRUCTURED_DATA)
+            .is_err()
+    );
 }

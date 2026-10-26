@@ -2,15 +2,29 @@
 
 use chromiumoxide::Page;
 
-use crate::error::{AuditError, Result};
+use crate::audit::collection::{
+    evaluate_js, CollectionLog, CollectionMethod, CollectorSpec, JsObject,
+};
 
 use super::{HtmlValidationIssue, HtmlValidationKind, PageHealthAnalysis};
 
+pub(crate) static DOM_INSPECTION: CollectorSpec = CollectorSpec {
+    id: "seo.page_health.dom",
+    module: "seo",
+    method: CollectionMethod::JavaScript,
+    method_version: 1,
+    scoring: false,
+};
+
+/// Reads the page-health DOM signals into `a`. Returns `false` when the
+/// script result is missing or invalid: then none of the DOM fields is a
+/// measurement (#777).
 pub(super) async fn run_dom_inspection(
     page: &Page,
     url: &str,
     a: &mut PageHealthAnalysis,
-) -> Result<()> {
+    log: &CollectionLog,
+) -> bool {
     let js = r#"
     (() => {
         const r = {};
@@ -310,13 +324,13 @@ pub(super) async fn run_dom_inspection(
     })()
     "#;
 
-    let result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Page health JS failed: {}", e)))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let Some(parsed) = log
+        .record(&DOM_INSPECTION, evaluate_js::<JsObject>(page, js).await)
+        .into_value()
+        .map(serde_json::Value::Object)
+    else {
+        return false;
+    };
 
     // Final URL / redirect detection
     if let Some(final_url) = parsed["finalUrl"].as_str() {
@@ -418,7 +432,7 @@ pub(super) async fn run_dom_inspection(
         .unwrap_or_default();
     a.html_issues = build_html_issues(a, &parsed);
 
-    Ok(())
+    true
 }
 
 pub(super) fn build_html_issues(
@@ -483,4 +497,11 @@ pub(super) fn build_html_issues(
 
 fn nonzero_u64(value: &serde_json::Value) -> Option<u64> {
     value.as_u64().filter(|v| *v > 0)
+}
+
+/// Counter-cases of [`DOM_INSPECTION`] (#777). Without its result the whole
+/// page-health block is withheld (`analyze_page_health` returns `None`).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<JsObject>(serde_json::json!({}));
 }

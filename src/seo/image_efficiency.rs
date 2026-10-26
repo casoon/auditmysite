@@ -7,8 +7,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
-
 /// An image that is served at a higher resolution than it is displayed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OversizedImage {
@@ -43,8 +41,37 @@ pub struct ImageEfficiencyAnalysis {
     pub score: u32,
 }
 
+#[derive(serde::Deserialize)]
+struct RawImg {
+    src: String,
+    #[serde(rename = "naturalWidth")]
+    natural_width: u32,
+    #[serde(rename = "naturalHeight")]
+    natural_height: u32,
+    #[serde(rename = "displayWidth")]
+    display_width: u32,
+    #[serde(rename = "displayHeight")]
+    display_height: u32,
+}
+
+/// Image inventory script; the SEO score reads its result.
+pub(crate) static IMAGE_EFFICIENCY: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.image_efficiency",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
 /// Analyze image efficiency on the page.
-pub async fn analyze_image_efficiency(page: &Page) -> Result<ImageEfficiencyAnalysis> {
+///
+/// `None` when the image inventory could not be read: the score of 100 for
+/// a page without images must not stand in for a failed script (#777).
+pub async fn analyze_image_efficiency(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Option<ImageEfficiencyAnalysis> {
     info!("Analyzing image efficiency...");
 
     let js = r#"
@@ -60,27 +87,14 @@ pub async fn analyze_image_efficiency(page: &Page) -> Result<ImageEfficiencyAnal
     })()
     "#;
 
-    let result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Image efficiency JS failed: {e}")))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-
-    #[derive(serde::Deserialize)]
-    struct RawImg {
-        src: String,
-        #[serde(rename = "naturalWidth")]
-        natural_width: u32,
-        #[serde(rename = "naturalHeight")]
-        natural_height: u32,
-        #[serde(rename = "displayWidth")]
-        display_width: u32,
-        #[serde(rename = "displayHeight")]
-        display_height: u32,
-    }
-
-    let raw: Vec<RawImg> = serde_json::from_str(json_str).unwrap_or_default();
+    let raw: Vec<RawImg> = log
+        .record(
+            &IMAGE_EFFICIENCY,
+            crate::audit::collection::evaluate_js(page, js)
+                .await
+                .empty_if(Vec::is_empty),
+        )
+        .into_value()?;
 
     let total_images = raw.len();
     let mut modern_format_count = 0usize;
@@ -159,7 +173,7 @@ pub async fn analyze_image_efficiency(page: &Page) -> Result<ImageEfficiencyAnal
         oversized_images.len()
     );
 
-    Ok(ImageEfficiencyAnalysis {
+    Some(ImageEfficiencyAnalysis {
         total_images,
         modern_format_count,
         legacy_format_count,
@@ -294,4 +308,17 @@ mod tests {
         let score = calculate_score(0.0, 0, 10);
         assert!(score <= 80);
     }
+}
+
+/// Counter-cases of [`IMAGE_EFFICIENCY`] (#777): the image list decodes
+/// strictly; a page without images is a valid empty measurement.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<RawImg>>(serde_json::json!([]));
+    let empty = crate::audit::collection::decode_js::<Vec<RawImg>>(Some(&serde_json::json!("[]")))
+        .empty_if(Vec::is_empty);
+    assert_eq!(
+        empty.state(),
+        crate::audit::collection::CollectionState::Empty
+    );
 }

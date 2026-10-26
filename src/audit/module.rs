@@ -60,6 +60,8 @@ pub struct ModuleContext<'a> {
     pub viewport: Viewport,
     pub ax_tree: &'a AXTree,
     pub pipeline_config: &'a PipelineConfig,
+    /// Records every collection the module performs (#777).
+    pub collection: &'a crate::audit::collection::CollectionLog,
 }
 
 /// Payload returned by an `AuditModule::collect` call.

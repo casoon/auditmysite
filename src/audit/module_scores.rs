@@ -17,6 +17,26 @@ pub(super) fn build_module_scores(
     vuln_security_penalty: u32,
 ) -> Vec<ModuleScoreEntry> {
     let mut module_scores = Vec::new();
+    // A scoring collection that failed leaves the module score built from
+    // fewer measurements than it names (#777): it is shown as partial and
+    // does not feed the overall score.
+    let scoring_gap = |module: &str| {
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .iter()
+            .filter(|run| run.module == module)
+            .flat_map(|run| &run.subchecks)
+            .any(crate::audit::SubcheckRun::is_scoring_gap)
+    };
+    let measured_entry = |name: &str, module: &str, score: u32| {
+        if scoring_gap(module) {
+            ModuleScoreEntry::new(name, score, "partial", false)
+        } else {
+            ModuleScoreEntry::new(name, score, "measured", true)
+        }
+    };
 
     module_scores.push(ModuleScoreEntry::new(
         "Accessibility",
@@ -29,7 +49,7 @@ pub(super) fn build_module_scores(
         // No Core Web Vitals could be measured (e.g. collection failed) — a
         // score of 0 here means "not measured", not "unusably slow". Exclude
         // it from the weighted overall score rather than tanking it (#QA-023).
-        let measured = perf.score.has_core_metrics();
+        let measured = perf.score.has_core_metrics() && !scoring_gap("performance");
         module_scores.push(ModuleScoreEntry::new(
             "Performance",
             perf.score.overall,
@@ -44,16 +64,14 @@ pub(super) fn build_module_scores(
         ));
     }
     if let Some(ref seo) = report.discoverability.seo {
-        module_scores.push(ModuleScoreEntry::new("SEO", seo.score, "measured", true));
+        module_scores.push(measured_entry("SEO", "seo", seo.score));
     }
     if let Some(ref sec) = report.security {
         let adjusted = sec.score.saturating_sub(vuln_security_penalty);
-        module_scores.push(ModuleScoreEntry::new(
-            "Security", adjusted, "measured", true,
-        ));
+        module_scores.push(measured_entry("Security", "security", adjusted));
     }
     if let Some(ref mob) = report.experience.mobile {
-        module_scores.push(ModuleScoreEntry::new("Mobile", mob.score, "measured", true));
+        module_scores.push(measured_entry("Mobile", "mobile", mob.score));
     }
     if let Some(ref hc) = report.html_conform {
         // Weighted since the score became trustworthy again (it is now charged

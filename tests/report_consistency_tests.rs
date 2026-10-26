@@ -1991,6 +1991,7 @@ fn domain_contract_accepts_honest_partial_results_and_rejects_false_completeness
             subcheck: "detail".into(),
             status: ExecutionStatus::Failed,
             reason_code: Some("probe_timeout".into()),
+            ..Default::default()
         }],
         ..Default::default()
     });

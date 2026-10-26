@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 use crate::taxonomy::Severity;
 use crate::util::truncate_url;
 
@@ -60,8 +60,21 @@ pub struct HeadingIssue {
     pub severity: Severity,
 }
 
+/// Heading outline script; the SEO score reads it.
+pub(crate) static HEADINGS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.headings",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
 /// Analyze heading structure of a page
-pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> {
+pub async fn analyze_heading_structure(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<HeadingStructure> {
     info!("Analyzing heading structure...");
 
     let js_code = r#"
@@ -128,13 +141,13 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Heading analysis failed: {}", e)))?;
-
-    let headings: Vec<HeadingInfo> =
-        crate::util::decode_collector(js_result.value(), "Heading extraction")?;
+    let headings: Vec<HeadingInfo> = log
+        .record(
+            &HEADINGS,
+            crate::audit::collection::evaluate_js(page, js_code).await,
+        )
+        .empty_if(Vec::is_empty)
+        .into_result(&HEADINGS)?;
 
     Ok(check_headings_structure(headings))
 }
@@ -354,4 +367,16 @@ mod tests {
         assert_eq!(long_heading_issues.len(), 1);
         assert!(long_heading_issues[0].message.contains("H2 is too long"));
     }
+}
+
+/// Counter-cases of [`HEADINGS`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<HeadingInfo>>(serde_json::json!([]));
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<Vec<HeadingInfo>>::Failed("x")
+            .into_result(&HEADINGS)
+            .is_err()
+    );
 }

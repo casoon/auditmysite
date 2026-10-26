@@ -313,6 +313,7 @@ pub(super) fn aggregate_report(
                     subcheck: "hardening".to_string(),
                     status: crate::audit::ExecutionStatus::NotApplicable,
                     reason_code: Some("no_auditable_stack_detected".to_string()),
+                    ..Default::default()
                 }];
             }
         }
@@ -431,6 +432,7 @@ fn attach_subchecks(
                     crate::audit::ExecutionStatus::Failed
                 },
                 reason_code: (!available).then(|| "subanalysis_unavailable".to_string()),
+                ..Default::default()
             })
             .collect();
         if whole_module && checks.iter().all(|(_, available)| !available) {
@@ -598,15 +600,40 @@ pub(super) fn consolidate_module_runs(
                 module,
                 status,
                 viewports,
-                subchecks: items
-                    .iter()
-                    .flat_map(|run| run.subchecks.iter().cloned())
-                    .collect(),
+                subchecks: merge_viewport_subchecks(
+                    items.iter().flat_map(|run| run.subchecks.iter()),
+                ),
                 reason_code: items.iter().find_map(|run| run.reason_code.clone()),
                 message: items.iter().find_map(|run| run.message.clone()),
             }
         })
         .collect()
+}
+
+/// One entry per subcheck across viewports. When the viewports disagree, the
+/// one that lost its measurement wins: a result measured on desktop only is
+/// not a complete measurement of the page.
+fn merge_viewport_subchecks<'a>(
+    subchecks: impl Iterator<Item = &'a crate::audit::SubcheckRun>,
+) -> Vec<crate::audit::SubcheckRun> {
+    let mut merged: Vec<crate::audit::SubcheckRun> = Vec::new();
+    for subcheck in subchecks {
+        let lost = |s: &crate::audit::SubcheckRun| {
+            s.state.map_or(
+                matches!(
+                    s.status,
+                    crate::audit::ExecutionStatus::Failed | crate::audit::ExecutionStatus::Partial
+                ),
+                |state| state.is_gap(),
+            )
+        };
+        match merged.iter_mut().find(|m| m.subcheck == subcheck.subcheck) {
+            Some(existing) if !lost(existing) && lost(subcheck) => *existing = subcheck.clone(),
+            Some(_) => {}
+            None => merged.push(subcheck.clone()),
+        }
+    }
+    merged
 }
 
 pub(super) fn update_audit_quality(report: &mut AuditReport) {

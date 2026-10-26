@@ -278,6 +278,39 @@ impl NormalizedReport {
                 "each requested module needs exactly one explicit execution outcome".into(),
             );
         }
+        // A module that lost a scoring collection was not fully measured: its
+        // run is not `Completed` and its score neither claims a measurement
+        // nor feeds the overall score (#777).
+        for run in &self.execution.module_runs {
+            let Some(gap) = run.subchecks.iter().find(|s| s.is_scoring_gap()) else {
+                continue;
+            };
+            let path = format!("execution.module_runs[{}]", run.module);
+            check(
+                run.status != ExecutionStatus::Completed,
+                "collection_gap_completed",
+                path.clone(),
+                format!("collector {} lost its measurement", gap.subcheck),
+            );
+            let score_name = match run.module.as_str() {
+                "seo" => "SEO",
+                "security" => "Security",
+                "mobile" => "Mobile",
+                "performance" => "Performance",
+                _ => continue,
+            };
+            if let Some(module) = self.module_scores.iter().find(|m| m.name == score_name) {
+                check(
+                    !module.contributes_to_overall && module.measurement_type != "measured",
+                    "collection_gap_scored",
+                    path,
+                    format!(
+                        "collector {} lost its measurement, so {score_name} is no measured score",
+                        gap.subcheck
+                    ),
+                );
+            }
+        }
         // Counts are lower bounds per viewport, not a sum across reloads.
         // Reviews and explicit exclusions are accounted outcomes too.
         for run in &self.rule_outcomes {

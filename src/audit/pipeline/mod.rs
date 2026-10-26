@@ -262,6 +262,45 @@ impl SnapshotData {
     }
 }
 
+impl SnapshotData {
+    /// Attach each collector's record to its module's run (#777). A module
+    /// that returned data but lost (part of) a collection is `Partial`, not
+    /// `Completed`: its result rests on fewer measurements than it claims.
+    fn apply_collection_records(
+        &mut self,
+        records: Vec<crate::audit::collection::CollectionRecord>,
+    ) {
+        for record in records {
+            let Some(run) = self
+                .module_runs
+                .iter_mut()
+                .rev()
+                .find(|run| run.module == record.module)
+            else {
+                continue;
+            };
+            if record.state.is_gap() && run.status == crate::audit::ExecutionStatus::Completed {
+                run.status = crate::audit::ExecutionStatus::Partial;
+                run.reason_code = Some(if record.scoring {
+                    "scoring_collection_failed".to_string()
+                } else {
+                    "collection_incomplete".to_string()
+                });
+            }
+            run.subchecks.push(record.into());
+        }
+    }
+
+    /// Whether `module` lost a scoring collection in this viewport.
+    fn scoring_gap(&self, module: &str) -> bool {
+        self.module_runs
+            .iter()
+            .filter(|run| run.module == module)
+            .flat_map(|run| &run.subchecks)
+            .any(crate::audit::SubcheckRun::is_scoring_gap)
+    }
+}
+
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
 /// Audit pipeline configuration
@@ -872,19 +911,29 @@ pub async fn audit_page(
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
     // the blend as `module_scores` drops it from the overall (plan 73).
+    // A module that lost a scoring collection is partial and drops out the
+    // same way (#777).
     let measured = |p: &crate::audit::PerformanceResults| p.score.has_core_metrics();
     let desktop_perf_input = desktop_snap
         .performance
         .as_ref()
-        .filter(|p| measured(p))
+        .filter(|p| measured(p) && !desktop_snap.scoring_gap("performance"))
         .map(|p| p.score.overall);
     let mobile_perf_input = mobile_snap
         .performance
         .as_ref()
-        .filter(|p| measured(p))
+        .filter(|p| measured(p) && !mobile_snap.scoring_gap("performance"))
         .map(|p| p.score.overall);
-    let mobile_seo_score = mobile_snap.seo.as_ref().map(|s| s.score);
-    let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
+    let mobile_seo_score = mobile_snap
+        .seo
+        .as_ref()
+        .filter(|_| !mobile_snap.scoring_gap("seo"))
+        .map(|s| s.score);
+    let mobile_mf_score = mobile_snap
+        .mobile
+        .as_ref()
+        .filter(|_| !mobile_snap.scoring_gap("mobile"))
+        .map(|m| m.score);
     let mobile_hc_score = mobile_snap
         .html_conform
         .as_ref()
@@ -987,6 +1036,7 @@ pub async fn audit_page(
                 },
                 reason_code: security_listener_failed
                     .then(|| "security_listener_setup_failed".to_string()),
+                ..Default::default()
             }],
             reason_code: primary_snap
                 .security
@@ -1371,6 +1421,7 @@ async fn extract_snapshot(
     // here — per-pass configs set `check_security = false` so it stays None
     // in the snapshot and the top-level fetch in `audit_page` provides the
     // actual SecurityAnalysis.
+    let collection = crate::audit::collection::CollectionLog::new();
     let collected = {
         let catalog = AuditCatalog::standard();
         let ctx = ModuleContext {
@@ -1379,6 +1430,7 @@ async fn extract_snapshot(
             viewport,
             ax_tree: &ax_tree,
             pipeline_config: config,
+            collection: &collection,
         };
         catalog.collect_all(&ctx).await?
     };
@@ -1404,6 +1456,7 @@ async fn extract_snapshot(
     for (id, data) in collected {
         snapshot.apply_module_data(id, viewport, data);
     }
+    snapshot.apply_collection_records(collection.into_records());
 
     Ok(snapshot)
 }

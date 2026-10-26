@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use web_checks::meta::LengthClass;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 use crate::taxonomy::Severity;
 
 /// Extracted meta tags
@@ -161,8 +161,21 @@ impl MetaTags {
     }
 }
 
+/// Meta tag script; the SEO score reads it.
+pub(crate) static META: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.meta",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
 /// Extract meta tags from a page
-pub async fn extract_meta_tags(page: &Page) -> Result<MetaTags> {
+pub async fn extract_meta_tags(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<MetaTags> {
     info!("Extracting meta tags...");
 
     let js_code = r#"
@@ -199,12 +212,12 @@ pub async fn extract_meta_tags(page: &Page) -> Result<MetaTags> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Meta extraction failed: {}", e)))?;
-
-    let meta: MetaTags = crate::util::decode_collector(js_result.value(), "Meta extraction")?;
+    let meta: MetaTags = log
+        .record(
+            &META,
+            crate::audit::collection::evaluate_js(page, js_code).await,
+        )
+        .into_result(&META)?;
 
     info!(
         "Meta tags: title={}, description={}, viewport={}",
@@ -272,4 +285,14 @@ mod tests {
 
         assert!(meta.has_essentials());
     }
+}
+
+/// Counter-cases of [`META`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<MetaTags>(serde_json::json!({}));
+    // A failed collection stops the module instead of yielding a default.
+    assert!(crate::audit::collection::Collected::<MetaTags>::Failed("x")
+        .into_result(&META)
+        .is_err());
 }

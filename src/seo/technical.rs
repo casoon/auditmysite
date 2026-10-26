@@ -227,8 +227,23 @@ pub struct TechnicalIssue {
     pub severity: Severity,
 }
 
+/// Technical SEO script (transport, canonical, lang, robots, …); the SEO
+/// score reads it.
+pub(crate) static TECHNICAL: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.technical",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
 /// Analyze technical SEO aspects
-pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSeo> {
+pub async fn analyze_technical_seo(
+    page: &Page,
+    url: &str,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<TechnicalSeo> {
     info!("Analyzing technical SEO...");
 
     let js_code = r#"
@@ -515,12 +530,16 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Technical SEO analysis failed: {}", e)))?;
-
-    let parsed = crate::util::decode_collector_object(js_result.value(), "seo extraction")?;
+    let parsed = serde_json::Value::Object(
+        log.record(
+            &TECHNICAL,
+            crate::audit::collection::evaluate_js::<crate::audit::collection::JsObject>(
+                page, js_code,
+            )
+            .await,
+        )
+        .into_result(&TECHNICAL)?,
+    );
     let https = parsed["https"].as_bool().ok_or_else(|| {
         AuditError::CdpError("SEO collector omitted the final transport scheme".into())
     })?;
@@ -2223,4 +2242,18 @@ mod tests {
             .iter()
             .any(|issue| issue.issue_type == "twitter_image_missing_alt"));
     }
+}
+
+/// Counter-cases of [`TECHNICAL`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"https": true}),
+    );
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
+            .into_result(&TECHNICAL)
+            .is_err()
+    );
 }

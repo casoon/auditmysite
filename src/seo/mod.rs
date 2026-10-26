@@ -2,10 +2,10 @@
 //!
 //! Provides meta tags validation, heading structure, social tags, and technical SEO checks.
 
-mod headings;
+pub(crate) mod headings;
 pub mod image_efficiency;
 pub mod interpretation;
-mod meta;
+pub(crate) mod meta;
 pub mod module;
 pub mod page_health;
 pub mod profile;
@@ -15,7 +15,7 @@ pub mod schema_fit;
 pub mod schema_parity;
 pub mod schema_rules;
 pub mod serp;
-mod social;
+pub(crate) mod social;
 pub mod technical;
 pub mod topics;
 
@@ -49,7 +49,6 @@ pub use topics::{
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::error::Result;
 
@@ -91,15 +90,19 @@ pub struct SeoAnalysis {
 /// All derived text is baked in canonical English so the stored struct (and the
 /// JSON report) is language-independent. The PDF re-derives localized text from
 /// the same pure builders at presentation time (#406).
-pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
+pub async fn analyze_seo(
+    page: &Page,
+    url: &str,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<SeoAnalysis> {
     // Extract all SEO data in parallel where possible
-    let meta = extract_meta_tags(page).await?;
+    let meta = extract_meta_tags(page, log).await?;
     let mut meta_issues = meta.validate();
-    let headings = analyze_heading_structure(page).await?;
-    let social = extract_social_tags(page).await?;
+    let headings = analyze_heading_structure(page, log).await?;
+    let social = extract_social_tags(page, log).await?;
     meta_issues.extend(social.validate());
-    let technical = analyze_technical_seo(page, url).await?;
-    let structured_data = detect_structured_data(page).await?;
+    let technical = analyze_technical_seo(page, url, log).await?;
+    let structured_data = detect_structured_data(page, log).await?;
 
     // robots.txt — HTTP fetch, independent of browser
     let is_noindex = technical
@@ -111,29 +114,17 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex, "en").await);
 
     // Page health analysis — HTTP probes + DOM inspection
-    let page_health = match analyze_page_health(page, url).await {
-        Ok(mut ph) => {
-            // Copy in the declared <meta charset> so charset-consistency
-            // checking (#543) stays a pure function of PageHealthAnalysis
-            // without page_health.rs depending on the meta module.
-            ph.declared_charset = meta.charset.clone();
-            ph.issues = collect_issues(&ph, true);
-            Some(ph)
-        }
-        Err(e) => {
-            warn!("Page health analysis failed: {}", e);
-            None
-        }
-    };
+    let page_health = analyze_page_health(page, url, log).await.map(|mut ph| {
+        // Copy in the declared <meta charset> so charset-consistency
+        // checking (#543) stays a pure function of PageHealthAnalysis
+        // without page_health.rs depending on the meta module.
+        ph.declared_charset = meta.charset.clone();
+        ph.issues = collect_issues(&ph, true);
+        ph
+    });
 
     // Image efficiency analysis
-    let image_efficiency = match analyze_image_efficiency(page).await {
-        Ok(ie) => Some(ie),
-        Err(e) => {
-            warn!("Image efficiency analysis failed: {}", e);
-            None
-        }
-    };
+    let image_efficiency = analyze_image_efficiency(page, log).await;
 
     // Calculate score
     let score = calculate_seo_score(

@@ -29,6 +29,7 @@ pub(super) fn attach_throttled_profile_subchecks(
                     crate::audit::ExecutionStatus::Failed
                 },
                 reason_code: (!completed).then(|| "profile_measurement_failed".to_string()),
+                ..Default::default()
             }
         })
         .collect();
