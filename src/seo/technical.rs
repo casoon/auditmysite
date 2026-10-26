@@ -86,9 +86,10 @@ pub struct TechnicalSeo {
     pub google_fonts_sources: Vec<String>,
     /// Tracking cookies detected on the page
     pub tracking_cookies: Vec<TrackingCookie>,
-    /// Cookie metadata from the browser cookie jar. Values are never collected.
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub cookie_inventory: Vec<CookieInventoryItem>,
+    /// Cookie metadata from the browser cookie jar. Values are never
+    /// collected. `None` when the cookie jar could not be read.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub cookie_inventory: Option<Vec<CookieInventoryItem>>,
     /// localStorage/sessionStorage keys detected on the page (values are never collected).
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub storage_items: Vec<StorageItem>,
@@ -197,7 +198,10 @@ pub struct AmpAnalysis {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PwaAnalysis {
     pub manifest_url: Option<String>,
-    pub manifest_valid: bool,
+    /// Whether the linked manifest carries the required PWA fields; `None`
+    /// when no manifest is linked or it could not be fetched.
+    #[serde(default)]
+    pub manifest_valid: Option<bool>,
     pub name: Option<String>,
     pub short_name: Option<String>,
     pub start_url: Option<String>,
@@ -207,7 +211,9 @@ pub struct PwaAnalysis {
     pub has_maskable_icon: bool,
     pub service_worker_supported: bool,
     pub service_worker_controlled: bool,
-    pub service_worker_registrations: u32,
+    /// `None` when the registrations could not be read.
+    #[serde(default)]
+    pub service_worker_registrations: Option<u32>,
 }
 
 /// Sensitive form security analysis.
@@ -226,6 +232,45 @@ pub struct TechnicalIssue {
     pub message: String,
     pub severity: Severity,
 }
+
+const fn technical_collector(
+    id: &'static str,
+    method: crate::audit::collection::CollectionMethod,
+) -> crate::audit::collection::CollectorSpec {
+    crate::audit::collection::CollectorSpec {
+        id,
+        module: "seo",
+        method,
+        method_version: 1,
+        scoring: false,
+    }
+}
+
+/// Browser cookie jar (`Network.getCookies`); names and flags, never values.
+pub(crate) static COOKIE_INVENTORY: crate::audit::collection::CollectorSpec = technical_collector(
+    "seo.cookie_inventory",
+    crate::audit::collection::CollectionMethod::Cdp,
+);
+/// Same-origin link targets, checked with HEAD (GET fallback).
+pub(crate) static BROKEN_LINKS: crate::audit::collection::CollectorSpec = technical_collector(
+    "seo.broken_links",
+    crate::audit::collection::CollectionMethod::Http,
+);
+/// `navigator.serviceWorker.getRegistrations()`.
+pub(crate) static SERVICE_WORKERS: crate::audit::collection::CollectorSpec = technical_collector(
+    "seo.service_worker_registrations",
+    crate::audit::collection::CollectionMethod::Cdp,
+);
+/// The linked web app manifest.
+pub(crate) static WEB_MANIFEST: crate::audit::collection::CollectorSpec = technical_collector(
+    "seo.web_manifest",
+    crate::audit::collection::CollectionMethod::Http,
+);
+/// HEAD of the www / non-www alternative host.
+pub(crate) static WWW_REDIRECT: crate::audit::collection::CollectorSpec = technical_collector(
+    "seo.www_redirect",
+    crate::audit::collection::CollectionMethod::Http,
+);
 
 /// Technical SEO script (transport, canonical, lang, robots, …); the SEO
 /// score reads it.
@@ -613,12 +658,14 @@ pub async fn analyze_technical_seo(
         .iter()
         .filter_map(|name| classify_tracking_cookie(name))
         .collect();
-    let cookie_inventory = collect_cookie_inventory(page, url).await;
+    let cookie_inventory = log
+        .record(&COOKIE_INVENTORY, collect_cookie_inventory(page, url).await)
+        .into_value();
     let tracking_signals = collect_tracking_signals(
         &script_urls,
         &resource_urls,
         &tracking_cookies,
-        &cookie_inventory,
+        cookie_inventory.as_deref().unwrap_or_default(),
         &storage_items,
     );
     let zaraz = detect_zaraz(
@@ -627,16 +674,36 @@ pub async fn analyze_technical_seo(
         &tracking_cookies,
         has_zaraz_global,
     );
-    let broken_links = check_broken_internal_links(url, &internal_link_check_targets).await;
-    let service_worker_registrations = read_service_worker_registration_count(page).await;
+    // Links whose request failed are not reported as broken; the record
+    // says the check is partial (#777).
+    let broken_links = log
+        .record(
+            &BROKEN_LINKS,
+            check_broken_internal_links(url, &internal_link_check_targets).await,
+        )
+        .into_value()
+        .unwrap_or_default();
+    let service_worker_registrations = log
+        .record(
+            &SERVICE_WORKERS,
+            read_service_worker_registration_count(page).await,
+        )
+        .into_value();
+    let manifest = log.record(
+        &WEB_MANIFEST,
+        match web_manifest_url.as_deref() {
+            Some(manifest_url) => fetch_web_manifest(manifest_url).await,
+            None => crate::audit::collection::Collected::NotApplicable("no_manifest_linked"),
+        },
+    );
     let pwa = analyze_pwa(
         web_manifest_url,
+        manifest,
         theme_color,
         service_worker_supported,
         service_worker_controlled,
         service_worker_registrations,
-    )
-    .await;
+    );
 
     info!(
         "Technical SEO: HTTPS={}, canonical={}, lang={}, words={}, favicon={}, google_fonts={}, tracking_cookies={}, zaraz={}, pagination={}",
@@ -652,7 +719,12 @@ pub async fn analyze_technical_seo(
     );
 
     // www / non-www redirect check
-    let www_redirect = check_www_redirect(url, canonical_url.as_deref()).await;
+    let www_redirect = log
+        .record(
+            &WWW_REDIRECT,
+            check_www_redirect(url, canonical_url.as_deref()).await,
+        )
+        .into_value();
 
     let mut technical = TechnicalSeo {
         https,
@@ -1036,10 +1108,19 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
 
 /// Check whether the www ↔ non-www counterpart of `url` redirects to `url`
 /// or serves its own content (duplicate).
-async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRedirectCheck> {
+async fn check_www_redirect(
+    url: &str,
+    canonical: Option<&str>,
+) -> crate::audit::collection::Collected<WwwRedirectCheck> {
+    use crate::audit::collection::{reason, Collected};
+    const NOT_APEX_OR_WWW: &str = "host_is_not_apex_or_www";
     // Build the alternative URL variant
-    let parsed = url::Url::parse(url).ok()?;
-    let host = parsed.host_str()?;
+    let Ok(parsed) = url::Url::parse(url) else {
+        return Collected::NotApplicable(NOT_APEX_OR_WWW);
+    };
+    let Some(host) = parsed.host_str() else {
+        return Collected::NotApplicable(NOT_APEX_OR_WWW);
+    };
 
     let (primary_host, alt_host) = if let Some(stripped) = host.strip_prefix("www.") {
         (host.to_string(), stripped.to_string())
@@ -1049,37 +1130,36 @@ async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRed
 
     // Only makes sense for plain domains; skip IPs, localhost, and subdomains
     if primary_host.parse::<std::net::IpAddr>().is_ok() || primary_host == "localhost" {
-        return None;
+        return Collected::NotApplicable(NOT_APEX_OR_WWW);
     }
     // Determine the bare host (without www prefix) and skip if it's a subdomain
     let bare_host = host.strip_prefix("www.").unwrap_or(host);
     if bare_host.split('.').count() > 2 {
-        return None;
+        return Collected::NotApplicable(NOT_APEX_OR_WWW);
     }
 
     let mut alt_url = parsed.clone();
-    alt_url.set_host(Some(&alt_host)).ok()?;
+    if alt_url.set_host(Some(&alt_host)).is_err() {
+        return Collected::NotApplicable(NOT_APEX_OR_WWW);
+    }
     let alternative = alt_url.as_str().to_string();
     let primary = url.to_string();
 
-    let client = reqwest::Client::builder()
+    let Ok(client) = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(8))
         .redirect(reqwest::redirect::Policy::none())
         .user_agent("Mozilla/5.0 (compatible; AuditMySite/1.0)")
         .build()
-        .ok()?;
+    else {
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+    };
 
     let response = match client.head(&alternative).send().await {
         Ok(r) => r,
         Err(e) => {
+            // The alternative host not answering is no measured status.
             tracing::debug!("www-redirect check failed for {}: {}", alternative, e);
-            return Some(WwwRedirectCheck {
-                primary,
-                alternative,
-                alternative_status: 0,
-                redirects_to_primary: false,
-                canonical_matches_primary: canonical_matches(&primary_host, canonical),
-            });
+            return Collected::Failed(reason::HTTP_REQUEST_FAILED);
         }
     };
 
@@ -1103,7 +1183,7 @@ async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRed
         false
     };
 
-    Some(WwwRedirectCheck {
+    Collected::Measured(WwwRedirectCheck {
         primary,
         alternative,
         alternative_status: status,
@@ -1204,7 +1284,10 @@ fn parse_amp_analysis(value: &serde_json::Value) -> AmpAnalysis {
     }
 }
 
-async fn collect_cookie_inventory(page: &Page, page_url: &str) -> Vec<CookieInventoryItem> {
+async fn collect_cookie_inventory(
+    page: &Page,
+    page_url: &str,
+) -> crate::audit::collection::Collected<Vec<CookieInventoryItem>> {
     let page_host = url::Url::parse(page_url)
         .ok()
         .and_then(|url| url.host_str().map(str::to_ascii_lowercase))
@@ -1214,11 +1297,13 @@ async fn collect_cookie_inventory(page: &Page, page_url: &str) -> Vec<CookieInve
         Ok(cookies) => cookies,
         Err(e) => {
             warn!("cookie inventory collection failed: {}", e);
-            return Vec::new();
+            return crate::audit::collection::Collected::Failed(
+                crate::audit::collection::reason::CDP_COMMAND_FAILED,
+            );
         }
     };
 
-    cookies
+    let inventory = cookies
         .into_iter()
         .map(|cookie| {
             let domain = cookie.domain.trim_start_matches('.').to_ascii_lowercase();
@@ -1245,7 +1330,8 @@ async fn collect_cookie_inventory(page: &Page, page_url: &str) -> Vec<CookieInve
                 third_party,
             }
         })
-        .collect()
+        .collect();
+    crate::audit::collection::Collected::Measured(inventory).empty_if(Vec::is_empty)
 }
 
 fn parse_mixed_content_resources(value: &serde_json::Value) -> Vec<MixedContentResource> {
@@ -1285,28 +1371,22 @@ fn parse_form_security_analysis(value: &serde_json::Value) -> FormSecurityAnalys
     }
 }
 
-async fn analyze_pwa(
+/// `manifest` is the fetched manifest: a document that is not a JSON
+/// object (or was answered with an error status) is a measured, invalid
+/// manifest (`Value::Null`); a request that failed is no measurement and
+/// leaves `manifest_valid` unset (#777).
+fn analyze_pwa(
     manifest_url: Option<String>,
+    manifest: crate::audit::collection::Collected<serde_json::Value>,
     theme_color: Option<String>,
     service_worker_supported: bool,
     service_worker_controlled: bool,
-    service_worker_registrations: u32,
+    service_worker_registrations: Option<u32>,
 ) -> PwaAnalysis {
-    let Some(ref manifest_url) = manifest_url else {
+    let (Some(manifest_url), Some(manifest)) = (manifest_url.as_ref(), manifest.into_value())
+    else {
         return PwaAnalysis {
             manifest_url,
-            theme_color,
-            service_worker_supported,
-            service_worker_controlled,
-            service_worker_registrations,
-            ..PwaAnalysis::default()
-        };
-    };
-
-    let manifest = fetch_web_manifest(manifest_url).await;
-    let Some(manifest) = manifest else {
-        return PwaAnalysis {
-            manifest_url: Some(manifest_url.clone()),
             theme_color,
             service_worker_supported,
             service_worker_controlled,
@@ -1335,7 +1415,7 @@ async fn analyze_pwa(
 
     PwaAnalysis {
         manifest_url: Some(manifest_url.clone()),
-        manifest_valid,
+        manifest_valid: Some(manifest_valid),
         name,
         short_name,
         start_url,
@@ -1349,25 +1429,46 @@ async fn analyze_pwa(
     }
 }
 
-async fn fetch_web_manifest(manifest_url: &str) -> Option<serde_json::Value> {
-    let client = Client::builder()
+/// The manifest document. An error status or a body that is not JSON is a
+/// measured result (the linked manifest is unusable: `Value::Null`); only a
+/// request that did not complete is a failure.
+async fn fetch_web_manifest(
+    manifest_url: &str,
+) -> crate::audit::collection::Collected<serde_json::Value> {
+    use crate::audit::collection::{reason, Collected};
+    let Ok(client) = Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .redirect(Policy::limited(4))
         .build()
-        .ok()?;
-    let response = client
+    else {
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+    };
+    let Ok(response) = client
         .get(manifest_url)
         .header("User-Agent", "auditmysite-pwa-checker/1.0")
         .send()
         .await
-        .ok()?;
+    else {
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+    };
     if !response.status().is_success() {
-        return None;
+        return Collected::Measured(serde_json::Value::Null);
     }
-    response.json::<serde_json::Value>().await.ok()
+    match response.text().await {
+        Ok(body) => Collected::Measured(
+            serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .filter(serde_json::Value::is_object)
+                .unwrap_or(serde_json::Value::Null),
+        ),
+        Err(_) => Collected::Failed(reason::HTTP_REQUEST_FAILED),
+    }
 }
 
-async fn read_service_worker_registration_count(page: &Page) -> u32 {
+async fn read_service_worker_registration_count(
+    page: &Page,
+) -> crate::audit::collection::Collected<u32> {
+    use crate::audit::collection::{reason, Collected};
     let expression = r#"
         (async () => {
             if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistrations) {
@@ -1386,14 +1487,18 @@ async fn read_service_worker_registration_count(page: &Page) -> u32 {
         .await_promise(true)
         .build()
     else {
-        return 0;
+        return Collected::Failed(reason::CDP_COMMAND_FAILED);
     };
-    page.execute(params)
+    match page
+        .execute(params)
         .await
         .ok()
         .and_then(|result| result.result.result.value)
         .and_then(|value| value.as_u64())
-        .unwrap_or(0) as u32
+    {
+        Some(count) => Collected::Measured(count as u32),
+        None => Collected::Failed(reason::EVALUATION_FAILED),
+    }
 }
 
 fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
@@ -1410,7 +1515,7 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIss
         return;
     }
 
-    if !pwa.manifest_valid {
+    if pwa.manifest_valid == Some(false) {
         issues.push(TechnicalIssue {
             issue_type: "pwa_invalid_manifest".to_string(),
             message: if en {
@@ -1561,15 +1666,24 @@ fn collect_form_security_issues(
     }
 }
 
-async fn check_broken_internal_links(source_url: &str, targets: &[String]) -> Vec<String> {
+/// Same-origin link targets that answer with an error status. A target
+/// whose request did not complete is no broken link; it makes the check
+/// partial (#777).
+async fn check_broken_internal_links(
+    source_url: &str,
+    targets: &[String],
+) -> crate::audit::collection::Collected<Vec<String>> {
+    use crate::audit::collection::{reason, Collected};
     let Some(source_origin) = url_origin(source_url) else {
-        return Vec::new();
+        return Collected::NotApplicable("no_http_origin");
     };
-    let client = Client::builder()
+    let Ok(client) = Client::builder()
         .redirect(Policy::limited(6))
         .timeout(std::time::Duration::from_secs(5))
         .build()
-        .unwrap_or_else(|_| Client::new());
+    else {
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+    };
 
     let mut unique = BTreeSet::new();
     for target in targets {
@@ -1577,23 +1691,53 @@ async fn check_broken_internal_links(source_url: &str, targets: &[String]) -> Ve
             unique.insert(target.clone());
         }
     }
+    if unique.is_empty() {
+        return Collected::Empty(Vec::new());
+    }
 
-    stream::iter(unique.into_iter().take(50))
+    let statuses: Vec<(String, LinkStatus)> = stream::iter(unique.into_iter().take(50))
         .map(|target| {
             let client = client.clone();
             async move {
-                check_link_status(&client, &target)
-                    .await
-                    .map(|reason| format!("{target} ({reason})"))
+                let status = check_link_status(&client, &target).await;
+                (target, status)
             }
         })
         .buffer_unordered(8)
-        .filter_map(|result| async move { result })
         .collect()
-        .await
+        .await;
+    let checked = statuses.len();
+    let unanswered = statuses
+        .iter()
+        .filter(|(_, status)| matches!(status, LinkStatus::Unanswered))
+        .count();
+    let broken: Vec<String> = statuses
+        .into_iter()
+        .filter_map(|(target, status)| match status {
+            LinkStatus::Broken(reason) => Some(format!("{target} ({reason})")),
+            LinkStatus::Ok | LinkStatus::Unanswered => None,
+        })
+        .collect();
+    if unanswered == 0 {
+        Collected::Measured(broken)
+    } else if unanswered == checked {
+        Collected::Failed(reason::HTTP_REQUEST_FAILED)
+    } else {
+        Collected::Partial {
+            value: broken,
+            gaps: vec!["link_request"],
+        }
+    }
 }
 
-async fn check_link_status(client: &Client, target: &str) -> Option<String> {
+enum LinkStatus {
+    Ok,
+    Broken(String),
+    /// Neither HEAD nor GET completed: nothing is known about the target.
+    Unanswered,
+}
+
+async fn check_link_status(client: &Client, target: &str) -> LinkStatus {
     match client
         .head(target)
         .header("User-Agent", "auditmysite-link-checker/1.0")
@@ -1607,17 +1751,14 @@ async fn check_link_status(client: &Client, target: &str) -> Option<String> {
             check_link_status_with_get(client, target).await
         }
         Ok(response) if response.status().as_u16() >= 400 => {
-            Some(format!("HTTP {}", response.status().as_u16()))
+            LinkStatus::Broken(format!("HTTP {}", response.status().as_u16()))
         }
-        Ok(_) => None,
-        Err(head_error) => match check_link_status_with_get(client, target).await {
-            Some(reason) => Some(reason),
-            None => Some(head_error.to_string()),
-        },
+        Ok(_) => LinkStatus::Ok,
+        Err(_) => check_link_status_with_get(client, target).await,
     }
 }
 
-async fn check_link_status_with_get(client: &Client, target: &str) -> Option<String> {
+async fn check_link_status_with_get(client: &Client, target: &str) -> LinkStatus {
     match client
         .get(target)
         .header("User-Agent", "auditmysite-link-checker/1.0")
@@ -1625,10 +1766,10 @@ async fn check_link_status_with_get(client: &Client, target: &str) -> Option<Str
         .await
     {
         Ok(response) if response.status().as_u16() >= 400 => {
-            Some(format!("HTTP {}", response.status().as_u16()))
+            LinkStatus::Broken(format!("HTTP {}", response.status().as_u16()))
         }
-        Ok(_) => None,
-        Err(error) => Some(error.to_string()),
+        Ok(_) => LinkStatus::Ok,
+        Err(_) => LinkStatus::Unanswered,
     }
 }
 
@@ -2055,9 +2196,9 @@ mod tests {
     fn test_collect_pwa_issues_invalid_manifest() {
         let pwa = PwaAnalysis {
             manifest_url: Some("https://example.com/manifest.webmanifest".to_string()),
-            manifest_valid: false,
+            manifest_valid: Some(false),
             service_worker_supported: true,
-            service_worker_registrations: 0,
+            service_worker_registrations: Some(0),
             ..PwaAnalysis::default()
         };
         let mut issues = Vec::new();
@@ -2075,9 +2216,9 @@ mod tests {
     fn test_manifest_without_service_worker_is_not_an_issue() {
         let pwa = PwaAnalysis {
             manifest_url: Some("https://example.com/manifest.webmanifest".to_string()),
-            manifest_valid: true,
+            manifest_valid: Some(true),
             service_worker_supported: true,
-            service_worker_registrations: 0,
+            service_worker_registrations: Some(0),
             ..PwaAnalysis::default()
         };
         let mut issues = Vec::new();
@@ -2256,4 +2397,109 @@ pub(crate) fn counter_cases() {
             .into_result(&TECHNICAL)
             .is_err()
     );
+}
+
+/// Counter-cases of the technical SEO collectors (#777).
+#[cfg(test)]
+pub(crate) mod counter_cases {
+    use super::*;
+    use crate::audit::collection::{reason, Collected, CollectionState};
+
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(f)
+    }
+
+    fn pwa_issue_types(manifest: Collected<serde_json::Value>, linked: bool) -> Vec<String> {
+        let pwa = analyze_pwa(
+            linked.then(|| "https://example.com/site.webmanifest".to_string()),
+            manifest,
+            None,
+            true,
+            false,
+            Some(0),
+        );
+        let mut issues = Vec::new();
+        collect_pwa_issues(&pwa, true, &mut issues);
+        issues.into_iter().map(|i| i.issue_type).collect()
+    }
+
+    /// A manifest request that failed proves nothing about the manifest; an
+    /// error status or invalid document is a measured invalid manifest.
+    pub(crate) fn web_manifest() {
+        assert!(pwa_issue_types(Collected::Failed(reason::HTTP_REQUEST_FAILED), true).is_empty());
+        assert_eq!(
+            pwa_issue_types(Collected::Measured(serde_json::Value::Null), true),
+            vec!["pwa_invalid_manifest"]
+        );
+        assert_eq!(
+            pwa_issue_types(Collected::NotApplicable("no_manifest_linked"), false),
+            vec!["pwa_missing_manifest"]
+        );
+    }
+
+    /// Unanswered link requests are no broken links; no same-origin target
+    /// is a valid empty check.
+    pub(crate) fn broken_links() {
+        let refused = block_on(check_broken_internal_links(
+            "http://127.0.0.1:9/",
+            &[
+                "http://127.0.0.1:9/a".to_string(),
+                "http://127.0.0.1:9/b".to_string(),
+            ],
+        ));
+        assert_eq!(refused.state(), CollectionState::Failed);
+        assert!(refused.value().is_none());
+        let empty = block_on(check_broken_internal_links(
+            "https://example.com/",
+            &["https://other.example/x".to_string()],
+        ));
+        assert_eq!(empty.state(), CollectionState::Empty);
+    }
+
+    /// Local hosts have no www variant to compare.
+    pub(crate) fn www_redirect() {
+        for url in [
+            "http://localhost/",
+            "https://127.0.0.1/",
+            "https://api.example.com/",
+        ] {
+            assert_eq!(
+                block_on(check_www_redirect(url, None)).state(),
+                CollectionState::NotApplicable,
+                "{url}"
+            );
+        }
+    }
+
+    /// Unread browser state stays unset instead of reading "none".
+    pub(crate) fn browser_state() {
+        let cookies: Collected<Vec<CookieInventoryItem>> =
+            Collected::Failed(reason::CDP_COMMAND_FAILED);
+        assert!(cookies.into_value().is_none());
+        let none: Collected<Vec<CookieInventoryItem>> =
+            Collected::Measured(Vec::new()).empty_if(Vec::is_empty);
+        assert_eq!(none.state(), CollectionState::Empty);
+        let registrations: Collected<u32> = Collected::Failed(reason::EVALUATION_FAILED);
+        let pwa = analyze_pwa(
+            None,
+            Collected::NotApplicable("no_manifest_linked"),
+            None,
+            true,
+            false,
+            registrations.into_value(),
+        );
+        assert_eq!(pwa.service_worker_registrations, None);
+    }
+
+    #[test]
+    fn technical_collector_counter_cases() {
+        web_manifest();
+        broken_links();
+        www_redirect();
+        browser_state();
+    }
 }

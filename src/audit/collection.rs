@@ -304,7 +304,15 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::seo::headings::HEADINGS,
     &crate::seo::social::SOCIAL,
     &crate::seo::technical::TECHNICAL,
+    &crate::seo::technical::COOKIE_INVENTORY,
+    &crate::seo::technical::BROKEN_LINKS,
+    &crate::seo::technical::SERVICE_WORKERS,
+    &crate::seo::technical::WEB_MANIFEST,
+    &crate::seo::technical::WWW_REDIRECT,
     &crate::seo::schema::STRUCTURED_DATA,
+    &crate::seo::schema_parity::VISIBLE_FACTS,
+    &crate::seo::robots::ROBOTS_TXT,
+    &crate::seo::robots::SITEMAP_NOINDEX,
     &crate::seo::image_efficiency::IMAGE_EFFICIENCY,
     &crate::seo::page_health::dom::DOM_INSPECTION,
     &crate::seo::page_health::probes::HEADERS,
@@ -431,12 +439,24 @@ mod tests {
     /// `every_collector_has_counter_cases`.
     fn counter_cases() -> Vec<(&'static str, fn())> {
         use crate::seo::page_health::probes::counter_cases as probes;
+        use crate::seo::technical::counter_cases as technical;
         vec![
             ("seo.meta", crate::seo::meta::counter_cases),
             ("seo.headings", crate::seo::headings::counter_cases),
             ("seo.social", crate::seo::social::counter_cases),
             ("seo.technical", crate::seo::technical::counter_cases),
+            ("seo.cookie_inventory", technical::browser_state),
+            ("seo.broken_links", technical::broken_links),
+            ("seo.service_worker_registrations", technical::browser_state),
+            ("seo.web_manifest", technical::web_manifest),
+            ("seo.www_redirect", technical::www_redirect),
             ("seo.structured_data", crate::seo::schema::counter_cases),
+            (
+                "seo.schema_visible_facts",
+                crate::seo::schema_parity::counter_cases,
+            ),
+            ("seo.robots_txt", crate::seo::robots::counter_cases),
+            ("seo.sitemap_noindex", crate::seo::robots::counter_cases),
             (
                 "seo.image_efficiency",
                 crate::seo::image_efficiency::counter_cases,

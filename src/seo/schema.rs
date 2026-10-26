@@ -409,12 +409,19 @@ pub async fn detect_structured_data(
         parsed["microdata"].as_bool().unwrap_or(false),
         parsed["rdfa"].as_bool().unwrap_or(false),
     );
-    structured_data.visible_facts =
-        crate::seo::schema_parity::extract_visible_schema_facts(page).await?;
-    structured_data.content_parity = crate::seo::schema_parity::assess_content_parity(
-        &structured_data.json_ld,
-        &structured_data.visible_facts,
-    );
+    if let Some(facts) = log
+        .record(
+            &crate::seo::schema_parity::VISIBLE_FACTS,
+            crate::seo::schema_parity::extract_visible_schema_facts(page).await,
+        )
+        .into_value()
+    {
+        structured_data.visible_facts = facts;
+        structured_data.content_parity = crate::seo::schema_parity::assess_content_parity(
+            &structured_data.json_ld,
+            &structured_data.visible_facts,
+        );
+    }
 
     info!(
         "Structured data: {} JSON-LD schemas, {} types, {} rich snippet opportunities",
@@ -632,6 +639,20 @@ fn structural_issue(
         issue_type: issue_type.to_string(),
         message,
     }
+}
+
+/// Counter-cases of [`STRUCTURED_DATA`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"jsonLd": []}),
+    );
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
+            .into_result(&STRUCTURED_DATA)
+            .is_err()
+    );
 }
 
 #[cfg(test)]
@@ -909,18 +930,4 @@ mod tests {
         assert!(issue_types.contains(&"jsonld_missing_context"));
         assert!(issue_types.contains(&"jsonld_missing_type"));
     }
-}
-
-/// Counter-cases of [`STRUCTURED_DATA`] (#777).
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
-        serde_json::json!({"jsonLd": []}),
-    );
-    // A failed collection stops the module instead of yielding a default.
-    assert!(
-        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
-            .into_result(&STRUCTURED_DATA)
-            .is_err()
-    );
 }

@@ -250,6 +250,18 @@ pub(crate) fn apply_shared_findings(
     structure.issues = shared.into_iter().chain(own).collect();
 }
 
+/// Counter-cases of [`HEADINGS`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<HeadingInfo>>(serde_json::json!([]));
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<Vec<HeadingInfo>>::Failed("x")
+            .into_result(&HEADINGS)
+            .is_err()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,16 +379,4 @@ mod tests {
         assert_eq!(long_heading_issues.len(), 1);
         assert!(long_heading_issues[0].message.contains("H2 is too long"));
     }
-}
-
-/// Counter-cases of [`HEADINGS`] (#777).
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    crate::audit::collection::assert_js_contract::<Vec<HeadingInfo>>(serde_json::json!([]));
-    // A failed collection stops the module instead of yielding a default.
-    assert!(
-        crate::audit::collection::Collected::<Vec<HeadingInfo>>::Failed("x")
-            .into_result(&HEADINGS)
-            .is_err()
-    );
 }

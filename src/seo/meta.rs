@@ -229,6 +229,16 @@ pub async fn extract_meta_tags(
     Ok(meta)
 }
 
+/// Counter-cases of [`META`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<MetaTags>(serde_json::json!({}));
+    // A failed collection stops the module instead of yielding a default.
+    assert!(crate::audit::collection::Collected::<MetaTags>::Failed("x")
+        .into_result(&META)
+        .is_err());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,14 +295,4 @@ mod tests {
 
         assert!(meta.has_essentials());
     }
-}
-
-/// Counter-cases of [`META`] (#777).
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    crate::audit::collection::assert_js_contract::<MetaTags>(serde_json::json!({}));
-    // A failed collection stops the module instead of yielding a default.
-    assert!(crate::audit::collection::Collected::<MetaTags>::Failed("x")
-        .into_result(&META)
-        .is_err());
 }

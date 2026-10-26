@@ -633,56 +633,66 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
         (false, false, false, false, 0, false, String::new())
     };
 
+    // robots.txt that could not be requested is unknown, not absent: the
+    // crawler-access signals then stay out of the dimension (#777).
+    let robots_known = report
+        .discoverability
+        .seo
+        .as_ref()
+        .is_some_and(|seo| seo.robots.is_some());
+
     // 1. robots.txt accessible
-    signals.push(AiSignal::new(
-        AiSignalKind::RobotsReachable,
-        has_robots,
-        0.15,
-        AiSignalValues::default(),
-    ));
+    if robots_known {
+        signals.push(AiSignal::new(
+            AiSignalKind::RobotsReachable,
+            has_robots,
+            0.15,
+            AiSignalValues::default(),
+        ));
 
-    // 2. Not blocking all crawlers
-    signals.push(AiSignal::new(
-        AiSignalKind::NoWildcardBlock,
-        !blocks_all,
-        0.20,
-        AiSignalValues::default(),
-    ));
+        // 2. Not blocking all crawlers
+        signals.push(AiSignal::new(
+            AiSignalKind::NoWildcardBlock,
+            !blocks_all,
+            0.20,
+            AiSignalValues::default(),
+        ));
 
-    // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
-    //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
-    signals.push(AiSignal::new(
-        AiSignalKind::AiSearchReachable,
-        !blocks_citation,
-        0.25,
-        AiSignalValues {
-            blocks_all: Some(blocks_all),
-            blocks_citation: Some(blocks_citation),
-            ..Default::default()
-        },
-    ));
+        // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
+        //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
+        signals.push(AiSignal::new(
+            AiSignalKind::AiSearchReachable,
+            !blocks_citation,
+            0.25,
+            AiSignalValues {
+                blocks_all: Some(blocks_all),
+                blocks_citation: Some(blocks_citation),
+                ..Default::default()
+            },
+        ));
 
-    // 4. Explicit AI policy defined — having any policy is better than silence
-    let has_explicit_policy = has_robots && blocked_count > 0;
-    signals.push(AiSignal::new(
-        AiSignalKind::ExplicitAiPolicy,
-        has_explicit_policy,
-        0.15,
-        AiSignalValues {
-            has_robots: Some(has_robots),
-            blocked_count: Some(blocked_count as u32),
-            inferred_policy: Some(inferred_policy.clone()),
-            ..Default::default()
-        },
-    ));
+        // 4. Explicit AI policy defined — having any policy is better than silence
+        let has_explicit_policy = has_robots && blocked_count > 0;
+        signals.push(AiSignal::new(
+            AiSignalKind::ExplicitAiPolicy,
+            has_explicit_policy,
+            0.15,
+            AiSignalValues {
+                has_robots: Some(has_robots),
+                blocked_count: Some(blocked_count as u32),
+                inferred_policy: Some(inferred_policy.clone()),
+                ..Default::default()
+            },
+        ));
 
-    // 5. Sitemap in robots.txt (helps AI crawlers discover content)
-    signals.push(AiSignal::new(
-        AiSignalKind::SitemapReference,
-        has_sitemap_in_robots,
-        0.15,
-        AiSignalValues::default(),
-    ));
+        // 5. Sitemap in robots.txt (helps AI crawlers discover content)
+        signals.push(AiSignal::new(
+            AiSignalKind::SitemapReference,
+            has_sitemap_in_robots,
+            0.15,
+            AiSignalValues::default(),
+        ));
+    }
 
     // 6. Meta robots (check for noindex/nofollow which affects AI visibility)
     let has_meta_robots_issue = report.discoverability.seo.as_ref().is_some_and(|seo| {
@@ -1186,6 +1196,36 @@ mod tests {
     use crate::audit::ViolationStatistics;
     use crate::cli::WcagLevel;
     use crate::wcag::WcagResults;
+
+    #[test]
+    fn unknown_robots_txt_leaves_crawler_signals_out() {
+        // #777: robots.txt that could not be requested is unknown, not
+        // missing — no "robots.txt not reachable" signal.
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis::default());
+        assert!(report
+            .discoverability
+            .seo
+            .as_ref()
+            .unwrap()
+            .robots
+            .is_none());
+        let policy = analyze_policy(&report);
+        assert!(!policy
+            .dimension
+            .signals
+            .iter()
+            .any(|s| s.kind == AiSignalKind::RobotsReachable));
+
+        report.discoverability.seo.as_mut().unwrap().robots =
+            Some(crate::seo::robots::RobotsAudit::default());
+        let policy = analyze_policy(&report);
+        assert!(policy
+            .dimension
+            .signals
+            .iter()
+            .any(|s| s.kind == AiSignalKind::RobotsReachable && !s.present));
+    }
 
     fn minimal_report() -> AuditReport {
         AuditReport {

@@ -8,7 +8,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{AuditError, Result};
 use crate::seo::schema::JsonLdSchema;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -97,9 +96,23 @@ impl ContentParityAssessment {
     }
 }
 
-pub async fn extract_visible_schema_facts(page: &Page) -> Result<VisibleSchemaFacts> {
-    let result = page
-        .evaluate(
+/// Visible text that structured data claims (names, prices, dates, …).
+pub(crate) static VISIBLE_FACTS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "seo.schema_visible_facts",
+        module: "seo",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// The visible facts, or the reason they could not be read. Without them
+/// content parity is not assessed at all (#777).
+pub async fn extract_visible_schema_facts(
+    page: &Page,
+) -> crate::audit::collection::Collected<VisibleSchemaFacts> {
+    crate::audit::collection::evaluate_js(
+        page,
             r#"
             (() => {
                 const clean = value => (value || '').replace(/\s+/g, ' ').trim().slice(0, 240);
@@ -162,13 +175,14 @@ pub async fn extract_visible_schema_facts(page: &Page) -> Result<VisibleSchemaFa
                 });
             })()
             "#,
-        )
-        .await
-        .map_err(|error| {
-            AuditError::CdpError(format!("Visible structured-data facts failed: {error}"))
-        })?;
-    let json = result.value().and_then(Value::as_str).unwrap_or("{}");
-    Ok(serde_json::from_str(json).unwrap_or_default())
+    )
+    .await
+}
+
+/// Counter-cases of [`VISIBLE_FACTS`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<VisibleSchemaFacts>(serde_json::json!({}));
 }
 
 pub fn assess_content_parity(

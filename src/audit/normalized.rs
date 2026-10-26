@@ -2644,8 +2644,10 @@ mod tests {
         // #777: SEO computed without its image inventory is no measured
         // score. It stays visible as partial but leaves the overall score,
         // and the contract rejects any report that still counts it.
-        let mut seo = crate::seo::SeoAnalysis::default();
-        seo.score = 40;
+        let seo = crate::seo::SeoAnalysis {
+            score: 40,
+            ..Default::default()
+        };
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
             WcagLevel::AA,

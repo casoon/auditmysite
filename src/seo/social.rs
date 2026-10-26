@@ -253,6 +253,20 @@ fn parse_social_tags(parsed: &serde_json::Value) -> (Option<OpenGraph>, Option<T
     (og_any.then_some(open_graph), tw_any.then_some(twitter_card))
 }
 
+/// Counter-cases of [`SOCIAL`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({"og": {}, "twitter": {}}),
+    );
+    // A failed collection stops the module instead of yielding a default.
+    assert!(
+        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
+            .into_result(&SOCIAL)
+            .is_err()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,18 +346,4 @@ mod tests {
         };
         assert!(ok.validate().is_empty());
     }
-}
-
-/// Counter-cases of [`SOCIAL`] (#777).
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
-        serde_json::json!({"og": {}, "twitter": {}}),
-    );
-    // A failed collection stops the module instead of yielding a default.
-    assert!(
-        crate::audit::collection::Collected::<crate::audit::collection::JsObject>::Failed("x")
-            .into_result(&SOCIAL)
-            .is_err()
-    );
 }

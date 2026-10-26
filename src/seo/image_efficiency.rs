@@ -241,6 +241,19 @@ fn calculate_score(modern_pct: f64, oversized_count: usize, total: usize) -> u32
     score
 }
 
+/// Counter-cases of [`IMAGE_EFFICIENCY`] (#777): the image list decodes
+/// strictly; a page without images is a valid empty measurement.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<RawImg>>(serde_json::json!([]));
+    let empty = crate::audit::collection::decode_js::<Vec<RawImg>>(Some(&serde_json::json!("[]")))
+        .empty_if(Vec::is_empty);
+    assert_eq!(
+        empty.state(),
+        crate::audit::collection::CollectionState::Empty
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,17 +321,4 @@ mod tests {
         let score = calculate_score(0.0, 0, 10);
         assert!(score <= 80);
     }
-}
-
-/// Counter-cases of [`IMAGE_EFFICIENCY`] (#777): the image list decodes
-/// strictly; a page without images is a valid empty measurement.
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    crate::audit::collection::assert_js_contract::<Vec<RawImg>>(serde_json::json!([]));
-    let empty = crate::audit::collection::decode_js::<Vec<RawImg>>(Some(&serde_json::json!("[]")))
-        .empty_if(Vec::is_empty);
-    assert_eq!(
-        empty.state(),
-        crate::audit::collection::CollectionState::Empty
-    );
 }

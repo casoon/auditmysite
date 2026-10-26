@@ -110,8 +110,14 @@ pub async fn analyze_seo(
         .as_deref()
         .map(|r| r.to_lowercase().contains("noindex"))
         .unwrap_or(false);
-    let robots =
-        Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex, "en").await);
+    let robots = audit_robots_txt(
+        url,
+        technical.canonical_url.as_deref(),
+        is_noindex,
+        "en",
+        log,
+    )
+    .await;
 
     // Page health analysis — HTTP probes + DOM inspection
     let page_health = analyze_page_health(page, url, log).await.map(|mut ph| {
