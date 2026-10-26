@@ -17,6 +17,10 @@ pub struct DetectedLibrary {
     pub version: String,
     /// How the version was detected: "global" or "url"
     pub detection_source: String,
+    /// Whether the version string could be read as a version. An unparseable
+    /// version is neither affected nor cleared — it is not checked.
+    #[serde(default = "crate::best_practices::collected_by_default")]
+    pub version_parsed: bool,
 }
 
 /// A detected library that has known security vulnerabilities.
@@ -32,6 +36,37 @@ pub struct VulnerableLibrary {
     pub description: String,
     /// Recommended minimum safe version
     pub safe_version: String,
+    /// Advisories whose affected range contains the detected version
+    #[serde(default)]
+    pub advisories: Vec<AdvisoryRef>,
+    /// Whether exploitability is established. A detected version only ever
+    /// proves the advisory range matches, so this stays `unconfirmed`.
+    #[serde(default)]
+    pub exploitability: Exploitability,
+}
+
+/// Reference to a matched entry of the advisory table.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdvisoryRef {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
+    /// End-of-maintenance notice rather than a published vulnerability
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unmaintained: bool,
+    pub source_url: String,
+    /// Date the affected range was last checked against `source_url`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewed: Option<String>,
+}
+
+/// Whether a matched advisory is known to be exploitable on this page.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Exploitability {
+    /// Version is in the affected range; reachability was not examined.
+    #[default]
+    Unconfirmed,
 }
 
 /// Vulnerable library analysis results.
@@ -201,6 +236,7 @@ pub async fn analyze_vulnerable_libraries(
         .into_iter()
         .filter(|lib| !lib.version.is_empty() && seen_names.insert(lib.name.clone()))
         .map(|lib| DetectedLibrary {
+            version_parsed: parse_semver(&lib.version).is_some(),
             name: lib.name,
             version: lib.version,
             detection_source: lib.source,
@@ -357,7 +393,6 @@ fn find_version_pattern(text: &str) -> Option<String> {
     None
 }
 
-/// Check a library version against the known-vulnerable database.
 /// The libraries whose versions are checked against known vulnerabilities —
 /// the whole scope of the check. "No known vulnerability" means none among
 /// these, not that the page has no vulnerable script (plan 69).
@@ -372,123 +407,230 @@ pub const CHECKED_LIBRARIES: &[&str] = &[
     "MooTools",
 ];
 
-fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
-    let v = parse_semver(version)?;
-
-    match name {
-        "jQuery"
-            // jQuery < 3.5.0: XSS via HTML processing (CVE-2020-11022, CVE-2020-11023)
-            // jQuery < 1.12.0 / 2.x < 2.2.0: multiple XSS issues
-            if v < (3, 5, 0) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: if v < (1, 12, 0) || (v.0 == 2 && v < (2, 2, 0)) {
-                        "high"
-                    } else {
-                        "medium"
-                    }
-                    .to_string(),
-                    description: "Cross-site scripting (XSS) via HTML string processing (CVE-2020-11022, CVE-2020-11023).".to_string(),
-                    safe_version: "3.5.0+".to_string(),
-                });
-            }
-        "Bootstrap"
-            // Bootstrap 3.x < 3.4.1 and 4.x < 4.3.1: XSS via data attributes
-            if ((v.0 == 3 && v < (3, 4, 1)) || (v.0 == 4 && v < (4, 3, 1))) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: "medium".to_string(),
-                    description: "Cross-site scripting (XSS) via tooltip/popover data attributes (CVE-2019-8331).".to_string(),
-                    safe_version: "3.4.1+ or 4.3.1+".to_string(),
-                });
-            }
-        "AngularJS"
-            // AngularJS < 1.8.0: client-side template injection / XSS
-            if v.0 == 1 && v < (1, 8, 0) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: "high".to_string(),
-                    description:
-                        "Client-side template injection and cross-site scripting vulnerabilities."
-                            .to_string(),
-                    safe_version: "1.8.0+".to_string(),
-                });
-            }
-        "Handlebars"
-            // CVE-2021-23369, GHSA-f2jv-r9rf-7988: <4.7.7, not only <4.5.3.
-            // https://github.com/advisories/GHSA-f2jv-r9rf-7988
-            if v < (4, 7, 7) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: "high".to_string(),
-                    description: "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.".to_string(),
-                    safe_version: "4.7.7+ (for CVE-2021-23369)".to_string(),
-                });
-            }
-        "Lodash"
-            // Lodash < 4.17.21: prototype pollution (CVE-2021-23337, CVE-2020-8203)
-            if v < (4, 17, 21) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: "medium".to_string(),
-                    description:
-                        "Prototype pollution vulnerabilities (CVE-2021-23337, CVE-2020-8203)."
-                            .to_string(),
-                    safe_version: "4.17.21+".to_string(),
-                });
-            }
-        "Underscore"
-            // Underscore < 1.13.0: arbitrary code execution (CVE-2021-23358)
-            if v < (1, 13, 0) => {
-                return Some(VulnerableLibrary {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    severity: "high".to_string(),
-                    description:
-                        "Arbitrary code execution via template injection (CVE-2021-23358)."
-                            .to_string(),
-                    safe_version: "1.13.0+".to_string(),
-                });
-            }
-        "Prototype" | "MooTools" => {
-            // These libraries are unmaintained and inherently risky
-            return Some(VulnerableLibrary {
-                name: name.to_string(),
-                version: version.to_string(),
-                severity: "medium".to_string(),
-                description: "This library is no longer maintained and may contain unpatched security vulnerabilities.".to_string(),
-                safe_version: "Migrate to a maintained library".to_string(),
-            });
-        }
-        _ => {}
-    }
-    None
+/// Kind of advisory: a published vulnerability, or end of maintenance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AdvisoryKind {
+    Vulnerability,
+    Unmaintained,
 }
 
-/// Parse a version string like "3.6.0" into (major, minor, patch).
-/// Returns None if the string cannot be parsed.
-fn parse_semver(version: &str) -> Option<(u32, u32, u32)> {
-    let parts: Vec<&str> = version.trim().split('.').collect();
-    if parts.is_empty() {
-        return None;
+/// One affected version range: `introduced` inclusive, `fixed` exclusive.
+pub(crate) struct VersionRange {
+    pub introduced: (u32, u32, u32),
+    pub fixed: (u32, u32, u32),
+}
+
+/// One entry of the advisory table.
+pub(crate) struct Advisory {
+    pub library: &'static str,
+    /// Primary identifier (GHSA id, or `local:` id when none was reviewed)
+    pub id: &'static str,
+    /// CVE ids and other aliases
+    pub aliases: &'static [&'static str],
+    pub kind: AdvisoryKind,
+    pub severity: &'static str,
+    pub description: &'static str,
+    pub affected: &'static [VersionRange],
+    pub safe_version: &'static str,
+    /// Where the affected ranges were taken from
+    pub source_url: &'static str,
+    /// Date the bounds were last checked against `source_url`; `None` means
+    /// carried over from the earlier hardcoded rules and not yet re-reviewed.
+    pub reviewed: Option<&'static str>,
+}
+
+const ANY_VERSION: &[VersionRange] = &[VersionRange {
+    introduced: (0, 0, 0),
+    fixed: (u32::MAX, 0, 0),
+}];
+
+/// Versioned advisory table — the single source for which detected versions
+/// count as affected.
+///
+/// Updating: for each library, read the advisory at `source_url`, copy its
+/// affected ranges (`introduced` inclusive, `fixed` exclusive) and fixed
+/// version, set `reviewed` to the date of the check, and add a test case for
+/// the last affected and the first fixed version in `mod tests`. Add new
+/// libraries to `CHECKED_LIBRARIES` and the detection scripts as well. A match
+/// means the *version* is affected; it never proves the vulnerable code path
+/// is reachable on the page.
+pub(crate) const ADVISORIES: &[Advisory] = &[
+    Advisory {
+        library: "jQuery",
+        id: "local:jquery-html-xss",
+        aliases: &["CVE-2020-11022", "CVE-2020-11023"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "medium",
+        description: "Cross-site scripting (XSS) via HTML string processing (CVE-2020-11022, CVE-2020-11023).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (3, 5, 0) }],
+        safe_version: "3.5.0+",
+        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2020-11022",
+        reviewed: None,
+    },
+    Advisory {
+        library: "jQuery",
+        id: "local:jquery-legacy-xss",
+        aliases: &[],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "high",
+        description: "Multiple XSS issues in jQuery before 1.12.0 and 2.x before 2.2.0.",
+        affected: &[
+            VersionRange { introduced: (0, 0, 0), fixed: (1, 12, 0) },
+            VersionRange { introduced: (2, 0, 0), fixed: (2, 2, 0) },
+        ],
+        safe_version: "3.5.0+",
+        source_url: "https://blog.jquery.com/2016/01/08/jquery-2-2-and-1-12-released/",
+        reviewed: None,
+    },
+    Advisory {
+        library: "Bootstrap",
+        id: "local:bootstrap-tooltip-xss",
+        aliases: &["CVE-2019-8331"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "medium",
+        description: "Cross-site scripting (XSS) via tooltip/popover data attributes (CVE-2019-8331).",
+        affected: &[
+            VersionRange { introduced: (3, 0, 0), fixed: (3, 4, 1) },
+            VersionRange { introduced: (4, 0, 0), fixed: (4, 3, 1) },
+        ],
+        safe_version: "3.4.1+ or 4.3.1+",
+        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2019-8331",
+        reviewed: None,
+    },
+    Advisory {
+        library: "AngularJS",
+        id: "local:angularjs-pre-1.8",
+        aliases: &[],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "high",
+        description: "Client-side template injection and cross-site scripting vulnerabilities.",
+        affected: &[VersionRange { introduced: (1, 0, 0), fixed: (1, 8, 0) }],
+        safe_version: "1.8.0+",
+        source_url: "https://docs.angularjs.org/misc/version-support-status",
+        reviewed: None,
+    },
+    Advisory {
+        library: "Handlebars",
+        id: "GHSA-f2jv-r9rf-7988",
+        aliases: &["CVE-2021-23369"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "high",
+        description: "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 7, 7) }],
+        safe_version: "4.7.7+ (for CVE-2021-23369)",
+        source_url: "https://github.com/advisories/GHSA-f2jv-r9rf-7988",
+        reviewed: Some("2026-10-26"),
+    },
+    Advisory {
+        library: "Lodash",
+        id: "local:lodash-prototype-pollution",
+        aliases: &["CVE-2021-23337", "CVE-2020-8203"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "medium",
+        description: "Prototype pollution vulnerabilities (CVE-2021-23337, CVE-2020-8203).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 17, 21) }],
+        safe_version: "4.17.21+",
+        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
+        reviewed: None,
+    },
+    Advisory {
+        library: "Underscore",
+        id: "local:underscore-template-rce",
+        aliases: &["CVE-2021-23358"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "high",
+        description: "Arbitrary code execution via template injection (CVE-2021-23358).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 13, 0) }],
+        safe_version: "1.13.0+",
+        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23358",
+        reviewed: None,
+    },
+    Advisory {
+        library: "Prototype",
+        id: "local:prototype-unmaintained",
+        aliases: &[],
+        kind: AdvisoryKind::Unmaintained,
+        severity: "medium",
+        description: "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+        affected: ANY_VERSION,
+        safe_version: "Migrate to a maintained library",
+        source_url: "https://prototypejs.org/",
+        reviewed: None,
+    },
+    Advisory {
+        library: "MooTools",
+        id: "local:mootools-unmaintained",
+        aliases: &[],
+        kind: AdvisoryKind::Unmaintained,
+        severity: "medium",
+        description: "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+        affected: ANY_VERSION,
+        safe_version: "Migrate to a maintained library",
+        source_url: "https://mootools.net/",
+        reviewed: None,
+    },
+];
+
+fn severity_rank(severity: &str) -> u8 {
+    match severity {
+        "high" => 2,
+        "medium" => 1,
+        _ => 0,
     }
-    let major = parts.first().and_then(|s| s.parse::<u32>().ok())?;
-    let minor = parts
-        .get(1)
-        .and_then(|s| s.parse::<u32>().ok())
-        .unwrap_or(0);
-    let patch = parts
-        .get(2)
-        .and_then(|s| {
-            // Strip pre-release suffixes like "0-rc1"
-            s.split('-').next()?.parse::<u32>().ok()
-        })
-        .unwrap_or(0);
+}
+
+/// Check a library version against the advisory table. A version that does
+/// not parse matches nothing: it is neither affected nor cleared.
+fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
+    let v = parse_semver(version)?;
+    let matches: Vec<&Advisory> = ADVISORIES
+        .iter()
+        .filter(|a| a.library == name)
+        .filter(|a| a.affected.iter().any(|r| v >= r.introduced && v < r.fixed))
+        .collect();
+    let first = matches.first()?;
+    let severity = matches
+        .iter()
+        .map(|a| a.severity)
+        .max_by_key(|s| severity_rank(s))?;
+    Some(VulnerableLibrary {
+        name: name.to_string(),
+        version: version.to_string(),
+        severity: severity.to_string(),
+        description: matches
+            .iter()
+            .map(|a| a.description)
+            .collect::<Vec<_>>()
+            .join(" "),
+        safe_version: first.safe_version.to_string(),
+        advisories: matches
+            .iter()
+            .map(|a| AdvisoryRef {
+                id: a.id.to_string(),
+                aliases: a.aliases.iter().map(|s| s.to_string()).collect(),
+                unmaintained: a.kind == AdvisoryKind::Unmaintained,
+                source_url: a.source_url.to_string(),
+                reviewed: a.reviewed.map(str::to_string),
+            })
+            .collect(),
+        exploitability: Exploitability::Unconfirmed,
+    })
+}
+
+/// Parse a version string like "3.6.0" into (major, minor, patch). Every
+/// present component must be numeric (a `-rc1` suffix on the last is
+/// stripped); anything else is `None`, never a guessed version.
+fn parse_semver(version: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = version.trim().split('.');
+    let major = parts.next()?.parse::<u32>().ok()?;
+    let minor = match parts.next() {
+        Some(s) => s.split('-').next()?.parse::<u32>().ok()?,
+        None => 0,
+    };
+    let patch = match parts.next() {
+        Some(s) => s.split('-').next()?.parse::<u32>().ok()?,
+        None => 0,
+    };
     Some((major, minor, patch))
 }
 
@@ -505,19 +647,6 @@ pub(crate) fn counter_cases() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn foundation_handlebars_advisory_boundaries_are_preserved() {
-        // Independent advisory boundary: GHSA-f2jv-r9rf-7988 (<4.7.7).
-        for version in ["4.5.2", "4.5.3", "4.6.0", "4.7.6"] {
-            let finding = check_vulnerability("Handlebars", version).expect(version);
-            assert!(finding.description.contains("CVE-2021-23369"));
-        }
-        for version in ["4.7.7", "4.7.8"] {
-            assert!(check_vulnerability("Handlebars", version).is_none());
-        }
-        assert!(check_vulnerability("Handlebars", "unknown").is_none());
-    }
 
     #[test]
     fn find_duplicate_versions_flags_two_distinct_versions() {
@@ -573,34 +702,119 @@ mod tests {
         assert!(find_duplicate_versions(&libs).is_empty());
     }
 
+    fn ids(name: &str, version: &str) -> Option<Vec<String>> {
+        check_vulnerability(name, version).map(|f| f.advisories.into_iter().map(|a| a.id).collect())
+    }
+
+    /// (library, last affected, first fixed) per advisory-backed library.
+    const BOUNDS: &[(&str, &str, &str)] = &[
+        ("jQuery", "3.4.1", "3.5.0"),
+        ("jQuery", "1.11.3", "3.5.0"),
+        ("Bootstrap", "3.4.0", "3.4.1"),
+        ("Bootstrap", "4.3.0", "4.3.1"),
+        ("AngularJS", "1.7.9", "1.8.0"),
+        ("Handlebars", "4.7.6", "4.7.7"),
+        ("Lodash", "4.17.20", "4.17.21"),
+        ("Underscore", "1.12.1", "1.13.0"),
+    ];
+
+    #[test]
+    fn affected_and_fixed_versions_per_library() {
+        for (lib, affected, fixed) in BOUNDS {
+            assert!(
+                check_vulnerability(lib, affected).is_some(),
+                "{lib} {affected} must be affected"
+            );
+            assert!(
+                check_vulnerability(lib, fixed).is_none(),
+                "{lib} {fixed} must not be affected"
+            );
+        }
+        // Outside every affected range of the library
+        assert!(check_vulnerability("Bootstrap", "5.3.3").is_none());
+        assert!(check_vulnerability("AngularJS", "1.8.3").is_none());
+        assert!(check_vulnerability("Underscore", "1.13.7").is_none());
+    }
+
+    #[test]
+    fn handlebars_range_is_below_4_7_7_not_below_4_5_3() {
+        // GHSA-f2jv-r9rf-7988 / CVE-2021-23369
+        for version in ["4.5.2", "4.5.3", "4.6.0", "4.7.6"] {
+            let found = ids("Handlebars", version).expect(version);
+            assert_eq!(found, vec!["GHSA-f2jv-r9rf-7988"]);
+        }
+        for version in ["4.7.7", "4.7.8", "5.0.0"] {
+            assert!(check_vulnerability("Handlebars", version).is_none());
+        }
+    }
+
+    #[test]
+    fn unmaintained_libraries_match_any_parsed_version_as_notice() {
+        for lib in ["Prototype", "MooTools"] {
+            let f = check_vulnerability(lib, "1.7.3").expect(lib);
+            assert!(f.advisories.iter().all(|a| a.unmaintained));
+        }
+    }
+
+    #[test]
+    fn unparseable_versions_are_neither_affected_nor_cleared() {
+        for lib in CHECKED_LIBRARIES {
+            for bad in ["unknown", "", "x.y.z", "4.x", "4.7.x", "latest", "4..7"] {
+                assert!(check_vulnerability(lib, bad).is_none(), "{lib} {bad:?}");
+                assert_eq!(parse_semver(bad), None, "{bad:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn unlisted_library_is_never_reported() {
+        assert!(check_vulnerability("React", "0.0.1").is_none());
+    }
+
+    #[test]
+    fn jquery_reports_highest_severity_and_all_matching_advisories() {
+        let old = check_vulnerability("jQuery", "1.11.3").unwrap();
+        assert_eq!(old.severity, "high");
+        assert_eq!(old.advisories.len(), 2);
+        let mid = check_vulnerability("jQuery", "3.4.1").unwrap();
+        assert_eq!(mid.severity, "medium");
+        assert_eq!(mid.advisories.len(), 1);
+    }
+
+    #[test]
+    fn match_keeps_exploitability_unconfirmed_and_cites_a_source() {
+        let f = check_vulnerability("Handlebars", "4.7.6").unwrap();
+        assert_eq!(f.exploitability, Exploitability::Unconfirmed);
+        assert!(f.advisories[0].source_url.starts_with("https://"));
+        assert_eq!(f.advisories[0].reviewed.as_deref(), Some("2026-10-26"));
+        assert!(f.advisories[0]
+            .aliases
+            .contains(&"CVE-2021-23369".to_string()));
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(json["exploitability"], "unconfirmed");
+    }
+
+    #[test]
+    fn advisory_table_is_well_formed() {
+        for a in ADVISORIES {
+            assert!(CHECKED_LIBRARIES.contains(&a.library), "{}", a.id);
+            assert!(!a.affected.is_empty(), "{}", a.id);
+            for r in a.affected {
+                assert!(r.introduced < r.fixed, "{}", a.id);
+            }
+            assert!(a.source_url.starts_with("https://"), "{}", a.id);
+        }
+        let mut seen = std::collections::HashSet::new();
+        assert!(ADVISORIES.iter().all(|a| seen.insert(a.id)));
+    }
+
     #[test]
     fn test_parse_semver() {
         assert_eq!(parse_semver("3.6.0"), Some((3, 6, 0)));
         assert_eq!(parse_semver("1.12.4"), Some((1, 12, 4)));
         assert_eq!(parse_semver("4"), Some((4, 0, 0)));
+        assert_eq!(parse_semver("1.8.0-rc1"), Some((1, 8, 0)));
         assert_eq!(parse_semver("invalid"), None);
-    }
-
-    #[test]
-    fn test_jquery_vulnerable() {
-        assert!(check_vulnerability("jQuery", "1.11.3").is_some());
-        assert!(check_vulnerability("jQuery", "3.4.1").is_some());
-    }
-
-    #[test]
-    fn test_jquery_safe() {
-        assert!(check_vulnerability("jQuery", "3.5.0").is_none());
-        assert!(check_vulnerability("jQuery", "3.7.1").is_none());
-    }
-
-    #[test]
-    fn test_lodash_vulnerable() {
-        assert!(check_vulnerability("Lodash", "4.17.20").is_some());
-    }
-
-    #[test]
-    fn test_lodash_safe() {
-        assert!(check_vulnerability("Lodash", "4.17.21").is_none());
     }
 
     #[test]

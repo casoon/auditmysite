@@ -27,6 +27,7 @@ and verification for each change is in the
 - **Scoring:** The overall score always uses the published module weights, including dual-viewport audits. Incomplete performance measurements and unchecked HTML conformance do not contribute; estimated Speed Index remains diagnostic. Principle coverage uses execution records instead of assuming every catalogued criterion passed.
 - **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.7 and describes conditional exploitability.
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
+- **Libraries:** Affected library versions come from a versioned advisory table (`ADVISORIES` in `best_practices/vulnerable_libs.rs`) with advisory id, CVE aliases, affected ranges, fixed version, source URL and review date. `vulnerable[]` entries list the matching `advisories[]` and carry `exploitability: "unconfirmed"` (a version match never proves the code path is reachable); `detected[].version_parsed` marks versions that could not be read, which are neither flagged nor cleared.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
 - **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.0.
