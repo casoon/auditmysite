@@ -178,9 +178,15 @@ pub async fn check_on_input_with_page(page: &Page) -> Vec<Violation> {
         Err(violations) => return violations,
     };
 
+    // A scan of the wrong shape is no answer, not a page without on-input
+    // handlers (#777).
     match serde_json::from_value::<Scan>(val) {
         Ok(scan) => evaluate(&scan),
-        Err(_) => vec![],
+        Err(_) => vec![crate::wcag::technical_rule_failure_for(
+            "on-input",
+            crate::cli::WcagLevel::A,
+            "invalid_evaluation_value",
+        )],
     }
 }
 

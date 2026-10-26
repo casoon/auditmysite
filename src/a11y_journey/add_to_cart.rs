@@ -47,14 +47,16 @@ async fn cart_badge_snapshot(page: &Page) -> Option<String> {
 /// `closest()` bleibt an der Shadow-Grenze stehen, und `document.activeElement`
 /// hält dort den Host. Für diesen Nebenpfad hingenommen; die Ankündigung
 /// selbst wird über [`live_regions`] beobachtet, nicht hier.
-async fn focus_in_dialog(page: &Page) -> bool {
+/// Without an answer the journey fails rather than reading "no dialog"
+/// (#777).
+async fn focus_in_dialog(page: &Page) -> Result<bool> {
     eval_bool(
         page,
         r#"document.activeElement !== null &&
             document.activeElement.closest('[role="dialog"],[aria-modal="true"]') !== null"#,
     )
     .await
-    .unwrap_or(false)
+    .ok_or_else(|| crate::error::AuditError::CdpError("journey probe gave no answer".into()))
 }
 
 pub async fn test(
@@ -109,7 +111,7 @@ pub async fn test(
     let events = live_regions::drain(page).await;
     let announced = events.iter().any(|e| e.is_announcement());
     let badge_after = cart_badge_snapshot(page).await;
-    let focus_moved_to_dialog = focus_in_dialog(page).await;
+    let focus_moved_to_dialog = focus_in_dialog(page).await?;
     let badge_changed = matches!(
         (&badge_before, &badge_after),
         (Some(before), Some(after)) if before != after

@@ -56,14 +56,18 @@ async fn eval_int(page: &Page, js: &str) -> Option<i64> {
 /// Check whether a live announcement appeared after submit.
 ///
 /// Returns (live_announcement_present, aria_invalid_count, linked_to_error_count).
-async fn check_error_state(page: &Page) -> (bool, usize, usize) {
+/// A probe without an answer fails the journey: "no live region" or "no
+/// invalid field" would otherwise be read off a page that never answered
+/// (#777).
+async fn check_error_state(page: &Page) -> Result<(bool, usize, usize)> {
+    let no_answer = || crate::error::AuditError::CdpError("journey probe gave no answer".into());
     // 1. Live region / alert node present.
     let live_present = eval_bool(
         page,
         "document.querySelector('[role=\"alert\"],[aria-live]') !== null",
     )
     .await
-    .unwrap_or(false);
+    .ok_or_else(no_answer)?;
 
     // 2. Count fields with aria-invalid="true".
     let invalid_count = eval_int(
@@ -71,7 +75,7 @@ async fn check_error_state(page: &Page) -> (bool, usize, usize) {
         "document.querySelectorAll('[aria-invalid=\"true\"]').length",
     )
     .await
-    .unwrap_or(0) as usize;
+    .ok_or_else(no_answer)? as usize;
 
     // 3. Count fields linked to an error message (aria-describedby or aria-errormessage).
     let linked_count = eval_int(
@@ -90,9 +94,9 @@ async fn check_error_state(page: &Page) -> (bool, usize, usize) {
         })()"#,
     )
     .await
-    .unwrap_or(0) as usize;
+    .ok_or_else(no_answer)? as usize;
 
-    (live_present, invalid_count, linked_count)
+    Ok((live_present, invalid_count, linked_count))
 }
 
 pub async fn test(
@@ -114,7 +118,7 @@ pub async fn test(
     let _ = live_regions::drain(page).await;
 
     // Capture baseline — no errors yet.
-    let (live_before, invalid_before, _linked_before) = check_error_state(page).await;
+    let (live_before, invalid_before, _linked_before) = check_error_state(page).await?;
 
     trace.steps.push(JourneyStep {
         action: "check_baseline_errors".to_string(),
@@ -151,7 +155,7 @@ pub async fn test(
     let _ = stability::settle_after_action(page).await;
 
     // Check error state after submit.
-    let (live_after, invalid_after, linked_after) = check_error_state(page).await;
+    let (live_after, invalid_after, linked_after) = check_error_state(page).await?;
 
     // Wurde eine Live-Region gefüllt? Das ist die Ankündigung — nicht, ob
     // eine Region existiert.

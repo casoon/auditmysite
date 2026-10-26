@@ -53,7 +53,13 @@ pub async fn check_orientation_with_page(page: &Page) -> Vec<Violation> {
             Err(violations) => return violations,
         };
 
-    let locked = val.get("locked").and_then(|v| v.as_bool()).unwrap_or(false);
+    // The probe always answers `locked`; without it nothing was measured.
+    let Some(locked) = val.get("locked").and_then(|v| v.as_bool()) else {
+        return vec![crate::wcag::technical_rule_failure(
+            &ORIENTATION_RULE,
+            "invalid_evaluation_value",
+        )];
+    };
     if !locked {
         return vec![];
     }
