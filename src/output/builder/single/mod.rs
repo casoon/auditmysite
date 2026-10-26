@@ -965,6 +965,7 @@ mod tests {
                 ),
             }],
             images_checked: 3,
+            coverage: Default::default(),
         })
         .with_network_dns(crate::network::dns::build_analysis(
             "example.com",
