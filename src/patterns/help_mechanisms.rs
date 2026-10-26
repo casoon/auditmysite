@@ -149,20 +149,38 @@ const HELP_MECHANISMS_JS: &str = r#"
 })()
 "#;
 
-/// Inventory the page's help mechanisms into `out.help_mechanisms`. A failed
-/// evaluation leaves the inventory empty; the batch comparison then simply
-/// has one page less to compare, which it reports through its page counts.
-pub(crate) async fn detect(page: &Page, out: &mut PatternAnalysis) {
-    let value = match page.evaluate(HELP_MECHANISMS_JS).await {
-        Ok(eval) => eval.value().cloned(),
-        Err(e) => {
-            warn!("Help-mechanism detection JS failed: {}", e);
-            return;
-        }
+/// Help mechanisms (contact, chat, help pages) and their regions.
+pub(crate) static HELP_MECHANISMS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "accessibility.help_mechanisms",
+        module: "accessibility",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
     };
-    let Some(value) = value else { return };
-    match serde_json::from_value::<Vec<HelpMechanism>>(value) {
-        Ok(mechanisms) => out.help_mechanisms = mechanisms,
-        Err(e) => warn!("Failed to parse help-mechanism inventory: {}", e),
+
+/// Inventory the page's help mechanisms into `out.help_mechanisms`. A failed
+/// evaluation leaves the inventory empty and is recorded as a failed
+/// collection, so the batch comparison can tell it from a page without
+/// help mechanisms (#777).
+pub(crate) async fn detect(
+    page: &Page,
+    out: &mut PatternAnalysis,
+    log: &crate::audit::collection::CollectionLog,
+) {
+    let inventory =
+        crate::audit::collection::evaluate_js_value::<Vec<HelpMechanism>>(page, HELP_MECHANISMS_JS)
+            .await
+            .empty_if(Vec::is_empty);
+    if let Some(mechanisms) = log.record(&HELP_MECHANISMS, inventory).into_value() {
+        out.help_mechanisms = mechanisms;
+    } else {
+        warn!("Help-mechanism detection failed");
     }
+}
+
+/// Counter-cases of [`HELP_MECHANISMS`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_value_contract::<Vec<HelpMechanism>>(serde_json::json!([]));
 }

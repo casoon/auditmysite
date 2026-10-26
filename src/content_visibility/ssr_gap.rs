@@ -88,12 +88,24 @@ pub fn compute_ssr_content_gap(with_js_chars: usize, without_js_chars: usize) ->
 
 const CONTENT_LENGTH_JS: &str = "(document.body ? document.body.innerText : '').trim().length";
 
-async fn read_visible_content_chars(page: &Page) -> Result<usize> {
-    let result = page
-        .evaluate(CONTENT_LENGTH_JS)
+/// Visible text length with and without JavaScript, from two loads of the
+/// audited URL.
+pub(crate) static SSR_GAP: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "content_visibility.ssr_gap",
+        module: "content_visibility",
+        method: crate::audit::collection::CollectionMethod::Cdp,
+        method_version: 2,
+        scoring: false,
+    };
+
+/// A missing length is no measurement — `0` would read as an empty page and
+/// turn into a gap (#777).
+async fn read_visible_content_chars(page: &Page) -> Option<usize> {
+    crate::audit::collection::evaluate_js_value::<u64>(page, CONTENT_LENGTH_JS)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Visible-content length read failed: {e}")))?;
-    Ok(result.value().and_then(|v| v.as_u64()).unwrap_or(0) as usize)
+        .into_value()
+        .map(|chars| chars as usize)
 }
 
 async fn set_script_execution_disabled(page: &Page, disabled: bool) -> Result<()> {
@@ -108,49 +120,41 @@ async fn set_script_execution_disabled(page: &Page, disabled: bool) -> Result<()
 /// Measure the SSR/hydration content gap for `url` (#534, opt-in via
 /// `--check-ssr-content`).
 ///
-/// Reads the visible-content length from the already-loaded `page` (the
-/// normal, JavaScript-enabled audit pass), then reloads the same URL with
-/// JavaScript execution disabled and re-measures. Always re-enables script
+/// Loads the URL with JavaScript enabled and reads the visible-content
+/// length, then reloads it with JavaScript execution disabled and
+/// re-measures. The first load is its own: after interactive journeys the
+/// tab rests on `about:blank`, and a length read there is no measurement
+/// of the page (#777). Always re-enables script
 /// execution before returning, regardless of outcome — the page must stay
 /// usable for any subsequent pass in `run_single_audit` (same "always
 /// restore state after use" precedent as
 /// `third_party::isolate_third_party_impact`'s
 /// `set_blocked_urls(page, &[])` cleanup after each isolation pass).
 ///
-/// Returns `None` if any CDP step fails; the caller simply omits the
-/// finding rather than surfacing a broken/partial measurement.
+/// A failed step is a failed collection; the caller then omits the finding
+/// rather than surfacing a broken measurement.
 pub async fn measure_ssr_content_gap(
     page: &Page,
     browser: &BrowserManager,
     url: &str,
-) -> Option<SsrContentGap> {
-    let with_js_chars = match read_visible_content_chars(page).await {
-        Ok(chars) => chars,
-        Err(e) => {
-            warn!(
-                "Failed to read JS-enabled content length for SSR check: {}",
-                e
-            );
-            return None;
-        }
+) -> crate::audit::collection::Collected<SsrContentGap> {
+    use crate::audit::collection::{reason, Collected};
+    if let Err(e) = browser.navigate(page, url).await {
+        warn!("Navigation with JS enabled failed for SSR check: {}", e);
+        return Collected::Failed(reason::CDP_COMMAND_FAILED);
+    }
+    let Some(with_js_chars) = read_visible_content_chars(page).await else {
+        warn!("Failed to read JS-enabled content length for SSR check");
+        return Collected::Failed(reason::NO_RESULT);
     };
 
     if let Err(e) = set_script_execution_disabled(page, true).await {
         warn!("Failed to disable script execution for SSR check: {}", e);
-        return None;
+        return Collected::Unsupported("script_disabling_failed");
     }
 
     let without_js_chars = match browser.navigate(page, url).await {
-        Ok(_) => match read_visible_content_chars(page).await {
-            Ok(chars) => Some(chars),
-            Err(e) => {
-                warn!(
-                    "Failed to read JS-disabled content length for SSR check: {}",
-                    e
-                );
-                None
-            }
-        },
+        Ok(_) => read_visible_content_chars(page).await,
         Err(e) => {
             warn!("Navigation with JS disabled failed for SSR check: {}", e);
             None
@@ -166,7 +170,17 @@ pub async fn measure_ssr_content_gap(
         );
     }
 
-    without_js_chars.map(|chars| compute_ssr_content_gap(with_js_chars, chars))
+    match without_js_chars {
+        Some(chars) => Collected::Measured(compute_ssr_content_gap(with_js_chars, chars)),
+        None => Collected::Failed(reason::NO_RESULT),
+    }
+}
+
+/// Counter-cases of [`SSR_GAP`] (#777): a length that is missing or not a
+/// number is no measurement.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_value_contract::<u64>(serde_json::json!(0));
 }
 
 #[cfg(test)]

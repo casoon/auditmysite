@@ -19,7 +19,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::error::{AuditError, Result};
+use crate::error::Result;
 
 /// Complete HTML5 conformance analysis for a single page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,8 +78,23 @@ pub struct HtmlConformFinding {
 /// logs a warning and returns `checked: false` / `score: 100` rather than a
 /// punitive 0 — mirrors Performance's `metrics_available == 0` "not measured"
 /// treatment.
-pub async fn analyze_html_conform(page: &Page) -> Result<HtmlConformAnalysis> {
-    let html = extract_document_html(page).await?;
+/// The serialized live document the conformance check validates.
+pub(crate) static DOCUMENT: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "html_conform.document",
+        module: "html_conform",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+    };
+
+pub async fn analyze_html_conform(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Result<HtmlConformAnalysis> {
+    let html = log
+        .record(&DOCUMENT, extract_document_html(page).await)
+        .into_result(&DOCUMENT)?;
 
     let report = match html_conform::check(&html) {
         Ok(report) => report,
@@ -261,7 +276,7 @@ fn not_measured() -> HtmlConformAnalysis {
 /// `seo::page_health::extract_document_html` — sharing it would mean
 /// exporting it out of `page_health` and threading a new `raw_html` field
 /// through `ModuleContext`/`SnapshotData` for a ~15-line CDP call.
-async fn extract_document_html(page: &Page) -> Result<String> {
+async fn extract_document_html(page: &Page) -> crate::audit::collection::Collected<String> {
     let js = r#"
     (() => {
         const d = document.doctype;
@@ -272,22 +287,29 @@ async fn extract_document_html(page: &Page) -> Result<String> {
     })()
     "#;
 
-    let result = page.evaluate(js).await.map_err(|e| {
-        AuditError::CdpError(format!(
-            "HTML extraction for conformance check failed: {}",
-            e
-        ))
-    })?;
+    crate::audit::collection::evaluate_js_value(page, js).await
+}
 
-    result
-        .value()
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .ok_or_else(|| {
-            AuditError::CdpError(
-                "HTML extraction for conformance check returned no value".to_string(),
-            )
-        })
+/// Counter-cases of [`DOCUMENT`] (#777): no serialized document, no
+/// conformance verdict.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::decode_js_value;
+    for input in [
+        None,
+        Some(serde_json::Value::Null),
+        Some(serde_json::json!(42)),
+    ] {
+        assert!(
+            decode_js_value::<String>(input.as_ref()).value().is_none(),
+            "{input:?}"
+        );
+    }
+    assert!(
+        decode_js_value::<String>(Some(&serde_json::json!("<html>")))
+            .value()
+            .is_some()
+    );
 }
 
 #[cfg(test)]

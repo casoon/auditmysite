@@ -149,7 +149,22 @@ pub(crate) fn message_text(en: bool) -> &'static str {
 /// Detect easy-language availability signals and, if any matched, add a
 /// single `EasyLanguage` positive signal to `out`. Idempotent — does nothing
 /// if an `EasyLanguage` signal is already recognized.
-pub(crate) async fn detect(page: &Page, tree: &AXTree, out: &mut PatternAnalysis) {
+/// Easy-language markers in the DOM (`lang` tags, CSS classes).
+pub(crate) static EASY_LANGUAGE: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "accessibility.easy_language",
+        module: "accessibility",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
+pub(crate) async fn detect(
+    page: &Page,
+    tree: &AXTree,
+    out: &mut PatternAnalysis,
+    log: &crate::audit::collection::CollectionLog,
+) {
     if out.has_recognized("EasyLanguage") {
         return;
     }
@@ -157,22 +172,23 @@ pub(crate) async fn detect(page: &Page, tree: &AXTree, out: &mut PatternAnalysis
     let mut lang_marker = false;
     let mut css_class_marker = false;
 
-    match page.evaluate(EASY_LANGUAGE_JS).await {
-        Ok(eval) => {
-            if let Some(value) = eval.value() {
-                match serde_json::from_value::<RawSignals>(value.clone()) {
-                    Ok(raw) => {
-                        lang_marker = raw.lang_tags.iter().any(|t| is_simplified_lang_tag(t));
-                        css_class_marker = raw.class_names.iter().any(|classes| {
-                            let lower = classes.to_lowercase();
-                            CSS_CLASS_MARKERS.iter().any(|m| lower.contains(m))
-                        });
-                    }
-                    Err(e) => warn!("Failed to parse easy-language signals JSON: {}", e),
-                }
-            }
+    // Without the DOM signals only the link-text marker below can recognize
+    // the offer; the record says the DOM part is missing (#777).
+    match log
+        .record(
+            &EASY_LANGUAGE,
+            crate::audit::collection::evaluate_js_value::<RawSignals>(page, EASY_LANGUAGE_JS).await,
+        )
+        .into_value()
+    {
+        Some(raw) => {
+            lang_marker = raw.lang_tags.iter().any(|t| is_simplified_lang_tag(t));
+            css_class_marker = raw.class_names.iter().any(|classes| {
+                let lower = classes.to_lowercase();
+                CSS_CLASS_MARKERS.iter().any(|m| lower.contains(m))
+            });
         }
-        Err(e) => warn!("Easy-language detection JS failed: {}", e),
+        None => warn!("Easy-language DOM detection failed"),
     }
 
     let markers = linktext_markers();
@@ -189,6 +205,27 @@ pub(crate) async fn detect(page: &Page, tree: &AXTree, out: &mut PatternAnalysis
     };
 
     out.add_recognized("EasyLanguage", PatternMessage::EasyLanguage, confidence);
+}
+
+/// Counter-cases of [`EASY_LANGUAGE`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::decode_js_value;
+    for input in [
+        None,
+        Some(serde_json::Value::Null),
+        Some(serde_json::json!(1)),
+    ] {
+        assert!(
+            decode_js_value::<RawSignals>(input.as_ref())
+                .value()
+                .is_none(),
+            "{input:?}"
+        );
+    }
+    assert!(decode_js_value::<RawSignals>(Some(&serde_json::json!({})))
+        .value()
+        .is_some());
 }
 
 #[cfg(test)]

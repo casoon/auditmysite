@@ -334,6 +334,48 @@ impl CollectionLog {
     }
 }
 
+/// Attach each record to the run of its module. A module that returned data
+/// but lost (part of) a collection is `Partial`, not `Completed`: its result
+/// rests on fewer measurements than it claims; one whose every collection
+/// was lost is `Failed`. Records of a module without a run are dropped —
+/// the module did not run.
+pub(crate) fn fold_records(runs: &mut [super::ModuleRun], records: Vec<CollectionRecord>) {
+    use super::ExecutionStatus;
+    for record in records {
+        let Some(run) = runs
+            .iter_mut()
+            .rev()
+            .find(|run| run.module == record.module)
+        else {
+            continue;
+        };
+        if record.state.is_gap() && run.status == ExecutionStatus::Completed {
+            run.status = ExecutionStatus::Partial;
+            run.reason_code = Some(if record.scoring {
+                "scoring_collection_failed".to_string()
+            } else {
+                "collection_incomplete".to_string()
+            });
+        }
+        run.subchecks.push(record.into());
+    }
+    for run in runs.iter_mut() {
+        let collections: Vec<_> = run.subchecks.iter().filter_map(|s| s.state).collect();
+        if !collections.is_empty()
+            && collections.iter().all(|state| {
+                matches!(
+                    state,
+                    CollectionState::Failed | CollectionState::Unsupported
+                )
+            })
+            && run.status == ExecutionStatus::Partial
+        {
+            run.status = ExecutionStatus::Failed;
+            run.reason_code = Some("all_collections_failed".to_string());
+        }
+    }
+}
+
 /// Every collector the audit runs. A collector missing here is a contract
 /// violation (see the inventory tests).
 pub static COLLECTORS: &[&CollectorSpec] = &[
@@ -359,6 +401,13 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::seo::page_health::probes::WWW_CONSOLIDATION,
     &crate::seo::page_health::probes::URL_CANONICALIZATION,
     &crate::mobile::MOBILE,
+    &crate::patterns::help_mechanisms::HELP_MECHANISMS,
+    &crate::patterns::easy_language::EASY_LANGUAGE,
+    &crate::display::DISPLAY_MODES,
+    &crate::html_conform::DOCUMENT,
+    &crate::content_visibility::ssr_gap::SSR_GAP,
+    &crate::journey::module::DOM_MAIN,
+    &crate::journey::module::EARLY_TEXT,
     &crate::tech_stack::DETECTION,
     &crate::tech_stack::HARDENING_PROBES,
     &crate::best_practices::console_errors::CONSOLE,
@@ -545,6 +594,22 @@ mod tests {
                 probes::partial_result,
             ),
             ("mobile.friendliness", crate::mobile::counter_cases),
+            (
+                "accessibility.help_mechanisms",
+                crate::patterns::help_mechanisms::counter_cases,
+            ),
+            (
+                "accessibility.easy_language",
+                crate::patterns::easy_language::counter_cases,
+            ),
+            ("accessibility.display_modes", crate::display::counter_cases),
+            ("html_conform.document", crate::html_conform::counter_cases),
+            (
+                "content_visibility.ssr_gap",
+                crate::content_visibility::ssr_gap::counter_cases,
+            ),
+            ("journey.dom_main", crate::journey::module::counter_cases),
+            ("journey.early_text", crate::journey::module::counter_cases),
             ("tech_stack.detection", crate::tech_stack::counter_cases),
             (
                 "tech_stack.hardening_probes",

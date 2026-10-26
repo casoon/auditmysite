@@ -30,7 +30,7 @@ impl AuditModule for HtmlConformModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_html_conform(ctx.page).await {
+        match analyze_html_conform(ctx.page, ctx.collection).await {
             Ok(a) => Ok(ModuleData::HtmlConform(Box::new(a))),
             Err(e) => {
                 warn!("HTML conformance analysis failed: {}", e);

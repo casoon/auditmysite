@@ -270,43 +270,7 @@ impl SnapshotData {
         &mut self,
         records: Vec<crate::audit::collection::CollectionRecord>,
     ) {
-        for record in records {
-            let Some(run) = self
-                .module_runs
-                .iter_mut()
-                .rev()
-                .find(|run| run.module == record.module)
-            else {
-                continue;
-            };
-            if record.state.is_gap() && run.status == crate::audit::ExecutionStatus::Completed {
-                run.status = crate::audit::ExecutionStatus::Partial;
-                run.reason_code = Some(if record.scoring {
-                    "scoring_collection_failed".to_string()
-                } else {
-                    "collection_incomplete".to_string()
-                });
-            }
-            run.subchecks.push(record.into());
-        }
-        // A module whose every collection was lost measured nothing, even if
-        // it returned a (default) payload.
-        for run in &mut self.module_runs {
-            let collections: Vec<_> = run.subchecks.iter().filter_map(|s| s.state).collect();
-            if !collections.is_empty()
-                && collections.iter().all(|state| {
-                    matches!(
-                        state,
-                        crate::audit::collection::CollectionState::Failed
-                            | crate::audit::collection::CollectionState::Unsupported
-                    )
-                })
-                && run.status == crate::audit::ExecutionStatus::Partial
-            {
-                run.status = crate::audit::ExecutionStatus::Failed;
-                run.reason_code = Some("all_collections_failed".to_string());
-            }
-        }
+        crate::audit::collection::fold_records(&mut self.module_runs, records);
     }
 
     /// Whether `module` lost a scoring collection in this viewport.
@@ -681,9 +645,19 @@ async fn audit_on_page(
     // the catalog's derive phase inside `audit_page`) must already exist so
     // the finding can be appended to it.
     if config.check_ssr_content {
-        if let Some(gap) =
-            crate::content_visibility::ssr_gap::measure_ssr_content_gap(page, browser, url).await
-        {
+        let log = crate::audit::collection::CollectionLog::new();
+        let gap = log
+            .record(
+                &crate::content_visibility::ssr_gap::SSR_GAP,
+                crate::content_visibility::ssr_gap::measure_ssr_content_gap(page, browser, url)
+                    .await,
+            )
+            .into_value();
+        crate::audit::collection::fold_records(
+            &mut report.accessibility.execution.module_runs,
+            log.into_records(),
+        );
+        if let Some(gap) = gap {
             if let Some(cv) = report.discoverability.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
@@ -1064,17 +1038,25 @@ pub async fn audit_page(
     // Pattern violations come from the AXTree and reference real DOM nodes, so
     // they can be enriched with selectors just like WCAG violations. Running this
     // here (rather than inside aggregate_report) gives us access to the live page.
+    // Page-level collections outside the module catalog; folded into the
+    // accessibility run once it exists (#777).
+    let page_collection = crate::audit::collection::CollectionLog::new();
     let mut pattern_analysis = crate::patterns::analyze(&primary_snap.ax_tree);
     // Easy-language ("Leichte Sprache") availability needs raw DOM access
     // (CSS class names, <link hreflang> in <head>) not present in the
     // AXTree, so it runs as a separate async pass against the live page
     // rather than from the synchronous `analyze()` above (plan
     // 09-easy-language-detection.md).
-    crate::patterns::easy_language::detect(page, &primary_snap.ax_tree, &mut pattern_analysis)
-        .await;
+    crate::patterns::easy_language::detect(
+        page,
+        &primary_snap.ax_tree,
+        &mut pattern_analysis,
+        &page_collection,
+    )
+    .await;
     // Help mechanisms (WCAG 3.2.6) likewise need the DOM: landmark regions
     // and `mailto:`/`tel:` targets. Recorded per page, compared in the batch.
-    crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis).await;
+    crate::patterns::help_mechanisms::detect(page, &mut pattern_analysis, &page_collection).await;
     let (mut pattern_violations, excluded_patterns) = crate::audit::exclusion::filter_findings(
         page,
         &mobile_exclusion,
@@ -1132,7 +1114,8 @@ pub async fn audit_page(
     }
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
     // Before the journeys: they may operate the display toggle.
-    report.accessibility.execution.display_modes = crate::display::detect(page).await;
+    report.accessibility.execution.display_modes =
+        crate::display::detect(page, &page_collection).await;
     report.accessibility.execution.navigation.meta_refresh =
         [("desktop", desktop_refresh), ("mobile", mobile_refresh)]
             .into_iter()
@@ -1254,6 +1237,10 @@ pub async fn audit_page(
     report.accessibility.execution.frames = Some(frame_coverage);
 
     ensure_requested_module_runs(&mut report);
+    crate::audit::collection::fold_records(
+        &mut report.accessibility.execution.module_runs,
+        page_collection.into_records(),
+    );
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
     update_audit_quality(&mut report);

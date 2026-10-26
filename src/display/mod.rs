@@ -261,18 +261,30 @@ struct RawDetection {
     reduced_motion: bool,
 }
 
+/// The display-mode convention (`data-display`, `figure[data-viz]`).
+pub(crate) static DISPLAY_MODES: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "accessibility.display_modes",
+        module: "accessibility",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
 /// Read the convention off the rendered page. `None` when the page neither
 /// sets `data-display` nor contains a `figure[data-viz]` — the convention
-/// does not apply, and the report stays unchanged for such pages.
-pub async fn detect(page: &Page) -> Option<DisplayModesInfo> {
-    let raw = match page.evaluate(DETECT_JS).await {
-        Ok(result) => result.into_value::<String>().ok()?,
-        Err(e) => {
-            warn!("Display-mode detection failed: {e}");
-            return None;
-        }
-    };
-    let raw: RawDetection = serde_json::from_str(&raw).ok()?;
+/// does not apply, and the report stays unchanged for such pages — or when
+/// the detection failed, which the collection record tells apart (#777).
+pub async fn detect(
+    page: &Page,
+    log: &crate::audit::collection::CollectionLog,
+) -> Option<DisplayModesInfo> {
+    let raw: RawDetection = log
+        .record(
+            &DISPLAY_MODES,
+            crate::audit::collection::evaluate_js(page, DETECT_JS).await,
+        )
+        .into_value()?;
     info_from_raw(raw)
 }
 
@@ -366,6 +378,15 @@ pub fn offered_modes_text(info: Option<&DisplayModesInfo>, en: bool) -> String {
     } else {
         format!("{modes} (dargestellt: {active})")
     }
+}
+
+/// Counter-cases of [`DISPLAY_MODES`] (#777).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<RawDetection>(serde_json::json!({
+        "active": null, "toggle": false, "offered": [], "kinds": {},
+        "observed": false, "atBody": null, "reducedMotion": false
+    }));
 }
 
 #[cfg(test)]
