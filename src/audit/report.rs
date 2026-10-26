@@ -98,6 +98,11 @@ impl From<super::collection::CollectionRecord> for SubcheckRun {
 pub struct AuditScope {
     #[serde(default)]
     pub requested_modules: Vec<String>,
+    /// Opt-in extra checks requested on top of the modules, by collector id
+    /// (`performance.third_party_isolation`, `content_visibility.ssr_gap`).
+    /// Each carries a subcheck run in its module's `module_runs` (#788).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requested_subchecks: Vec<String>,
     pub full_audit: bool,
     pub interactive_mode: String,
     pub journey_budget_ms: u64,
@@ -968,16 +973,60 @@ pub struct BatchError {
     pub blocked_reason: Option<String>,
 }
 
+/// URL lifecycle of a batch, counted separately so a partial or failed run is
+/// never read as a complete one (#768). `discovered >= selected >= attempted`;
+/// `attempted = succeeded + blocked + failed`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchCoverage {
+    /// Candidate URLs found by the source (sitemap, crawl, file).
+    pub discovered: usize,
+    /// URLs chosen for auditing after path filters and `--max-pages`.
+    pub selected: usize,
+    /// URLs an audit was started for.
+    pub attempted: usize,
+    /// URLs that produced a report; the only ones the averages are over.
+    pub succeeded: usize,
+    /// URLs answered with a bot wall, challenge or access denial.
+    pub blocked: usize,
+    /// URLs whose audit failed for another reason.
+    pub failed: usize,
+}
+
+impl BatchCoverage {
+    pub fn from_outcomes(succeeded: usize, errors: &[BatchError]) -> Self {
+        let blocked = errors.iter().filter(|e| e.blocked_reason.is_some()).count();
+        let attempted = succeeded + errors.len();
+        Self {
+            discovered: attempted,
+            selected: attempted,
+            attempted,
+            succeeded,
+            blocked,
+            failed: errors.len() - blocked,
+        }
+    }
+
+    /// True when every attempted URL produced a report.
+    pub fn is_complete(&self) -> bool {
+        self.blocked == 0 && self.failed == 0 && self.succeeded == self.attempted
+    }
+}
+
 /// Summary statistics for a batch audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchSummary {
-    /// Total URLs audited
+    /// URLs that produced a report (the denominator of `average_score`).
+    /// Failed and blocked URLs are counted in `coverage`, not here.
     pub total_urls: usize,
+    /// URL lifecycle counters, including failed and blocked URLs.
+    #[serde(default)]
+    pub coverage: BatchCoverage,
     /// URLs that passed
     pub passed: usize,
     /// URLs that failed
     pub failed: usize,
-    /// Average score across all URLs
+    /// Average score over the URLs that produced a report
+    /// (`coverage.succeeded` of `coverage.attempted`).
     pub average_score: f64,
     /// Total violations found
     pub total_violations: usize,
@@ -1114,6 +1163,7 @@ impl BatchReport {
         total_duration_ms: u64,
     ) -> Self {
         let total_urls = reports.len();
+        let coverage = BatchCoverage::from_outcomes(total_urls, &errors);
         let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = reports
             .iter()
             .map(|r| crate::audit::normalized::normalize(r).normalized)
@@ -1184,10 +1234,15 @@ impl BatchReport {
                 qualified_results: status != AuditQualityStatus::Complete,
                 failed_rule_checks,
                 partial_or_failed_modules,
-                reasons: if errors.is_empty() {
-                    Vec::new()
-                } else {
-                    vec![format!("failed_urls:{}", errors.len())]
+                reasons: {
+                    let mut reasons = Vec::new();
+                    if coverage.failed > 0 {
+                        reasons.push(format!("failed_urls:{}", coverage.failed));
+                    }
+                    if coverage.blocked > 0 {
+                        reasons.push(format!("blocked_urls:{}", coverage.blocked));
+                    }
+                    reasons
                 },
             }
         };
@@ -1210,6 +1265,7 @@ impl BatchReport {
             errors,
             summary: BatchSummary {
                 total_urls,
+                coverage,
                 passed,
                 failed,
                 average_score,
@@ -1243,6 +1299,8 @@ impl BatchReport {
     }
 
     pub fn with_sample(mut self, sample: SampleMetadata) -> Self {
+        self.summary.coverage.discovered = sample.total_discovered;
+        self.summary.coverage.selected = sample.audited;
         self.sample = Some(sample);
         self
     }
@@ -1525,5 +1583,111 @@ mod tests {
             "batch risk must be elevated when one page has critical issues, got {:?}",
             risk
         );
+    }
+
+    fn clean_report(url: &str) -> AuditReport {
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100)
+    }
+
+    fn batch_error(url: &str, blocked: bool) -> BatchError {
+        BatchError {
+            url: url.to_string(),
+            error: "navigation failed".to_string(),
+            blocked_reason: blocked.then(|| "bot wall".to_string()),
+        }
+    }
+
+    /// #768: a clean report plus a failed URL must never read as complete.
+    #[test]
+    fn failed_url_is_counted_and_never_an_unqualified_pass() {
+        let batch = BatchReport::from_reports(
+            vec![clean_report("https://a.com")],
+            vec![batch_error("https://b.com", false)],
+            10,
+        );
+        let c = &batch.summary.coverage;
+        assert_eq!(
+            (c.attempted, c.succeeded, c.failed, c.blocked),
+            (2, 1, 1, 0)
+        );
+        assert_eq!(batch.summary.total_urls, 1);
+        assert_ne!(
+            batch.summary.audit_quality.status,
+            AuditQualityStatus::Complete
+        );
+        let v = crate::audit::compute_batch_verdict(&batch.summary, &Default::default());
+        assert_ne!(v.verdict, crate::audit::Verdict::Pass);
+        assert!(v
+            .reasons
+            .iter()
+            .any(|r| r.starts_with("incomplete_scope: 1 of 2")));
+    }
+
+    /// The verdict reads the coverage itself, not only the derived quality.
+    #[test]
+    fn verdict_qualifies_failed_scope_even_with_complete_quality() {
+        let mut batch = BatchReport::from_reports(vec![clean_report("https://a.com")], vec![], 10);
+        batch.summary.coverage.attempted = 2;
+        batch.summary.coverage.failed = 1;
+        let v = crate::audit::compute_batch_verdict(&batch.summary, &Default::default());
+        assert_eq!(v.verdict, crate::audit::Verdict::Warn);
+    }
+
+    #[test]
+    fn blocked_and_failed_urls_are_counted_separately() {
+        let batch = BatchReport::from_reports(
+            vec![clean_report("https://a.com")],
+            vec![
+                batch_error("https://b.com", true),
+                batch_error("https://c.com", false),
+            ],
+            10,
+        );
+        let c = &batch.summary.coverage;
+        assert_eq!((c.succeeded, c.blocked, c.failed), (1, 1, 1));
+        let reasons = &batch.summary.audit_quality.reasons;
+        assert!(reasons.contains(&"failed_urls:1".to_string()));
+        assert!(reasons.contains(&"blocked_urls:1".to_string()));
+    }
+
+    /// A batch where every URL failed has nothing measured: FAIL, exit 2.
+    #[test]
+    fn fully_failed_batch_fails() {
+        let batch = BatchReport::from_reports(
+            vec![],
+            vec![
+                batch_error("https://a.com", false),
+                batch_error("https://b.com", true),
+            ],
+            10,
+        );
+        assert_eq!(batch.summary.coverage.succeeded, 0);
+        assert_eq!(batch.summary.average_score, 0.0);
+        assert_eq!(
+            batch.summary.audit_quality.status,
+            AuditQualityStatus::Insufficient
+        );
+        let v = crate::audit::compute_batch_verdict(&batch.summary, &Default::default());
+        assert_eq!(v.verdict, crate::audit::Verdict::Fail);
+        assert_eq!(v.verdict.exit_code(), 2);
+    }
+
+    #[test]
+    fn sample_metadata_sets_discovered_and_selected() {
+        let batch = BatchReport::from_reports(vec![clean_report("https://a.com")], vec![], 10)
+            .with_sample(SampleMetadata {
+                source: "sitemap".to_string(),
+                total_discovered: 50,
+                audited: 1,
+                sample_limit: Some(1),
+                selection: "first_n".to_string(),
+                is_sample: true,
+            });
+        let c = &batch.summary.coverage;
+        assert_eq!(
+            (c.discovered, c.selected, c.attempted, c.succeeded),
+            (50, 1, 1, 1)
+        );
+        assert!(c.is_complete());
     }
 }

@@ -159,6 +159,11 @@ fn test_batch_summary_states_attempted_url_count() {
         serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
     assert_eq!(json["summary"]["url_count"], 1);
     assert_eq!(json["summary"]["attempted_url_count"], 2);
+    assert_eq!(json["summary"]["coverage"]["succeeded"], 1);
+    assert_eq!(json["summary"]["coverage"]["failed"], 1);
+    assert_eq!(json["summary"]["coverage"]["attempted"], 2);
+    assert_ne!(json["verdict"], "pass");
+    assert_ne!(json["audit_quality"]["status"], "complete");
     assert_eq!(json["errors"][0]["url"], "https://example.com/b");
 
     let report = AuditReport::new(
@@ -1174,6 +1179,7 @@ fn test_collection_errors_serialized_when_present() {
             passed_url_count: 0,
             failed_url_count: 0,
             attempted_url_count: None,
+            coverage: None,
             exclusions: None,
             violated_rule_count: 0,
             root_causes: vec![],

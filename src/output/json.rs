@@ -205,6 +205,10 @@ pub struct UnifiedSummary {
     /// `errors` (#651).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attempted_url_count: Option<usize>,
+    /// Batch only: discovered, selected, attempted, succeeded, blocked and
+    /// failed URLs. Averages are over `succeeded` only (#768).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<crate::audit::BatchCoverage>,
     /// Batch only: audit exclusions (#645) aggregated over all pages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusions: Option<crate::audit::exclusion::BatchExclusionSummary>,
@@ -1008,6 +1012,8 @@ impl UnifiedReport {
         // Accessibility plus risk gate, like the single report — they followed
         // the overall score here, so 49/100 accessibility read "STABIL" (plan 111).
         let (grade, certificate) = batch_report.summary.grade_and_certificate();
+        let default_batch_verdict =
+            crate::audit::compute_batch_verdict(&batch_report.summary, &Default::default());
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,
@@ -1025,7 +1031,8 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
-            attempted_url_count: Some(batch_report.summary.total_urls + batch_report.errors.len()),
+            attempted_url_count: Some(batch_report.summary.coverage.attempted),
+            coverage: Some(batch_report.summary.coverage.clone()),
             exclusions: crate::audit::exclusion::BatchExclusionSummary::aggregate(
                 batch_report
                     .reports
@@ -1162,8 +1169,8 @@ impl UnifiedReport {
             artifacts: Vec::new(),
             errors,
             collection_errors,
-            verdict: Verdict::Pass,
-            verdict_reasons: Vec::new(),
+            verdict: default_batch_verdict.verdict,
+            verdict_reasons: default_batch_verdict.reasons,
         }
     }
 
@@ -1233,6 +1240,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            coverage: None,
             exclusions: None,
             violated_rule_count,
             root_causes: Vec::new(),
@@ -1341,6 +1349,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            coverage: None,
             exclusions: None,
             violated_rule_count,
             root_causes: Vec::new(),

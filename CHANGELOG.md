@@ -20,6 +20,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Batch:** `summary.coverage` counts discovered, selected, attempted, succeeded, blocked and failed URLs separately; `average_score` and `url_count` stay over succeeded URLs. A batch with failed or blocked URLs is never `Complete` or PASS (verdict `warn` with `incomplete_scope`), and a batch where no URL produced a report is `fail` (exit code 2). The batch JSON verdict is derived from the summary even without CLI verdict configuration.
+- **Audit scope:** `--isolate-third-party-impact` and `--check-ssr-content` now also run in batch mode (sitemap, URL file, crawl). They are listed in `scope.requested_subchecks`, and a requested isolation pass that cannot run records `not_applicable` or `failed` in `module_runs[].subchecks[]` instead of leaving no trace.
 - **DNS:** CAA and DNSKEY are looked up on the host and its parent domains; `caa_present`, `dnssec_detected` and `mx_present` are `null` when the resolver gave no answer.
 - **Performance:** Each core metric (`performance.lcp`, `fcp`, `cls`, `tbt`) and sub-analysis reports its collection state; a throttled profile without all four core metrics has no score (`score: null`) and is not adopted as the canonical measurement.
 - **Performance:** LCP is the last candidate before the read, also one painted after `load`; TBT counts long tasks over FCP→TTI (Lighthouse window) instead of up to load + 100 ms. TTI is the end of the last long task before the first 5 s quiet window.

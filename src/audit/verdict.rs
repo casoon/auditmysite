@@ -209,6 +209,13 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
 
     let mut fail_reasons = Vec::new();
 
+    // Nothing was measured: no score, no findings, so no PASS/WARN either (#768).
+    if summary.coverage.attempted > 0 && summary.coverage.succeeded == 0 {
+        fail_reasons.push(format!(
+            "no_url_audited: 0 of {} requested URLs produced a report ({} failed, {} blocked)",
+            summary.coverage.attempted, summary.coverage.failed, summary.coverage.blocked
+        ));
+    }
     if fail_on_legal && summary.legal_flags > 0 {
         fail_reasons.push(format!(
             "legal_flags: {} (across all pages)",
@@ -243,6 +250,15 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
     }
 
     let mut warn_reasons = Vec::new();
+    if !summary.coverage.is_complete() {
+        warn_reasons.push(format!(
+            "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked)",
+            summary.coverage.succeeded,
+            summary.coverage.attempted,
+            summary.coverage.failed,
+            summary.coverage.blocked
+        ));
+    }
     if summary.audit_quality.qualified_results {
         warn_reasons.push(format!("audit_quality: {:?}", summary.audit_quality.status));
     }
@@ -387,6 +403,7 @@ mod tests {
     fn incomplete_batch_cannot_pass_unqualified() {
         let summary = BatchSummary {
             total_urls: 1,
+            coverage: Default::default(),
             passed: 1,
             failed: 0,
             average_score: 100.0,

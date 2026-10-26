@@ -50,14 +50,14 @@ pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
-    AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchError, BatchReport,
-    BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState, ConsentCookieSignal,
-    ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry, CrawlDiagnostics,
-    DiscoverabilitySection, DualViewportResults, ExecutionEnvironment, ExecutionStatus,
-    ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots, PerformanceResults,
-    RedirectChain, RobotsSitemapConflict, SampleMetadata, ScreenshotStatus, SitemapDiagnostics,
-    SitemapHttpIssue, SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition,
-    ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchCoverage, BatchError,
+    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState,
+    ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
+    CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
+    ExecutionStatus, ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots,
+    PerformanceResults, RedirectChain, RobotsSitemapConflict, SampleMetadata, ScreenshotStatus,
+    SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult, ViewportAuditData,
+    ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
