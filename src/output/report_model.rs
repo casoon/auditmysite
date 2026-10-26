@@ -1335,7 +1335,7 @@ pub struct BatchPresentation {
     pub template_clusters: Vec<TemplateClusterView>,
 }
 
-/// Localized presentation view of a `audit::template_dedup::TemplateCluster`.
+/// Localized presentation view of an `audit::RootCause` (`summary.root_causes`).
 ///
 /// `confidence` is kept as the canonical `"confirmed"` / `"likely"` marker so
 /// render code can key off it (e.g. to decide whether to override a

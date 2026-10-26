@@ -428,9 +428,6 @@
           "type": "integer",
           "minimum": 0
         },
-        "top_recurring_rules": {
-          "type": "array"
-        },
         "performance_score": {
           "type": "integer",
           "minimum": 0,
@@ -1304,6 +1301,22 @@
           "items": {
             "$ref": "#/$defs/occurrence"
           }
+        },
+        "id": {
+          "type": "string",
+          "description": "F- and eight hex digits from the rule; the same on every page and run."
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/findingPattern"
+          },
+          "description": "Element patterns of all occurrences, most occurrences first, at most 20."
+        },
+        "pattern_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of distinct patterns, also beyond the 20 listed."
         }
       }
     },
@@ -1701,6 +1714,28 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "findingPattern": {
+      "type": "object",
+      "required": [
+        "id",
+        "selector",
+        "occurrence_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "RC- and eight hex digits; equals summary.root_causes[].id for a recurring pattern."
+        },
+        "selector": {
+          "type": "string"
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     }

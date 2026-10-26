@@ -10,9 +10,7 @@ use serde::Serialize;
 
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::audit::verdict::{Verdict, VerdictResult};
-use crate::audit::{
-    compute_recurring_rules, AuditReport, BatchReport, RecurringRule, SampleMetadata,
-};
+use crate::audit::{AuditReport, BatchReport, SampleMetadata};
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
 use crate::output::module::ReportModule as _;
@@ -214,14 +212,6 @@ pub struct UnifiedSummary {
     /// (über alle Pages dedupliziert).
     #[serde(default)]
     pub violated_rule_count: usize,
-    /// Häufigste WCAG-Regelverstöße (max. 10 Einträge, sortiert nach Occurrences).
-    /// Bei Single-Reports bezogen auf die eine Seite; bei Batch über alle Pages aggregiert.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub top_recurring_rules: Vec<RecurringRule>,
-    /// WCAG findings verified to share one template/component root cause
-    /// across multiple pages (batch only; always empty on single reports).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub template_clusters: Vec<crate::audit::TemplateCluster>,
     /// Finding patterns that recur on two or more pages; `id` matches
     /// `pages[].findings[].patterns[].id` (batch only).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -504,7 +494,6 @@ pub struct DecisionAction {
 pub struct InternalComparison {
     pub module_extremes: Vec<ModuleExtreme>,
     pub outlier_urls: Vec<UrlOutlier>,
-    pub root_causes: Vec<RootCauseSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -523,14 +512,6 @@ pub struct UrlOutlier {
     pub batch_average: u32,
     pub delta_points: i32,
     pub reason: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RootCauseSummary {
-    pub title: String,
-    pub occurrence_count: usize,
-    pub affected_urls: usize,
-    pub classification: String,
 }
 
 /// One audited page. `detail` is present for single reports, omitted for batch.
@@ -1052,8 +1033,6 @@ impl UnifiedReport {
                     .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
             ),
             violated_rule_count: batch_report.summary.violated_rule_count,
-            top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
-            template_clusters: batch_report.summary.template_clusters.clone(),
             root_causes: batch_report.summary.root_causes.clone(),
             en301549_rollup: build_en301549_batch_rollup(&normalized_reports),
             performance_score: avg_module_score(&pages, "Performance"),
@@ -1236,8 +1215,6 @@ impl UnifiedReport {
                 == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
-        let (top_recurring_rules, _) =
-            compute_recurring_rules(std::slice::from_ref(&ctx.normalized));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -1258,8 +1235,6 @@ impl UnifiedReport {
             attempted_url_count: None,
             exclusions: None,
             violated_rule_count,
-            top_recurring_rules,
-            template_clusters: Vec::new(),
             root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(&ctx.normalized, "Performance"),
@@ -1348,7 +1323,6 @@ impl UnifiedReport {
                 == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
-        let (top_recurring_rules, _) = compute_recurring_rules(std::slice::from_ref(normalized));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -1369,8 +1343,6 @@ impl UnifiedReport {
             attempted_url_count: None,
             exclusions: None,
             violated_rule_count,
-            top_recurring_rules,
-            template_clusters: Vec::new(),
             root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),

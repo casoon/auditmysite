@@ -36,6 +36,10 @@ and verification for each change is in the
 - **Reports:** The trust signal lists contact, imprint and privacy links that were not detected instead of reusing the UX trust score.
 - **SEO:** A missing `lang` attribute or page title is marked as also counted under accessibility (WCAG 3.1.1 / 2.4.2).
 
+### Removed
+
+- **JSON:** Breaking: `summary.template_clusters`, `summary.top_recurring_rules` and `internal_comparison.root_causes`. Recurring element patterns are `summary.root_causes` with their evidence grade; the former lists either duplicated it or called anything on two pages a "likely template or component".
+
 ### Fixed
 
 - **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.

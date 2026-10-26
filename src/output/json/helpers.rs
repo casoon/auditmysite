@@ -514,43 +514,12 @@ pub(super) fn build_internal_comparison(reports: &[NormalizedReport]) -> Interna
         })
         .collect();
 
-    let mut root_map: std::collections::BTreeMap<
-        String,
-        (usize, std::collections::BTreeSet<String>),
-    > = std::collections::BTreeMap::new();
-    for report in reports {
-        for finding in &report.findings {
-            let entry = root_map
-                .entry(finding.title.clone())
-                .or_insert_with(|| (0, std::collections::BTreeSet::new()));
-            entry.0 += finding.occurrence_count;
-            entry.1.insert(report.url.clone());
-        }
-    }
-    let mut root_causes: Vec<_> = root_map
-        .into_iter()
-        .map(|(title, (occurrence_count, urls))| RootCauseSummary {
-            title,
-            occurrence_count,
-            affected_urls: urls.len(),
-            classification: if urls.len() >= 2 || occurrence_count >= 10 {
-                "likely_template_or_component".to_string()
-            } else {
-                "page_specific".to_string()
-            },
-        })
-        .collect();
-    root_causes.sort_by(|a, b| {
-        b.affected_urls
-            .cmp(&a.affected_urls)
-            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
-    });
-    root_causes.truncate(10);
-
+    // The former `root_causes` list here called anything on two pages or
+    // with 10 occurrences a "likely template or component"; recurring
+    // patterns are `summary.root_causes` now (2.0 finding model).
     InternalComparison {
         module_extremes,
         outlier_urls,
-        root_causes,
     }
 }
 

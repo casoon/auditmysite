@@ -1824,7 +1824,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
         execution_priority,
         examples,
         // plan/4-root-cause-confidence-wording.md: this threshold is a raw
-        // occurrence count across pages, not `TemplateCluster.confidence`
+        // occurrence count across pages, not `RootCause.confidence`
         // ("confirmed" vs "likely" HTML-snippet-shape evidence, see
         // `render_template_cluster_card` above) — a high count alone does
         // not confirm the occurrences share one component/template any
