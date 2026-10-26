@@ -89,3 +89,6 @@ for demo in single-table technician report-lint; do
   $castwright build "$dir/$demo.terminal.yaml" -o "$dir"
   $castwright build "$dir/$demo.terminal.yaml" --format svg --no-chrome -o "$dir"
 done
+
+# The start-page scenes are excerpts of the single-page recording.
+CASTWRIGHT="$castwright" "$dir/hero-excerpt.sh"

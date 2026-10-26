@@ -56,17 +56,27 @@ const style = `<style>
 
 /**
  * A castwright terminal demo: the animated SVG, its text, and a control that stops the
- * animation by showing the text instead. `id` must be unique on the page.
+ * animation by showing the text instead. `id` must be unique on the page. `narrow` names a
+ * second, narrower scene that replaces the SVG on screens up to 640 px, so its text stays
+ * readable on phones.
  */
-export function castDemo(name: string, id: string, caption?: string): string {
-  const src = svgs[`../../examples/${name}.svg`];
-  const svg = svgSources[`../../examples/${name}.svg`];
-  if (src === undefined || svg === undefined) throw new Error(`examples/${name}.svg not found`);
-  const [, width, height] = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg) ?? [];
+export function castDemo(name: string, id: string, caption?: string, narrow?: string): string {
+  const svgOf = (scene: string) => {
+    const src = svgs[`../../examples/${scene}.svg`];
+    const svg = svgSources[`../../examples/${scene}.svg`];
+    if (src === undefined || svg === undefined) throw new Error(`examples/${scene}.svg not found`);
+    const [, width, height] = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg) ?? [];
+    return { src, width, height };
+  };
+  const { src, width, height } = svgOf(name);
+  const source = narrow
+    ? (({ src, width, height }) =>
+        `<source media="(max-width: 640px)" srcset="${src}" width="${width}" height="${height}">`)(svgOf(narrow))
+    : '';
   return `<figure class="cw-demo">${style}${
     caption ? `<figcaption>${escapeAttr(caption)}</figcaption>` : ''
   }` +
-    `<div class="cw-anim"><img src="${src}" width="${width}" height="${height}" alt="" decoding="async"></div>` +
+    `<div class="cw-anim"><picture>${source}<img src="${src}" width="${width}" height="${height}" alt="" decoding="async"></picture></div>` +
     `<pre class="cw-text">${ansiToHtml(castText(name))}</pre>` +
     `<div class="cw-controls"><input type="checkbox" class="cw-toggle" id="${id}"><label for="${id}">Stop animation, show as text</label></div></figure>`;
 }

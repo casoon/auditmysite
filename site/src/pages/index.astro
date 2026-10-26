@@ -29,7 +29,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
 
 <Base>
   <Hero
-    title="Accessibility audits of the page the browser actually renders."
+    title="Accessibility audits of the rendered page."
     lead="auditmysite loads each page in Chrome, reads Chrome's own accessibility tree over the DevTools Protocol and checks it against WCAG 2.2 AA. One binary, JSON for automation, PDF reports in German and English."
   >
     <Install
@@ -45,9 +45,11 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       <Badge>WCAG 2.2 AA</Badge>
       <Badge>macOS · Linux · Windows</Badge>
     </Badges>
+    {/* Excerpt of the recorded single-page audit (examples/hero-excerpt.sh): 64 columns, and
+        a 50-column scene for phones. The full recording is in the showcase. */}
     <Fragment
       slot="output"
-      set:html={castDemo('single-table', 'cw-hero', 'auditmysite https://www.casoon.de/ --format table --lang en --request-mode browser')}
+      set:html={castDemo('hero', 'cw-hero', 'auditmysite 1.7.0 on casoon.de', 'hero-narrow')}
     />
   </Hero>
 
