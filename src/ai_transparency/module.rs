@@ -32,7 +32,7 @@ impl AuditModule for AiTransparencyModule {
     #[cfg(feature = "ai-transparency")]
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
         use tracing::warn;
-        match super::image_provenance::analyze_ai_transparency(ctx.page).await {
+        match super::image_provenance::analyze_ai_transparency(ctx.page, ctx.collection).await {
             Ok(a) => Ok(ModuleData::AiTransparency(Box::new(a))),
             Err(e) => {
                 warn!("AI transparency analysis failed: {}", e);

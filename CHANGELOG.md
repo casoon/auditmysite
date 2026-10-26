@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **AI transparency:** `ai_transparency.coverage` counts attempted, checked and limit-skipped images and failed fetches by reason (`redirect_not_followed`, `oversized`, `timeout`, `host_not_public`, …).
 - **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
 - **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
 - **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings. Release checks require positive and negative corpus evidence for every inventoried WCAG, security, schema and library check; deferred checks do not satisfy this gate.
@@ -53,6 +54,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
 - **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
 - **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.
 - **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.
