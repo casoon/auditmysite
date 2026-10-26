@@ -19,11 +19,9 @@
 //!   that the DNSKEY is signed by a trusted parent zone, no RRSIG check. A
 //!   "detected" result means DNSSEC signing looks present, not that a
 //!   resolver has cryptographically validated the chain.
-//! - **Query failures** (timeouts, unreachable resolver, NXDOMAIN,
-//!   no-records-found) are all collapsed into "record absent". This can
-//!   under rare network-failure conditions produce a false "missing"
-//!   finding, but avoids introducing a three-state pass/fail/unknown model
-//!   for a first cut.
+//! - **Query failures**: NXDOMAIN/NODATA establish absence; transport or
+//!   resolver failures leave the module unmeasured instead of inventing a
+//!   missing-record finding.
 
 pub mod module;
 pub use module::NetworkDnsModule;
@@ -147,8 +145,8 @@ pub fn build_analysis(host: &str, result: &DnsCheckResult) -> NetworkDnsAnalysis
     }
 }
 
-/// Runs the real DNS queries for one host. Returns `None` only when the
-/// resolver itself could not be constructed (a local configuration/
+/// Runs the real DNS queries for one host. Returns `None` when a lookup
+/// fails technically or the resolver could not be constructed (a local configuration/
 /// environment problem) — an individual record lookup failing (including
 /// "no records found") is treated as "absent", see module doc comment.
 pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
@@ -178,19 +176,40 @@ pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
         .lookup(fqdn.as_str(), RecordType::CAA)
         .await
         .map(|l| !l.answers().is_empty())
-        .unwrap_or(false);
+        .or_else(|error| {
+            if error.is_no_records_found() {
+                Ok(false)
+            } else {
+                Err(error)
+            }
+        })
+        .ok()?;
 
     let dnssec_detected = resolver
         .lookup(fqdn.as_str(), RecordType::DNSKEY)
         .await
         .map(|l| !l.answers().is_empty())
-        .unwrap_or(false);
+        .or_else(|error| {
+            if error.is_no_records_found() {
+                Ok(false)
+            } else {
+                Err(error)
+            }
+        })
+        .ok()?;
 
     let mx_present = resolver
         .mx_lookup(fqdn.as_str())
         .await
         .map(|l| !l.answers().is_empty())
-        .unwrap_or(false);
+        .or_else(|error| {
+            if error.is_no_records_found() {
+                Ok(false)
+            } else {
+                Err(error)
+            }
+        })
+        .ok()?;
 
     let spf_present = if mx_present {
         resolver
@@ -201,7 +220,14 @@ pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
                     matches!(&record.data, RData::TXT(txt) if txt.to_string().starts_with("v=spf1"))
                 })
             })
-            .unwrap_or(false)
+            .or_else(|error| {
+                if error.is_no_records_found() {
+                    Ok(false)
+                } else {
+                    Err(error)
+                }
+            })
+            .ok()?
     } else {
         false
     };

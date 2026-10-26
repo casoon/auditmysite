@@ -507,9 +507,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         .await
         .map_err(|e| AuditError::CdpError(format!("Mobile analysis failed: {}", e)))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed = crate::util::decode_collector_object(js_result.value(), "mobile extraction")?;
 
     // Parse viewport
     let vp = &parsed["viewport"];

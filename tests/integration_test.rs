@@ -40,6 +40,75 @@ async fn ci_browser() -> BrowserManager {
 
 #[tokio::test]
 #[ignore = "needs Chrome"]
+async fn foundation_missing_observers_are_not_perfect_zero_metrics() {
+    use auditmysite::performance::{extract_web_vitals, prepare_vitals_collection};
+    let fixture = common::fixture_server::serve_html(
+        "<!doctype html><html lang=en><title>Vitals</title><main><h1>Vitals fixture</h1></main></html>".into(),
+    );
+    let manager = ci_browser().await;
+    let unprepared = manager.new_page().await.unwrap();
+    manager.navigate(&unprepared, &fixture.url).await.unwrap();
+    let missing = extract_web_vitals(&unprepared).await.unwrap();
+    assert!(
+        missing.tbt.is_none(),
+        "no observer must not mean zero blocking time"
+    );
+    assert!(
+        missing.cls.is_none(),
+        "no observer must not mean zero layout shift"
+    );
+    unprepared.close().await.unwrap();
+
+    let prepared = manager.new_page().await.unwrap();
+    prepare_vitals_collection(&prepared).await.unwrap();
+    manager.navigate(&prepared, &fixture.url).await.unwrap();
+    let measured = extract_web_vitals(&prepared).await.unwrap();
+    assert!(
+        measured.tbt.is_some(),
+        "supported observer must preserve a measured zero"
+    );
+    assert!(
+        measured.cls.is_some(),
+        "supported observer must preserve a measured zero"
+    );
+    prepared.close().await.unwrap();
+    fixture.stop();
+}
+
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
+    let fixture = common::fixture_server::serve_html(r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Viewport cap fixture</title><main><h1>Viewport cap fixture</h1><button id=control></button></main><script>
+    const narrow = matchMedia('(max-width: 700px)');
+    function update() { document.getElementById('control').textContent = narrow.matches ? 'Menu' : ''; }
+    narrow.addEventListener('change', update); update();
+    </script></html>"#.into());
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.unwrap();
+    manager.navigate(&page, &fixture.url).await.unwrap();
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .unwrap();
+    let scores = report.viewport_scores.as_ref().unwrap();
+    assert!(
+        scores.desktop.accessibility <= 49 && scores.mobile.accessibility > 49,
+        "fixture must isolate the critical defect to desktop: {scores:?}"
+    );
+    assert!(report.accessibility.score <= 49.0);
+    let normalized = auditmysite::audit::normalize(&report);
+    assert_eq!(
+        report.accessibility.score.round() as u32,
+        normalized.normalized.score
+    );
+    auditmysite::output::UnifiedReport::single(&normalized, &report)
+        .to_json(false)
+        .unwrap();
+    page.close().await.unwrap();
+    fixture.stop();
+}
+
+#[tokio::test]
+#[ignore = "needs Chrome"]
 async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
     let (url, shutdown) = serve_fixture("svg_graphics_roles.html");
     let manager = ci_browser().await;
@@ -306,6 +375,11 @@ async fn test_full_audit_with_all_modules() {
     let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
+
+    let normalized = auditmysite::audit::normalize(&report);
+    auditmysite::output::UnifiedReport::single(&normalized, &report)
+        .to_json(false)
+        .expect("full pipeline must preserve export invariants");
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 

@@ -56,6 +56,7 @@ fn severity_rank(s: &Severity) -> u8 {
 }
 
 pub fn format_summary(normalized: &NormalizedReport) -> anyhow::Result<String> {
+    normalized.validate()?;
     let score = normalized.overall_score;
     let (label, medal_color) = label_and_medal(score);
 
@@ -81,7 +82,7 @@ pub fn format_summary(normalized: &NormalizedReport) -> anyhow::Result<String> {
         url: normalized.url.clone(),
         date: normalized.timestamp.format("%Y-%m-%d").to_string(),
         score,
-        grade: normalized.grade.clone(),
+        grade: crate::audit::AccessibilityScorer::calculate_grade(score as f32).to_string(),
         label: label.to_string(),
         medal_color: medal_color.to_string(),
         total_issues: normalized.severity_counts.total,

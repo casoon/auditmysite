@@ -44,6 +44,7 @@ pub fn format_json_normalized(
     report: &AuditReport,
     pretty: bool,
 ) -> Result<String> {
+    ctx.normalized.validate()?;
     UnifiedReport::single(ctx, report).to_json(pretty)
 }
 
@@ -52,11 +53,13 @@ pub fn format_json_normalized(
 /// Module detail is limited to whatever the cached `NormalizedReport` still
 /// carries (raw module data is not persisted, so `detail.modules` is sparse).
 pub fn format_json_cached(normalized: &NormalizedReport, pretty: bool) -> Result<String> {
+    normalized.validate()?;
     UnifiedReport::single_from_normalized(normalized).to_json(pretty)
 }
 
 /// Generate batch-report JSON. `pages[i].detail` is omitted.
 pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<String> {
+    crate::audit::validate_batch(batch_report)?;
     UnifiedReport::batch(batch_report).to_json(pretty)
 }
 
@@ -793,40 +796,6 @@ pub struct ReportMetadata {
     pub execution_time_ms: u64,
 }
 
-fn aggregate_audit_quality(reports: &[NormalizedReport]) -> crate::audit::AuditQuality {
-    let failed_rule_checks = reports
-        .iter()
-        .map(|report| report.execution.quality.failed_rule_checks)
-        .sum();
-    let partial_or_failed_modules = reports
-        .iter()
-        .map(|report| report.execution.quality.partial_or_failed_modules)
-        .sum();
-    let status = if reports.iter().any(|report| {
-        report.execution.quality.status == crate::audit::AuditQualityStatus::Insufficient
-    }) {
-        crate::audit::AuditQualityStatus::Insufficient
-    } else if reports
-        .iter()
-        .any(|report| report.execution.quality.status == crate::audit::AuditQualityStatus::Partial)
-    {
-        crate::audit::AuditQualityStatus::Partial
-    } else {
-        crate::audit::AuditQualityStatus::Complete
-    };
-    crate::audit::AuditQuality {
-        status,
-        qualified_results: status != crate::audit::AuditQualityStatus::Complete,
-        failed_rule_checks,
-        partial_or_failed_modules,
-        reasons: reports
-            .iter()
-            .filter(|report| report.execution.quality.qualified_results)
-            .map(|report| format!("qualified_page:{}", report.url))
-            .collect(),
-    }
-}
-
 fn build_site_analysis(
     batch: &BatchReport,
     presentation: &crate::output::report_model::BatchPresentation,
@@ -1201,7 +1170,7 @@ impl UnifiedReport {
             execution_environment: normalized_reports
                 .first()
                 .map(|report| report.execution.environment.clone()),
-            audit_quality: aggregate_audit_quality(&normalized_reports),
+            audit_quality: batch_report.summary.audit_quality.clone(),
             metric_context: metric_context("batch"),
             summary,
             sample: batch_report.sample.clone(),
@@ -1221,10 +1190,33 @@ impl UnifiedReport {
 
     /// Serialize to a JSON string.
     pub fn to_json(&self, pretty: bool) -> Result<String> {
+        let value = serde_json::to_value(self)?;
+        let violations = crate::lint::lint(&value, None);
+        let blocking: Vec<_> = violations
+            .findings
+            .iter()
+            .filter(|finding| {
+                matches!(
+                    finding.severity,
+                    crate::taxonomy::Severity::High | crate::taxonomy::Severity::Critical
+                )
+            })
+            .map(|finding| {
+                format!(
+                    "{} at {}: expected {}, found {}",
+                    finding.check_id, finding.evidence_path, finding.expected, finding.actual
+                )
+            })
+            .collect();
+        if !blocking.is_empty() {
+            return Err(crate::error::AuditError::ReportGenerationFailed {
+                reason: format!("Report invariant violation: {}", blocking.join("; ")),
+            });
+        }
         let output = if pretty {
-            serde_json::to_string_pretty(self)
+            serde_json::to_string_pretty(&value)
         } else {
-            serde_json::to_string(self)
+            serde_json::to_string(&value)
         };
         output.map_err(|e| crate::error::AuditError::OutputError {
             reason: format!("JSON serialization failed: {}", e),
@@ -1239,11 +1231,9 @@ impl UnifiedReport {
     }
 
     fn wrap_single(ctx: &AuditContext<'_>, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
-        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
-        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            crate::audit::compute_verdict(&ctx.normalized, &Default::default()).verdict
+                == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
         let (top_recurring_rules, _) =
@@ -1353,11 +1343,9 @@ impl UnifiedReport {
 
     /// Wrap a single page (cached/from-normalized path — no raw module data available).
     fn wrap_single_from_normalized(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let no_legal_flags = !page.findings.iter().any(|f| f.is_legal_flag());
-        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
-        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            crate::audit::compute_verdict(normalized, &Default::default()).verdict
+                == crate::audit::Verdict::Pass,
         );
         let violated_rule_count = page.violated_rule_count;
         let (top_recurring_rules, _) = compute_recurring_rules(std::slice::from_ref(normalized));

@@ -82,12 +82,13 @@ fn read_rs_files(dir: &Path) -> Vec<(String, String)> {
 /// Extract the quoted string value of the first `field_name: "..."` in `block`.
 fn extract_field_str(block: &str, field_name: &str) -> Option<String> {
     let marker = format!("{field_name}:");
-    let start = block.find(&marker)? + marker.len();
-    let rest = &block[start..];
-    let quote_start = rest.find('"')?;
-    let after_quote = &rest[quote_start + 1..];
-    let quote_end = after_quote.find('"')?;
-    Some(after_quote[..quote_end].to_string())
+    block.lines().find_map(|line| {
+        let value = line.trim_start().strip_prefix(&marker)?.trim_start();
+        // A Rust field declaration or a nonliteral expression must not pick
+        // up the next quoted example/comment as a phantom rule ID.
+        let literal = value.strip_prefix('"')?;
+        Some(literal.split('"').next()?.to_string())
+    })
 }
 
 /// Extract every `<field>: "..."` value from each `<marker> { ... }` literal

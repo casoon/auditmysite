@@ -860,49 +860,45 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
 }
 
 #[test]
-fn test_score_breakdown_present_for_viewport_weighted() {
+fn test_viewport_data_keeps_the_published_module_weight_derivation() {
     use crate::audit::{ViewportScoreSet, ViewportScores};
-
-    let mut report = AuditReport::new(
-        "https://example.com".to_string(),
-        WcagLevel::AA,
-        WcagResults::new(),
-        100,
-    );
+    let mut results = WcagResults::new();
+    results.add_violation(crate::wcag::Violation::new(
+        "1.3.1",
+        "Structure",
+        WcagLevel::A,
+        crate::wcag::Severity::Medium,
+        "Missing structure",
+        "content",
+    ));
+    let mut report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
     report.viewport_scores = Some(ViewportScores {
         desktop: ViewportScoreSet {
-            accessibility: 100,
+            accessibility: 80,
             performance: None,
-            overall: 100,
+            overall: 80,
         },
         mobile: ViewportScoreSet {
             accessibility: 100,
             performance: None,
             overall: 100,
         },
-        weighted_overall: 100,
+        weighted_overall: 94,
     });
     let normalized = normalize(&report);
     assert_eq!(
         normalized.normalized.score_calculation_method,
-        "viewport_weighted"
+        "module_weighted"
     );
-    assert!(
-        normalized.normalized.score_breakdown.is_some(),
-        "NormalizedReport must have score_breakdown for viewport_weighted"
-    );
-    let unified = UnifiedReport::single(&normalized, &report);
-    let json_str = unified.to_json(true).unwrap();
-    let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-    assert!(
-        json_value["pages"][0].get("score_breakdown").is_some()
-            && !json_value["pages"][0]["score_breakdown"].is_null(),
-        "score_breakdown must be present and non-null for viewport_weighted pages"
-    );
-    assert_eq!(
-        json_value["pages"][0]["score_breakdown"]["viewport_blended_accessibility"],
-        json_value["pages"][0]["accessibility_score"]
-    );
+    let json: serde_json::Value = serde_json::from_str(
+        &UnifiedReport::single(&normalized, &report)
+            .to_json(false)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(json["pages"][0]["accessibility_score"], 94);
+    assert_eq!(json["pages"][0]["overall_score"], 94);
+    assert!(json["pages"][0]["score_breakdown"].is_null());
 }
 
 #[test]
@@ -1158,7 +1154,7 @@ fn test_collection_errors_serialized_when_present() {
             overall_score: 0,
             score: 0,
             grade: "F".to_string(),
-            certificate: "None".to_string(),
+            certificate: "UNGENÜGEND".to_string(),
             risk_level: crate::audit::normalized::RiskLevel::Low,
             violation_count: 0,
             finding_count: 0,
@@ -1265,17 +1261,25 @@ fn test_collection_errors_serialized_when_present() {
 /// (accessibility 49, overall 62) read "D" / "STABIL" and report-lint failed.
 #[test]
 fn test_batch_grade_and_certificate_follow_accessibility_not_overall() {
-    let mut batch = BatchReport::from_reports(
-        vec![AuditReport::new(
-            "https://example.com/a".to_string(),
-            WcagLevel::AA,
-            WcagResults::new(),
-            100,
-        )],
-        vec![],
-        100,
+    let mut report = all_active_modules_report();
+    report.accessibility.wcag_results = WcagResults::new();
+    report.accessibility.wcag_results.add_violation(
+        crate::wcag::Violation::new(
+            "4.1.2",
+            "Name Role Value",
+            WcagLevel::A,
+            crate::wcag::Severity::Critical,
+            "Unnamed control",
+            "control",
+        )
+        .with_rule_id("names/required-missing"),
     );
-    batch.summary.average_score = 49.0;
+    report.accessibility.score = crate::audit::AccessibilityScorer::calculate_score(
+        &report.accessibility.wcag_results.violations,
+    );
+    report.discoverability.source_quality =
+        Some(crate::source_quality::analyze_source_quality(&report));
+    let batch = BatchReport::from_reports(vec![report], vec![], 100);
 
     let json: serde_json::Value =
         serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();

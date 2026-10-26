@@ -29,6 +29,7 @@ mod risk_assessment;
 mod scoring;
 pub mod summary;
 pub mod template_dedup;
+pub mod validation;
 pub mod verdict;
 
 pub use artifacts::{
@@ -65,4 +66,5 @@ pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, Violati
 pub use template_dedup::{
     detect_root_causes, detect_template_clusters, RootCause, TemplateCluster,
 };
+pub use validation::{normalize_checked, validate_batch, ContractViolation, ReportContractError};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

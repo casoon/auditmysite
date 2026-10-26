@@ -9,12 +9,17 @@ and verification for each change is in the
 
 ### Added
 
+- **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
+- **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings. Release checks require positive and negative corpus evidence for every inventoried WCAG, security, schema and library check; deferred checks do not satisfy this gate.
+- **Release:** Version 2.x requires completion of the 26 foundation-audit issues and their tracker in the 2.0 milestone. Missing issues, open prerequisites, non-completion closures and GitHub API failures block the release before artifact builds.
 - **Batch:** `summary.root_causes[]` lists finding patterns that recur on two or more pages, with all URLs, occurrence count and confidence (`confirmed` same markup, `likely` same pattern above the coverage thresholds, `open` otherwise); `id` matches `findings[].patterns[].id`.
 - **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) from its rule, and `patterns[]` with the element patterns of all its occurrences (normalized selector, occurrence count, `RC-` id that is the same for the same rule and pattern on every page); `pattern_count` gives the full number.
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 
 ### Changed
 
+- **Scoring:** The overall score always uses the published module weights, including dual-viewport audits. Incomplete performance measurements and unchecked HTML conformance do not contribute; estimated Speed Index remains diagnostic. Principle coverage uses execution records instead of assuming every catalogued criterion passed.
+- **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.7 and describes conditional exploitability.
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
@@ -33,6 +38,11 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.
+- **Reports:** Different rules sharing a criterion and selector survive viewport merging. Critical accessibility limits survive viewport averaging; raw, terminal and JSON pass decisions use the canonical verdict. Failed batch URLs qualify audit completeness, and compact-export grades describe their exported score.
+- **Collection:** Invalid collector responses and failed HTTP/DNS probes no longer become successful empty measurements. Missing performance observers and invalid numeric metrics remain unmeasured; SEO and security transport checks use the final response/page scheme.
+- **Baseline:** Comparisons preserve concrete rule identity, severity and duplicate multiplicity, use stable selectors across browser reloads and record the actual calendar date.
+- **AI transparency:** Image provenance fetches reject redirects and enforce the body-size limit while reading the response.
 - **Batch:** `summary.grade` and `summary.certificate` describe the average accessibility score and are gated by the batch risk, as in the single report and the batch PDF; they followed the weighted overall score, so 49/100 accessibility read "D" / "STABIL".
 - **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".
 - **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".

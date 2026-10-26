@@ -504,6 +504,20 @@ mod tests {
     }
 
     #[test]
+    fn foundation_security_scope_includes_library_checks_without_performance() {
+        let mut cfg = cfg();
+        cfg.check_performance = false;
+        cfg.check_security = true;
+        assert!(AuditCatalog::standard()
+            .enabled(&cfg)
+            .any(|m| m.id() == "best_practices"));
+        cfg.check_security = false;
+        assert!(!AuditCatalog::standard()
+            .enabled(&cfg)
+            .any(|m| m.id() == "best_practices"));
+    }
+
+    #[test]
     fn iter_preserves_insertion_order() {
         let cat = AuditCatalog::empty()
             .with_module(boxed(StubModule::new("gamma")))

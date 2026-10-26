@@ -46,6 +46,10 @@ pub struct BaselineViolation {
     pub message: String,
     /// AXTree node ID
     pub node_id: String,
+    /// Stable DOM location, including frame context when present. AX node IDs
+    /// are only a compatibility fallback for old baselines without selectors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selector: Option<String>,
 }
 
 /// Result of comparing current violations against a baseline
@@ -62,7 +66,7 @@ pub struct BaselineDiff {
 impl Baseline {
     /// Create a baseline from current violations
     pub fn from_violations(url: &str, violations: &[Violation]) -> Self {
-        let created_at = chrono_or_fallback();
+        let created_at = chrono::Utc::now().format("%Y-%m-%d").to_string();
         Self {
             url: url.to_string(),
             created_at,
@@ -75,21 +79,23 @@ impl Baseline {
 
     /// Compare current violations against this baseline.
     ///
-    /// Matching is done by `rule` + `node_id`. A violation is "unchanged" if the
-    /// same rule+node_id combo exists in the baseline.
+    /// Match concrete rule, severity and stable location one-to-one. A changed
+    /// rule or severity is a change, even when its WCAG criterion is unchanged.
     pub fn diff(&self, current: &[Violation]) -> BaselineDiff {
         let mut new_violations = Vec::new();
         let mut resolved_violations = Vec::new();
         let mut unchanged_count = 0usize;
+        let mut matched = vec![false; self.violations.len()];
 
         // For each current violation, check if it exists in baseline
         for violation in current {
-            let in_baseline = self.violations.iter().any(|bv| {
-                bv.rule == violation.rule
-                    && (bv.node_id == violation.node_id
-                        || bv.node_id.is_empty() && violation.node_id.is_empty())
-            });
-            if in_baseline {
+            let match_index = self
+                .violations
+                .iter()
+                .enumerate()
+                .position(|(i, bv)| !matched[i] && bv.matches(violation));
+            if let Some(i) = match_index {
+                matched[i] = true;
                 unchanged_count += 1;
             } else {
                 new_violations.push(violation.clone());
@@ -97,12 +103,8 @@ impl Baseline {
         }
 
         // For each baseline violation, check if it still exists in current
-        for bv in &self.violations {
-            let still_present = current.iter().any(|v| {
-                v.rule == bv.rule
-                    && (v.node_id == bv.node_id || v.node_id.is_empty() && bv.node_id.is_empty())
-            });
-            if !still_present {
+        for (i, bv) in self.violations.iter().enumerate() {
+            if !matched[i] {
                 resolved_violations.push(bv.clone());
             }
         }
@@ -132,6 +134,17 @@ impl Baseline {
 }
 
 impl BaselineViolation {
+    fn matches(&self, v: &Violation) -> bool {
+        self.rule == v.rule
+            && self.rule_id == v.rule_id
+            && self.severity == format!("{:?}", v.severity)
+            && match (&self.selector, &v.selector) {
+                (Some(a), Some(b)) => a == b,
+                (None, None) => self.node_id == v.node_id,
+                _ => false,
+            }
+    }
+
     fn from_violation(v: &Violation) -> Self {
         Self {
             rule: v.rule.clone(),
@@ -139,27 +152,8 @@ impl BaselineViolation {
             severity: format!("{:?}", v.severity),
             message: v.message.clone(),
             node_id: v.node_id.clone(),
+            selector: v.selector.clone(),
         }
-    }
-}
-
-/// Returns the current date as an ISO 8601 string.
-/// Falls back to a static string if system time is unavailable.
-fn chrono_or_fallback() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(d) => {
-            // Format as basic ISO date from unix timestamp (good enough for baseline keys)
-            let secs = d.as_secs();
-            let days = secs / 86400;
-            let years_since_epoch = days / 365; // approximate
-            let year = 1970 + years_since_epoch;
-            let day_of_year = days % 365;
-            let month = (day_of_year / 30) + 1;
-            let day = (day_of_year % 30) + 1;
-            format!("{:04}-{:02}-{:02}", year, month.min(12), day.min(31))
-        }
-        Err(_) => "unknown".to_string(),
     }
 }
 

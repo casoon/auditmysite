@@ -674,13 +674,8 @@ impl AuditReport {
 
     /// Check if the audit passed (no critical violations, score >= 70)
     pub fn passed(&self) -> bool {
-        self.accessibility.score >= 70.0
-            && !self
-                .accessibility
-                .wcag_results
-                .violations
-                .iter()
-                .any(|v| v.severity == crate::wcag::Severity::Critical)
+        super::compute_verdict(&super::normalize(self).normalized, &Default::default()).verdict
+            == super::Verdict::Pass
     }
 }
 
@@ -1170,7 +1165,9 @@ impl BatchReport {
         // verdict (#QA-024).
         let passed = normalized_reports
             .iter()
-            .filter(|r| r.score >= 80 && r.severity_counts.critical == 0 && r.risk.legal_flags == 0)
+            .filter(|r| {
+                super::compute_verdict(r, &Default::default()).verdict == super::Verdict::Pass
+            })
             .count();
         let failed = total_urls - passed;
 
@@ -1210,14 +1207,15 @@ impl BatchReport {
                 .iter()
                 .map(|report| report.execution.quality.partial_or_failed_modules)
                 .sum();
-            let status = if normalized_reports
-                .iter()
-                .any(|report| report.execution.quality.status == AuditQualityStatus::Insufficient)
-            {
+            let status = if normalized_reports.is_empty()
+                || normalized_reports.iter().any(|report| {
+                    report.execution.quality.status == AuditQualityStatus::Insufficient
+                }) {
                 AuditQualityStatus::Insufficient
-            } else if normalized_reports
-                .iter()
-                .any(|report| report.execution.quality.status == AuditQualityStatus::Partial)
+            } else if !errors.is_empty()
+                || normalized_reports
+                    .iter()
+                    .any(|report| report.execution.quality.status == AuditQualityStatus::Partial)
             {
                 AuditQualityStatus::Partial
             } else {
@@ -1228,7 +1226,11 @@ impl BatchReport {
                 qualified_results: status != AuditQualityStatus::Complete,
                 failed_rule_checks,
                 partial_or_failed_modules,
-                reasons: Vec::new(),
+                reasons: if errors.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![format!("failed_urls:{}", errors.len())]
+                },
             }
         };
         let verdict_key = {

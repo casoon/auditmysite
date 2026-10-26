@@ -71,20 +71,31 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
             .filter(|s| !s.is_empty())
             .map(|s| s.to_owned())
             .unwrap_or_else(|| v.node_id.clone());
-        (v.rule.as_str(), id)
+        (v.rule_id.as_deref().unwrap_or(&v.rule), id)
     }
 
     fn merge_aux(desktop: &[Violation], mobile: &[Violation]) -> Vec<Violation> {
         let mut merged = Vec::new();
+        let mut mobile_matched = vec![false; mobile.len()];
         for finding in mobile {
             let mut finding = finding.clone();
             finding.tags.push("mobile-only".to_string());
             merged.push(finding);
         }
         for finding in desktop {
-            if let Some(existing) = merged.iter_mut().find(|candidate| {
-                candidate.rule == finding.rule && candidate.message == finding.message
-            }) {
+            let paired = merged
+                .iter()
+                .take(mobile.len())
+                .enumerate()
+                .position(|(i, candidate)| {
+                    !mobile_matched[i]
+                        && dedup_key(candidate) == dedup_key(finding)
+                        && candidate.message == finding.message
+                        && candidate.kind == finding.kind
+                });
+            if let Some(index) = paired {
+                mobile_matched[index] = true;
+                let existing = &mut merged[index];
                 existing
                     .tags
                     .retain(|tag| tag != "mobile-only" && tag != "desktop-only");
@@ -115,7 +126,12 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
 
         if let Some(idx) = match_idx {
             desktop_matched[idx] = true;
-            let mut shared = mv.clone();
+            // Preserve the more severe observation and its explanation.
+            let mut shared = if desktop.violations[idx].severity > mv.severity {
+                desktop.violations[idx].clone()
+            } else {
+                mv.clone()
+            };
             shared.tags.push("both-viewports".to_string());
             // Evidence-grade findings: prefer the desktop crop when a
             // violation is confirmed in both viewports (owner decision —
@@ -142,8 +158,8 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
         }
     }
 
-    // Merge warnings, positives, and not_testables without deduplication
-    // (heuristic/structural signals — viewport tagging not meaningful).
+    // Review/positive/manual results obey the same one-to-one conservation
+    // as violations; identical wording is not an element or rule identity.
     let warnings = merge_aux(&desktop.warnings, &mobile.warnings);
     let positives = merge_aux(&desktop.positives, &mobile.positives);
     let not_testables = merge_aux(&desktop.not_testables, &mobile.not_testables);
@@ -371,6 +387,10 @@ fn attach_performance_subchecks(report: &mut AuditReport) {
         return;
     };
     let checks = [
+        ("lcp", performance.vitals.lcp.is_some()),
+        ("fcp", performance.vitals.fcp.is_some()),
+        ("cls", performance.vitals.cls.is_some()),
+        ("tbt", performance.vitals.tbt.is_some()),
         ("content_weight", performance.content_weight.is_some()),
         ("render_blocking", performance.render_blocking.is_some()),
         ("third_party", performance.third_party.is_some()),
@@ -590,16 +610,8 @@ pub(super) fn consolidate_module_runs(
 }
 
 pub(super) fn update_audit_quality(report: &mut AuditReport) {
-    let stability_budget_exhausted = report
-        .accessibility
-        .execution
-        .navigation
-        .stability
-        .iter()
-        .filter(|entry| {
-            entry.status == crate::interaction::stability::StabilityStatus::BudgetExhausted
-        })
-        .count();
+    let gaps = crate::audit::validation::capture_gaps(&report.accessibility.execution);
+    let stability_budget_exhausted = gaps.exhausted_stability_budgets;
     let failed_rule_checks = report
         .accessibility
         .wcag_results
@@ -619,14 +631,38 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
             )
         })
         .count();
+    let missing_capabilities = report
+        .accessibility
+        .wcag_results
+        .rule_outcomes
+        .iter()
+        .filter(|run| run.not_run == Some(crate::wcag::NotRun::CapabilityMissing))
+        .count();
     let status = if failed_rule_checks > 0 {
         crate::audit::AuditQualityStatus::Insufficient
-    } else if partial_or_failed_modules > 0 || stability_budget_exhausted > 0 {
+    } else if partial_or_failed_modules > 0
+        || stability_budget_exhausted > 0
+        || missing_capabilities > 0
+        || gaps.stability_fallbacks > 0
+        || gaps.uninspected_frames > 0
+    {
         crate::audit::AuditQualityStatus::Partial
     } else {
         crate::audit::AuditQualityStatus::Complete
     };
     let mut reasons = Vec::new();
+    if gaps.stability_fallbacks > 0 {
+        reasons.push(format!(
+            "page_stability_fallbacks:{}",
+            gaps.stability_fallbacks
+        ));
+    }
+    if gaps.uninspected_frames > 0 {
+        reasons.push(format!("uninspected_frames:{}", gaps.uninspected_frames));
+    }
+    if missing_capabilities > 0 {
+        reasons.push(format!("missing_rule_capabilities:{missing_capabilities}"));
+    }
     if failed_rule_checks > 0 {
         reasons.push(format!("failed_rule_checks:{failed_rule_checks}"));
     }
@@ -655,6 +691,167 @@ mod tests {
     use crate::audit::{ExecutionStatus, ModuleRun};
     use crate::cli::WcagLevel;
     use crate::wcag::WcagResults;
+
+    #[test]
+    fn capture_gaps_qualify_audit_without_penalizing_intentional_exclusions() {
+        use crate::audit::frames::{FrameCoverage, FrameEntry, FrameSkipReason};
+        for (reason, expected) in [
+            (
+                FrameSkipReason::CrossOrigin,
+                crate::audit::AuditQualityStatus::Partial,
+            ),
+            (
+                FrameSkipReason::AxTreeFailed,
+                crate::audit::AuditQualityStatus::Partial,
+            ),
+            (
+                FrameSkipReason::Hidden,
+                crate::audit::AuditQualityStatus::Complete,
+            ),
+            (
+                FrameSkipReason::Excluded,
+                crate::audit::AuditQualityStatus::Complete,
+            ),
+        ] {
+            let mut report = report_with_run("probe");
+            report.accessibility.execution.frames = Some(FrameCoverage {
+                skipped: vec![FrameEntry {
+                    reason: Some(reason),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            });
+            update_audit_quality(&mut report);
+            assert_eq!(
+                report.accessibility.execution.quality.status, expected,
+                "{reason:?}"
+            );
+            crate::audit::normalize_checked(&report).unwrap();
+        }
+    }
+
+    #[test]
+    fn foundation_merge_preserves_concrete_rule_identity() {
+        let finding = |rule: &str, node: i64| {
+            let mut v = Violation::new(
+                "4.1.2",
+                "Name Role Value",
+                WcagLevel::A,
+                crate::wcag::Severity::High,
+                rule,
+                node.to_string(),
+            )
+            .with_rule_id(rule)
+            .with_selector("button");
+            v.backend_node_id = Some(node);
+            v
+        };
+        for (desktop_rule, desktop_node, mobile_rule, mobile_node) in [
+            ("aria/role-invalid", 1, "aria/attribute-value-invalid", 1),
+            ("aria/role-invalid", 1, "aria/attribute-value-invalid", 2),
+        ] {
+            let mut desktop = WcagResults::new();
+            desktop.violations.push(finding(desktop_rule, desktop_node));
+            let mut mobile = WcagResults::new();
+            mobile.violations.push(finding(mobile_rule, mobile_node));
+            let merged = merge_wcag_violations(&desktop, &mobile);
+            assert_eq!(merged.violations.len(), 2);
+            assert!(!merged
+                .violations
+                .iter()
+                .any(|v| v.tags.iter().any(|t| t == "both-viewports")));
+        }
+    }
+
+    #[test]
+    fn foundation_aux_merge_preserves_rules_locations_and_multiplicity() {
+        let finding = |id: &str, selector: &str| {
+            Violation::new(
+                "2.4.1",
+                "Review",
+                WcagLevel::A,
+                crate::wcag::Severity::Low,
+                "same message",
+                "node",
+            )
+            .with_rule_id(id)
+            .with_selector(selector)
+        };
+        for (desktop, mobile, expected) in [
+            (vec![finding("one", "#a"), finding("one", "#b")], vec![], 2),
+            (vec![finding("one", "#a")], vec![finding("two", "#a")], 2),
+            (
+                vec![finding("one", "button"), finding("one", "button")],
+                vec![finding("one", "button")],
+                2,
+            ),
+            (vec![finding("one", "#a")], vec![finding("one", "#a")], 1),
+        ] {
+            for list in ["warnings", "positives", "manual"] {
+                let mut d = WcagResults::new();
+                let mut m = WcagResults::new();
+                match list {
+                    "warnings" => {
+                        d.warnings = desktop.clone();
+                        m.warnings = mobile.clone();
+                    }
+                    "positives" => {
+                        d.positives = desktop.clone();
+                        m.positives = mobile.clone();
+                    }
+                    _ => {
+                        d.not_testables = desktop.clone();
+                        m.not_testables = mobile.clone();
+                    }
+                }
+                let merged = merge_wcag_violations(&d, &m);
+                assert_eq!(
+                    merged.warnings.len() + merged.positives.len() + merged.not_testables.len(),
+                    expected,
+                    "{list}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn foundation_merge_never_downgrades_the_stronger_viewport() {
+        use crate::wcag::Severity;
+        for desktop_severity in [
+            Severity::Low,
+            Severity::Medium,
+            Severity::High,
+            Severity::Critical,
+        ] {
+            for mobile_severity in [
+                Severity::Low,
+                Severity::Medium,
+                Severity::High,
+                Severity::Critical,
+            ] {
+                let finding = |severity| {
+                    Violation::new(
+                        "4.1.2",
+                        "Name",
+                        WcagLevel::A,
+                        severity,
+                        severity.as_str(),
+                        "node",
+                    )
+                    .with_rule_id("aria/role-invalid")
+                    .with_selector("#control")
+                };
+                let mut desktop = WcagResults::new();
+                desktop.violations.push(finding(desktop_severity));
+                let mut mobile = WcagResults::new();
+                mobile.violations.push(finding(mobile_severity));
+                let merged = merge_wcag_violations(&desktop, &mobile);
+                let expected = desktop_severity.max(mobile_severity);
+                assert_eq!(merged.violations[0].severity, expected);
+                assert_eq!(merged.violations[0].message, expected.as_str());
+            }
+        }
+    }
 
     fn report_with_run(module: &str) -> AuditReport {
         let mut report = AuditReport::new(

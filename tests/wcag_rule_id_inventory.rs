@@ -4,6 +4,16 @@
 
 mod common;
 
+#[test]
+fn inventory_does_not_treat_struct_documentation_as_a_rule() {
+    let ids = common::rule_inventory::canonical_rule_ids();
+    assert!(
+        !ids.contains("3.1.1"),
+        "SharedRule's documented criterion example is not a concrete rule ID"
+    );
+    assert!(ids.contains("document/lang-missing"));
+}
+
 use common::rule_inventory::canonical_rule_ids;
 
 #[test]

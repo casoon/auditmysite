@@ -1,8 +1,6 @@
 //! `AuditModule` implementation for Best-Practices collection (#332).
 //!
-//! Gated on `check_performance` to match today's pipeline behavior — best
-//! practices live alongside the performance pass and only run when perf
-//! collection is requested.
+//! Console and library checks accompany performance or security collection.
 
 use async_trait::async_trait;
 use tracing::warn;
@@ -26,7 +24,7 @@ impl AuditModule for BestPracticesModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_performance
+        cfg.check_performance || cfg.check_security
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

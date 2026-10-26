@@ -108,12 +108,13 @@ pub struct NormalizedReport {
     /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
-    /// How `overall_score` was computed: `"module_weighted"` (standard) or
-    /// `"viewport_weighted"` (dual-pass: 70 % mobile + 30 % desktop + 10 % security).
+    /// How `overall_score` was computed: `"module_weighted"`, including
+    /// dual-pass audits. Viewport scores are diagnostic inputs, not a second
+    /// weighting model. Older reports may contain `"viewport_weighted"`.
     pub score_calculation_method: String,
     /// Exact inputs used to produce `overall_score`.
-    /// Present only for `viewport_weighted`; absent for `module_weighted` (module
-    /// `weight_pct` values are already exact in that case).
+    /// Legacy viewport breakdown, retained for reading older reports. Current
+    /// reports expose exact inputs through contributing `module_scores`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<ScoreBreakdown>,
 
@@ -529,7 +530,11 @@ impl ModuleScoreEntry {
         measurement_type: &str,
         contributes_to_overall: bool,
     ) -> Self {
-        let weight_pct = crate::taxonomy::module_weight(name);
+        let weight_pct = if contributes_to_overall {
+            crate::taxonomy::module_weight(name)
+        } else {
+            0
+        };
         Self {
             name: name.to_string(),
             score,
@@ -728,14 +733,6 @@ pub(crate) fn gate_certificate_by_risk(
         return "EINGESCHRÄNKT".to_string();
     }
     certificate
-}
-
-fn viewport_score_calculation_note() -> String {
-    "accessibility_score is the 70% mobile / 30% desktop blend of the displayed \
-     viewport accessibility scores. viewport_scores.weighted_overall blends the \
-     viewport module scores before security; overall_score is the canonical final \
-     score after the optional security blend."
-        .to_string()
 }
 
 /// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
@@ -1433,6 +1430,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         .as_ref()
         .map(ViewportScores::weighted_accessibility)
         .unwrap_or_else(|| report.accessibility.score.round().max(1.0) as u32);
+    let score = AccessibilityScorer::cap_aggregated_score(score, violations);
 
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
@@ -1504,59 +1502,21 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let module_scores =
         build_module_scores(report, score, &occurrence_counts, vuln_security_penalty);
 
-    // Weighted overall score — 70/30 viewport weighting when dual-pass data present
-    let (overall_score, score_calculation_method, score_breakdown) =
-        if let Some(ref vs) = report.viewport_scores {
-            let security_adjusted = report
-                .security
-                .as_ref()
-                .map(|s| s.score.saturating_sub(vuln_security_penalty));
-            let blend_weight = if security_adjusted.is_some() {
-                90u32
-            } else {
-                100u32
-            };
-            let mut weighted = vs.weighted_overall as f64 * blend_weight as f64;
-            let mut total = blend_weight as f64;
-            if let Some(sec) = security_adjusted {
-                weighted += sec as f64 * 10.0;
-                total += 10.0;
-            }
-            let breakdown = ScoreBreakdown {
-                calculation_note: viewport_score_calculation_note(),
-                desktop_weight_pct: 30,
-                mobile_weight_pct: 70,
-                desktop_accessibility: vs.desktop.accessibility,
-                mobile_accessibility: vs.mobile.accessibility,
-                viewport_blended_accessibility: vs.weighted_accessibility(),
-                desktop_overall: vs.desktop.overall,
-                mobile_overall: vs.mobile.overall,
-                viewport_blended_overall: vs.weighted_overall,
-                viewport_blend_weight_pct: blend_weight,
-                security_score: security_adjusted,
-                security_weight_pct: security_adjusted.map(|_| 10u32),
-            };
+    // Viewport blending belongs inside Accessibility. Each independent module
+    // then contributes exactly once at the published product weight. Nesting
+    // separately normalized viewport averages changed those effective weights.
+    let (weighted_sum, total_weight) = module_scores
+        .iter()
+        .filter(|module| module.contributes_to_overall)
+        .fold((0u64, 0u64), |(sum, total), module| {
             (
-                (weighted / total).round() as u32,
-                "viewport_weighted".to_string(),
-                Some(breakdown),
+                sum + module.score as u64 * module.weight_pct as u64,
+                total + module.weight_pct as u64,
             )
-        } else {
-            let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
-            let (weighted_sum, total_weight) =
-                contributing_modules.fold((0.0, 0.0), |(sum, total), module| {
-                    (
-                        sum + module.score as f64 * module.weight_pct as f64,
-                        total + module.weight_pct as f64,
-                    )
-                });
-
-            (
-                (weighted_sum / total_weight).round() as u32,
-                "module_weighted".to_string(),
-                None,
-            )
-        };
+        });
+    let overall_score = (weighted_sum as f64 / total_weight as f64).round() as u32;
+    let score_calculation_method = "module_weighted".to_string();
+    let score_breakdown = None;
 
     // Grade and certificate describe the subject of the report: accessibility.
     //
@@ -1738,7 +1698,9 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         accessibility_subcategory_scores,
         security_category_scores,
         risk,
-        principle_coverage: AccessibilityScorer::calculate_coverage(violations),
+        principle_coverage: AccessibilityScorer::calculate_execution_coverage(
+            &report.accessibility.wcag_results,
+        ),
         audit_flags,
         consent_privacy: report.consent_privacy.clone(),
         has_screenshots: report.page_screenshots.is_some(),
@@ -2734,7 +2696,7 @@ mod tests {
     }
 
     #[test]
-    fn test_viewport_weighted_core_modules_contribute() {
+    fn test_dual_viewport_core_modules_use_published_module_weights() {
         use crate::audit::{ViewportScoreSet, ViewportScores};
         use crate::{WcagLevel, WcagResults};
         let mut report = AuditReport::new(
@@ -2766,13 +2728,8 @@ mod tests {
                 .map(|module| module.score),
             Some(38)
         );
-        assert_eq!(
-            norm.normalized.score_calculation_method,
-            "viewport_weighted"
-        );
-        assert!(norm.normalized.score_breakdown.as_ref().is_some_and(|b| {
-            b.calculation_note.contains("70% mobile") && b.viewport_blended_accessibility == 38
-        }));
+        assert_eq!(norm.normalized.score_calculation_method, "module_weighted");
+        assert!(norm.normalized.score_breakdown.is_none());
         let names_contributing: Vec<&str> = norm
             .normalized
             .module_scores
@@ -2782,7 +2739,7 @@ mod tests {
             .collect();
         assert!(
             names_contributing.contains(&"Accessibility"),
-            "Accessibility must contribute in viewport_weighted mode, got: {:?}",
+            "Accessibility must contribute in dual-viewport mode, got: {:?}",
             names_contributing
         );
     }

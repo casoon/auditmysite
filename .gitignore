@@ -36,6 +36,8 @@ Cargo.lock
 !tests/fixtures/reference_sites.json
 !tests/fixtures/axe_divergence_baseline.json
 !scripts/package-lock.json
+!scripts/v2-readiness.json
+scripts/__pycache__/
 # Project site (GitHub Pages) and its recorded example output
 !site/**/*.json
 !examples/*.json

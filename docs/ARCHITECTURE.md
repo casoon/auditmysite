@@ -98,10 +98,12 @@ src/
 │
 ├── lint/                # Deterministic report-lint (#507, Report Quality Layer)
 │   ├── mod.rs           # LintFinding/LintReport, lint() entry point
-│   └── checks.rs        # Score/grade/certificate/count-sum/metric_context checks
+│   ├── checks.rs        # Score/grade/certificate/count-sum/metric_context checks
+│   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
 ├── audit/               # Audit orchestration
 │   ├── mod.rs
+│   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── pipeline/        # Single page audit flow
 │   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
 │   │   ├── assembly.rs  # Sync post-processing: WCAG merge, viewport scores, report aggregation, module runs, audit quality
@@ -372,6 +374,96 @@ Central data layer between raw `AuditReport` and output formats:
 - Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
 - Computes grade and certificate from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
+
+The overall score is reconstructed from contributing `module_scores` and their
+published weights, for single- and dual-viewport runs. Unchecked HTML conformance
+and incomplete performance measurements carry no weight. Accessibility caps are
+applied after viewport aggregation as well as during individual scoring.
+
+`audit::normalize_checked` is the checked domain boundary. It calls the existing
+normalizer and validates the resulting `NormalizedReport` independently of any
+output format. `NormalizedReport::validate` collects all detected contradictions
+as serializable `ContractViolation` entries (stable code, path, explanation).
+It checks score limits, canonical grades/certificates, finding and occurrence
+counts, module identity/weights/measurement state, the reconstructed overall
+score, requested module outcomes and execution completeness. `validate_batch`
+also verifies the measured-page denominator, accessibility average and canonical
+pass/fail counts. These checks validate consistency; they do not certify that a
+rule's underlying method is correct.
+
+Live `audit_page` results cross this boundary before returning to callers. The
+single-page wrapper refreshes audit quality and checks again after optional
+post-processing, before persistence. CLI dispatch checks every output mode;
+direct PDF/Typst, compact summary, SARIF and cached JSON entry points also check
+their inputs. The existing infallible `normalize` and view-model builders remain
+available for compatibility; library callers choosing them must explicitly call
+`validate` before consuming constructed or mutated data. Studio callers using
+the live pipeline inherit its validation; constructing a Studio response by
+hand does not itself validate the supplied pre-rendered JSON.
+
+The capture-gap policy distinguishes an intentional exclusion or hidden frame
+from a visible frame that could not be inspected. The latter, stability
+fallbacks and exhausted stability budgets qualify the audit. A partial or
+insufficient result is valid when honestly marked; contradictions are rejected
+before presentation. The JSON linter below separately checks the serialized
+projection, so mistakes introduced during export are also detected.
+
+`UnifiedReport::to_json` runs report lint against the serialized facts before
+emitting JSON and rejects high/critical contradictions. `lint/invariants.rs`
+independently reconstructs the weighted score, requires an outcome for requested
+modules, checks audit completeness against failures, and accounts for rule
+findings through findings, assessments or exclusions. Collector decoding in
+`util.rs` distinguishes technical failure from a measured empty collection.
+
+The strict `release_` tests in the WCAG and non-WCAG corpus completeness binaries
+require both positive and negative evidence for every inventoried check.
+`scripts/release-check.sh` and the release-tag path of `ci.yml` run these gates;
+the regular gap reports remain diagnostic. A deferred check is a visible release
+gap, not verification. Passing these inventory checks does not prove manual
+WCAG conformance or the correctness of every heuristic.
+
+For version 2.x, `scripts/check-v2-readiness.py` also checks the live GitHub
+milestone against `scripts/v2-readiness.json`. All 26 audit requirements and
+tracker [#792](https://github.com/casoon/auditmysite/issues/792) must be closed as
+completed in milestone 2; additional open milestone issues also block release.
+Missing/moved issues, invalid responses and network errors fail closed. The
+release workflow runs this in `verify-version`, which is a prerequisite of every
+artifact build. Offline regression tests exercise each blocker independently.
+
+### Remaining foundation work before 2.0
+
+The domain validation boundary is a consistency gate, not the completion of the
+foundation audit. The following contracts still require implementation and
+acceptance in the [2.0 tracker](https://github.com/casoon/auditmysite/issues/792):
+
+- **Collection contract:** every metric/check must preserve measured, failed,
+  unsupported and not-applicable states with evidence and scope. Extend the
+  strict collector boundary through every subcheck; missing data must never
+  become an ordinary empty success (U04, U09–U13, U24).
+- **Canonical finding and decision model:** technical findings from every domain
+  need stable identity, applicability, evidence and explicit scoring ownership.
+  Indicators and output formats must consume that model; they must not invent
+  findings, duplicate penalties or claim unmeasured conformance (U08, U14–U17,
+  U19–U20).
+- **Explicit measurement profile:** record the actual document/redirect, sample,
+  viewport, session, consent and interaction state. Unsupported mode/flag
+  combinations must fail explicitly. A batch needs an accountable denominator
+  and a documented selection method (U03, U05, U10, U22–U23, U26).
+- **Replay and reproducibility:** persist the complete evidence snapshot and
+  rule/scoring versions, then reproduce the same domain model without a live
+  browser. Fresh, replay, cached and Studio paths need parity checks, excluding
+  declared volatile metadata. Presentation must not repair or reinterpret
+  evidence (U21, U25).
+- **Executable check specifications:** the registry must link each active check
+  to its method, source and positive/negative/N/A/error fixtures. Adding a check
+  without those contracts must fail verification. Compare heuristics against
+  independent labelled examples and track errors; passing consistency checks
+  cannot establish that their method or thresholds are sound (U14, U18–U19).
+
+Keep this as one directed processing chain within the existing application.
+Neither a service split nor an additional score model is required for these
+contracts. Public infallible compatibility APIs need an explicit migration path
+before 2.0 can promise that every external consumer uses the checked boundary.
 
 ### BrowserManager
 

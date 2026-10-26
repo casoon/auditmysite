@@ -659,33 +659,24 @@ fn security_issue(
 pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
     info!("Analyzing security headers for {}...", url);
 
-    let https = url.starts_with("https://");
-
     let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
         .danger_accept_invalid_certs(false)
         .build()
         .map_err(AuditError::HttpError)?;
-
     let response = match client.head(url).send().await {
-        Ok(response) => Ok(response),
-        Err(_) => client.get(url).send().await,
-    };
-
-    let (headers, protection) = match response {
-        Ok(response) => {
-            let raw = response.headers();
-            let h = extract_security_headers(raw);
-            let p = detect_protection(raw);
-            (h, p)
-        }
-        Err(err) => {
-            info!(
-                "Security header request failed for {}; continuing with URL-only security analysis: {}",
-                url, err
-            );
-            (SecurityHeaders::default(), ProtectionDetection::default())
-        }
-    };
+        Ok(response) if response.status().is_success() => response,
+        _ => client
+            .get(url)
+            .send()
+            .await
+            .map_err(AuditError::HttpError)?,
+    }
+    .error_for_status()
+    .map_err(AuditError::HttpError)?;
+    let https = response.url().scheme() == "https";
+    let headers = extract_security_headers(response.headers());
+    let protection = detect_protection(response.headers());
 
     // Analyze SSL
     let ssl = analyze_ssl(https, &headers);

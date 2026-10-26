@@ -96,13 +96,12 @@ pub fn render_single_report_for(
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, &report_config(args));
 
-    let verdict = if report.passed() {
-        Verdict::Passed
-    } else if vm.severity.critical > 0 {
-        Verdict::Failed
-    } else {
-        Verdict::Warning
-    };
+    let verdict =
+        match crate::audit::compute_verdict(&normalized.normalized, &Default::default()).verdict {
+            crate::audit::Verdict::Pass => Verdict::Passed,
+            crate::audit::Verdict::Warn => Verdict::Warning,
+            crate::audit::Verdict::Fail => Verdict::Failed,
+        };
 
     let mut rm_report = Report::new(&vm.meta.title, verdict)
         // Accessibility first — it is what grade and certificate below

@@ -9,6 +9,7 @@ use colored::Colorize;
 
 use auditmysite::audit::normalize;
 use auditmysite::audit::VerdictResult;
+use auditmysite::audit::{normalize_checked, validate_batch};
 use auditmysite::cli::{Args, OutputFormat};
 use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
@@ -35,9 +36,9 @@ pub(crate) fn output_single_report(
     args: &Args,
     verdict: Option<&VerdictResult>,
 ) -> Result<()> {
+    let normalized = normalize_checked(report)?;
     match args.effective_format() {
         OutputFormat::Json => {
-            let normalized = normalize(report);
             let mut unified = UnifiedReport::single(&normalized, report);
             if let Some(vr) = verdict {
                 unified = unified.with_verdict(vr);
@@ -68,7 +69,6 @@ pub(crate) fn output_single_report(
                         )
                     );
                 }
-                let normalized = normalize(report);
                 let path = args.output.clone().unwrap_or_else(|| {
                     default_single_pdf_output_path(report.url.as_str(), args.report_level)
                 });
@@ -129,7 +129,6 @@ pub(crate) fn output_single_report(
             output_text(&output, &args.output, "AI JSON", args.quiet)?;
         }
         OutputFormat::Summary => {
-            let normalized = normalize(report);
             let output =
                 format_summary(&normalized.normalized).map_err(|e| AuditError::OutputError {
                     reason: e.to_string(),
@@ -137,7 +136,6 @@ pub(crate) fn output_single_report(
             output_text(&output, &args.output, "summary JSON", args.quiet)?;
         }
         OutputFormat::Sarif => {
-            let normalized = normalize(report);
             let output =
                 format_sarif(&[&normalized.normalized]).map_err(|e| AuditError::OutputError {
                     reason: e.to_string(),
@@ -181,6 +179,7 @@ pub(crate) fn output_batch_report(
     args: &Args,
     verdict: Option<&VerdictResult>,
 ) -> Result<()> {
+    validate_batch(batch_report)?;
     match args.effective_format() {
         OutputFormat::Json => {
             let mut unified = auditmysite::output::UnifiedReport::batch(batch_report);

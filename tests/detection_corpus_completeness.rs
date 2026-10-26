@@ -12,9 +12,43 @@
 
 mod common;
 
-use common::detection_corpus::{detection_corpus_dir, load_corpus_dir, load_structurally_deferred};
+use common::detection_corpus::{
+    detection_corpus_dir, load_corpus_dir, load_structurally_deferred, Verdict,
+};
 use common::rule_inventory::canonical_rule_ids;
 use std::collections::BTreeSet;
+
+/// A diagnostic coverage number is not a release gate. Deferred cases are
+/// unresolved tests, not evidence that the corresponding rule works.
+#[test]
+#[ignore = "strict release gate: every active rule needs positive and negative evidence"]
+fn release_rule_coverage_is_complete() {
+    let canonical = canonical_rule_ids();
+    let cases = load_corpus_dir(&detection_corpus_dir());
+    assert!(!cases.is_empty(), "no detection corpus");
+    let mut gaps = Vec::new();
+    for id in canonical {
+        let expectations: Vec<_> = cases
+            .iter()
+            .flat_map(|case| &case.expectations)
+            .filter(|e| e.rule_id == id)
+            .collect();
+        let positive = expectations
+            .iter()
+            .any(|e| matches!(e.verdict, Verdict::Violation | Verdict::NeedsReview));
+        let negative = expectations
+            .iter()
+            .any(|e| matches!(e.verdict, Verdict::Pass | Verdict::Absent));
+        if !positive || !negative {
+            gaps.push(format!("{id}: positive={positive}, negative={negative}"));
+        }
+    }
+    assert!(
+        gaps.is_empty(),
+        "Unverified rule contracts block release:\n{}",
+        gaps.join("\n")
+    );
+}
 
 #[test]
 fn detection_corpus_completeness_gap_report() {

@@ -231,11 +231,10 @@ pub struct TechnicalIssue {
 pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSeo> {
     info!("Analyzing technical SEO...");
 
-    let https = url.starts_with("https://");
-
     let js_code = r#"
     (() => {
         const result = {};
+        result.https = window.location.protocol === 'https:';
 
         // Canonical
         const canonical = document.querySelector('link[rel="canonical"]');
@@ -521,9 +520,10 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         .await
         .map_err(|e| AuditError::CdpError(format!("Technical SEO analysis failed: {}", e)))?;
 
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed = crate::util::decode_collector_object(js_result.value(), "seo extraction")?;
+    let https = parsed["https"].as_bool().ok_or_else(|| {
+        AuditError::CdpError("SEO collector omitted the final transport scheme".into())
+    })?;
 
     let canonical_url = parsed["canonical"].as_str().map(String::from);
     let lang = parsed["lang"].as_str().map(String::from);

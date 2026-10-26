@@ -5,6 +5,65 @@ use std::time::Duration;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
 
+/// Decode a collector's JSON string. Missing, malformed or scalar results
+/// are technical failures, never a successfully measured empty document.
+pub(crate) fn decode_collector<T: serde::de::DeserializeOwned>(
+    value: Option<&serde_json::Value>,
+    context: &str,
+) -> crate::error::Result<T> {
+    let fail = |reason: &str| crate::error::AuditError::CdpError(format!("{context}: {reason}"));
+    let text = value
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| fail("collector returned no JSON string"))?;
+    let decoded: serde_json::Value =
+        serde_json::from_str(text).map_err(|_| fail("collector returned invalid JSON"))?;
+    if !decoded.is_object() && !decoded.is_array() {
+        return Err(fail("collector returned no structured result"));
+    }
+    serde_json::from_value(decoded)
+        .map_err(|_| fail("collector result does not match its contract"))
+}
+
+pub(crate) fn decode_collector_object(
+    value: Option<&serde_json::Value>,
+    context: &str,
+) -> crate::error::Result<serde_json::Value> {
+    let decoded: serde_json::Value = decode_collector(value, context)?;
+    if !decoded.is_object() {
+        return Err(crate::error::AuditError::CdpError(format!(
+            "{context}: collector returned no object"
+        )));
+    }
+    Ok(decoded)
+}
+
+#[cfg(test)]
+mod collector_contract_tests {
+    use super::*;
+
+    #[test]
+    fn foundation_collector_failure_is_not_empty_success() {
+        for value in [
+            None,
+            Some(serde_json::Value::Null),
+            Some(serde_json::json!("bad JSON")),
+            Some(serde_json::json!("null")),
+            Some(serde_json::json!("[]")),
+        ] {
+            assert!(decode_collector_object(value.as_ref(), "test").is_err());
+        }
+        assert_eq!(
+            decode_collector_object(Some(&serde_json::json!("{}")), "test").unwrap(),
+            serde_json::json!({})
+        );
+        assert!(
+            decode_collector::<Vec<String>>(Some(&serde_json::json!("[]")), "test")
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
+
 pub const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /// Build a browser-like header set that passes basic bot-detection heuristics.

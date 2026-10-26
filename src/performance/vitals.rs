@@ -184,6 +184,8 @@ impl WebVitals {
 pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     let script = r#"
 (function() {
+    window.__ams_tbt_available = false;
+    window.__ams_cls_available = false;
     // Load-window boundary: LCP candidates and long tasks are only counted up
     // to (load event + 100ms grace), mirroring how Lighthouse bounds these
     // metrics to the load phase. A headless audit fires no user-input or
@@ -238,6 +240,7 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
                 }
             }
         }).observe({ type: 'longtask', buffered: true });
+        window.__ams_tbt_available = PerformanceObserver.supportedEntryTypes.includes('longtask');
     } catch(e) {}
 
     // CLS — accumulate total and capture per-shift attribution (#135)
@@ -281,6 +284,7 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
                 }
             }
         }).observe({ type: 'layout-shift', buffered: true });
+        window.__ams_cls_available = PerformanceObserver.supportedEntryTypes.includes('layout-shift');
     } catch(e) {}
 
     // INP via event-timing (#134) — captures real interaction durations
@@ -344,7 +348,9 @@ async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
     return JSON.stringify({
         lcp: lcp,
         tbt: window.__ams_tbt || 0,
+        tbtAvailable: window.__ams_tbt_available === true,
         cls: window.__ams_cls || 0,
+        clsAvailable: window.__ams_cls_available === true,
         lastTaskEnd: window.__ams_last_task_end || 0,
         clsShifts: window.__ams_cls_shifts || [],
         inpDuration: window.__ams_inp || 0
@@ -357,14 +363,16 @@ async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Preinjected vitals read failed: {}", e)))?;
 
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed =
+        crate::util::decode_collector_object(result.value(), "Performance observer extraction")?;
 
     let cls_shifts = parse_cls_shifts(&parsed["clsShifts"]);
 
     Ok(PreinjectedVitals {
         lcp: parsed["lcp"].as_f64().unwrap_or(0.0),
         tbt: parsed["tbt"].as_f64().unwrap_or(0.0),
+        tbt_available: parsed["tbtAvailable"].as_bool().unwrap_or(false),
+        cls_available: parsed["clsAvailable"].as_bool().unwrap_or(false),
         cls: parsed["cls"].as_f64().unwrap_or(0.0),
         last_task_end: parsed["lastTaskEnd"].as_f64().unwrap_or(0.0),
         cls_shifts,
@@ -477,6 +485,8 @@ fn parse_shift_rect(val: &serde_json::Value) -> Option<ShiftRect> {
 struct PreinjectedVitals {
     lcp: f64,
     tbt: f64,
+    tbt_available: bool,
+    cls_available: bool,
     cls: f64,
     /// End time of the last long task (ms from navigation start); 0 = no long tasks
     last_task_end: f64,
@@ -575,6 +585,8 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         PreinjectedVitals {
             lcp: 0.0,
             tbt: 0.0,
+            tbt_available: false,
+            cls_available: false,
             cls: 0.0,
             last_task_end: 0.0,
             cls_shifts: vec![],
@@ -589,14 +601,18 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         debug!("LCP (preinjected): {:.0}ms", preinjected.lcp);
     }
     // TBT: 0 ms is a valid perfect score (no long tasks), always include like CLS.
-    vitals.tbt = Some(VitalMetric::new(preinjected.tbt, 200.0, 600.0));
+    vitals.tbt = preinjected
+        .tbt_available
+        .then(|| VitalMetric::new(preinjected.tbt, 200.0, 600.0));
     debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
     // CLS: 0.0 is a valid perfect score, always apply. Use the session-window
     // maximum (the current CWV definition) computed from the per-shift list,
     // not the cumulative sum the observer accumulates — the latter overcounts
     // pages that shift repeatedly during lazy-loading.
     let cls_session = session_window_cls(&preinjected.cls_shifts);
-    vitals.cls = Some(VitalMetric::new(cls_session, 0.1, 0.25));
+    vitals.cls = preinjected
+        .cls_available
+        .then(|| VitalMetric::new(cls_session, 0.1, 0.25));
     debug!(
         "CLS session-window: {:.4} (cumulative was {:.4})",
         cls_session, preinjected.cls
