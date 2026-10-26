@@ -832,7 +832,8 @@ pub struct ThrottledPerfEntry {
     pub lcp: String,
     pub tbt: String,
     pub cls: String,
-    pub score: u32,
+    /// `None` when the profile did not measure all four core metrics.
+    pub score: Option<u32>,
 }
 
 /// Per-origin row for third-party attribution display

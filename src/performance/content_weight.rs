@@ -6,8 +6,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
-
 /// Content weight analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContentWeight {
@@ -133,7 +131,9 @@ pub(super) fn format_bytes(bytes: u64) -> String {
 /// # Returns
 /// * `Ok(ContentWeight)` - The analysis results
 /// * `Err(AuditError)` - If analysis fails
-pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
+pub async fn analyze_content_weight(
+    page: &Page,
+) -> crate::audit::collection::Collected<ContentWeight> {
     info!("Analyzing content weight...");
 
     // Get resource timing entries via JavaScript.
@@ -159,14 +159,13 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
     })()
     "#;
 
-    let js_result = page
-        .evaluate(js_code)
+    let resources: Vec<ResourceEntry> = match crate::audit::collection::evaluate_js(page, js_code)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Resource analysis failed: {}", e)))?;
-
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-
-    let resources: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_default();
+        .into_measurement()
+    {
+        Ok(v) => v,
+        Err(failure) => return failure,
+    };
 
     let mut breakdown = ResourceBreakdown::default();
     let mut total_bytes: u64 = 0;
@@ -217,7 +216,7 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
         request_count
     );
 
-    Ok(ContentWeight {
+    crate::audit::collection::Collected::Measured(ContentWeight {
         total_bytes,
         transfer_bytes,
         breakdown,
@@ -401,6 +400,12 @@ fn carbon_rating(grams: f64) -> &'static str {
     } else {
         "F"
     }
+}
+
+/// Counter-cases of this collector (#769): a page whose resource list could not be read is no page of 0 bytes.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<ResourceEntry>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

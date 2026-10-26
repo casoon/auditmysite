@@ -19,6 +19,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Performance:** Each core metric (`performance.lcp`, `fcp`, `cls`, `tbt`) and sub-analysis reports its collection state; a throttled profile without all four core metrics has no score (`score: null`) and is not adopted as the canonical measurement.
+- **Performance:** LCP is the last candidate before the read, also one painted after `load`; TBT counts long tasks over FCP→TTI (Lighthouse window) instead of up to load + 100 ms. TTI is the end of the last long task before the first 5 s quiet window.
 - **Scoring:** A module that lost a collection its score depends on is shown as partial and no longer counts toward the overall score; derived indicators are not computed over a failed module.
 - **Scoring:** The overall score always uses the published module weights, including dual-viewport audits. Incomplete performance measurements and unchecked HTML conformance do not contribute; estimated Speed Index remains diagnostic. Principle coverage uses execution records instead of assuming every catalogued criterion passed.
 - **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.7 and describes conditional exploitability.
@@ -42,11 +44,13 @@ and verification for each change is in the
 
 ### Removed
 
+- **JSON:** The `tbt_zero_heavy_page` measurement warning. A static page on a slow network has a late LCP and no long tasks; TBT 0 is a valid measurement there.
 - **Library:** Breaking: the unfinished `audit::Baseline` API (`Baseline`, `BaselineDiff`, `BaselineViolation`, `WaivedViolation`). It was not wired into the CLI and identified findings by criterion and AX node id; a baseline comparison will build on the stable finding and pattern ids.
 - **JSON:** Breaking: `summary.template_clusters`, `summary.top_recurring_rules` and `internal_comparison.root_causes`. Recurring element patterns are `summary.root_causes` with their evidence grade; the former lists either duplicated it or called anything on two pages a "likely template or component".
 
 ### Fixed
 
+- **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.
 - **Collection:** A request or script that did not answer no longer becomes a finding (e.g. "HTTP/1.1 only", "www not consolidated", "invalid manifest", "broken link") or a clean result (e.g. "no cookies", "no console errors", 100 image-efficiency points).
 - **Content visibility:** The SSR content-gap check loads the page itself instead of measuring the blank tab left after interactive journeys.
 - **Accessibility:** Text spacing, reflow, page title, on-input and orientation report a technical rule failure instead of passing when the page gives no answer.

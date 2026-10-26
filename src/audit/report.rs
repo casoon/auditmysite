@@ -241,8 +241,9 @@ pub struct ThrottledPerfResult {
     pub tbt_ms: Option<f64>,
     /// CLS score
     pub cls: Option<f64>,
-    /// Aggregate performance score (0–100)
-    pub score: u32,
+    /// Aggregate performance score (0–100); `None` when the profile did not
+    /// measure all four core metrics.
+    pub score: Option<u32>,
 }
 
 /// Screenshot bytes captured during the audit (desktop + mobile viewports).
@@ -543,8 +544,9 @@ pub struct PerformanceResults {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub coverage: Option<CoverageAnalysis>,
     /// Implausible or unmeasurable metrics detected during analysis (#291).
-    /// Keys: "tbt_zero_heavy_page", "speed_index_fallback_to_lcp",
-    /// "tti_fallback_to_lcp", "inp_not_measured".
+    /// Keys: "lcp_not_measured", "speed_index_fallback_to_lcp",
+    /// "tti_fallback_to_lcp", "inp_not_measured", "css_coverage_unavailable",
+    /// "css_coverage_partial", "js_coverage_unavailable".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub measurement_warnings: Vec<String>,
 }

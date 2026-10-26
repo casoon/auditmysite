@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use url::Url;
 
-use crate::error::{AuditError, Result};
 use crate::util::truncate_ellipsis;
 
 /// A resource that blocks initial rendering.
@@ -57,7 +56,7 @@ impl RenderBlockingAnalysis {
 pub async fn analyze_render_blocking(
     page: &Page,
     page_url: &str,
-) -> Result<RenderBlockingAnalysis> {
+) -> crate::audit::collection::Collected<RenderBlockingAnalysis> {
     info!("Analyzing render-blocking resources...");
 
     let js = r#"
@@ -99,14 +98,14 @@ pub async fn analyze_render_blocking(
         return JSON.stringify(result);
     })()
     "#;
-
-    let js_result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("Render-blocking analysis failed: {e}")))?;
-
-    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed =
+        match crate::audit::collection::evaluate_js::<crate::audit::collection::JsObject>(page, js)
+            .await
+            .into_measurement()
+        {
+            Ok(object) => serde_json::Value::Object(object),
+            Err(failure) => return failure,
+        };
 
     let timing = parsed["resourceTiming"]
         .as_object()
@@ -193,7 +192,7 @@ pub async fn analyze_render_blocking(
         blocking_transfer_bytes / 1024,
     );
 
-    Ok(RenderBlockingAnalysis {
+    crate::audit::collection::Collected::Measured(RenderBlockingAnalysis {
         blocking_scripts,
         blocking_css,
         blocking_transfer_bytes,
@@ -278,6 +277,14 @@ pub fn render_blocking_suggestions(
     }
 
     s
+}
+
+/// Counter-cases of this collector (#769): an unread resource timing is no page without blocking resources.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<crate::audit::collection::JsObject>(
+        serde_json::json!({}),
+    );
 }
 
 #[cfg(test)]

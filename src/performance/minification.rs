@@ -14,7 +14,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
 use crate::util::truncate_ellipsis as truncate;
 
 /// A single JS or CSS resource that appears to be unminified.
@@ -67,7 +66,9 @@ pub struct MinificationAnalysis {
 }
 
 /// Detect unminified JS and CSS resources on the loaded page.
-pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
+pub async fn analyze_minification(
+    page: &Page,
+) -> crate::audit::collection::Collected<MinificationAnalysis> {
     info!("Analyzing unminified JS/CSS assets...");
 
     let js = r#"
@@ -83,14 +84,13 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
         }));
     })()
     "#;
-
-    let result = page
-        .evaluate(js)
+    let entries: Vec<RawEntry> = match crate::audit::collection::evaluate_js(page, js)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Minification analysis JS failed: {e}")))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-    let entries: Vec<RawEntry> = serde_json::from_str(json_str).unwrap_or_default();
+        .into_measurement()
+    {
+        Ok(v) => v,
+        Err(failure) => return failure,
+    };
 
     let mut unminified_scripts: Vec<UnminifiedAsset> = Vec::new();
     let mut unminified_styles: Vec<UnminifiedAsset> = Vec::new();
@@ -184,7 +184,7 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
         legacy_scripts.len()
     );
 
-    Ok(MinificationAnalysis {
+    crate::audit::collection::Collected::Measured(MinificationAnalysis {
         unminified_scripts,
         unminified_styles,
         total_savings_bytes,
@@ -261,6 +261,12 @@ fn legacy_wasted_bytes(decoded_bytes: u64, transfer_bytes: u64) -> u64 {
     } else {
         transfer_bytes
     }
+}
+
+/// Counter-cases of this collector (#769): an unread asset list is no fully minified page.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<RawEntry>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

@@ -393,7 +393,6 @@ pub(in crate::output::pdf) fn render_performance(
             .iter()
             .map(|key| match key.as_str() {
                 "lcp_not_measured" => i18n.t("perf-warning-lcp-missing"),
-                "tbt_zero_heavy_page" => i18n.t("perf-warning-tbt-zero"),
                 "speed_index_fallback_to_lcp" => i18n.t("perf-warning-si-fallback"),
                 "tti_fallback_to_lcp" => i18n.t("perf-warning-tti-fallback"),
                 "inp_not_measured" => i18n.t("perf-warning-inp-missing"),
@@ -405,18 +404,19 @@ pub(in crate::output::pdf) fn render_performance(
             .iter()
             .any(|w| w == "lcp_not_measured")
         {
-            if let Some(lh) = perf
+            if let Some(lh_score) = perf
                 .throttled_profiles
                 .iter()
                 .find(|p| p.profile_name == "LhMobile")
+                .and_then(|p| p.score)
             {
-                let gap = perf.score.saturating_sub(lh.score);
+                let gap = perf.score.saturating_sub(lh_score);
                 if gap >= 15 {
                     warning_items.push(i18n.t_args(
                         "perf-warning-lh-mobile-gap",
                         &[
                             ("desktop", perf.score.to_string()),
-                            ("mobile", lh.score.to_string()),
+                            ("mobile", lh_score.to_string()),
                             ("gap", gap.to_string()),
                         ],
                     ));
@@ -446,8 +446,14 @@ pub(in crate::output::pdf) fn render_performance(
                 entry.lcp.clone(),
                 entry.tbt.clone(),
                 entry.cls.clone(),
-                entry.score.to_string(),
-                super::score_band_label(entry.score, i18n).to_string(),
+                entry
+                    .score
+                    .map(|score| score.to_string())
+                    .unwrap_or_else(|| "\u{2014}".to_string()),
+                entry
+                    .score
+                    .map(|score| super::score_band_label(score, i18n).to_string())
+                    .unwrap_or_else(|| i18n.t("pdf-perf-throttled-incomplete")),
             ]);
         }
         builder = builder.add_component(table);
@@ -759,7 +765,7 @@ mod tests {
             lcp: lcp.to_string(),
             tbt: "0 ms".to_string(),
             cls: "0.000".to_string(),
-            score: 50,
+            score: Some(50),
         }
     }
 

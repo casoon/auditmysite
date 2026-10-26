@@ -1054,7 +1054,7 @@ mod tests {
             lcp_ms: Some(3200.0),
             tbt_ms: Some(180.0),
             cls: Some(0.03),
-            score: 72,
+            score: Some(72),
         }];
         report = report.with_tech_stack(crate::tech_stack::TechStackAnalysis {
             detected: vec![crate::tech_stack::DetectedTech {
@@ -1248,7 +1248,7 @@ mod tests {
             lcp_ms: Some(3200.0),
             tbt_ms: Some(180.0),
             cls: Some(0.03),
-            score: 72,
+            score: Some(72),
         }];
 
         let config = ReportConfig {
@@ -1337,7 +1337,7 @@ mod tests {
                     scripts: vec![],
                     total_bytes: 760_628,
                     unused_bytes: 0,
-                    used_pct: 100.0,
+                    used_pct: Some(100.0),
                 },
                 unused_css: crate::performance::UnusedCssAnalysis {
                     total_rules: 0,

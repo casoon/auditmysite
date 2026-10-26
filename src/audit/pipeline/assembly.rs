@@ -262,7 +262,6 @@ pub(super) fn aggregate_report(
 
     if let Some(performance) = snapshot.performance.clone() {
         report = report.with_performance(performance);
-        attach_performance_subchecks(&mut report);
     }
     if let Some(seo) = snapshot.seo.clone() {
         report = report.with_seo(seo);
@@ -360,68 +359,6 @@ pub(super) fn reconcile_image_alt_count(report: &mut AuditReport) {
                 "high",
                 Vec::new(),
             ));
-    }
-}
-
-fn attach_performance_subchecks(report: &mut AuditReport) {
-    let Some(performance) = report.performance.as_ref() else {
-        return;
-    };
-    let checks = [
-        ("lcp", performance.vitals.lcp.is_some()),
-        ("fcp", performance.vitals.fcp.is_some()),
-        ("cls", performance.vitals.cls.is_some()),
-        ("tbt", performance.vitals.tbt.is_some()),
-        ("content_weight", performance.content_weight.is_some()),
-        ("render_blocking", performance.render_blocking.is_some()),
-        ("third_party", performance.third_party.is_some()),
-        ("critical_chain", performance.critical_chain.is_some()),
-        ("minification", performance.minification.is_some()),
-        ("animations", performance.animations.is_some()),
-        ("coverage", performance.coverage.is_some()),
-    ];
-    // The score comes from the Web Vitals, not these sub-analyses: losing
-    // all of them leaves a partial run, not a failed one.
-    attach_subchecks(report, "performance", &checks, false);
-}
-
-/// Records each sub-analysis of `module` as completed or failed. One failed
-/// sub-analysis makes the module run `Partial`; when the sub-analyses are the
-/// whole module (`whole_module`), all of them failing makes it `Failed` — an
-/// empty result from a collector that never ran is no measurement (plan 69).
-fn attach_subchecks(
-    report: &mut AuditReport,
-    module: &str,
-    checks: &[(&str, bool)],
-    whole_module: bool,
-) {
-    if let Some(run) = report
-        .accessibility
-        .execution
-        .module_runs
-        .iter_mut()
-        .find(|run| run.module == module)
-    {
-        run.subchecks = checks
-            .iter()
-            .map(|(name, available)| crate::audit::SubcheckRun {
-                subcheck: (*name).to_string(),
-                status: if *available {
-                    crate::audit::ExecutionStatus::Completed
-                } else {
-                    crate::audit::ExecutionStatus::Failed
-                },
-                reason_code: (!available).then(|| "subanalysis_unavailable".to_string()),
-                ..Default::default()
-            })
-            .collect();
-        if whole_module && checks.iter().all(|(_, available)| !available) {
-            run.status = crate::audit::ExecutionStatus::Failed;
-            run.reason_code = Some("all_subanalyses_unavailable".to_string());
-        } else if checks.iter().any(|(_, available)| !available) {
-            run.status = crate::audit::ExecutionStatus::Partial;
-            run.reason_code = Some("one_or_more_subanalyses_unavailable".to_string());
-        }
     }
 }
 
@@ -873,29 +810,5 @@ mod tests {
             ..Default::default()
         });
         report
-    }
-
-    /// Plan 69: a collector that never ran makes the run partial, none at
-    /// all makes it failed — not "completed" with an empty, passing result.
-    #[test]
-    fn subchecks_mark_partial_and_failed_runs() {
-        let status = |checks: &[(&str, bool)]| {
-            let mut report = report_with_run("best_practices");
-            attach_subchecks(&mut report, "best_practices", checks, true);
-            let run = &report.accessibility.execution.module_runs[0];
-            (run.status, run.subchecks.len())
-        };
-        assert!(matches!(
-            status(&[("console_errors", true), ("vulnerable_libraries", true)]),
-            (ExecutionStatus::Completed, 2)
-        ));
-        assert!(matches!(
-            status(&[("console_errors", false), ("vulnerable_libraries", true)]),
-            (ExecutionStatus::Partial, 2)
-        ));
-        assert!(matches!(
-            status(&[("console_errors", false), ("vulnerable_libraries", false)]),
-            (ExecutionStatus::Failed, 2)
-        ));
     }
 }

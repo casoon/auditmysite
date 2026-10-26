@@ -9,7 +9,6 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::error::{AuditError, Result};
 use crate::util::truncate_ellipsis as truncate;
 
 /// A single node in the critical request chain.
@@ -87,7 +86,9 @@ pub struct CriticalChain {
 }
 
 /// Build the critical request chain from PerformanceResourceTiming entries.
-pub async fn analyze_critical_chain(page: &Page) -> Result<CriticalChain> {
+pub async fn analyze_critical_chain(
+    page: &Page,
+) -> crate::audit::collection::Collected<CriticalChain> {
     info!("Building critical request chain...");
 
     let js = r#"
@@ -107,14 +108,13 @@ pub async fn analyze_critical_chain(page: &Page) -> Result<CriticalChain> {
         }));
     })()
     "#;
-
-    let result = page
-        .evaluate(js)
+    let raw: Vec<RawResource> = match crate::audit::collection::evaluate_js(page, js)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Critical chain JS failed: {e}")))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-    let raw: Vec<RawResource> = serde_json::from_str(json_str).unwrap_or_default();
+        .into_measurement()
+    {
+        Ok(v) => v,
+        Err(failure) => return failure,
+    };
 
     let total_requests = raw.len() as u32;
 
@@ -154,7 +154,7 @@ pub async fn analyze_critical_chain(page: &Page) -> Result<CriticalChain> {
         total_requests, max_depth, critical_path_ms
     );
 
-    Ok(CriticalChain {
+    crate::audit::collection::Collected::Measured(CriticalChain {
         chains,
         total_requests,
         critical_path_bytes,
@@ -263,6 +263,12 @@ struct RawResource {
     #[serde(rename = "transferSize")]
     transfer_size: u64,
     duration: f64,
+}
+
+/// Counter-cases of this collector (#769): an unread resource list is no empty chain.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    crate::audit::collection::assert_js_contract::<Vec<RawResource>>(serde_json::json!([]));
 }
 
 #[cfg(test)]

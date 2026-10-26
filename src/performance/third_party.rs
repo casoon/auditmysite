@@ -88,7 +88,7 @@ impl ThirdPartyAttribution {
 pub async fn analyze_third_party_attribution(
     page: &Page,
     page_url: &str,
-) -> Result<ThirdPartyAttribution> {
+) -> crate::audit::collection::Collected<ThirdPartyAttribution> {
     info!("Analyzing third-party attribution...");
 
     let js = r#"
@@ -103,14 +103,13 @@ pub async fn analyze_third_party_attribution(
         }));
     })()
     "#;
-
-    let result = page
-        .evaluate(js)
+    let entries: Vec<ResourceEntry> = match crate::audit::collection::evaluate_js(page, js)
         .await
-        .map_err(|e| AuditError::CdpError(format!("Third-party attribution JS failed: {e}")))?;
-
-    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("[]");
-    let entries: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_default();
+        .into_measurement()
+    {
+        Ok(v) => v,
+        Err(failure) => return failure,
+    };
 
     let page_host = Url::parse(page_url)
         .ok()
@@ -179,7 +178,7 @@ pub async fn analyze_third_party_attribution(
         total_bytes as f64 / 1024.0
     );
 
-    Ok(ThirdPartyAttribution {
+    crate::audit::collection::Collected::Measured(ThirdPartyAttribution {
         origins,
         total_origins,
         total_bytes,
@@ -257,16 +256,32 @@ async fn set_blocked_urls(page: &Page, patterns: &[String]) -> Result<()> {
 /// Costly: one full page reload per isolated origin. Callers must only
 /// invoke this when both performance checking and the explicit
 /// `--isolate-third-party-impact` opt-in are active (see `PipelineConfig`).
+/// One reload per blocked third-party origin (opt-in).
+pub(crate) static ISOLATION: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "performance.third_party_isolation",
+        module: "performance",
+        method: crate::audit::collection::CollectionMethod::Cdp,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// The impact of each isolated origin. An origin whose isolation pass
+/// failed is missing from the list; the collection says so (partial or
+/// failed) instead of dropping it silently (#769).
 pub async fn isolate_third_party_impact(
     page: &Page,
     browser: &BrowserManager,
     url: &str,
     origins: &[ThirdPartyOrigin],
     baseline_tbt_ms: f64,
-) -> Vec<ThirdPartyImpact> {
+) -> crate::audit::collection::Collected<Vec<ThirdPartyImpact>> {
+    use crate::audit::collection::CollectionLog;
     let mut results = Vec::new();
+    let mut attempted = 0usize;
 
     for origin in select_origins_to_isolate(origins, MAX_ISOLATED_ORIGINS) {
+        attempted += 1;
         let pattern = format!("*{}*", origin.origin);
         info!("Isolating third-party impact for {}", origin.origin);
 
@@ -290,7 +305,9 @@ pub async fn isolate_third_party_impact(
             continue;
         }
 
-        let without_tbt = match extract_web_vitals(page).await {
+        // The isolation pass's vitals are a comparison input, not report
+        // data; their per-metric records are not kept.
+        let without_tbt = match extract_web_vitals(page, &CollectionLog::new()).await {
             Ok(vitals) => vitals.tbt.map(|m| m.value),
             Err(e) => {
                 warn!(
@@ -315,7 +332,27 @@ pub async fn isolate_third_party_impact(
         }
     }
 
-    results
+    isolation_outcome(attempted, results)
+}
+
+/// Every attempted origin isolated: measured; some: partial; none: failed.
+fn isolation_outcome(
+    attempted: usize,
+    results: Vec<ThirdPartyImpact>,
+) -> crate::audit::collection::Collected<Vec<ThirdPartyImpact>> {
+    use crate::audit::collection::{reason, Collected};
+    if attempted == 0 {
+        Collected::NotApplicable("no_third_party_origin")
+    } else if results.is_empty() {
+        Collected::Failed(reason::CDP_COMMAND_FAILED)
+    } else if results.len() < attempted {
+        Collected::Partial {
+            value: results,
+            gaps: vec!["origin_isolation"],
+        }
+    } else {
+        Collected::Measured(results)
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -402,6 +439,32 @@ fn classify_origin(host: &str) -> (Option<String>, Option<String>) {
         return (None, None);
     };
     (Some(pair.0.to_string()), Some(pair.1.to_string()))
+}
+
+/// Counter-cases of the third-party collectors (#769): an unread resource
+/// list is no page without third parties, and a lost isolation pass leaves
+/// the impact list partial instead of silently short.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::CollectionState;
+    crate::audit::collection::assert_js_contract::<Vec<ResourceEntry>>(serde_json::json!([]));
+    let impact = compute_isolated_impact("https://cdn.example", "*cdn*", 300.0, 100.0);
+    assert_eq!(
+        isolation_outcome(0, vec![]).state(),
+        CollectionState::NotApplicable
+    );
+    assert_eq!(
+        isolation_outcome(2, vec![]).state(),
+        CollectionState::Failed
+    );
+    assert_eq!(
+        isolation_outcome(2, vec![impact.clone()]).state(),
+        CollectionState::Partial
+    );
+    assert_eq!(
+        isolation_outcome(1, vec![impact]).state(),
+        CollectionState::Measured
+    );
 }
 
 #[cfg(test)]
