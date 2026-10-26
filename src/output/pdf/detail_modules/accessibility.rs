@@ -264,12 +264,17 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     // the BFSG at all or whether every legal requirement is met. "No
     // violations" would read as a legal clearance the audit cannot give.
     let bfsg_note = match sr.bfsg_compliance.verdict {
-        BfsgVerdict::Compliant => Callout::info(if en {
-            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is not a legal conformance assessment."
+        BfsgVerdict::NoViolationsFound => Callout::info(if en {
+            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is neither a conformance statement nor a legal assessment; a test with a real screen reader is still open."
         } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Dies ist keine rechtliche Konformitätsprüfung."
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Das ist weder eine Konformitätsaussage noch eine rechtliche Prüfung; ein Test mit einem echten Screenreader steht noch aus."
         }),
-        BfsgVerdict::NonCompliant => Callout::warning(if en {
+        BfsgVerdict::Incomplete => Callout::warning(if en {
+            "BFSG-relevant technical criteria: the accessibility tree looks incomplete (consent wall suspected), so the absence of violations says nothing. Repeat the audit on the full page."
+        } else {
+            "BFSG-relevante technische Kriterien: Der Accessibility Tree wirkt unvollständig (vermutlich Consent-Banner), das Ausbleiben von Verstößen sagt daher nichts aus. Die Prüfung auf der vollständigen Seite wiederholen."
+        }),
+        BfsgVerdict::ViolationsFound => Callout::warning(if en {
             "BFSG-relevant technical criteria: violations detected within the automated scope (see issues below). This is not a legal conformance assessment."
         } else {
             "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
@@ -280,9 +285,9 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
             "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang kein bestätigter Verstoß, aber Hinweise, die von Hand zu prüfen sind (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
         }),
         BfsgVerdict::NotEvaluated => Callout::info(if en {
-            "BFSG conformance was not evaluated for this page."
+            "BFSG-relevant technical criteria were not evaluated for this page."
         } else {
-            "BFSG-Konformität wurde für diese Seite nicht bewertet."
+            "BFSG-relevante technische Kriterien wurden für diese Seite nicht geprüft."
         }),
     };
     builder = builder.add_component(bfsg_note);
