@@ -56,44 +56,38 @@ pub(in crate::output::pdf) fn render_network_dns(
     ])
     .with_title(if en { "DNS Records" } else { "DNS-Einträge" });
 
-    table = table.add_row(vec![
-        "CAA".to_string(),
-        if dns.caa_present {
-            ok.clone()
-        } else {
-            missing.clone()
-        },
-        if dns.caa_present {
-            String::new()
-        } else {
-            crate::network::dns::finding_message_text("dns.caa_missing", en)
-        },
-    ]);
+    // Unknown answers (timeout, SERVFAIL) read "unknown", never "missing"
+    // (#776).
+    let unknown = pick(i18n, "Unbekannt", "Unknown").to_string();
+    let row = |present: Option<bool>, rule_id: &str| -> (String, String) {
+        match present {
+            Some(true) => (ok.clone(), String::new()),
+            Some(false) => (
+                missing.clone(),
+                crate::network::dns::finding_message_text(rule_id, en),
+            ),
+            None => (
+                unknown.clone(),
+                pick(
+                    i18n,
+                    "Die DNS-Abfrage wurde nicht beantwortet; der Eintrag ist ungeprüft.",
+                    "The DNS query got no answer; the record is unchecked.",
+                )
+                .to_string(),
+            ),
+        }
+    };
 
-    table = table.add_row(vec![
-        "DNSSEC".to_string(),
-        if dns.dnssec_detected {
-            ok.clone()
-        } else {
-            missing.clone()
-        },
-        if dns.dnssec_detected {
-            String::new()
-        } else {
-            crate::network::dns::finding_message_text("dns.dnssec_not_detected", en)
-        },
-    ]);
+    let (status, text) = row(dns.caa_present, "dns.caa_missing");
+    table = table.add_row(vec!["CAA".to_string(), status, text]);
 
-    if let Some(spf_present) = dns.spf_present {
-        table = table.add_row(vec![
-            "SPF".to_string(),
-            if spf_present { ok } else { missing },
-            if spf_present {
-                String::new()
-            } else {
-                crate::network::dns::finding_message_text("dns.spf_missing", en)
-            },
-        ]);
+    let (status, text) = row(dns.dnssec_detected, "dns.dnssec_not_detected");
+    table = table.add_row(vec!["DNSSEC".to_string(), status, text]);
+
+    // SPF only when mail is routed here (MX present) or MX is unknown.
+    if dns.mx_present != Some(false) {
+        let (status, text) = row(dns.spf_present, "dns.spf_missing");
+        table = table.add_row(vec!["SPF".to_string(), status, text]);
     }
 
     builder = builder.add_component(table);

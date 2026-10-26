@@ -17,7 +17,10 @@ async fn foundation_unreachable_security_headers_are_not_missing_headers() {
     drop(socket);
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
-        auditmysite::security::analyze_security(&url),
+        auditmysite::security::analyze_security(
+            &url,
+            &auditmysite::audit::collection::CollectionLog::new(),
+        ),
     )
     .await;
     assert!(
@@ -61,9 +64,12 @@ async fn security_detection_corpus_matches_real_analyze_security_run() {
             case.response_headers.clone(),
         );
 
-        let analysis = analyze_security(&fixture.url)
-            .await
-            .unwrap_or_else(|e| panic!("analyze_security failed for case '{}': {e}", case.case));
+        let analysis = analyze_security(
+            &fixture.url,
+            &auditmysite::audit::collection::CollectionLog::new(),
+        )
+        .await
+        .unwrap_or_else(|e| panic!("analyze_security failed for case '{}': {e}", case.case));
 
         fixture.stop();
 

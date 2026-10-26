@@ -32,7 +32,7 @@ impl AuditModule for SecurityModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_security(ctx.url).await {
+        match analyze_security(ctx.url, ctx.collection).await {
             Ok(s) => Ok(ModuleData::Security(Box::new(s))),
             Err(e) => {
                 warn!("Security analysis failed: {}", e);

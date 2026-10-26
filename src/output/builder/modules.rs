@@ -593,6 +593,7 @@ mod tests {
             recommendations: Vec::new(),
             protection: ProtectionDetection::default(),
             sourcemap_leaks: SourceMapLeakAudit::default(),
+            fetch: Default::default(),
         }
     }
 

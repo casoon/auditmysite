@@ -869,7 +869,9 @@ mod tests {
             ssl: Default::default(),
             issues: vec![],
             recommendations: vec![],
-            protection: Default::default(),            sourcemap_leaks: Default::default(),
+            protection: Default::default(),
+            sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
         })
         .with_html_conform(crate::html_conform::HtmlConformAnalysis {
             score: 90,
@@ -970,10 +972,10 @@ mod tests {
         .with_network_dns(crate::network::dns::build_analysis(
             "example.com",
             &crate::network::dns::DnsCheckResult {
-                caa_present: false,
-                dnssec_detected: true,
-                mx_present: true,
-                spf_present: false,
+                caa: crate::network::dns::DnsAnswer::Absent,
+                dnssec: crate::network::dns::DnsAnswer::Present,
+                mx: crate::network::dns::DnsAnswer::Present,
+                spf: crate::network::dns::DnsAnswer::Absent,
             },
         ));
         let sq = crate::source_quality::analyze_source_quality(&report);

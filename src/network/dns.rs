@@ -7,21 +7,19 @@
 //! Runs once per host, not once per page — see [`NetworkDnsModule`]'s
 //! per-host memoization.
 //!
-//! Known limitations (documented rather than silently assumed away, per
-//! #545's explicit scope):
-//! - **CAA**: queries the exact hostname only. RFC 6844 requires walking up
-//!   to parent domains until a CAA record (or the zone apex) is found; a
-//!   subdomain with no CAA record of its own but one on a parent is reported
-//!   here as "missing" even though CAA policy does apply via the ancestor.
-//!   Acceptable for a first cut.
-//! - **DNSSEC**: a best-effort "does a DNSKEY record exist at this name"
-//!   check, not full chain-of-trust validation — there is no verification
-//!   that the DNSKEY is signed by a trusted parent zone, no RRSIG check. A
-//!   "detected" result means DNSSEC signing looks present, not that a
-//!   resolver has cryptographically validated the chain.
-//! - **Query failures**: NXDOMAIN/NODATA establish absence; transport or
-//!   resolver failures leave the module unmeasured instead of inventing a
-//!   missing-record finding.
+//! Scope (#776):
+//! - **Answers**: every lookup is a positive answer, a proven absence
+//!   (NXDOMAIN/NODATA) or unknown (timeout, SERVFAIL, refused). Unknown is
+//!   never read as absent: it produces no finding and is recorded as a
+//!   failed collection.
+//! - **CAA**: walks from the host up to its parent domains (RFC 8659 tree
+//!   climbing) and stops at the first name with CAA records. Without a
+//!   public-suffix list the walk ends at the last two labels.
+//! - **DNSSEC**: "a DNSKEY is published for the host or a parent domain" —
+//!   the same walk, since the key sits at the zone apex. It is not
+//!   chain-of-trust validation: no DS, no RRSIG check.
+//! - **SPF**: applies when the host has an MX record. MX unknown leaves SPF
+//!   unknown, not "not applicable".
 
 pub mod module;
 pub use module::NetworkDnsModule;
@@ -31,16 +29,96 @@ use hickory_resolver::TokioResolver;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+/// One resolver answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordLookup {
+    /// Records of the type exist; their presentation form.
+    Found(Vec<String>),
+    /// NXDOMAIN or NODATA: proven absence.
+    Absent,
+    /// Timeout, SERVFAIL or another failure: nothing is known.
+    Unknown(&'static str),
+}
+
+/// What a DNS check established for one host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DnsAnswer {
+    Present,
+    Absent,
+    /// The check does not apply (SPF without MX).
+    NotApplicable,
+    Unknown(&'static str),
+}
+
+impl DnsAnswer {
+    /// `Some(true/false)` for an answer, `None` when unknown or not applicable.
+    pub fn as_bool(self) -> Option<bool> {
+        match self {
+            Self::Present => Some(true),
+            Self::Absent => Some(false),
+            Self::NotApplicable | Self::Unknown(_) => None,
+        }
+    }
+
+    /// The collection state of this check (#777).
+    pub fn collected(self) -> crate::audit::collection::Collected<()> {
+        use crate::audit::collection::Collected;
+        match self {
+            Self::Present => Collected::Measured(()),
+            Self::Absent => Collected::Empty(()),
+            Self::NotApplicable => Collected::NotApplicable("no_mx_record"),
+            Self::Unknown(reason) => Collected::Failed(reason),
+        }
+    }
+}
+
 /// Raw DNS query results for one host — pure data, no message text baked in.
 /// Kept separate from finding construction ([`build_analysis`]) so the
 /// finding-mapping logic can be unit-tested without a real DNS query.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DnsCheckResult {
-    pub caa_present: bool,
-    pub dnssec_detected: bool,
-    pub mx_present: bool,
-    /// Only meaningful when `mx_present` is true — see [`build_analysis`].
-    pub spf_present: bool,
+    pub caa: DnsAnswer,
+    pub dnssec: DnsAnswer,
+    pub mx: DnsAnswer,
+    pub spf: DnsAnswer,
+}
+
+/// The resolver behind the checks; injectable so tests can answer with
+/// NODATA, NXDOMAIN, SERVFAIL, timeouts and delegations.
+#[async_trait::async_trait]
+pub trait DnsLookup: Send + Sync {
+    async fn lookup(&self, name: &str, record_type: RecordType) -> RecordLookup;
+}
+
+struct HickoryLookup(TokioResolver);
+
+#[async_trait::async_trait]
+impl DnsLookup for HickoryLookup {
+    async fn lookup(&self, name: &str, record_type: RecordType) -> RecordLookup {
+        match self.0.lookup(name, record_type).await {
+            Ok(lookup) => {
+                let answers: Vec<String> = lookup
+                    .answers()
+                    .iter()
+                    .filter(|record| record.record_type() == record_type)
+                    .map(|record| match &record.data {
+                        RData::TXT(txt) => txt.to_string(),
+                        other => other.to_string(),
+                    })
+                    .collect();
+                if answers.is_empty() {
+                    RecordLookup::Absent
+                } else {
+                    RecordLookup::Found(answers)
+                }
+            }
+            Err(error) if error.is_no_records_found() || error.is_nx_domain() => {
+                RecordLookup::Absent
+            }
+            Err(hickory_resolver::net::NetError::Timeout) => RecordLookup::Unknown("dns_timeout"),
+            Err(_) => RecordLookup::Unknown("dns_lookup_failed"),
+        }
+    }
 }
 
 /// A single DNS-configuration finding.
@@ -57,12 +135,17 @@ pub struct DnsFinding {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NetworkDnsAnalysis {
     pub host: String,
-    pub caa_present: bool,
-    pub dnssec_detected: bool,
-    pub mx_present: bool,
+    /// CAA records for the host or the closest parent; `None` when unknown.
+    pub caa_present: Option<bool>,
+    /// A DNSKEY is published for the host or a parent (no chain
+    /// validation); `None` when unknown.
+    pub dnssec_detected: Option<bool>,
+    /// `None` when unknown.
+    pub mx_present: Option<bool>,
     /// `None` when there is no MX record — the SPF check is skipped
     /// entirely per #545 ("only when mail is routed through this domain"),
-    /// not reported as pass or fail.
+    /// not reported as pass or fail — or when MX or TXT are unknown; the
+    /// collection record tells which.
     pub spf_present: Option<bool>,
     pub findings: Vec<DnsFinding>,
 }
@@ -106,49 +189,89 @@ pub fn finding_message_text(rule_id: &str, en: bool) -> String {
 /// this is fully unit-testable without a real DNS query.
 pub fn build_analysis(host: &str, result: &DnsCheckResult) -> NetworkDnsAnalysis {
     let mut findings = Vec::new();
-
-    if !result.caa_present {
+    let mut finding = |rule_id: &str| {
         findings.push(DnsFinding {
-            rule_id: "dns.caa_missing".to_string(),
-            message: finding_message_text("dns.caa_missing", true),
-        });
+            rule_id: rule_id.to_string(),
+            message: finding_message_text(rule_id, true),
+        })
+    };
+    // Only a proven absence is a finding; unknown answers stay silent.
+    if result.caa == DnsAnswer::Absent {
+        finding("dns.caa_missing");
     }
-
-    if !result.dnssec_detected {
-        findings.push(DnsFinding {
-            rule_id: "dns.dnssec_not_detected".to_string(),
-            message: finding_message_text("dns.dnssec_not_detected", true),
-        });
+    if result.dnssec == DnsAnswer::Absent {
+        finding("dns.dnssec_not_detected");
     }
-
     // SPF is only evaluated when mail is actually routed through this domain
     // (an MX record exists) — see module doc comment / #545 scope.
-    let spf_present = if result.mx_present {
-        if !result.spf_present {
-            findings.push(DnsFinding {
-                rule_id: "dns.spf_missing".to_string(),
-                message: finding_message_text("dns.spf_missing", true),
-            });
-        }
-        Some(result.spf_present)
-    } else {
-        None
-    };
+    if result.spf == DnsAnswer::Absent {
+        finding("dns.spf_missing");
+    }
 
     NetworkDnsAnalysis {
         host: host.to_string(),
-        caa_present: result.caa_present,
-        dnssec_detected: result.dnssec_detected,
-        mx_present: result.mx_present,
-        spf_present,
+        caa_present: result.caa.as_bool(),
+        dnssec_detected: result.dnssec.as_bool(),
+        mx_present: result.mx.as_bool(),
+        spf_present: result.spf.as_bool(),
         findings,
     }
 }
 
-/// Runs the real DNS queries for one host. Returns `None` when a lookup
-/// fails technically or the resolver could not be constructed (a local configuration/
-/// environment problem) — an individual record lookup failing (including
-/// "no records found") is treated as "absent", see module doc comment.
+/// The host and its parent domains, nearest first, down to two labels.
+fn names_up(host: &str) -> Vec<String> {
+    let host = host.trim_end_matches('.');
+    let labels: Vec<&str> = host.split('.').collect();
+    (0..labels.len().saturating_sub(1))
+        .map(|start| format!("{}.", labels[start..].join(".")))
+        .collect()
+}
+
+/// The first name on the way up that has `record_type`. A name whose answer
+/// is unknown stops the walk: what lies above cannot settle it.
+async fn climb(lookup: &dyn DnsLookup, host: &str, record_type: RecordType) -> DnsAnswer {
+    for name in names_up(host) {
+        match lookup.lookup(&name, record_type).await {
+            RecordLookup::Found(_) => return DnsAnswer::Present,
+            RecordLookup::Absent => continue,
+            RecordLookup::Unknown(reason) => return DnsAnswer::Unknown(reason),
+        }
+    }
+    DnsAnswer::Absent
+}
+
+/// The DNS checks for one host against `lookup`.
+pub async fn check_dns(lookup: &dyn DnsLookup, host: &str) -> DnsCheckResult {
+    let fqdn = format!("{}.", host.trim_end_matches('.'));
+    let caa = climb(lookup, host, RecordType::CAA).await;
+    let dnssec = climb(lookup, host, RecordType::DNSKEY).await;
+    let mx = match lookup.lookup(&fqdn, RecordType::MX).await {
+        RecordLookup::Found(_) => DnsAnswer::Present,
+        RecordLookup::Absent => DnsAnswer::Absent,
+        RecordLookup::Unknown(reason) => DnsAnswer::Unknown(reason),
+    };
+    let spf = match mx {
+        DnsAnswer::Present => match lookup.lookup(&fqdn, RecordType::TXT).await {
+            RecordLookup::Found(texts) if texts.iter().any(|t| t.starts_with("v=spf1")) => {
+                DnsAnswer::Present
+            }
+            RecordLookup::Found(_) | RecordLookup::Absent => DnsAnswer::Absent,
+            RecordLookup::Unknown(reason) => DnsAnswer::Unknown(reason),
+        },
+        DnsAnswer::Absent => DnsAnswer::NotApplicable,
+        // Without knowing whether mail is routed here, SPF is unknown too.
+        DnsAnswer::NotApplicable | DnsAnswer::Unknown(_) => DnsAnswer::Unknown("mx_unknown"),
+    };
+    DnsCheckResult {
+        caa,
+        dnssec,
+        mx,
+        spf,
+    }
+}
+
+/// Runs the real DNS queries for one host. `None` when the resolver could
+/// not be constructed (a local configuration problem): nothing was asked.
 pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
     let resolver: TokioResolver = match TokioResolver::builder_tokio() {
         Ok(builder) => match builder.build() {
@@ -163,173 +286,203 @@ pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
             return None;
         }
     };
+    Some(check_dns(&HickoryLookup(resolver), host).await)
+}
 
-    // Fully-qualified (trailing dot) avoids the resolver silently applying
-    // search-domain suffixes configured on the host machine.
-    let fqdn = if host.ends_with('.') {
-        host.to_string()
-    } else {
-        format!("{host}.")
-    };
-
-    let caa_present = resolver
-        .lookup(fqdn.as_str(), RecordType::CAA)
-        .await
-        .map(|l| !l.answers().is_empty())
-        .or_else(|error| {
-            if error.is_no_records_found() {
-                Ok(false)
-            } else {
-                Err(error)
-            }
-        })
-        .ok()?;
-
-    let dnssec_detected = resolver
-        .lookup(fqdn.as_str(), RecordType::DNSKEY)
-        .await
-        .map(|l| !l.answers().is_empty())
-        .or_else(|error| {
-            if error.is_no_records_found() {
-                Ok(false)
-            } else {
-                Err(error)
-            }
-        })
-        .ok()?;
-
-    let mx_present = resolver
-        .mx_lookup(fqdn.as_str())
-        .await
-        .map(|l| !l.answers().is_empty())
-        .or_else(|error| {
-            if error.is_no_records_found() {
-                Ok(false)
-            } else {
-                Err(error)
-            }
-        })
-        .ok()?;
-
-    let spf_present = if mx_present {
-        resolver
-            .txt_lookup(fqdn.as_str())
-            .await
-            .map(|l| {
-                l.answers().iter().any(|record| {
-                    matches!(&record.data, RData::TXT(txt) if txt.to_string().starts_with("v=spf1"))
-                })
-            })
-            .or_else(|error| {
-                if error.is_no_records_found() {
-                    Ok(false)
-                } else {
-                    Err(error)
-                }
-            })
-            .ok()?
-    } else {
-        false
-    };
-
-    Some(DnsCheckResult {
-        caa_present,
-        dnssec_detected,
-        mx_present,
-        spf_present,
-    })
+/// Counter-cases of the DNS collectors (#776): an unknown answer is a failed
+/// collection, a proven absence an empty one, SPF without MX not applicable.
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::CollectionState;
+    assert_eq!(
+        DnsAnswer::Present.collected().state(),
+        CollectionState::Measured
+    );
+    assert_eq!(
+        DnsAnswer::Absent.collected().state(),
+        CollectionState::Empty
+    );
+    assert_eq!(
+        DnsAnswer::NotApplicable.collected().state(),
+        CollectionState::NotApplicable
+    );
+    assert_eq!(
+        DnsAnswer::Unknown("dns_timeout").collected().state(),
+        CollectionState::Failed
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use DnsAnswer::{Absent, NotApplicable, Present, Unknown};
+
+    fn result(caa: DnsAnswer, dnssec: DnsAnswer, mx: DnsAnswer, spf: DnsAnswer) -> DnsCheckResult {
+        DnsCheckResult {
+            caa,
+            dnssec,
+            mx,
+            spf,
+        }
+    }
+
+    fn rule_ids(result: &DnsCheckResult) -> Vec<String> {
+        build_analysis("example.com", result)
+            .findings
+            .into_iter()
+            .map(|f| f.rule_id)
+            .collect()
+    }
+
     #[test]
-    fn all_present_produces_no_findings() {
-        let result = DnsCheckResult {
-            caa_present: true,
-            dnssec_detected: true,
-            mx_present: true,
-            spf_present: true,
-        };
-        let analysis = build_analysis("example.com", &result);
+    fn proven_absence_produces_findings() {
+        assert!(rule_ids(&result(Present, Present, Present, Present)).is_empty());
+        assert_eq!(
+            rule_ids(&result(Absent, Absent, Present, Absent)),
+            vec![
+                "dns.caa_missing",
+                "dns.dnssec_not_detected",
+                "dns.spf_missing"
+            ]
+        );
+        let no_mx = build_analysis(
+            "example.com",
+            &result(Present, Present, Absent, NotApplicable),
+        );
+        assert!(no_mx.findings.is_empty());
+        assert_eq!(no_mx.spf_present, None);
+    }
+
+    #[test]
+    fn unknown_answers_produce_no_findings() {
+        // #776: a timeout or SERVFAIL is no missing record.
+        let unknown = result(
+            Unknown("dns_timeout"),
+            Unknown("dns_lookup_failed"),
+            Unknown("dns_timeout"),
+            Unknown("mx_unknown"),
+        );
+        let analysis = build_analysis("example.com", &unknown);
         assert!(analysis.findings.is_empty());
-        assert_eq!(analysis.spf_present, Some(true));
-    }
-
-    #[test]
-    fn caa_missing_produces_finding() {
-        let result = DnsCheckResult {
-            caa_present: false,
-            dnssec_detected: true,
-            mx_present: false,
-            spf_present: false,
-        };
-        let analysis = build_analysis("example.com", &result);
-        assert_eq!(analysis.findings.len(), 1);
-        assert_eq!(analysis.findings[0].rule_id, "dns.caa_missing");
-    }
-
-    #[test]
-    fn dnssec_not_detected_produces_finding() {
-        let result = DnsCheckResult {
-            caa_present: true,
-            dnssec_detected: false,
-            mx_present: false,
-            spf_present: false,
-        };
-        let analysis = build_analysis("example.com", &result);
-        assert_eq!(analysis.findings.len(), 1);
-        assert_eq!(analysis.findings[0].rule_id, "dns.dnssec_not_detected");
-    }
-
-    #[test]
-    fn spf_missing_only_fires_when_mx_present() {
-        let no_mx = DnsCheckResult {
-            caa_present: true,
-            dnssec_detected: true,
-            mx_present: false,
-            spf_present: false,
-        };
-        let analysis = build_analysis("example.com", &no_mx);
-        assert!(analysis.findings.is_empty());
+        assert_eq!(analysis.caa_present, None);
+        assert_eq!(analysis.dnssec_detected, None);
+        assert_eq!(analysis.mx_present, None);
         assert_eq!(analysis.spf_present, None);
+    }
 
-        let mx_without_spf = DnsCheckResult {
-            caa_present: true,
-            dnssec_detected: true,
-            mx_present: true,
-            spf_present: false,
-        };
-        let analysis = build_analysis("example.com", &mx_without_spf);
-        assert_eq!(analysis.findings.len(), 1);
-        assert_eq!(analysis.findings[0].rule_id, "dns.spf_missing");
-        assert_eq!(analysis.spf_present, Some(false));
+    /// A scripted resolver: answers by (name, type), everything else NODATA.
+    struct FakeDns(Vec<(&'static str, RecordType, RecordLookup)>);
+
+    #[async_trait::async_trait]
+    impl DnsLookup for FakeDns {
+        async fn lookup(&self, name: &str, record_type: RecordType) -> RecordLookup {
+            self.0
+                .iter()
+                .find(|(n, t, _)| *n == name && *t == record_type)
+                .map(|(_, _, answer)| answer.clone())
+                .unwrap_or(RecordLookup::Absent)
+        }
+    }
+
+    fn check(fake: FakeDns, host: &str) -> DnsCheckResult {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(check_dns(&fake, host))
+    }
+
+    fn found() -> RecordLookup {
+        RecordLookup::Found(vec!["record".into()])
     }
 
     #[test]
-    fn mx_with_spf_produces_no_spf_finding() {
-        let result = DnsCheckResult {
-            caa_present: true,
-            dnssec_detected: true,
-            mx_present: true,
-            spf_present: true,
-        };
-        let analysis = build_analysis("example.com", &result);
-        assert!(analysis.findings.is_empty());
-        assert_eq!(analysis.spf_present, Some(true));
+    fn caa_and_dnskey_are_inherited_from_the_parent() {
+        // Delegation: www has no records of its own, example.com has them.
+        let result = check(
+            FakeDns(vec![
+                ("example.com.", RecordType::CAA, found()),
+                ("example.com.", RecordType::DNSKEY, found()),
+            ]),
+            "www.example.com",
+        );
+        assert_eq!(result.caa, Present);
+        assert_eq!(result.dnssec, Present);
     }
 
     #[test]
-    fn all_missing_produces_three_findings() {
-        let result = DnsCheckResult {
-            caa_present: false,
-            dnssec_detected: false,
-            mx_present: true,
-            spf_present: false,
+    fn nodata_and_nxdomain_are_proven_absence() {
+        let result = check(
+            FakeDns(vec![(
+                "shop.example.com.",
+                RecordType::MX,
+                RecordLookup::Absent,
+            )]),
+            "shop.example.com",
+        );
+        assert_eq!(result.caa, Absent);
+        assert_eq!(result.dnssec, Absent);
+        assert_eq!(result.mx, Absent);
+        assert_eq!(result.spf, NotApplicable);
+    }
+
+    #[test]
+    fn servfail_and_timeout_stay_unknown() {
+        let result = check(
+            FakeDns(vec![
+                // The host's own CAA answer is unknown: the parent cannot settle it.
+                (
+                    "www.example.com.",
+                    RecordType::CAA,
+                    RecordLookup::Unknown("dns_lookup_failed"),
+                ),
+                ("example.com.", RecordType::CAA, found()),
+                (
+                    "www.example.com.",
+                    RecordType::DNSKEY,
+                    RecordLookup::Unknown("dns_timeout"),
+                ),
+                (
+                    "www.example.com.",
+                    RecordType::MX,
+                    RecordLookup::Unknown("dns_timeout"),
+                ),
+            ]),
+            "www.example.com",
+        );
+        assert_eq!(result.caa, Unknown("dns_lookup_failed"));
+        assert_eq!(result.dnssec, Unknown("dns_timeout"));
+        assert_eq!(result.mx, Unknown("dns_timeout"));
+        // MX unknown: whether SPF applies is unknown too, not "no mail".
+        assert_eq!(result.spf, Unknown("mx_unknown"));
+    }
+
+    #[test]
+    fn spf_needs_a_v_spf1_text_record() {
+        let mx_and_txt = |txt: RecordLookup| {
+            check(
+                FakeDns(vec![
+                    ("example.com.", RecordType::MX, found()),
+                    ("example.com.", RecordType::TXT, txt),
+                ]),
+                "example.com",
+            )
+            .spf
         };
-        let analysis = build_analysis("example.com", &result);
-        assert_eq!(analysis.findings.len(), 3);
+        assert_eq!(
+            mx_and_txt(RecordLookup::Found(vec!["v=spf1 -all".into()])),
+            Present
+        );
+        assert_eq!(
+            mx_and_txt(RecordLookup::Found(vec![
+                "google-site-verification=x".into()
+            ])),
+            Absent
+        );
+        assert_eq!(
+            mx_and_txt(RecordLookup::Unknown("dns_timeout")),
+            Unknown("dns_timeout")
+        );
     }
 
     #[test]

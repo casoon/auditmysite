@@ -755,8 +755,11 @@ pub async fn audit_page(
     };
 
     // ── Security: viewport-independent, fetch once ────────────────────────────
+    // Security collections run outside the module catalog; they are folded
+    // into the security run once it exists (#774).
+    let security_collection = crate::audit::collection::CollectionLog::new();
     let mut security: Option<SecurityAnalysis> = if config.check_security {
-        match analyze_security(url).await {
+        match analyze_security(url, &security_collection).await {
             Ok(s) => Some(s),
             Err(e) => {
                 warn!("Security analysis failed: {}", e);
@@ -782,11 +785,26 @@ pub async fn audit_page(
     set_viewport(page, Viewport::Desktop).await?;
     prepare_pass_collection(page, "desktop", config).await;
     let desktop_refresh = browser.navigate(page, url).await?;
-    if let (Some(sec), Some(details)) = (
-        &mut security,
-        collect_certificate_details(&mut security_events).await,
-    ) {
-        sec.ssl.apply_certificate_details(details);
+    if let Some(sec) = &mut security {
+        let https = sec.fetch.final_url.starts_with("https://");
+        let details = if security_listener_failed {
+            crate::audit::collection::Collected::Unsupported("security_listener_setup_failed")
+        } else if !https {
+            crate::audit::collection::Collected::NotApplicable("no_tls")
+        } else {
+            match collect_certificate_details(&mut security_events).await {
+                Some(details) => crate::audit::collection::Collected::Measured(details),
+                None => {
+                    crate::audit::collection::Collected::Failed("certificate_state_unavailable")
+                }
+            }
+        };
+        if let Some(details) = security_collection
+            .record(&crate::security::CERTIFICATE, details)
+            .into_value()
+        {
+            sec.ssl.apply_certificate_details(details);
+        }
     }
 
     let consent_cookies_before = collect_consent_cookie_signals(page).await;
@@ -1021,28 +1039,23 @@ pub async fn audit_page(
     if config.check_security {
         primary_snap.module_runs.push(crate::audit::ModuleRun {
             module: "security".to_string(),
-            status: match (primary_snap.security.is_some(), security_listener_failed) {
-                (true, true) => crate::audit::ExecutionStatus::Partial,
-                (true, false) => crate::audit::ExecutionStatus::Completed,
-                (false, _) => crate::audit::ExecutionStatus::Failed,
+            status: if primary_snap.security.is_some() {
+                crate::audit::ExecutionStatus::Completed
+            } else {
+                crate::audit::ExecutionStatus::Failed
             },
-            subchecks: vec![crate::audit::SubcheckRun {
-                subcheck: "certificate_listener".to_string(),
-                status: if security_listener_failed {
-                    crate::audit::ExecutionStatus::Failed
-                } else {
-                    crate::audit::ExecutionStatus::Completed
-                },
-                reason_code: security_listener_failed
-                    .then(|| "security_listener_setup_failed".to_string()),
-                ..Default::default()
-            }],
             reason_code: primary_snap
                 .security
                 .is_none()
                 .then(|| "security_analysis_failed".to_string()),
             ..Default::default()
         });
+        // The security run's own collections (headers, source maps,
+        // certificate) decide whether it is complete (#774).
+        crate::audit::collection::fold_records(
+            &mut primary_snap.module_runs,
+            security_collection.into_records(),
+        );
     }
 
     // ── Pattern analysis — dedicated enrichment pass ──────────────────────────
@@ -1109,6 +1122,28 @@ pub async fn audit_page(
         source: "live".to_string(),
     };
     report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    // The security headers come from a separate probe: they describe the
+    // audited page only if the probe ended on the document the browser
+    // loaded — same scheme and host after redirects (#775).
+    if let Some(fetch) = report.security.as_ref().map(|s| s.fetch.clone()) {
+        let log = crate::audit::collection::CollectionLog::new();
+        log.record(
+            &crate::security::DOCUMENT_MATCH,
+            crate::security::document_match(
+                &fetch,
+                report
+                    .accessibility
+                    .execution
+                    .navigation
+                    .final_url
+                    .as_deref(),
+            ),
+        );
+        crate::audit::collection::fold_records(
+            &mut report.accessibility.execution.module_runs,
+            log.into_records(),
+        );
+    }
     // Second look at the status, in case the early check could not read the
     // page (see `access_block::detect`).
     if let Some(reason) = crate::audit::access_block::blocking_status(

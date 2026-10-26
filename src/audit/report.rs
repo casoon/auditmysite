@@ -1365,6 +1365,7 @@ mod tests {
             recommendations: vec![],
             protection: Default::default(),
             sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
         });
 
         assert!(report.security.is_some());
