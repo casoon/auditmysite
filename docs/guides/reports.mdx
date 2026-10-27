@@ -22,7 +22,8 @@ A few fields worth knowing:
 
 | Field | Content |
 | --- | --- |
-| `verdict`, `verdict_reasons` | `pass`, `warn` or `fail`, and the reasons behind it |
+| `decision` | `verdict` (`pass`, `warn` or `fail`), its `reasons`, and the `profile` it was computed with; the exit code follows it |
+| `pages[].findings[].contract` | Domain, source, outcome, applicability, cause and which score is responsible, for findings of every module |
 | `summary.accessibility_score` | The headline score; in a dual-viewport audit 70% mobile, 30% desktop |
 | `summary.wcag_coverage` | 55 WCAG 2.2 A/AA criteria: 30 automated, 21 for manual review |
 | `audit_quality`, `pages[].detail.module_runs` | Complete, partial, failed or skipped checks, so a measurement failure never reads as a clean result |

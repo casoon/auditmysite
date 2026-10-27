@@ -204,31 +204,27 @@ fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<L
 
 // ─── Score consistency ────────────────────────────────────────────────────
 
-const CHECK_SCORE_ALIAS: &str = "score_alias_matches_overall";
+const CHECK_SCORE_ALIAS: &str = "score_alias_removed";
 const CHECK_SINGLE_SUMMARY_MATCHES_PAGE: &str = "single_summary_matches_page";
 
-/// `summary.score` must always equal `summary.overall_score` (registry:
-/// "Compatibility alias for summary.overall_score"), and for single-page
-/// reports the summary must equal the (sole) page's own scores — this is the
-/// shape of the historical "18/100 vs 20/100" class of bug (#511 corpus).
+/// Schema 2.0 has no `summary.score`: it read as the overall score next to an
+/// accessibility grade (#781). A report that still carries it mixes score
+/// semantics and is flagged; for single-page reports the summary must equal
+/// the (sole) page's own scores — the shape of the historical "18/100 vs
+/// 20/100" class of bug (#511 corpus).
 fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
     let Some(summary) = report.get("summary") else {
         return;
     };
 
-    if let (Some(overall), Some(alias)) = (
-        summary.get("overall_score").and_then(Value::as_i64),
-        summary.get("score").and_then(Value::as_i64),
-    ) {
-        if overall != alias {
-            findings.push(LintFinding {
-                check_id: CHECK_SCORE_ALIAS,
-                evidence_path: "summary.score".to_string(),
-                expected: format!("{overall} (equal to summary.overall_score)"),
-                actual: alias.to_string(),
-                severity: Severity::High,
-            });
-        }
+    if let Some(alias) = summary.get("score") {
+        findings.push(LintFinding {
+            check_id: CHECK_SCORE_ALIAS,
+            evidence_path: "summary.score".to_string(),
+            expected: "absent (use overall_score or accessibility_score)".to_string(),
+            actual: alias.to_string(),
+            severity: Severity::High,
+        });
     }
 
     let report_type = report
@@ -840,7 +836,6 @@ mod tests {
             "summary": {
                 "accessibility_score": 82,
                 "overall_score": 82,
-                "score": 82,
                 "grade": "B",
                 "certificate": "GUT",
                 "severity_counts": {"critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3},
@@ -871,9 +866,9 @@ mod tests {
     }
 
     #[test]
-    fn detects_summary_score_alias_mismatch() {
+    fn detects_removed_summary_score_alias() {
         let mut report = clean_single_report();
-        report["summary"]["score"] = json!(80); // was 82
+        report["summary"]["score"] = json!(82);
         let mut findings = Vec::new();
         run_all_checks(&report, &mut findings);
         assert!(findings.iter().any(|f| f.check_id == CHECK_SCORE_ALIAS));
@@ -1005,7 +1000,6 @@ mod tests {
             "summary": {
                 "accessibility_score": 82,
                 "overall_score": 82,
-                "score": 82,
                 "grade": "B",
                 "certificate": "GUT",
                 // 3 distinct rules across the whole batch (global count), but

@@ -24,6 +24,9 @@ fn create_test_report() -> AuditReport {
         "node-123",
     )
     .with_role(Some("image".to_string()))
+    // Located as enrichment would locate it: a confirmed finding needs
+    // evidence, not just a rule id (#784).
+    .with_selector("img.hero")
     .with_fix("Add alt attribute to the image")
     .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content");
 
@@ -116,6 +119,8 @@ fn test_json_report_generation() {
     assert_eq!(findings[0]["confidence"], "very_high");
     assert_eq!(findings[0]["false_positive_risk"], "very_low");
     assert_eq!(findings[0]["verification"], "automatically_confirmed");
+    assert_eq!(findings[0]["assurance"]["method"], "measured");
+    assert_eq!(findings[0]["assurance"]["evidence"], "located");
     assert_eq!(findings[0]["complexity"], "low");
     assert_eq!(findings[0]["bfsg_relevance"], "high");
     assert!(findings[0]["expected_impact"].is_string());

@@ -6,8 +6,9 @@
 //!
 //! Input (`AUDITMYSITE_GOLDEN_DIR`): one subdirectory per site holding a copy
 //! of a cache entry as written by `save_artifacts`
-//! (`~/.auditmysite/cache/<domain>/<hash>/v<VERSION>/`): `report.json`,
-//! `snapshot.json` and `audit.json` are read; other files are ignored.
+//! (`~/.auditmysite/cache/<domain>/<hash>/v<VERSION>/`): `report.json` and
+//! `snapshot.json` are read; other files are ignored. The decision comes from
+//! the profile stored in `report.json` (#781).
 //!
 //! Output (`AUDITMYSITE_GOLDEN_OUT`), deterministic names:
 //!   `<site>/report.json`        normalized single-page JSON (as `-f json`)
@@ -44,10 +45,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use auditmysite::audit::{
-    compute_batch_verdict, compute_verdict, hydrate_cached_report, normalize, NormalizedReport,
-    SampleMetadata, SnapshotArtifact,
-};
+use auditmysite::audit::{hydrate_cached_report, normalize, SampleMetadata, SnapshotArtifact};
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{generate_batch_typ, generate_typ, UnifiedReport};
 use auditmysite::{AuditReport, BatchReport};
@@ -60,7 +58,6 @@ struct CachedSite {
     name: String,
     report: AuditReport,
     snapshot: SnapshotArtifact,
-    audit: NormalizedReport,
 }
 
 fn env_dir(name: &str) -> PathBuf {
@@ -87,7 +84,6 @@ fn load_sites(dir: &Path) -> Vec<CachedSite> {
             name: path.file_name().unwrap().to_string_lossy().into_owned(),
             report: read_json(&path.join("report.json")),
             snapshot: read_json(&path.join("snapshot.json")),
-            audit: read_json(&path.join("audit.json")),
         })
         .collect()
 }
@@ -148,12 +144,9 @@ fn golden_render() {
 
     for site in &sites {
         let site_out = out.join(&site.name);
-        let verdict = compute_verdict(&site.audit, &Default::default());
-
         let report = hydrated(site, JSON_LOCALE);
         let normalized = normalize(&report);
         let json = UnifiedReport::single(&normalized, &report)
-            .with_verdict(&verdict)
             .to_json(true)
             .expect("single JSON");
         write(&site_out.join("report.json"), &normalize_build_id(&json));
@@ -184,9 +177,7 @@ fn golden_render() {
     let batch_out = out.join("batch");
 
     let batch = batch_for(JSON_LOCALE);
-    let verdict = compute_batch_verdict(&batch.summary, &Default::default());
     let json = UnifiedReport::batch(&batch)
-        .with_verdict(&verdict)
         .to_json(true)
         .expect("batch JSON");
     write(&batch_out.join("batch.json"), &normalize_build_id(&json));

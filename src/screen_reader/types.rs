@@ -1,6 +1,8 @@
 pub use a11y_perception::{IgnoredReadingNode, ReadingItem};
 use serde::{Deserialize, Serialize};
 
+use crate::wcag::coverage::ClaimLimits;
+
 use super::navigator::NavigationViews;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,26 +123,44 @@ impl ScreenReaderSummary {
     }
 }
 
+/// What the screen-reader module found on the BFSG-relevant criteria it can
+/// check. It reads structure and names in Chrome's accessibility tree — no
+/// real screen reader, no legal assessment — so it never states conformance
+/// or BFSG applicability, and says so in `limits` (#782).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BfsgCompliance {
     pub verdict: BfsgVerdict,
     pub violations: Vec<BfsgViolation>,
-    pub passed_criteria: Vec<String>,
+    /// The WCAG A/AA criteria this module checks at all: the scope every
+    /// verdict is bounded by.
+    pub evaluated_criteria: Vec<String>,
+    /// Evaluated criteria without a violation or open heuristic. Not
+    /// "passed": the module checks only some aspects of each criterion.
+    pub criteria_without_findings: Vec<String>,
     /// Heuristic findings on BFSG-relevant criteria (generic link text,
     /// heading order, …): to be judged by a reader, neither violations nor
     /// passed (plan 74).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub needs_review: Vec<BfsgViolation>,
+    #[serde(flatten)]
+    pub limits: ClaimLimits,
 }
 
+/// Outcome on the evaluated criteria — never a conformance or legal verdict.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BfsgVerdict {
+    /// Nothing was audited (empty accessibility tree, or no audit ran).
     NotEvaluated,
-    Compliant,
-    NonCompliant,
+    /// Confirmed violations on the evaluated criteria.
+    ViolationsFound,
     /// No confirmed violation, but heuristic findings that need a reader.
     NeedsReview,
+    /// No finding, but the tree looks incomplete (consent wall suspected,
+    /// #483), so the absence of findings says nothing.
+    Incomplete,
+    /// No finding on the evaluated criteria. Its own state: not conformance.
+    NoViolationsFound,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,8 +203,10 @@ mod tests {
             bfsg_compliance: BfsgCompliance {
                 verdict: BfsgVerdict::NotEvaluated,
                 violations: vec![],
-                passed_criteria: vec![],
+                evaluated_criteria: vec![],
+                criteria_without_findings: vec![],
                 needs_review: Vec::new(),
+                limits: ClaimLimits::with_manual_review(vec![]),
             },
         };
         assert_eq!(summary.count_severity("high"), 2);

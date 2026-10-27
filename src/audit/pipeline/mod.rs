@@ -330,10 +330,8 @@ pub struct PipelineConfig {
     /// Requires `check_performance` to also be true (a TBT baseline and the
     /// third-party attribution must exist) — costly even relative to other
     /// `--full` checks, one extra full page reload per isolated origin
-    /// (capped at `performance::MAX_ISOLATED_ORIGINS`). Structurally
-    /// single-URL only: only `run_single_audit` invokes the isolation pass,
-    /// batch's `audit_page` path never does (same precedent as the
-    /// throttled-performance multi-pass).
+    /// (capped at `performance::MAX_ISOLATED_ORIGINS`). Runs in single and
+    /// batch mode alike (`run_extra_page_checks`, #788).
     pub check_isolate_third_party_impact: bool,
     /// Run the opt-in SSR/hydration content-gap check (#534): reload the
     /// page once with JavaScript execution disabled via CDP
@@ -342,8 +340,7 @@ pub struct PipelineConfig {
     /// `check_seo` to also be true — the resulting finding is attached to
     /// `content_visibility`, which itself is only derived when SEO checking
     /// is active. Costly like the other opt-in extra-reload passes: one
-    /// extra full page reload. Structurally single-URL only, same precedent
-    /// as `check_isolate_third_party_impact`.
+    /// extra full page reload. Runs in single and batch mode alike.
     pub check_ssr_content: bool,
     /// Run tech stack detection and stack-specific audits
     pub check_stack: bool,
@@ -380,6 +377,13 @@ pub struct PipelineConfig {
     /// Display mode of the data-display convention to audit in (#653).
     /// `None` audits the site default, the behaviour before `--display`.
     pub display_mode: Option<crate::display::DisplayMode>,
+    /// Indexability the audited pages are meant to have (#780): declared
+    /// (`--expect-indexable`, `[audit] expect_indexable`) or implied by a
+    /// sitemap run. Decides whether `noindex` is a blocker.
+    pub indexability: crate::audit::finding_contract::IndexabilityExpectation,
+    /// Verdict profile of the run (#781), stored with every report so all
+    /// outputs derive the same decision.
+    pub decision_profile: crate::audit::verdict::DecisionProfile,
 }
 
 impl PipelineConfig {
@@ -423,13 +427,14 @@ impl PipelineConfig {
         // 19 for the exclusions block in the execution record (#645).
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
-        const CACHE_FMT: u8 = 21;
+        // 22 for the run context and the SEO indexability check (#780).
+        const CACHE_FMT: u8 = 22;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -453,6 +458,7 @@ impl PipelineConfig {
             enabled_only.join(","),
             crate::audit::exclusion::effective_selectors(&self.exclude_selectors).join("\u{1f}"),
             self.display_mode.map_or("site_default", |m| m.as_str()),
+            self.indexability,
         )
     }
 }
@@ -565,6 +571,23 @@ impl PipelineConfig {
             journey_budget_ms,
             lang: args.lang.clone(),
             display_mode: args.display.and_then(|d| d.mode()),
+            indexability: {
+                use crate::audit::finding_contract::IndexabilityExpectation;
+                let declared = args
+                    .expect_indexable
+                    .or_else(|| toml_cfg.and_then(|c| c.audit.expect_indexable))
+                    .map(IndexabilityExpectation::declared)
+                    .unwrap_or_default();
+                // A sitemap lists the URLs a site wants indexed.
+                if args.sitemap.is_some() {
+                    declared.or(IndexabilityExpectation::sitemap())
+                } else {
+                    declared
+                }
+            },
+            decision_profile: toml_cfg
+                .map(|c| c.effective_verdict_config().profile())
+                .unwrap_or_default(),
         }
     }
 }
@@ -593,15 +616,22 @@ pub async fn run_single_audit(
     result
 }
 
-async fn audit_on_page(
+/// Re-derive the report's quality block after post-`audit_page` steps.
+pub(crate) fn refresh_audit_quality(report: &mut AuditReport) {
+    update_audit_quality(report);
+}
+
+/// The opt-in extra-reload checks (third-party isolation #531, SSR content gap
+/// #534). Shared by the single-URL and the batch path, so a requested check
+/// runs in both or leaves a recorded outcome (#788). The caller refreshes
+/// `update_audit_quality` afterwards.
+pub(crate) async fn run_extra_page_checks(
     page: &Page,
     url: &str,
     browser: &BrowserManager,
     config: &PipelineConfig,
-    start_time: Instant,
-) -> Result<AuditReport> {
-    let (mut report, snapshot) = audit_page(page, url, config, browser).await?;
-
+    report: &mut AuditReport,
+) {
     // Isolated third-party script impact (#531). Deliberately runs BEFORE
     // the throttled-performance pass below, so the baseline TBT it diffs
     // against is the normal, unthrottled audit_page measurement — not a
@@ -613,6 +643,23 @@ async fn audit_on_page(
             let origins = p.third_party.as_ref()?.origins.clone();
             Some((baseline_tbt_ms, origins))
         });
+        let skipped = match &baseline {
+            None => Some(crate::audit::collection::Collected::<()>::Failed(
+                "no_tbt_baseline_or_third_party_attribution",
+            )),
+            Some((_, origins)) if origins.is_empty() => Some(
+                crate::audit::collection::Collected::<()>::NotApplicable("no_third_party_origins"),
+            ),
+            Some(_) => None,
+        };
+        if let Some(outcome) = skipped {
+            let log = crate::audit::collection::CollectionLog::new();
+            log.record(&crate::performance::third_party::ISOLATION, outcome);
+            crate::audit::collection::fold_records(
+                &mut report.accessibility.execution.module_runs,
+                log.into_records(),
+            );
+        }
         if let Some((baseline_tbt_ms, origins)) = baseline {
             if !origins.is_empty() {
                 let log = crate::audit::collection::CollectionLog::new();
@@ -677,6 +724,18 @@ async fn audit_on_page(
             warn!("Browser settle failed after SSR content-gap check: {}", e);
         }
     }
+}
+
+async fn audit_on_page(
+    page: &Page,
+    url: &str,
+    browser: &BrowserManager,
+    config: &PipelineConfig,
+    start_time: Instant,
+) -> Result<AuditReport> {
+    let (mut report, snapshot) = audit_page(page, url, config, browser).await?;
+
+    run_extra_page_checks(page, url, browser, config, &mut report).await;
 
     if config.check_performance {
         let content_weight = report
@@ -2029,6 +2088,7 @@ mod tests {
     #[test]
     fn test_pipeline_config_from_args() {
         let args = Args {
+            expect_indexable: None,
             command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,
@@ -2169,6 +2229,54 @@ mod tests {
         assert!(!labels.contains(&"Tech Stack"));
     }
 
+    /// #788: the extra-reload checks are part of the requested scope in single
+    /// and batch invocations alike, and absent when not requested or when
+    /// their prerequisite module is off (the flag is then a no-op by contract).
+    #[test]
+    fn extra_checks_are_requested_scope_in_single_and_batch() {
+        use super::assembly::audit_scope_from_config;
+        let scope = |argv: &[&str]| {
+            let args = Args::parse_from(argv);
+            audit_scope_from_config(&PipelineConfig::from_args_and_config(&args, None))
+                .requested_subchecks
+        };
+        let both = [
+            "--full",
+            "--isolate-third-party-impact",
+            "--check-ssr-content",
+        ];
+        let expected = vec![
+            "performance.third_party_isolation".to_string(),
+            "content_visibility.ssr_gap".to_string(),
+        ];
+        for target in [
+            ["https://example.com"].as_slice(),
+            ["--url-file", "urls.txt"].as_slice(),
+            ["--sitemap", "https://example.com/sitemap.xml"].as_slice(),
+        ] {
+            let argv: Vec<&str> = ["auditmysite"]
+                .iter()
+                .chain(target)
+                .chain(both.iter())
+                .copied()
+                .collect();
+            assert_eq!(scope(&argv), expected, "{target:?}");
+        }
+        assert!(scope(&["auditmysite", "--url-file", "urls.txt", "--full"]).is_empty());
+        // SEO off: the SSR check has no module to attach to and is not requested.
+        assert_eq!(
+            scope(&[
+                "auditmysite",
+                "--url-file",
+                "urls.txt",
+                "--performance",
+                "--check-ssr-content",
+                "--isolate-third-party-impact"
+            ]),
+            vec!["performance.third_party_isolation".to_string()]
+        );
+    }
+
     #[test]
     fn html_conform_flag_enables_the_module_without_full() {
         let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
@@ -2211,6 +2319,8 @@ mod tests {
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             lang: "de".to_string(),
             display_mode: None,
+            indexability: Default::default(),
+            decision_profile: Default::default(),
         }
     }
 

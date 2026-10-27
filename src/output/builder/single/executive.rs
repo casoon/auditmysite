@@ -281,6 +281,7 @@ mod tests {
 
     fn make_finding(rule_id: &str) -> NormalizedFinding {
         NormalizedFinding {
+            contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
@@ -315,6 +316,7 @@ mod tests {
             confidence: "very_high".into(),
             false_positive_risk: "very_low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "low".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,

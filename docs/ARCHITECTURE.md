@@ -116,7 +116,9 @@ src/
 │   ├── report.rs        # AuditReport structure (raw data)
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
 │   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
-│   ├── finding_derive.rs # Derived finding fields: priority score, confidence, complexity/expected-impact kinds + texts, BFSG relevance
+│   ├── finding_contract.rs # One finding contract for every domain: domain adapters, cause/scoring responsibility, finding inventory, indexability expectation
+│   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
+│   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation
@@ -125,7 +127,7 @@ src/
 │   ├── template_dedup.rs # Template-level root-cause deduplication (batch)
 │   ├── occurrence_analysis.rs # Occurrence counting across categories
 │   ├── prioritization.rs # Fix-guidance prioritization
-│   ├── verdict.rs       # Pass/fail verdict derivation
+│   ├── verdict.rs       # Decision contract: versioned profile, the only verdict policy (single + batch); stored in NormalizedReport/BatchSummary
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
 │   ├── budget.rs        # Concurrency/rate budgeting

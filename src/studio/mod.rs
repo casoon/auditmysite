@@ -38,14 +38,18 @@ pub struct StudioAuditResponse {
     pub accessibility_score: u32,
     /// Weighted overall score across all active modules (0–100)
     pub overall_score: u32,
-    /// Grade (A–F)
+    /// Grade (A–F) of `accessibility_score` — the one grade basis (#781).
     pub grade: String,
-    /// Certificate level. Base bands by overall score:
+    /// Certificate level. Base bands by accessibility score:
     /// SEHR GUT / GUT / STABIL / AUSBAUFÄHIG / UNGENÜGEND.
     /// Risk gating can override a positive band with EINGESCHRÄNKT
     /// (high risk / legal / blocking) or NICHT BESTANDEN (critical risk).
     /// The full set of 7 values is the contract — see docs/studio-contract.schema.json.
     pub certificate: String,
+
+    /// The stored decision (#781): verdict, reasons, contract and profile —
+    /// the same PASS/WARN/FAIL as the terminal, the JSON and the exit code.
+    pub decision: crate::audit::VerdictResult,
 
     // ── Risk (independent from score) ───────────────────────────────
     pub risk_level: String,
@@ -83,7 +87,9 @@ pub struct StudioAuditResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StudioExecutiveSummary {
     pub executive_lead: String,
-    pub verdict: String,
+    /// Narrative sentence for the accessibility score band — not the
+    /// decision, which is `StudioAuditResponse::decision`.
+    pub score_band_sentence: String,
     pub benchmark_context: String,
     pub key_points: Vec<String>,
     pub top_actions: Vec<String>,
@@ -171,6 +177,7 @@ impl StudioAuditResponse {
             overall_score: normalized.normalized.overall_score,
             grade: normalized.normalized.grade.clone(),
             certificate: normalized.normalized.certificate.clone(),
+            decision: normalized.normalized.decision.clone(),
             risk_level: risk_level_string(normalized.normalized.risk.level),
             risk_summary: normalized.normalized.risk.summary.clone(),
             legal_flags: normalized.normalized.risk.legal_flags,
@@ -186,7 +193,7 @@ impl StudioAuditResponse {
             execution_time_ms: normalized.normalized.duration_ms,
             executive_summary: StudioExecutiveSummary {
                 executive_lead: vm.summary.executive_lead,
-                verdict: vm.summary.verdict,
+                score_band_sentence: vm.summary.verdict,
                 benchmark_context: vm.summary.benchmark_context,
                 key_points: vm.executive.key_points,
                 top_actions: vm.summary.top_actions,
@@ -226,6 +233,9 @@ pub struct StudioHistoryEntry {
     pub grade: String,
     #[serde(default)]
     pub certificate: String,
+    /// The audit's stored decision (#781). Required: a history entry
+    /// without it has no truthful verdict to show.
+    pub decision: crate::audit::VerdictResult,
     #[serde(default)]
     pub risk_level: String,
     #[serde(default)]
@@ -254,6 +264,7 @@ impl StudioHistoryEntry {
             overall_score: response.overall_score,
             grade: response.grade.clone(),
             certificate: response.certificate.clone(),
+            decision: response.decision.clone(),
             risk_level: response.risk_level.clone(),
             total_issues: response.total_issues,
             critical_issues: response.critical_issues,
@@ -272,6 +283,7 @@ impl StudioHistoryEntry {
             overall_score: self.overall_score,
             grade: self.grade,
             certificate: self.certificate,
+            decision: self.decision,
             risk_level: self.risk_level,
             risk_summary: String::new(),
             legal_flags: 0,

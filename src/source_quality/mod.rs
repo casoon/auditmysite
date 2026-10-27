@@ -1429,6 +1429,7 @@ mod tests {
 
     fn minimal_report() -> AuditReport {
         AuditReport {
+            run_context: Default::default(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),
@@ -1564,6 +1565,7 @@ mod tests {
         let mut report = minimal_report();
         report.accessibility.score = 50.0;
         report.discoverability.seo = Some(SeoAnalysis {
+            indexability: Default::default(),
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

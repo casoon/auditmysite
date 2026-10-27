@@ -605,6 +605,7 @@ mod tests {
         count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
@@ -637,6 +638,7 @@ mod tests {
             confidence: "very_high".into(),
             false_positive_risk: "very_low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "low".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,
@@ -693,6 +695,8 @@ mod tests {
         let total_occ: usize = findings.iter().map(|f| f.occurrence_count).sum();
 
         NormalizedReport {
+            decision: crate::audit::verdict::VerdictResult::undecided(),
+            finding_inventory: Vec::new(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),

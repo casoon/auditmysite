@@ -1,6 +1,6 @@
 {
   "case": "audit_exclude_screen_reader",
-  "screen_reader_bfsg_verdict": "compliant",
+  "screen_reader_bfsg_verdict": "no_violations_found",
   "expectations": [
     { "rule_id": "forms/label-missing", "verdict": "pass" }
   ]
