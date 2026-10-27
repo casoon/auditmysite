@@ -27,7 +27,7 @@ pub(super) fn calculate_priority_score(
 
 /// How the check behind a finding reaches its result (#784).
 ///
-/// Together with [`EvidenceQuality`] the only input to [`derive_assurance`]:
+/// Together with [`EvidenceQuality`] the only input to `derive_assurance`:
 /// a rule id or category string alone never confirms a finding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,7 +37,7 @@ pub enum DetectionMethod {
     #[default]
     Measured,
     /// The check detects a pattern that often, not always, means the
-    /// failure (a generic link text for 2.4.4). See [`PATTERN_RULES`].
+    /// failure (a generic link text for 2.4.4). See `PATTERN_RULES`.
     Pattern,
     /// The check reports a suspicion, or whether it applies to the page is
     /// unknown.
@@ -166,7 +166,7 @@ pub(super) fn derive_assurance(method: DetectionMethod, evidence: EvidenceQualit
     }
 }
 
-/// The basis [`derive_assurance`] decided on, carried in the JSON so the
+/// The basis `derive_assurance` decided on, carried in the JSON so the
 /// confidence of every finding is traceable to it (#784).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AssuranceBasis {
