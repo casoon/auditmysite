@@ -83,6 +83,44 @@ pub struct SeoAnalysis {
     /// Image efficiency analysis (format + oversizing)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_efficiency: Option<ImageEfficiencyAnalysis>,
+    /// Whether the page is meant to be indexed and is (#780).
+    #[serde(default)]
+    pub indexability: IndexabilityCheck,
+}
+
+/// Upper bound of the SEO score of a page that is meant to be indexed but
+/// carries `noindex`: the lowest band. Nothing else on the page reaches
+/// search users while the directive stands (#780).
+pub const INDEXABILITY_BLOCKER_CAP: u32 = 39;
+
+/// The page's indexability against what it is meant to have (#780). A
+/// `noindex` without a declared or implied expectation stays undecided: an
+/// intended noindex page is not an SEO defect.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexabilityCheck {
+    pub expectation: crate::audit::finding_contract::IndexabilityExpectation,
+    /// The robots meta tag carries `noindex`.
+    pub noindex: bool,
+    /// Meant to be indexed, but `noindex`: a technical blocker that caps the
+    /// score at [`INDEXABILITY_BLOCKER_CAP`].
+    pub blocked: bool,
+}
+
+impl IndexabilityCheck {
+    pub fn assess(
+        technical: &TechnicalSeo,
+        expectation: crate::audit::finding_contract::IndexabilityExpectation,
+    ) -> Self {
+        let noindex = technical
+            .robots_meta
+            .as_deref()
+            .is_some_and(|robots| robots.to_lowercase().contains("noindex"));
+        Self {
+            expectation,
+            noindex,
+            blocked: noindex && expectation.expected == Some(true),
+        }
+    }
 }
 
 /// Run complete SEO analysis.
@@ -155,6 +193,7 @@ pub async fn analyze_seo(
         page_health,
         serp: None,
         image_efficiency,
+        indexability: IndexabilityCheck::default(),
     };
 
     // Build content profile from collected data (baked English; PDF re-derives)
@@ -167,9 +206,14 @@ pub async fn analyze_seo(
 }
 
 /// Recomputes the SEO score after the heading issues were replaced by the
-/// shared findings (#724).
-pub(crate) fn rescore(seo: &mut SeoAnalysis) {
-    seo.score = calculate_seo_score(
+/// shared findings (#724) and the page's indexability expectation is known
+/// (#780).
+pub(crate) fn rescore(
+    seo: &mut SeoAnalysis,
+    expectation: crate::audit::finding_contract::IndexabilityExpectation,
+) {
+    seo.indexability = IndexabilityCheck::assess(&seo.technical, expectation);
+    let score = calculate_seo_score(
         &seo.meta,
         &seo.meta_issues,
         &seo.headings,
@@ -177,6 +221,11 @@ pub(crate) fn rescore(seo: &mut SeoAnalysis) {
         &seo.technical,
         seo.image_efficiency.as_ref(),
     );
+    seo.score = if seo.indexability.blocked {
+        score.min(INDEXABILITY_BLOCKER_CAP)
+    } else {
+        score
+    };
 }
 
 fn calculate_seo_score(

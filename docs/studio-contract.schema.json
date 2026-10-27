@@ -6,7 +6,7 @@
   "type": "object",
   "required": [
     "url", "timestamp", "accessibility_score", "overall_score", "grade",
-    "certificate", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
+    "certificate", "decision", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
     "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
     "module_scores", "findings", "nodes_analyzed", "execution_time_ms",
     "executive_summary", "artifacts", "json_report", "cli_version"
@@ -19,6 +19,17 @@
     "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
     "certificate": { "type": "string", "enum": ["SEHR GUT", "GUT", "STABIL", "AUSBAUFÄHIG", "EINGESCHRÄNKT", "UNGENÜGEND", "NICHT BESTANDEN"] },
+    "decision": {
+      "description": "The audit's stored decision: the same verdict as the terminal, the JSON report and the exit code.",
+      "type": "object",
+      "required": ["contract", "profile", "verdict", "reasons"],
+      "properties": {
+        "contract": { "type": "string", "const": "auditmysite.decision/1" },
+        "profile": { "type": "object" },
+        "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
     "risk_summary": { "type": "string" },
     "legal_flags": { "type": "integer", "minimum": 0 },
@@ -76,13 +87,16 @@
     "executiveSummary": {
       "type": "object",
       "required": [
-        "executive_lead", "verdict", "benchmark_context", "key_points",
+        "executive_lead", "score_band_sentence", "benchmark_context", "key_points",
         "top_actions", "overall_impact", "positive_aspects", "next_step"
       ],
       "additionalProperties": false,
       "properties": {
         "executive_lead": { "type": "string" },
-        "verdict": { "type": "string" },
+        "score_band_sentence": {
+          "description": "Narrative sentence for the accessibility score band; not the decision.",
+          "type": "string"
+        },
         "benchmark_context": { "type": "string" },
         "key_points": {
           "type": "array",

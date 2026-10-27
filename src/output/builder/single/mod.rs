@@ -238,10 +238,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
 
     // The same verdict the CLI prints and the JSON publishes — the PDF must
     // not tell a different story than `report-lint` and CI (plan 34).
-    let verdict_result = crate::audit::compute_verdict(
-        &normalized.normalized,
-        &crate::cli::config::VerdictConfig::default(),
-    );
+    let verdict_result = normalized.normalized.decision.clone();
 
     let management_risks = crate::audit::management_risk::build_management_risk_kinds(
         std::slice::from_ref(&normalized.normalized),

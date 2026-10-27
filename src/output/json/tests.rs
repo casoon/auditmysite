@@ -1154,7 +1154,6 @@ fn test_collection_errors_serialized_when_present() {
             url_count: 0,
             accessibility_score: 0,
             overall_score: 0,
-            score: 0,
             grade: "F".to_string(),
             certificate: "UNGENÜGEND".to_string(),
             risk_level: crate::audit::normalized::RiskLevel::Low,
@@ -1218,8 +1217,7 @@ fn test_collection_errors_serialized_when_present() {
             error_type: "serialization_failed",
             reason: "NaN value in field".to_string(),
         }],
-        verdict: Verdict::Pass,
-        verdict_reasons: Vec::new(),
+        decision: crate::audit::verdict::VerdictResult::undecided(),
     };
     let json_str = unified.to_json(false).unwrap();
     let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();

@@ -256,6 +256,15 @@ pub struct Args {
     #[arg(long = "exclude-selector", value_name = "CSS")]
     pub exclude_selector: Vec<String>,
 
+    /// Whether the audited pages are meant to be indexed by search engines.
+    ///
+    /// `true`: a `noindex` directive is a technical blocker (SEO score capped,
+    /// decision reason). `false`: `noindex` is intended and not reported.
+    /// Unset: a `noindex` stays a finding to review; sitemap runs assume
+    /// `true`, because a sitemap lists the URLs a site wants indexed.
+    #[arg(long = "expect-indexable", value_name = "BOOL")]
+    pub expect_indexable: Option<bool>,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
@@ -966,6 +975,7 @@ mod tests {
 
     fn test_args(url: Option<&str>) -> Args {
         Args {
+            expect_indexable: None,
             command: None,
             url: url.map(|s| s.to_string()),
             sitemap: None,

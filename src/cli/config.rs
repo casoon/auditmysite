@@ -54,6 +54,9 @@ pub struct AuditConfig {
     /// `[data-audit-exclude]`.
     #[serde(default)]
     pub exclude_selectors: Vec<String>,
+    /// Whether the audited pages are meant to be indexed (#780), as
+    /// `--expect-indexable`.
+    pub expect_indexable: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -105,6 +108,24 @@ pub struct VerdictConfig {
     pub fail_below_score: Option<u32>,
     /// Warn if the accessibility score drops below this value. Default: 70.
     pub warn_below_score: Option<u32>,
+    /// Fail on technical blockers (noindex on a page meant to be indexed).
+    /// Default: false — they warn.
+    pub fail_on_technical_blockers: Option<bool>,
+}
+
+impl VerdictConfig {
+    /// The decision profile this configuration resolves to (#781). Unset
+    /// values take the contract defaults; a `fail_below_score` of 0 means
+    /// disabled.
+    pub fn profile(&self) -> crate::audit::verdict::DecisionProfile {
+        crate::audit::verdict::DecisionProfile::resolve(
+            self.fail_on_legal_flags,
+            self.fail_on_blocking_issues,
+            self.fail_on_technical_blockers,
+            self.fail_below_score,
+            self.warn_below_score,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]

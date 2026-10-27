@@ -54,7 +54,7 @@ impl AuditModule for SeoModule {
                 &mut seo.headings,
                 &report.accessibility.wcag_results,
             );
-            super::rescore(seo);
+            super::rescore(seo, report.run_context.indexability);
             seo.content_profile = Some(crate::seo::profile::build_content_profile(seo, "en"));
             seo.serp = Some(crate::seo::serp::build_serp_analysis(seo, &url, "en"));
         }

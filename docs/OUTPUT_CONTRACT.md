@@ -34,7 +34,53 @@
 - `overall_score` is a secondary, explicitly labelled figure: the weighted result across the active contributing modules, reported together with `overall_score_weight_basis`. It is not the headline and carries no classification of its own.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
 - `violated_rule_count` and `severity_counts` count distinct grouped WCAG findings.
-- `finding_count` and `finding_occurrence_count` include findings from all reported categories, such as WCAG and SEO.
+- `finding_count` and `finding_occurrence_count` include findings from all reported domains (WCAG, SEO, security, mobile, …).
+- There is no unqualified `score` in the summary: a score is either `accessibility_score` or `overall_score`.
+
+## Finding Contract
+
+`pages[].findings[]` holds every problem any module collected, one finding per rule (WCAG) or per collector check (`<source>.<check>`, e.g. `seo.technical.noindex`). `category` is `wcag` for accessibility rule findings and the domain name otherwise. Each finding carries `contract`:
+
+- `domain`, `source`, `check` — where the finding comes from.
+- `outcome` — `fail`, or `review` for heuristic and context-dependent checks.
+- `applicability` — `applies`, or `unknown` when it depends on a page goal nobody declared; `applicability_basis` names the basis (e.g. `indexability:sitemap`).
+- `cause` — canonical cause key. Findings of different domains with the same cause describe one defect (a missing `lang` is a WCAG, an SEO technical and an SEO meta finding).
+- `scoring.owner` and `scoring.effect` — which score is responsible and how: `deduction` (weighted module score), `gate` (technical blocker: caps the owner's score and is a decision reason), `indicator` (unweighted indicator only), `risk` (risk assessment), `reference` (the same cause is charged elsewhere), `none`. One score charges a cause at most once.
+- `scope` — `element`, `page`, `resource`, `site` or `interaction`.
+
+`pages[].finding_inventory[]` maps every collected non-WCAG problem to its finding (`disposition.kind: finding`) or to an explicit exclusion (`excluded`, with `reason` `not_applicable` or `duplicate_of_wcag_finding`); WCAG rule runs are accounted in `rule_outcomes`. A report whose findings and inventory disagree fails validation and is not written.
+
+`severity_counts`, `occurrence_counts`, `violation_count` and `violated_rule_count` stay WCAG-only.
+
+### Indexability
+
+`noindex` is judged against the page goal. `--expect-indexable true` (or `[audit] expect_indexable = true`, implied for sitemap runs) makes it a gate: the SEO score is capped at 39 and the decision gets the reason `technical_blockers`. `false` excludes it as intended. Without either, the finding is listed with `applicability: unknown` and has no score effect.
+
+## Decision Contract
+
+`decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/1`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict` and `reasons`.
+
+- **Fail** when the profile enables it and there are legal flags, blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
+- **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding.
+- Thresholds compare `accessibility_score`. `overall_score` never decides.
+- A stored decision that its own profile does not reproduce is a contract violation (`decision`), reported with every other violation found.
+
+Every path that publishes a decision reads the stored one and validates before writing:
+
+| Path | Reads | Checked by |
+| --- | --- | --- |
+| Single JSON (`--format json`, PDF sidecar) | `NormalizedReport.decision` → `decision`, `pages[].decision` | `validate`, `report-lint` |
+| Batch JSON | `BatchSummary.decision`, per-page decisions | `validate_batch` |
+| Summary feed (`--format summary`) | `verdict`, `verdictReasons` | `validate` |
+| SARIF | findings only; refuses invalid reports | `validate` |
+| Terminal (single, batch) | stored decision | `validate` / `validate_batch` before rendering (CLI) |
+| Studio response and history | `decision` | — (projection only) |
+| PDF / Typst input | `ReportViewModel.summary.ci_verdict` from the stored decision | `validate` / `validate_batch` |
+| Cache replay | the cached report re-judged under the current profile, stored in `run_context` | `validate` |
+| Exit code | stored decision (`0` pass, `1` warn, `2` fail) | — |
+
+Batch: a page counts as passed when its own decision passes; the batch `decision` applies the same profile to the summary (legal flags, blocking issues, technical blockers and the average accessibility score). All pages of a batch share one profile.
+
 
 ## Execution Scope and Audit Quality
 
@@ -114,11 +160,6 @@ Weighted score across contributing measured modules. In a dual-viewport
 audit, viewport module results are blended first and Security contributes
 10% when available. In batch reports this is the average of the page-level
 overall scores across the audited URLs.
-
-<a id="overall-score-alias"></a>
-### overall_score_alias — `summary.score`
-
-Compatibility alias for `summary.overall_score`.
 
 <a id="grade-certificate"></a>
 ### grade_certificate — `summary.grade` / `summary.certificate`

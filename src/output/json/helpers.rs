@@ -735,6 +735,7 @@ mod tests {
 
     fn make_finding(rule_id: &str, description: &str) -> NormalizedFinding {
         NormalizedFinding {
+            contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
