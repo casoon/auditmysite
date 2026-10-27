@@ -11,7 +11,8 @@ on:
   # workflow's checkout, not a separate lookup by branch name. In a called
   # workflow the `github` context belongs to the caller, so `event_name` is
   # the tag's `push` and `ref` is `refs/tags/v*` — never `workflow_call`.
-  # Every job runs for the release call, including `browser-smoke`: the
+  # Every job runs for the release call, including `browser-smoke` and
+  # `detection-corpus`: the
   # real-Chrome and detection-corpus tests must pass for the tagged SHA
   # itself, not only for some earlier push
   # (plan/30-release-browser-gate-for-tag-sha.md). The one exception is
@@ -296,20 +297,13 @@ jobs:
           CI: "true"
         run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
 
-      # WCAG/schema/vulnerable-libs/easy-language detection-corpus tests
-      # (#553-#558): real Chrome, diffed against ground-truth fixtures.
+      # Schema/vulnerable-libs/easy-language detection-corpus tests
+      # (#553-#558; the WCAG corpus has its own job below): real Chrome, diffed against ground-truth fixtures.
       # These are separate `#[ignore]`-gated test binaries and were never
       # actually exercised in CI before (only `integration_test` was) — a
       # real accuracy regression here could pass CI silently.
       # One step per binary, each running even after an earlier failure, so
       # one regression can't hide another (#582).
-      - name: Detection corpus (WCAG)
-        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
-        env:
-          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
-          CI: "true"
-        run: cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
-
       - name: Detector error cases
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:
@@ -354,6 +348,44 @@ jobs:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
         run: cargo test --test score_calibration_test -- --ignored --nocapture --test-threads=1
+
+  # Strict WCAG detection corpus (#555, #783): about 200 cases at ~6 s each
+  # through the real pipeline, too long for one job next to the other browser
+  # suites. `CORPUS_SHARD` splits the sorted cases round-robin; the shards
+  # together cover every case exactly once.
+  detection-corpus:
+    name: Detection corpus (WCAG) ${{ matrix.shard }}/3
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Detection corpus (WCAG)
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+          CORPUS_SHARD: ${{ matrix.shard }}/3
+        run: cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
 
   # Test strength of the detectors (#783): every targeted mutation in the
   # rule contracts must turn its named test red. Rebuilds once per mutation,

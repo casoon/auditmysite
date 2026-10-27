@@ -52,11 +52,31 @@ async fn detection_corpus_matches_real_audit_run() {
     let only: Option<Vec<String>> = std::env::var("CORPUS_CASES")
         .ok()
         .map(|v| v.split(',').map(|s| s.trim().to_string()).collect());
-    let cases: Vec<_> = cases
+    // `CORPUS_SHARD=k/n` runs every n-th case starting at k (1-based), so CI
+    // can split the corpus across parallel jobs; the shards cover it exactly.
+    let shard: Option<(usize, usize)> = std::env::var("CORPUS_SHARD").ok().map(|v| {
+        let (k, n) = v
+            .split_once('/')
+            .and_then(|(k, n)| Some((k.trim().parse().ok()?, n.trim().parse().ok()?)))
+            .unwrap_or_else(|| panic!("CORPUS_SHARD must be k/n, got '{v}'"));
+        assert!(1 <= k && k <= n, "CORPUS_SHARD {k}/{n} out of range");
+        (k, n)
+    });
+    let mut cases: Vec<_> = cases
         .into_iter()
         .filter(|c| only.as_ref().is_none_or(|o| o.contains(&c.case)))
         .collect();
-    assert!(!cases.is_empty(), "CORPUS_CASES selects no case");
+    cases.sort_by(|a, b| a.case.cmp(&b.case));
+    let cases: Vec<_> = cases
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| shard.is_none_or(|(k, n)| i % n == k - 1))
+        .map(|(_, c)| c)
+        .collect();
+    assert!(
+        !cases.is_empty(),
+        "CORPUS_CASES/CORPUS_SHARD select no case"
+    );
 
     let manager = ci_browser().await;
     let diff_rules = wcag_diff_rules();

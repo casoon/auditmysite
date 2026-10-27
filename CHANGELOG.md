@@ -54,7 +54,7 @@ and verification for each change is in the
 - **Reports:** Consistency compares what a page can contradict on its own — declared language vs. `og:locale`, `<title>` vs. `og:title`, structured data vs. visible content — and weighs only the checks that applied.
 - **Reports:** The trust signal lists contact, imprint and privacy links that were not detected instead of reusing the UX trust score.
 - **SEO:** A missing `lang` attribute or page title is marked as also counted under accessibility (WCAG 3.1.1 / 2.4.2).
-- **Contributors:** Every active detector has an executable contract in `tests/fixtures/rule_contracts/` (cases including not-applicable and technical errors, variant matrix, targeted mutations); `cargo test` fails for a rule without one. Corpus comparisons are strict, and `scripts/mutation-check.py` proves test strength before a release.
+- **Contributors:** Every active detector has an executable contract in `tests/fixtures/rule_contracts/` (cases including not-applicable and technical errors, variant matrix, targeted mutations); `cargo test` fails for a rule without one. Corpus comparisons are strict, and `scripts/mutation-check.py` proves test strength before a release. CI runs the WCAG corpus in three parallel shards (`CORPUS_SHARD=k/n`).
 
 ### Removed
 
