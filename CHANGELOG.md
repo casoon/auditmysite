@@ -24,6 +24,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Batch:** `summary.coverage` counts discovered, selected, attempted, succeeded, blocked and failed URLs separately; `average_score` and `url_count` stay over succeeded URLs. A batch with failed or blocked URLs is never `Complete` or PASS (verdict `warn` with `incomplete_scope`), and a batch where no URL produced a report is `fail` (exit code 2).
+- **Audit scope:** `--isolate-third-party-impact` and `--check-ssr-content` now also run in batch mode (sitemap, URL file, crawl). They are listed in `scope.requested_subchecks`, and a requested isolation pass that cannot run records `not_applicable` or `failed` in `module_runs[].subchecks[]` instead of leaving no trace.
 - **Findings:** `confidence` and `verification` follow from detection method and the finding's own evidence (new `assurance`), not from rule-id substrings: UX/Journey findings and unlocated WCAG findings ask for review, measured contrast failures are confirmed. Details: [Finding assurance](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-assurance).
 - **AI Visibility:** The disclaimer and signal texts no longer imply citation likelihood or trust effects: the score counts structural signals and is not externally validated. The PDF labels every heuristic estimate as not externally validated.
 - **Decision:** Breaking: one versioned decision under the stored `[verdict]` profile is shown by terminal, JSON, summary feed, Studio, PDF, batch counts and exit code alike; before, only the exit code honoured a custom profile. JSON `verdict`/`verdict_reasons` become `decision`. Details: [Decision contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract).

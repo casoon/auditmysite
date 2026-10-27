@@ -436,6 +436,20 @@
           "minimum": 0,
           "description": "URLs the batch tried to audit. Scores and counts cover url_count of them; the rest could not be audited and are listed in errors."
         },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["discovered", "selected", "attempted", "succeeded", "blocked", "failed"],
+          "description": "URL counts along the batch lifecycle. Averages are over succeeded only.",
+          "properties": {
+            "discovered": { "type": "integer", "minimum": 0, "description": "Candidate URLs found by the source (sitemap, crawl, file)." },
+            "selected": { "type": "integer", "minimum": 0, "description": "URLs chosen for auditing after path filters and --max-pages." },
+            "attempted": { "type": "integer", "minimum": 0, "description": "URLs an audit was started for." },
+            "succeeded": { "type": "integer", "minimum": 0, "description": "URLs that produced a report." },
+            "blocked": { "type": "integer", "minimum": 0, "description": "URLs answered with a bot wall, challenge or access denial." },
+            "failed": { "type": "integer", "minimum": 0, "description": "URLs whose audit failed for another reason." }
+          }
+        },
         "violated_rule_count": {
           "type": "integer",
           "minimum": 0

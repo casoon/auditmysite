@@ -219,7 +219,7 @@ pub struct Args {
     /// resulting Total Blocking Time against the normal audit pass. Opt-in
     /// and costly (up to 5 extra full page reloads per audited page) —
     /// requires performance checking (`--full` or `--performance`) to also
-    /// be active, and only runs in single-URL mode.
+    /// be active; runs in single-URL and batch mode alike.
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
@@ -233,8 +233,8 @@ pub struct Args {
     /// search crawlers and assistive tools that do not execute JavaScript
     /// would see substantially less content. Opt-in and costly (one extra
     /// full page reload per audited page) — requires SEO checking
-    /// (`--full` or `--seo`) to also be active, and only runs in
-    /// single-URL mode.
+    /// (`--full` or `--seo`) to also be active; runs in single-URL
+    /// and batch mode alike.
     #[arg(long)]
     pub check_ssr_content: bool,
 
