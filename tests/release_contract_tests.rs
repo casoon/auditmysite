@@ -178,16 +178,28 @@ fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
 
     let browser_smoke = workflow_job_body(&ci_yml, "browser-smoke");
     assert!(
-        browser_smoke.contains("--test integration_test")
-            && browser_smoke.contains("--test detection_corpus_test"),
-        "`browser-smoke` must run the Chrome integration and detection-corpus tests"
+        browser_smoke.contains("--test integration_test"),
+        "`browser-smoke` must run the Chrome integration tests"
     );
-    assert_eq!(
-        job_condition(browser_smoke),
-        None,
-        "`browser-smoke` must not carry a job-level `if:` — it would be able to \
-         skip the browser tests for the tagged release commit"
+    // The WCAG corpus runs sharded in its own job; every shard must run it.
+    let corpus = workflow_job_body(&ci_yml, "detection-corpus");
+    assert!(
+        corpus.contains("--test detection_corpus_test")
+            && corpus.contains("shard: [1, 2, 3]")
+            && corpus.contains("CORPUS_SHARD: ${{ matrix.shard }}/3"),
+        "`detection-corpus` must run every shard of the WCAG detection corpus"
     );
+    for (job, body) in [
+        ("browser-smoke", browser_smoke),
+        ("detection-corpus", corpus),
+    ] {
+        assert_eq!(
+            job_condition(body),
+            None,
+            "`{job}` must not carry a job-level `if:` — it would be able to \
+             skip the browser tests for the tagged release commit"
+        );
+    }
 
     // Coverage is a measurement, not a release gate: skipped on tag refs.
     let coverage = workflow_job_body(&ci_yml, "coverage");
