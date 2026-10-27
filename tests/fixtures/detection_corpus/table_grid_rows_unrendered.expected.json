@@ -1,7 +1,12 @@
 {
   "case": "table_grid_rows_unrendered",
   "expectations": [
-    { "rule_id": "tables/data-undetermined", "verdict": "needs_review" },
-    { "rule_id": "tables/header-without-data", "selector": "th", "verdict": "violation", "occurrences": 2 }
+    {"rule_id": "tables/data-undetermined", "verdict": "needs_review"},
+    {"rule_id": "tables/header-without-data", "selector": "th", "verdict": "violation", "occurrences": 2},
+    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"}
   ]
 }

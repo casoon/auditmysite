@@ -1,0 +1,6 @@
+{
+  "case": "content_video_captioned",
+  "expectations": [
+    {"rule_id": "video-caption", "verdict": "pass"}
+  ]
+}

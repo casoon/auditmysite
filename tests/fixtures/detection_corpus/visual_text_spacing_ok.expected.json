@@ -1,0 +1,6 @@
+{
+  "case": "visual_text_spacing_ok",
+  "expectations": [
+    { "rule_id": "text-spacing", "verdict": "pass" }
+  ]
+}

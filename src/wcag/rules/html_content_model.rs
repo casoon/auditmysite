@@ -46,7 +46,7 @@ pub fn check_html_content_model(html: &str, findings: &[HtmlConformFinding]) -> 
     let mut violations = Vec::new();
 
     for finding in findings {
-        if finding.rule_id != "schema.html5" {
+        if finding.rule_id != "schema.html5" || is_attribute_error(&finding.message) {
             continue;
         }
         let Some(byte_offset) = finding.byte_offset else {
@@ -90,6 +90,15 @@ pub fn check_html_content_model(html: &str, findings: &[HtmlConformFinding]) -> 
     }
 
     violations
+}
+
+/// `schema.html5` also reports attribute errors (an attribute the element
+/// does not allow, or a value its datatype rejects, e.g. `headers=""`).
+/// Those concern the element's attributes, not which children a container
+/// may hold, so they are no content-model violation. The finding carries
+/// only `relax-ng`'s message, whose attribute kinds start with these words.
+fn is_attribute_error(message: &str) -> bool {
+    message.starts_with("unexpected attribute ") || message.starts_with("invalid value ")
 }
 
 const VOID_ELEMENTS: &[&str] = &[
@@ -379,6 +388,48 @@ mod tests {
         let findings = vec![finding("schema.html5", Some(offset))];
         let violations = check_html_content_model(html, &findings);
         assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn attribute_errors_inside_a_container_are_no_content_model_violation() {
+        // Corpus `content_tables_broken`: `headers=""` in a tbody is an
+        // attribute-value error (relax-ng: "invalid value"), not a child
+        // the tbody may not hold.
+        let html = "<!DOCTYPE html><html lang=\"en\"><head><title>t</title></head><body>\
+                    <table><tbody><tr><th id=\"h\">H</th><td headers=\"\">1</td></tr></tbody></table>\
+                    </body></html>";
+        let report = html_conform::check(html).expect("html-conform runs");
+        let findings: Vec<HtmlConformFinding> = report
+            .findings
+            .into_iter()
+            .map(|f| HtmlConformFinding {
+                rule_id: f.rule_id,
+                severity: "error".to_string(),
+                message: f.message,
+                location: None,
+                byte_offset: f.location.map(|l| l.byte_offset),
+            })
+            .collect();
+        assert!(
+            findings.iter().any(|f| f.rule_id == "schema.html5"),
+            "html-conform reports the attribute errors: {findings:?}"
+        );
+        let violations = check_html_content_model(html, &findings);
+        assert!(violations.is_empty(), "{findings:?} -> {violations:?}");
+    }
+
+    #[test]
+    fn unexpected_child_element_is_still_flagged_next_to_attribute_errors() {
+        let html = "<ul><li aria-selected=\"true\">A</li><div>HERE";
+        let offset = html.len() - "HERE".len() - "<div>".len();
+        let mut attribute = finding("schema.html5", Some(5));
+        attribute.message = "unexpected attribute `aria-selected` at 1:5".to_string();
+        let mut value = finding("schema.html5", Some(5));
+        value.message = "invalid value `` for attribute `headers` at 1:5".to_string();
+        let child = finding("schema.html5", Some(offset));
+        let violations = check_html_content_model(html, &[attribute, value, child]);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].selector.as_deref(), Some("ul"));
     }
 
     #[test]

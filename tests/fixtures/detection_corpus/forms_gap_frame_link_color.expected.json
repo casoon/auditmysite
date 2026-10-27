@@ -1,0 +1,11 @@
+{
+  "case": "forms_gap_frame_link_color",
+  "expectations": [
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "iframe#article-frame [frame] a#frame-color",
+      "verdict": "violation",
+      "occurrences": 1
+    }
+  ]
+}

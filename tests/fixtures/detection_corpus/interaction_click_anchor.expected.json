@@ -1,0 +1,9 @@
+{
+  "case": "interaction_click_anchor",
+  "expectations": [
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "a#ch-anchor", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/interactive-not-focusable", "selector": "a#ch-anchor", "verdict": "absent" },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" }
+  ]
+}

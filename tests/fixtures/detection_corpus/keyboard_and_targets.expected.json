@@ -8,6 +8,16 @@
     { "rule_id": "targets/size", "selector": "button#lone", "verdict": "absent" },
     { "rule_id": "targets/size", "selector": "a#inline", "verdict": "absent" },
     { "rule_id": "targets/size-enhanced", "selector": "a#inline", "verdict": "absent" },
-    { "rule_id": "forms/no-submit", "verdict": "needs_review" }
+    { "rule_id": "forms/no-submit", "verdict": "needs_review" },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-missing", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/help", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/no-timing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "targets/size", "selector": "button#tight-b", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "targets/size-enhanced", "selector": "div", "verdict": "needs_review" },
+    { "rule_id": "targets/size-enhanced", "selector": "input#q", "verdict": "needs_review", "occurrences": 1 }
   ]
 }

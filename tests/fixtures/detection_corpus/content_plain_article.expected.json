@@ -1,0 +1,31 @@
+{
+  "case": "content_plain_article",
+  "expectations": [
+    {"rule_id": "lists/invalid-structure", "verdict": "not_applicable"},
+    {"rule_id": "lists/empty", "verdict": "not_applicable"},
+    {"rule_id": "lists/item-outside-list", "verdict": "not_applicable"},
+    {"rule_id": "lists/term-without-definition", "verdict": "not_applicable"},
+    {"rule_id": "lists/role-redundant", "verdict": "not_applicable"},
+    {"rule_id": "tables/header-missing", "verdict": "not_applicable"},
+    {"rule_id": "tables/name-missing", "verdict": "not_applicable"},
+    {"rule_id": "tables/presentational-with-headers", "verdict": "not_applicable"},
+    {"rule_id": "tables/header-without-data", "verdict": "not_applicable"},
+    {"rule_id": "tables/data-undetermined", "verdict": "not_applicable"},
+    {"rule_id": "tables/headers-attr-invalid", "verdict": "not_applicable"},
+    {"rule_id": "images/alt-missing", "verdict": "not_applicable"},
+    {"rule_id": "images/alt-suspicious", "verdict": "not_applicable"},
+    {"rule_id": "images/area-alt-missing", "verdict": "not_applicable"},
+    {"rule_id": "images/input-alt-missing", "verdict": "not_applicable"},
+    {"rule_id": "images/server-side-map", "verdict": "not_applicable"},
+    {"rule_id": "objects/alt-missing", "verdict": "not_applicable"},
+    {"rule_id": "media/audio-autoplay", "verdict": "not_applicable"},
+    {"rule_id": "image-alt", "verdict": "not_applicable"},
+    {"rule_id": "viz/text-missing", "verdict": "not_applicable"},
+    {"rule_id": "viz/caption-missing", "verdict": "not_applicable"},
+    {"rule_id": "viz/static-missing", "verdict": "not_applicable"},
+    {"rule_id": "viz/table-missing", "verdict": "not_applicable"},
+    {"rule_id": "video-caption", "verdict": "not_applicable"},
+    {"rule_id": "frame-tested", "verdict": "absent"},
+    {"rule_id": "media-alt", "verdict": "needs_review"}
+  ]
+}

@@ -47,7 +47,8 @@ use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `focus-visible` (fires only when the whole page has
 /// nothing focusable), `unusual-words` and `help`.
-pub const FRAME_TREE_RULES: &[&str] = &["image-alt", "keyboard", "description-duplicates-name"];
+pub const FRAME_TREE_RULES: &[&str] =
+    &["image-alt", "keyboard-trap", "description-duplicates-name"];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
 /// element-level ones. Left out, as page-level: `document/lang-*` (the
@@ -83,6 +84,9 @@ pub const FRAME_TREE_RULES: &[&str] = &["image-alt", "keyboard", "description-du
 /// `orientation/content-hidden`, `text/*`) don't run in frames: frame
 /// documents get no stylesheets (`run_shared_rules` without sheets), and the
 /// JavaScript rules they replace read the top document only.
+///
+/// The contrast and link-colour rules run in frames since #783: they judge
+/// single elements, and the frame document has its layout.
 ///
 /// The form rules (#693) judge single fields and forms and run in frames —
 /// an embedded sign-in or contact form is the usual case. Before #693 only
@@ -171,6 +175,15 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "names/title-only",
     "patterns/tooltip-unreferenced",
     "language/abbreviation-unexpanded",
+    // Contrast and link colour judge single elements against their own
+    // document's rendering; the frame document carries the frame's layout
+    // from the same DOM snapshot (#783).
+    "contrast/text-insufficient",
+    "contrast/text-undetermined",
+    "contrast/text-enhanced",
+    "contrast/control-insufficient",
+    "contrast/control-undetermined",
+    "color/link-indistinct",
 ];
 
 // ── Report block (canonical English) ─────────────────────────────────────────

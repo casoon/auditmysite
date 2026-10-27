@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Containers that keep their text at larger spacing</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+  /* Grows with its content. */
+  #badge { min-height: 20px; line-height: 1.2; border: 1px solid #111111; padding: 0 4px; }
+  /* Threshold: exactly one line at line-height 1.5 (24px) still fits. */
+  #fit { height: 24px; line-height: 1.2; overflow: hidden; }
+  /* Already cut off before any spacing change: not caused by spacing. */
+  #preclipped { height: 10px; overflow: hidden; }
+  /* Dynamic: fixed height removed by a script after load. */
+  #late { height: 20px; line-height: 1.2; overflow: hidden; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Garden chairs</h1>
+  <div id="badge">Free delivery on all orders</div>
+  <div id="fit">In stock</div>
+  <div id="preclipped">Teaser text that is cut by design and expands on click.</div>
+  <div id="late">Assembly takes ten minutes</div>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  window.addEventListener('load', function () {
+    document.getElementById('late').style.height = 'auto';
+  });
+</script>
+</body>
+</html>

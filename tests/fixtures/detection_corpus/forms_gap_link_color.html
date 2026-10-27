@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery rates</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  main p { color: #000; }
+  .aria-link { color: #0050a0; cursor: pointer; }
+  a.g183 { color: #2563c9; text-decoration: none; }
+  a.g183:hover, a.g183:focus { text-decoration: underline; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Delivery rates</h1>
+<!-- G2 #783: G183 (3:1 against the text plus a non-colour cue on hover and focus) passes 1.4.1; an ARIA link in running text that differs only by colour fails like a native one (F73). -->
+<p>Read the <a id="lc-g183" class="g183" href="/shipping">shipping rules</a> before you send a parcel.</p>
+<p>Compare the <span id="lc-aria-role" class="aria-link" role="link" tabindex="0" onclick="location.href = '/rates'" onkeydown="if (event.key === 'Enter') location.href = '/rates'">delivery rates</span> for each country.</p>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

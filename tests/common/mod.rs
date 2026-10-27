@@ -8,7 +8,10 @@
 
 #![allow(dead_code)]
 
+pub mod corpus_diff;
 pub mod detection_corpus;
 pub mod fixture_server;
 pub mod nonwcag_rule_inventory;
+pub mod routing_server;
+pub mod rule_contracts;
 pub mod rule_inventory;

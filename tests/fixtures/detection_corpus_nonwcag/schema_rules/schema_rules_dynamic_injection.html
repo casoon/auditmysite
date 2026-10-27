@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Structured data injected after load</title>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var s0 = document.createElement("script"); s0.type = "application/ld+json"; s0.textContent = "{\"@context\": \"https://schema.org\", \"@type\": \"Article\", \"headline\": \"Injected\", \"author\": {\"@type\": \"Person\", \"name\": \"Ada\"}, \"datePublished\": \"2026-01-01\", \"dateModified\": \"2026-01-02\", \"image\": \"https://example.com/a.jpg\"}"; document.head.appendChild(s0);
+      var s1 = document.createElement("script"); s1.type = "application/ld+json"; s1.textContent = "{\"@context\": \"https://schema.org\", \"@type\": \"Event\", \"name\": \"Webinar\"}"; document.head.appendChild(s1);
+    });
+  </script>
+</head>
+<body>
+  <header><p>Example</p></header>
+  <main>
+    <h1>Structured data injected after load</h1>
+    <p>Structured data corpus page.</p>
+  </main>
+  <footer><p>Footer</p></footer>
+</body>
+</html>

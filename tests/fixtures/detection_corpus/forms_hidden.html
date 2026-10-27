@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden and visually hidden fields</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  a.plain { text-decoration: none; }
+  main p { color: #000; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Hidden and visually hidden fields</h1>
+<!-- G2 #783 visibility: patterns inside display:none, the hidden attribute and visibility:hidden are presented to nobody and are not judged; a visually hidden but exposed field or link still needs a name. -->
+<div style="display: none">
+<form id="dn-form-a" action="/a" method="post">
+  <p><input id="dn-unlabelled" name="dn-x" type="text"></p>
+  <p><input id="dn-placeholder" name="dn-v" type="text" placeholder="Voucher code"></p>
+  <p><input id="dn-titled" name="dn-d" type="text" title="Door code"></p>
+  <p><label for="dn-bad-ac">Company</label> <input id="dn-bad-ac" name="dn-c" type="text" autocomplete="company"></p>
+  <p><label for="dn-mail">Email for updates</label> <input id="dn-mail" name="dn-m" type="email"></p>
+  <p><label for="dn-invalid">Team code</label> <input id="dn-invalid" name="dn-t" type="text" aria-invalid="true"></p>
+  <label><input type="radio" name="dn-freq" id="dn-radio" value="d"> Daily</label>
+  <fieldset id="dn-fieldset"><label><input type="checkbox" name="dn-dig" id="dn-digest"> Weekly digest</label></fieldset>
+  <p><label for="dn-required">Shirt size</label> <input id="dn-required" name="dn-s" type="text" required></p>
+  <p><label for="dn-date">Start date</label> <input id="dn-date" name="dn-sd" type="text"></p>
+  <p><label for="dn-jump">Jump to section</label> <select id="dn-jump" name="dn-j" onchange="location.href = this.value"><option value="#a">Bikes</option><option value="#b">Helmets</option></select></p>
+  <p><button type="submit">Save</button></p>
+</form>
+<form id="dn-form-nosubmit" action="/n" method="post"><p><label for="dn-ns">Coupon</label> <input id="dn-ns" name="dn-ns" type="text"></p></form>
+<form id="dn-form-twice" action="/o" method="post">
+  <p><label for="dn-m1">Email</label> <input id="dn-m1" name="dn-m1" type="email" autocomplete="off"></p>
+  <p><label for="dn-m2">Email for the invoice</label> <input id="dn-m2" name="dn-m2" type="email" autocomplete="off"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="dn-login" action="/login" method="post">
+  <p><label for="dn-pw">Password</label> <input id="dn-pw" name="dn-pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<div id="dn-focus" tabindex="-1" onfocus="this.dataset.seen = 'yes'">Spring promotion</div>
+<p><button id="dn-autofocus" type="button" autofocus>Continue</button></p>
+<p><a class="solo" id="dn-empty-link" href="/cart"></a></p>
+<p><button id="dn-empty-button" type="button"></button></p>
+<p><a class="solo" id="dn-generic" href="/offers">Click here</a></p>
+<div><div><ul><li><a class="solo" id="dn-url" href="https://example.org/report">https://example.org/report</a></li></ul></div></div>
+<p><a class="solo" id="dn-single" href="/close-offer">x</a></p>
+<p><a class="solo" id="dn-new-window" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="dn-fake" href="#" onclick="return false;">Chat with us</a></p>
+<p>Please read our <a id="dn-color" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+</div>
+<div hidden>
+<form id="ha-form-a" action="/a" method="post">
+  <p><input id="ha-unlabelled" name="ha-x" type="text"></p>
+  <p><input id="ha-placeholder" name="ha-v" type="text" placeholder="Voucher code"></p>
+  <p><input id="ha-titled" name="ha-d" type="text" title="Door code"></p>
+  <p><label for="ha-bad-ac">Company</label> <input id="ha-bad-ac" name="ha-c" type="text" autocomplete="company"></p>
+  <p><label for="ha-mail">Email for updates</label> <input id="ha-mail" name="ha-m" type="email"></p>
+  <p><label for="ha-invalid">Team code</label> <input id="ha-invalid" name="ha-t" type="text" aria-invalid="true"></p>
+  <label><input type="radio" name="ha-freq" id="ha-radio" value="d"> Daily</label>
+  <fieldset id="ha-fieldset"><label><input type="checkbox" name="ha-dig" id="ha-digest"> Weekly digest</label></fieldset>
+  <p><label for="ha-required">Shirt size</label> <input id="ha-required" name="ha-s" type="text" required></p>
+  <p><label for="ha-date">Start date</label> <input id="ha-date" name="ha-sd" type="text"></p>
+  <p><label for="ha-jump">Jump to section</label> <select id="ha-jump" name="ha-j" onchange="location.href = this.value"><option value="#a">Bikes</option><option value="#b">Helmets</option></select></p>
+  <p><button type="submit">Save</button></p>
+</form>
+<form id="ha-form-nosubmit" action="/n" method="post"><p><label for="ha-ns">Coupon</label> <input id="ha-ns" name="ha-ns" type="text"></p></form>
+<form id="ha-form-twice" action="/o" method="post">
+  <p><label for="ha-m1">Email</label> <input id="ha-m1" name="ha-m1" type="email" autocomplete="off"></p>
+  <p><label for="ha-m2">Email for the invoice</label> <input id="ha-m2" name="ha-m2" type="email" autocomplete="off"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="ha-login" action="/login" method="post">
+  <p><label for="ha-pw">Password</label> <input id="ha-pw" name="ha-pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<div id="ha-focus" tabindex="-1" onfocus="this.dataset.seen = 'yes'">Spring promotion</div>
+<p><button id="ha-autofocus" type="button" autofocus>Continue</button></p>
+<p><a class="solo" id="ha-empty-link" href="/cart"></a></p>
+<p><button id="ha-empty-button" type="button"></button></p>
+<p><a class="solo" id="ha-generic" href="/offers">Click here</a></p>
+<div><div><ul><li><a class="solo" id="ha-url" href="https://example.org/report">https://example.org/report</a></li></ul></div></div>
+<p><a class="solo" id="ha-single" href="/close-offer">x</a></p>
+<p><a class="solo" id="ha-new-window" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="ha-fake" href="#" onclick="return false;">Chat with us</a></p>
+<p>Please read our <a id="ha-color" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+</div>
+<div style="visibility: hidden">
+<form id="vh-form-a" action="/a" method="post">
+  <p><input id="vh-unlabelled" name="vh-x" type="text"></p>
+  <p><input id="vh-placeholder" name="vh-v" type="text" placeholder="Voucher code"></p>
+  <p><input id="vh-titled" name="vh-d" type="text" title="Door code"></p>
+  <p><label for="vh-bad-ac">Company</label> <input id="vh-bad-ac" name="vh-c" type="text" autocomplete="company"></p>
+  <p><label for="vh-mail">Email for updates</label> <input id="vh-mail" name="vh-m" type="email"></p>
+  <p><label for="vh-invalid">Team code</label> <input id="vh-invalid" name="vh-t" type="text" aria-invalid="true"></p>
+  <label><input type="radio" name="vh-freq" id="vh-radio" value="d"> Daily</label>
+  <fieldset id="vh-fieldset"><label><input type="checkbox" name="vh-dig" id="vh-digest"> Weekly digest</label></fieldset>
+  <p><label for="vh-required">Shirt size</label> <input id="vh-required" name="vh-s" type="text" required></p>
+  <p><label for="vh-date">Start date</label> <input id="vh-date" name="vh-sd" type="text"></p>
+  <p><label for="vh-jump">Jump to section</label> <select id="vh-jump" name="vh-j" onchange="location.href = this.value"><option value="#a">Bikes</option><option value="#b">Helmets</option></select></p>
+  <p><button type="submit">Save</button></p>
+</form>
+<form id="vh-form-nosubmit" action="/n" method="post"><p><label for="vh-ns">Coupon</label> <input id="vh-ns" name="vh-ns" type="text"></p></form>
+<form id="vh-form-twice" action="/o" method="post">
+  <p><label for="vh-m1">Email</label> <input id="vh-m1" name="vh-m1" type="email" autocomplete="off"></p>
+  <p><label for="vh-m2">Email for the invoice</label> <input id="vh-m2" name="vh-m2" type="email" autocomplete="off"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="vh-login" action="/login" method="post">
+  <p><label for="vh-pw">Password</label> <input id="vh-pw" name="vh-pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<div id="vh-focus" tabindex="-1" onfocus="this.dataset.seen = 'yes'">Spring promotion</div>
+<p><button id="vh-autofocus" type="button" autofocus>Continue</button></p>
+<p><a class="solo" id="vh-empty-link" href="/cart"></a></p>
+<p><button id="vh-empty-button" type="button"></button></p>
+<p><a class="solo" id="vh-generic" href="/offers">Click here</a></p>
+<div><div><ul><li><a class="solo" id="vh-url" href="https://example.org/report">https://example.org/report</a></li></ul></div></div>
+<p><a class="solo" id="vh-single" href="/close-offer">x</a></p>
+<p><a class="solo" id="vh-new-window" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="vh-fake" href="#" onclick="return false;">Chat with us</a></p>
+<p>Please read our <a id="vh-color" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+</div>
+<div class="visually-hidden">
+  <form action="/sr" method="post"><p><input id="sr-unlabelled" name="sr" type="text"></p><p><button type="submit">Save note</button></p></form>
+  <p><a id="sr-empty-link" href="/cart"></a></p>
+  <p><button id="sr-empty-button" type="button"></button></p>
+</div>
+<form action="/visible" method="post">
+  <p><label for="visible-field">Order number</label> <input id="visible-field" name="order" type="text"></p>
+  <p><button type="submit">Track order</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

@@ -5,7 +5,8 @@
 //! orientation is essential.
 //! Level AA
 //!
-//! Checks the computed `transform: rotate` on `<body>` or `<html>`. The
+//! Checks whether `<html>` or `<body>` is rotated in the audited viewport
+//! (computed `transform` matrix or `rotate` property). The
 //! stylesheet half (orientation media queries that hide or rotate content)
 //! runs as `orientation/content-hidden` in the shared rules since a11y-rules
 //! 0.19 (`a11y_rules::run_stylesheets`); the computed style of the live page
@@ -27,20 +28,45 @@ pub(super) const ORIENTATION_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag134", "cat.sensory-and-visual-cues"],
 };
 
-// Returns a JSON object: { locked: bool, detail: string }
+// Returns a JSON object: { locked: bool, element: string, detail: string }.
+//
+// The computed `transform` is never a `rotate(...)` string: Chrome serialises
+// it as `none` or `matrix(...)` / `matrix3d(...)`. A rotation shows in the
+// matrix as b = sin θ and c = -sin θ; skew or scale alone do not produce that
+// pair. The individual `rotate` property computes to `none` or an angle.
+// Query errors are not caught: a probe that cannot read the computed style
+// has measured nothing and must surface as a technical failure, not a pass.
 const ORIENTATION_LOCK_JS: &str = r#"
 (function() {
-  try {
-    // Check inline transforms on body/html (JS-driven orientation lock workaround)
-    const bodyTransform = window.getComputedStyle(document.body).transform;
-    const htmlTransform = window.getComputedStyle(document.documentElement).transform;
-    for (const [el, t] of [['body', bodyTransform], ['html', htmlTransform]]) {
-      if (t && t !== 'none' && t.includes('rotate')) {
-        return { locked: true, detail: el + ' has CSS transform: rotate — may indicate orientation lock' };
+  function rotatedBy(style) {
+    var t = style.transform;
+    if (t && t !== 'none') {
+      var m = t.match(/^matrix(3d)?\(([^)]*)\)$/);
+      if (m) {
+        var v = m[2].split(',').map(Number);
+        var b = v[1];
+        var c = m[1] ? v[4] : v[2];
+        if (Math.abs(b) > 0.01 && Math.abs(b + c) < 0.01) {
+          return Math.round(Math.atan2(b, v[0]) * 180 / Math.PI) + 'deg';
+        }
       }
     }
-  } catch(e) {}
-  return { locked: false, detail: '' };
+    var r = style.rotate;
+    if (r && r !== 'none') {
+      var deg = parseFloat(r);
+      if (!isNaN(deg) && Math.abs(deg % 180) > 0.5) return r;
+    }
+    return null;
+  }
+  var pairs = [['html', document.documentElement], ['body', document.body]];
+  for (var i = 0; i < pairs.length; i++) {
+    if (!pairs[i][1]) continue;
+    var angle = rotatedBy(window.getComputedStyle(pairs[i][1]));
+    if (angle) {
+      return { locked: true, element: pairs[i][0], detail: pairs[i][0] + ' is rotated by ' + angle + ' in this viewport' };
+    }
+  }
+  return { locked: false, element: '', detail: '' };
 })()
 "#;
 
@@ -79,6 +105,12 @@ pub async fn check_orientation_with_page(page: &Page) -> Vec<Violation> {
             "Page appears to lock display orientation — {detail}. Users who cannot rotate their device will be unable to access content."
         ),
         "document",
+    )
+    .with_selector(
+        val.get("element")
+            .and_then(|v| v.as_str())
+            .filter(|e| !e.is_empty())
+            .unwrap_or("html"),
     )
     .with_fix(
         "Remove orientation-specific CSS that hides or rotates content. \

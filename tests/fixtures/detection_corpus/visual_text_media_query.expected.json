@@ -1,0 +1,7 @@
+{
+  "case": "visual_text_media_query",
+  "expectations": [
+    { "rule_id": "text/justified", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "text/line-height-tight", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

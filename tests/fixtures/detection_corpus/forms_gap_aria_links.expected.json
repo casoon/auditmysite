@@ -1,0 +1,39 @@
+{
+  "case": "forms_gap_aria_links",
+  "expectations": [
+    {
+      "rule_id": "links/generic-name",
+      "selector": "span#gn-aria-role",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "span#gn-aria-role",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "span#url-aria-role",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "span#sc-aria-role",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "span#good-aria-role",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "span#good-aria-role",
+      "verdict": "pass"
+    }
+  ]
+}

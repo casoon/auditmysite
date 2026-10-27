@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cookie consent dialog</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .panel { border: 1px solid #333; padding: 16px; margin: 16px 0; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Garden</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/plants">Plants</a>
+    </nav>
+    <main id="main">
+        <h1>Summer pruning</h1>
+        <p>Cut back lavender after flowering.</p>
+
+        <!-- needs_review (2.1.2): a native dialog that a script opens with showModal() after load -->
+        <dialog id="dlg-native-modal" aria-labelledby="dlg-native-modal-title">
+            <h2 id="dlg-native-modal-title">Cookie settings</h2>
+            <p>We only use cookies that the site needs.</p>
+            <button type="button">Accept</button>
+            <button type="button">Settings</button>
+        </dialog>
+    </main>
+    <footer><p>Example Garden footer</p></footer>
+
+    <script>
+        document.getElementById('dlg-native-modal').showModal();
+    </script>
+</body>
+</html>

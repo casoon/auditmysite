@@ -1,0 +1,945 @@
+# Rule contracts, package G4 (#783): lists, tables, images, objects, media,
+# data visualisations. Format: tests/fixtures/rule_contracts/README.md.
+# Shared rules (method = "shared") run from a11y-rules through
+# src/wcag/shared.rs; their mutation catalog and direct tests live in
+# barrierlab. Local rules: image-alt (tree), media-alt, video-caption and
+# frame-tested (page rules).
+
+[[rule]]
+id = "lists/invalid-structure"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/invalid-structure)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden list: <ul>/<ol> without a foreign role, or an element with role="list"."""
+expectation = """
+A list whose direct children (seen through <slot> into assigned content) include
+anything other than list items (<li> or role="listitem" without another role),
+<script> or <template> fails: the list announces items, and the stray child is
+read outside the item structure (H48, HTML list content model). Fires once per
+list, located at the list. A list with another explicit role (none,
+presentation, menu, listbox) is not a list. Lists not rendered or under
+aria-hidden="true" are not in the accessibility tree and are not judged."""
+positive = ["content_lists_broken"]
+negative = ["content_lists_ok", "content_lists_responsive_role"]
+not_applicable = ["content_plain_article", "content_lists_trailing_term"]
+
+[rule.variants]
+visibility = { cases = ["content_lists_broken"] }
+native_vs_aria = { cases = ["content_lists_broken", "content_lists_ok"] }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["content_lists_broken", "content_lists_ok"] }
+responsive = { not_relevant = "Markup-only check; a viewport changes nothing it reads except visibility, which the visibility cases cover." }
+dynamic = { cases = ["content_lists_broken"] }
+thresholds = { not_relevant = "One stray child suffices; there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "lists/empty"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/empty)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden list (<ul>/<ol> without a foreign role, or role="list")."""
+expectation = """
+A list without a single list item (direct children, seen through <slot>)
+announces a structure that does not exist. WAI-ARIA 1.2 lists listitem as the
+required owned element of list; nothing is lost for the reader, so this is a
+best-practice finding (tag best-practice), reported as a confirmed finding at
+the list. A list with at least one item passes; a hidden or aria-hidden empty
+list is not judged."""
+positive = ["content_lists_broken"]
+negative = ["content_lists_ok", "content_lists_responsive_role"]
+not_applicable = ["content_plain_article", "content_lists_trailing_term"]
+
+[rule.variants]
+visibility = { cases = ["content_lists_broken"] }
+native_vs_aria = { cases = ["content_lists_broken", "content_lists_ok"] }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["content_lists_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["content_lists_broken"] }
+thresholds = { not_relevant = "Zero items fails, one item passes (content_lists_broken, content_lists_ok); no other threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "lists/item-outside-list"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/item-outside-list)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden list item: <li> or role="listitem" without another explicit role."""
+expectation = """
+A list item whose nearest list ancestor is missing, or has turned into
+something other than a list by its role (tablist, menu), fails (F2-like: item
+semantics without a list). A list ancestor with role none/presentation passes
+the item's semantics on and is no finding. Located at the item. Known host gap
+until the a11y-rules release that declares this id in Meta::ids: findings
+arrive without a run record (FindingWithoutRun), not to be worked around here."""
+positive = ["content_lists_broken", "landmarks_and_lists"]
+negative = ["content_lists_ok", "content_lists_responsive_role"]
+not_applicable = ["content_plain_article", "content_lists_trailing_term"]
+
+[rule.variants]
+visibility = { cases = ["content_lists_broken"] }
+native_vs_aria = { cases = ["content_lists_broken", "landmarks_and_lists"] }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["content_lists_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["content_lists_broken"] }
+thresholds = { not_relevant = "Presence check; one offending element suffices, there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "lists/term-without-definition"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/term-without-definition)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden term: <dt> or role="term"."""
+expectation = """
+HTML's <dl> content model is groups of one or more <dt> followed by one or more
+<dd> (or <div> groups of the same). A term with no definition following it in
+its group fails 1.3.1: the reader hears a term and nothing that defines it.
+Several terms sharing one definition pass. A <dt> after the last <dd> (a
+trailing term) has no definition and fails even though its <dl> holds other
+definitions. role="term" without any role="definition" sibling fails the same
+way. Located at the term."""
+positive = ["content_lists_broken", "content_lists_trailing_term"]
+negative = ["content_lists_ok"]
+not_applicable = ["content_plain_article", "content_lists_responsive_role"]
+
+[rule.variants]
+visibility = { not_relevant = "Every term in the cases is rendered; hiding goes through the same visibility layer as lists/invalid-structure, whose hidden cases cover it." }
+native_vs_aria = { cases = ["content_lists_broken", "content_lists_ok"] }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { not_relevant = "The same element walk as lists/invalid-structure, whose shadow and frame cases cover it; no definition list in a frame is needed to show anything new." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Reads the DOM at audit time like every list rule; the dynamic list cases cover that path." }
+thresholds = { not_relevant = "Group boundary: terms sharing a following definition pass (content_lists_ok), a trailing term fails (content_lists_trailing_term)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "lists/role-redundant"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/role-redundant)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 §5.1 (do not repeat implicit roles), ARIA in HTML §4 (redundant roles); auditmysite#644 (WebKit drops list semantics for list-style: none)"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered <ul>/<ol> with role="list"."""
+expectation = """
+role="list" on <ul>/<ol> repeats the implicit role and is redundant (best
+practice) only while the list keeps visible markers. With list-style-type: none
+the role restores semantics WebKit/VoiceOver drop, so it is needed and passes.
+A role needed in one viewport is not redundant: a list whose markers are
+removed only at a mobile or only at a desktop width passes. Without a computed
+list-style-type the rule cannot decide and reports UNTESTED for the page."""
+positive = ["redundant_role_list_style"]
+negative = ["redundant_role_list_style", "content_lists_ok", "content_lists_responsive_role"]
+not_applicable = ["content_plain_article", "content_lists_broken"]
+
+[rule.variants]
+visibility = { not_relevant = "Applies to rendered lists only through the shared visibility layer; the decisive property is list-style-type, not visibility." }
+native_vs_aria = { not_relevant = "Only <ul>/<ol> carrying role=\"list\" is in scope; an ARIA-only list has no implicit role to repeat." }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { not_relevant = "Frame documents carry no computed styles for this rule (FRAME_SHARED_RULES leaves it out); shadow lists read the same computed style." }
+responsive = { cases = ["content_lists_responsive_role"] }
+dynamic = { not_relevant = "Reads computed style at audit time; no state change is involved." }
+thresholds = { not_relevant = "Boundary is list-style-type none vs anything else: redundant_role_list_style has both sides." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/header-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/header-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden table: <table> or role table/grid, not presentational."""
+expectation = """
+A table without any header cell (<th>, role columnheader/rowheader) is a
+failure only for a data table whose headers are visual (F91); a layout table or
+a table without visible headers is allowed. Markup cannot tell which, so the
+rule reports REVIEW at the table, never a confirmed violation. Presentational,
+hidden and aria-hidden tables are not judged."""
+positive = ["content_tables_broken", "misc_content_checks"]
+negative = ["content_tables_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_tables_broken"] }
+native_vs_aria = { cases = ["content_tables_broken", "content_tables_ok"] }
+alternative_labels = { not_relevant = "A table name (caption, aria-label) does not replace header cells; content_tables_broken pairs both." }
+frames_shadow_dom = { cases = ["content_tables_broken", "content_tables_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["content_tables_broken"] }
+thresholds = { not_relevant = "Presence check; one offending element suffices, there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden table: <table> or role table/grid, not presentational."""
+expectation = """
+A table without <caption> child, non-empty aria-label or aria-labelledby has no
+name to find it by in a table list (H39, ARIA16). WCAG does not require a table
+name for every table, so this is REVIEW at the table. Presentational, hidden
+and aria-hidden tables are not judged."""
+positive = ["content_tables_broken", "table_missing_caption"]
+negative = ["content_tables_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_tables_broken"] }
+native_vs_aria = { cases = ["content_tables_broken", "content_tables_ok"] }
+alternative_labels = { cases = ["content_tables_ok"] }
+frames_shadow_dom = { cases = ["content_tables_broken", "content_tables_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["content_tables_broken"] }
+thresholds = { not_relevant = "An empty aria-label names nothing; presence of caption/aria-label/aria-labelledby decides." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/presentational-with-headers"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/presentational-with-headers)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered table marked role="presentation" or role="none"."""
+expectation = """
+A table marked presentational but holding header cells (<th>, columnheader,
+rowheader) contradicts itself: the role removes the table semantics the header
+cells announce (F92 reasoning). Confirmed violation at the table. A
+presentational layout table without header cells passes."""
+positive = ["content_tables_broken"]
+negative = ["content_tables_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Hidden presentational tables go through the shared visibility layer like tables/header-missing, whose hidden cases cover it." }
+native_vs_aria = { not_relevant = "Applies to <table> and role table/grid alike with role presentation/none; content_tables_broken holds the <table> form." }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { not_relevant = "Same element walk as tables/header-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Reads the DOM at audit time like every table rule; tables/header-missing has the dynamic case." }
+thresholds = { not_relevant = "Presence check; one offending element suffices, there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/header-without-data"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/header-without-data)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, not aria-hidden table with header cells."""
+expectation = """
+A table with header cells but not a single data cell (<td>, cell, gridcell) has
+headers that label nothing: violation at each header cell. One data cell, even
+an empty one, is enough to pass; row headers next to data cells pass (#638). A
+row group without any row means the rows are still loading or hidden: that is
+tables/data-undetermined, not this id."""
+positive = ["content_tables_broken", "table_headers_no_data", "table_grid_rows_unrendered"]
+negative = ["content_tables_ok", "table_headers_tbody_ignored"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["table_grid_rows_unrendered"] }
+native_vs_aria = { cases = ["content_tables_broken", "content_tables_ok"] }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["table_grid_rows_unrendered", "content_tables_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["table_grid_rows_unrendered"] }
+thresholds = { not_relevant = "Zero data cells fails, one empty data cell passes (content_tables_broken, content_tables_ok #minimal)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/data-undetermined"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/data-undetermined)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered table with header cells, no data cell, and a row group without rows."""
+expectation = """
+Header cells, no data cell, and an empty row group (tbody/thead/tfoot or
+role=rowgroup without a row): the rows are pending or hidden, so whether the
+headers get data cannot be decided from this state. Reported as UNTESTED
+(review) at the table, never as a violation."""
+positive = ["content_tables_pending", "table_grid_rows_unrendered"]
+negative = ["content_tables_ok", "content_tables_broken"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["table_grid_rows_unrendered"] }
+native_vs_aria = { not_relevant = "Row groups count as <thead>/<tbody>/<tfoot> or role=rowgroup alike; the native form is in content_tables_pending." }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["table_grid_rows_unrendered"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { cases = ["table_grid_rows_unrendered"] }
+thresholds = { not_relevant = "An empty row group decides it; one row in the group makes it tables/header-without-data instead (content_tables_broken #events)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "tables/headers-attr-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/headers-attr-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every data or header cell (<td>, <th>, cell, gridcell, columnheader, rowheader) with a headers attribute, in a rendered table."""
+expectation = """
+H43/HTML: headers must list ids of header cells of the same table. Fails at the
+cell when the attribute is empty, names an id that does not exist, names a
+non-header cell, or a header cell of another table. A cell of a table that is
+not rendered (hidden) presents no association to anyone and is not judged in
+that state (WCAG conformance applies to presented content)."""
+positive = ["content_tables_broken"]
+negative = ["content_tables_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_tables_broken"] }
+native_vs_aria = { not_relevant = "HTML defines headers only on <td>/<th>; the ARIA cell roles are accepted as carriers but have no separate semantics to test." }
+alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
+frames_shadow_dom = { cases = ["content_tables_ok"] }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Reads the DOM at audit time like every table rule; tables/header-missing has the dynamic case." }
+thresholds = { not_relevant = "Every token must resolve; one bad token in a list fails, several good tokens pass (content_tables_ok)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "images/alt-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/alt-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered <img> not explicitly decorative (role=presentation/none, aria-hidden="true")."""
+expectation = """
+An <img> without an alt attribute and without aria-label, aria-labelledby or
+title has no text alternative (F65): violation at the image. alt="" marks it
+decorative and passes; aria-label/aria-labelledby/title give it a name and pass.
+Images not rendered (display:none, hidden) are not presented and not judged; an
+image rendered in only one viewport is judged in that viewport."""
+positive = ["content_images_broken", "image_alt"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_images_broken", "content_images_ok"] }
+native_vs_aria = { cases = ["content_images_ok"] }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { cases = ["content_images_broken"] }
+responsive = { cases = ["content_images_broken"] }
+dynamic = { cases = ["content_images_broken"] }
+thresholds = { not_relevant = "Presence check; one offending element suffices, there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "images/alt-suspicious"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/alt-suspicious)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered, non-decorative <img> with a non-empty alt."""
+expectation = """
+An alt that is a file name, a filler word (image, photo, logo, ...) or shorter
+than three characters probably does not describe the image (F30). Whether it
+does is a human judgement: REVIEW at the image. alt="" never counts; a
+three-character alt passes the length check."""
+positive = ["content_images_broken"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Uses the same image walk and visibility layer as images/alt-missing, whose hidden cases cover it." }
+native_vs_aria = { not_relevant = "Reads the alt attribute of <img> only; ARIA names are not alt text." }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { not_relevant = "Same image walk as images/alt-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Same image walk as images/alt-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Length boundary: 2 characters review (content_images_broken #short-alt), 3 pass (content_images_ok #three-chars)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "images/area-alt-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/area-alt-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2; HTML §4.8.14 area"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every <area> with href (a link) of an image map; <area> is display:none by UA style and judged regardless."""
+expectation = """
+An active <area> without alt, aria-label or aria-labelledby is a link without a
+name (H24): violation at the area. An <area> without href is no link and is
+not judged."""
+positive = ["content_images_broken", "misc_content_checks"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "<area> is never rendered itself (UA display:none); only the hidden attribute removes it. The cases keep the map visible." }
+native_vs_aria = { cases = ["content_images_ok"] }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { not_relevant = "Same element walk as the other image rules; images/alt-missing has the frame and shadow cases." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Reads the DOM at audit time; images/alt-missing has the dynamic case." }
+thresholds = { not_relevant = "href present or absent decides applicability (content_images_ok #area-decor)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "images/input-alt-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/input-alt-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2; HTML §4.10.5.1.20 image button"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered <input type="image">."""
+expectation = """
+An image button without alt, aria-label or aria-labelledby gets a browser
+fallback name ("Submit") that says nothing about the action (H36): violation at
+the input. aria-labelledby pointing at hidden text names it and passes."""
+positive = ["content_images_broken", "misc_content_checks"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Same visibility layer as images/alt-missing, whose hidden cases cover it." }
+native_vs_aria = { not_relevant = "Applies to the native image button only; an ARIA button with an image is buttons/name-missing." }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { not_relevant = "Same element walk as images/alt-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Same element walk as images/alt-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Presence check; one offending element suffices, there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "images/server-side-map"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/server-side-map)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard and 1.1.1 (F54-like, H24 vs ismap); HTML §4.8.4 ismap"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered <img ismap>."""
+expectation = """
+A server-side image map sends click coordinates; its targets are not reachable
+by keyboard or screen reader. Equivalent text links next to it satisfy 2.1.1,
+which markup cannot confirm: REVIEW at the image. A client-side map (usemap)
+is not this rule."""
+positive = ["content_images_broken"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Same visibility layer as images/alt-missing, whose hidden cases cover it." }
+native_vs_aria = { not_relevant = "ismap exists only on native <img>; no ARIA form." }
+alternative_labels = { not_relevant = "An alt on the image does not make its targets reachable; content_images_broken gives the ismap image an alt." }
+frames_shadow_dom = { not_relevant = "Same element walk as images/alt-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Same element walk as images/alt-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Attribute presence decides: ismap reviews, usemap passes (content_images_ok #town-map)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "objects/alt-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=objects/alt-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2; HTML §4.8.7 object (fallback content)"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every rendered <object>."""
+expectation = """
+An <object> without fallback text, aria-label, aria-labelledby or title has no
+text alternative (H53): violation at the object. Fallback content with text (a
+download link) or a title passes."""
+positive = ["content_images_broken", "object_no_alt"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Same visibility layer as images/alt-missing, whose hidden cases cover it." }
+native_vs_aria = { not_relevant = "<object> has no ARIA counterpart; ARIA names count as alternatives (content_images_ok)." }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { not_relevant = "Same element walk as images/alt-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }
+dynamic = { not_relevant = "Same element walk as images/alt-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Whitespace-only fallback counts as none; any text passes." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "media/audio-autoplay"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=media/audio-autoplay)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 autoplay/muted"
+capabilities = ["dom", "computed_style"]
+applicability = """
+Every <audio> not hidden by the hidden attribute (an <audio> without controls is display:none by UA style and still plays)."""
+expectation = """
+<audio autoplay> without muted starts sound on load. Whether it lasts more
+than three seconds or can be paused is not in the markup: REVIEW at the audio.
+muted autoplay and audio without autoplay pass."""
+positive = ["content_images_broken", "media_and_visual"]
+negative = ["content_images_ok"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "An <audio> without controls is never rendered yet plays; the rule therefore ignores display and only the hidden attribute removes it (content_images_broken has a control-less audio)." }
+native_vs_aria = { not_relevant = "Only native <audio> autoplays; no ARIA form." }
+alternative_labels = { not_relevant = "Names and labels do not stop sound." }
+frames_shadow_dom = { not_relevant = "Same element walk as images/alt-missing, whose frame and shadow cases cover it." }
+responsive = { not_relevant = "Autoplay does not depend on the viewport." }
+dynamic = { not_relevant = "Reads the DOM at audit time; images/alt-missing has the dynamic case of the same walk." }
+thresholds = { not_relevant = "The three-second threshold of 1.4.2 is not in the markup, which is why the rule only reviews." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "viz/text-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/text-missing)"]
+automation = "automated"
+method = "shared"
+source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
+capabilities = ["dom"]
+applicability = """
+Every figure[data-viz] (opt-in convention)."""
+expectation = """
+A visualisation without a [data-viz-text] layer, or whose layers contain only
+whitespace, has nothing for text mode and no text alternative (1.1.1):
+violation at the figure (best-practice tag). One word of text passes. A figure
+that is not presented (inside a hidden panel) carries no graphic either and is
+not judged in that state (#725)."""
+positive = ["content_viz_broken"]
+negative = ["content_viz_ok", "display_modes_viz_static", "content_viz_hidden_panel"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_viz_hidden_panel"] }
+native_vs_aria = { not_relevant = "The convention is attribute-based; no ARIA alternative exists for it." }
+alternative_labels = { not_relevant = "The convention asks for its own layers; aria-label on the figure does not replace them." }
+frames_shadow_dom = { not_relevant = "The convention rules run on the top document only (FRAME_SHARED_RULES leaves them out); viz/caption-missing has the shadow case of the same walk." }
+responsive = { not_relevant = "Convention markup does not change with the viewport." }
+dynamic = { not_relevant = "Same figure walk as viz/caption-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Whitespace-only text layer fails, one word passes (content_viz_broken #blank-text, content_viz_ok #branch-map)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "viz/caption-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/caption-missing)"]
+automation = "automated"
+method = "shared"
+source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
+capabilities = ["dom"]
+applicability = """
+Every figure[data-viz] (opt-in convention) that is presented."""
+expectation = """
+A visualisation needs a <figcaption> as a direct child to be named (HTML: the
+figcaption child captions the figure): violation at the figure. A figcaption
+nested deeper is not the figure's caption and fails. A figure inside a hidden
+panel is not presented and is not judged (#725)."""
+positive = ["content_viz_broken", "display_modes_viz_static"]
+negative = ["content_viz_ok", "content_viz_hidden_panel"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_viz_hidden_panel"] }
+native_vs_aria = { not_relevant = "The convention is element/attribute-based; aria-label is not a figcaption." }
+alternative_labels = { not_relevant = "The convention asks for its own layers; aria-label on the figure does not replace them." }
+frames_shadow_dom = { cases = ["content_viz_broken"] }
+responsive = { not_relevant = "Convention markup does not change with the viewport." }
+dynamic = { cases = ["content_viz_broken"] }
+thresholds = { not_relevant = "Direct child decides: a nested figcaption fails (content_viz_broken #floor-explorer)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "viz/static-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/static-missing)"]
+automation = "automated"
+method = "shared"
+source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
+capabilities = ["dom"]
+applicability = """
+Every presented figure[data-viz] of kind 3d or interactive (case-insensitive)."""
+expectation = """
+A moving or operable visualisation without a [data-viz-static] still image has
+nothing to show in calm mode (2.2.2): violation at the figure. Other kinds
+(chart, map) are not judged. A figure inside a hidden panel is not presented
+and not judged."""
+positive = ["content_viz_broken", "display_modes_viz_static"]
+negative = ["content_viz_ok", "display_modes_viz_static", "content_viz_hidden_panel"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_viz_hidden_panel"] }
+native_vs_aria = { not_relevant = "Attribute-based convention; no ARIA form." }
+alternative_labels = { not_relevant = "The convention asks for its own layers; aria-label on the figure does not replace them." }
+frames_shadow_dom = { not_relevant = "Same figure walk as viz/caption-missing, whose shadow case covers it." }
+responsive = { not_relevant = "Convention markup does not change with the viewport." }
+dynamic = { not_relevant = "Same figure walk as viz/caption-missing, whose dynamic case covers it." }
+thresholds = { not_relevant = "Kind boundary: 3d/interactive in any case apply, chart/map do not (content_viz_broken #floor-explorer, content_viz_ok)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "viz/table-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/table-missing)"]
+automation = "automated"
+method = "shared"
+source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
+capabilities = ["dom"]
+applicability = """
+Every figure[data-viz="chart"]."""
+expectation = """
+A chart without a <table> of its values loses the relationships between them
+(1.3.1); few values may be conveyed by a sentence, so this is REVIEW at the
+figure. A table anywhere in the figure passes."""
+positive = ["content_viz_broken", "display_modes_viz_static"]
+negative = ["content_viz_ok", "display_modes_viz_static"]
+not_applicable = ["content_plain_article", "content_viz_hidden_panel"]
+
+[rule.variants]
+visibility = { not_relevant = "Visibility of the figure does not change whether its values are in a table; content_viz_hidden_panel holds no chart." }
+native_vs_aria = { not_relevant = "A role=table structure inside the figure is not a <table>; the convention names the element." }
+alternative_labels = { not_relevant = "The convention asks for its own layers; aria-label on the figure does not replace them." }
+frames_shadow_dom = { cases = ["content_viz_broken"] }
+responsive = { not_relevant = "Convention markup does not change with the viewport." }
+dynamic = { cases = ["content_viz_broken"] }
+thresholds = { not_relevant = "Kind boundary: only data-viz=\"chart\" applies (content_viz_ok #branch-map is a map)." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "image-alt"
+error_test = "tree_rules_fail_the_audit_without_an_accessibility_tree"
+automation = "automated"
+method = "tree"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content (ARIA6, ARIA10, F65); WAI-ARIA 1.2 img role (name required); accname 1.2"
+capabilities = ["ax_tree"]
+applicability = """
+Exposed AX image nodes that are not <img> (role="img" on other elements; <svg> findings are dropped for svg/name-missing), plus nodes named like icons."""
+expectation = """
+An element with role="img" (not <img>, not <svg>) without an accessible name
+has no text alternative: violation at the element. A name from aria-label /
+aria-labelledby passes; aria-hidden or otherwise ignored nodes are not exposed
+and not judged. A nameless graphic inside a link or button that has its own
+name adds nothing a user misses (the control carries the alternative) and
+passes. <img> belongs to images/alt-missing and is never reported here."""
+positive = ["content_images_broken"]
+negative = ["content_images_ok", "image_alt"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_images_ok"] }
+native_vs_aria = { cases = ["content_images_ok", "image_alt"] }
+alternative_labels = { cases = ["content_images_ok"] }
+frames_shadow_dom = { cases = ["content_images_broken"] }
+responsive = { not_relevant = "Reads the AX tree of each viewport; nothing about a role=img element's name depends on the viewport, and visibility is covered by the visibility cases." }
+dynamic = { not_relevant = "The AX tree is read at audit time; script-inserted content is exposed the same way (images/alt-missing's dynamic case shares the page)." }
+thresholds = { not_relevant = "Presence of an accessible name decides; there is no count or size threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/text_alternatives.rs"
+change = "disable detection: never report a nameless image node"
+find = "if !image.has_name() {"
+replace = "if false {"
+killed_by = "corpus:content_images_broken"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/text_alternatives.rs"
+change = "drop the named-control exemption"
+find = "return ancestor.has_name();"
+replace = "return false;"
+killed_by = "corpus:content_images_ok"
+
+[[rule]]
+id = "media-alt"
+automation = "manual"
+manual_reason = """
+Whether prerecorded media has a full text alternative or audio description is
+a judgement about the content of the media; the DOM can only show that media
+(or a transcript link) exists. The note stands on every page because custom
+players are not reliably detectable."""
+method = "page"
+source = "WCAG 2.2 SC 1.2.8 Media Alternative (Prerecorded) (AAA), G69, G159"
+capabilities = ["dom"]
+applicability = """
+Every page (page-wide manual note, enriched when <video> / iframe embeds and a transcript link are found)."""
+expectation = """
+Always one UNTESTED note: on pages with video it names the video and, when a
+nearby link mentions a transcript, quotes it as evidence (presence, not
+completeness); without detected media it is the general 1.2.8 reminder. Never a
+pass, never a violation."""
+page_level = true
+ambient = true
+positive = ["media_and_motion", "content_plain_article"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "The note is page-wide; it does not depend on any element's visibility." }
+native_vs_aria = { not_relevant = "Detection reads <video> and iframe[src]; ARIA plays no part." }
+alternative_labels = { not_relevant = "A transcript link only enriches the message; it never turns the note into a pass." }
+frames_shadow_dom = { not_relevant = "Page-wide note on the top document; frames and shadow roots do not change it." }
+responsive = { not_relevant = "Page-wide note; the viewport does not change it." }
+dynamic = { not_relevant = "Page-wide note; content inserted after load only changes the message." }
+thresholds = { not_relevant = "No threshold: the note is unconditional." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_alternative.rs"
+change = "drop the page-wide note on pages without detected media"
+find = """
+    if !has_video && !has_embed {
+        // No video found"""
+replace = """
+    if !has_video && !has_embed {
+        return Vec::new();
+        // No video found"""
+killed_by = "corpus:content_plain_article"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_alternative.rs"
+change = "turn the video note into a positive signal"
+find = """
+    .with_kind(Outcome::Untested)]
+}"""
+replace = """
+    .as_positive()]
+}"""
+killed_by = "corpus:media_and_motion"
+
+[[rule]]
+id = "video-caption"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track"
+capabilities = ["dom", "network"]
+applicability = """
+Pages with a rendered native <video> or a known video-platform embed iframe."""
+expectation = """
+Pass (positive signal, no finding) only when every rendered <video> has a
+<track kind="captions"|"subtitles"> whose src resolves same-origin as a caption
+file (.vtt/.srt or a vtt content type). Anything less — no caption track, a
+track that does not resolve or is cross-origin, only description/chapter
+tracks, more caption tracks than the probe budget of 10 checks, or third-party
+embeds — is one page-level UNTESTED note: captions may exist in ways the tool
+cannot see (open captions, platform players), so never a violation. A page
+without rendered video is not applicable; a video in a hidden panel is not
+presented in this state."""
+page_level = true
+positive = ["content_video_uncaptioned", "content_video_partly_captioned", "content_video_dynamic", "content_video_eleven_tracks", "media_and_motion"]
+negative = ["content_video_captioned", "content_video_ten_tracks"]
+not_applicable = ["content_plain_article", "content_video_hidden"]
+
+[rule.variants]
+visibility = { cases = ["content_video_hidden"] }
+native_vs_aria = { not_relevant = "Applies to native <video> and platform embeds; ARIA has no caption mechanism." }
+alternative_labels = { cases = ["content_video_captioned", "content_video_uncaptioned"] }
+frames_shadow_dom = { not_relevant = "Videos inside frames are the frame's content; the rule reads the top document. Third-party embeds are recognised by host and need network access, not exercised offline." }
+responsive = { not_relevant = "Caption tracks do not depend on the viewport." }
+dynamic = { cases = ["content_video_dynamic"] }
+thresholds = { cases = ["content_video_ten_tracks", "content_video_eleven_tracks"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "claim a pass when any video is captioned"
+find = "if native_count > 0 && captioned_count == native_count {"
+replace = "if native_count > 0 && captioned_count > 0 {"
+killed_by = "corpus:content_video_partly_captioned"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "shift the probe budget up"
+find = "const MAX_TRACKS_CHECKED: usize = 10;"
+replace = "const MAX_TRACKS_CHECKED: usize = 11;"
+killed_by = "corpus:content_video_eleven_tracks"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "shift the probe budget down"
+find = "const MAX_TRACKS_CHECKED: usize = 10;"
+replace = "const MAX_TRACKS_CHECKED: usize = 9;"
+killed_by = "corpus:content_video_ten_tracks"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "stop accepting .srt files"
+find = "if path.ends_with(\".vtt\") || path.ends_with(\".srt\") {"
+replace = "if path.ends_with(\".vtt\") {"
+killed_by = "corpus:content_video_captioned"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "report on pages without video"
+find = "if videos.is_empty() && embed_count == 0 {"
+replace = "if false {"
+killed_by = "corpus:content_plain_article"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "count description tracks as captions"
+find = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitles\")"
+replace = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitles\" | \"descriptions\")"
+killed_by = "lib:test_track_kind_is_caption_like"
+
+[[rule]]
+id = "frame-tested"
+automation = "manual"
+manual_reason = """
+The rule only flags embedded content from another origin for a human: whether
+that content meets WCAG is outside the page's own markup and is never
+concluded automatically."""
+method = "page"
+source = "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin"
+capabilities = ["dom", "geometry", "frames"]
+applicability = """
+Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the document, its shadow roots included."""
+expectation = """
+One UNTESTED note per perceivable frame whose document is cross-origin to the
+page, located at the frame. Same-origin and srcdoc frames, and frames that are
+not perceivable (hidden, aria-hidden, display:none, at most 1px in either
+dimension), get no note. A frame inserted by script or inside a shadow root is
+part of the page and is judged the same way. Never a pass or a violation."""
+positive = ["content_frames_cross_origin"]
+not_applicable = ["content_frames_same_origin", "content_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["content_frames_cross_origin"] }
+native_vs_aria = { not_relevant = "role none/presentation removes the frame from the note like aria-hidden; content_frames_cross_origin covers aria-hidden." }
+alternative_labels = { not_relevant = "Frame titles are frames/name-missing; a title does not make embedded content reviewed." }
+frames_shadow_dom = { cases = ["content_frames_cross_origin", "content_frames_same_origin"] }
+responsive = { not_relevant = "Origin does not depend on the viewport; size is covered by the threshold case." }
+dynamic = { cases = ["content_frames_cross_origin"] }
+thresholds = { cases = ["content_frames_cross_origin"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "flag same-origin frames too"
+find = "if (!crossOrigin) continue;"
+replace = ""
+killed_by = "corpus:content_frames_same_origin"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "shift the size threshold"
+find = "if (rect.width <= 1 || rect.height <= 1) continue;"
+replace = "if (rect.width <= 2 || rect.height <= 2) continue;"
+killed_by = "corpus:content_frames_cross_origin"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "stop skipping hidden and aria-hidden frames"
+find = "if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;"
+replace = ""
+killed_by = "corpus:content_frames_cross_origin"

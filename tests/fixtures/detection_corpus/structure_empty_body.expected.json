@@ -1,0 +1,60 @@
+{
+  "case": "structure_empty_body",
+  "expectations": [
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "headings/none",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "selector": "html",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "document/title-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "verdict": "not_applicable"
+    }
+  ]
+}

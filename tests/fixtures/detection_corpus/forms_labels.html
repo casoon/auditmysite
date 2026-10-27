@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery preferences</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Delivery preferences</h1>
+<!-- G2 #783: every labelling mechanism next to fields without one. A field needs a programmatic name (4.1.2, 1.3.1) and a visible label (3.3.2); a placeholder or title names it but is no lasting visible label. -->
+<form action="/preferences" method="post">
+  <p><input id="coupon-code" name="coupon" type="text"></p>
+  <p><textarea id="gift-message" name="gift"></textarea></p>
+  <p><select id="wrap-style" name="wrap"><option>Plain</option><option>Festive</option></select></p>
+  <p><input id="voucher" name="voucher" type="text" placeholder="Voucher code"></p>
+  <p><input id="door-code" name="door" type="text" title="Door code"></p>
+  <p><label for="lbl-for">Gate number</label> <input id="lbl-for" name="gate" type="text"></p>
+  <p><label>Floor <input id="lbl-wrap" name="floor" type="text"></label></p>
+  <p><input id="lbl-aria" name="stairs" type="text" aria-label="Stairwell"></p>
+  <p><span id="bell-label">Doorbell label</span> <input id="lbl-by" name="bell" type="text" aria-labelledby="bell-label"></p>
+  <p><label for="lbl-ph">Courier note</label> <input id="lbl-ph" name="note" type="text" placeholder="Leave at the door"></p>
+  <p><label for="lbl-title">Drop-off spot</label> <input id="lbl-title" name="spot" type="text" title="Where to leave the parcel"></p>
+  <p><label for="lbl-select">Wrapping paper</label> <select id="lbl-select" name="paper"><option>Kraft</option><option>Gloss</option></select></p>
+  <p><label for="lbl-area">Card text</label> <textarea id="lbl-area" name="card"></textarea></p>
+  <p><span id="title-aria" role="textbox" contenteditable="true" tabindex="0" title="Gift note"></span></p>
+  <input type="hidden" name="token" value="abc">
+  <p><button type="submit">Save preferences</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

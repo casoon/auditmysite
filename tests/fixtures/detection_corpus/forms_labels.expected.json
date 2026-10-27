@@ -1,0 +1,106 @@
+{
+  "case": "forms_labels",
+  "expectations": [
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#coupon-code",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "textarea#gift-message",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "select#wrap-style",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#voucher",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#door-code",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#lbl-for",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#lbl-wrap",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#lbl-aria",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#lbl-by",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "select#lbl-select",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "textarea#lbl-area",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#voucher",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#lbl-ph",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#door-code",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#lbl-title",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#voucher",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "span#title-aria",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

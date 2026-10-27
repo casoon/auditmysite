@@ -1,0 +1,11 @@
+{
+  "case": "content_lists_responsive_role",
+  "expectations": [
+    {"rule_id": "lists/role-redundant", "selector": "ul#cards", "verdict": "pass"},
+    {"rule_id": "lists/role-redundant", "selector": "ol#chips", "verdict": "pass"},
+    {"rule_id": "lists/invalid-structure", "verdict": "pass"},
+    {"rule_id": "lists/empty", "verdict": "pass"},
+    {"rule_id": "lists/item-outside-list", "verdict": "pass"},
+    {"rule_id": "lists/term-without-definition", "verdict": "not_applicable"}
+  ]
+}

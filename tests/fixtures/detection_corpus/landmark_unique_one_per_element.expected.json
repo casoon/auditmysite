@@ -1,6 +1,35 @@
 {
   "case": "landmark_unique_one_per_element",
   "expectations": [
-    { "rule_id": "landmarks/not-unique", "verdict": "needs_review" }
+    {
+      "rule_id": "landmarks/not-unique",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "headings/section-without-heading",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

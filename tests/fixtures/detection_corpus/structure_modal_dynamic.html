@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- A consent wall (#783): the application has not rendered yet, and a
+         script sets the page language and the document title and opens a modal
+         dialog after load.
+         While the dialog is open, the page's headings and main landmark are
+         missing for the moment of measurement, not necessarily for the page. -->
+    <div id="app"></div>
+    <dialog id="consent" aria-label="Cookie settings">
+        <p>We use cookies to remember your shopping basket.</p>
+        <form method="dialog">
+            <button value="accept">Accept</button>
+            <button value="reject">Reject</button>
+        </form>
+    </dialog>
+    <script>
+        document.documentElement.lang = 'en';
+        document.title = 'Cookie settings – Acme Hardware';
+        document.getElementById('consent').showModal();
+    </script>
+</body>
+</html>

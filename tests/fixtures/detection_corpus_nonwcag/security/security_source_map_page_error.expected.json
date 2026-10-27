@@ -1,0 +1,26 @@
+{
+  "case": "security_source_map_page_error",
+  "note": "HEAD answers, GET of the page fails with 500: the header checks ran, the source-map check had no document to read.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "fixture": {
+    "page_get_status": 500
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Source Map:public_source_map",
+      "verdict": "errored"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Store finder – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+        iframe { border: 1px solid #555; }
+        .collapsed { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Embedded widgets and help texts (#783). -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/stores/">Stores</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1>Store finder</h1>
+
+        <h2>Map</h2>
+        <!-- Frames without an accessible name: no title at all, and an empty title. -->
+        <iframe id="map-frame" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html lang='en'><head><title>Map</title></head><body><p>Map of Berlin</p></body></html>"></iframe>
+        <iframe id="weather-frame" title="" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html lang='en'><head><title>Weather</title></head><body><p>Sunny, 21 degrees</p></body></html>"></iframe>
+        <!-- Named by title and by aria-label: fine. The first embedded document
+             has a default title, which titles the frame document, not this page;
+             the second embedded document has no lang. -->
+        <iframe id="hours-frame" title="Opening hours" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html lang='en'><head><title>Untitled</title></head><body><p>Open 8 to 18</p></body></html>"></iframe>
+        <iframe id="reviews-frame" aria-label="Customer reviews" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html><head><title>Reviews</title></head><body><p>Four out of five stars</p></body></html>"></iframe>
+        <!-- Presentational, collapsed and aria-hidden frames are not exposed. -->
+        <iframe id="tracking-frame" role="presentation" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html lang='en'><head><title>t</title></head><body></body></html>"></iframe>
+        <iframe id="collapsed-frame" class="collapsed" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html><head><title>c</title></head><body><p>Hidden</p></body></html>"></iframe>
+        <iframe id="hidden-frame" aria-hidden="true" tabindex="-1" width="300" height="150"
+            srcdoc="<!DOCTYPE html><html lang='en'><head><title>h</title></head><body></body></html>"></iframe>
+
+        <h2>Find a store</h2>
+        <form action="/stores" method="get">
+            <!-- The hint id occurs twice and is referenced: ambiguous. -->
+            <label for="postcode">Postcode</label>
+            <input id="postcode" name="postcode" type="text" autocomplete="postal-code" aria-describedby="postcode-hint">
+            <p id="postcode-hint">Five digits, for example 10115.</p>
+            <p id="postcode-hint">We only use it to sort the list.</p>
+            <!-- Duplicated but referenced by nothing: no relationship breaks. -->
+            <p id="promo-text">Free parking at every store.</p>
+            <p id="promo-text">Gift cards available.</p>
+            <button type="submit">Search</button>
+        </form>
+
+        <h2>Store card</h2>
+        <!-- The component reuses the id inside its own shadow root; IDREFs
+             resolve within their own tree, so neither reference is ambiguous. -->
+        <store-card></store-card>
+        <p id="card-note">Prices may vary by store.</p>
+        <script>
+            const card = document.querySelector('store-card').attachShadow({ mode: 'open' });
+            // The card also has an empty heading and an untitled frame inside its
+            // shadow root.
+            card.innerHTML = '<h3 id="card-heading"></h3><p id="card-note">Mitte branch</p><p aria-describedby="card-note">Open Sundays</p>' +
+                '<iframe id="card-frame" width="300" height="150" srcdoc="<!DOCTYPE html><html><head><title>Card</title></head><body><p>Route</p></body></html>"></iframe>';
+        </script>
+        <p aria-describedby="card-note">All stores</p>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+</body>
+</html>

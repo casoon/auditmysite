@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Justified paragraphs and tight line height</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .article p { text-align: justify; }
+  .notes p { line-height: 1.4; }
+  /* Exactly 1.5 meets the 1.4.8 line spacing. */
+  .intro { line-height: 1.5; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p class="intro">City library news</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Opening of the new reading room</h1>
+  <div class="article">
+    <p>The new reading room on the second floor opens next Monday. It offers forty
+       quiet desks, daylight from three sides and a small collection of local history.</p>
+    <p>Visitors can reserve a desk online or at the front desk, for up to four hours
+       a day, free of charge for all library card holders.</p>
+  </div>
+  <div class="notes">
+    <p>Please note that the lift to the second floor is closed for maintenance until
+       the end of the month; staff will bring requested items downstairs.</p>
+  </div>
+</main>
+<footer><p class="intro">Footer text</p></footer>
+</body>
+</html>

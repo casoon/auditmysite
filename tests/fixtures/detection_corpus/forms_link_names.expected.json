@@ -1,0 +1,237 @@
+{
+  "case": "forms_link_names",
+  "expectations": [
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-icon",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-aria",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-img-alt",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-sr",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-labelledby",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#ln-anchor",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "names/required-missing",
+      "selector": "span#ln-aria-role",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "span#ln-aria-role",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "span#ln-aria-role-named",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#bn-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#bn-icon",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "span#bn-aria-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "input#bn-input-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#bn-aria",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#bn-text",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "input#bn-submit-default",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "span#bn-aria-named",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#gn-context",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#gn-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#gn-good",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#plo-open",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#gn-aria-label",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#gn-sr",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#gn-context",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#gn-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#plo-open",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#gn-good",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#gn-aria-label",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#gn-sr",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "a#url-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "a#url-context",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#sc-x",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#sc-two",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#sc-digit",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#nw-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#nw-told",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#nw-aria",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#nw-self",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#ub-hash",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#ub-js",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#ub-role",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#ub-real",
+      "verdict": "absent"
+    }
+  ]
+}

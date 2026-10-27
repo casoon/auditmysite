@@ -1,0 +1,38 @@
+{
+  "case": "schema_rules_graph_and_arrays",
+  "note": "@graph entries inherit the container's @context and are assessed one by one; a top-level array is a list of nodes; a full type IRI names the same type as its short form. The Product in the graph has neither offers, review nor aggregateRating.",
+  "expectations": [
+    {
+      "rule_id": "organization",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "web_site",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "web_page",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "breadcrumb",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "article",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "person",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "product_snippet",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "needs_review"
+    }
+  ]
+}

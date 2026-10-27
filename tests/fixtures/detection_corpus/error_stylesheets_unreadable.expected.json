@@ -1,0 +1,25 @@
+{
+  "case": "error_stylesheets_unreadable",
+  "expectations": [
+    {
+      "rule_id": "focus/outline-removed",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "motion/reduced-motion-ignored",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "orientation/content-hidden",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "text/justified",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "text/line-height-tight",
+      "verdict": "errored"
+    }
+  ]
+}

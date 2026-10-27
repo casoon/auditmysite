@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Club registration</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Club registration</h1>
+<!-- G2 #783: required fields with and without a visible indication, and fields expecting a format with and without instructions (3.3.2). -->
+<form action="/register" method="post">
+  <p>Fields marked * are required.</p>
+  <p><label for="req-star">Club name *</label> <input id="req-star" name="club" type="text" required></p>
+  <p><label for="req-word">Team (required)</label> <input id="req-word" name="team" type="text" required></p>
+  <p><label for="req-desc">Sport</label> <input id="req-desc" name="sport" type="text" required aria-describedby="req-desc-hint"> <span id="req-desc-hint">Required.</span></p>
+  <p><label for="req-bare">Shirt size</label> <input id="req-bare" name="shirt" type="text" required></p>
+  <p><label for="req-aria">Shoe size</label> <input id="req-aria" name="shoe" type="text" aria-required="true"></p>
+  <p><label for="req-false">Locker</label> <input id="req-false" name="locker" type="text" aria-required="false"></p>
+  <p><label for="ins-date">Start date</label> <input id="ins-date" name="start" type="text"></p>
+  <p><label for="ins-pass">Bus pass number</label> <input id="ins-pass" name="bus" type="text"></p>
+  <p><label for="ins-date-hint">End date</label> <input id="ins-date-hint" name="end" type="text" aria-describedby="end-fmt"> <span id="end-fmt">Format: DD.MM.YYYY</span></p>
+  <p><label for="ins-date-label">Renewal date (DD.MM.YYYY)</label> <input id="ins-date-label" name="renewal" type="text"></p>
+  <p><label for="ins-native">Trial date</label> <input id="ins-native" name="trial" type="date"></p>
+  <p><label for="ins-ph">Membership date</label> <input id="ins-ph" name="membership" type="text" placeholder="e.g. 01.03.2026"></p>
+  <p><span id="ins-aria" role="textbox" contenteditable="true" tabindex="0" aria-label="Pickup date"></span></p>
+  <p><label for="ins-passage">Passage title</label> <input id="ins-passage" name="passage" type="text"></p>
+  <p><button type="submit">Register</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

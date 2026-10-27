@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Sign in</h1>
+<!-- G2 #783: 3.3.8 Accessible Authentication. Blocking paste on a password or one-time-code field fails (F109); a CAPTCHA in a sign-in form needs review (object recognition or an alternative); a CAPTCHA outside authentication is not 3.3.8. -->
+<form id="login-attr" action="/login" method="post">
+  <p><label for="user-a">Username</label> <input id="user-a" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-attr">Password</label> <input id="pw-attr" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-listener" action="/login" method="post">
+  <p><label for="user-b">Username</label> <input id="user-b" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-listener">Password</label> <input id="pw-listener" name="pw" type="password" autocomplete="current-password"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-alert" action="/login" method="post">
+  <p><label for="user-c">Username</label> <input id="user-c" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-alert">Password</label> <input id="pw-alert" name="pw" type="password" autocomplete="current-password" onpaste="alert('Please type your password.'); return false"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-otp" action="/verify" method="post">
+  <p><label for="otp-code">Code from your app</label> <input id="otp-code" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" onpaste="return false"></p>
+  <p><button type="submit">Verify</button></p>
+</form>
+<form id="login-ok" action="/login" method="post">
+  <p><label for="user-d">Username</label> <input id="user-d" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-ok">Password</label> <input id="pw-ok" name="pw" type="password" autocomplete="current-password"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-sanitise" action="/login" method="post">
+  <p><label for="user-e">Username</label> <input id="user-e" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-sanitise">Password</label> <input id="pw-sanitise" name="pw" type="password" autocomplete="current-password"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-readonly" action="/login" method="post">
+  <p><label for="pw-readonly">Generated password</label> <input id="pw-readonly" name="pw" type="password" autocomplete="new-password" value="Zr8-kq2-Lm4" readonly onpaste="return false"></p>
+  <p><button type="submit">Use this password</button></p>
+</form>
+<form id="login-captcha" action="/login" method="post">
+  <p><label for="user-f">Username</label> <input id="user-f" name="user" type="text" autocomplete="username"></p>
+  <p><label for="pw-captcha">Password</label> <input id="pw-captcha" name="pw" type="password" autocomplete="current-password"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-img-captcha" action="/login" method="post">
+  <p><label for="pw-img">Password</label> <input id="pw-img" name="pw" type="password" autocomplete="current-password"></p>
+  <p><img id="captcha-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='44'%3E%3Crect width='120' height='44' fill='%23eee'/%3E%3Ctext x='10' y='30' font-size='20'%3EX7pQ2%3C/text%3E%3C/svg%3E" alt="Characters to type: X 7 p Q 2" width="120" height="44"></p>
+  <p><label for="captcha-answer">Characters shown</label> <input id="captcha-answer" name="answer" type="text" autocomplete="off"></p>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="login-invisible" action="/login" method="post">
+  <p><label for="pw-invisible">Password</label> <input id="pw-invisible" name="pw" type="password" autocomplete="current-password"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key" data-size="invisible"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<form id="contact-captcha" action="/contact" method="post">
+  <p><label for="msg">Message</label> <textarea id="msg" name="msg"></textarea></p>
+  <div class="h-captcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Send message</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+<script>
+  document.getElementById('pw-listener').addEventListener('paste', function (e) { e.preventDefault(); });
+  document.getElementById('pw-sanitise').addEventListener('paste', function (e) {
+    e.preventDefault();
+    var text = (e.clipboardData || window.clipboardData).getData('text').trim();
+    this.value += text;
+  });
+</script>
+</body>
+</html>

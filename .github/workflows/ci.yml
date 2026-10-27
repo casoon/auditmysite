@@ -296,15 +296,6 @@ jobs:
           CI: "true"
         run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
 
-      - name: Release rule contracts (positive and negative evidence)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          failed=0
-          for t in detection_corpus_completeness nonwcag_detection_corpus_completeness; do
-            cargo test --test "$t" release_ -- --ignored --nocapture || failed=1
-          done
-          exit "$failed"
-
       # WCAG/schema/vulnerable-libs/easy-language detection-corpus tests
       # (#553-#558): real Chrome, diffed against ground-truth fixtures.
       # These are separate `#[ignore]`-gated test binaries and were never
@@ -318,6 +309,13 @@ jobs:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
         run: cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
+
+      - name: Detector error cases
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test rule_error_cases -- --include-ignored --nocapture --test-threads=1
 
       - name: Detection corpus (schema rules)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
@@ -357,3 +355,36 @@ jobs:
           CI: "true"
         run: cargo test --test score_calibration_test -- --ignored --nocapture --test-threads=1
 
+  # Test strength of the detectors (#783): every targeted mutation in the
+  # rule contracts must turn its named test red. Rebuilds once per mutation,
+  # so it runs for release tags only; the contract gate itself
+  # (tests/rule_contract_gate.rs) runs in every `cargo test` above.
+  mutation-check:
+    name: Detector mutation check
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Targeted detector mutations
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: python3 scripts/mutation-check.py

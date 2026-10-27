@@ -1,0 +1,76 @@
+{
+  "case": "structure_landmark_duplicates",
+  "expectations": [
+    {
+      "rule_id": "landmarks/main-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/not-top-level",
+      "selector": "div#promo",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/banner-duplicate",
+      "selector": "div#promo",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/contentinfo-duplicate",
+      "selector": "div#cookie-note",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "selector": "header#site-header",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "selector": "div#promo",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "selector": "footer#site-footer",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "selector": "div#cookie-note",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "headings/h1-multiple",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

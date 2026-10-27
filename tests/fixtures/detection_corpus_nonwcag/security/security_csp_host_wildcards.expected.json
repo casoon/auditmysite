@@ -1,0 +1,51 @@
+{
+  "case": "security_csp_host_wildcards",
+  "note": "A wildcard host in script-src and a bare * in img-src.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://*.cdn.example; img-src *; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "pass"
+    }
+  ]
+}

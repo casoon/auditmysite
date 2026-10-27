@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exhibition page with a breadcrumb</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <header><p>Example Museum</p></header>
+    <nav aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/visit">Visit</a>
+        <a href="/exhibitions">Exhibitions</a>
+    </nav>
+    <!-- absent (2.4.8): the breadcrumb trail shows where the page sits -->
+    <nav aria-label="Breadcrumb">
+        <a href="/">Home</a> /
+        <a href="/exhibitions">Exhibitions</a> /
+        <span>Dutch masters</span>
+    </nav>
+    <main id="main">
+        <h1>Dutch masters</h1>
+        <p>Forty paintings from the seventeenth century.</p>
+    </main>
+    <footer><p>Example Museum footer</p></footer>
+    <script>
+        // absent (2.4.1): the skip link is inserted by a script, before the first link
+        var skip = document.createElement('a');
+        skip.className = 'skip';
+        skip.href = '#main';
+        skip.textContent = 'Skip to main content';
+        document.body.insertBefore(skip, document.body.firstChild);
+    </script>
+</body>
+</html>

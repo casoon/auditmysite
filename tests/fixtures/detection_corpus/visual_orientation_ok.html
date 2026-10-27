@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout that adapts to the orientation without hiding content</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  /* A full turn and a plain shift: no rotation remains. */
+  html { transform: rotate(360deg); }
+  body { transform: translateX(0); }
+  .gallery { display: block; }
+  @media (orientation: landscape) {
+    .gallery { display: grid; grid-template-columns: 1fr 1fr; }
+    /* Breakpoint marker on a pseudo-element, and a rule for an element
+       this page does not have: neither hides content here. */
+    body::before { content: "landscape"; display: none; }
+    .promo-banner { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Photo gallery</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Gallery</h1>
+  <div class="gallery">
+    <p>Harbour at dawn</p>
+    <p>Old town square</p>
+  </div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

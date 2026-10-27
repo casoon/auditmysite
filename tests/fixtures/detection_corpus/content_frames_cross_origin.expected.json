@@ -1,0 +1,9 @@
+{
+  "case": "content_frames_cross_origin",
+  "expectations": [
+    {"rule_id": "frame-tested", "selector": "iframe#booking", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "frame-tested", "selector": "iframe#small-map", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "frame-tested", "selector": "iframe#shadow-calendar", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "frame-tested", "selector": "iframe#late-reviews", "verdict": "needs_review", "occurrences": 1}
+  ]
+}

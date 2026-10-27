@@ -4,15 +4,16 @@
 //! der inerte Dialog (`inert/dialog-inert`) laufen seit #691 im geteilten
 //! Bestand (siehe `wcag::shared`), der fehlende Name offener Dialoge seit
 //! #692 als `dialog/name-missing`. Hier bleibt, was dort keine Entsprechung
-//! hat: der fehlende Name offener Menüs und Popover, das offene Popover mit
-//! `inert` und der Fokus in einem inerten Teilbaum -- Letzteres braucht das
-//! aktive Element der laufenden Seite.
+//! hat: der fehlende Name offener Menüs und Popover (nur Prüfhinweis -- weder
+//! HTML noch WAI-ARIA 1.2 verlangen dort einen Namen) und das offene Popover
+//! mit `inert`. Fokus in einem inerten Teilbaum gibt es nicht: HTMLs Focus
+//! Fixup nimmt ihn heraus, sobald der Teilbaum inert wird (#783).
 
 use chromiumoxide::Page;
 use tracing::warn;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{Evidence, RuleMetadata, Severity, Violation};
+use crate::wcag::types::{Evidence, Outcome, RuleMetadata, Severity, Violation};
 
 pub(super) const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
@@ -33,29 +34,57 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
         r##"
         const issues = [];
         const isVisible = el => {
-          const style = window.getComputedStyle(el);
+          // The element's own window: frame content has its own styles.
+          const style = el.ownerDocument.defaultView.getComputedStyle(el);
           const rect = el.getBoundingClientRect();
           return style.display !== 'none' &&
             style.visibility !== 'hidden' &&
             rect.width > 0 &&
             rect.height > 0;
         };
+        // Every element matching `selector` in the document, in all open
+        // shadow roots below it and in same-origin frames: a popover or menu
+        // inside a web component or an embedded frame is just as open, inert
+        // or unnamed as one in the light DOM (#783). A frame's elements carry
+        // the frames.rs selector shape "{iframe} [frame] {element}".
+        const deepQuery = selector => {
+          const found = [];
+          const walk = (root, frameSel) => {
+            root.querySelectorAll(selector).forEach(el => found.push({ el, frameSel }));
+            root.querySelectorAll('*').forEach(el => {
+              if (el.shadowRoot) walk(el.shadowRoot, frameSel);
+              if (el.tagName !== 'IFRAME' && el.tagName !== 'FRAME') return;
+              let doc = null;
+              try { doc = el.contentDocument; } catch (e) {}
+              if (!doc || !doc.documentElement) return;
+              const sel = __amsCssSelector(el);
+              walk(doc, frameSel ? frameSel + ' [frame] ' + sel : sel);
+            });
+          };
+          walk(document, null);
+          return found;
+        };
         const accessibleName = el => {
           const labelledby = el.getAttribute('aria-labelledby');
           if (labelledby) {
+            // IDREFs resolve within the element's own tree (document or
+            // shadow root).
+            const root = el.getRootNode();
             const text = labelledby
               .split(/\s+/)
-              .map(id => document.getElementById(id)?.textContent || '')
+              .map(id => root.getElementById(id)?.textContent || '')
               .join(' ')
               .trim();
             if (text) return text;
           }
           return (el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
         };
-        const push = (el, issue_type, message, attr, value) => {
+        const push = (el, frameSel, issue_type, message, attr, value, outcome) => {
+          const sel = __amsCssSelector(el);
           issues.push({
-            selector: __amsCssSelector(el),
+            selector: frameSel ? frameSel + ' [frame] ' + sel : sel,
             issue_type,
+            outcome,
             message,
             attr,
             value,
@@ -63,28 +92,25 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
           });
         };
 
-        document.querySelectorAll('[popover], [role="menu"]').forEach(el => {
+        deepQuery('[popover], [role="menu"]').forEach(({ el, frameSel }) => {
           const isOpenPopover = el.matches('[popover]:popover-open');
           const isMenu = el.getAttribute('role') === 'menu' && isVisible(el);
           // Ein Dialog -- auch als Popover -- ist `dialog/name-missing` im
           // geteilten Bestand (#692).
           const isDialog = el.matches('dialog, [role="dialog"], [role="alertdialog"]');
+          // WAI-ARIA 1.2 requires no name for `menu`, HTML none for a
+          // popover: whether the open surface is identifiable without one is a
+          // judgement call, never a confirmed violation.
           if ((isOpenPopover || isMenu) && !isDialog && !accessibleName(el)) {
-            push(el, 'interactive_surface_missing_name', 'Open menu or popover has no accessible name', 'aria-label', null);
+            push(el, frameSel, 'interactive_surface_missing_name', 'Open menu or popover has no accessible name', 'aria-label', null, 'review');
           }
           // Der inerte Dialog ist `inert/dialog-inert`, das sichtbare Menue
           // mit `inert` bewusst kein Befund mehr (#691); das offene Popover
           // deckt die geteilte Regel nicht ab.
           if (isOpenPopover && el.hasAttribute('inert')) {
-            push(el, 'active_surface_inert', 'Open popover is marked inert', 'inert', '');
+            push(el, frameSel, 'active_surface_inert', 'Open popover is marked inert', 'inert', '', 'fail');
           }
         });
-
-        const active = document.activeElement;
-        const inertAncestor = active && active.closest ? active.closest('[inert]') : null;
-        if (inertAncestor) {
-          push(inertAncestor, 'focus_inside_inert', 'Keyboard focus is currently inside an inert subtree', 'inert', '');
-        }
 
         return issues;
         "##,
@@ -132,6 +158,11 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
                 .get("value")
                 .and_then(|v| v.as_str())
                 .map(str::to_string);
+            let outcome = if issue.get("outcome").and_then(|v| v.as_str()) == Some("review") {
+                Outcome::Review
+            } else {
+                Outcome::Fail
+            };
 
             let mut violation = Violation::new(
                 MODERN_ATTRIBUTES_RULE.id,
@@ -142,6 +173,7 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
                 &selector,
             )
             .with_selector(&selector)
+            .with_kind(outcome)
             .with_rule_id(MODERN_ATTRIBUTES_RULE.axe_id)
             .with_tags(
                 MODERN_ATTRIBUTES_RULE

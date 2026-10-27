@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Libraries defined after load</title>
+  <script>
+    // A tag manager injects the libraries once the document has loaded.
+    document.addEventListener("DOMContentLoaded", function () {
+      var s = document.createElement("script");
+      s.textContent =
+        'window.jQuery = { fn: { jquery: "2.2.4" } };' +
+        'window.bootstrap = { Tooltip: { VERSION: "3.3.7" } };' +
+        'window.angular = { version: { full: "1.5.8" } };' +
+        'window.Handlebars = { VERSION: "4.0.5" };' +
+        'window._ = { VERSION: "3.10.1", runInContext: function () {} };' +
+        'window.Prototype = { Version: "1.7.3" };' +
+        'window.MooTools = { version: "1.5.2" };';
+      document.head.appendChild(s);
+    });
+  </script>
+</head>
+<body>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>Libraries defined after load</h1>
+
+  </main>
+</body>
+</html>

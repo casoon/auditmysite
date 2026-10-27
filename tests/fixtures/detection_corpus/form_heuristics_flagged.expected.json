@@ -1,8 +1,28 @@
 {
   "case": "form_heuristics_flagged",
   "expectations": [
-    { "rule_id": "forms/group-missing", "verdict": "needs_review" },
-    { "rule_id": "forms/instructions-missing", "verdict": "needs_review" },
-    { "rule_id": "forms/instructions-missing", "verdict": "pass" }
+    {
+      "rule_id": "forms/group-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#dob",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
   ]
 }

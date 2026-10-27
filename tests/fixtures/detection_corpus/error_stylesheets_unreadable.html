@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page whose stylesheets cannot be read</title>
+<style>a:focus { outline: none; } p { text-align: justify; line-height: 1; }</style>
+<script>
+  // Technical error case (#783): the stylesheet list throws, so the rules
+  // that read stylesheets lack their input and must say so.
+  Object.defineProperty(Document.prototype, "styleSheets", {
+    get: function () { throw new Error("sabotaged by the page"); }
+  });
+</script>
+<style>.target { display: inline-block; min-width: 44px; min-height: 44px; }</style>
+</head>
+<body>
+<header><p>Site</p></header>
+<a class="target" href="#main">Skip to main content</a>
+<nav aria-label="Primary"><a class="target" href="/" aria-current="page">Home page</a></nav>
+<main id="main"><h1>Heading</h1><p>Some text.</p></main>
+<footer><p>Footer</p></footer>
+</body>
+</html>

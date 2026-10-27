@@ -1,0 +1,93 @@
+{
+  "case": "visual_no_text",
+  "expectations": [
+    {
+      "rule_id": "contrast/text-insufficient",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "contrast/text-enhanced",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "contrast/control-undetermined",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "text/justified",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "text/line-height-tight",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "text-spacing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "css-overflow-hidden",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "orientation/content-hidden",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "motion/reduced-motion-ignored",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "motion/infinite-animation",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "timing/meta-refresh",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "display/toggle-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "display/init-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "display/text-not-visible",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "display/text-hidden",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    }
+  ]
+}

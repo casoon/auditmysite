@@ -1,12 +1,44 @@
 {
   "case": "missing_main_landmark",
   "expectations": [
-    { "rule_id": "landmarks/main-missing", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "landmarks/content-outside", "verdict": "violation" },
-    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
-    { "rule_id": "headings/none", "verdict": "pass" },
-    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review" },
-    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review" },
-    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review" }
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "headings/none",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

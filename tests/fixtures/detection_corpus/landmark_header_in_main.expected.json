@@ -1,8 +1,41 @@
 {
   "case": "landmark_header_in_main",
   "expectations": [
-    { "rule_id": "landmarks/not-unique", "verdict": "pass" },
-    { "rule_id": "landmarks/banner-duplicate", "verdict": "pass" },
-    { "rule_id": "landmarks/contentinfo-duplicate", "verdict": "pass" }
+    {
+      "rule_id": "landmarks/not-unique",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/not-top-level",
+      "verdict": "pass"
+    }
   ]
 }

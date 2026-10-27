@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reading lists</title>
+    <style>
+        .plain { list-style: none; padding: 0; }
+    </style>
+    <style>
+        nav a, .skip-link, button { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Reading lists</h1>
+        <h2>Genres</h2>
+        <ul id="genres">
+            <li>Crime</li>
+            <li>Poetry</li>
+            <script>/* analytics hook */</script>
+            <template><li>Placeholder</li></template>
+        </ul>
+        <h2>Steps to join</h2>
+        <ol id="join-steps"><li>Fill in the form.</li><li>Show an ID at the desk.</li></ol>
+        <h2>Branches</h2>
+        <ul role="list" class="plain" id="branch-list">
+            <li>North branch</li>
+            <li>South branch</li>
+        </ul>
+        <div role="list" id="aria-list"><div role="listitem">Mobile library</div></div>
+        <h2>Glossary</h2>
+        <dl id="glossary">
+            <div><dt>Interlibrary loan</dt><dd>A book borrowed from another library for you.</dd></div>
+            <div><dt>Renewal</dt><dd>Extending a loan by three weeks.</dd></div>
+        </dl>
+        <dl id="synonyms">
+            <dt>Reservation</dt>
+            <dt>Hold</dt>
+            <dd>A request to keep a book for you.</dd>
+        </dl>
+        <div role="term">Fine</div><div role="definition">A fee for late returns.</div>
+        <h2>Toolbar</h2>
+        <ul role="none" id="tool-list"><li role="none"><button type="button">Print</button></li></ul>
+        <h2>Shelves</h2>
+        <slotted-shelf><li>Atlas</li><li>Maps</li></slotted-shelf>
+        <script>
+            customElements.define('slotted-shelf', class extends HTMLElement {
+                connectedCallback() {
+                    this.attachShadow({ mode: 'open' }).innerHTML = '<ul id="shadow-shelf"><slot></slot></ul>';
+                }
+            });
+        </script>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

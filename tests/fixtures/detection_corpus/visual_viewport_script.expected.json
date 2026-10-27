@@ -1,0 +1,7 @@
+{
+  "case": "visual_viewport_script",
+  "expectations": [
+    { "rule_id": "zoom/viewport-locked", "selector": "meta#vp", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-missing", "verdict": "pass" }
+  ]
+}

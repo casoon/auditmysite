@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scrollable regions and keyboard access</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .box { height: 100px; overflow: auto; border: 1px solid #333; margin: 8px 0; padding: 0; }
+        .inner { margin: 0; padding: 0; }
+        /* One line on a wide screen, many lines on a phone: overflows on the mobile viewport only. */
+        .narrow-box { height: 40px; overflow: auto; border: 1px solid #333; margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Library</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/catalogue">Catalogue</a>
+    </nav>
+    <main id="main">
+        <h1>Loan conditions</h1>
+
+        <!-- violation: 30 px beyond the box, not focusable, nothing focusable inside -->
+        <div id="sr-over" class="box"><div class="inner" style="height: 130px">Loan conditions text that needs scrolling.</div></div>
+        <!-- pass: 10 px beyond the box, within the 13 px tolerance for sub-pixel layout -->
+        <div id="sr-tolerance" class="box"><div class="inner" style="height: 110px">Opening hours text.</div></div>
+        <!-- pass: overflows, but the region is focusable and named -->
+        <div id="sr-focusable" class="box" tabindex="0" role="region" aria-label="Fees"><div class="inner" style="height: 300px">Fees text.</div></div>
+        <!-- pass: overflows, but a link inside takes focus and scrolls it along -->
+        <div id="sr-link" class="box"><div class="inner" style="height: 300px">Rules, see <a href="#rules">all rules</a>.</div></div>
+        <!-- pass: overflows, but the only focusable element inside is inert -->
+        <div id="sr-inert" class="box" inert><div class="inner" style="height: 300px">Archived conditions.</div></div>
+        <!-- not reported: overflows, but has no text to reveal -->
+        <div id="sr-empty" class="box"><div class="inner" style="height: 300px"></div></div>
+        <!-- not reported: not rendered -->
+        <div id="sr-hidden" class="box" style="display: none"><div class="inner" style="height: 300px">Hidden text.</div></div>
+        <!-- violation on the mobile viewport only: the text wraps into many lines -->
+        <div id="sr-mobile" class="narrow-box"><p class="inner">Members can borrow up to ten items at a time, renew each item twice online, and return items at any branch of the library network without extra charge. Overdue items cost ten cents a day, and reserved items wait at the counter for one week.</p></div>
+        <!-- violation: filled by a script after load -->
+        <div id="sr-dynamic" class="box"></div>
+    </main>
+    <footer><p>Example Library footer</p></footer>
+    <script>
+        var filler = document.createElement('div');
+        filler.style.height = '300px';
+        filler.textContent = 'Reservation history loaded after the page.';
+        document.getElementById('sr-dynamic').appendChild(filler);
+    </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Booking - Example hotel</title>
+</head>
+<body>
+    <header>
+        <p>Example hotel</p>
+    </header>
+    <main>
+        <h1>Book a room</h1>
+        <p id="light-hint">Check-in from 15:00.</p>
+
+        <!-- A booking web component: the same defects inside an open shadow
+             root. IDREFs do not cross the shadow boundary, so the reference
+             to #light-hint from inside finds nothing. -->
+        <x-booking>
+            <template shadowrootmode="open">
+                <label for="s-arrival">Arrival</label>
+                <input id="s-arrival" type="date" aria-describedby="light-hint">
+                <label for="s-nights">Nights</label>
+                <input id="s-nights" type="number" aria-describedby="s-nights-hint">
+                <p id="s-nights-hint">At most 14 nights.</p>
+                <input id="s-guests" type="text" aria-label="Guests" aria-requird="true">
+                <button type="button" id="s-breakfast" aria-pressed="si">Breakfast</button>
+                <input type="checkbox" id="s-parking" aria-checked="false"><label for="s-parking">Parking</label>
+                <p id="s-note" aria-label="Note">Pets are welcome.</p>
+                <div id="s-rooms" role="lisbox">Double room</div>
+                <div id="s-region" role="landmark">Region</div>
+                <button type="button" id="s-book" role="button">Book now</button>
+                <div id="s-tab" role="tab" tabindex="0" aria-selected="true">Rooms</div>
+                <div id="s-steps" role="tablist" aria-label="Steps"><button type="button" id="s-step-1">Dates</button></div>
+                <div id="s-late" role="checkbox" tabindex="0">Late check-out</div>
+                <div id="s-budget" role="slider" tabindex="0" aria-valuenow="80"></div>
+                <button type="button" id="s-close" aria-label="&#x2715;">&#x2715;</button>
+                <button type="button" id="s-print" title="Print"><svg aria-hidden="true" width="8" height="8"></svg></button>
+                <button type="button" id="s-pay" aria-label="Checkout">Pay</button>
+                <button type="button" id="s-save" aria-describedby="s-save-desc">Save</button>
+                <span id="s-save-desc" hidden>Save</span>
+                <details id="s-details"><summary id="s-summary"></summary><p>Cancellation is free.</p></details>
+                <svg id="s-map" role="img" width="40" height="40"><rect width="40" height="40"></rect></svg>
+                <div role="tooltip" id="s-tip">Prices per night</div>
+                <div id="s-promo" popover="manual" inert aria-label="Offer"><button type="button">Claim</button></div>
+            </template>
+        </x-booking>
+
+        <!-- A same-origin iframe with dialog, live region and widget defects -->
+        <iframe id="frame-widgets" title="Room selector" style="width:600px;height:500px;border:0"
+            srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Room selector</title></head><body>
+<div role=&quot;group&quot; id=&quot;f-owner-a&quot; aria-label=&quot;A&quot; aria-owns=&quot;f-owned&quot;></div>
+<div role=&quot;group&quot; id=&quot;f-owner-b&quot; aria-label=&quot;B&quot; aria-owns=&quot;f-owned&quot;></div>
+<p id=&quot;f-owned&quot;>Sea view</p>
+<div role=&quot;tablist&quot; id=&quot;f-tabs&quot; aria-label=&quot;Room types&quot;><button type=&quot;button&quot; role=&quot;tab&quot; id=&quot;f-tab-1&quot;>Single</button></div>
+<label for=&quot;f-board&quot;>Board</label><input id=&quot;f-board&quot; type=&quot;text&quot; role=&quot;combobox&quot; aria-expanded=&quot;true&quot;>
+<ul role=&quot;listbox&quot; id=&quot;f-board-list&quot; aria-label=&quot;Board options&quot;><li role=&quot;option&quot; aria-selected=&quot;false&quot;>Half board</li></ul>
+<button type=&quot;button&quot; id=&quot;f-pop-missing&quot; popovertarget=&quot;nowhere&quot;>Prices</button>
+<button type=&quot;button&quot; id=&quot;f-pop-invalid&quot; popovertarget=&quot;f-not-popover&quot;>Terms</button>
+<p id=&quot;f-not-popover&quot;>Terms apply.</p>
+<button type=&quot;button&quot; id=&quot;f-acc&quot; aria-expanded=&quot;true&quot;>Extras</button>
+<div role=&quot;dialog&quot; id=&quot;f-dialog&quot;><p>Room held for 10 minutes.</p></div>
+<dialog open inert id=&quot;f-inert&quot; aria-label=&quot;Upgrade&quot;><button type=&quot;button&quot;>Upgrade</button></dialog>
+<div role=&quot;status&quot; id=&quot;f-status&quot; aria-live=&quot;off&quot;>2 rooms left</div>
+<button type=&quot;button&quot; id=&quot;f-dup&quot; aria-describedby=&quot;f-dup-desc&quot;>Reserve</button><span id=&quot;f-dup-desc&quot; hidden>Reserve</span>
+<div id=&quot;f-promo&quot; popover=&quot;manual&quot; inert aria-label=&quot;Deal&quot;><button type=&quot;button&quot;>Take deal</button></div>
+<script>document.getElementById('f-promo').showPopover();</script>
+</body></html>"></iframe>
+    </main>
+    <footer>
+        <p>Example hotel</p>
+    </footer>
+    <script>
+        document.querySelector('x-booking').shadowRoot.getElementById('s-promo').showPopover();
+    </script>
+</body>
+</html>

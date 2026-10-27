@@ -1,8 +1,10 @@
 //! WCAG 3.1.1 — language of same-origin iframe documents.
 //!
 //! Checks by JavaScript against `contentDocument` whether the `<html>` of
-//! each same-origin iframe carries a `lang`. Cross-origin iframes are
-//! skipped (they are handled by `frame-tested`).
+//! each same-origin iframe carries a `lang`, including frames inside open
+//! shadow roots. Cross-origin iframes are skipped (they are handled by
+//! `frame-tested`). A scan that cannot run is recorded under `html-has-lang`
+//! as not run, never as a clean pass.
 //!
 //! The element-level checks this scan used to carry (image-alt, link-name,
 //! button-name, label, duplicate-id) run since #715 as the full frame pass in
@@ -23,7 +25,16 @@ use crate::wcag::types::{Severity, Violation};
 /// `cur !== document.documentElement` simply never fires for iframe nodes,
 /// and the 5-iteration cap keeps selectors reasonably short).
 const IFRAME_SCAN_JS: &str = r#"
-  var iframes = document.querySelectorAll('iframe, frame');
+  // Frames inside open shadow roots belong to the page as well.
+  var iframes = [];
+  (function collect(root) {
+    var all = root.querySelectorAll('*');
+    for (var ai = 0; ai < all.length; ai++) {
+      var el = all[ai];
+      if (el.tagName === 'IFRAME' || el.tagName === 'FRAME') iframes.push(el);
+      if (el.shadowRoot) collect(el.shadowRoot);
+    }
+  })(document);
   var results = [];
 
   for (var fi = 0; fi < iframes.length; fi++) {
@@ -77,7 +88,7 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
         Err(e) => {
             warn!("iframe content scan JS failed: {}", e);
             return vec![crate::wcag::technical_rule_failure_for(
-                "same-origin-iframe",
+                IFRAME_HTML_HAS_LANG_AXE_ID,
                 crate::cli::WcagLevel::A,
                 "page_evaluation_failed",
             )];
@@ -86,7 +97,7 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
 
     let Some(value) = result.value() else {
         return vec![crate::wcag::technical_rule_failure_for(
-            "same-origin-iframe",
+            IFRAME_HTML_HAS_LANG_AXE_ID,
             crate::cli::WcagLevel::A,
             "missing_evaluation_value",
         )];

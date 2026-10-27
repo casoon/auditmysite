@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plugins and namespaces that look like libraries</title>
+  <!-- Plugins carry their own version, not the library's. -->
+  <script src="/ui/1.12.1/jquery-ui.min.js"></script>
+  <script src="/js/jquery.validate-1.19.5.min.js"></script>
+  <script src="/js/bootstrap-datepicker-1.9.0.min.js"></script>
+  <!-- Angular 2+ is not AngularJS. -->
+  <script type="module" src="/npm/@angular/core@17.3.0/fesm2022/core.mjs"></script>
+  <script>
+    // An application class and namespace that only share a name.
+    window.Prototype = class Prototype { constructor() { this.screens = []; } };
+    window.MooToolsMigration = { done: true, version: "2.0.0" };
+  </script>
+</head>
+<body>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>Plugins and namespaces that look like libraries</h1>
+
+  </main>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Library statistics</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Library statistics</h1>
+        <table id="prices">
+            <caption>Copy and print prices</caption>
+            <thead><tr><th scope="col" id="price-item">Item</th><th scope="col" id="price-cost">Cost</th></tr></thead>
+            <tbody>
+                <tr><td headers="price-item">Black and white page</td><td headers="price-cost">0.10</td></tr>
+                <tr><td headers="price-item">Colour page</td><td headers="price-item price-cost">0.50</td></tr>
+            </tbody>
+        </table>
+        <h2 id="hours-heading">Opening hours</h2>
+        <table id="hours" aria-labelledby="hours-heading">
+            <tr><th scope="row">Monday</th><td>9:00 to 18:00</td></tr>
+            <tr><th scope="row">Sunday</th><td></td></tr>
+        </table>
+        <table id="minimal" aria-label="Late returns">
+            <tr><th id="late-head">Late returns this week</th><td></td></tr>
+        </table>
+        <table id="layout" role="presentation">
+            <tr><td>Address: 1 Market Square</td><td>Phone: 555 0100</td></tr>
+        </table>
+        <div role="table" id="aria-branches" aria-label="Branches">
+            <div role="row"><div role="columnheader">Branch</div><div role="columnheader">Status</div></div>
+            <div role="row"><div role="cell">North</div><div role="cell">Open</div></div>
+        </div>
+        <stat-table></stat-table>
+        <script>
+            customElements.define('stat-table', class extends HTMLElement {
+                connectedCallback() {
+                    this.attachShadow({ mode: 'open' }).innerHTML =
+                        '<table id="shadow-stats"><caption>Visitors</caption>' +
+                        '<tr><th scope="col" id="shadow-day">Day</th><th scope="col">Visitors</th></tr>' +
+                        '<tr><td headers="shadow-day">Monday</td><td>310</td></tr></table>';
+                }
+            });
+        </script>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

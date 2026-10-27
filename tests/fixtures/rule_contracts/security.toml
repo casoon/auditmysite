@@ -1,0 +1,770 @@
+# Rule contracts for the security corpus (#783). Format: tests/fixtures/rule_contracts/README.md.
+# Method `analyze_security`: one HTTP probe of the audited URL outside the browser
+# (tests/security_detection_corpus_test.rs serves every case from
+# tests/common/routing_server.rs, over HTTP or HTTPS with a corpus-only CA).
+
+[[rule]]
+id = "Access-Control-Allow-Origin:cors_wildcard_credentials"
+automation = "automated"
+method = "analyze_security"
+source = "Fetch Standard, 'CORS protocol and credentials' and 'CORS check' (`*` never matches a credentialed request)"
+capabilities = ["network"]
+applicability = "Applies to responses that carry Access-Control-Allow-Origin."
+expectation = """
+Fails when Access-Control-Allow-Origin is `*` and Access-Control-Allow-Credentials is `true`: a contradictory configuration that signals an intent to share credentialed responses with any origin. Optional whitespace around values is not part of them (RFC 9110 §5.5). `*` without credentials and credentials for one named origin pass. Without Access-Control-Allow-Origin the check does not apply."""
+page_level = true
+positive = ["cors_wildcard_credentials", "security_cors_padded_wildcard_credentials"]
+negative = ["cors_wildcard_without_credentials", "security_cors_specific_origin_credentials"]
+not_applicable = ["baseline_headers_present", "no_headers_at_all", "security_https_complete", "security_https_without_hsts"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_cors_padded_wildcard_credentials", "security_cors_specific_origin_credentials"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "invert the wildcard-origin condition"
+find = ".is_some_and(|origin| origin.trim() == \"*\")"
+replace = ".is_some_and(|origin| origin.trim() != \"*\")"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:missing_base-uri"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when no policy restricts base-uri; it has no fallback to default-src. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive", "security_csp_policy_list_both_weak"]
+negative = ["baseline_headers_present", "security_csp_host_wildcards", "security_csp_policy_list", "security_csp_without_default_src", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "treat every required directive as declared"
+find = "let covered = declares(directive) ||"
+replace = "let covered = true ||"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:missing_frame-ancestors"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when no policy sets frame-ancestors; it has no fallback to default-src. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive"]
+negative = ["baseline_headers_present", "security_csp_host_wildcards", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_without_default_src", "security_frame_ancestors_without_xfo", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "treat every required directive as declared"
+find = "let covered = declares(directive) ||"
+replace = "let covered = true ||"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'The Content-Security-Policy HTTP Response Header Field' and 'Policy lists'; OWASP Secure Headers Project"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Fails when the response carries no enforced Content-Security-Policy header. A Content-Security-Policy-Report-Only header does not enforce anything (CSP3, report-only header) and does not count. Field names are case-insensitive (RFC 9110 §5.1); several CSP headers form one policy list and count as present.
+
+Always applicable: every document response is in scope. Known gap: a policy delivered by <meta http-equiv> (CSP3, 'The <meta> element') is enforced by browsers but not read by this header-only analyzer."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all", "security_csp_report_only"]
+negative = ["baseline_headers_present", "csp_permissive", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: Content-Security-Policy:missing_header never reported"
+find = "    if headers.content_security_policy.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:missing_object-src"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when plugins are unrestricted: neither object-src nor default-src is declared. object-src falls back to default-src, so `default-src 'self'` (or even `default-src *`, whose wildcard is wildcard_source's finding) covers it. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["security_csp_without_default_src"]
+negative = ["baseline_headers_present", "csp_permissive", "security_csp_host_wildcards", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "drop the default-src fallback"
+find = "(directive == \"object-src\" && declares(\"default-src\"))"
+replace = "false"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:unsafe_eval_script"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when the effective script source list allows 'unsafe-eval' (in every policy of the list). Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive", "security_csp_policy_list_both_weak"]
+negative = ["baseline_headers_present", "security_csp_host_wildcards", "security_csp_policy_list", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection"
+find = "    if effective_script.is_some_and(|list| has_keyword(list, csp_parse::Keyword::UnsafeEval)) {"
+replace = "    if false {"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:unsafe_inline_script"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when the effective script source list (script-src, else default-src) allows 'unsafe-inline' without a nonce or hash. Next to a nonce or hash 'unsafe-inline' is ignored and passes. In a policy list it counts only when every policy has it. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive"]
+negative = ["baseline_headers_present", "security_csp_host_wildcards", "security_csp_nonce_with_unsafe_inline", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_without_default_src", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only", "security_csp_nonce_with_unsafe_inline"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "invert the nonce/hash exception for scripts"
+find = "effective_script.is_some_and(|list| {\n        has_keyword(list, csp_parse::Keyword::UnsafeInline) && !has_nonce_or_hash(list)"
+replace = "effective_script.is_some_and(|list| {\n        has_keyword(list, csp_parse::Keyword::UnsafeInline) && has_nonce_or_hash(list)"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "count a weakness of one policy for the whole policy list"
+find = "        issues.retain(|issue| other.iter().any(|o| o.issue_type == issue.issue_type));"
+replace = ""
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:unsafe_inline_style"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when the effective style source list (style-src, else default-src) allows 'unsafe-inline' without a nonce or hash; with one it is ignored and passes. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive"]
+negative = ["baseline_headers_present", "security_csp_host_wildcards", "security_csp_nonce_with_unsafe_inline", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only", "security_csp_nonce_with_unsafe_inline"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "invert the nonce/hash exception for styles"
+find = "effective_style.is_some_and(|list| {\n        has_keyword(list, csp_parse::Keyword::UnsafeInline) && !has_nonce_or_hash(list)"
+replace = "effective_style.is_some_and(|list| {\n        has_keyword(list, csp_parse::Keyword::UnsafeInline) && has_nonce_or_hash(list)"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:wildcard_script_source"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when the effective script source list contains a wildcard host (`*`, `*.example.com`, `https://*`). Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive", "security_csp_host_wildcards"]
+negative = ["baseline_headers_present", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection"
+find = "    if effective_script.is_some_and(has_wildcard_source) {"
+replace = "    if false {"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Content-Security-Policy:wildcard_source"
+automation = "automated"
+method = "analyze_security"
+source = "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator"
+capabilities = ["network"]
+applicability = "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge."
+expectation = """
+Fails when any directive's source list contains a wildcard host. Without an enforced CSP the check does not apply (that is the missing_header finding)."""
+page_level = true
+positive = ["csp_permissive", "security_csp_host_wildcards"]
+negative = ["baseline_headers_present", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_header_names_mixed_case", "security_https_complete"]
+not_applicable = ["no_headers_at_all", "security_csp_report_only"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection"
+find = "    if directives.values().any(has_wildcard_source) {"
+replace = "    if false {"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Cross-Origin-Opener-Policy:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "HTML Standard, 'Cross-origin opener policies'; auditmysite #578 header tiers"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched top-level document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Opener-Policy: COOP is an opt-in isolation mechanism whose need depends on deployment context (SharedArrayBuffer, cross-origin popups) that a single fetch cannot observe, so the finding asks a human to verify. A present header passes."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: Cross-Origin-Opener-Policy:missing_header never reported"
+find = "    if headers.cross_origin_opener_policy.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Cross-Origin-Resource-Policy:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "Fetch Standard, 'Cross-Origin-Resource-Policy header'; auditmysite #578 header tiers"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Resource-Policy: whether other origins may embed the resource is a deployment decision a single fetch cannot observe. A present header passes."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: Cross-Origin-Resource-Policy:missing_header never reported"
+find = "    if headers.cross_origin_resource_policy.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "HTTPS:missing_https"
+automation = "automated"
+method = "analyze_security"
+source = "RFC 9110 §4.2.2 (https URI scheme); OWASP Transport Layer Security Cheat Sheet; auditmysite #775 (final URL decides)"
+capabilities = ["network"]
+applicability = "Applies to every audited URL that answered: the scheme of the final URL after redirects is the transport. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Fails when the final URL of the fetched document is not https:. A certificate the client cannot validate is no HTTPS: the fetch fails and nothing is measured (errored), it never passes. An https: response validated against the trusted roots passes.
+
+Always applicable: every fetched URL has a scheme. Note: the corpus serves on 127.0.0.1, which Secure Contexts ('Is origin potentially trustworthy?') treats as potentially trustworthy; the check deliberately judges the scheme, since an audit of a local build stands in for the deployed site."""
+page_level = true
+always_applicable = true
+positive = ["baseline_headers_present", "cors_wildcard_credentials", "cors_wildcard_without_credentials", "csp_permissive", "no_headers_at_all", "permissions_policy_permissive", "security_cors_padded_wildcard_credentials", "security_cors_specific_origin_credentials", "security_csp_host_wildcards", "security_csp_nonce_with_unsafe_inline", "security_csp_policy_list", "security_csp_policy_list_both_weak", "security_csp_report_only", "security_csp_without_default_src", "security_frame_ancestors_without_xfo", "security_header_names_mixed_case", "security_hsts_over_plain_http", "security_permissions_policy_all_wildcards", "security_permissions_policy_mixed", "security_source_map_inline", "security_source_map_not_served", "security_source_map_page_error", "security_source_map_public", "security_source_map_stylesheet_public", "security_source_map_unreachable_asset"]
+negative = ["hsts_preload_eligible", "hsts_preload_ineligible", "security_hsts_preload_one_second_short", "security_hsts_preload_without_subdomains", "security_hsts_quoted_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { not_relevant = "The scheme of the final URL is the only transport signal; there is no alternative mechanism." }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: missing HTTPS never reported"
+find = "    if !https {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Permissions-Policy:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "Permissions Policy (W3C), 'The Permissions-Policy HTTP header field'; OWASP Secure Headers Project"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Fails when the response has no Permissions-Policy header. A present but empty or all-wildcard header is Permissions-Policy:permissions_policy_permissive, not this id."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "permissions_policy_permissive", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts", "security_permissions_policy_all_wildcards"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: Permissions-Policy:missing_header never reported"
+find = "    if headers.permissions_policy.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Permissions-Policy:permissions_policy_permissive"
+automation = "automated"
+method = "analyze_security"
+source = "Permissions Policy (W3C), 'The Permissions-Policy HTTP header field' (structured-field dictionary of allowlists; `*` allows every origin)"
+capabilities = ["network"]
+applicability = "Applies to responses that carry a Permissions-Policy header."
+expectation = """
+Fails when the header is present but restricts nothing: an empty value, or every listed feature allowed for all origins (`*`). A policy that disables or limits at least one feature passes. Without the header the check does not apply (that is permissions-policy missing_header)."""
+page_level = true
+positive = ["permissions_policy_permissive", "security_permissions_policy_all_wildcards"]
+negative = ["baseline_headers_present", "security_header_names_mixed_case", "security_https_complete", "security_permissions_policy_mixed"]
+not_applicable = ["no_headers_at_all"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { cases = ["security_permissions_policy_all_wildcards", "security_permissions_policy_mixed"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "invert the all-wildcard condition"
+find = ".map(|allowlist| allowlist.trim() == \"*\")"
+replace = ".map(|allowlist| allowlist.trim() != \"*\")"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "accept an empty policy"
+find = "    if trimmed.is_empty() {\n        return true;"
+replace = "    if trimmed.is_empty() {\n        return false;"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Referrer-Policy:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "Referrer Policy (W3C), 'Delivery via Referrer-Policy header'; OWASP Secure Headers Project"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Fails when the response has no Referrer-Policy header. Field names are case-insensitive. Known gap: <meta name="referrer"> (HTML, 'Standard metadata names: referrer') also sets the policy and is not read by this header-only analyzer."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: Referrer-Policy:missing_header never reported"
+find = "    if headers.referrer_policy.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Source Map:public_source_map"
+automation = "automated"
+method = "analyze_security"
+source = "ECMA-426 Source Map Format (sourceMappingURL linking); OWASP WSTG-INFO-05 (review webpage content for information leakage)"
+capabilities = ["network"]
+applicability = "Applies to documents that load external scripts or stylesheets."
+expectation = """
+Fails when a script or stylesheet of the page names a source map (trailing sourceMappingURL comment) and that map URL answers 2xx. A named map that is not served (404) and an inline data: map pass. A page without external scripts or stylesheets: not applicable. If the page itself cannot be fetched (transport error, error status) or no asset answers, the check is not run (errored) — never 'no leak'. Method limitation: assets are taken from the served HTML, so scripts inserted after load are not inspected."""
+page_level = true
+positive = ["security_source_map_public", "security_source_map_stylesheet_public"]
+negative = ["security_source_map_inline", "security_source_map_not_served"]
+not_applicable = ["baseline_headers_present", "no_headers_at_all", "security_https_complete", "security_https_without_hsts"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate", "security_source_map_page_error", "security_source_map_unreachable_asset"]
+
+[rule.variants]
+visibility = { not_relevant = "Assets are fetched over HTTP; rendering plays no part." }
+native_vs_aria = { not_relevant = "Scripts and stylesheets have no ARIA counterpart." }
+alternative_labels = { cases = ["security_source_map_stylesheet_public", "security_source_map_inline"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's own <script src>/<link rel=stylesheet> are read; framed documents are audited as their own pages." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Reads the served HTML, not the live DOM: scripts inserted after load are outside this method (documented limitation, see expectation)." }
+thresholds = { not_relevant = "Reachability is a 2xx answer, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/sourcemap.rs"
+change = "invert the map reachability check"
+find = "        if map_resp.status().is_success() {"
+replace = "        if !map_resp.status().is_success() {"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/sourcemap.rs"
+change = "accept an error page as the document"
+find = "    if !page_resp.status().is_success() {"
+replace = "    if false {"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "drop the finding"
+find = "    if !sourcemap_leaks.leaks.is_empty() {"
+replace = "    if false {"
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Strict-Transport-Security:hsts_preload_ineligible"
+automation = "automated"
+method = "analyze_security"
+source = "hstspreload.org submission requirements (max-age >= 31536000, includeSubDomains, preload); RFC 6797 §6.1 (directive names case-insensitive, quoted-string values), §8.1"
+capabilities = ["network"]
+applicability = "Applies to HTTPS responses whose STS header carries the preload directive."
+expectation = """
+Fails when an HTTPS response's STS header claims preload but max-age is below 31536000 seconds or includeSubDomains is missing. Exactly 31536000 with includeSubDomains passes; 31535999 fails. Directive names are case-insensitive and max-age may be quoted (`Max-Age="31536000"` is one year). Without preload, without an STS header, or over plain HTTP (header ignored) the check does not apply."""
+page_level = true
+positive = ["hsts_preload_ineligible", "security_hsts_preload_one_second_short", "security_hsts_preload_without_subdomains"]
+negative = ["hsts_preload_eligible", "security_hsts_quoted_mixed_case", "security_https_complete"]
+not_applicable = ["baseline_headers_present", "no_headers_at_all", "security_hsts_over_plain_http", "security_https_without_hsts"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_hsts_quoted_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { cases = ["hsts_preload_eligible", "security_hsts_preload_one_second_short", "security_hsts_preload_without_subdomains"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "shift the one-year threshold down by one second"
+find = "ssl.hsts_max_age.unwrap_or(0) < ONE_YEAR_SECONDS ||"
+replace = "ssl.hsts_max_age.unwrap_or(0) < ONE_YEAR_SECONDS - 1 ||"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "drop the HTTPS gate (judge a header that is ignored)"
+find = "    ssl.https\n        && ssl.hsts_preload"
+replace = "    ssl.hsts_preload"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "case-sensitive max-age directive name"
+find = "name.eq_ignore_ascii_case(\"max-age\")"
+replace = "name == \"max-age\""
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "Strict-Transport-Security:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "RFC 6797 §6.1 (STS header), §7.2 and §8.1 (the header is only honoured over secure transport)"
+capabilities = ["network"]
+applicability = "Applies to documents served over HTTPS; over plain HTTP the header is ignored by user agents, so the check does not apply."
+expectation = """
+Fails when an HTTPS response carries no Strict-Transport-Security header. Over plain HTTP the check does not apply (not_applicable), with or without the header. Field names are case-insensitive."""
+page_level = true
+positive = ["security_https_without_hsts"]
+negative = ["hsts_preload_eligible", "hsts_preload_ineligible", "security_hsts_preload_one_second_short", "security_hsts_preload_without_subdomains", "security_hsts_quoted_mixed_case", "security_https_complete"]
+not_applicable = ["baseline_headers_present", "no_headers_at_all", "security_hsts_over_plain_http"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_hsts_quoted_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check; max-age bounds belong to hsts_preload_ineligible." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "invert the HTTPS gate of the HSTS check"
+find = "    if https && headers.strict_transport_security.is_none() {\n        issues.push(security_issue("
+replace = "    if !https && headers.strict_transport_security.is_none() {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "X-Content-Type-Options:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "Fetch Standard, 'X-Content-Type-Options header'; OWASP Secure Headers Project"
+capabilities = ["network"]
+applicability = "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope."
+expectation = """
+Fails when the response has no X-Content-Type-Options header; nosniff is the only defined value. Field names are case-insensitive."""
+page_level = true
+always_applicable = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = []
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: X-Content-Type-Options:missing_header never reported"
+find = "    if headers.x_content_type_options.is_none() {\n        issues.push(security_issue("
+replace = "    if false {\n        issues.push(security_issue("
+killed_by = "test:security_detection_corpus_test"
+
+[[rule]]
+id = "X-Frame-Options:missing_header"
+automation = "automated"
+method = "analyze_security"
+source = "HTML Standard, 'The X-Frame-Options header' (a CSP frame-ancestors directive takes precedence); RFC 7034; OWASP Clickjacking Defense Cheat Sheet"
+capabilities = ["network"]
+applicability = "Applies to document responses whose enforced CSP sets no frame-ancestors directive; with frame-ancestors, X-Frame-Options is not consulted at all."
+expectation = """
+Fails when neither X-Frame-Options nor an enforced CSP frame-ancestors directive protects the document against framing. With frame-ancestors present the check does not apply (not_applicable), whether XFO is set or not; a report-only CSP's frame-ancestors does not count. XFO DENY/SAMEORIGIN passes."""
+page_level = true
+positive = ["no_headers_at_all"]
+negative = ["baseline_headers_present", "csp_permissive", "security_csp_report_only", "security_header_names_mixed_case", "security_https_complete", "security_https_without_hsts"]
+not_applicable = ["security_frame_ancestors_without_xfo"]
+errored = ["security_error_status_500", "security_error_untrusted_certificate"]
+error_test = "security_unreachable_server_is_not_measured"
+
+[rule.variants]
+visibility = { not_relevant = "Response headers are not rendered content; there is no visible or hidden state." }
+native_vs_aria = { not_relevant = "HTTP response headers have no ARIA counterpart." }
+alternative_labels = { cases = ["security_header_names_mixed_case", "security_frame_ancestors_without_xfo", "security_csp_report_only"] }
+frames_shadow_dom = { not_relevant = "Only the response of the audited URL is read; a framed document is a separate response, audited as its own page." }
+responsive = { not_relevant = "Fetched outside the browser; no viewport is involved." }
+dynamic = { not_relevant = "Headers come from one HTTP response; scripts running after load cannot change them." }
+thresholds = { not_relevant = "Presence check, no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "disable detection: missing X-Frame-Options never reported"
+find = "    if headers.x_frame_options.is_none()\n        && !headers"
+replace = "    if false\n        && !headers"
+killed_by = "test:security_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/security/mod.rs"
+change = "ignore the frame-ancestors precedence"
+find = ".is_some_and(csp_sets_frame_ancestors)"
+replace = ".is_some_and(|_| false)"
+killed_by = "test:security_detection_corpus_test"

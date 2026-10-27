@@ -1,10 +1,17 @@
 {
   "case": "name_description_best_practice",
   "expectations": [
-    { "rule_id": "names/title-only", "verdict": "needs_review" },
-    { "rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "buttons/name-missing", "verdict": "pass" },
-    { "rule_id": "names/required-missing", "verdict": "pass" },
-    { "rule_id": "patterns/tooltip-unreferenced", "verdict": "pass" }
+    {"rule_id": "names/title-only", "verdict": "needs_review"},
+    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "buttons/name-missing", "verdict": "pass"},
+    {"rule_id": "names/required-missing", "verdict": "pass"},
+    {"rule_id": "patterns/tooltip-unreferenced", "verdict": "pass"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

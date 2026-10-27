@@ -1,0 +1,6 @@
+{
+  "case": "visual_text_spacing_letter",
+  "expectations": [
+    { "rule_id": "text-spacing", "selector": "span#chip", "verdict": "violation", "occurrences": 1 }
+  ]
+}

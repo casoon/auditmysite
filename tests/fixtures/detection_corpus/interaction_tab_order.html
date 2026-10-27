@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tab order and focusability</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button, [role="button"], [role="option"], [tabindex] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        @media (max-width: 600px) { #pt-desktop-only { display: none; } }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Shop</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/products">Products</a>
+    </nav>
+    <main id="main">
+        <h1>Order your delivery</h1>
+
+        <h2>Positive tabindex</h2>
+        <!-- needs_review: positive tabindex on a native control -->
+        <button id="pt-native" type="button" tabindex="2">Choose date</button>
+        <!-- needs_review: positive tabindex on an ARIA control -->
+        <span id="pt-aria" role="button" tabindex="1">Choose time</span>
+        <!-- absent: tabindex 0 and -1 keep the natural order (boundary below 1) -->
+        <button id="pt-zero" type="button" tabindex="0">Edit address</button>
+        <button id="pt-minus" type="button" tabindex="-1">Hidden from tab order</button>
+        <!-- absent: not rendered, so not in the tab order at all -->
+        <button id="pt-hidden" type="button" tabindex="4" style="display: none">Never shown</button>
+        <!-- needs_review: rendered on the desktop viewport only -->
+        <button id="pt-desktop-only" type="button" tabindex="6">Desktop extras</button>
+        <!-- needs_review: a script moves this control to the front after load -->
+        <button id="pt-dynamic" type="button">Apply voucher</button>
+        <!-- needs_review: positive tabindex inside an open shadow root -->
+        <div id="pt-shadow-host">
+            <template shadowrootmode="open">
+                <button id="pt-shadow" type="button" tabindex="5" style="min-width: 44px; min-height: 44px;">Gift wrap</button>
+            </template>
+        </div>
+
+        <h2>Focusable without a role</h2>
+        <!-- needs_review: in the tab order, but a plain div -->
+        <div id="fnr-div" tabindex="0">Delivery options</div>
+        <!-- absent: a named region in the tab order is the scrollable-region pattern -->
+        <div id="fnr-region" role="region" aria-label="Delivery terms" tabindex="0">Delivery terms.</div>
+        <!-- absent: tabindex -1 is a script focus target, not a tab stop -->
+        <div id="fnr-minus" tabindex="-1">Focus target for messages</div>
+        <!-- absent: not rendered -->
+        <div id="fnr-hidden" tabindex="0" style="display: none">Hidden options</div>
+        <!-- needs_review: a script puts it into the tab order after load -->
+        <div id="fnr-dynamic">Gift options</div>
+
+        <h2>Interactive role without focus</h2>
+        <!-- needs_review: role button, never focusable -->
+        <span id="inf-button" role="button">Save for later</span>
+        <!-- absent: a native button is focusable by itself -->
+        <button id="inf-native" type="button">Save address</button>
+        <!-- absent: not rendered -->
+        <span id="inf-hidden" role="button" style="display: none">Hidden action</span>
+        <!-- needs_review: a script removes its tabindex after load -->
+        <span id="inf-dynamic" role="button" tabindex="0">Print label</span>
+        <!-- absent: a listbox that manages focus with aria-activedescendant -->
+        <div id="inf-listbox" role="listbox" aria-label="Time slot" tabindex="0" aria-activedescendant="slot-1">
+            <div id="slot-1" role="option" aria-selected="true">Morning</div>
+            <div id="slot-2" role="option" aria-selected="false">Afternoon</div>
+        </div>
+
+        <h2>Focusable under aria-hidden</h2>
+        <!-- violation: a link inside an aria-hidden container -->
+        <div aria-hidden="true">
+            <a id="hf-link" href="/help">Delivery help</a>
+        </div>
+        <!-- violation: aria-hidden on the button itself -->
+        <button id="hf-button" type="button" aria-hidden="true">Close</button>
+        <!-- pass: taken out of the tab order -->
+        <div aria-hidden="true">
+            <a id="hf-minus" href="/faq" tabindex="-1">FAQ</a>
+        </div>
+        <!-- pass: the hidden container is inert -->
+        <div aria-hidden="true" inert>
+            <a id="hf-inert" href="/terms">Terms</a>
+        </div>
+        <!-- violation: a link in an open shadow root under an aria-hidden host -->
+        <div aria-hidden="true">
+            <template shadowrootmode="open">
+                <a id="hf-shadow" href="/shipping" style="display: inline-block; min-width: 44px; min-height: 44px;">Shipping</a>
+            </template>
+        </div>
+        <!-- pass: not rendered, so not focusable -->
+        <div aria-hidden="true" style="display: none">
+            <a id="hf-not-rendered" href="/archive">Archive</a>
+        </div>
+        <!-- violation: an ARIA widget in the tab order under aria-hidden -->
+        <div aria-hidden="true">
+            <span id="hf-aria" role="button" tabindex="0">Expand</span>
+        </div>
+        <!-- violation: a script hides the container after load -->
+        <div id="hf-dynamic-box">
+            <a id="hf-dynamic" href="/track">Track parcel</a>
+        </div>
+        <!-- pass: aria-hidden="false" hides nothing -->
+        <div aria-hidden="false">
+            <a id="hf-false" href="/returns">Returns</a>
+        </div>
+    </main>
+    <footer><p>Example Shop footer</p></footer>
+    <script>
+        document.getElementById('pt-dynamic').setAttribute('tabindex', '3');
+        document.getElementById('fnr-dynamic').setAttribute('tabindex', '0');
+        document.getElementById('inf-dynamic').removeAttribute('tabindex');
+        document.getElementById('hf-dynamic-box').setAttribute('aria-hidden', 'true');
+    </script>
+</body>
+</html>

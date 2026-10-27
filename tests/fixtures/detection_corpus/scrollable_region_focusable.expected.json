@@ -1,6 +1,10 @@
 {
   "case": "scrollable_region_focusable",
   "expectations": [
-    { "rule_id": "keyboard/scrollable-region-not-focusable", "verdict": "violation", "occurrences": 1 }
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review", "occurrences": 1 }
   ]
 }

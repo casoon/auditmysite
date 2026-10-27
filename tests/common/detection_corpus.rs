@@ -34,6 +34,13 @@ pub enum Verdict {
     /// `UNTESTED`. Für Regeln, die nur `REVIEW` melden: Bei ihnen kann
     /// `pass` gar nicht scheitern, weil es nur Verstöße zählt.
     Absent,
+    /// The page contains nothing the rule applies to: the rule must still
+    /// run, and must report nothing. Distinct from `pass`, where applicable
+    /// content exists and conforms (#783).
+    NotApplicable,
+    /// The page provokes a technical failure of the rule's method: the rule
+    /// must be recorded as not run, and must neither pass nor report (#783).
+    Errored,
 }
 
 #[derive(Debug, Clone, Deserialize)]

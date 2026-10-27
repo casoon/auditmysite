@@ -3,9 +3,17 @@
 <head>
     <meta charset="utf-8">
     <title>Form heuristics: true positives (#643)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>
+  /* #783: page shell, so the case only reports what it is about */
+  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+</style>
 </head>
 <body>
-    <main>
+    <a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p><nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav></header>
+<main id="main">
         <h1>Registration form</h1>
         <form>
             <!-- Date field without any instruction: still reported, but as
@@ -22,5 +30,6 @@
             <button type="submit">Register</button>
         </form>
     </main>
+<footer><p>Example Shop, 2026</p></footer>
 </body>
 </html>

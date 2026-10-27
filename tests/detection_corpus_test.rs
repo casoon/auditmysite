@@ -9,6 +9,12 @@
 //! violation found where a clean pass was expected) are reported
 //! separately, since they're not equally severe.
 //!
+//! The comparison is strict (#783, `tests/common/corpus_diff.rs`): besides
+//! missing findings it fails on undeclared extra findings, a review escalated
+//! to a violation, a pass or not-applicable verdict without a completed run,
+//! run records that contradict the findings, and violations that lost their
+//! location.
+//!
 //! `#[ignore]`-gated like the existing Chrome-dependent tests in
 //! `tests/integration_test.rs` — run with `cargo test -- --ignored`. If the
 //! corpus directory is ever empty, the test fails: no fixtures are no evidence.
@@ -18,8 +24,10 @@ mod common;
 use auditmysite::cli::{Args, WcagLevel};
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig};
 use clap::Parser;
-use common::detection_corpus::{detection_corpus_dir, load_corpus_dir, Verdict};
+use common::corpus_diff::{diff_case, observe_wcag, render_report, Mismatch, MismatchKind};
+use common::detection_corpus::{detection_corpus_dir, load_corpus_dir};
 use common::fixture_server::serve_html;
+use common::rule_contracts::wcag_diff_rules;
 
 async fn ci_browser() -> BrowserManager {
     let opts = BrowserOptions {
@@ -31,12 +39,6 @@ async fn ci_browser() -> BrowserManager {
         .expect("Browser launch failed")
 }
 
-struct CaseDiff {
-    case: String,
-    false_negatives: Vec<String>,
-    false_positives: Vec<String>,
-}
-
 #[tokio::test]
 #[ignore = "needs real Chrome; run manually with `cargo test -- --ignored`"]
 async fn detection_corpus_matches_real_audit_run() {
@@ -46,9 +48,19 @@ async fn detection_corpus_matches_real_audit_run() {
         !cases.is_empty(),
         "empty detection corpus cannot verify an audit"
     );
+    // `CORPUS_CASES=a,b` runs a subset while authoring; CI runs everything.
+    let only: Option<Vec<String>> = std::env::var("CORPUS_CASES")
+        .ok()
+        .map(|v| v.split(',').map(|s| s.trim().to_string()).collect());
+    let cases: Vec<_> = cases
+        .into_iter()
+        .filter(|c| only.as_ref().is_none_or(|o| o.contains(&c.case)))
+        .collect();
+    assert!(!cases.is_empty(), "CORPUS_CASES selects no case");
 
     let manager = ci_browser().await;
-    let mut diffs: Vec<CaseDiff> = Vec::new();
+    let diff_rules = wcag_diff_rules();
+    let mut diffs = Vec::new();
 
     for case in &cases {
         let html_path = corpus_dir.join(format!("{}.html", case.case));
@@ -96,76 +108,21 @@ async fn detection_corpus_matches_real_audit_run() {
 
         fixture.stop();
 
-        let wcag = &report.accessibility.wcag_results;
-        let mut false_negatives = Vec::new();
-        let mut false_positives = Vec::new();
-
-        for exp in &case.expectations {
-            let matches_violations = wcag.violations.iter().any(|v| finding_matches(v, exp));
-            let matches_warnings = wcag.warnings.iter().any(|v| finding_matches(v, exp));
-            // Outcome::Untested findings (always-manual-review checks like
-            // media-alt/help's page-wide notice) route to their own bucket, not
-            // warnings — treated the same as "needs review" here since both mean
-            // "no automated verdict, a human must look."
-            let matches_not_testable = wcag.not_testables.iter().any(|v| finding_matches(v, exp));
-
-            match exp.verdict {
-                Verdict::Violation => {
-                    if !matches_violations {
-                        false_negatives
-                            .push(expectation_label(exp, "expected violation, found none"));
-                    } else if let Some(expected) = exp.occurrences {
-                        let found = wcag
-                            .violations
-                            .iter()
-                            .filter(|v| finding_matches(v, exp))
-                            .count();
-                        if found != expected {
-                            false_positives.push(expectation_label(
-                                exp,
-                                &format!("expected {expected} occurrences, found {found}"),
-                            ));
-                        }
-                    }
-                }
-                Verdict::Pass => {
-                    let ran = wcag
-                        .rule_outcomes
-                        .iter()
-                        .any(|run| run.rule_id == exp.rule_id && run.not_run.is_none());
-                    if !ran {
-                        false_negatives.push(expectation_label(
-                            exp,
-                            "expected a successful check, but it did not run",
-                        ));
-                    }
-                    if matches_violations {
-                        false_positives
-                            .push(expectation_label(exp, "expected pass, found violation"));
-                    }
-                }
-                Verdict::Absent => {
-                    if matches_violations || matches_warnings || matches_not_testable {
-                        false_positives
-                            .push(expectation_label(exp, "expected no finding, found one"));
-                    }
-                }
-                Verdict::NeedsReview => {
-                    if matches_violations {
-                        false_positives.push(expectation_label(
-                            exp,
-                            "review was escalated to a confirmed violation",
-                        ));
-                    }
-                    if !matches_warnings && !matches_not_testable {
-                        false_negatives.push(expectation_label(
-                            exp,
-                            "expected needs_review, found neither",
-                        ));
-                    }
-                }
-            }
+        let observation = observe_wcag(&report.accessibility.wcag_results);
+        // `CORPUS_DUMP=1` writes what the run reported, for diagnosing a
+        // mismatch. Expectations are written from the rule's source, never
+        // copied from this file.
+        if std::env::var("CORPUS_DUMP").is_ok() {
+            let dir =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/corpus-observations");
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(
+                dir.join(format!("{}.txt", case.case)),
+                format!("{observation:#?}"),
+            )
+            .unwrap();
         }
+        let mut mismatches = diff_case(case, &observation, &diff_rules);
 
         let _ = page.close().await;
 
@@ -175,51 +132,24 @@ async fn detection_corpus_matches_real_audit_run() {
                 .as_ref()
                 .map(|sr| serde_json::to_value(sr.bfsg_compliance.verdict).unwrap_or_default());
             if found.as_ref().and_then(|v| v.as_str()) != Some(expected.as_str()) {
-                false_positives.push(format!(
-                    "screen_reader.bfsg_compliance.verdict: expected {expected}, found {found:?}"
-                ));
+                mismatches.push(Mismatch {
+                    kind: MismatchKind::UnexpectedFinding,
+                    detail: format!(
+                        "screen_reader.bfsg_compliance.verdict: expected {expected}, found {found:?}"
+                    ),
+                });
             }
         }
 
-        if !false_negatives.is_empty() || !false_positives.is_empty() {
-            diffs.push(CaseDiff {
-                case: case.case.clone(),
-                false_negatives,
-                false_positives,
-            });
+        if !mismatches.is_empty() {
+            diffs.push((case.case.clone(), mismatches));
         }
     }
 
     if !diffs.is_empty() {
-        let mut msg = String::from("Detection corpus accuracy mismatches:\n");
-        for diff in &diffs {
-            msg.push_str(&format!("  case '{}':\n", diff.case));
-            for fneg in &diff.false_negatives {
-                msg.push_str(&format!("    FALSE NEGATIVE: {fneg}\n"));
-            }
-            for fpos in &diff.false_positives {
-                msg.push_str(&format!("    FALSE POSITIVE: {fpos}\n"));
-            }
-        }
-        panic!("{msg}");
-    }
-}
-
-fn finding_matches(
-    v: &auditmysite::Violation,
-    exp: &common::detection_corpus::Expectation,
-) -> bool {
-    v.rule_id.as_deref() == Some(exp.rule_id.as_str())
-        && exp
-            .selector
-            .as_deref()
-            .map(|s| v.selector.as_deref() == Some(s))
-            .unwrap_or(true)
-}
-
-fn expectation_label(exp: &common::detection_corpus::Expectation, detail: &str) -> String {
-    match &exp.selector {
-        Some(selector) => format!("{} @ {selector}: {detail}", exp.rule_id),
-        None => format!("{}: {detail}", exp.rule_id),
+        panic!(
+            "{}",
+            render_report("Detection corpus accuracy mismatches", &diffs)
+        );
     }
 }

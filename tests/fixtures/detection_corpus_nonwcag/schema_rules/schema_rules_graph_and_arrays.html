@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nodes in @graph and in a top-level array</title>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://example.com/#org", "name": "Example Inc", "url": "https://example.com", "logo": "https://example.com/logo.png", "address": {"@type": "PostalAddress", "streetAddress": "Main Street 1"}, "telephone": "+1-555-0100", "sameAs": ["https://social.example/example"]}, {"@type": "WebSite", "@id": "https://example.com/#site", "name": "Example", "url": "https://example.com", "inLanguage": "en", "publisher": {"@id": "https://example.com/#org"}, "potentialAction": {"@type": "SearchAction", "target": "https://example.com/?q={q}", "query-input": "required name=q"}}, {"@type": "WebPage", "name": "Pricing", "url": "https://example.com/pricing", "description": "Plans", "inLanguage": "en", "isPartOf": {"@id": "https://example.com/#site"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://example.com/"}, {"@type": "ListItem", "position": 2, "name": "Pricing"}]}, {"@type": "Product", "name": "Plan"}]}
+  </script>
+  <script type="application/ld+json">
+  [{"@context": "https://schema.org", "@type": "https://schema.org/BlogPosting", "headline": "Post", "author": {"@type": "Person", "name": "Ada"}, "datePublished": "2026-01-01", "dateModified": "2026-01-02", "image": "https://example.com/p.jpg"}, {"@context": "https://schema.org", "@type": "Person", "name": "Ada Example", "url": "https://example.com/ada", "image": "https://example.com/ada.jpg", "jobTitle": "Engineer", "worksFor": {"@type": "Organization", "name": "Example"}, "sameAs": ["https://social.example/ada"]}]
+  </script>
+</head>
+<body>
+  <header><p>Example</p></header>
+  <main>
+    <h1>Nodes in @graph and in a top-level array</h1>
+    <p>Structured data corpus page.</p>
+  </main>
+  <footer><p>Footer</p></footer>
+</body>
+</html>

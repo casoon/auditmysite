@@ -1,0 +1,106 @@
+{
+  "case": "structure_ids_frames",
+  "expectations": [
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#map-frame",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#weather-frame",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#card-frame",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#hours-frame",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#reviews-frame",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#tracking-frame",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#collapsed-frame",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "selector": "iframe#hidden-frame",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "html-has-lang",
+      "selector": "iframe#reviews-frame [frame] html",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "html-has-lang",
+      "selector": "iframe#card-frame [frame] html",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "html-has-lang",
+      "selector": "iframe#collapsed-frame [frame] html",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "h3#card-heading",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "ids/duplicate",
+      "selector": "p#postcode-hint",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "ids/duplicate",
+      "selector": "p#promo-text",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "ids/duplicate",
+      "selector": "p#card-note",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

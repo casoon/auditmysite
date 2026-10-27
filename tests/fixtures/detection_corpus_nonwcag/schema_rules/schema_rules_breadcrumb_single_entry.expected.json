@@ -1,0 +1,10 @@
+{
+  "case": "schema_rules_breadcrumb_single_entry",
+  "note": "Google requires at least two ListItems for a breadcrumb trail.",
+  "expectations": [
+    {
+      "rule_id": "breadcrumb",
+      "verdict": "violation"
+    }
+  ]
+}

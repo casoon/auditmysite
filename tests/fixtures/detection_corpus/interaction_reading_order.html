@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Visual order and DOM order</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .flex { display: flex; gap: 16px; margin: 16px 0; }
+        .reverse { flex-direction: row-reverse; }
+        .column-reverse { flex-direction: column-reverse; }
+        .first { order: -1; }
+        .zero { order: 0; }
+        .hidden-reverse { display: none; flex-direction: row-reverse; }
+        @media (max-width: 600px) { .mobile-reverse { flex-direction: column-reverse; } }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example News</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/world">World</a>
+    </nav>
+    <main id="main">
+        <h1>Today's stories</h1>
+
+        <!-- needs_review: row-reverse over two links to different stories -->
+        <div id="ord-reverse" class="flex reverse">
+            <a href="/story/1">First story</a>
+            <a href="/story/2">Second story</a>
+        </div>
+        <!-- needs_review: column-reverse over two paragraphs, reading order differs from DOM order -->
+        <div id="ord-column" class="flex column-reverse">
+            <p>Step one: register.</p>
+            <p>Step two: confirm your e-mail.</p>
+        </div>
+        <!-- needs_review: order moves the second item to the front -->
+        <div id="ord-order" class="flex">
+            <p>Price: 20 euros.</p>
+            <p class="first">Offer ends Friday.</p>
+        </div>
+        <!-- absent: order 0 is the default and moves nothing -->
+        <div id="ord-zero" class="flex">
+            <p class="zero">Weather: sunny.</p>
+            <p>Wind: light.</p>
+        </div>
+        <!-- absent: a teaser card whose image and title link go to the same story -->
+        <div id="ord-same-target" class="flex reverse">
+            <a href="/story/3">Picture of the harbour</a>
+            <a href="/story/3">Harbour reopens</a>
+        </div>
+        <!-- absent: only one child, nothing to reorder -->
+        <div id="ord-single" class="flex reverse">
+            <p>Editor's note.</p>
+        </div>
+        <!-- absent: not rendered -->
+        <div id="ord-hidden" class="hidden-reverse">
+            <p>Archived item one.</p>
+            <p>Archived item two.</p>
+        </div>
+        <!-- needs_review on the mobile viewport only -->
+        <div id="ord-mobile" class="flex mobile-reverse">
+            <a href="/story/4">Read the interview</a>
+            <a href="/story/5">Watch the video</a>
+        </div>
+        <!-- needs_review: a script reverses it after load -->
+        <div id="ord-dynamic" class="flex">
+            <a href="/story/6">Harbour festival recap</a>
+            <a href="/story/7">Lighthouse tour dates</a>
+        </div>
+    </main>
+    <footer><p>Example News footer</p></footer>
+    <script>
+        document.getElementById('ord-dynamic').classList.add('reverse');
+    </script>
+</body>
+</html>

@@ -1,7 +1,47 @@
 {
   "case": "empty_title",
   "expectations": [
-    { "rule_id": "document/title-empty", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "document-title", "verdict": "pass" }
+    {
+      "rule_id": "document/title-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    }
   ]
 }

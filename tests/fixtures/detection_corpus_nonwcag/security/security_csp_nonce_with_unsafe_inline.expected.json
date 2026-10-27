@@ -1,0 +1,27 @@
+{
+  "case": "security_csp_nonce_with_unsafe_inline",
+  "note": "'unsafe-inline' next to a nonce or hash is ignored by CSP2+ browsers (CSP3, 'Does a source list allow all inline behavior for type?'); it is the backwards-compatible form.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'nonce-r4nd0m' 'unsafe-inline'; style-src 'self' 'sha256-AbCdEf0123456789AbCdEf0123456789AbCdEf01234=' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "pass"
+    }
+  ]
+}

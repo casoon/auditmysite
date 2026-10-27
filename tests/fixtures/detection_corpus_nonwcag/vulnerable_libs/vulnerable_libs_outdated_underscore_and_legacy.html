@@ -2,21 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Vulnerable libs corpus — outdated Underscore, Prototype, MooTools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outdated Underscore, Prototype and MooTools</title>
   <script>
-    // Underscore shares the global `_` with Lodash and is distinguished by
-    // the ABSENCE of `_.runInContext` — kept on a separate fixture from the
-    // Lodash variant so the two globals never overwrite each other (real
-    // pages loading both would hit the exact same collision).
-    window._ = { VERSION: "1.12.9" };
-    // Prototype and MooTools are unmaintained: check_vulnerability flags
-    // every detected version unconditionally, so there is no "current/safe"
-    // version to pair with a pass case for either.
+    // Underscore shares `_` with Lodash and lacks `_.runInContext`.
+    window._ = { VERSION: "1.12.0" };
+    // Unmaintained: every release is flagged.
     window.Prototype = { Version: "1.7.3" };
     window.MooTools = { version: "1.6.0" };
   </script>
 </head>
 <body>
-  <h1>Vulnerable libs corpus fixture (outdated Underscore + always-vulnerable legacy libs)</h1>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>Outdated Underscore, Prototype and MooTools</h1>
+
+  </main>
 </body>
 </html>

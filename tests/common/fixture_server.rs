@@ -16,6 +16,13 @@
 //! So: the accepted connection is switched back to blocking, the request head
 //! is read to its end before the response is written, and a failure to serve
 //! is recorded instead of swallowed — see [`Fixture::transport_errors`].
+//!
+//! A page that needs content from a *second origin* — a cross-origin iframe
+//! (#783, `frame-tested`) — writes [`CROSS_ORIGIN_PLACEHOLDER`] where that
+//! origin's base URL belongs. [`serve`] then opens a second listener on
+//! another port (another port is another origin) that answers with
+//! [`CROSS_ORIGIN_HTML`], and substitutes its URL. Both listeners share the
+//! shutdown flag and the counters of the returned [`Fixture`].
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -67,13 +74,52 @@ pub fn serve_html(html: String) -> Fixture {
 /// Answers every request the same way regardless of method or path — the
 /// tests using this need one fixed response, not an HTTP server.
 pub fn serve(html: String, headers: BTreeMap<String, String>) -> Fixture {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
-    let port = listener.local_addr().unwrap().port();
-    let url = format!("http://127.0.0.1:{port}");
-
     let shutdown = Arc::new(AtomicBool::new(false));
     let served = Arc::new(AtomicUsize::new(0));
     let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let html = if html.contains(CROSS_ORIGIN_PLACEHOLDER) {
+        let second = listen(
+            CROSS_ORIGIN_HTML.to_string(),
+            BTreeMap::new(),
+            &shutdown,
+            &served,
+            &errors,
+        );
+        html.replace(CROSS_ORIGIN_PLACEHOLDER, &second)
+    } else {
+        html
+    };
+    let url = listen(html, headers, &shutdown, &served, &errors);
+
+    Fixture {
+        url,
+        shutdown,
+        served,
+        errors,
+    }
+}
+
+/// Written into a page where the base URL of a second origin belongs, e.g.
+/// `<iframe src="{{CROSS_ORIGIN}}/widget">`. See the module docs.
+pub const CROSS_ORIGIN_PLACEHOLDER: &str = "{{CROSS_ORIGIN}}";
+
+/// What the second origin answers to every request: a small, clean document,
+/// so whatever a page embeds from there adds no findings of its own.
+pub const CROSS_ORIGIN_HTML: &str = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Embedded widget</title></head><body><main><h1>Embedded widget</h1><p>Content served from a second origin.</p></main></body></html>";
+
+/// Bind a listener on a free local port and answer every request with
+/// `html`; returns the base URL.
+fn listen(
+    html: String,
+    headers: BTreeMap<String, String>,
+    shutdown: &Arc<AtomicBool>,
+    served: &Arc<AtomicUsize>,
+    errors: &Arc<Mutex<Vec<String>>>,
+) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
+    let port = listener.local_addr().unwrap().port();
+    let url = format!("http://127.0.0.1:{port}");
 
     let shutdown_thread = shutdown.clone();
     let served_thread = served.clone();
@@ -130,12 +176,7 @@ pub fn serve(html: String, headers: BTreeMap<String, String>) -> Fixture {
         }
     });
 
-    Fixture {
-        url,
-        shutdown,
-        served,
-        errors,
-    }
+    url
 }
 
 /// Answer one connection.

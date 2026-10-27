@@ -1,0 +1,19 @@
+{
+  "case": "aria_names_valid",
+  "expectations": [
+    {"rule_id": "names/required-missing", "verdict": "pass"},
+    {"rule_id": "names/symbol-only", "verdict": "pass"},
+    {"rule_id": "names/title-only", "verdict": "pass"},
+    {"rule_id": "label-in-name/mismatch", "verdict": "pass"},
+    {"rule_id": "description-duplicates-name", "verdict": "pass"},
+    {"rule_id": "summary/name-missing", "verdict": "pass"},
+    {"rule_id": "svg/name-missing", "verdict": "pass"},
+    {"rule_id": "forms/title-only-label", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

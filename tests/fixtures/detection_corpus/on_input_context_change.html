@@ -3,13 +3,21 @@
 <head>
     <meta charset="utf-8">
     <title>On input: content updates vs. context changes (#657)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>
+  /* #783: page shell, so the case only reports what it is about */
+  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+</style>
     <script>
         function applySort(value) { document.getElementById('out').textContent = 'Sorted by ' + value; }
         function goTo(value) { window.location.href = value; }
     </script>
 </head>
 <body>
-    <main>
+    <a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p><nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav></header>
+<main id="main">
         <h1>Grid options</h1>
 
         <!-- Updates the grid next to it via a script listener: no context change -->
@@ -57,5 +65,6 @@
 
         <p id="out"></p>
     </main>
+<footer><p>Example Shop, 2026</p></footer>
 </body>
 </html>

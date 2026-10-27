@@ -2,27 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Vulnerable libs corpus — outdated jQuery/Bootstrap/AngularJS/Handlebars/Lodash</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outdated jQuery, Bootstrap, AngularJS, Handlebars and Lodash</title>
   <script>
-    // Minimal global stubs — analyze_vulnerable_libraries only reads the
-    // specific fields named in its detection JS (e.g. jQuery.fn.jquery),
-    // not real library functionality (plan/11).
     window.jQuery = { fn: { jquery: "1.9.0" } };
     window.angular = { version: { full: "1.7.9" } };
     window.Handlebars = { VERSION: "4.5.2" };
-    // Lodash is distinguished from Underscore by `_.runInContext` being a
-    // function — both libraries share the global `_`, so Underscore is
-    // covered by a separate fixture to avoid the same global-overwrite
-    // collision the real detector itself documents (see
-    // vulnerable_libs.rs's analyze_vulnerable_libraries doc comment).
     window._ = { VERSION: "4.17.20", runInContext: function () {} };
   </script>
 </head>
 <body>
-  <h1>Vulnerable libs corpus fixture (outdated, Lodash variant)</h1>
-  <!-- Bootstrap 3.x/4.x is detected via a data-bs-version attribute when no
-       global bootstrap.Tooltip.VERSION is present (real sites often only
-       expose this via a build-time injected attribute). -->
-  <div data-bs-version="3.4.0"></div>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>Outdated jQuery, Bootstrap, AngularJS, Handlebars and Lodash</h1>
+    <!-- Bootstrap read from the data-bs-version attribute when no global is set. -->
+    <div data-bs-version="3.4.0"></div>
+  </main>
 </body>
 </html>

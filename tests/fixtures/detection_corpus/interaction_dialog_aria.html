@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Newsletter sign-up dialog</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .panel { border: 1px solid #333; padding: 16px; margin: 16px 0; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Garden</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/plants">Plants</a>
+    </nav>
+    <main id="main">
+        <h1>Spring planting</h1>
+        <p>Tulips go in before the first frost.</p>
+
+        <!-- needs_review (2.1.2): a modal ARIA dialog, focus must be able to leave it -->
+        <div id="dlg-modal" class="panel" role="dialog" aria-modal="true" aria-labelledby="dlg-modal-title">
+            <h2 id="dlg-modal-title">Before you go</h2>
+            <p>Our planting calendar is free.</p>
+            <button type="button">Close</button>
+        </div>
+
+        <!-- absent: a non-modal dialog does not hold focus -->
+        <div id="dlg-plain" class="panel" role="dialog" aria-labelledby="dlg-plain-title">
+            <h2 id="dlg-plain-title">Tip of the day</h2>
+            <p>Water in the morning.</p>
+            <button type="button">Dismiss tip</button>
+        </div>
+
+        <!-- absent: a native dialog opened with show() is not modal -->
+        <dialog id="dlg-native-show" aria-labelledby="dlg-native-show-title">
+            <h2 id="dlg-native-show-title">Delivery notice</h2>
+            <p>Orders ship within two days.</p>
+            <button type="button">OK</button>
+        </dialog>
+    </main>
+    <footer><p>Example Garden footer</p></footer>
+    <script>
+        document.getElementById('dlg-native-show').show();
+    </script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+{
+  "case": "forms_errors_groups",
+  "expectations": [
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#err-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#err-grammar",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "span#err-aria",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#err-desc",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#err-msg",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#err-false",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#freq-daily",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#freq-weekly",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "span#aria-radio-loose",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#topic-bikes",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#topic-tours",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#fmt-html",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "span#aria-radio-grouped",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#terms-single",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#channel-mail",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "fieldset#fs-unnamed",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "div#grp-unnamed",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "div#grp-named",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "details#det-group",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

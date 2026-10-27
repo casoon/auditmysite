@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast thresholds: normal, large and bold text</title>
+<style>
+  body { background: #ffffff; color: #111111; font-size: 16px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* Responsive: the note turns light grey only on narrow screens. */
+  @media (max-width: 600px) { #narrow-only { color: #aaaaaa; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Contrast test site</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Text contrast around the 4.5:1, 3:1 and 7:1 thresholds</h1>
+  <!-- 4.54:1 normal text: meets 1.4.3, misses 1.4.6 (7:1). -->
+  <p id="aa-edge-pass" style="color: #767676">Delivery takes two to three working days.</p>
+  <!-- 4.48:1 normal text: just below 4.5:1. -->
+  <p id="aa-edge-fail" style="color: #777777">Returns are free within thirty days.</p>
+  <!-- 7.01:1: meets 1.4.6. -->
+  <p id="aaa-edge-pass" style="color: #595959">Our support team answers within one day.</p>
+  <!-- 6.90:1: meets 1.4.3, misses 1.4.6. -->
+  <p id="aaa-edge-fail" style="color: #5a5a5a">Prices include value added tax.</p>
+  <!-- Large text (24px = 18pt) at 3.03:1 meets 3:1, misses 4.5:1 for AAA. -->
+  <p id="large-pass" style="color: #949494; font-size: 24px">Summer sale</p>
+  <!-- Large text at 2.96:1: below 3:1. -->
+  <p id="large-fail" style="color: #969696; font-size: 24px">Winter sale</p>
+  <!-- Bold 19px is large text (14pt bold = 18.66px): 3.03:1 meets 1.4.3. -->
+  <p id="bold-large" style="color: #949494; font-size: 19px; font-weight: 700">New arrivals</p>
+  <!-- Bold 18px is below 14pt: normal text, 3.03:1 fails. -->
+  <p id="bold-small" style="color: #949494; font-size: 18px; font-weight: 700">Last chance</p>
+  <!-- Not rendered or visually hidden: no visible text, nothing to measure. -->
+  <p id="gone" style="color: #cccccc; display: none">Removed teaser</p>
+  <p id="invisible" style="color: #cccccc; visibility: hidden">Invisible teaser</p>
+  <p id="sr-text" class="sr-only" style="color: #cccccc">Text for screen readers only</p>
+  <!-- Visible text under aria-hidden is still visible text (1.4.3). -->
+  <p id="decorative" aria-hidden="true" style="color: #aaaaaa">Decorative tagline</p>
+  <!-- Dynamic: a script greys this text out after load. -->
+  <p id="late">Offer valid while stocks last.</p>
+  <!-- Responsive: light grey only below 600px (the mobile pass). -->
+  <p id="narrow-only">Free shipping from 50 euros.</p>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('late').style.color = '#aaaaaa';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-contrast promotion inside an iframe</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Lamp shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Lamps for every room</h1>
+  <p id="solid">All lamps ship within two days.</p>
+  <!-- Frame content is part of the page: its light grey text fails 1.4.3
+       like the same text in the top document would; its dark text passes. -->
+  <iframe id="promo-frame" title="Promotion" width="400" height="140"
+    srcdoc="<!DOCTYPE html><html lang='en'><head><title>Promotion</title></head><body style='background:#ffffff'><p id='framed-faint' style='color:#aaaaaa'>Ten percent off all lamps this week.</p><p id='framed-dark' style='color:#111111'>Offer ends on Sunday.</p></body></html>"></iframe>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

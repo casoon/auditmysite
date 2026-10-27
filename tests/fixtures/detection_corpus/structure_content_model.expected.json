@@ -1,0 +1,43 @@
+{
+  "case": "structure_content_model",
+  "expectations": [
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/skip-level",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "html-content-model",
+      "selector": "ul",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "html-content-model",
+      "selector": "dl",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "html-content-model",
+      "selector": "table",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "lists/invalid-structure",
+      "selector": "ul#features",
+      "verdict": "violation"
+    }
+  ]
+}

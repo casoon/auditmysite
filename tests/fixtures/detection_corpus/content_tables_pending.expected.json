@@ -1,0 +1,11 @@
+{
+  "case": "content_tables_pending",
+  "expectations": [
+    {"rule_id": "tables/data-undetermined", "selector": "table#pending-results", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-without-data", "verdict": "pass"},
+    {"rule_id": "tables/header-missing", "verdict": "pass"},
+    {"rule_id": "tables/name-missing", "verdict": "pass"},
+    {"rule_id": "tables/presentational-with-headers", "verdict": "not_applicable"},
+    {"rule_id": "tables/headers-attr-invalid", "verdict": "not_applicable"}
+  ]
+}

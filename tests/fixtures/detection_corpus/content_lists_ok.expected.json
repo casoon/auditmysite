@@ -1,0 +1,10 @@
+{
+  "case": "content_lists_ok",
+  "expectations": [
+    {"rule_id": "lists/invalid-structure", "verdict": "pass"},
+    {"rule_id": "lists/empty", "verdict": "pass"},
+    {"rule_id": "lists/item-outside-list", "verdict": "pass"},
+    {"rule_id": "lists/term-without-definition", "verdict": "pass"},
+    {"rule_id": "lists/role-redundant", "selector": "ul#branch-list", "verdict": "pass"}
+  ]
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogue</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Catalogue</h1>
+<!-- G2 #783: change handlers that navigate or submit (F36, F37), a handler that only filters content, a handler that calls a navigating function, focus handlers on non-interactive elements, autofocus (3.2.1, 3.2.2). -->
+<form id="ctx-form" action="/catalogue" method="get">
+  <p><label for="ctx-jump">Jump to section</label>
+  <select id="ctx-jump" name="jump" onchange="location.href = this.value"><option value="#bikes">Bikes</option><option value="#helmets">Helmets</option></select></p>
+  <fieldset><legend>Delivery speed</legend>
+    <label><input type="radio" name="speed" id="ctx-radio-submit" value="x" onchange="this.form.submit()"> Express</label>
+    <label><input type="radio" name="speed" id="ctx-radio-plain" value="s"> Standard</label>
+  </fieldset>
+  <p><label for="ctx-filter">Show colours</label>
+  <select id="ctx-filter" name="colour" onchange="filterList(this.value)"><option value="all">All</option><option value="red">Red</option><option value="blue">Blue</option></select></p>
+  <ul id="colour-list"><li data-c="red">Red bike</li><li data-c="blue">Blue bike</li></ul>
+  <p><label for="ctx-called">Open category</label>
+  <select id="ctx-called" name="category" onchange="goTo(this.value)"><option value="/bikes">Bikes</option><option value="/helmets">Helmets</option></select></p>
+  <p><label for="ctx-plain">Gift wrap</label> <select id="ctx-plain" name="wrap"><option>No</option><option>Yes</option></select></p>
+  <p><label for="ctx-focus-input">Quantity</label> <input id="ctx-focus-input" name="qty" type="number" onfocus="this.select()"></p>
+  <p><label for="ctx-autofocus-input">Search the catalogue</label> <input id="ctx-autofocus-input" name="q" type="text" autofocus></p>
+  <p><button type="submit">Apply</button></p>
+</form>
+<p><label for="ctx-language">Language</label> <select id="ctx-language"><option>English</option><option>Deutsch</option></select></p>
+<div id="ctx-focus-div" class="solo" tabindex="0" onfocus="document.getElementById('promo').hidden = false">Spring promotion</div>
+<p id="promo" hidden>Ten percent off all helmets.</p>
+<p><span id="ctx-focus-aria" role="button" tabindex="0" onfocus="this.setAttribute('aria-describedby', 'promo')">Size guide</span></p>
+<p><a class="solo" id="ctx-focus-link" href="/sale" onfocus="this.title = 'Opens the sale'">Sale items</a></p>
+<p><button id="ctx-autofocus-btn" type="button" autofocus>Continue shopping</button></p>
+<p><span id="ctx-autofocus-aria" role="searchbox" contenteditable="true" tabindex="0" aria-label="Quick search" autofocus></span></p>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+<script>
+  function filterList(value) {
+    document.querySelectorAll('#colour-list li').forEach(function (li) {
+      li.hidden = value !== 'all' && li.dataset.c !== value;
+    });
+  }
+  function goTo(url) { window.location.assign(url); }
+</script>
+</body>
+</html>

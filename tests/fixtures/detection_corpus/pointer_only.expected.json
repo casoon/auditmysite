@@ -2,6 +2,12 @@
   "case": "pointer_only",
   "expectations": [
     { "rule_id": "keyboard/pointer-only", "selector": "div#search", "verdict": "needs_review" },
-    { "rule_id": "keyboard/pointer-only", "selector": "div#card", "verdict": "absent" }
+    { "rule_id": "keyboard/pointer-only", "selector": "div#card", "verdict": "absent" },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-missing", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "targets/size-enhanced", "selector": "a", "verdict": "needs_review", "occurrences": 1 }
   ]
 }

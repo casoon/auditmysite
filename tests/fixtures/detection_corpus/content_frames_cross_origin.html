@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Room booking</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Book a study room</h1>
+        <iframe id="booking" title="Room booking" src="{{CROSS_ORIGIN}}/booking" width="400" height="200"></iframe>
+        <p>Our location, as a small marker:</p>
+        <iframe id="small-map" title="Location map" src="{{CROSS_ORIGIN}}/map" width="2" height="2" style="border: 0"></iframe>
+        <p>Visits are counted anonymously.</p>
+        <iframe id="pixel" title="Visitor counter" src="{{CROSS_ORIGIN}}/pixel" width="1" height="1" style="border: 0"></iframe>
+        <iframe id="collapsed" title="Chat" src="{{CROSS_ORIGIN}}/chat" style="display: none"></iframe>
+        <iframe id="silent" title="Analytics" src="{{CROSS_ORIGIN}}/analytics" width="300" height="100" aria-hidden="true" tabindex="-1"></iframe>
+        <iframe id="local-help" title="Booking help" width="400" height="120" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Help</title></head><body><p>Rooms can be booked for up to two hours.</p></body></html>"></iframe>
+        <booking-widget></booking-widget>
+        <div id="late-frame"></div>
+        <script>
+            var crossOrigin = '{{CROSS_ORIGIN}}';
+            customElements.define('booking-widget', class extends HTMLElement {
+                connectedCallback() {
+                    this.attachShadow({ mode: 'open' }).innerHTML =
+                        '<iframe id="shadow-calendar" title="Room calendar" src="' + crossOrigin + '/calendar" width="300" height="150"></iframe>';
+                }
+            });
+            document.getElementById('late-frame').innerHTML =
+                '<iframe id="late-reviews" title="Reviews" src="' + crossOrigin + '/reviews" width="300" height="150"></iframe>';
+        </script>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

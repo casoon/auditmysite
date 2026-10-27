@@ -1,0 +1,67 @@
+{
+  "case": "visual_control_contrast",
+  "expectations": [
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-faint",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-edge-pass",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-edge-fail",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-native",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "input#cb-hidden",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/control-undetermined",
+      "selector": "input#cb-gradient",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "contrast/control-undetermined",
+      "selector": "input#cb-faint",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/control-insufficient",
+      "selector": "span#sw-faint",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "timeouts",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/help",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "verdict": "needs_review"
+    }
+  ]
+}

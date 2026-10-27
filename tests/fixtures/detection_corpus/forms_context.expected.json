@@ -1,0 +1,97 @@
+{
+  "case": "forms_context",
+  "expectations": [
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-jump",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "input#ctx-radio-submit",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-called",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-filter",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-language",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "input#ctx-radio-plain",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-plain",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "div#ctx-focus-div",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "input#ctx-focus-input",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "span#ctx-focus-aria",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "a#ctx-focus-link",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "button#ctx-autofocus-btn",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "input#ctx-autofocus-input",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "span#ctx-autofocus-aria",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "keyboard/focusable-no-role",
+      "selector": "div#ctx-focus-div",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

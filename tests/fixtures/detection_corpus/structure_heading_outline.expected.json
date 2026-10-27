@@ -1,0 +1,53 @@
+{
+  "case": "structure_heading_outline",
+  "expectations": [
+    {
+      "rule_id": "headings/skip-level",
+      "selector": "h4#skipped-level",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "headings/skip-level",
+      "selector": "h5.print-only",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-multiple",
+      "selector": "h1#second-title",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "headings/section-without-heading",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "headings/empty",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/none",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

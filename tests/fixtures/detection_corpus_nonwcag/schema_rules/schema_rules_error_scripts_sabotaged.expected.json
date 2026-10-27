@@ -1,0 +1,73 @@
+{
+  "case": "schema_rules_error_scripts_sabotaged",
+  "expectations": [
+    {
+      "rule_id": "product_snippet",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "article",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "breadcrumb",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "organization",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "local_business",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "faq",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "event",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "recipe",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "video",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "job_posting",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "software_application",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "profile_page",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "item_list",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "web_page",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "web_site",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "person",
+      "verdict": "errored"
+    }
+  ]
+}

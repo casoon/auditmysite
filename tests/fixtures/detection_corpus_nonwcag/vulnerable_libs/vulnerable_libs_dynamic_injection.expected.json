@@ -1,0 +1,33 @@
+{
+  "case": "vulnerable_libs_dynamic_injection",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "AngularJS",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Handlebars",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Lodash",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Prototype",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "MooTools",
+      "verdict": "violation"
+    }
+  ]
+}

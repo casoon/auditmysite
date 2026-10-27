@@ -115,6 +115,10 @@ const MAX_TRACKS_CHECKED: usize = 10;
 const VIDEO_TRACK_SCAN_JS: &str = r#"
 var videos = [];
 Array.prototype.forEach.call(document.querySelectorAll('video'), function(v) {
+  // A video that is not rendered (in a hidden panel, display:none) is not
+  // presented in this state; 1.2.2 has nothing to judge there.
+  var vstyle = window.getComputedStyle(v);
+  if (v.getClientRects().length === 0 || (vstyle && vstyle.visibility !== 'visible')) return;
   var tracks = [];
   Array.prototype.forEach.call(v.querySelectorAll('track'), function(t) {
     tracks.push({
@@ -338,7 +342,16 @@ pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
         crate::accessibility::js_helpers::CSS_SELECTOR_JS,
         r#"
         var results = [];
-        var frames = document.querySelectorAll('iframe, frame');
+        // Frames in open shadow roots are part of the page as much as those
+        // in the light DOM; `querySelectorAll` does not reach into them.
+        var frames = [];
+        (function collect(root) {
+          Array.prototype.push.apply(frames, root.querySelectorAll('iframe, frame'));
+          var all = root.querySelectorAll('*');
+          for (var j = 0; j < all.length; j++) {
+            if (all[j].shadowRoot) collect(all[j].shadowRoot);
+          }
+        })(document);
         for (var i = 0; i < frames.length; i++) {
           var el = frames[i];
           var role = (el.getAttribute('role') || '').toLowerCase();

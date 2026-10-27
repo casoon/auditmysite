@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipping address</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Shipping address</h1>
+<!-- G2 #783: autofill tokens per the HTML autofill grammar ([section-*] [shipping|billing] [contact] field [webauthn]) and 1.3.5 input purpose for fields about the user. -->
+<form action="/checkout" method="post">
+  <p><label for="ship-name">Full name</label> <input id="ship-name" name="ship-name" type="text" autocomplete="shipping name"></p>
+  <p><label for="ship-street">Street address</label> <input id="ship-street" name="ship-street" type="text" autocomplete="section-parcel shipping street-address"></p>
+  <p><label for="work-mail">Work email</label> <input id="work-mail" name="work-mail" type="email" autocomplete="work email"></p>
+  <p><label for="tel-mobile">Mobile phone</label> <input id="tel-mobile" name="tel-mobile" type="tel" autocomplete="mobile tel" aria-describedby="tel-hint"> <span id="tel-hint">Digits only, for example 0301234567.</span></p>
+  <p><label for="ship-country">Country</label> <select id="ship-country" name="ship-country" autocomplete="Shipping Country-Name"><option>Germany</option><option>Austria</option></select></p>
+  <p><label for="gift-card">Gift card number</label> <input id="gift-card" name="gift-card" type="text" autocomplete="off"></p>
+  <p><label for="bad-token">Company</label> <input id="bad-token" name="company" type="text" autocomplete="company"></p>
+  <p><label for="bad-contact">Contact person</label> <input id="bad-contact" name="contact-person" type="text" autocomplete="work name"></p>
+  <p><label for="bad-order">Postcode</label> <input id="bad-order" name="postcode" type="text" autocomplete="postal-code shipping" aria-describedby="pc-hint"> <span id="pc-hint">Five digits.</span></p>
+  <p><label for="bad-area">Delivery instructions</label> <textarea id="bad-area" name="instructions" autocomplete="delivery-note"></textarea></p>
+  <input type="hidden" name="csrf" value="x" autocomplete="nonsense">
+  <p><label for="pm-email">Email for updates</label> <input id="pm-email" name="updates" type="email"></p>
+  <p><label for="pm-phone">Phone number</label> <input id="pm-phone" name="pm-phone" type="text" aria-describedby="pm-phone-hint"> <span id="pm-phone-hint">Digits only.</span></p>
+  <p><label for="pm-first">First name</label> <input id="pm-first" name="pm-first" type="text"></p>
+  <p><label for="pm-ok">Email for receipts</label> <input id="pm-ok" name="receipts" type="email" autocomplete="email"></p>
+  <p><label for="pm-project">Project name</label> <input id="pm-project" name="project" type="text"></p>
+  <p><label for="pm-ip">IP address of your router</label> <input id="pm-ip" name="router" type="text"></p>
+  <p><button type="submit">Continue</button></p>
+</form>
+<div role="search">
+  <form action="/stores" method="get">
+    <p><label for="pm-search">Store city</label> <input id="pm-search" name="city" type="text"> <button type="submit">Find stores</button></p>
+  </form>
+</div>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

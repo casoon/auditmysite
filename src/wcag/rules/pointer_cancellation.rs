@@ -9,6 +9,12 @@
 //! corpus) and is deleted here. The note stays until the shared manual
 //! checklist (casoon/barrierlab#39) has an item for 2.5.2: whether an action
 //! fires on the down-event only shows under a real pointer.
+//!
+//! The note appears only where 2.5.2 applies: on a page with something a
+//! single pointer can operate. Controls, links, pointer handlers and
+//! widget roles show in the markup; a listener added by script does not, so
+//! any script (or embedded document) counts as possible functionality too.
+//! A static page without any of these gets no note.
 
 use chromiumoxide::Page;
 
@@ -26,7 +32,40 @@ pub(super) const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag252", "cat.sensory-and-visual-cues"],
 };
 
-pub async fn check_pointer_cancellation_with_page(_page: &Page) -> Vec<Violation> {
+/// Whether the page has anything a single pointer could operate.
+const POINTER_FUNCTIONALITY_JS: &str = r#"
+!!document.querySelector(
+  'a[href], area[href], button, input:not([type="hidden"]), select, textarea, summary, ' +
+  'label, audio[controls], video[controls], iframe, object, embed, script, ' +
+  '[onclick], [onmousedown], [onmouseup], [onpointerdown], [onpointerup], ' +
+  '[ontouchstart], [ontouchend], [tabindex], [draggable="true"], [contenteditable], ' +
+  '[role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], ' +
+  '[role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], ' +
+  '[role="option"], [role="slider"], [role="spinbutton"], [role="scrollbar"], ' +
+  '[role="treeitem"], [role="gridcell"], [role="combobox"], [role="textbox"], [role="searchbox"]'
+)
+"#;
+
+pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation> {
+    let applies = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &POINTER_CANCELLATION_RULE,
+        POINTER_FUNCTIONALITY_JS,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(failure) => return failure,
+    };
+    let Some(applies) = applies.as_bool() else {
+        return vec![crate::wcag::technical_rule_failure(
+            &POINTER_CANCELLATION_RULE,
+            "invalid_evaluation_shape",
+        )];
+    };
+    if !applies {
+        return Vec::new();
+    }
     vec![Violation::new(
         POINTER_CANCELLATION_RULE.id,
         POINTER_CANCELLATION_RULE.name,

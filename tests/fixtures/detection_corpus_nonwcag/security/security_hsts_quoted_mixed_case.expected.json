@@ -1,0 +1,36 @@
+{
+  "case": "security_hsts_quoted_mixed_case",
+  "note": "Directive names are case-insensitive and max-age may be a quoted-string (RFC 6797 §6.1); this is a valid one-year preload header.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "fixture": {
+    "transport": "https",
+    "raw_response_headers": [
+      [
+        "strict-transport-security",
+        "Max-Age=\"31536000\"; INCLUDESUBDOMAINS; Preload"
+      ]
+    ]
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "verdict": "pass"
+    }
+  ]
+}

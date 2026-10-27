@@ -1,0 +1,125 @@
+{
+  "case": "forms_hidden",
+  "expectations": [
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/url-name",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "auth/captcha",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-input",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-focus",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/autofocus",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#sr-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#sr-empty-link",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#sr-empty-button",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trail running shoe - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Trail running shoe</h1>
+
+        <!-- One tab selected, panel present -->
+        <div id="product-tabs" role="tablist" aria-label="Product information">
+            <button type="button" role="tab" id="tab-desc" aria-selected="true" aria-controls="panel-desc">Description</button>
+            <button type="button" role="tab" id="tab-reviews" aria-selected="false" aria-controls="panel-desc" tabindex="-1">Reviews</button>
+        </div>
+        <div id="panel-desc" role="tabpanel" aria-labelledby="tab-desc">Lightweight shoe with a grippy sole.</div>
+
+        <!-- Expanded combobox referencing its popup; a collapsed one needs no
+             reference -->
+        <label for="size">Size</label>
+        <input id="size" type="text" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="size-options">
+        <ul id="size-options" role="listbox" aria-label="Sizes">
+            <li role="option" id="size-42" aria-selected="false">42</li>
+            <li role="option" id="size-43" aria-selected="false">43</li>
+        </ul>
+        <label for="colour">Colour</label>
+        <input id="colour" type="text" role="combobox" aria-expanded="false" aria-autocomplete="list">
+
+        <!-- The native select has its popup built in -->
+        <label for="qty">Quantity</label>
+        <select id="qty"><option>1</option><option>2</option></select>
+
+        <!-- A visible menu named by its heading -->
+        <h2 id="sort-label">Sort reviews</h2>
+        <div id="sort-menu" role="menu" aria-labelledby="sort-label">
+            <div role="menuitem" id="sort-new" tabindex="0">Newest first</div>
+            <div role="menuitem" id="sort-best" tabindex="-1">Best rated</div>
+        </div>
+
+        <!-- popovertarget points at a (closed, hence hidden) popover -->
+        <button type="button" id="guide-btn" popovertarget="size-guide">Size guide</button>
+        <div id="size-guide" popover>EU 42 equals UK 8.</div>
+
+        <!-- Expanded button naming the region it controls -->
+        <button type="button" id="care-btn" aria-expanded="true" aria-controls="care-text">Care instructions</button>
+        <div id="care-text">Clean with a damp cloth.</div>
+
+        <!-- Tooltips referenced as description and as name -->
+        <button type="button" id="fav-btn" aria-describedby="fav-tip">Add to wish list</button>
+        <div role="tooltip" id="fav-tip">Saved items stay for 30 days</div>
+        <button type="button" id="share-btn" aria-labelledby="share-tip"><span aria-hidden="true">&#x2197;</span></button>
+        <div role="tooltip" id="share-tip">Share</div>
+
+        <!-- Open, operable popover -->
+        <div id="promo" popover="manual" aria-label="Promotion">
+            <p>10 % off your first order.</p>
+            <button type="button" id="promo-close">Close</button>
+        </div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+    <script>
+        document.getElementById('promo').showPopover();
+    </script>
+</body>
+</html>

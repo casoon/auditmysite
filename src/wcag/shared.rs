@@ -663,8 +663,9 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // unterscheiden), nur `<dialog open>` ein Verstoß. Ein sichtbares
     // `role="menu"` mit `inert` ist kein Befund mehr -- ein aus dem Bild
     // geschobenes Menü ist so richtig gebaut. Das offene Popover mit
-    // `inert`, den fehlenden Namen offener Dialoge und Popover und den Fokus
-    // in einem inerten Teilbaum prüft `modern_attributes` weiter.
+    // `inert` und den fehlenden Namen offener Menüs und Popover (als
+    // Prüfhinweis) prüft `modern_attributes` weiter; Fokus in einem inerten
+    // Teilbaum lässt HTMLs Fokus-Fixup nicht zu (#783).
     SharedRule {
         id: "inert/dialog-inert",
         criterion: "4.1.2",

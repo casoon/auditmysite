@@ -1,0 +1,24 @@
+{
+  "case": "structure_title_untitled",
+  "expectations": [
+    {
+      "rule_id": "document-title",
+      "selector": "head",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document/title-empty",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/title-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

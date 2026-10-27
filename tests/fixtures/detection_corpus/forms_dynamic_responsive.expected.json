@@ -1,0 +1,378 @@
+{
+  "case": "forms_dynamic_responsive",
+  "expectations": [
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#dy-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#dy-placeholder",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#dy-titled",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#dy-bad-ac",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#dy-mail",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#dy-invalid",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#dy-radio",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "fieldset#dy-fieldset",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#dy-required",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#dy-date",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#dy-jump",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#dy-form-nosubmit",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#dy-form-twice",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#dy-m1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#dy-m2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#dy-pw",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#dy-login",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "div#dy-focus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "button#dy-autofocus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#dy-empty-link",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#dy-empty-button",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#dy-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#dy-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "a#dy-url",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#dy-single",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#dy-new-window",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#dy-fake",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#dy-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#mo-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#mo-placeholder",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#mo-titled",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#mo-bad-ac",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#mo-mail",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#mo-invalid",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#mo-radio",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "fieldset#mo-fieldset",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#mo-required",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#mo-date",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#mo-jump",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#mo-form-nosubmit",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#mo-form-twice",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#mo-m1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#mo-m2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#mo-pw",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#mo-login",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "div#mo-focus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "button#mo-autofocus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#mo-empty-link",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#mo-empty-button",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#mo-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#mo-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "a#mo-url",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#mo-single",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#mo-new-window",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#mo-fake",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#mo-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#fix-field",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#fix-link",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#wide-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#wide-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

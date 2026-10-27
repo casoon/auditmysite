@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Newsroom - Example paper</title>
+</head>
+<body>
+    <header>
+        <p>Example paper</p>
+    </header>
+    <main>
+        <h1>Newsroom</h1>
+        <p>Latest headlines, updated live.</p>
+
+        <!-- Markup that is correct as served and broken by script after load
+             (ids starting with "break-"), and markup that is broken as served
+             and repaired by script (ids starting with "fix-"). The audit sees
+             the page as the script leaves it. -->
+        <div id="dyn-area">
+            <input id="break-unknown" type="text" aria-label="Search">
+            <button type="button" id="break-value" aria-pressed="false">Follow</button>
+            <button type="button" id="fix-value" aria-pressed="yes">Bookmark</button>
+            <p id="break-prohibited">Breaking news</p>
+            <ul><li id="break-notallowed">World</li></ul>
+            <div id="break-role" role="region" aria-label="Ticker">Markets open higher</div>
+            <div id="fix-role" role="regoin" aria-label="Weather">Sunny</div>
+            <div id="break-abstract" role="group" aria-label="Sections"><a href="/world">World</a></div>
+            <button type="button" id="break-redundant">Subscribe</button>
+            <div id="break-tablist-wrap"></div>
+            <div id="break-checkbox" role="checkbox" tabindex="0" aria-checked="false">Dark mode</div>
+            <div id="fix-switch" role="switch" tabindex="0">Live updates</div>
+            <div id="break-steps" role="tablist" aria-label="Editions">
+                <div role="tab" id="break-steps-one" tabindex="0" aria-selected="true">Morning</div>
+            </div>
+            <div id="break-panel-holder"><div id="break-panel" role="tabpanel" aria-labelledby="break-steps-one">Morning edition</div></div>
+            <input id="break-combo" type="text" role="combobox" aria-label="Topic" aria-expanded="false">
+            <ul id="break-combo-list" role="listbox" aria-label="Topics"><li role="option" aria-selected="false">Politics</li></ul>
+            <button type="button" id="break-pop" popovertarget="pop-share">Share</button>
+            <div id="pop-share" popover>Copy the link.</div>
+            <button type="button" id="fix-pop" popovertarget="pop-later">Later</button>
+            <button type="button" id="break-acc" aria-expanded="false" aria-controls="acc-panel">More</button>
+            <div id="acc-panel">More headlines</div>
+            <div role="tooltip" id="break-tip">Opens the archive</div>
+            <button type="button" id="archive" aria-describedby="break-tip">Archive</button>
+            <div id="break-owner-a" role="group" aria-label="Lead" aria-owns="owned-story"></div>
+            <div id="break-owner-b" role="group" aria-label="Second"></div>
+            <p id="owned-story">Story</p>
+            <button type="button" id="break-ref" aria-describedby="ref-desc">Read later</button>
+            <p id="ref-desc">Saved for 7 days.</p>
+            <div id="break-slider" role="slider" tabindex="0" aria-label="Text size" aria-valuenow="2"></div>
+            <button type="button" id="break-symbol" aria-label="Menu">&#x2630;</button>
+            <button type="button" id="break-title" title="Print">Print</button>
+            <button type="button" id="break-lin" aria-label="Listen to article">Listen</button>
+            <button type="button" id="break-dup" aria-describedby="break-dup-desc">Comment</button>
+            <span id="break-dup-desc" hidden>Write a comment below the article</span>
+            <details id="break-details"><summary id="break-summary">Corrections</summary><p>None.</p></details>
+            <svg id="break-svg" role="img" aria-label="Paper logo" width="20" height="20"><rect width="20" height="20"></rect></svg>
+            <div id="break-status" role="status">3 new articles</div>
+            <div id="break-modal" role="dialog" aria-modal="true" aria-label="Newsletter"><button type="button">Sign up</button></div>
+            <dialog id="break-native">Breaking news alert</dialog>
+            <dialog open id="break-inert" aria-label="Poll"><button type="button">Vote</button></dialog>
+            <div id="break-promo" popover="manual" aria-label="Offer"><button type="button">Subscribe</button></div>
+            <div id="break-menu" role="menu" aria-label="Share">
+                <div role="menuitem" id="break-menu-item" tabindex="-1">Copy link</div>
+            </div>
+            <div id="focus-trap-probe"><button type="button" id="probe-btn">Continue reading</button></div>
+        </div>
+    </main>
+    <footer>
+        <p>Example paper</p>
+    </footer>
+    <script>
+        const $ = (id) => document.getElementById(id);
+        function mutate() {
+            // Broken after load.
+            $('break-unknown').setAttribute('aria-labeledby', 'nothing');
+            $('break-value').setAttribute('aria-pressed', 'on');
+            $('break-prohibited').setAttribute('aria-label', 'Lead story');
+            $('break-notallowed').setAttribute('aria-checked', 'true');
+            $('break-role').setAttribute('role', 'reigon');
+            $('break-abstract').setAttribute('role', 'section');
+            $('break-redundant').setAttribute('role', 'button');
+            const tab = document.createElement('div');
+            tab.setAttribute('role', 'tab');
+            tab.id = 'break-orphan-tab';
+            tab.tabIndex = 0;
+            tab.setAttribute('aria-selected', 'true');
+            tab.textContent = 'Evening';
+            $('break-tablist-wrap').appendChild(tab);
+            $('break-checkbox').removeAttribute('aria-checked');
+            $('break-steps-one').setAttribute('aria-selected', 'false');
+            $('break-panel').remove();
+            $('break-combo').setAttribute('aria-expanded', 'true');
+            $('pop-share').removeAttribute('popover');
+            $('break-acc').setAttribute('aria-expanded', 'true');
+            $('break-acc').removeAttribute('aria-controls');
+            $('archive').removeAttribute('aria-describedby');
+            $('break-owner-b').setAttribute('aria-owns', 'owned-story');
+            $('ref-desc').remove();
+            $('break-slider').removeAttribute('aria-label');
+            $('break-symbol').setAttribute('aria-label', '☰');
+            $('break-title').innerHTML = '<svg aria-hidden="true" width="8" height="8"></svg>';
+            $('break-lin').textContent = 'Play';
+            $('break-dup-desc').textContent = 'Comment';
+            $('break-summary').textContent = '';
+            $('break-svg').removeAttribute('aria-label');
+            $('break-status').setAttribute('aria-live', 'off');
+            $('break-modal').removeAttribute('aria-modal');
+            $('break-modal').removeAttribute('aria-label');
+            $('break-modal').innerHTML = '<p>Thanks for reading.</p>';
+            $('break-native').show();
+            $('break-inert').inert = true;
+            $('break-promo').inert = true;
+            $('break-promo').showPopover();
+            // Focus a control, then make its container inert: HTML's focus
+            // fixup moves focus out, so no focus is left inside inert content.
+            $('break-menu-item').setAttribute('role', 'button');
+            $('probe-btn').focus();
+            $('focus-trap-probe').inert = true;
+            // Repaired after load.
+            $('fix-value').setAttribute('aria-pressed', 'true');
+            $('fix-role').setAttribute('role', 'region');
+            $('fix-switch').setAttribute('aria-checked', 'false');
+            const later = document.createElement('div');
+            later.id = 'pop-later';
+            later.setAttribute('popover', '');
+            later.textContent = 'Read it later.';
+            document.body.appendChild(later);
+        }
+        setTimeout(mutate, 50);
+    </script>
+</body>
+</html>

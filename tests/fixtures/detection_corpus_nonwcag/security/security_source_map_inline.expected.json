@@ -1,0 +1,38 @@
+{
+  "case": "security_source_map_inline",
+  "note": "An inline data: map carries no reachable file.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "fixture": {
+    "page_body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>App</title><script src=\"/assets/app.js\" defer></script></head><body><main><h1>App</h1></main></body></html>",
+    "routes": [
+      {
+        "path": "/assets/app.js",
+        "headers": [
+          [
+            "Content-Type",
+            "application/javascript"
+          ]
+        ],
+        "body": "console.log('app');\n//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozfQ==\n"
+      }
+    ]
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Source Map:public_source_map",
+      "verdict": "pass"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Media player - Example radio</title>
+</head>
+<body>
+    <header>
+        <p>Example radio</p>
+    </header>
+    <main>
+        <h1>Live stream</h1>
+
+        <!-- Every alternative name source: aria-label, aria-labelledby,
+             <label>, title on a native field, content -->
+        <div id="volume" role="slider" tabindex="0" aria-label="Volume" aria-valuenow="7" aria-valuemin="0" aria-valuemax="10"></div>
+        <div id="autoplay" role="switch" tabindex="0" aria-checked="false" aria-labelledby="autoplay-label"></div>
+        <span id="autoplay-label">Autoplay</span>
+        <label for="station">Station</label>
+        <input id="station" type="text">
+        <input id="search" type="search" title="Search stations">
+        <div id="genre" role="radiogroup" aria-label="Genre">
+            <div role="radio" id="genre-jazz" tabindex="0" aria-checked="true">Jazz</div>
+            <div role="radio" id="genre-pop" tabindex="-1" aria-checked="false">Pop</div>
+        </div>
+
+        <!-- One-character names that are letters or digits, and a symbol
+             from content rather than from an attribute -->
+        <button type="button" id="channel-1" aria-label="1">1</button>
+        <button type="button" id="umlaut" aria-label="&#x00C4;">&#x00C4;</button>
+        <button type="button" id="next-arrow">&#x2192;</button>
+
+        <!-- Title only adds to a visible name -->
+        <button type="button" id="share" title="Opens the share dialog">Share</button>
+
+        <!-- Name contains the visible label; a symbol label is exempt -->
+        <button type="button" id="play" aria-label="Play live stream">Play</button>
+        <a href="/notes#fn1" id="fn-ref" aria-label="Footnote 1"><sup>&#x00B9;</sup></a>
+
+        <!-- Description adds information beyond the name -->
+        <button type="button" id="mute" aria-describedby="mute-desc">Mute</button>
+        <span id="mute-desc" hidden>Silences the stream until you unmute it</span>
+
+        <!-- Named summary, also through aria-label on an icon-only summary -->
+        <details id="lyrics">
+            <summary id="lyrics-summary">Lyrics</summary>
+            <p>No lyrics available.</p>
+        </details>
+        <details id="credits">
+            <summary id="credits-summary" aria-label="Credits"><span aria-hidden="true">&#x2139;</span></summary>
+            <p>Produced by Example radio.</p>
+        </details>
+
+        <!-- SVGs: named by title, by aria-label, decorative, and an icon inside
+             a named button -->
+        <svg id="cover" role="img" width="120" height="120" viewBox="0 0 120 120">
+            <title>Album cover: Blue Nights</title>
+            <rect width="120" height="120" fill="#335"></rect>
+        </svg>
+        <svg id="logo" role="img" aria-label="Example radio logo" width="40" height="40"><circle cx="20" cy="20" r="18"></circle></svg>
+        <svg id="divider" role="presentation" width="200" height="4"><path d="M0 2 L200 2" stroke="#000"></path></svg>
+        <button type="button" id="like"><svg id="like-icon" width="16" height="16"><circle cx="8" cy="8" r="6"></circle></svg> Like</button>
+    </main>
+    <footer>
+        <p>Example radio</p>
+    </footer>
+</body>
+</html>

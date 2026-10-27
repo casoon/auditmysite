@@ -1,0 +1,911 @@
+# Rule contracts, WCAG group G5: keyboard, focus, pointer, targets, manual
+# checks (#783). Format: tests/fixtures/rule_contracts/README.md.
+#
+# Corpus cases of this group start with `interaction_`; the older cases
+# keyboard_and_targets, no_focus_targets, pointer_only,
+# scrollable_region_focusable and target_size_* belong here too.
+
+# ── Shared rules (a11y-rules via SHARED_RULES) ───────────────────────────────
+
+[[rule]]
+id = "keyboard/positive-tabindex"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/positive-tabindex)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.3 Focus Order; failure F44 (tabindex creating a tab order that does not preserve meaning); HTML §6.6.3 the tabindex attribute"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered elements carrying a tabindex attribute that parses as an integer."
+expectation = """
+A rendered element with tabindex greater than 0 is reported once as
+needs_review: a positive value moves it ahead of the natural order, which
+fails 2.4.3 only when the resulting order breaks meaning or operation (F44),
+and that the markup does not show. tabindex 0 and -1 keep the natural order
+and are not reported; the boundary is 1. A display:none element is in no tab
+order and is not reported. ARIA widgets (span role=button) and native
+controls count alike, so do elements in an open shadow root, a value set by
+script after load, and an element rendered on one viewport only."""
+positive = ["interaction_tab_order"]
+negative = ["interaction_tab_order"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_tab_order"] }
+native_vs_aria = { cases = ["interaction_tab_order"] }
+alternative_labels = { not_relevant = "The tab order does not depend on how an element is named." }
+frames_shadow_dom = { cases = ["interaction_tab_order"] }
+responsive = { cases = ["interaction_tab_order"] }
+dynamic = { cases = ["interaction_tab_order"] }
+thresholds = { cases = ["interaction_tab_order"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/hidden-focusable"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/hidden-focusable)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1; WAI-ARIA 1.2 §6.7 aria-hidden (authors must not hide focusable content); HTML §6.6.3 tabindex, §6.3 inert"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered elements in the sequential tab order (native focusable or tabindex >= 0) that are inside, or carry, aria-hidden=\"true\"."
+expectation = """
+Fails (violation, one per element) when an element that the Tab key reaches
+is hidden from the accessibility tree by aria-hidden="true" on itself or an
+ancestor, also across an open shadow root (aria-hidden applies to the flat
+tree): keyboard users land on something that is not announced. Passes when
+the element is taken out of the tab order (tabindex="-1"), when the hidden
+subtree is inert, when it is not rendered, or when aria-hidden is "false".
+Native links and ARIA widgets with tabindex 0 count alike, as does
+aria-hidden set by a script after load."""
+positive = ["interaction_tab_order"]
+negative = ["interaction_tab_order"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_tab_order"] }
+native_vs_aria = { cases = ["interaction_tab_order"] }
+alternative_labels = { not_relevant = "Hiding from the accessibility tree is independent of how the element is named." }
+frames_shadow_dom = { cases = ["interaction_tab_order"] }
+responsive = { not_relevant = "aria-hidden and tab order do not change with the viewport; an element not rendered at one viewport is the visibility dimension." }
+dynamic = { cases = ["interaction_tab_order"] }
+thresholds = { not_relevant = "Presence check on aria-hidden and tab reachability; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/focusable-no-role"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/focusable-no-role)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 §5.3 (roles of focusable widgets); HTML §6.6.3 tabindex"
+capabilities = ["dom", "ax_tree", "computed_style"]
+applicability = "Rendered, non-inert elements in the sequential tab order (tabindex >= 0) that are not natively focusable."
+expectation = """
+needs_review once per element that the Tab key reaches but that has no
+interactive role (generic, group, paragraph, none and similar): a keyboard
+user lands on it, but nothing tells whether or how it can be operated. Not
+reported: tabindex="-1" (a script focus target, not a tab stop; the boundary
+is 0), a named region with tabindex="0" (the recommended scrollable-region
+pattern), elements that are not rendered. A tabindex added by script after
+load counts."""
+positive = ["interaction_tab_order", "keyboard_and_targets"]
+negative = ["interaction_tab_order"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_tab_order"] }
+native_vs_aria = { cases = ["interaction_tab_order"] }
+alternative_labels = { not_relevant = "The check concerns role and tab order; a name does not make an element operable." }
+frames_shadow_dom = { not_relevant = "Role and tabindex are read per element of the captured document; a shadow-root element behaves like any other, covered for the same snapshot by keyboard/positive-tabindex in interaction_tab_order." }
+responsive = { not_relevant = "Role and tabindex do not change with the viewport; rendering per viewport is the visibility dimension." }
+dynamic = { cases = ["interaction_tab_order"] }
+thresholds = { cases = ["interaction_tab_order"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/interactive-not-focusable"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/interactive-not-focusable)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard; WAI-ARIA 1.2 §5.3 widget roles and aria-activedescendant; HTML-AAM (a without href is generic)"
+capabilities = ["dom", "ax_tree", "computed_style"]
+applicability = "Rendered, non-inert elements with an interactive widget role (button, link, checkbox, radio, switch, menuitem*, tab, option, treeitem)."
+expectation = """
+needs_review once per element that exposes an interactive role but cannot
+take keyboard focus (no tabindex, not natively focusable): operating it from
+the keyboard depends on script that the markup does not show. Not reported:
+native controls, natively disabled fields, native <option>, options or items
+whose ancestor manages focus with aria-activedescendant, elements not
+rendered. An <a> without href has no link role (HTML-AAM: generic) and is
+the business of keyboard/click-handler-not-focusable, not of this rule. A
+tabindex removed by script after load counts."""
+positive = ["interaction_tab_order"]
+negative = ["interaction_tab_order", "interaction_click_anchor"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_tab_order"] }
+native_vs_aria = { cases = ["interaction_tab_order", "interaction_click_anchor"] }
+alternative_labels = { not_relevant = "Focusability does not depend on naming; the alternative focus mechanism aria-activedescendant is covered by the negative case in interaction_tab_order." }
+frames_shadow_dom = { not_relevant = "Role and focusability are read per element of the captured document; shadow-root elements of the same snapshot are covered by keyboard/positive-tabindex in interaction_tab_order." }
+responsive = { not_relevant = "Role and tabindex do not change with the viewport; rendering per viewport is the visibility dimension." }
+dynamic = { cases = ["interaction_tab_order"] }
+thresholds = { not_relevant = "Presence check on role and focusability; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/skip-link-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/skip-link-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.1 Bypass Blocks; techniques G1 (skip link at the top), ARIA11/H69 (landmarks, headings)"
+capabilities = ["dom"]
+applicability = "Pages with blocks a keyboard user has to pass to reach the main content: links or other tab stops in front of it. A page without any link or focusable element has nothing to bypass."
+expectation = """
+needs_review once per page (page-level, at the root) when header or
+navigation links precede the main content and no link bypasses them: no
+fragment link to the start of the main content, no run of in-page links in
+front of the first link that leaves the page. A skip link counts in any
+language, also when it is visually hidden until focused, and also when a
+script inserts it after load. Review, not violation: 2.4.1 can also be met by
+landmarks and headings. A page without any link or focusable element is not
+applicable (nothing to tab past)."""
+page_level = true
+positive = ["interaction_skip_link_missing"]
+negative = ["interaction_tab_order", "interaction_location_breadcrumb", "skip_link_language"]
+not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
+
+[rule.variants]
+visibility = { cases = ["interaction_tab_order"] }
+native_vs_aria = { not_relevant = "A skip link is an ordinary <a href=\"#...\">; there is no ARIA form of it." }
+alternative_labels = { cases = ["skip_link_language"] }
+frames_shadow_dom = { not_relevant = "2.4.1 is judged per document; an iframe is a document of its own." }
+responsive = { not_relevant = "Links and their order do not change with the viewport in the markup the rule reads." }
+dynamic = { cases = ["interaction_location_breadcrumb"] }
+thresholds = { not_relevant = "Presence check; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/click-handler-not-focusable"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/click-handler-not-focusable)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard; failure F54 (only pointing-device-specific event handlers); HTML §4.5.1 (a without href is a placeholder, not focusable)"
+capabilities = ["dom"]
+applicability = "Elements with an inline onclick attribute that are not controls by themselves: div, span, p, li, section, article, and a without href."
+expectation = """
+violation once per element with an onclick handler that is neither a
+control, nor has an interactive role, nor is in the tab order, and contains
+nothing the Tab key reaches: keyboard users cannot trigger it (F54). When a
+focusable link or control sits inside (the card around its own link), the
+function is reachable that way and the finding is needs_review. An a without
+href is no link and is reported. A role="button" with tabindex="0" passes.
+An onclick attribute set by script after load counts."""
+positive = ["interaction_click_pointer", "interaction_click_anchor", "keyboard_and_targets"]
+negative = ["interaction_click_pointer"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "The rule reads the onclick attribute in the markup; whether the element is rendered does not change that a keyboard user cannot trigger it." }
+native_vs_aria = { cases = ["interaction_click_pointer"] }
+alternative_labels = { cases = ["interaction_click_pointer"] }
+frames_shadow_dom = { not_relevant = "Inline handlers are read per element of the captured document; frames are separate documents." }
+responsive = { not_relevant = "Inline handlers and tab order do not change with the viewport." }
+dynamic = { cases = ["interaction_click_pointer"] }
+thresholds = { not_relevant = "Presence check; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/scrollable-region-not-focusable"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/scrollable-region-not-focusable)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard; axe-core scrollable-region-focusable (13 px tolerance)"
+capabilities = ["dom", "geometry", "computed_style"]
+applicability = "Rendered elements other than html/body whose content overflows their box and that contain text."
+expectation = """
+violation once per scroll region whose content extends more than 13 px
+beyond its box (scroll overflow), with text to reveal, when neither the
+region (tabindex >= 0) nor any non-inert element inside can take keyboard
+focus: the hidden part stays unreachable from the keyboard. Overflow of 13 px
+or less is sub-pixel or padding noise and passes; overflow: hidden is no
+scroll region; a region without text, an inert region and a region that is
+not rendered are not reported. Overflow on one viewport only (text wrapping
+on the phone) counts, as does content a script adds after load."""
+positive = ["interaction_scroll_regions", "scrollable_region_focusable"]
+negative = ["interaction_scroll_regions"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_scroll_regions"] }
+native_vs_aria = { cases = ["interaction_scroll_regions"] }
+alternative_labels = { not_relevant = "Naming the region does not make it reachable; only focusability counts." }
+frames_shadow_dom = { not_relevant = "An iframe scrolls as its own document, which the keyboard reaches through the frame; the rule judges element scroll regions of one document." }
+responsive = { cases = ["interaction_scroll_regions"] }
+dynamic = { cases = ["interaction_scroll_regions"] }
+thresholds = { cases = ["interaction_scroll_regions"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "keyboard/pointer-only"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=keyboard/pointer-only)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered elements that look clickable (computed cursor: pointer or an onclick attribute) and are not controls themselves."
+expectation = """
+needs_review once per element where a pointer cursor starts (not where it is
+inherited) on an element with text that is no control, has no role or
+tabindex, and contains no control: if it does something, the keyboard cannot
+reach it. Not reported: the card pattern (cursor on a box around a link),
+real controls with a pointer cursor, descendants inheriting the cursor,
+elements already reported by keyboard/click-handler-not-focusable, and
+elements not rendered. A cursor set only by a media query on the phone
+viewport, or by script after load, counts."""
+positive = ["interaction_click_pointer", "pointer_only"]
+negative = ["interaction_click_pointer", "pointer_only"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_click_pointer"] }
+native_vs_aria = { cases = ["interaction_click_pointer"] }
+alternative_labels = { not_relevant = "Naming does not make an element reachable by keyboard." }
+frames_shadow_dom = { not_relevant = "Computed cursor is read per element of the captured document; frames are separate documents." }
+responsive = { cases = ["interaction_click_pointer"] }
+dynamic = { cases = ["interaction_click_pointer"] }
+thresholds = { not_relevant = "Presence check on the computed cursor; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "focus/outline-removed"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=focus/outline-removed)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.7 Focus Visible; failure F78 (styling that removes or renders the focus indicator non-visible)"
+capabilities = ["stylesheets"]
+applicability = "Pages whose stylesheets contain a :focus rule that removes the outline (outline: none / 0, outline-style: none, outline-width: 0)."
+expectation = """
+violation once per page (page-level) when a stylesheet removes the focus
+outline under :focus and no rule replaces it: no :focus-visible rule anywhere
+and no :focus rule that sets another indicator (box-shadow, border,
+background, text decoration, or the outline itself). Rules inside a media
+query that applies on the phone viewport count, as do stylesheets a script
+injects after load. A replacement in the same rule, or a :focus-visible rule
+for keyboard focus, passes. Pages without such a rule are not applicable."""
+page_level = true
+positive = ["interaction_outline_removed", "interaction_outline_removed_mobile", "interaction_outline_removed_dynamic"]
+negative = ["interaction_outline_replaced"]
+not_applicable = ["interaction_tab_order", "interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "The rule judges stylesheet rules, not elements; whether a matching element is visible does not change that its focus indicator is removed." }
+native_vs_aria = { not_relevant = "Selectors are judged as written; element type and role play no part." }
+alternative_labels = { cases = ["interaction_outline_replaced"] }
+frames_shadow_dom = { not_relevant = "Each document carries its own stylesheets; an iframe is audited as its own document." }
+responsive = { cases = ["interaction_outline_removed_mobile"] }
+dynamic = { cases = ["interaction_outline_removed_dynamic"] }
+thresholds = { not_relevant = "No size threshold: any removal (none or 0) without replacement fails; indicator size and contrast are 2.4.13 (AAA), outside this check." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "targets/size"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=targets/size)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.5.8 Target Size (Minimum): 24 x 24 CSS px, exceptions Spacing, Equivalent, Inline, User agent control, Essential"
+capabilities = ["dom", "geometry", "computed_style"]
+applicability = "Rendered, clickable pointer targets (links with href, buttons, fields, elements with a widget role or in the tab order) that are not inert, not pointer-events: none and not moved off-screen."
+expectation = """
+needs_review once per target smaller than 24 x 24 CSS px whose 24 px circle,
+centred on the target, intersects another target or the circle of another
+undersized target (the spacing exception fails). 24 px passes, 23 px fails;
+centres 30 px apart pass, 20 px apart fail. Not reported: links in running
+text (inline), a checkbox or radio whose <label> enlarges the target (an
+aria-label does not), a target with a visible same-destination equivalent of
+24 px, targets not rendered or invisible. Native and ARIA targets count
+alike; a size reached on the phone viewport only, or set by script after
+load, counts. A target still growing when measured is UNTESTED
+(needs_review)."""
+positive = ["interaction_targets", "keyboard_and_targets", "target_size_equivalent", "target_size_hidden_neighbours", "target_size_animation"]
+negative = ["interaction_targets", "keyboard_and_targets", "target_size_equivalent", "target_size_hidden_neighbours", "target_size_animation"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_targets", "target_size_hidden_neighbours"] }
+native_vs_aria = { cases = ["interaction_targets"] }
+alternative_labels = { cases = ["interaction_targets", "target_size_equivalent"] }
+frames_shadow_dom = { not_relevant = "Target size is measured per document; an iframe is its own document with its own layout." }
+responsive = { cases = ["interaction_targets"] }
+dynamic = { cases = ["interaction_targets", "target_size_animation"] }
+thresholds = { cases = ["interaction_targets"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "targets/size-enhanced"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=targets/size-enhanced)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.5.5 Target Size (Enhanced): 44 x 44 CSS px, exceptions Equivalent, Inline, User agent control, Essential (no spacing exception)"
+capabilities = ["dom", "geometry", "computed_style"]
+applicability = "The same pointer targets as targets/size."
+expectation = """
+needs_review once per target smaller than 44 x 44 CSS px, without a spacing
+exception: 43 px fails, 44 px passes. Same exceptions as targets/size
+(inline, label, visible same-destination equivalent of 44 px, not rendered).
+A target that already fails 2.5.8 is reported once, under targets/size, not
+a second time here."""
+positive = ["interaction_targets", "keyboard_and_targets", "target_size_equivalent", "target_size_hidden_neighbours"]
+negative = ["interaction_targets", "keyboard_and_targets", "target_size_equivalent", "target_size_animation"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_targets"] }
+native_vs_aria = { not_relevant = "Same target set as targets/size, where native and ARIA targets are covered; the size comparison does not depend on the kind of target." }
+alternative_labels = { cases = ["interaction_targets", "target_size_equivalent"] }
+frames_shadow_dom = { not_relevant = "Target size is measured per document; an iframe is its own document with its own layout." }
+responsive = { not_relevant = "Same measurement as targets/size, whose responsive case covers the viewport; a target below 24 px there is reported only under targets/size." }
+dynamic = { cases = ["target_size_animation"] }
+thresholds = { cases = ["interaction_targets"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "order/visual-mismatch"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=order/visual-mismatch)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.2 Meaningful Sequence and SC 2.4.3 Focus Order; failure C27 (CSS positioning/order that changes meaning)"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered flex containers with flex-direction *-reverse, or whose children carry a non-zero CSS order, over content (text or tab stops)."
+expectation = """
+needs_review once per container where CSS shows content in another order
+than the DOM: row-reverse or column-reverse over two or more children with
+content, or a child with order != 0. Not reported: order: 0 (the default),
+a single child, a teaser card whose tab stops all lead to the same
+destination, containers not rendered. A reversal that applies only on the
+phone viewport, or is set by script after load, counts."""
+positive = ["interaction_reading_order"]
+negative = ["interaction_reading_order"]
+not_applicable = ["interaction_static_text", "interaction_tab_order"]
+
+[rule.variants]
+visibility = { cases = ["interaction_reading_order"] }
+native_vs_aria = { not_relevant = "Visual reordering is CSS; there is no ARIA counterpart (aria-flowto is not considered by any user agent in practice)." }
+alternative_labels = { not_relevant = "Order of content does not depend on naming." }
+frames_shadow_dom = { not_relevant = "Layout is read per document; an iframe has its own reading order." }
+responsive = { cases = ["interaction_reading_order"] }
+dynamic = { cases = ["interaction_reading_order"] }
+thresholds = { cases = ["interaction_reading_order"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "navigation/location-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=navigation/location-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.8 Location (AAA); techniques G65 (breadcrumb trail), G128 (indicating current location within navigation)"
+capabilities = ["dom"]
+applicability = "Pages with a navigation (nav or role=navigation) that contains links."
+expectation = """
+needs_review once per page (page-level, at the root) when the page has a
+navigation with links but neither marks the current page
+(aria-current="page") nor offers a breadcrumb trail (aria-label containing
+"breadcrumb"). Review, not violation: 2.4.8 can also be met by the title,
+headings or a site map. A breadcrumb or aria-current="page" passes. Pages
+without a navigation are not applicable."""
+page_level = true
+positive = ["interaction_location_missing", "target_size_equivalent"]
+negative = ["interaction_location_breadcrumb", "interaction_tab_order"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "The rule reads navigation and current-page markers in the markup; visibility of the navigation is not part of 2.4.8's markup signals." }
+native_vs_aria = { not_relevant = "nav and role=navigation are treated alike by the same selector; the cases use nav." }
+alternative_labels = { cases = ["interaction_location_breadcrumb", "interaction_tab_order"] }
+frames_shadow_dom = { not_relevant = "Location within a site is a property of the top document." }
+responsive = { not_relevant = "Navigation markers do not change with the viewport." }
+dynamic = { not_relevant = "The markers are static markup in practice; a script-set aria-current is read like any attribute of the captured DOM." }
+thresholds = { not_relevant = "Presence check; no numeric threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+# ── Manual checklist items (a11y-rules checkliste, UNTESTED once per page) ───
+
+[[rule]]
+id = "manual/pointer-gestures"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/pointer-gestures)"]
+automation = "manual"
+manual_reason = "Whether every path-based or multipoint gesture also works with a single pointer is only shown by operating the widget; the markup shows at most that gestures exist."
+method = "shared"
+source = "WCAG 2.2 SC 2.5.1 Pointer Gestures"
+capabilities = ["dom"]
+applicability = "Pages with gesture-driven content in the markup: draggable=\"true\", touch/pointer-move/drag handler attributes, or carousel/slider/map library classes (swiper, slick, carousel, leaflet, ...)."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page
+contains gesture-driven content; never pass or violation. Pages without such
+content get no note."""
+page_level = true
+positive = ["interaction_manual_checklist"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "Gestures have no ARIA counterpart; the note keys on markup signals only." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/motion-actuation"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/motion-actuation)"]
+automation = "manual"
+manual_reason = "Whether a motion-triggered function also has a UI control and can be turned off needs a device and a human; the document only shows that motion events are subscribed."
+method = "shared"
+source = "WCAG 2.2 SC 2.5.4 Motion Actuation"
+capabilities = ["dom"]
+applicability = "Pages with an inline script that listens to devicemotion or deviceorientation."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when an inline script
+subscribes to device motion or orientation; never pass or violation. External
+scripts are invisible to a document check, so pages without such an inline
+script get no note."""
+page_level = true
+positive = ["interaction_manual_checklist"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "Scripts are never rendered; the note keys on script text." }
+native_vs_aria = { not_relevant = "Motion events have no markup or ARIA form." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "Script text does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on inline script text in the captured document." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/no-timing"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/no-timing)"]
+automation = "manual"
+manual_reason = "Whether any task depends on timing shows only while completing it; no markup states a time limit."
+method = "shared"
+source = "WCAG 2.2 SC 2.2.3 No Timing (AAA)"
+capabilities = ["dom"]
+applicability = "Pages with form fields (input other than hidden/submit/button/reset, select, textarea) or a meta refresh."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page has
+form fields or a meta refresh; never pass or violation. Pages without either
+get no note."""
+page_level = true
+positive = ["interaction_manual_checklist", "interaction_targets", "keyboard_and_targets"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "The note keys on native fields; it does not judge them." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/interruptions"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/interruptions)"]
+automation = "manual"
+manual_reason = "Whether updates and pop-ups can be postponed or suppressed depends on behaviour over time that no document shows."
+method = "shared"
+source = "WCAG 2.2 SC 2.2.4 Interruptions (AAA)"
+capabilities = ["dom"]
+applicability = "Pages with a dialog element, a live region (aria-live other than off, role alert/alertdialog/status/log/marquee/timer) or a meta refresh."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page has
+something that can interrupt; never pass or violation. A role="dialog" div is
+not among the signals, a native dialog element is. Pages without any signal
+get no note."""
+page_level = true
+positive = ["interaction_manual_checklist", "interaction_dialog_aria", "interaction_dialog_native"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { cases = ["interaction_dialog_native", "interaction_manual_checklist"] }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/re-authenticating"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/re-authenticating)"]
+automation = "manual"
+manual_reason = "Whether data survives an expired session needs a real session that times out."
+method = "shared"
+source = "WCAG 2.2 SC 2.2.5 Re-authenticating (AAA)"
+capabilities = ["dom"]
+applicability = "Pages with a sign-in: a password field or a captcha widget."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page has a
+password field or a captcha; never pass or violation. Pages without get no
+note."""
+page_level = true
+positive = ["interaction_manual_checklist"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "The note keys on native password fields; it does not judge them." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/unusual-words"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/unusual-words)"]
+automation = "manual"
+manual_reason = "Whether a word is jargon or an idiom, and whether it is explained, is a judgement about language no detector makes."
+method = "shared"
+source = "WCAG 2.2 SC 3.1.3 Unusual Words (AAA)"
+capabilities = ["dom"]
+applicability = "Pages with any visible text (text outside title, script, style, noscript)."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, on every page with
+text; never pass or violation. A page without any text (an image with alt
+only) gets no note."""
+page_level = true
+ambient = true
+positive = ["interaction_manual_checklist", "interaction_static_text"]
+not_applicable = ["interaction_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "Language is not marked up natively or by ARIA." }
+alternative_labels = { not_relevant = "Text alternatives (alt) do not trigger the note; covered by the not-applicable case interaction_no_text." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The text does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured text after load." }
+thresholds = { not_relevant = "Presence of text; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "manual/help"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/help)"]
+automation = "manual"
+manual_reason = "Whether a field needs help, and whether instructions or examples are adequate, is an editorial judgement; a missing aria-describedby is no evidence of missing help."
+method = "shared"
+source = "WCAG 2.2 SC 3.3.5 Help (AAA)"
+capabilities = ["dom"]
+applicability = "Pages with form fields that take input (input other than hidden/submit/button/reset, select, textarea)."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page has
+input fields; never pass or violation. Pages without fields get no note."""
+page_level = true
+positive = ["interaction_manual_checklist", "interaction_targets", "keyboard_and_targets"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "The note keys on native fields; it does not judge them." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+# ── Local rules ──────────────────────────────────────────────────────────────
+
+[[rule]]
+id = "keyboard-trap"
+automation = "manual"
+manual_reason = "Whether focus can leave a component shows only by operating it with the keyboard (Tab, Shift+Tab, Escape); the accessibility tree cannot tell a trap from a well-behaved modal."
+method = "tree"
+source = "WCAG 2.2 SC 2.1.2 No Keyboard Trap; WAI-ARIA 1.2 aria-modal, HTML §4.11.4 dialog showModal()"
+capabilities = ["ax_tree"]
+applicability = "Pages where keyboard focus can be moved to a component: at least one focusable node other than the document root."
+expectation = """
+On every page with a focusable component: one page-wide UNTESTED note
+(needs_review). In addition one needs_review per modal dialog in the
+accessibility tree (role dialog/alertdialog with modal=true: aria-modal="true"
+or a native dialog opened with showModal()), because a modal deliberately
+keeps focus and must let it go again. A non-modal dialog (no aria-modal, or
+dialog.show()) adds nothing. A page without any focusable component is not
+applicable: no note. Never pass or violation."""
+page_level = true
+ambient = true
+positive = ["interaction_dialog_aria", "interaction_dialog_native", "interaction_click_pointer"]
+not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
+
+[rule.variants]
+visibility = { not_relevant = "Read from the accessibility tree, where hidden dialogs are ignored nodes; a closed dialog is no modal." }
+native_vs_aria = { cases = ["interaction_dialog_aria", "interaction_dialog_native"] }
+alternative_labels = { not_relevant = "Naming of the dialog plays no part in whether it is modal." }
+frames_shadow_dom = { not_relevant = "2.1.2 for content in an iframe is judged in that document; the rule reads the top document's tree." }
+responsive = { not_relevant = "Modality does not change with the viewport." }
+dynamic = { cases = ["interaction_dialog_native"] }
+thresholds = { not_relevant = "Presence checks; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/keyboard.rs"
+change = "invert the modal condition"
+find = "if let Some(true) = node.get_property_bool(\"modal\") {"
+replace = "if let Some(false) = node.get_property_bool(\"modal\") {"
+killed_by = "lib:wcag::rules::keyboard"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/keyboard.rs"
+change = "drop the applicability gate of the page note"
+find = "    if !focusable {\n        return results;\n    }"
+replace = ""
+killed_by = "lib:wcag::rules::keyboard"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/keyboard.rs"
+change = "invert the applicability gate of the page note"
+find = "    if !focusable {\n        return results;"
+replace = "    if focusable {\n        return results;"
+killed_by = "corpus:interaction_click_pointer"
+
+[[rule]]
+id = "focus-visible"
+automation = "manual"
+manual_reason = "The accessibility tree carries no focus-indicator data; 2.4.7 itself is decided by focus/outline-removed. This rule can only point a human at a page that exposes no focusable element at all, where controls may be built from plain elements."
+method = "tree"
+source = "WCAG 2.2 SC 2.4.7 Focus Visible (and SC 2.1.1 for the plain-element controls the note points at)"
+capabilities = ["ax_tree"]
+applicability = "Pages whose accessibility tree has more than five nodes and no focusable or interactive node besides the document root."
+expectation = """
+One needs_review per page (at "root") when the page has content (more than
+five AX nodes) but no focusable or interactive element: 2.4.7 has nothing to
+apply to, yet a page without any control is unusual enough that a human
+should check whether operable content was built from plain elements. A page
+with focusable elements gets no note from this rule. Never pass or
+violation."""
+page_level = true
+positive = ["interaction_static_text", "no_focus_targets"]
+not_applicable = ["interaction_tab_order", "interaction_click_pointer"]
+
+[rule.variants]
+visibility = { not_relevant = "Ignored AX nodes (hidden content) are skipped; the note concerns the page as a whole." }
+native_vs_aria = { not_relevant = "Focusability comes from the AX tree, where native and ARIA controls look alike." }
+alternative_labels = { not_relevant = "Naming plays no part." }
+frames_shadow_dom = { not_relevant = "Reads the top document's AX tree only; a page note." }
+responsive = { not_relevant = "Focusability does not change with the viewport." }
+dynamic = { not_relevant = "Reads the AX tree after load like every tree rule." }
+thresholds = { not_relevant = "The five-node floor only keeps near-empty documents quiet; it is covered by the unit test in src/wcag/rules/focus_visible.rs and the mutation below." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_visible.rs"
+change = "invert the no-focusable condition"
+find = "if focusable_count == 0 && tree.len() > 5 {"
+replace = "if focusable_count != 0 && tree.len() > 5 {"
+killed_by = "lib:wcag::rules::focus_visible"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_visible.rs"
+change = "shift the node floor"
+find = "if focusable_count == 0 && tree.len() > 5 {"
+replace = "if focusable_count == 0 && tree.len() > 6 {"
+killed_by = "lib:wcag::rules::focus_visible"
+
+[[rule]]
+id = "focus-not-obscured-minimum"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum)"
+capabilities = ["dom", "geometry", "computed_style", "interaction"]
+applicability = "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element."
+expectation = """
+needs_review once per control that, focused and scrolled into view, is
+entirely hidden by an author-created fixed or sticky element painted above
+it (every probe point of the control lands on that element first). Not
+reported: a control only partly covered (that is 2.4.12), a 1 px edge
+contact, an overlay that is visibility: hidden, an overlay painted below the
+control (z-index), a control inside the overlay itself. An overlay that is
+fixed only on the phone viewport, or added by script after load, counts.
+Review, not violation: the walk is bounded and the layout after real
+scrolling can differ."""
+positive = ["interaction_focus_obscured", "media_and_visual"]
+negative = ["interaction_focus_obscured"]
+not_applicable = ["interaction_static_text", "interaction_click_pointer"]
+
+[rule.variants]
+visibility = { cases = ["interaction_focus_obscured"] }
+native_vs_aria = { not_relevant = "The walk takes every keyboard-focusable control, native or with tabindex, alike; coverage is geometry and paint order." }
+alternative_labels = { not_relevant = "Naming plays no part in being covered." }
+frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own." }
+responsive = { cases = ["interaction_focus_obscured"] }
+dynamic = { cases = ["interaction_focus_obscured"] }
+thresholds = { cases = ["interaction_focus_obscured"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_not_obscured_minimum.rs"
+change = "accept a partly covered control as entirely hidden"
+find = "if (blockers.every(Boolean)) {"
+replace = "if (blockers.some(Boolean)) {"
+killed_by = "corpus:interaction_focus_obscured"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_not_obscured_minimum.rs"
+change = "shift the entirely-hidden ratio of the static fallback"
+find = "const ENTIRELY_HIDDEN_RATIO: f64 = 0.98;"
+replace = "const ENTIRELY_HIDDEN_RATIO: f64 = 0.05;"
+killed_by = "lib:wcag::rules::focus_not_obscured_minimum"
+
+[[rule]]
+id = "focus-not-obscured-enhanced"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 2.4.12 Focus Not Obscured (Enhanced) (AAA)"
+capabilities = ["dom", "geometry", "computed_style"]
+applicability = "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element at least 20 x 20 px."
+expectation = """
+needs_review once per control of which a fixed or sticky element painted
+above it covers any meaningful part (at least 5 % of its area; a 1 px edge
+contact is rounding, not covering). An entirely covered control is reported
+here as well as under 2.4.11. Not reported: an overlay that is
+visibility: hidden, an overlay painted below the control (z-index), a
+control inside the overlay. An overlay fixed only on the phone viewport, or
+added by script after load, counts."""
+positive = ["interaction_focus_obscured", "media_and_visual"]
+negative = ["interaction_focus_obscured"]
+not_applicable = ["interaction_static_text", "interaction_click_pointer"]
+
+[rule.variants]
+visibility = { cases = ["interaction_focus_obscured"] }
+native_vs_aria = { not_relevant = "Every keyboard-focusable control, native or with tabindex, is taken alike; coverage is geometry and paint order." }
+alternative_labels = { not_relevant = "Naming plays no part in being covered." }
+frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own." }
+responsive = { cases = ["interaction_focus_obscured"] }
+dynamic = { cases = ["interaction_focus_obscured"] }
+thresholds = { cases = ["interaction_focus_obscured"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
+change = "shift the partly-hidden ratio"
+find = "const PARTIALLY_HIDDEN_RATIO: f64 = 0.05;"
+replace = "const PARTIALLY_HIDDEN_RATIO: f64 = 0.5;"
+killed_by = "corpus:interaction_focus_obscured"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
+change = "drop the paint-order check"
+find = "      if (paintsBelow(overlayEls[k], overlays[k], fel, frect)) continue;"
+replace = ""
+killed_by = "corpus:interaction_focus_obscured"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
+change = "drop the finding"
+find = "        if is_partially_hidden(rect, &candidate_overlays) {"
+replace = "        if false {"
+killed_by = "corpus:interaction_focus_obscured"
+
+[[rule]]
+id = "pointer-cancellation"
+automation = "manual"
+manual_reason = "Whether an action fires on the down-event, or can be aborted or undone, only shows under a real pointer; handlers added by script are invisible in the markup."
+method = "page"
+source = "WCAG 2.2 SC 2.5.2 Pointer Cancellation"
+capabilities = ["dom"]
+applicability = "Pages with functionality a single pointer can operate: links, controls, widget roles, tab stops, pointer handler attributes, draggable or editable content, embedded documents, or any script (which can attach listeners unseen)."
+expectation = """
+One page-wide UNTESTED note (needs_review) on every page with single-pointer
+functionality; never pass or violation. A static page without any control,
+handler, embedded document or script is not applicable: no note. A page
+whose DOM query API fails records the rule as not run."""
+page_level = true
+ambient = true
+positive = ["interaction_click_pointer"]
+not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
+
+[rule.variants]
+visibility = { not_relevant = "A page-wide note; it does not judge elements." }
+native_vs_aria = { not_relevant = "Native controls and widget roles are both signals of the same page-wide note." }
+alternative_labels = { not_relevant = "Naming plays no part." }
+frames_shadow_dom = { not_relevant = "An iframe counts as possible functionality of the page; its own content is audited as its own document." }
+responsive = { not_relevant = "The signals are markup, which does not change with the viewport." }
+dynamic = { not_relevant = "Any script already makes the note apply, whatever it adds later." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/pointer_cancellation.rs"
+change = "invert the applicability gate"
+find = "    if !applies {"
+replace = "    if applies {"
+killed_by = "corpus:interaction_click_pointer"

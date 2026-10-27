@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Links and buttons</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Links and buttons</h1>
+<!-- G2 #783: links and buttons with and without an accessible name (4.1.2, 2.4.4), every naming mechanism, link text that does not say where it goes (2.4.4 in context, 2.4.9 on its own), bare URLs, single characters, unannounced new windows (G201) and links used as buttons. -->
+<h2>Names</h2>
+<p><a class="solo" id="ln-empty" href="/cart"></a></p>
+<p><a class="solo" id="ln-icon" href="/account"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></a></p>
+<p><a class="solo" id="ln-aria" href="/account" aria-label="Your account"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></a></p>
+<p><a class="solo" id="ln-img-alt" href="/"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Crect width='44' height='44' fill='%230050a0'/%3E%3C/svg%3E" alt="Shop home" width="44" height="44"></a></p>
+<p><a class="solo" id="ln-sr" href="/cart"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg><span class="visually-hidden">Shopping cart</span></a></p>
+<p><a class="solo" id="ln-labelledby" href="/wishlist" aria-labelledby="wl-label"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></a><span id="wl-label" hidden>Wish list</span></p>
+<p><a id="ln-anchor" name="top"></a></p>
+<p><span id="ln-aria-role" role="link" tabindex="0" onclick="location.href = '/cart'" onkeydown="if (event.key === 'Enter') location.href = '/cart'"></span></p>
+<p><span id="ln-aria-role-named" role="link" tabindex="0" aria-label="Order history" onclick="location.href = '/orders'" onkeydown="if (event.key === 'Enter') location.href = '/orders'"></span></p>
+<p><button id="bn-empty" type="button"></button></p>
+<p><button id="bn-icon" type="button"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></button></p>
+<p><span id="bn-aria-empty" role="button" tabindex="0"></span></p>
+<p><input id="bn-input-empty" type="button" value=""></p>
+<p><button id="bn-aria" type="button" aria-label="Close the banner"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg></button></p>
+<p><button id="bn-text" type="button">Add to cart</button></p>
+<p><input id="bn-submit-default" type="submit" form="none-form"></p>
+<p><span id="bn-aria-named" role="button" tabindex="0" aria-label="Show sizes"></span></p>
+
+<h2>Link purpose</h2>
+<article>
+  <h3>Bike lanes extended</h3>
+  <p>The city adds twelve kilometres of bike lanes this summer.</p>
+  <a class="solo" id="gn-context" href="/news/bike-lanes">Read more</a>
+</article>
+<p><a class="solo" id="gn-bare" href="/offers">Click here</a></p>
+<p><a class="solo" id="gn-good" href="/offers">Spring offers for bikes</a></p>
+<p><a class="solo" id="plo-open" href="/brochure.pdf">Open</a></p>
+<p><a class="solo" id="gn-aria-label" href="/news/parks" aria-label="Read more about the new parks">Read more</a></p>
+<p><a class="solo" id="gn-sr" href="/news/trams">Read more<span class="visually-hidden"> about the new trams</span></a></p>
+<div><div><ul><li><a class="solo" id="url-bare" href="https://example.org/report-2026">https://example.org/report-2026</a></li></ul></div></div>
+<p>Download the annual report at <a id="url-context" href="https://example.org/report">https://example.org/report</a>.</p>
+<p><a class="solo" id="sc-x" href="/close-offer">x</a></p>
+<p><a class="solo" id="sc-two" href="/de">DE</a></p>
+<p><a class="solo" id="sc-digit" href="/page/2">2</a></p>
+<p><a class="solo" id="nw-bare" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="nw-told" href="https://example.org/terms" target="_blank">Partner terms (opens in new tab)</a></p>
+<p><a class="solo" id="nw-aria" href="https://example.org/press" target="_blank" aria-label="Press kit, opens in new window">Press kit</a></p>
+<p><a class="solo" id="nw-self" href="https://example.org/jobs" target="_self">Jobs at the partner</a></p>
+<p><a class="solo" id="ub-hash" href="#" onclick="openChat(); return false;">Chat with us</a></p>
+<p><a class="solo" id="ub-js" href="javascript:void(0)" onclick="window.print()">Print this page</a></p>
+<p><a class="solo" id="ub-role" href="#" role="button" onclick="openChat(); return false;">Open the chat</a></p>
+<p><a class="solo" id="ub-real" href="/chat" onclick="track()">Chat page</a></p>
+<div id="chat" hidden><p>Chat is offline.</p></div>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+<script>
+  function openChat() { document.getElementById('chat').hidden = false; }
+  function track() {}
+</script>
+</body>
+</html>

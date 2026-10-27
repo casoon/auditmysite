@@ -1,0 +1,1067 @@
+# Rule contracts, package G1 (#783): ARIA attributes and roles, names,
+# dialogs, widgets, popover/inert, status messages, label in name.
+# Format: tests/fixtures/rule_contracts/README.md.
+
+[[rule]]
+id = "aria/attribute-unknown"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/attribute-unknown)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 6.6 (definitions of states and properties)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Every attribute whose name starts with aria- on an element in the accessibility tree."
+expectation = """
+Fails for each aria-* attribute that WAI-ARIA does not define (typically a typo such as
+aria-describeby): the browser ignores it and the intended relationship or state is lost. Attributes
+from the WAI-ARIA 1.3 draft that browsers already map (aria-description, aria-braillelabel, ...) are
+defined and pass. Hidden subtrees are not exposed and are out of scope; content that becomes visible
+or is changed by script is judged as rendered. One finding per unknown attribute."""
+page_level = false
+positive = ["aria_attrs_invalid", "aria_attribute_validation"]
+negative = ["aria_attrs_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "The check reads aria-* attributes, which have the same meaning on native and custom elements; there is no native counterpart to vary." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Membership in the list of defined attribute names; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/attribute-value-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/attribute-value-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 6.7 (value types: true/false, tristate, token, integer, number)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Every WAI-ARIA state or property with an enumerated, integer or number value type and a non-empty value, on an element in the accessibility tree."
+expectation = """
+Fails when the value is outside the attribute's value type (aria-pressed="yes",
+aria-level="two", aria-expanded="maybe"): user agents fall back to the default and the state is lost.
+Valid boundary values pass: "mixed" and "undefined" where the type allows them, decimal and exponent
+numbers (2.5, 1e1) for number types. Empty values count as absent. ID references and free strings
+are other rules (aria/reference-missing). Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_attrs_invalid", "aria_invalid_attr_value"]
+negative = ["aria_attrs_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "The check reads aria-* attributes, which have the same meaning on native and custom elements; there is no native counterpart to vary." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { cases = ["aria_attrs_valid", "aria_attrs_invalid"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/attribute-not-allowed"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/attribute-not-allowed)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.2 (supported states and properties per role); ARIA in HTML section 3 (author MUST NOT rules); ACT 5c01ea"
+capabilities = ["dom", "ax_tree"]
+applicability = "Every non-empty WAI-ARIA attribute on an element in the accessibility tree whose role (explicit or implicit) is defined in WAI-ARIA 1.2."
+expectation = """
+Fails when the element's role does not support the attribute (aria-selected on a
+listitem, aria-checked on role img, aria-expanded on a generic div), and when ARIA in HTML forbids it
+on the native element (aria-checked on a native checkbox, aria-valuemax next to max). Attributes the
+role supports pass, also on a custom widget whose role takes the state (role=checkbox with
+aria-checked) and the treegrid row with aria-expanded. Prohibited naming is
+aria/attribute-prohibited, not this id. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_attrs_invalid", "aria_attribute_validation", "widget_patterns"]
+negative = ["aria_attrs_valid", "treegrid_expandable_rows"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_attrs_invalid", "aria_attrs_valid"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/attribute-prohibited"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/attribute-prohibited)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.2.8.6 (Prohibited states and properties: naming prohibited on caption, code, generic, paragraph, presentation, ...)"
+capabilities = ["dom", "ax_tree"]
+applicability = "aria-label, aria-labelledby (and aria-roledescription on generic) on an element in the accessibility tree whose role prohibits naming."
+expectation = """
+Fails for aria-label or aria-labelledby on an element whose role prohibits a name, whether
+the role is explicit (role=presentation) or implicit (a <p> is a paragraph): the name is not exposed.
+Naming a role that supports it (region, navigation, group) passes. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_attrs_invalid", "aria_attribute_validation"]
+negative = ["aria_attrs_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_attrs_invalid", "aria_attribute_validation"] }
+alternative_labels = { cases = ["aria_attrs_invalid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/owns-conflict"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/owns-conflict)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 aria-owns (\"An element's ID MUST NOT be specified in more than one other element's aria-owns attribute at any time\")"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with aria-owns."
+expectation = """
+Fails when an id already owned by one element's aria-owns appears in another element's
+aria-owns; the owner is then undetermined. Reported once, at the second owner. Owners of distinct ids
+pass. Hidden owners are out of scope; ids compare within one tree (document or shadow root)."""
+page_level = false
+positive = ["aria_attrs_invalid"]
+negative = ["aria_attrs_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "aria-owns exists only as an ARIA attribute; HTML has no native ownership to compare." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "The condition is a second owner of the same id; nothing to count beyond that." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/reference-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/reference-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships and SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 6.2 (ID reference values) and aria-controls, aria-errormessage"
+capabilities = ["dom"]
+applicability = "ID references in aria-labelledby, aria-describedby, aria-controls, aria-owns, aria-activedescendant, aria-details, aria-flowto, aria-errormessage (Markup scope)."
+expectation = """
+Fails when a referenced id does not exist in the element's tree (document or the same
+shadow root; IDREFs do not cross a shadow boundary), and for an empty aria-controls, aria-owns or
+aria-activedescendant. A reference to hidden content resolves and passes (accname 1.2 step 2B).
+aria-controls on a collapsed control (aria-expanded=false) may point at a popup that is only created
+on opening, and aria-errormessage only matters while aria-invalid is true: both pass."""
+page_level = false
+positive = ["aria_attrs_invalid", "aria_attribute_validation"]
+negative = ["aria_attrs_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden", "aria_attrs_valid"] }
+native_vs_aria = { not_relevant = "ID references exist only as ARIA attributes here; label[for] is judged by the forms rules." }
+alternative_labels = { not_relevant = "The rule judges whether a reference resolves, not the resulting name." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { not_relevant = "The rule reads the whole markup (Markup scope): attributes and ids are the same at every viewport, CSS cannot add or remove them." }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/role-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/role-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.4 (definition of roles) and 7.1 (role attribute, fallback tokens); ACT 674b10"
+capabilities = ["dom", "ax_tree"]
+applicability = "Non-empty role attributes on elements in the accessibility tree."
+expectation = """
+Fails when no token of the role attribute is a valid, non-abstract WAI-ARIA (or DPUB/
+graphics module) role (role="tabel"): the element keeps its native or generic semantics. A fallback
+list whose unknown first token is followed by a valid one (role="upload button") passes, because user
+agents take the first valid token (ACT 674b10). Abstract roles are aria/role-abstract. Hidden subtrees
+are out of scope."""
+page_level = false
+positive = ["aria_roles_invalid", "aria_attribute_validation"]
+negative = ["aria_roles_valid", "aria_shared_deviations"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "The role attribute is judged on its own value; the host element does not change validity." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/role-abstract"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/role-abstract)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.3.1 (\"Authors MUST NOT use abstract roles in content\")"
+capabilities = ["dom", "ax_tree"]
+applicability = "role attributes on elements in the accessibility tree."
+expectation = """
+Fails for every abstract role token (widget, landmark, command, section, ...): it has no
+mapping and conveys nothing. Concrete roles pass. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_roles_invalid"]
+negative = ["aria_roles_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Abstract roles exist only as role values; there is no native form." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/role-redundant"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/role-redundant)"]
+automation = "automated"
+method = "shared"
+source = "ARIA in HTML section 2 (\"Authors SHOULD NOT set the role to the implicit role of the element\"); best practice under WCAG 2.2 SC 4.1.2, not a failure of it"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with an explicit role whose implicit role does not depend on context (button, a[href], heading, table, ...)."
+expectation = """
+Reports (best practice) an explicit role that only repeats the element's implicit role
+(<button role="button">). A role that changes the semantics (<a href role="button">) is not redundant.
+role="list" on <ul>/<ol> is deliberately not reported (WebKit list-style workaround). Hidden subtrees
+are out of scope."""
+page_level = false
+positive = ["aria_roles_invalid"]
+negative = ["aria_roles_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_roles_invalid", "aria_roles_valid"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/required-parent-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/required-parent-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 section 5.2.7 (Required Context Role); ACT ff89c9"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with an explicit role that has a required context role (tab, option, menuitem, row, cell, treeitem, ...), and <li> in a list re-roled to something else."
+expectation = """
+Fails when the nearest ancestor with a role (generic and presentational ancestors are
+skipped, aria-owns counts as parent) is not one of the required context roles: a tab outside a
+tablist, a menuitem outside menu/menubar/group, a tab under a native <li> of a list re-roled as
+tablist. A tab inside its tablist, also through a generic wrapper or via aria-owns, passes. A
+listitem's context is lists/item-outside-list, not this id. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_roles_invalid", "aria_attribute_validation", "iframe_widget_rules", "aria_naming_roles"]
+negative = ["aria_roles_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["iframe_widget_rules"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/required-children-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/required-children-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 section 5.2.6 (Required Owned Elements); ACT bc4a75"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with an explicit role that has required owned elements (tablist, list, listbox, menu, table, grid, tree, ...); native tables and lists without role get their structure from HTML."
+expectation = """
+Fails when such a container owns elements with roles, but none of the required ones (a
+tablist owning buttons instead of tabs, a menu owning buttons). Owning a required element directly,
+through generic wrappers or via aria-owns passes; so does a container without any owned element, one
+marked aria-busy=true (loading) and one with aria-expanded=false. Native tables and lists are not
+judged here. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_roles_invalid", "iframe_widget_rules"]
+negative = ["aria_roles_valid", "value_widgets_native"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["value_widgets_native", "aria_roles_invalid"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/required-attribute-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/required-attribute-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.2.5 (Required States and Properties); ACT 4e8ab6"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with an explicit role that requires states: checkbox, switch, radio (aria-checked), combobox (aria-expanded), slider, spinbutton, meter (aria-valuenow), scrollbar (aria-controls, aria-valuenow), focusable separator (aria-valuenow)."
+expectation = """
+Fails when a required state is missing: a custom checkbox or switch without aria-checked
+is announced without its state, a combobox without aria-expanded, a slider without aria-valuenow. A
+native element that carries the state itself passes (<input type=checkbox role=switch>, <input
+type=range role=slider>, <meter>), as does a static separator without tabindex. Hidden subtrees are
+out of scope; open shadow roots are in scope."""
+page_level = false
+positive = ["aria_roles_invalid", "value_widgets_custom", "value_widgets_shadow", "combobox_missing_expanded", "aria_and_widgets"]
+negative = ["aria_roles_valid", "value_widgets_native"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden", "value_widgets_native"] }
+native_vs_aria = { cases = ["value_widgets_native", "aria_roles_valid"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["value_widgets_shadow", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/tab-selected-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/tab-selected-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 tab (aria-selected) and tablist; APG Tabs pattern"
+capabilities = ["dom", "ax_tree"]
+applicability = "Tablists (not aria-multiselectable) in the accessibility tree that own at least one tab."
+expectation = """
+Review once per tablist when no tab carries aria-selected="true": nobody learns which tab
+is active. Tabs without the attribute are correctly unselected by default, so the rule does not
+report each tab; ARIA states SHOULD, so this is a review, not a violation. A tablist with one
+selected tab passes. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_widgets_broken", "widget_patterns", "aria_and_widgets", "iframe_widget_rules"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Tabs exist only as ARIA roles; HTML has no native tab widget." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/tabpanel-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/tabpanel-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 tabpanel (\"typically\" associated with a tab); APG Tabs pattern"
+capabilities = ["dom", "ax_tree"]
+applicability = "Tablists in the accessibility tree."
+expectation = """
+Review per tablist when the document has no tabpanel at all: the tab list probably is
+navigation dressed up as tabs, or the panels lack their role. ARIA only describes the panel as
+usual, so never a violation. Any tabpanel in the document passes. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_widgets_broken", "widget_patterns", "iframe_widget_rules"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Tabs and tab panels exist only as ARIA roles." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "aria/combobox-popup-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/combobox-popup-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 combobox (\"Authors MUST set aria-controls on a combobox element to a value that refers to the combobox popup element\")"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements with an explicit combobox role that are expanded (aria-expanded=true)."
+expectation = """
+Fails for an expanded combobox without aria-controls (or aria-owns) and without a popup
+(listbox, tree, grid, dialog) in its own subtree: the popup cannot be found. A collapsed combobox,
+one referencing its popup, and the native <select> (popup built in) pass. Hidden subtrees are out of
+scope."""
+page_level = false
+positive = ["aria_widgets_broken", "widget_patterns"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_widgets_valid", "aria_widgets_broken"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "popover/target-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=popover/target-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML Living Standard, the popover target attributes (popovertarget)"
+capabilities = ["dom"]
+applicability = "Elements with a popovertarget attribute (Markup scope)."
+expectation = """
+Fails when popovertarget names an id that does not exist in the element's tree: the
+button opens nothing and its expanded state is never conveyed. A target that exists passes even
+while the popover is closed and therefore not rendered, and one created by script after load counts."""
+page_level = false
+positive = ["aria_widgets_broken"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "popovertarget is an HTML attribute without an ARIA counterpart." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { not_relevant = "The rule reads the whole markup (Markup scope): attributes and ids are the same at every viewport, CSS cannot add or remove them." }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "popover/target-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=popover/target-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML Living Standard, the popover target attributes (the target must be a popover)"
+capabilities = ["dom"]
+applicability = "Elements with a popovertarget attribute whose target exists (Markup scope)."
+expectation = """
+Fails when the referenced element has no popover attribute: activation does nothing. A
+target with popover passes, whether open or closed (hidden)."""
+page_level = false
+positive = ["aria_widgets_broken"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "popovertarget is an HTML attribute without an ARIA counterpart." }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { not_relevant = "The rule reads the whole markup (Markup scope): attributes and ids are the same at every viewport, CSS cannot add or remove them." }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "patterns/accordion-controls-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=patterns/accordion-controls-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; APG Accordion and Disclosure patterns (aria-controls on the button; optional for disclosure)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements with role button (native or ARIA) and aria-expanded=true in the accessibility tree, except <summary> and buttons inside navigation or banner landmarks."
+expectation = """
+Review when an expanded button does not name the region it controls with aria-controls.
+WAI-ARIA does not require aria-controls and APG makes it optional for disclosures, so never a
+violation. A button referencing its region passes, as do collapsed buttons and <summary>. Hidden
+subtrees are out of scope."""
+page_level = false
+positive = ["aria_widgets_broken", "patterns_disclosure"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_widgets_broken", "aria_widgets_valid"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "patterns/tooltip-unreferenced"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=patterns/tooltip-unreferenced)"]
+automation = "automated"
+method = "shared"
+source = "APG Tooltip pattern (the trigger references the tooltip with aria-describedby); best practice related to WCAG 2.2 SC 1.4.13, not a failure of it"
+capabilities = ["dom"]
+applicability = "Elements with an explicit tooltip role (Markup scope: tooltips are hidden until hover or focus)."
+expectation = """
+Reports (best practice) a tooltip that no aria-describedby or aria-labelledby references:
+assistive technology never announces it when it appears. A referenced tooltip passes, hidden or not;
+an unreferenced hidden tooltip is reported, since it is only shown on hover."""
+page_level = false
+positive = ["aria_widgets_broken"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "The tooltip role has no native counterpart; the browser's title tooltip is names/title-only." }
+alternative_labels = { cases = ["aria_widgets_valid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { not_relevant = "The rule reads the whole markup (Markup scope): attributes and ids are the same at every viewport, CSS cannot add or remove them." }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "inert/dialog-inert"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=inert/dialog-inert)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value; HTML Living Standard, the inert attribute and the dialog element"
+capabilities = ["dom", "computed_style"]
+applicability = "Dialogs (open <dialog>, role dialog/alertdialog) that are rendered (Rendered scope: aria-hidden does not hide them from sight)."
+expectation = """
+Fails for an open native <dialog> that is inert itself or through an ancestor: it is shown
+but cannot be focused, operated or perceived by assistive technology. For role=dialog the markup
+cannot tell an open dialog from a closed one, so review. Closed dialogs, dialogs not rendered, and
+inert background content next to a dialog pass."""
+page_level = false
+positive = ["aria_dialogs_live_broken"]
+negative = ["aria_dialogs_live_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_dialogs_live_broken"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "names/required-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/required-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 (Accessible Name Required: True); accname 1.2"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree whose role requires a name (checkbox, combobox, listbox, menuitem*, meter, option, progressbar, radio, radiogroup, searchbox, slider, spinbutton, switch, tab, textbox, tree, treeitem, ...), except a[href] (links/name-missing), buttons (buttons/name-missing), dialogs (dialog/name-missing) and native fields with no label source at all (forms/label-missing)."
+expectation = """
+Fails when the computed name is empty: a custom slider without label, a switch whose
+aria-labelledby points at empty text, a native field whose <label> is blank, a listbox or tree
+without name. Every name source passes: aria-label, aria-labelledby, <label>, title on a native
+field, content for name-from-content roles. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_names_missing", "aria_naming_roles", "combobox_missing_expanded", "widget_patterns", "aria_shared_deviations"]
+negative = ["aria_names_valid", "name_description_best_practice"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_names_missing"] }
+alternative_labels = { cases = ["aria_names_valid", "aria_names_missing"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Empty versus non-empty computed name; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "names/symbol-only"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/symbol-only)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (a name must identify the control); accname 1.2"
+capabilities = ["dom", "ax_tree"]
+applicability = "Interactive elements in the accessibility tree whose name comes from an author attribute (aria-label, aria-labelledby, title)."
+expectation = """
+Review when the authored name is a single character that is neither a letter nor a digit
+("×", "☰", "✕"): a screen reader reads "times" or nothing. 4.1.2 requires a name, not a good one,
+so never a violation. One-character names that are letters (also non-ASCII, "Ä") or digits pass, and
+a symbol that comes from content rather than an attribute is not this id. Hidden subtrees are out of
+scope."""
+page_level = false
+positive = ["aria_names_missing"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Applies to every interactive role alike; the name source, not the element, decides." }
+alternative_labels = { cases = ["aria_names_valid", "aria_names_missing"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { cases = ["aria_names_valid", "aria_names_missing"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "names/title-only"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/title-only)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML-AAM / accname 1.2 (title as last name source); WCAG technique H65 (sufficient), APG on title tooltips"
+capabilities = ["dom", "ax_tree"]
+applicability = "Buttons, links and button/image/checkbox/radio inputs in the accessibility tree whose only name source is the title attribute; text fields are forms/title-only-label."
+expectation = """
+Review when the title attribute is the only name: its tooltip appears on mouse hover only,
+not on keyboard focus or touch. title is a valid name source (H65), so never a violation. A control
+with a visible or ARIA name and a title that only adds a hint passes. Hidden subtrees are out of
+scope."""
+page_level = false
+positive = ["aria_names_missing", "name_description_best_practice"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Applies to native controls only; custom widgets get no name from title in practice and fall under names/required-missing." }
+alternative_labels = { cases = ["aria_names_valid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "label-in-name/mismatch"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=label-in-name/mismatch)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.5.3 Label in Name; Understanding 2.5.3 (symbolic labels excepted)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements with a name-from-content role (button, link, checkbox, menuitem, tab, ...) whose name is authored (aria-label, aria-labelledby) and whose rendered text contains letters (Rendered scope: text under aria-hidden is still visible)."
+expectation = """
+Fails when the accessible name does not contain the visible label (case, punctuation and
+spacing ignored): saying "Play" does not activate a button named "Start stream". A name that is only
+part of a short visible label also fails ("Pricing" for "Pricing plans"). When the visible text is
+more than twice as long as the name, or only reorders its words, the visible label of a composite
+widget is ambiguous: review. A name that contains the label passes, as does a symbol-only label
+(footnote ¹). Elements not rendered are out of scope."""
+page_level = false
+positive = ["aria_names_missing", "aria_shared_deviations"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Applies to every name-from-content role alike, native or custom; the authored name decides." }
+alternative_labels = { cases = ["aria_names_missing"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { cases = ["aria_names_missing"] }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "summary/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=summary/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML Living Standard, the details and summary elements; HTML-AAM summary"
+capabilities = ["dom", "ax_tree"]
+applicability = "The first <summary> child of a <details> (the disclosure control), in the accessibility tree."
+expectation = """
+Fails when that summary has no accessible name: the disclosure toggle is announced as an
+unnamed button. Named summaries pass, from content or from aria-label on an icon-only summary.
+Reported once at the summary, not again at the <details>. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_names_missing", "summary_empty"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "The rule is about the native <summary>; an ARIA disclosure button is buttons/name-missing." }
+alternative_labels = { cases = ["aria_names_valid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "svg/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=svg/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.1.1 Non-text Content; SVG-AAM; ACT 7d6734 (svg element with explicit role has non-empty accessible name)"
+capabilities = ["dom", "ax_tree"]
+applicability = "<svg> elements in the accessibility tree that are not marked decorative (role none/presentation, aria-hidden) and not an icon inside a named link or button."
+expectation = """
+Fails for an <svg> with an explicit image role (img, graphics-document, graphics-symbol)
+and no name. Without a role the graphic may be decoration next to text: review. Names from <title>
+or aria-label pass, decorative SVGs pass, and an icon in a named button passes. Hidden subtrees are
+out of scope."""
+page_level = false
+positive = ["aria_names_missing", "svg_graphics_role_no_name", "svg_no_title"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_names_missing"] }
+alternative_labels = { cases = ["aria_names_valid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "description-duplicates-name"
+error_test = "tree_rules_fail_the_audit_without_an_accessibility_tree"
+automation = "automated"
+method = "tree"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (best practice); accname 1.2 description computation"
+capabilities = ["ax_tree"]
+applicability = "Non-ignored nodes in Chrome's accessibility tree with an interactive role (button, link, textbox, checkbox, ... switch)."
+expectation = """
+Reports (best practice, tagged so) an interactive element whose accessible description is
+identical to its accessible name after trimming: screen readers announce the same text twice. A
+description that adds information passes; an element without description passes. Hidden elements
+are not in the tree. Applies in the top document, shadow roots and same-origin frames."""
+page_level = false
+positive = ["aria_names_missing", "name_description_best_practice"]
+negative = ["aria_names_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { not_relevant = "Name and description come from Chrome's tree for native and custom controls alike; the element type plays no part." }
+alternative_labels = { not_relevant = "The rule compares the computed name with the computed description; which source produced the name does not matter." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Exact equality after trimming whitespace; no tolerance to shift." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_name.rs"
+change = "invert the equality condition"
+find = "if !name.trim().is_empty() && name.trim() == desc.trim() {"
+replace = "if !name.trim().is_empty() && name.trim() != desc.trim() {"
+killed_by = "corpus:aria_names_missing,aria_names_valid"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_name.rs"
+change = "drop the finding"
+find = "                results.add_violation(violation);"
+replace = "                let _ = violation;"
+killed_by = "corpus:aria_names_missing"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_name.rs"
+change = "also judge ignored (hidden) nodes"
+find = "        if node.ignored {\n            continue;\n        }"
+replace = "        if false {\n            continue;\n        }"
+killed_by = "corpus:aria_variant_hidden"
+
+[[rule]]
+id = "dialog/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=dialog/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 dialog and alertdialog (Accessible Name Required: True)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Dialogs in the accessibility tree: role dialog/alertdialog and open native <dialog> (a closed <dialog> is not rendered)."
+expectation = """
+Fails when the dialog has no accessible name: a screen reader enters it without knowing
+what it is about. Names from aria-labelledby or aria-label pass; closed native dialogs and hidden
+dialogs (also inside an aria-hidden iframe) are out of scope."""
+page_level = false
+positive = ["aria_dialogs_live_broken", "aria_naming_roles", "iframe_widget_rules"]
+negative = ["aria_dialogs_live_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden", "iframe_widget_rules"] }
+native_vs_aria = { cases = ["aria_dialogs_live_broken"] }
+alternative_labels = { cases = ["aria_dialogs_live_valid"] }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "dialog/modal-unmarked"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=dialog/modal-unmarked)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 aria-modal"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements with role dialog in the accessibility tree; native <dialog> is out of scope (whether showModal() opened it is not in the markup)."
+expectation = """
+Review when role=dialog lacks aria-modal="true": a modal dialog without it lets screen
+reader users wander into the inert page behind it, but a non-modal dialog rightly omits it, so only
+a human can tell. aria-modal="true" passes. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_dialogs_live_broken", "aria_naming_roles", "iframe_widget_rules"]
+negative = ["aria_dialogs_live_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_dialogs_live_broken"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["iframe_widget_rules", "aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "dialog/focusable-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=dialog/focusable-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.3 Focus Order and SC 2.1.1 Keyboard; APG Dialog (Modal) pattern"
+capabilities = ["dom", "ax_tree"]
+applicability = "Open dialogs (role dialog/alertdialog, open native <dialog>) in the accessibility tree."
+expectation = """
+Review when no descendant of the dialog can take focus: keyboard users can neither
+operate nor close it, unless the dialog takes focus itself and Escape closes it, which the markup
+does not show. A dialog with an enabled focusable control passes. Closed and hidden dialogs are out
+of scope."""
+page_level = false
+positive = ["aria_dialogs_live_broken", "aria_naming_roles"]
+negative = ["aria_dialogs_live_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_dialogs_live_broken"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "status/live-overridden"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=status/live-overridden)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.3 Status Messages; WAI-ARIA 1.2 alert, status, log (implicit aria-live) and aria-live"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree with role alert, status or log (explicit or implicit, <output> is status) and an aria-live attribute."
+expectation = """
+Fails for aria-live="off": updates of the status message are not announced. Changing the
+urgency (alert with polite, status with assertive) is allowed by ARIA and still announced: review.
+The default urgency, stated or implicit, passes; a log may change its urgency; aria-live on an
+element without a live role is not this id. Hidden subtrees are out of scope."""
+page_level = false
+positive = ["aria_dialogs_live_broken", "aria_and_widgets"]
+negative = ["aria_dialogs_live_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_dialogs_live_broken"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges roles, states or relationships, not how an element is labelled." }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }
+
+[rule.test_strength]
+status = "killed"
+mutations = []
+
+[[rule]]
+id = "modern-attribute-misuse"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value; HTML Living Standard, the popover attribute, the inert attribute (focus fixup)"
+capabilities = ["dom", "computed_style"]
+applicability = "Open popovers and visible role=menu elements in the document and its open shadow roots, and the focused element."
+expectation = """
+Fails for an open popover that is inert: it is shown but nothing in it can be focused or
+operated, and assistive technology does not get it. An open, unnamed popover or visible unnamed menu
+is a review: neither HTML nor WAI-ARIA 1.2 requires a name there, but a human should judge whether
+the surface is identifiable. Named or closed popovers, hidden menus and named menus pass. Focus left
+inside inert content would fail, but HTML's focus fixup moves focus out when content becomes inert,
+so a conforming browser never shows it."""
+page_level = false
+positive = ["aria_widgets_broken", "aria_variant_responsive"]
+negative = ["aria_widgets_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_variant_hidden"] }
+native_vs_aria = { cases = ["aria_widgets_broken", "aria_variant_responsive"] }
+alternative_labels = { cases = ["aria_widgets_valid"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+responsive = { cases = ["aria_variant_responsive"] }
+dynamic = { cases = ["aria_variant_dynamic"] }
+thresholds = { not_relevant = "Open/closed, inert/not inert and named/unnamed are states, not measured values." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/modern_attributes.rs"
+change = "invert the inert condition on open popovers"
+find = "if (isOpenPopover && el.hasAttribute('inert')) {"
+replace = "if (isOpenPopover && !el.hasAttribute('inert')) {"
+killed_by = "corpus:aria_widgets_broken,aria_widgets_valid"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/modern_attributes.rs"
+change = "stop descending into open shadow roots"
+find = "if (el.shadowRoot) walk(el.shadowRoot);"
+replace = "if (false) walk(el.shadowRoot);"
+killed_by = "corpus:aria_variant_shadow_frame"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/modern_attributes.rs"
+change = "escalate the unnamed-surface review to a violation"
+find = "'aria-label', null, 'review');"
+replace = "'aria-label', null, 'fail');"
+killed_by = "corpus:aria_variant_responsive"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/modern_attributes.rs"
+change = "drop the visibility condition for menus"
+find = "const isMenu = el.getAttribute('role') === 'menu' && isVisible(el);"
+replace = "const isMenu = el.getAttribute('role') === 'menu';"
+killed_by = "corpus:aria_variant_hidden"

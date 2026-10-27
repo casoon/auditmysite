@@ -1,7 +1,17 @@
 {
   "case": "table_required_rows_tbody",
   "expectations": [
-    { "rule_id": "aria/required-children-missing", "selector": "table#keys", "verdict": "pass" },
-    { "rule_id": "aria/required-children-missing", "selector": "table#empty", "verdict": "pass" }
+    {"rule_id": "aria/required-children-missing", "selector": "table#keys", "verdict": "pass"},
+    {"rule_id": "aria/required-children-missing", "selector": "table#empty", "verdict": "pass"},
+    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "focus-visible", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "tables/header-missing", "selector": "table#empty", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-missing", "selector": "table#keys", "verdict": "pass"},
+    {"rule_id": "tables/header-without-data", "verdict": "pass"},
+    {"rule_id": "tables/name-missing", "verdict": "pass"}
   ]
 }

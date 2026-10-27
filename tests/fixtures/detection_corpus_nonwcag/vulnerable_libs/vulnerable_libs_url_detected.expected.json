@@ -1,0 +1,26 @@
+{
+  "case": "vulnerable_libs_url_detected",
+  "note": "Versions read from the path, not from the 127.0.0.1 host of the fixture.",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "AngularJS",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Handlebars",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Lodash",
+      "verdict": "violation"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "case": "aria_attrs_invalid",
+  "expectations": [
+    {"rule_id": "aria/attribute-unknown", "verdict": "violation", "selector": "input#email", "occurrences": 1},
+    {"rule_id": "aria/reference-missing", "verdict": "violation", "selector": "input#phone", "occurrences": 1},
+    {"rule_id": "aria/reference-missing", "verdict": "violation", "selector": "button#more-btn", "occurrences": 1},
+    {"rule_id": "aria/attribute-value-invalid", "verdict": "violation", "selector": "button#mute", "occurrences": 1},
+    {"rule_id": "aria/attribute-value-invalid", "verdict": "violation", "selector": "div#privacy-heading", "occurrences": 1},
+    {"rule_id": "aria/attribute-not-allowed", "verdict": "violation", "selector": "input#agree", "occurrences": 1},
+    {"rule_id": "aria/attribute-not-allowed", "verdict": "violation", "selector": "li#sec-overview", "occurrences": 1},
+    {"rule_id": "aria/attribute-prohibited", "verdict": "violation", "selector": "p#lead", "occurrences": 1},
+    {"rule_id": "aria/attribute-prohibited", "verdict": "violation", "selector": "p#lead-2", "occurrences": 1},
+    {"rule_id": "aria/owns-conflict", "verdict": "violation", "selector": "div#owner-b", "occurrences": 1},
+    {"rule_id": "html-content-model", "verdict": "violation"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

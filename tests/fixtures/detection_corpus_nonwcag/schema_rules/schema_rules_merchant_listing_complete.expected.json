@@ -1,0 +1,17 @@
+{
+  "case": "schema_rules_merchant_listing_complete",
+  "note": "A purchasable product detail page (shop intent, product route): merchant-listing requirements apply and are met.",
+  "fixture": {
+    "path": "/product/espresso-grinder"
+  },
+  "expectations": [
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "product_snippet",
+      "verdict": "pass"
+    }
+  ]
+}

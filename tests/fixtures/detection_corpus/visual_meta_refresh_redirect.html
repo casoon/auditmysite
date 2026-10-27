@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Upper-case attribute value, leading space and a target URL; 71999 s is
+     one second short of the 20-hour exception. -->
+<meta id="slow-redirect" HTTP-EQUIV="REFRESH" content=" 71999; url=/news">
+<title>Ticker page with a refresh and a redirect</title>
+<script>
+  // Inserted by a script: the browser still honours it.
+  var refresh = document.createElement('meta');
+  refresh.id = 'late-refresh';
+  refresh.httpEquiv = 'refresh';
+  refresh.content = '900';
+  document.head.appendChild(refresh);
+</script>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Live ticker</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Match day live ticker</h1>
+  <p>Kick-off is at three in the afternoon.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

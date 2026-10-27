@@ -1,0 +1,9 @@
+{
+  "case": "interaction_location_missing",
+  "expectations": [
+    { "rule_id": "navigation/location-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Media player - Example radio</title>
+</head>
+<body>
+    <header>
+        <p>Example radio</p>
+    </header>
+    <main>
+        <h1>Live stream</h1>
+
+        <!-- names/required-missing: custom controls whose name sources come
+             out empty -->
+        <div id="volume" role="slider" tabindex="0" aria-valuenow="7" aria-valuemin="0" aria-valuemax="10"></div>
+        <div id="autoplay" role="switch" tabindex="0" aria-checked="false" aria-labelledby="autoplay-label"></div>
+        <span id="autoplay-label"></span>
+        <label for="station">   </label>
+        <input id="station" type="text">
+
+        <!-- names/symbol-only: the author-provided name is a single symbol -->
+        <button type="button" id="close-player" aria-label="&#x00D7;"><span aria-hidden="true">&#x00D7;</span></button>
+
+        <!-- names/title-only: the title tooltip is the only name -->
+        <button type="button" id="share" title="Share"><svg aria-hidden="true" width="16" height="16"><circle cx="8" cy="8" r="6"></circle></svg></button>
+
+        <!-- label-in-name/mismatch: spoken "Play" does not match the name -->
+        <button type="button" id="play" aria-label="Start stream">Play</button>
+        <!-- the visible label stays visible under aria-hidden -->
+        <button type="button" id="skip" aria-label="Next song"><span aria-hidden="true">Skip</span></button>
+        <!-- named by aria-labelledby, which leaves out the visible "Back" -->
+        <button type="button" id="rewind" aria-labelledby="rewind-label">Back</button>
+        <span id="rewind-label" hidden>Rewind 10 seconds</span>
+        <!-- threshold: visible text exactly twice as long as the name still
+             is the label, so it fails -->
+        <button type="button" id="continue" aria-label="Next">Continue</button>
+        <!-- threshold: visible text more than twice the name, a card whose
+             visible label is ambiguous: review -->
+        <a href="/shows/jazz-night" id="show-card" aria-label="Jazz night">Tonight on air: smooth jazz from the archives</a>
+
+        <!-- description-duplicates-name: name and description identical -->
+        <button type="button" id="mute" aria-describedby="mute-desc">Mute</button>
+        <span id="mute-desc" hidden>Mute</span>
+
+        <!-- summary/name-missing: empty disclosure summary -->
+        <details id="lyrics">
+            <summary id="lyrics-summary"></summary>
+            <p>No lyrics available.</p>
+        </details>
+
+        <!-- svg/name-missing: an explicit image without a name -->
+        <svg id="cover" role="img" width="120" height="120" viewBox="0 0 120 120">
+            <rect width="120" height="120" fill="#335"></rect>
+        </svg>
+        <!-- svg/name-missing (review): no role, may be decoration -->
+        <svg id="waveform" width="200" height="40" viewBox="0 0 200 40">
+            <path d="M0 20 L200 20" stroke="#000"></path>
+        </svg>
+    </main>
+    <footer>
+        <p>Example radio</p>
+    </footer>
+</body>
+</html>

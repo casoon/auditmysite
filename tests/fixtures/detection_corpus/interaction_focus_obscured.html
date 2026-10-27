@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Focus hidden behind fixed content</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 480px 16px 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 0; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; top: 520px; }
+        .probe { position: absolute; width: 140px; height: 44px; background: #fff; }
+        #cookie { position: fixed; top: 0; left: 0; right: 0; height: 120px; background: #222; color: #fff; padding: 12px; box-sizing: border-box; }
+        #cookie button { background: #fff; color: #111; }
+        #hidden-bar { position: fixed; top: 150px; left: 0; right: 0; height: 60px; background: #222; visibility: hidden; }
+        #backdrop { position: fixed; top: 220px; left: 0; right: 0; height: 60px; background: #e8eef8; z-index: -1; }
+        #mobile-bar { display: none; }
+        @media (max-width: 600px) {
+            #mobile-bar { display: block; position: fixed; top: 300px; left: 0; right: 0; height: 60px; background: #222; }
+        }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p style="margin: 0">Example Insurance</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/claims">Claims</a>
+    </nav>
+    <main id="main">
+        <!-- Controls placed at fixed spots of the first screen, so each meets exactly one overlay. -->
+        <!-- needs_review (2.4.11 and 2.4.12): entirely under the cookie banner -->
+        <a id="fo-covered" class="probe" href="/privacy" style="top: 40px; left: 24px;">Privacy</a>
+        <!-- needs_review (2.4.12 only): 20 of 44 px under the banner -->
+        <a id="fo-partial" class="probe" href="/imprint" style="top: 100px; left: 24px;">Imprint</a>
+        <!-- absent: 1 px edge contact, within the rounding tolerance -->
+        <a id="fo-edge" class="probe" href="/contact" style="top: 119px; left: 180px;">Contact</a>
+        <!-- absent: the bar above it is visibility: hidden -->
+        <a id="fo-under-hidden" class="probe" href="/jobs" style="top: 160px; left: 24px;">Jobs</a>
+        <!-- absent: the fixed backdrop paints below the link (z-index: -1) -->
+        <a id="fo-above-backdrop" class="probe" href="/press" style="top: 230px; left: 24px;">Press</a>
+        <!-- needs_review (2.4.11 and 2.4.12) on the mobile viewport only -->
+        <a id="fo-mobile" class="probe" href="/app" style="top: 310px; left: 24px;">Get the app</a>
+        <!-- needs_review (2.4.11 and 2.4.12): covered by a chat widget a script adds after load -->
+        <a id="fo-dynamic" class="probe" href="/support" style="top: 410px; left: 24px;">Support</a>
+        <h1>Make a claim</h1>
+        <p>Report damage online or <a href="/call">call us</a>.</p>
+    </main>
+    <footer><p>Example Insurance footer</p></footer>
+
+    <div id="hidden-bar"></div>
+    <div id="backdrop"></div>
+    <div id="mobile-bar"></div>
+    <!-- Its own button is inside the overlay and never counts as obscured by it. -->
+    <div id="cookie" role="region" aria-label="Cookie notice">
+        We use cookies for statistics. <button id="fo-in-banner" type="button">Accept</button>
+    </div>
+    <script>
+        var chat = document.createElement('div');
+        chat.id = 'chat';
+        chat.style.cssText = 'position: fixed; top: 400px; left: 0; width: 200px; height: 64px; background: #222;';
+        document.body.appendChild(chat);
+    </script>
+</body>
+</html>

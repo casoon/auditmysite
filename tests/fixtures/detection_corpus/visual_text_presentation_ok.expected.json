@@ -1,0 +1,7 @@
+{
+  "case": "visual_text_presentation_ok",
+  "expectations": [
+    { "rule_id": "text/justified", "verdict": "absent" },
+    { "rule_id": "text/line-height-tight", "verdict": "absent" }
+  ]
+}

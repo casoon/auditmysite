@@ -1,16 +1,53 @@
 {
   "case": "schema_rules_incomplete",
   "expectations": [
-    { "rule_id": "product_snippet", "verdict": "violation" },
-    { "rule_id": "breadcrumb", "verdict": "violation" },
-    { "rule_id": "local_business", "verdict": "violation" },
-    { "rule_id": "faq", "verdict": "violation" },
-    { "rule_id": "event", "verdict": "violation" },
-    { "rule_id": "recipe", "verdict": "violation" },
-    { "rule_id": "video", "verdict": "violation" },
-    { "rule_id": "job_posting", "verdict": "violation" },
-    { "rule_id": "software_application", "verdict": "violation" },
-    { "rule_id": "profile_page", "verdict": "violation" },
-    { "rule_id": "item_list", "verdict": "violation" }
+    {
+      "rule_id": "product_snippet",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "breadcrumb",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "local_business",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "faq",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "event",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "recipe",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "video",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "job_posting",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "software_application",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "profile_page",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "item_list",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "needs_review"
+    }
   ]
 }

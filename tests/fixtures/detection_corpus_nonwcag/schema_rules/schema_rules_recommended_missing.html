@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Structured data with only the required properties</title>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Article", "headline": "Minimal article"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Organization", "name": "Example Inc"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Person", "name": "Ada Example"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebPage", "name": "About"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebSite", "name": "Example", "url": "https://example.com"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "LocalBusiness", "name": "Example Shop", "address": {"@type": "PostalAddress", "streetAddress": "Main Street 1"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Event", "name": "Conference", "startDate": "2026-11-20", "location": {"@type": "Place", "name": "Hall", "address": "Main Street 1"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Recipe", "name": "Soup", "image": "https://example.com/soup.jpg"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "VideoObject", "name": "Demo", "thumbnailUrl": "https://example.com/t.jpg", "uploadDate": "2026-01-01"}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "JobPosting", "title": "Engineer", "datePosted": "2026-10-01", "description": "<p>Role</p>", "hiringOrganization": {"@type": "Organization", "name": "Example"}, "jobLocation": {"@type": "Place", "address": {"addressCountry": "DE"}}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "App", "offers": {"@type": "Offer", "price": 0}, "aggregateRating": {"@type": "AggregateRating", "ratingValue": 4.6, "ratingCount": 120}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "ProfilePage", "mainEntity": {"@type": "Person", "name": "Ada"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "ItemList", "itemListElement": [{"@type": "ListItem", "position": 1, "url": "https://example.com/1"}, {"@type": "ListItem", "position": 2, "url": "https://example.com/2"}]}
+  </script>
+</head>
+<body>
+  <header><p>Example</p></header>
+  <main>
+    <h1>Structured data with only the required properties</h1>
+    <p>Structured data corpus page.</p>
+  </main>
+  <footer><p>Footer</p></footer>
+</body>
+</html>

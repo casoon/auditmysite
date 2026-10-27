@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Click handlers and pointer-only controls</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button, [role="button"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .clickable { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }
+        .card { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }
+        @media (max-width: 600px) { .mobile-tile { cursor: pointer; } }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Travel</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/trips">Trips</a>
+    </nav>
+    <main id="main">
+        <h1>Plan your trip</h1>
+
+        <h2>Inline click handlers</h2>
+        <!-- violation: onclick on a div, no role, no tabindex, nothing focusable inside -->
+        <div id="ch-div" onclick="this.textContent = 'Opened'">Show itinerary</div>
+        <!-- needs_review: the card handler only repeats the link inside it -->
+        <div id="ch-card" onclick="location.href = '/trips/rome'">
+            <a href="/trips/rome">Rome in three days</a>
+        </div>
+        <!-- pass: role and tab stop make it operable by keyboard (with a key handler) -->
+        <div id="ch-role" role="button" tabindex="0" onclick="this.textContent = 'Shared'" onkeydown="if (event.key === 'Enter' || event.key === ' ') this.click()">Share trip</div>
+        <!-- violation: the handler is attached as an attribute after load -->
+        <div id="ch-dynamic">Show map</div>
+
+        <h2>Looks clickable</h2>
+        <!-- needs_review: cursor pointer, no role, no tabindex, no control inside -->
+        <div id="po-filter" class="clickable">Filter results</div>
+        <!-- absent: the card pattern, the link inside is the keyboard route -->
+        <div id="po-card" class="card">
+            <h3><a href="/trips/paris">Paris for families</a></h3>
+            <p>Four days, two museums.</p>
+        </div>
+        <!-- absent: inherits cursor pointer from the reported parent -->
+        <div id="po-parent" class="clickable"><span id="po-child">Sort by price</span></div>
+        <!-- absent: not rendered -->
+        <div id="po-hidden" class="clickable" style="display: none">Hidden filter</div>
+        <!-- absent: a real button with a pointer cursor -->
+        <button id="po-button" type="button" style="cursor: pointer">Search trips</button>
+        <!-- needs_review: looks clickable on the mobile viewport only -->
+        <div id="po-mobile" class="mobile-tile">Nearby offers</div>
+        <!-- needs_review: a script gives it the pointer cursor after load -->
+        <div id="po-dynamic">Recently viewed</div>
+    </main>
+    <footer><p>Example Travel footer</p></footer>
+    <script>
+        document.getElementById('ch-dynamic').setAttribute('onclick', "this.textContent = 'Map'");
+        document.getElementById('po-dynamic').style.cursor = 'pointer';
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account switcher</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Account switcher</h1>
+<!-- G2 #783 threshold: six password fields that all block paste. Each is a 3.3.8 failure; the report lists at most five per page. -->
+<form action="/login/1" method="post"><p><label for="pw-many-1">Password for profile 1</label> <input id="pw-many-1" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 1</button></p></form>
+<form action="/login/2" method="post"><p><label for="pw-many-2">Password for profile 2</label> <input id="pw-many-2" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 2</button></p></form>
+<form action="/login/3" method="post"><p><label for="pw-many-3">Password for profile 3</label> <input id="pw-many-3" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 3</button></p></form>
+<form action="/login/4" method="post"><p><label for="pw-many-4">Password for profile 4</label> <input id="pw-many-4" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 4</button></p></form>
+<form action="/login/5" method="post"><p><label for="pw-many-5">Password for profile 5</label> <input id="pw-many-5" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 5</button></p></form>
+<form action="/login/6" method="post"><p><label for="pw-many-6">Password for profile 6</label> <input id="pw-many-6" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 6</button></p></form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Timetable - Example transit</title>
+    <style>
+        /* The audit renders the page at 1280 px and at 390 px. */
+        .mobile-only { display: none; }
+        @media (max-width: 600px) {
+            .mobile-only { display: block; }
+            .desktop-only { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <p>Example transit</p>
+    </header>
+    <main>
+        <h1>Timetable</h1>
+        <p>Departures from Central Station.</p>
+
+        <!-- The compact mobile toolbar: rendered only on narrow screens -->
+        <div class="mobile-only">
+            <input id="m-unknown" type="text" aria-label="From" aria-autocompete="list">
+            <button type="button" id="m-value" aria-expanded="open">Menu</button>
+            <ul><li id="m-notallowed" aria-pressed="true">Today</li></ul>
+            <p id="m-prohibited" aria-label="Notice">Delays possible.</p>
+            <div id="m-role" role="buton" tabindex="0">Swap</div>
+            <div id="m-tab" role="tab" tabindex="0" aria-selected="true">Arrivals</div>
+            <div id="m-checkbox" role="checkbox" tabindex="0">Step-free only</div>
+            <div id="m-tabs" role="tablist" aria-label="Day">
+                <div role="tab" id="m-tabs-one" tabindex="0">Today</div>
+            </div>
+            <div id="m-combo" role="combobox" tabindex="0" aria-expanded="true" aria-label="Line"></div>
+            <button type="button" id="m-acc" aria-expanded="true">Filters</button>
+            <div id="m-slider" role="slider" tabindex="0" aria-valuenow="3"></div>
+            <button type="button" id="m-symbol" aria-label="&#x2630;">&#x2630;</button>
+            <button type="button" id="m-title" title="Locate me"><svg aria-hidden="true" width="8" height="8"></svg></button>
+            <button type="button" id="m-lin" aria-label="Reverse direction">Swap</button>
+            <div id="m-dialog" role="dialog"><p>Tap a line for details.</p></div>
+            <div id="m-status" role="status" aria-live="off">Updated just now</div>
+            <dialog open inert id="m-inert" aria-label="App banner"><button type="button">Install</button></dialog>
+        </div>
+
+        <!-- The wide desktop layout: rendered only on wide screens -->
+        <div class="desktop-only">
+            <div id="d-abstract" role="command" tabindex="0">Print</div>
+            <button type="button" id="d-redundant" role="button">Print timetable</button>
+            <div id="d-steps" role="tablist" aria-label="Views"><button type="button" id="d-step">Map</button></div>
+            <button type="button" id="d-dup" aria-describedby="d-dup-desc">Export</button>
+            <span id="d-dup-desc" hidden>Export</span>
+            <details id="d-details"><summary id="d-summary"></summary><p>Accessible stops</p></details>
+            <svg id="d-map" role="img" width="40" height="40"><rect width="40" height="40"></rect></svg>
+            <dialog open id="d-dialog" aria-label="Legend"><p>Symbols used in the timetable.</p></dialog>
+            <div id="d-owner-a" role="group" aria-label="Line 1" aria-owns="d-owned"></div>
+            <div id="d-owner-b" role="group" aria-label="Line 2" aria-owns="d-owned"></div>
+            <p id="d-owned">Platform 4</p>
+            <div id="d-menu" role="menu"><div role="menuitem" tabindex="-1">Copy link</div></div>
+        </div>
+    </main>
+    <footer>
+        <p>Example transit</p>
+    </footer>
+</body>
+</html>

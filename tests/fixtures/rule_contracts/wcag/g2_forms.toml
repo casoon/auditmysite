@@ -1,0 +1,889 @@
+# G2 rule contracts (#783): forms, links, buttons, authentication, context
+# changes. Format: tests/fixtures/rule_contracts/README.md.
+#
+# Variant pages shared by most rules: forms_hidden (display:none, hidden,
+# visibility:hidden, visually hidden but exposed), forms_embedded (open
+# shadow root and same-origin iframe), forms_dynamic_responsive (inserted or
+# fixed by script after load; shown only on narrow or only on wide
+# viewports), forms_static_text (nothing the rules apply to). Cases named
+# forms_gap_* hold spec cases the detectors currently miss or misjudge; they
+# stay red until the entries in 783-shared-bugs.md are fixed.
+
+# --- forms/* ----------------------------------------------------------------
+
+[[rule]]
+id = "forms/label-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/label-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1, 3.3.2, 4.1.2; HTML-AAM accessible name computation for input, select, textarea"
+capabilities = ["dom"]
+applicability = "Rendered input (except hidden, submit, button, reset, image), select and textarea elements."
+expectation = """
+Fails when the field has no programmatic label at all: no label[for], no
+wrapping <label>, no aria-label, no aria-labelledby, no title, no placeholder.
+A title or placeholder names the field (HTML-AAM), so such a field is not this
+violation but a review under forms/title-only-label or
+forms/placeholder-as-label. Fields that are not rendered (display:none,
+hidden, visibility:hidden) are presented to nobody and are not judged; a
+visually hidden field that stays in the accessibility tree is. Fields in open
+shadow roots, same-origin frames, inserted after load or shown in one
+viewport only are judged like any other. ARIA widgets (role=textbox) are not
+this rule's elements; their missing name is names/required-missing."""
+positive = ["forms_labels", "missing_label", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_labels", "form_heuristics_clean", "forms_dynamic_responsive"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_labels"] }
+alternative_labels = { cases = ["forms_labels"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of a labelling mechanism; there is no numeric boundary." }
+
+[[rule]]
+id = "forms/placeholder-as-label"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/placeholder-as-label)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.2 Labels or Instructions (Understanding: placeholder text disappears on input); HTML §4.10.5.3.11 placeholder"
+capabilities = ["dom"]
+applicability = "Rendered input, select and textarea elements with a non-empty placeholder."
+expectation = """
+Needs review when the placeholder is the only visible label: it names the
+field, but it disappears as soon as the user types, so whether it suffices as
+a label is a human judgement. A field with label[for] or a wrapping <label>
+is not reported. aria-label is not visible, so a field whose only visible
+label is the placeholder needs review even when it also has aria-label
+(forms_gap_placeholder_aria). Never a confirmed violation."""
+positive = ["forms_labels", "forms_embedded", "forms_dynamic_responsive", "forms_gap_placeholder_aria"]
+negative = ["forms_labels", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_placeholder_aria"] }
+alternative_labels = { cases = ["forms_labels", "forms_gap_placeholder_aria"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of a placeholder and of a visible label; no numeric boundary." }
+
+[[rule]]
+id = "forms/autocomplete-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/autocomplete-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.5 Identify Input Purpose; HTML §4.10.18.7.1 autofill detail tokens"
+capabilities = ["dom"]
+applicability = "input (except type=hidden), select and textarea elements with an autocomplete attribute."
+expectation = """
+Fails when the autocomplete value does not follow the HTML autofill grammar
+[section-*] [shipping|billing] [home|work|mobile|fax|pager] field-name
+[webauthn], or is not on/off: an unknown field name ("company",
+"delivery-note"), a contact token before a non-contact field ("work name"),
+tokens in the wrong order ("postal-code shipping"). Case does not matter.
+Valid combinations pass ("section-parcel shipping street-address", "work
+email", "mobile tel", "Shipping Country-Name", "off"). type=hidden carries no
+user input and is not judged."""
+positive = ["forms_autofill", "forms_and_misc", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_autofill", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "autocomplete is an HTML attribute of input, select and textarea; ARIA widgets have no autofill token." }
+alternative_labels = { cases = ["forms_autofill"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "A grammar check on the token list; no numeric boundary." }
+
+[[rule]]
+id = "forms/purpose-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/purpose-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.5 Identify Input Purpose, section 7 Input Purposes for User Interface Components"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered text, email, tel, url and password inputs outside role=search and role=combobox."
+expectation = """
+Needs review when a field seems to collect information about the user (type
+email or tel; a label, id or name naming e-mail, phone, address, postal
+code, birth date, password, or the person's name) and has no autocomplete
+token (missing, empty, on or off). Whether the field really concerns the
+user is a guess, so never a confirmed violation. The name of a thing
+("Project name", "Name" of a saved view, "Dateiname"), technical addresses
+("IP address"), "tel" inside "Hotel" and search boxes are not reported. A
+field with a valid token is not reported."""
+positive = ["forms_autofill", "input_purpose_name", "form_heuristics_flagged", "forms_submit_redundant", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_autofill", "input_purpose_name", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "The input purpose is programmatically determined only through the HTML autofill tokens of native fields; ARIA widgets cannot carry one." }
+alternative_labels = { cases = ["forms_autofill", "input_purpose_name"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Word recognition in the label, id and name; no numeric boundary." }
+
+[[rule]]
+id = "forms/error-unidentified"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/error-unidentified)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.1 Error Identification; WAI-ARIA 1.2 aria-invalid, aria-errormessage, aria-describedby"
+capabilities = ["dom"]
+applicability = "Rendered elements with aria-invalid set to any value other than false."
+expectation = """
+Needs review when an element is marked invalid but has no error description
+(aria-describedby or aria-errormessage pointing at text): a screen reader
+announces "invalid" without saying what is wrong. A visible message next to
+the field can still satisfy 3.3.1 without the association (G83), so never a
+confirmed violation. Unknown values such as "grammar" count as invalid;
+aria-invalid="false" does not. Native fields and ARIA widgets alike."""
+positive = ["forms_errors_groups", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_errors_groups", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_errors_groups"] }
+alternative_labels = { cases = ["forms_errors_groups"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_errors_groups"] }
+
+[[rule]]
+id = "forms/group-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/group-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships; techniques H71, ARIA17"
+capabilities = ["dom"]
+applicability = "Radio buttons (native or role=radio) and checkboxes sharing a name within one form."
+expectation = """
+Needs review for each radio button and each checkbox of a same-name set of
+two or more that is not inside a fieldset, details, role=group or
+role=radiogroup: the question the set answers is not tied to it. fieldset is
+a technique, not a requirement, so never a confirmed violation. A single
+checkbox ("I accept the terms") is no set; grouped options are not
+reported."""
+positive = ["forms_errors_groups", "form_heuristics_flagged", "forms_and_misc", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_errors_groups", "form_heuristics_clean", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_errors_groups"] }
+alternative_labels = { cases = ["forms_errors_groups"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_errors_groups", "form_heuristics_clean"] }
+
+[[rule]]
+id = "forms/group-name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/group-name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1, 3.3.2; HTML-AAM fieldset/legend; WAI-ARIA 1.2 group role"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered fieldset elements and role=group elements containing form fields."
+expectation = """
+Needs review when a form group has no name (fieldset without legend,
+role=group without aria-label/aria-labelledby): the group does not say which
+question its fields answer. A fieldset may be purely presentational, so
+never a confirmed violation. Named groups and elements Chrome exposes as
+group that are not form groups (details, figure, ...) are not reported."""
+positive = ["forms_errors_groups", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_errors_groups", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_errors_groups"] }
+alternative_labels = { cases = ["forms_errors_groups"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of a group name; no numeric boundary." }
+
+[[rule]]
+id = "forms/required-unmarked"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/required-unmarked)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.2 Labels or Instructions; WAI-ARIA 1.2 aria-required; HTML required"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered form fields with required or aria-required=true."
+expectation = """
+Needs review when a required field says neither in its label nor in its
+description that it is required ("*", "required" and equivalents): the
+screen reader announces it, but whether sighted users see it — maybe in a
+sentence above the form — only a human can tell. aria-required=false is not
+required."""
+positive = ["forms_required_instructions", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_required_instructions", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_required_instructions"] }
+alternative_labels = { cases = ["forms_required_instructions"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Word recognition in label and description; no numeric boundary." }
+
+[[rule]]
+id = "forms/instructions-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/instructions-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.2 Labels or Instructions; technique G89 (expected data format)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered text-entry fields (native or ARIA) whose label names a value with a format (date, phone, postal code, pass number, ...)."
+expectation = """
+Needs review when such a field gives no instructions: no description, no
+format in the label ("DD.MM.YYYY", "e.g."), no placeholder. The format need
+is guessed from the label, so never a confirmed violation. Native date and
+time inputs bring their own format. Short terms count only as whole words:
+"Bus pass number" is reported, "Passage" and "Was ist passiert?" are not."""
+positive = ["forms_required_instructions", "form_heuristics_flagged", "input_purpose_name", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_required_instructions", "form_heuristics_clean", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_required_instructions"] }
+alternative_labels = { cases = ["forms_required_instructions"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_required_instructions", "form_heuristics_clean"] }
+
+[[rule]]
+id = "forms/title-only-label"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/title-only-label)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1, 3.3.2; technique H65 (title attribute to identify form controls)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered text-entry, select, slider and spinbutton fields (native or ARIA) without placeholder."
+expectation = """
+Needs review when the field's name comes only from its title attribute:
+visible on mouse hover only, not to keyboard or touch users. H65 allows it
+when the purpose is clear from the visible context, so never a confirmed
+violation. A field with a label and a title is not reported; a field with a
+placeholder is forms/placeholder-as-label's case."""
+positive = ["forms_labels", "forms_and_misc", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_labels", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_labels"] }
+alternative_labels = { cases = ["forms_labels"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Source of the accessible name; no numeric boundary." }
+
+[[rule]]
+id = "forms/no-submit"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/no-submit)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.2.2 On Input; technique H32 (submit buttons)"
+capabilities = ["dom"]
+applicability = "Rendered form elements owning at least one enabled control (HTML form owner, including the form attribute)."
+expectation = """
+Needs review when a form has controls but no enabled submit control (button
+without type or type=submit, input submit/image, role=button marked as
+submit): without one, a change may submit the form. 3.2.2 fails only on an
+actual change of context, so never a confirmed violation; without action
+and without text field (toggles changing the page) the review has low
+severity. A submit button outside the form with form=... counts; a form with
+only hidden inputs is not judged."""
+positive = ["forms_submit_redundant", "form_toggles_without_submit", "on_input_context_change", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_submit_redundant", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_submit_redundant"] }
+alternative_labels = { cases = ["forms_submit_redundant"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_submit_redundant"] }
+
+[[rule]]
+id = "forms/redundant-entry"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=forms/redundant-entry)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.7 Redundant Entry"
+capabilities = ["dom"]
+applicability = "Rendered forms with text-entry fields asking for e-mail, phone, name, street address or postal code."
+expectation = """
+Needs review when one form asks for the same information two or more times
+without autocomplete, prefill or a "same as" option: whether both fields
+belong to the same process is a human judgement. The exceptions of 3.3.7
+are not reported: confirmation fields ("Confirm email"), autofill tokens, a
+"same as" option, a value already filled in; a single request is no
+repetition."""
+positive = ["forms_submit_redundant", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_submit_redundant", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "Previously entered information lives in native form fields; ARIA textboxes take no part in form submission." }
+alternative_labels = { cases = ["forms_submit_redundant"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_submit_redundant"] }
+
+# --- links/*, buttons/* ---------------------------------------------------------
+
+[[rule]]
+id = "links/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.4, 4.1.2; HTML-AAM a element; accname 1.2"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered a elements with href."
+expectation = """
+Fails when the link has no accessible name: no text, an icon hidden from
+assistive technology, no aria-label, no aria-labelledby, no image alt. Each
+mechanism names it (aria-labelledby also to hidden text, accname 2B). An a
+without href is no link. A role=link element without a name is reported as
+names/required-missing, not under this id. Hidden links are not judged;
+visually hidden links in the accessibility tree are."""
+positive = ["forms_link_names", "empty_link_text", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_link_names", "forms_dynamic_responsive"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_link_names"] }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of an accessible name; no numeric boundary." }
+
+[[rule]]
+id = "links/generic-name"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/generic-name)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.4 Link Purpose (In Context); techniques H80, G53; failure F84"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered links (a[href] or role=link) with a non-empty accessible name."
+expectation = """
+Needs review when the link's accessible name says nothing about the target
+("Click here", "Read more"): programmatic context (same sentence, list item,
+cell, preceding heading) can still make the purpose clear, which is a human
+judgement — with context the review has low severity. A descriptive
+accessible name passes, also when it extends the visible text through
+aria-label or visually hidden text. role=link elements are links too
+(forms_gap_aria_links)."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
+negative = ["forms_link_names", "forms_hidden", "forms_gap_aria_links"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_aria_links"] }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "A list of non-descriptive link texts; no numeric boundary." }
+
+[[rule]]
+id = "links/url-name"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/url-name)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.4 Link Purpose (In Context); technique H80"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered links (a[href] or role=link) whose accessible name is a bare address."
+expectation = """
+Needs review when the link text is a bare URL ("https://...", "www....") and
+no programmatic context (text in the same sentence or container, or a
+heading before it within four levels) explains the target: read aloud it is
+a string of characters that does not say what is there. With context it is
+not reported. role=link elements are links too (forms_gap_aria_links)."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
+negative = ["forms_link_names", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_aria_links"] }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Shape of the link text and presence of context; no numeric boundary." }
+
+[[rule]]
+id = "links/single-character-name"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/single-character-name)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.4 Link Purpose (In Context)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered links (a[href] or role=link) whose accessible name is one character."
+expectation = """
+Needs review when the accessible name is a single non-digit character ("x",
+"i"): it does not name the purpose. Digits (page numbers of a pagination)
+are understandable in context and not reported; two characters ("DE") are
+not a single character; characters that are generic link text are
+links/generic-name's case. role=link elements are links too
+(forms_gap_aria_links)."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
+negative = ["forms_link_names", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_aria_links"] }
+alternative_labels = { not_relevant = "The rule judges the computed accessible name; how that name is given does not change its length." }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_link_names"] }
+
+[[rule]]
+id = "links/new-window-unannounced"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/new-window-unannounced)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.2.5 Change on Request (AAA); technique G201"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered a[href] elements with target=_blank."
+expectation = """
+Needs review when a link opens a new window or tab and its accessible name
+does not say so ("opens in new tab", "new window", "(external)" and
+equivalents): G201 asks for a warning; whether one is given elsewhere is a
+human judgement. The warning may be in the visible text or in aria-label.
+target=_self and other targets are not reported."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_link_names", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "target is an attribute of a and area; an element with role=link opens a window only through script, which the markup does not show." }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of target=_blank and of a warning; no numeric boundary." }
+
+[[rule]]
+id = "links/purpose-link-only"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/purpose-link-only)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.9 Link Purpose (Link Only) (AAA)"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered links (a[href] or role=link) with a non-empty accessible name."
+expectation = """
+Needs review when the accessible name alone does not name the purpose
+("Read more", "Open", "Details"): for 2.4.9 context does not count. Some
+vague words are clear in a given site, so never a confirmed violation. A
+descriptive accessible name passes, also through aria-label or visually
+hidden text. role=link elements are links too (forms_gap_aria_links)."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
+negative = ["forms_link_names", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_aria_links"] }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "A list of vague link texts; no numeric boundary." }
+
+[[rule]]
+id = "links/used-as-button"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=links/used-as-button)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML a element (hyperlink semantics)"
+capabilities = ["dom"]
+applicability = "Rendered a elements with onclick and an href that leads nowhere (empty, #, javascript:)."
+expectation = """
+Needs review when such a link triggers an action instead of navigating: it
+is announced as a link and does not react to Space; a button belongs there.
+Whether the handler navigates after all is not in the markup, so never a
+confirmed violation. role=button on the element states its role and is not
+reported; a link with a real target and an onclick (tracking) is not
+reported."""
+positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_link_names", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_link_names"] }
+alternative_labels = { not_relevant = "The rule judges href and handler, not the name." }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Shape of the href; no numeric boundary." }
+
+[[rule]]
+id = "buttons/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=buttons/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML-AAM button, input type=button/submit; accname 1.2"
+capabilities = ["dom", "ax_tree"]
+applicability = "Rendered button elements and elements with the button role (except summary)."
+expectation = """
+Fails when the button has no accessible name: empty, an icon hidden from
+assistive technology, input type=button with an empty value, an empty
+role=button element. Text, aria-label and the default label of
+input type=submit name it. Hidden buttons are not judged; visually hidden
+buttons in the accessibility tree are."""
+positive = ["forms_link_names", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_link_names"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_link_names"] }
+alternative_labels = { cases = ["forms_link_names"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of an accessible name; no numeric boundary." }
+
+# --- auth/*, accessible authentication -------------------------------------------
+
+[[rule]]
+id = "auth/captcha"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=auth/captcha)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.3.8 Accessible Authentication (Minimum); Understanding 3.3.8 (object recognition, alternative)"
+capabilities = ["dom"]
+applicability = "Rendered forms with a password or one-time-code field (an authentication step)."
+expectation = """
+Needs review when such a form contains a visible CAPTCHA (reCAPTCHA or
+hCaptcha widget, an image whose src, alt, id or class names a captcha): it
+is a cognitive function test unless it is object recognition or an
+alternative exists, which the markup does not show. Invisible CAPTCHAs set
+no test and are not reported; a CAPTCHA outside authentication (a contact
+form) is not 3.3.8."""
+positive = ["forms_signin", "accessible_authentication", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_signin", "accessible_authentication", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "A CAPTCHA is recognised by vendor markup and images; there is no ARIA equivalent of a CAPTCHA." }
+alternative_labels = { not_relevant = "Whether an alternative or object recognition exists is not in the markup; naming does not change the judgement." }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of a CAPTCHA in an authentication form; no numeric boundary." }
+
+[[rule]]
+id = "accessible-auth-paste-blocked"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 3.3.8 Accessible Authentication (Minimum); failure F109 (preventing password or code re-entry in the same format)"
+capabilities = ["dom", "interaction", "geometry", "computed_style", "frames"]
+applicability = "Rendered, enabled, editable password, current-password and one-time-code inputs in the document, open shadow roots and same-origin frames."
+expectation = """
+Fails when the field blocks pasting: a synthetic, cancelable paste event is
+cancelled and the pasted text does not arrive, so the secret must be typed
+from memory or transcribed instead of inserted by a password manager or the
+clipboard (F109). Blocking through an onpaste attribute, an event listener
+or with an alert is the same failure. A handler that cancels the native
+paste but inserts the (trimmed) text itself blocks nothing; readonly and
+disabled fields take no entry; hidden fields are not judged. Fields inside
+open shadow roots and same-origin frames are probed too (frame findings use
+the selector "{iframe} [frame] {field}"). The report lists at most five
+blocked fields per page (reporting cap), so six blocked fields report five.
+A page whose scripts break the probe records the rule as not run."""
+positive = ["forms_signin", "accessible_authentication", "forms_signin_embedded", "forms_signin_many", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_signin", "accessible_authentication", "forms_signin_embedded", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "Only native password and one-time-code inputs hold credentials; WAI-ARIA has no password role." }
+alternative_labels = { not_relevant = "Labelling does not change whether paste is blocked." }
+frames_shadow_dom = { cases = ["forms_signin_embedded", "forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_signin_many"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "disable detection: never probe a field"
+find = "      if (!pasteBlocked(f)) continue;"
+replace = "      if (true) continue;"
+killed_by = "corpus:forms_signin"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "drop the inserted-text condition: a sanitising handler counts as blocking"
+find = "    return !notCancelled && !inserted;"
+replace = "    return !notCancelled;"
+killed_by = "corpus:forms_signin"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "drop the visibility condition: hidden fields are probed"
+find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
+replace = "      if (f.disabled || f.readOnly) continue;"
+killed_by = "corpus:forms_hidden"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "drop the readonly condition"
+find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
+replace = "      if (f.disabled || !isVisible(f)) continue;"
+killed_by = "corpus:forms_signin"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "stop descending into open shadow roots"
+find = "      if (el.shadowRoot) collect(el.shadowRoot, frameSel);"
+replace = ""
+killed_by = "corpus:forms_signin_embedded"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "drop the frame part of the selector"
+find = "      if (fields[i].frame) selector = fields[i].frame + ' [frame] ' + selector;"
+replace = ""
+killed_by = "corpus:forms_signin_embedded"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/accessible_authentication.rs"
+change = "shift the reporting cap from five to six"
+find = "const MAX_FINDINGS: usize = 5;"
+replace = "const MAX_FINDINGS: usize = 6;"
+killed_by = "corpus:forms_signin_many"
+
+# --- context/* ---------------------------------------------------------------
+
+[[rule]]
+id = "context/on-input"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=context/on-input)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.2.2 On Input; failures F36, F37; technique G13"
+capabilities = ["dom"]
+applicability = "Rendered selects, radio buttons and listbox/combobox/radio-role elements; their change handlers and, on the running page, the global functions those handlers call."
+expectation = """
+Fails when changing the control's setting changes the context: an onchange
+handler that navigates, submits, opens a window or moves focus (F36, F37),
+or calls a page function that does (seen only on the running page, by the
+page rule in src/wcag/rules/on_input.rs under the same id). A handler whose
+effect is not visible (it calls a function that only updates content, or
+none that the page exposes) needs review; updating content is no change of
+context. 3.2.2 allows the change when the user is advised before using the
+control (G13), so an advised control is not a violation
+(forms_gap_advised_change). A select without handler that is named like a
+navigation control ("Language", "Country") needs review when neither the
+page nor its own form offers a submit control; inside a form with a submit
+control nothing changes before the user submits."""
+positive = ["forms_context", "on_input_context_change", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_context", "forms_autofill", "on_input_context_change", "forms_hidden", "forms_gap_advised_change"]
+not_applicable = ["forms_static_text"]
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { not_relevant = "change events fire on native form controls only; an ARIA widget changes context through other handlers that the markup does not reveal." }
+alternative_labels = { cases = ["forms_gap_advised_change"] }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Handler content and presence of a submit control; no numeric boundary." }
+
+# Local page-rule half (src/wcag/rules/on_input.rs). The shared half is
+# verified by barrierlab's mutation catalog.
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/on_input.rs"
+change = "drop the violation for a called function that changes context"
+find = "let only_called = !changes_context(handler)"
+replace = "let only_called = false && !changes_context(handler)"
+killed_by = "corpus:on_input_context_change"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/on_input.rs"
+change = "disable the review for navigation-named selects without handler"
+find = "if !submit_button && !c.form_submit && NAVIGATION_HINTS"
+replace = "if false && !submit_button && !c.form_submit && NAVIGATION_HINTS"
+killed_by = "corpus:on_input_context_change"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/on_input.rs"
+change = "ignore the submit control of the select's own form"
+find = "if !submit_button && !c.form_submit && NAVIGATION_HINTS"
+replace = "if !submit_button && NAVIGATION_HINTS"
+killed_by = "corpus:forms_autofill"
+
+[[rule]]
+id = "context/on-focus"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=context/on-focus)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.2.1 On Focus; failure F55"
+capabilities = ["dom"]
+applicability = "Rendered elements with an onfocus handler."
+expectation = """
+Needs review when a non-interactive element (no native control, no
+interactive role) has an onfocus handler: whether focus changes the context
+is not in the markup. Focus handlers on native controls and on elements with
+an interactive role (role=button) are ordinary and not reported."""
+positive = ["forms_context", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_context", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_context"] }
+alternative_labels = { not_relevant = "The rule judges the element and its handler, not its name." }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of a handler on a non-interactive element; no numeric boundary." }
+
+[[rule]]
+id = "context/autofocus"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=context/autofocus)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.2.1 On Focus; HTML §6.6.7 autofocus"
+capabilities = ["dom"]
+applicability = "Rendered elements with the autofocus attribute."
+expectation = """
+Needs review when autofocus is set on something that is not a text-entry
+field (a button): moving focus there on load can disorient, but on its own
+it is no change of context, so never a confirmed violation. autofocus on an
+input, select, textarea or a textbox/searchbox/combobox role is not
+reported."""
+positive = ["forms_context", "forms_embedded", "forms_dynamic_responsive"]
+negative = ["forms_context", "forms_hidden"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_context"] }
+alternative_labels = { not_relevant = "The rule judges the element type, not its name." }
+frames_shadow_dom = { cases = ["forms_embedded"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { not_relevant = "Presence of autofocus on a non-entry element; no numeric boundary." }
+
+# --- color/link-indistinct ---------------------------------------------------
+
+[[rule]]
+id = "color/link-indistinct"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=color/link-indistinct)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.1 Use of Color; failure F73; techniques G183, C15"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered links (a[href] or role=link) with text inside running text (a block with at least two other words), outside navigation and logos, displayed inline."
+expectation = """
+Fails when the link differs from the surrounding text only by colour: no
+underline, same weight, style, font, bottom border and background (F73).
+Underline, bold, a border or a background are non-colour cues and pass.
+G183 passes as well: at least 3:1 contrast to the surrounding text plus a
+non-colour cue on hover and focus; below 3:1 the hover cue does not help
+(forms_link_color 2.61:1 fails, forms_gap_link_color 3.71:1 passes). Links in
+lists, navigation, logos and block-level links are identified by their
+position. role=link elements in running text are links too. Links inside a
+same-origin frame are content of the page (forms_gap_frame_link_color). If
+the host provides no computed style the rule reports itself untested."""
+positive = ["forms_link_color", "link_in_text_block_context", "forms_embedded", "forms_dynamic_responsive", "forms_gap_link_color", "forms_gap_frame_link_color"]
+negative = ["forms_link_color", "link_in_text_block_context", "forms_hidden", "forms_gap_link_color"]
+not_applicable = ["forms_static_text"]
+test_strength = { status = "killed", mutations = [] }
+
+[rule.variants]
+visibility = { cases = ["forms_hidden"] }
+native_vs_aria = { cases = ["forms_gap_link_color"] }
+alternative_labels = { cases = ["forms_link_color"] }
+frames_shadow_dom = { cases = ["forms_embedded", "forms_gap_frame_link_color"] }
+responsive = { cases = ["forms_dynamic_responsive"] }
+dynamic = { cases = ["forms_dynamic_responsive"] }
+thresholds = { cases = ["forms_link_color", "forms_gap_link_color"] }

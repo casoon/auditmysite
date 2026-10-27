@@ -1,0 +1,42 @@
+{
+  "case": "forms_signin_embedded",
+  "expectations": [
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-shadow",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "iframe#signin-frame [frame] input#pw-frame",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-shadow-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "iframe#signin-frame [frame] input#pw-frame-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

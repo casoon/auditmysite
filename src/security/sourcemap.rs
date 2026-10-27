@@ -48,19 +48,34 @@ pub struct SourceMapLeak {
 /// A page that could not be fetched is no page without leaks; assets that
 /// could not be fetched make the check partial (#774).
 pub async fn audit_source_maps(page_url: &str) -> Collected<SourceMapLeakAudit> {
-    let client = match reqwest::Client::builder()
+    audit_source_maps_trusting(page_url, &[]).await
+}
+
+/// [`audit_source_maps`] with the extra trust anchors of
+/// [`super::analyze_security_trusting`]; validation stays on.
+pub(crate) async fn audit_source_maps_trusting(
+    page_url: &str,
+    extra_roots: &[reqwest::Certificate],
+) -> Collected<SourceMapLeakAudit> {
+    let mut builder = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(5))
         .timeout(std::time::Duration::from_secs(8))
-        .user_agent("auditmysite-probe/1.0")
-        .build()
-    {
-        Ok(client) => client,
-        Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
+        .user_agent("auditmysite-probe/1.0");
+    for root in extra_roots {
+        builder = builder.add_root_certificate(root.clone());
+    }
+    let Ok(client) = builder.build() else {
+        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
 
     let Ok(page_resp) = client.get(page_url).send().await else {
         return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
+    // An error page is not the audited document: its (absent) assets say
+    // nothing about the page's source maps (#783).
+    if !page_resp.status().is_success() {
+        return Collected::Failed("http_error_status");
+    }
     let Ok(html) = page_resp.text().await else {
         return Collected::Failed(reason::HTTP_REQUEST_FAILED);
     };
@@ -100,14 +115,17 @@ pub async fn audit_source_maps(page_url: &str) -> Collected<SourceMapLeakAudit> 
             continue;
         };
 
-        if let Ok(map_resp) = client.head(map_url.as_str()).send().await {
-            if map_resp.status().is_success() {
-                debug!("Public source map leak: {} -> {}", asset_url, map_url);
-                audit.leaks.push(SourceMapLeak {
-                    asset_url: asset_url.clone(),
-                    map_url: map_url.to_string(),
-                });
-            }
+        // An unanswered map probe is no evidence the map is private.
+        let Ok(map_resp) = client.head(map_url.as_str()).send().await else {
+            unanswered += 1;
+            continue;
+        };
+        if map_resp.status().is_success() {
+            debug!("Public source map leak: {} -> {}", asset_url, map_url);
+            audit.leaks.push(SourceMapLeak {
+                asset_url: asset_url.clone(),
+                map_url: map_url.to_string(),
+            });
         }
     }
 

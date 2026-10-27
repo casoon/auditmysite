@@ -1,0 +1,303 @@
+# Rule contracts for the vulnerable_libs corpus (#783). Format: tests/fixtures/rule_contracts/README.md.
+# Method `analyze_vulnerable_libraries`: window globals and <script src> paths read from the
+# rendered page, versions compared with published advisories.
+
+[[rule]]
+id = "jQuery"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2020-11022, CVE-2020-11023 (fixed in 3.5.0)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every jQuery below 3.5.0; 3.5.0 and later pass. Detected through `jQuery.fn.jquery`, the `$` alias alone, or a script path naming the core build (jquery-3.6.0.min.js, /jquery/3.6.0/jquery.min.js, jquery@3.6.0). A plugin named after jQuery (jquery-ui, jquery.validate) is not jQuery and its version is not jQuery's; the host part of a URL (127.0.0.1) is never a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_dollar_alias", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
+negative = ["vulnerable_libs_bootstrap_eol", "vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash", "vulnerable_libs_lookalikes", "vulnerable_libs_url_current"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_dollar_alias", "vulnerable_libs_url_detected", "vulnerable_libs_url_current", "vulnerable_libs_lookalikes"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_boundaries_first_safe"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "shift the fix boundary to 3.4.1"
+find = "if v < (3, 5, 0) => {"
+replace = "if v < (3, 4, 1) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "accept plugins named after jQuery as jQuery"
+find = "if lower.contains(\"jquery\") && is_core_build(&lower, \"jquery\") {"
+replace = "if lower.contains(\"jquery\") {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "drop the $ alias"
+find = "typeof $ !== 'undefined' && $ && $.fn && $.fn.jquery"
+replace = "false"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "Bootstrap"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2019-8331 (4.x < 4.3.1), CVE-2018-14040/14042, CVE-2024-6485, CVE-2025-1647; Bootstrap 3 end of life"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every Bootstrap before 4.0.0 (end of life; every community release is covered by an advisory) and for 4.x below 4.3.1; 4.3.1 and later pass. Detected through `bootstrap.Tooltip.VERSION`, a `data-bs-version` attribute, or a script path naming the core build (bootstrap.min.js, bootstrap.bundle.min.js, bootstrap@4.1.3). A plugin named after Bootstrap (bootstrap-datepicker) is not Bootstrap. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_bootstrap_eol", "vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_dollar_alias", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
+negative = ["vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash", "vulnerable_libs_lookalikes", "vulnerable_libs_url_current"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_outdated_lodash", "vulnerable_libs_dollar_alias", "vulnerable_libs_url_detected", "vulnerable_libs_url_current", "vulnerable_libs_lookalikes"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_boundaries_first_safe", "vulnerable_libs_bootstrap_eol"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "restore the old 3.x-only boundary (miss Bootstrap 1/2 and 3.4.1)"
+find = "if v < (4, 0, 0) || (v.0 == 4 && v < (4, 3, 1)) => {"
+replace = "if (v.0 == 3 && v < (3, 4, 1)) || (v.0 == 4 && v < (4, 3, 1)) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "drop the data-bs-version channel"
+find = "if (bsEl) out.push"
+replace = "if (false) out.push"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "AngularJS"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; AngularJS end of life (January 2022); CVE-2022-25844 (>= 1.7.0, no fix), CVE-2023-26116..26118 (< 1.8.4, never released)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every detected AngularJS (1.x) version: the line is end of life and every release, including the last one 1.8.3, is covered by an advisory. There is no conforming version; the negative is a look-alike: Angular 2+ (@angular/core) is a different framework and not AngularJS. Detected through `angular.version.full` or a script path naming angular.js (not angular/). A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_dollar_alias", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
+negative = ["vulnerable_libs_lookalikes"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_dollar_alias", "vulnerable_libs_url_detected", "vulnerable_libs_lookalikes"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { not_relevant = "Every release is affected; there is no version boundary." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "reintroduce the old < 1.8.0 boundary"
+find = "\"AngularJS\" => {"
+replace = "\"AngularJS\" if v < (1, 8, 0) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "Handlebars"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-23369 (< 4.7.7), CVE-2026-33937 (< 4.7.9), CVE-2026-106445/106446 (< 4.7.10)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every Handlebars below 4.7.10; 4.7.10 and later pass. Detected through `Handlebars.VERSION` or a script path naming handlebars with a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
+negative = ["vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash", "vulnerable_libs_url_current"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_url_detected", "vulnerable_libs_url_current"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_boundaries_first_safe"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "restore the outdated 4.7.7 boundary"
+find = "if v < (4, 7, 10) => {"
+replace = "if v < (4, 7, 7) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "read the version from the whole URL (host included)"
+find = ".map(|u| u.path().to_string())"
+replace = ".map(|u| u.to_string())"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "Lodash"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-23337, CVE-2025-13465, CVE-2026-2950, CVE-2026-4800 (< 4.18.0)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every Lodash below 4.18.0; 4.18.0 and later pass. Detected through `_.VERSION` together with `_.runInContext` (Lodash-only; without it `_` is Underscore) or a script path naming lodash with a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
+negative = ["vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash", "vulnerable_libs_url_current"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_url_detected", "vulnerable_libs_url_current"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "restore the outdated 4.17.21 boundary"
+find = "if v < (4, 18, 0) => {"
+replace = "if v < (4, 17, 21) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "Underscore"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-23358 (< 1.12.1), CVE-2026-27601 (< 1.13.8)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every Underscore below 1.13.8; 1.13.8 and later pass. Detected through `_.VERSION` without `_.runInContext` (with it, `_` is Lodash). Underscore has no URL channel in this detector. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_outdated_underscore_and_legacy", "vulnerable_libs_underscore_last_vulnerable"]
+negative = ["vulnerable_libs_current_underscore"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_current_underscore"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { not_relevant = "Underscore and Lodash share `_`; the dynamic case injects Lodash. Globals are read after load in either case, so a later definition is read like an initial one." }
+thresholds = { cases = ["vulnerable_libs_underscore_last_vulnerable", "vulnerable_libs_current_underscore"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "restore the outdated 1.13.0 boundary"
+find = "if v < (1, 13, 8) => {"
+replace = "if v < (1, 13, 0) => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "drop the Lodash/Underscore distinction"
+find = "typeof _ !== 'undefined' && _.VERSION && typeof _.runInContext !== 'function'"
+replace = "typeof _ !== 'undefined' && _.VERSION && typeof _.runInContext === 'function'"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "Prototype"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2020-27511 (< 1.7.4; the last release is 1.7.3); OWASP Top 10 A06 (unsupported components)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every detected Prototype version: unmaintained, and every release is covered by CVE-2020-27511. There is no conforming version; the negative is a look-alike: an application class named Prototype without the library's `Prototype.Version` is not the library. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_underscore_and_legacy"]
+negative = ["vulnerable_libs_lookalikes"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_lookalikes"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { not_relevant = "Every release is affected; there is no version boundary." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "stop flagging Prototype"
+find = "\"Prototype\" | \"MooTools\" => {"
+replace = "\"MooTools\" => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+
+[[rule]]
+id = "MooTools"
+automation = "automated"
+method = "analyze_vulnerable_libraries"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-32821, CVE-2021-23432 (< 1.5.3); unmaintained since 1.6.0 (2016); OWASP Top 10 A06 (unsupported components)"
+capabilities = ["dom"]
+applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
+expectation = """
+Fails for every detected MooTools version: below 1.5.3 known advisories apply, and the last release 1.6.0 is unmaintained, so no fixed line exists (OWASP A06). There is no conforming version; the negative is a look-alike: an application namespace that only shares part of the name is not `MooTools.version`. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+page_level = true
+positive = ["vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_underscore_and_legacy"]
+negative = ["vulnerable_libs_lookalikes"]
+not_applicable = ["vulnerable_libs_none"]
+errored = ["vulnerable_libs_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "Detects loaded code (window globals, script URLs), not rendered content." }
+native_vs_aria = { not_relevant = "Script libraries have no ARIA counterpart." }
+alternative_labels = { cases = ["vulnerable_libs_lookalikes"] }
+frames_shadow_dom = { not_relevant = "Globals and <script src> are read from the top document; a framed document is audited as its own page." }
+responsive = { not_relevant = "Library globals do not depend on the viewport." }
+dynamic = { cases = ["vulnerable_libs_dynamic_injection"] }
+thresholds = { not_relevant = "Every release is flagged; there is no version boundary." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "stop flagging MooTools"
+find = "\"Prototype\" | \"MooTools\" => {"
+replace = "\"Prototype\" => {"
+killed_by = "test:vulnerable_libs_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/best_practices/vulnerable_libs.rs"
+change = "drop MooTools detection"
+find = "typeof MooTools !== 'undefined' && MooTools.version"
+replace = "false"
+killed_by = "test:vulnerable_libs_detection_corpus_test"

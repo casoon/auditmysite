@@ -1,0 +1,107 @@
+{
+  "case": "security_header_names_mixed_case",
+  "note": "Field names are case-insensitive (RFC 9110 §5.1): every baseline header is present.",
+  "response_headers": {},
+  "fixture": {
+    "raw_response_headers": [
+      [
+        "content-security-policy",
+        "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+      ],
+      [
+        "X-CONTENT-TYPE-OPTIONS",
+        "nosniff"
+      ],
+      [
+        "x-frame-options",
+        "DENY"
+      ],
+      [
+        "referrer-POLICY",
+        "no-referrer"
+      ],
+      [
+        "permissions-policy",
+        "camera=()"
+      ],
+      [
+        "CROSS-ORIGIN-OPENER-POLICY",
+        "same-origin"
+      ],
+      [
+        "cross-origin-resource-policy",
+        "same-site"
+      ]
+    ]
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "X-Content-Type-Options:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "X-Frame-Options:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Referrer-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Permissions-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Cross-Origin-Opener-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Cross-Origin-Resource-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Permissions-Policy:permissions_policy_permissive",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "pass"
+    }
+  ]
+}

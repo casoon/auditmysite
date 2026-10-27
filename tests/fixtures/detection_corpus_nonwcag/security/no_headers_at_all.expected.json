@@ -1,14 +1,91 @@
 {
   "case": "no_headers_at_all",
+  "note": "No security header at all over plain HTTP. COOP and CORP only matter for some deployments, so their absence is a question for a human, not a confirmed gap. Without a CSP there is no policy to judge; without Permissions-Policy or ACAO nothing to judge either.",
   "response_headers": {},
   "expectations": [
-    { "rule_id": "HTTPS:missing_https", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:missing_header", "verdict": "violation" },
-    { "rule_id": "X-Content-Type-Options:missing_header", "verdict": "violation" },
-    { "rule_id": "X-Frame-Options:missing_header", "verdict": "violation" },
-    { "rule_id": "Referrer-Policy:missing_header", "verdict": "violation" },
-    { "rule_id": "Permissions-Policy:missing_header", "verdict": "violation" },
-    { "rule_id": "Cross-Origin-Opener-Policy:missing_header", "verdict": "violation" },
-    { "rule_id": "Cross-Origin-Resource-Policy:missing_header", "verdict": "violation" }
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "X-Content-Type-Options:missing_header",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "X-Frame-Options:missing_header",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Referrer-Policy:missing_header",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Permissions-Policy:missing_header",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Cross-Origin-Opener-Policy:missing_header",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "Cross-Origin-Resource-Policy:missing_header",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:missing_header",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Access-Control-Allow-Origin:cors_wildcard_credentials",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Permissions-Policy:permissions_policy_permissive",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Source Map:public_source_map",
+      "verdict": "not_applicable"
+    }
   ]
 }

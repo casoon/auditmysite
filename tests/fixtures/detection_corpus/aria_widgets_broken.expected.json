@@ -1,0 +1,21 @@
+{
+  "case": "aria_widgets_broken",
+  "expectations": [
+    {"rule_id": "aria/tab-selected-missing", "verdict": "needs_review", "selector": "div#product-tabs", "occurrences": 1},
+    {"rule_id": "aria/tabpanel-missing", "verdict": "needs_review", "selector": "div#product-tabs", "occurrences": 1},
+    {"rule_id": "aria/combobox-popup-missing", "verdict": "violation", "selector": "input#size", "occurrences": 1},
+    {"rule_id": "popover/target-missing", "verdict": "violation", "selector": "button#guide-btn", "occurrences": 1},
+    {"rule_id": "popover/target-invalid", "verdict": "violation", "selector": "button#shipping-btn", "occurrences": 1},
+    {"rule_id": "patterns/accordion-controls-missing", "verdict": "needs_review", "selector": "button#care-btn", "occurrences": 1},
+    {"rule_id": "patterns/tooltip-unreferenced", "verdict": "violation", "selector": "div#fav-tip", "occurrences": 1},
+    {"rule_id": "modern-attribute-misuse", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "patterns/accordion-controls-missing", "selector": "div#fit-btn", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

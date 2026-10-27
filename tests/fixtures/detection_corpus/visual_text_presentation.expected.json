@@ -1,0 +1,20 @@
+{
+  "case": "visual_text_presentation",
+  "expectations": [
+    {
+      "rule_id": "text/justified",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "text/line-height-tight",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "visual-presentation",
+      "verdict": "needs_review",
+      "occurrences": 1
+    }
+  ]
+}

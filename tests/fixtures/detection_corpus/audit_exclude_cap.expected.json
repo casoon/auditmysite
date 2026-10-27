@@ -1,10 +1,83 @@
 {
   "case": "audit_exclude_cap",
   "expectations": [
-    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#real-click", "verdict": "violation" },
-    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#specimen-click-1", "verdict": "pass" },
-    { "rule_id": "links/used-as-button", "selector": "a#real-link", "verdict": "needs_review" },
-    { "rule_id": "links/used-as-button", "selector": "a#specimen-link-1", "verdict": "pass" },
-    { "rule_id": "forms/purpose-missing", "verdict": "needs_review" }
+    {
+      "rule_id": "keyboard/click-handler-not-focusable",
+      "selector": "div#real-click",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "keyboard/click-handler-not-focusable",
+      "selector": "div#specimen-click-1",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#real-link",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#specimen-link-1",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "headings/section-without-heading",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a#real-link",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "input",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
   ]
 }

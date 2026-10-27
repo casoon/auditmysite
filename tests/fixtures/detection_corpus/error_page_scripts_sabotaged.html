@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page that breaks the DOM query APIs</title>
+<script>
+  // Technical error case (#783): the page replaces the DOM query and style
+  // APIs that the browser-side page rules evaluate. Every such rule must be
+  // recorded as not run, never as a clean pass.
+  (function () {
+    var boom = function () { throw new Error("sabotaged by the page"); };
+    Document.prototype.querySelectorAll = boom;
+    Element.prototype.querySelectorAll = boom;
+    Document.prototype.querySelector = boom;
+    Element.prototype.querySelector = boom;
+    Document.prototype.getElementsByTagName = boom;
+    Element.prototype.getElementsByTagName = boom;
+    window.getComputedStyle = boom;
+  })();
+</script>
+<style>.target { display: inline-block; min-width: 44px; min-height: 44px; }</style>
+</head>
+<body>
+<header><p>Site</p></header>
+<a class="target" href="#main">Skip to main content</a>
+<nav aria-label="Primary"><a class="target" href="/" aria-current="page">Home page</a></nav>
+<main id="main"><h1>Heading</h1><p>Some text.</p>
+<!-- Wider than the 320 px reflow viewport, so the reflow probe has to look
+     for the offending element and runs into the broken APIs. -->
+<div style="width: 1200px">Wide content.</div></main>
+<footer><p>Footer</p></footer>
+</body>
+</html>

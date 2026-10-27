@@ -1,6 +1,45 @@
 {
   "case": "landmark_main_in_shadow_root",
   "expectations": [
-    { "rule_id": "landmarks/main-missing", "verdict": "pass" }
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/none",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    }
   ]
 }

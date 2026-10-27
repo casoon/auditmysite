@@ -1,7 +1,41 @@
 {
   "case": "text_fill_color_contrast",
   "expectations": [
-    { "rule_id": "contrast/text-insufficient", "selector": "p#fill-faint", "verdict": "violation" },
-    { "rule_id": "contrast/text-insufficient", "selector": "p#fill-dark", "verdict": "pass" }
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#fill-faint",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#fill-dark",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

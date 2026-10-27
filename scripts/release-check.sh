@@ -19,15 +19,11 @@ cargo test
 echo "release-check: release contract tests"
 cargo test --test release_contract_tests
 
-echo "release-check: strict positive/negative evidence for every check"
-coverage_failed=""
-for t in detection_corpus_completeness nonwcag_detection_corpus_completeness; do
-  cargo test --test "$t" release_ -- --ignored --nocapture || coverage_failed="$coverage_failed $t"
-done
-if [ -n "$coverage_failed" ]; then
-  echo "release-check: missing rule evidence:$coverage_failed"
-  exit 1
-fi
+echo "release-check: detector contracts (every active rule: cases, N/A, error, variants)"
+cargo test --test rule_contract_gate -- --nocapture
+
+echo "release-check: detector test strength (targeted mutations)"
+python3 "$REPO_ROOT/scripts/mutation-check.py"
 
 echo "release-check: ignored integration tests"
 cargo test --test integration_test -- --ignored
@@ -42,7 +38,7 @@ cargo test --test integration_test -- --ignored
 # hide another (#582); the check still fails at the end.
 echo "release-check: detection-corpus accuracy tests"
 corpus_failed=""
-for t in detection_corpus_test schema_rules_detection_corpus_test vulnerable_libs_detection_corpus_test easy_language_detection_test help_mechanisms_detection_test score_calibration_test; do
+for t in rule_error_cases detection_corpus_test schema_rules_detection_corpus_test vulnerable_libs_detection_corpus_test easy_language_detection_test help_mechanisms_detection_test score_calibration_test; do
   cargo test --test "$t" -- --ignored || corpus_failed="$corpus_failed $t"
 done
 if [ -n "$corpus_failed" ]; then

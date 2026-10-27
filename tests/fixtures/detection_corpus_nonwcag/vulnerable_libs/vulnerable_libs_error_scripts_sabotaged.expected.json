@@ -1,0 +1,37 @@
+{
+  "case": "vulnerable_libs_error_scripts_sabotaged",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "AngularJS",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Handlebars",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Lodash",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Underscore",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Prototype",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "MooTools",
+      "verdict": "errored"
+    }
+  ]
+}

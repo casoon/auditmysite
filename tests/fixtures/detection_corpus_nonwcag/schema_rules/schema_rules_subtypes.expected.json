@@ -1,0 +1,18 @@
+{
+  "case": "schema_rules_subtypes",
+  "note": "NewsArticle adds publisher to Google's recommended Article properties; WebApplication is a SoftwareApplication; CollectionPage is assessed for the item list (carousel) feature.",
+  "expectations": [
+    {
+      "rule_id": "article",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "software_application",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "item_list",
+      "verdict": "pass"
+    }
+  ]
+}

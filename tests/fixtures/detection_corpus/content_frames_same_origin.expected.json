@@ -1,0 +1,6 @@
+{
+  "case": "content_frames_same_origin",
+  "expectations": [
+    {"rule_id": "frame-tested", "verdict": "absent"}
+  ]
+}

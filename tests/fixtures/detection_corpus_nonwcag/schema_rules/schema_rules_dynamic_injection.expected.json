@@ -1,0 +1,14 @@
+{
+  "case": "schema_rules_dynamic_injection",
+  "note": "A tag manager adds JSON-LD after load; it is part of the rendered DOM the audit reads (Google renders JavaScript before extracting structured data).",
+  "expectations": [
+    {
+      "rule_id": "article",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "event",
+      "verdict": "violation"
+    }
+  ]
+}

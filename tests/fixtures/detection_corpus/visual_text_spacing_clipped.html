@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badge that clips its text when line height grows</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+  /* One line at line-height 1.2 fits into 20px; at the 1.5 a user may set
+     (24px) the text is cut off. */
+  #badge { height: 20px; line-height: 1.2; overflow: hidden; border: 1px solid #111111; padding: 0 4px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Garden chairs</h1>
+  <div id="badge">Free delivery on all orders</div>
+  <!-- Permanently 1x1 for screen readers: not something spacing can clip. -->
+  <span class="sr-only">Prices include tax</span>
+  <p>Weatherproof chairs made of larch wood.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

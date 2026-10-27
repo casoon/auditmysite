@@ -1,17 +1,59 @@
 {
   "case": "csp_permissive",
+  "note": "A CSP that restricts nothing. object-src falls back to default-src * (CSP3 fetch-directive fallback), so it is not missing; the wildcard is wildcard_source's finding. XFO DENY covers framing since the policy sets no frame-ancestors.",
   "response_headers": {
-    "Content-Security-Policy": "default-src *; script-src 'unsafe-inline' 'unsafe-eval' *; style-src 'unsafe-inline'"
+    "Content-Security-Policy": "default-src *; script-src 'unsafe-inline' 'unsafe-eval' *; style-src 'unsafe-inline'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
   },
   "expectations": [
-    { "rule_id": "Content-Security-Policy:missing_header", "verdict": "pass" },
-    { "rule_id": "Content-Security-Policy:unsafe_inline_script", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:unsafe_eval_script", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:wildcard_script_source", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:unsafe_inline_style", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:wildcard_source", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:missing_object-src", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:missing_base-uri", "verdict": "violation" },
-    { "rule_id": "Content-Security-Policy:missing_frame-ancestors", "verdict": "violation" }
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "X-Frame-Options:missing_header",
+      "verdict": "pass"
+    }
   ]
 }

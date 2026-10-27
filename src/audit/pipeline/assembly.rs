@@ -59,7 +59,10 @@ pub(super) fn with_shared_page_rule_violations(
 
 /// Merge violations from both passes.
 ///
-/// Dedup key: (rule, selector-or-node_id).
+/// Dedup key: (rule, selector), or (rule, role and name) for a finding
+/// without selector. AX node ids are not stable across the two passes — the
+/// page is reloaded in between — so they cannot pair a finding with itself
+/// (#783: a tree-rule review per modal dialog was reported once per pass).
 /// - Violations present on both → tag "both-viewports" (reported once)
 /// - Desktop-only → tag "desktop-only"
 /// - Mobile-only → tag "mobile-only"
@@ -70,7 +73,13 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
             .as_deref()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_owned())
-            .unwrap_or_else(|| v.node_id.clone());
+            .unwrap_or_else(|| {
+                format!(
+                    "{}|{}",
+                    v.role.as_deref().unwrap_or(""),
+                    v.name.as_deref().unwrap_or("")
+                )
+            });
         (v.rule_id.as_deref().unwrap_or(&v.rule), id)
     }
 
@@ -705,6 +714,35 @@ mod tests {
                 .iter()
                 .any(|v| v.tags.iter().any(|t| t == "both-viewports")));
         }
+    }
+
+    #[test]
+    fn review_without_selector_pairs_across_passes_despite_new_node_ids() {
+        let review = |node: &str| {
+            let mut v = Violation::new(
+                "2.1.2",
+                "No Keyboard Trap",
+                WcagLevel::A,
+                crate::wcag::Severity::Medium,
+                "Verify focus can leave this dialog",
+                node,
+            )
+            .with_rule_id("keyboard-trap")
+            .as_warning();
+            v.role = Some("dialog".into());
+            v.name = Some("Settings".into());
+            v
+        };
+        let mut desktop = WcagResults::new();
+        desktop.warnings.push(review("41"));
+        let mut mobile = WcagResults::new();
+        mobile.warnings.push(review("97"));
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.warnings.len(), 1, "one dialog, one review");
+        assert!(merged.warnings[0]
+            .tags
+            .iter()
+            .any(|t| t == "both-viewports"));
     }
 
     #[test]

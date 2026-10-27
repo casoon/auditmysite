@@ -1,0 +1,10 @@
+{
+  "case": "vulnerable_libs_underscore_last_vulnerable",
+  "note": "1.13.7 is past CVE-2021-23358 but inside CVE-2026-27601 (< 1.13.8).",
+  "expectations": [
+    {
+      "rule_id": "Underscore",
+      "verdict": "violation"
+    }
+  ]
+}

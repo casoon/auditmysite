@@ -1,0 +1,19 @@
+{
+  "case": "aria_dialogs_live_broken",
+  "expectations": [
+    {"rule_id": "status/live-overridden", "verdict": "violation", "selector": "div#cart-status", "occurrences": 1},
+    {"rule_id": "status/live-overridden", "verdict": "needs_review", "selector": "div#stock-alert", "occurrences": 1},
+    {"rule_id": "status/live-overridden", "verdict": "needs_review", "selector": "output#total", "occurrences": 1},
+    {"rule_id": "dialog/name-missing", "verdict": "violation", "selector": "div#coupon-dlg", "occurrences": 1},
+    {"rule_id": "dialog/name-missing", "verdict": "violation", "selector": "dialog#saved-dlg", "occurrences": 1},
+    {"rule_id": "dialog/modal-unmarked", "verdict": "needs_review", "selector": "div#coupon-dlg", "occurrences": 1},
+    {"rule_id": "dialog/focusable-missing", "verdict": "needs_review", "selector": "dialog#saved-dlg", "occurrences": 1},
+    {"rule_id": "dialog/focusable-missing", "verdict": "needs_review", "selector": "div#timeout-dlg", "occurrences": 1},
+    {"rule_id": "inert/dialog-inert", "verdict": "violation", "selector": "dialog#survey-dlg", "occurrences": 1},
+    {"rule_id": "inert/dialog-inert", "verdict": "needs_review", "selector": "div#help-dlg", "occurrences": 1},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/interruptions", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

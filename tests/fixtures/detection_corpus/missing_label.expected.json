@@ -1,6 +1,24 @@
 {
   "case": "missing_label",
   "expectations": [
-    { "rule_id": "forms/label-missing", "verdict": "violation" }
+    {
+      "rule_id": "forms/label-missing",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
   ]
 }

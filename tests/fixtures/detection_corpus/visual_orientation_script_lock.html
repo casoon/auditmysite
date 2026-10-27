@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page rotated by a script in portrait</title>
+<script>
+  // Script-driven lock: no stylesheet rule, an inline transform set (and
+  // reset) whenever the orientation changes.
+  (function () {
+    var portrait = window.matchMedia('(orientation: portrait)');
+    function apply() {
+      document.documentElement.style.transform = portrait.matches ? 'rotate(-90deg)' : '';
+    }
+    apply();
+    portrait.addEventListener('change', apply);
+  })();
+</script>
+<style>
+  body { color: #111111; background: #ffffff; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Panorama viewer</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Harbour panorama</h1>
+  <p>Drag to look around the harbour.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

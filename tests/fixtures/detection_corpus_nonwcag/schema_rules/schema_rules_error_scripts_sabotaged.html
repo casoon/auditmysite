@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page that breaks JSON serialisation</title>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Product", "name": "Bare product"}
+  </script>
+  <script>
+    // Technical error case (#783): the page replaces JSON.stringify, which the
+    // structured-data collection uses to return its result. The incomplete
+    // Product above must not be reported as assessed, and no feature as clean:
+    // every feature is recorded as not run.
+    JSON.stringify = function () { return undefined; };
+  </script>
+</head>
+<body>
+  <main><h1>Page that breaks JSON serialisation</h1></main>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsive page with a wide data table</title>
+<style>
+  body { margin: 0; color: #111111; background: #ffffff; }
+  main, header, footer { padding: 0; }
+  /* Threshold: exactly the 320px viewport. */
+  #exact { width: 320px; box-sizing: border-box; border: 1px solid #111111; }
+  /* Responsive: only wide screens get the fixed width. */
+  @media (min-width: 400px) { #wide-desktop { width: 900px; } }
+  /* Dynamic: capped by a script after load. */
+  #capped-late { width: 600px; }
+  #prices { width: 700px; border-collapse: collapse; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Price list</h1>
+  <div id="exact"><p>Prices valid from October.</p></div>
+  <div id="wide-desktop"><p>Compare all models below.</p></div>
+  <div id="capped-late"><p>Delivery within five working days.</p></div>
+  <!-- A data table needs two-dimensional layout: 1.4.10 excepts it. -->
+  <table id="prices">
+    <caption>Prices per model and size</caption>
+    <tr><th scope="col">Model</th><th scope="col">Small</th><th scope="col">Medium</th><th scope="col">Large</th><th scope="col">Extra large</th></tr>
+    <tr><th scope="row">Larch</th><td>120 euros</td><td>150 euros</td><td>180 euros</td><td>210 euros</td></tr>
+  </table>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  window.addEventListener('load', function () {
+    document.getElementById('capped-late').style.maxWidth = '100%';
+  });
+</script>
+</body>
+</html>

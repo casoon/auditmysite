@@ -1,0 +1,90 @@
+{
+  "case": "forms_required_instructions",
+  "expectations": [
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-aria",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-star",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-word",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-desc",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#req-false",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-date",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-pass",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-date-hint",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-date-label",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-native",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-ph",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#ins-passage",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "span#ins-aria",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

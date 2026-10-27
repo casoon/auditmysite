@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#653) used without ever setting
+     html[data-display], with text layers removed from assistive technology
+     in three more ways: the hidden attribute, inert, and aria-hidden added by
+     a script after load. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display modes: mode never set, text layers hidden</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <button type="button" data-display-toggle style="min-width: 44px; min-height: 44px">Switch display mode</button>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Air quality</h1>
+  <figure id="f1" data-viz="diagram">
+    <svg data-viz-static width="300" height="80" aria-hidden="true"><rect width="300" height="80" fill="#4575b4"></rect></svg>
+    <div id="t-hidden-attr" data-viz-text hidden><p>Fine dust stayed below the limit all week.</p></div>
+    <figcaption>Fine dust this week</figcaption>
+  </figure>
+  <figure id="f2" data-viz="diagram">
+    <svg data-viz-static width="300" height="80" aria-hidden="true"><rect width="300" height="80" fill="#91bfdb"></rect></svg>
+    <div id="t-inert" data-viz-text inert><p>Ozone peaked on Thursday afternoon.</p></div>
+    <figcaption>Ozone this week</figcaption>
+  </figure>
+  <figure id="f3" data-viz="diagram">
+    <svg data-viz-static width="300" height="80" aria-hidden="true"><rect width="300" height="80" fill="#d73027"></rect></svg>
+    <div id="t-late" data-viz-text><p>Nitrogen dioxide fell by a third.</p></div>
+    <figcaption>Nitrogen dioxide this week</figcaption>
+  </figure>
+  <!-- Reachable text layer, visually hidden with the clip pattern: fine. -->
+  <figure id="f4" data-viz="diagram">
+    <svg data-viz-static width="300" height="80" aria-hidden="true"><rect width="300" height="80" fill="#fee090"></rect></svg>
+    <div id="t-ok" data-viz-text style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"><p>Pollen counts were low.</p></div>
+    <figcaption>Pollen this week</figcaption>
+  </figure>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  window.addEventListener('load', function () {
+    document.getElementById('t-late').setAttribute('aria-hidden', 'true');
+  });
+</script>
+</body>
+</html>

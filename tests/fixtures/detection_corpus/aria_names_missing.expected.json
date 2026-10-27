@@ -1,0 +1,25 @@
+{
+  "case": "aria_names_missing",
+  "expectations": [
+    {"rule_id": "names/required-missing", "verdict": "violation", "selector": "div#volume", "occurrences": 1},
+    {"rule_id": "names/required-missing", "verdict": "violation", "selector": "div#autoplay", "occurrences": 1},
+    {"rule_id": "names/required-missing", "verdict": "violation", "selector": "input#station", "occurrences": 1},
+    {"rule_id": "names/symbol-only", "verdict": "needs_review", "selector": "button#close-player", "occurrences": 1},
+    {"rule_id": "names/title-only", "verdict": "needs_review", "selector": "button#share", "occurrences": 1},
+    {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#play", "occurrences": 1},
+    {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#skip", "occurrences": 1},
+    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#lyrics-summary", "occurrences": 1},
+    {"rule_id": "svg/name-missing", "verdict": "violation", "selector": "svg#cover", "occurrences": 1},
+    {"rule_id": "svg/name-missing", "verdict": "needs_review", "selector": "svg#waveform", "occurrences": 1},
+    {"rule_id": "label-in-name/mismatch", "selector": "button#rewind", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "label-in-name/mismatch", "selector": "button#continue", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "label-in-name/mismatch", "selector": "a#show-card", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

@@ -1,37 +1,23 @@
 {
   "case": "misc_content_checks",
   "expectations": [
-    {
-      "rule_id": "images/area-alt-missing",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "images/input-alt-missing",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "language/abbreviation-unexpanded",
-      "verdict": "needs_review"
-    },
-    {
-      "rule_id": "popover/target-missing",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "color/link-indistinct",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "document/lang-mismatch",
-      "verdict": "violation"
-    },
-    {
-      "rule_id": "tables/header-missing",
-      "verdict": "needs_review"
-    },
-    {
-      "rule_id": "zoom/viewport-scale-limited",
-      "verdict": "violation"
-    }
+    {"rule_id": "images/area-alt-missing", "verdict": "violation"},
+    {"rule_id": "images/input-alt-missing", "verdict": "violation"},
+    {"rule_id": "language/abbreviation-unexpanded", "verdict": "needs_review"},
+    {"rule_id": "popover/target-missing", "verdict": "violation"},
+    {"rule_id": "color/link-indistinct", "verdict": "violation"},
+    {"rule_id": "document/lang-mismatch", "verdict": "violation"},
+    {"rule_id": "tables/header-missing", "verdict": "needs_review"},
+    {"rule_id": "zoom/viewport-scale-limited", "verdict": "violation"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "forms/label-missing", "selector": "input.low-contrast-checkbox", "verdict": "violation"},
+    {"rule_id": "tables/name-missing", "verdict": "needs_review"},
+    {"rule_id": "forms/no-submit", "verdict": "needs_review"},
+    {"rule_id": "forms/purpose-missing", "verdict": "needs_review"}
   ]
 }

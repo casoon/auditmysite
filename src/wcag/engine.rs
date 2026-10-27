@@ -159,7 +159,7 @@ fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilt
     // `keyboard/interactive-not-focusable` im geteilten Bestand (#694). Hier
     // bleibt 2.1.2 No Keyboard Trap: Ob der Fokus wieder herauskommt, zeigt
     // nur echte Bedienung -- ein Hinweis je modalem Dialog und seitenweit.
-    run_if_allowed!(filter, "keyboard", check_keyboard, results, tree);
+    run_if_allowed!(filter, "keyboard-trap", check_keyboard, results, tree);
 
     // 2.4.1 Bypass Blocks: Sprunglink, main-Landmark und die Seite ganz ohne
     // Ueberschriften laufen als `keyboard/skip-link-missing`,

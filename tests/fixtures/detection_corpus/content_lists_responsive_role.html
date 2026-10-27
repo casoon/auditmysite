@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Responsive list markers</title>
+    <style>
+        @media (max-width: 600px) { .cards { list-style: none; padding: 0; } }
+        @media (min-width: 601px) { .chips { list-style: none; padding: 0; } }
+    </style>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Responsive list markers</h1>
+        <ul role="list" class="cards" id="cards"><li>Events</li><li>Courses</li></ul>
+        <ol role="list" class="chips" id="chips"><li>Open</li><li>Closed</li></ol>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

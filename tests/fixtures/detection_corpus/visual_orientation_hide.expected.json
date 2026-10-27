@@ -1,0 +1,7 @@
+{
+  "case": "visual_orientation_hide",
+  "expectations": [
+    { "rule_id": "orientation/content-hidden", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "css-orientation-lock", "verdict": "pass" }
+  ]
+}

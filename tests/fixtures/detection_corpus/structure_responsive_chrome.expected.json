@@ -1,0 +1,42 @@
+{
+  "case": "structure_responsive_chrome",
+  "expectations": [
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "headings/h1-multiple",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/banner-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/skip-level",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

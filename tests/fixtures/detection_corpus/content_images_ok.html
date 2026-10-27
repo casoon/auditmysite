@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exhibition: maps of the old town</title>
+    <style>
+        .icon { display: inline-block; width: 16px; height: 16px; background: #446; }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    </style>
+    <style>
+        nav a, .skip-link, form input, a[href="/print"] { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Exhibition: maps of the old town</h1>
+        <img id="poster" src="/poster.jpg" alt="Poster: maps of the old town, 3 May to 30 June" width="200" height="120">
+        <img id="divider" src="/divider.png" alt="" width="200" height="4">
+        <img id="labelled" src="/map-1850.png" aria-label="Town map of 1850" width="200" height="120">
+        <p id="caption-1900">Town map of 1900</p>
+        <img id="labelledby" src="/map-1900.png" aria-labelledby="caption-1900" width="200" height="120">
+        <img id="titled" src="/seal.png" title="Town seal" width="40" height="40">
+        <img id="three-chars" src="/sign.png" alt="Inn" width="40" height="40">
+        <img id="presentational" src="/flourish.png" role="presentation" width="40" height="10">
+        <img id="hidden-from-at" src="/flourish.png" aria-hidden="true" width="40" height="10">
+        <img id="not-rendered" src="/print-only.png" style="display: none">
+        <img id="hidden-attr" src="/later.png" hidden>
+        <img id="town-map" src="/town.png" usemap="#town-areas" alt="Old town districts" width="200" height="120">
+        <map name="town-areas">
+            <area id="area-market" href="/districts/market" shape="rect" coords="0,0,100,60" alt="Market district">
+            <area id="area-harbour" href="/districts/harbour" shape="rect" coords="100,0,200,60" aria-label="Harbour district">
+            <area id="area-decor" shape="rect" coords="0,60,200,120">
+        </map>
+        <form action="/search">
+            <label for="q">Search the collection</label>
+            <input id="q" name="q" type="search">
+            <input id="search-go" type="image" src="/go.png" alt="Search">
+            <span id="reset-label" hidden>Clear search</span>
+            <input id="search-clear" type="image" src="/clear.png" aria-labelledby="reset-label">
+        </form>
+        <object id="catalogue-pdf" data="/catalogue.pdf" type="application/pdf" width="300" height="200">
+            <a href="/catalogue.pdf">Download the exhibition catalogue (PDF)</a>
+        </object>
+        <object id="floor-plan" data="/floor.svg" type="image/svg+xml" title="Floor plan of the exhibition" width="300" height="200"></object>
+        <audio id="muted-loop" autoplay muted loop src="/ambience.mp3"></audio>
+        <audio id="tour-audio" controls src="/tour.mp3"></audio>
+        <span id="warning-icon" role="img" aria-label="Warning" class="icon"></span>
+        <span id="decor-icon" role="img" class="icon" aria-hidden="true"></span>
+        <a href="/print"><span id="print-icon" role="img" class="icon"></span>Print this page</a>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>
