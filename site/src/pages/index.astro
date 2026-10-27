@@ -1,19 +1,31 @@
 ---
+import { readFile } from 'node:fs/promises';
 import {
   Badge,
   Badges,
   BuildOutput,
   CodeBlock,
   Facts,
+  Faq,
   Features,
   Hero,
   Install,
   Quickstart,
+  ReleaseHighlights,
   Terminal,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
+import config from 'virtual:casoon-pages/config';
+import { parseChangelog } from '@casoon/pages-theme/lib/changelog';
 import { castDemo, fixture } from '../showcase';
+
+// Skip "Unreleased": it has no version to show as "New in v…" yet.
+const latestRelease = config.changelog
+  ? parseChangelog(await readFile(config.changelog, 'utf8')).find(
+      (r) => r.version.toLowerCase() !== 'unreleased'
+    )
+  : undefined;
 
 const quickstart = `# check which browser auditmysite will use
 auditmysite browser detect
@@ -190,6 +202,33 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       </dd>
     </dl>
   </section>
+
+  {latestRelease && <ReleaseHighlights release={latestRelease} />}
+
+  <Faq
+    items={[
+      {
+        q: 'Does auditmysite download or install a browser automatically?',
+        a: 'No. It requires Chrome, Chromium, or a managed browser to already be present and exits with an error if none is found. auditmysite browser install fetches Chrome for Testing, but only when you run it yourself.',
+      },
+      {
+        q: 'Is the PDF report an accessibility statement I can publish?',
+        a: 'No. The EN 301 549 appendix and the JSON findings are a technical building block for a statement a person writes; the report explicitly does not claim conformance under BFSG or BITV 2.0.',
+      },
+      {
+        q: 'Does 100% automated pass mean the page is fully WCAG 2.2 AA compliant?',
+        a: "No. Of the 55 WCAG 2.2 A/AA success criteria, only 30 are counted as automated, and a criterion counts there only if a rule can actually report a violation. The other 25 are listed as requiring manual review, never silently marked as passed.",
+      },
+      {
+        q: 'Where do the WCAG rule ids and checks come from?',
+        a: 'From the barrierlab crates (a11y-rules, a11y-dom, accname, html-conform, and related crates), a shared Rust monorepo also used by astro-post-audit and LiveAudit, so the same rule id means the same thing across all three tools. Rule ids stay stable across auditmysite releases, with renames documented when a collision is fixed.',
+      },
+      {
+        q: 'Can it audit more than one page at a time?',
+        a: 'Yes. Point it at a sitemap, a URL file, or a seed URL with --crawl, and it writes one aggregated batch report with averages, ranking, and recurring issues across pages. --technician switches that same batch run to one JSON file per page plus a flat findings.jsonl instead.',
+      },
+    ]}
+  />
 </Base>
 
 <style>
