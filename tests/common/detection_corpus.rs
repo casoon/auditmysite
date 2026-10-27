@@ -62,7 +62,7 @@ pub struct ExpectedCase {
     #[serde(default)]
     pub response_headers: std::collections::BTreeMap<String, String>,
     /// Optional: the expected `screen_reader.bfsg_compliance.verdict`
-    /// (`"compliant"` / `"non_compliant"`), e.g. to pin that an audit
+    /// (`"no_violations_found"` / `"violations_found"`), e.g. to pin that an audit
     /// exclusion also reaches the screen-reader layer (#703).
     #[serde(default)]
     pub screen_reader_bfsg_verdict: Option<String>,

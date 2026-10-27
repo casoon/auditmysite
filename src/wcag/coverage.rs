@@ -6,7 +6,56 @@
 
 use std::sync::OnceLock;
 
+use serde::{Deserialize, Serialize};
+
 use crate::taxonomy::rules::RULES;
+
+/// A question an automated run leaves open by design (#782). It has one
+/// value on purpose: the field states in the JSON that the run did not
+/// answer it, so no consumer reads an absent violation as a "yes".
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Determination {
+    #[default]
+    NotDetermined,
+}
+
+/// Work an automated accessibility statement leaves to a person (#782).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManualReview {
+    /// Criteria the automated checks cannot fail; see
+    /// `manual_review_criteria()`.
+    CriteriaOutsideAutomatedScope,
+    /// No run with a real screen reader backs the result — the screen-reader
+    /// module reads Chrome's accessibility tree only.
+    ScreenReaderReferenceTest,
+    /// Heuristic findings that need a reader's judgement.
+    ReviewHeuristicFindings,
+    /// The run did not cover the page completely; repeat it before drawing
+    /// conclusions from the absence of findings.
+    RepeatIncompleteRun,
+}
+
+/// What an automated accessibility statement does not settle (#782):
+/// conformance with WCAG/BFSG and whether the BFSG applies at all are never
+/// derived from the absence of automated findings or from website signals.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimLimits {
+    pub conformance: Determination,
+    pub legal_applicability: Determination,
+    pub remaining_manual_review: Vec<ManualReview>,
+}
+
+impl ClaimLimits {
+    pub fn with_manual_review(remaining_manual_review: Vec<ManualReview>) -> Self {
+        Self {
+            conformance: Determination::NotDetermined,
+            legal_applicability: Determination::NotDetermined,
+            remaining_manual_review,
+        }
+    }
+}
 
 /// WCAG 2.2 A/AA totals — Level A: 31, Level AA: 24, sum 55. That is WCAG 2.1's
 /// 50 criteria, minus 4.1.1 Parsing (removed in WCAG 2.2), plus the six
