@@ -13,9 +13,9 @@ use tracing::info;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
     analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cache_matches_signature,
-    compute_batch_verdict, compute_verdict, crawl_site, hydrate_cached_report, load_artifacts,
-    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, to_audit_report,
-    BatchConfig, CrawlResult, PipelineConfig, Verdict,
+    crawl_site, hydrate_cached_report, load_artifacts, parse_sitemap, read_url_file,
+    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
+    PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::url_filter::select_urls;
@@ -119,14 +119,6 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
                     );
                 }
 
-                let verdict_cfg = config
-                    .as_ref()
-                    .map(|c| c.effective_verdict_config())
-                    .unwrap_or_default();
-                // The verdict always derives from the stored NormalizedReport,
-                // so it is identical regardless of --format (#404).
-                let verdict_result = compute_verdict(&cached.audit, &verdict_cfg);
-
                 // Prefer the full cached report so every module section renders
                 // faithfully; fall back to the lossy reconstruction only for
                 // legacy entries written before report.json existed (#404).
@@ -134,6 +126,14 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
                     .report
                     .clone()
                     .unwrap_or_else(|| to_audit_report(&cached, &args.lang));
+                // The cached audit is judged under this run's profile, which
+                // is stored with the report, so every output and the exit
+                // code read the same decision (#781).
+                report.run_context.decision_profile = config
+                    .as_ref()
+                    .map(|c| c.effective_verdict_config().profile())
+                    .unwrap_or_default();
+                let verdict_result = normalize(&report).normalized.decision;
                 // screen_reader_audit is #[serde(skip)] and therefore absent from
                 // the persisted report — rebuild it from the cached AXTree so the
                 // cached report renders the same sections as a fresh run (#404).
@@ -145,7 +145,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
                         // normalized-only `cached.audit`) so `detail.modules`
                         // carries the same module data the PDF renders (#404) —
                         // a cache hit must not drop the module blob.
-                        output_single_report(&report, args, Some(&verdict_result))?;
+                        output_single_report(&report, args)?;
                         output_screen_reader_sidecar(&report, args)?;
                     }
                     OutputFormat::Table
@@ -153,7 +153,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
                     | OutputFormat::Ai
                     | OutputFormat::Summary
                     | OutputFormat::Sarif => {
-                        output_single_report(&report, args, Some(&verdict_result))?;
+                        output_single_report(&report, args)?;
                     }
                 }
                 print_verdict(&verdict_result, args.quiet);
@@ -251,13 +251,9 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
         }
     }
 
-    let normalized = normalize(&report).normalized;
-    let verdict_cfg = config
-        .as_ref()
-        .map(|c| c.effective_verdict_config())
-        .unwrap_or_default();
-    let verdict_result = compute_verdict(&normalized, &verdict_cfg);
-    output_single_report(&report, args, Some(&verdict_result))?;
+    // The decision stored by normalization under the run's profile (#781).
+    let verdict_result = normalize(&report).normalized.decision;
+    output_single_report(&report, args)?;
     print_verdict(&verdict_result, args.quiet);
     Ok(RunOutcome {
         verdict: verdict_result.verdict,
@@ -399,7 +395,8 @@ pub(crate) async fn run_batch_mode(
 /// source — the `visual` pass of `--display all` (#653).
 async fn run_batch(
     args: &Args,
-    config: &Option<auditmysite::cli::Config>,
+    // The verdict profile reaches the reports through `PipelineConfig`.
+    _config: &Option<auditmysite::cli::Config>,
     urls_override: Option<Vec<String>>,
 ) -> Result<RunOutcome> {
     check_ai_transparency_feature(args)?;
@@ -624,11 +621,7 @@ async fn run_batch(
         batch_report.total_duration_ms
     ));
 
-    let verdict_cfg = config
-        .as_ref()
-        .map(|c| c.effective_verdict_config())
-        .unwrap_or_default();
-    let verdict_result = compute_batch_verdict(&batch_report.summary, &verdict_cfg);
+    let verdict_result = batch_report.summary.decision.clone();
     let verdict_message = verdict_message_text(&verdict_result);
 
     let outcome = RunOutcome {
@@ -649,7 +642,7 @@ async fn run_batch(
     }
 
     presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
-        output_batch_report(&batch_report, args, Some(&verdict_result))
+        output_batch_report(&batch_report, args)
     })?;
     Ok(outcome)
 }

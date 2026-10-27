@@ -377,6 +377,13 @@ pub struct PipelineConfig {
     /// Display mode of the data-display convention to audit in (#653).
     /// `None` audits the site default, the behaviour before `--display`.
     pub display_mode: Option<crate::display::DisplayMode>,
+    /// Indexability the audited pages are meant to have (#780): declared
+    /// (`--expect-indexable`, `[audit] expect_indexable`) or implied by a
+    /// sitemap run. Decides whether `noindex` is a blocker.
+    pub indexability: crate::audit::finding_contract::IndexabilityExpectation,
+    /// Verdict profile of the run (#781), stored with every report so all
+    /// outputs derive the same decision.
+    pub decision_profile: crate::audit::verdict::DecisionProfile,
 }
 
 impl PipelineConfig {
@@ -420,13 +427,14 @@ impl PipelineConfig {
         // 19 for the exclusions block in the execution record (#645).
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
-        const CACHE_FMT: u8 = 21;
+        // 22 for the run context and the SEO indexability check (#780).
+        const CACHE_FMT: u8 = 22;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -450,6 +458,7 @@ impl PipelineConfig {
             enabled_only.join(","),
             crate::audit::exclusion::effective_selectors(&self.exclude_selectors).join("\u{1f}"),
             self.display_mode.map_or("site_default", |m| m.as_str()),
+            self.indexability,
         )
     }
 }
@@ -562,6 +571,23 @@ impl PipelineConfig {
             journey_budget_ms,
             lang: args.lang.clone(),
             display_mode: args.display.and_then(|d| d.mode()),
+            indexability: {
+                use crate::audit::finding_contract::IndexabilityExpectation;
+                let declared = args
+                    .expect_indexable
+                    .or_else(|| toml_cfg.and_then(|c| c.audit.expect_indexable))
+                    .map(IndexabilityExpectation::declared)
+                    .unwrap_or_default();
+                // A sitemap lists the URLs a site wants indexed.
+                if args.sitemap.is_some() {
+                    declared.or(IndexabilityExpectation::sitemap())
+                } else {
+                    declared
+                }
+            },
+            decision_profile: toml_cfg
+                .map(|c| c.effective_verdict_config().profile())
+                .unwrap_or_default(),
         }
     }
 }
@@ -2062,6 +2088,7 @@ mod tests {
     #[test]
     fn test_pipeline_config_from_args() {
         let args = Args {
+            expect_indexable: None,
             command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,
@@ -2292,6 +2319,8 @@ mod tests {
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             lang: "de".to_string(),
             display_mode: None,
+            indexability: Default::default(),
+            decision_profile: Default::default(),
         }
     }
 

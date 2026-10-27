@@ -12,6 +12,7 @@ pub mod collection;
 mod crawl;
 pub mod duplicate;
 pub mod exclusion;
+pub mod finding_contract;
 mod finding_derive;
 pub mod frames;
 mod interactive_finding;
@@ -55,12 +56,16 @@ pub use report::{
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
     ExecutionStatus, ExperienceSection, ModuleRun, NavigationSnapshot, PageScreenshots,
-    PerformanceResults, RedirectChain, RobotsSitemapConflict, SampleMetadata, ScreenshotStatus,
-    SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult, ViewportAuditData,
-    ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    PerformanceResults, RedirectChain, RobotsSitemapConflict, RunContext, SampleMetadata,
+    ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun, ThrottledPerfResult,
+    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
+    ViewportScreenshot,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use template_dedup::{detect_root_causes, RootCause};
 pub use validation::{normalize_checked, validate_batch, ContractViolation, ReportContractError};
-pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};
+pub use verdict::{
+    compute_batch_verdict, compute_verdict, DecisionProfile, Verdict, VerdictResult,
+    DECISION_CONTRACT,
+};

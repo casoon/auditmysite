@@ -62,10 +62,7 @@ fn grade_derived_from_the_overall_score_is_rejected() {
 fn broken_score_alias_fails_by_default() {
     let (code, output) = run_report_lint("broken_score_alias.json", &[]);
     assert_eq!(code, 3, "output: {output}");
-    assert!(
-        output.contains("score_alias_matches_overall"),
-        "output: {output}"
-    );
+    assert!(output.contains("score_alias_removed"), "output: {output}");
 }
 
 #[test]

@@ -99,6 +99,23 @@ mod tests {
         insta::assert_json_snapshot!(json, @r###"
         {
           "bfsg_compliance": {
+            "conformance": "not_determined",
+            "criteria_without_findings": [
+              "1.3.1",
+              "2.4.1",
+              "2.4.6",
+              "3.3.2",
+              "4.1.2"
+            ],
+            "evaluated_criteria": [
+              "1.3.1",
+              "2.4.1",
+              "2.4.4",
+              "2.4.6",
+              "3.3.2",
+              "4.1.2"
+            ],
+            "legal_applicability": "not_determined",
             "needs_review": [
               {
                 "affected_node_ids": [
@@ -110,12 +127,10 @@ mod tests {
                 "wcag_criterion": "2.4.4"
               }
             ],
-            "passed_criteria": [
-              "1.3.1",
-              "2.4.1",
-              "2.4.6",
-              "3.3.2",
-              "4.1.2"
+            "remaining_manual_review": [
+              "screen_reader_reference_test",
+              "criteria_outside_automated_scope",
+              "review_heuristic_findings"
             ],
             "verdict": "needs_review",
             "violations": []

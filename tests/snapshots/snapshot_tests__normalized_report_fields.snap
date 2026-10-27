@@ -1,13 +1,30 @@
 ---
 source: tests/snapshot_tests.rs
-expression: value
+assertion_line: 198
+expression: sort_json_keys(value)
 ---
 {
   "certificate": "NICHT BESTANDEN",
-  "finding_count": 2,
+  "finding_count": 18,
   "finding_rule_ids": [
     "a11y.name_role.missing",
-    "a11y.structure.missing"
+    "a11y.structure.missing",
+    "journey.few_subheadings",
+    "journey.little_early_text",
+    "journey.main_missing",
+    "journey.navigation_missing",
+    "journey.no_breadcrumb",
+    "journey.no_call_to_action",
+    "journey.no_footer",
+    "journey.no_h1",
+    "journey.no_page_title",
+    "ux.little_text",
+    "ux.no_contact",
+    "ux.no_cta",
+    "ux.no_h1",
+    "ux.no_imprint",
+    "ux.no_privacy",
+    "ux.weak_trust_signals"
   ],
   "grade": "F",
   "module_count": 7,

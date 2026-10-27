@@ -1,8 +1,84 @@
+//! The decision contract (#781): one policy, one place.
+//!
+//! Every PASS/WARN/FAIL a user sees — terminal, JSON, summary feed, SARIF,
+//! Studio, PDF, the batch `passed` count and the process exit code — is
+//! `NormalizedReport.decision` (single page) or `BatchSummary.decision`
+//! (batch). Both are computed here, once, during normalization, from the
+//! [`DecisionProfile`] stored with the raw report. Outputs read the stored
+//! result; none of them recomputes it. `validate` rejects a stored decision
+//! that its own profile does not reproduce.
+//!
+//! Score basis: thresholds compare the **accessibility score**
+//! (`NormalizedReport.score`), the subject of the report. Grade and
+//! certificate are bands of the same score (certificate additionally capped
+//! by the risk veto). `overall_score` is the module-weighted technical value;
+//! it carries no grade and never decides the verdict.
+
 use serde::{Deserialize, Serialize};
 
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::report::BatchSummary;
-use crate::cli::config::VerdictConfig;
+
+/// Version of the decision contract. Bumped whenever a rule below changes
+/// what a profile decides.
+pub const DECISION_CONTRACT: &str = "auditmysite.decision/1";
+
+/// The thresholds a verdict is computed with. Stored with every report, so a
+/// stored decision stays reproducible from its declared inputs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DecisionProfile {
+    /// `default` when every value is the contract default, else `custom`.
+    pub name: String,
+    pub fail_on_legal_flags: bool,
+    pub fail_on_blocking_issues: bool,
+    pub fail_on_technical_blockers: bool,
+    /// Fail below this accessibility score; `None` disables the check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fail_below_score: Option<u32>,
+    /// Warn below this accessibility score.
+    pub warn_below_score: u32,
+}
+
+impl Default for DecisionProfile {
+    fn default() -> Self {
+        Self::resolve(None, None, None, None, None)
+    }
+}
+
+impl DecisionProfile {
+    /// Resolve configured values against the contract defaults.
+    pub fn resolve(
+        fail_on_legal_flags: Option<bool>,
+        fail_on_blocking_issues: Option<bool>,
+        fail_on_technical_blockers: Option<bool>,
+        fail_below_score: Option<u32>,
+        warn_below_score: Option<u32>,
+    ) -> Self {
+        let mut profile = Self {
+            name: String::new(),
+            fail_on_legal_flags: fail_on_legal_flags.unwrap_or(true),
+            fail_on_blocking_issues: fail_on_blocking_issues.unwrap_or(true),
+            fail_on_technical_blockers: fail_on_technical_blockers.unwrap_or(false),
+            fail_below_score: fail_below_score.filter(|threshold| *threshold > 0),
+            warn_below_score: warn_below_score.unwrap_or(70),
+        };
+        let default = Self {
+            name: String::new(),
+            fail_on_legal_flags: true,
+            fail_on_blocking_issues: true,
+            fail_on_technical_blockers: false,
+            fail_below_score: None,
+            warn_below_score: 70,
+        };
+        profile.name = if profile == default {
+            "default"
+        } else {
+            "custom"
+        }
+        .to_string();
+        profile
+    }
+}
 
 /// Three-level CI verdict derived from audit results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,9 +107,12 @@ impl Verdict {
     }
 }
 
-/// Verdict plus the reasons that drove it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Verdict plus the reasons that drove it, the contract version and the
+/// profile it was computed with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VerdictResult {
+    pub contract: String,
+    pub profile: DecisionProfile,
     pub verdict: Verdict,
     /// Canonical machine-readable reasons — the JSON contract and what the
     /// CLI prints. Never render these to a reader: they are tokens
@@ -45,6 +124,21 @@ pub struct VerdictResult {
     /// and duplicating it would give consumers two sources for one fact.
     #[serde(skip)]
     pub reason_kinds: Vec<VerdictReasonKind>,
+}
+
+impl VerdictResult {
+    /// Placeholder while the inputs of a decision are assembled; replaced
+    /// before the containing struct leaves its constructor. Fails, so a
+    /// forgotten replacement can never read as a pass.
+    pub(crate) fn undecided() -> Self {
+        Self {
+            contract: DECISION_CONTRACT.to_string(),
+            profile: DecisionProfile::default(),
+            verdict: Verdict::Fail,
+            reasons: vec!["undecided".to_string()],
+            reason_kinds: Vec::new(),
+        }
+    }
 }
 
 /// Why a verdict is not `Pass`, with the numbers that decided it.
@@ -67,6 +161,9 @@ pub enum VerdictReasonKind {
     },
     AuditQualityNotComplete,
     FindingsPresent(usize),
+    /// Findings with a gate effect, e.g. noindex on a page meant to be
+    /// indexed (#780).
+    TechnicalBlockers(usize),
 }
 
 impl VerdictReasonKind {
@@ -103,6 +200,17 @@ impl VerdictReasonKind {
                     "der Lauf ist nicht vollständig durchgelaufen".to_string()
                 }
             }
+            VerdictReasonKind::TechnicalBlockers(n) => match (en, n) {
+                (true, 1) => {
+                    "1 technical blocker (page meant to be indexed carries noindex)".to_string()
+                }
+                (true, n) => format!("{n} technical blockers"),
+                (false, 1) => {
+                    "1 technischer Blocker (Seite soll indexiert werden, trägt aber noindex)"
+                        .to_string()
+                }
+                (false, n) => format!("{n} technische Blocker"),
+            },
             VerdictReasonKind::FindingsPresent(n) => match (en, n) {
                 (true, 1) => "1 open finding".to_string(),
                 (true, n) => format!("{n} open findings"),
@@ -113,145 +221,188 @@ impl VerdictReasonKind {
     }
 }
 
-/// Compute verdict for a single-page audit.
-pub fn compute_verdict(normalized: &NormalizedReport, config: &VerdictConfig) -> VerdictResult {
-    let fail_on_legal = config.fail_on_legal_flags.unwrap_or(true);
-    let fail_on_blocking = config.fail_on_blocking_issues.unwrap_or(true);
-    let warn_below = config.warn_below_score.unwrap_or(70);
+/// Number of findings that act as a gate (technical blockers).
+pub fn technical_blockers(normalized: &NormalizedReport) -> usize {
+    normalized
+        .findings
+        .iter()
+        .filter(|f| {
+            f.contract.scoring.effect == crate::audit::finding_contract::ScoringEffect::Gate
+        })
+        .count()
+}
 
-    let mut fail_reasons = Vec::new();
-    let mut fail_kinds = Vec::new();
-
-    if fail_on_legal && normalized.risk.legal_flags > 0 {
-        fail_reasons.push(format!("legal_flags: {}", normalized.risk.legal_flags));
-        fail_kinds.push(VerdictReasonKind::LegalFlags(normalized.risk.legal_flags));
+/// Decide a single page under `profile`. The only implementation of the
+/// single-page policy; normalization stores its result in
+/// `NormalizedReport.decision`.
+pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile) -> VerdictResult {
+    let mut fail = Reasons::default();
+    let risk = &normalized.risk;
+    if profile.fail_on_legal_flags && risk.legal_flags > 0 {
+        fail.push(
+            format!("legal_flags: {}", risk.legal_flags),
+            VerdictReasonKind::LegalFlags(risk.legal_flags),
+        );
     }
-    if fail_on_blocking && normalized.risk.blocking_issues > 0 {
-        fail_reasons.push(format!(
-            "blocking_issues: {}",
-            normalized.risk.blocking_issues
-        ));
-        fail_kinds.push(VerdictReasonKind::BlockingIssues {
-            total: normalized.risk.blocking_issues,
-            keyboard: normalized.risk.keyboard_blocking_issues,
-        });
+    if profile.fail_on_blocking_issues && risk.blocking_issues > 0 {
+        fail.push(
+            format!("blocking_issues: {}", risk.blocking_issues),
+            VerdictReasonKind::BlockingIssues {
+                total: risk.blocking_issues,
+                keyboard: risk.keyboard_blocking_issues,
+            },
+        );
     }
-    if let Some(threshold) = config.fail_below_score {
-        if threshold > 0 && normalized.score < threshold {
-            fail_reasons.push(format!(
-                "score {} < fail_below_score {}",
-                normalized.score, threshold
-            ));
-            fail_kinds.push(VerdictReasonKind::ScoreBelowFailThreshold {
-                score: normalized.score,
-                threshold,
-            });
+    let blockers = technical_blockers(normalized);
+    if profile.fail_on_technical_blockers && blockers > 0 {
+        fail.push(
+            format!("technical_blockers: {blockers}"),
+            VerdictReasonKind::TechnicalBlockers(blockers),
+        );
+    }
+    if let Some(threshold) = profile.fail_below_score {
+        if normalized.score < threshold {
+            fail.push(
+                format!(
+                    "score {} < fail_below_score {}",
+                    normalized.score, threshold
+                ),
+                VerdictReasonKind::ScoreBelowFailThreshold {
+                    score: normalized.score,
+                    threshold,
+                },
+            );
         }
     }
-
-    if !fail_reasons.is_empty() {
-        return VerdictResult {
-            verdict: Verdict::Fail,
-            reasons: fail_reasons,
-            reason_kinds: fail_kinds,
-        };
+    if !fail.is_empty() {
+        return fail.into_result(Verdict::Fail, profile);
     }
 
-    let mut warn_reasons = Vec::new();
-    let mut warn_kinds = Vec::new();
+    let mut warn = Reasons::default();
     if normalized.execution.quality.qualified_results {
-        warn_reasons.push(format!(
-            "audit_quality: {:?}",
-            normalized.execution.quality.status
-        ));
-        warn_kinds.push(VerdictReasonKind::AuditQualityNotComplete);
+        warn.push(
+            format!("audit_quality: {:?}", normalized.execution.quality.status),
+            VerdictReasonKind::AuditQualityNotComplete,
+        );
     }
-    if normalized.score < warn_below {
-        warn_reasons.push(format!(
-            "score {} < warn_below_score {}",
-            normalized.score, warn_below
-        ));
-        warn_kinds.push(VerdictReasonKind::ScoreBelowWarnThreshold {
-            score: normalized.score,
-            threshold: warn_below,
-        });
+    if blockers > 0 {
+        warn.push(
+            format!("technical_blockers: {blockers}"),
+            VerdictReasonKind::TechnicalBlockers(blockers),
+        );
+    }
+    if normalized.score < profile.warn_below_score {
+        warn.push(
+            format!(
+                "score {} < warn_below_score {}",
+                normalized.score, profile.warn_below_score
+            ),
+            VerdictReasonKind::ScoreBelowWarnThreshold {
+                score: normalized.score,
+                threshold: profile.warn_below_score,
+            },
+        );
     } else if normalized.severity_counts.total > 0 {
         let n = normalized.severity_counts.total;
-        warn_reasons.push(format!(
-            "{} {} present",
-            n,
-            if n == 1 { "finding" } else { "findings" }
-        ));
-        warn_kinds.push(VerdictReasonKind::FindingsPresent(n));
+        warn.push(
+            format!(
+                "{} {} present",
+                n,
+                if n == 1 { "finding" } else { "findings" }
+            ),
+            VerdictReasonKind::FindingsPresent(n),
+        );
+    }
+    if warn.is_empty() {
+        Reasons::default().into_result(Verdict::Pass, profile)
+    } else {
+        warn.into_result(Verdict::Warn, profile)
+    }
+}
+
+#[derive(Default)]
+struct Reasons {
+    tokens: Vec<String>,
+    kinds: Vec<VerdictReasonKind>,
+}
+
+impl Reasons {
+    fn push(&mut self, token: String, kind: VerdictReasonKind) {
+        self.tokens.push(token);
+        self.kinds.push(kind);
     }
 
-    if !warn_reasons.is_empty() {
+    fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
+    fn into_result(self, verdict: Verdict, profile: &DecisionProfile) -> VerdictResult {
         VerdictResult {
-            verdict: Verdict::Warn,
-            reasons: warn_reasons,
-            reason_kinds: warn_kinds,
-        }
-    } else {
-        VerdictResult {
-            verdict: Verdict::Pass,
-            reasons: vec![],
-            reason_kinds: Vec::new(),
+            contract: DECISION_CONTRACT.to_string(),
+            profile: profile.clone(),
+            verdict,
+            reasons: self.tokens,
+            reason_kinds: self.kinds,
         }
     }
 }
 
-/// Compute verdict for a batch audit from its summary.
-pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> VerdictResult {
-    let fail_on_legal = config.fail_on_legal_flags.unwrap_or(true);
-    let fail_on_blocking = config.fail_on_blocking_issues.unwrap_or(true);
-    let warn_below = config.warn_below_score.unwrap_or(70);
+/// Decide a batch under `profile` from its summary. The only implementation
+/// of the batch policy; `BatchReport::from_reports` stores its result in
+/// `BatchSummary.decision`.
+pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) -> VerdictResult {
     let average_score = summary.average_score.round() as u32;
-
-    let mut fail_reasons = Vec::new();
-
+    let mut fail = Vec::new();
     // Nothing was measured: no score, no findings, so no PASS/WARN either (#768).
     if summary.coverage.attempted > 0 && summary.coverage.succeeded == 0 {
-        fail_reasons.push(format!(
+        fail.push(format!(
             "no_url_audited: 0 of {} requested URLs produced a report ({} failed, {} blocked)",
             summary.coverage.attempted, summary.coverage.failed, summary.coverage.blocked
         ));
     }
-    if fail_on_legal && summary.legal_flags > 0 {
-        fail_reasons.push(format!(
+    if profile.fail_on_legal_flags && summary.legal_flags > 0 {
+        fail.push(format!(
             "legal_flags: {} (across all pages)",
             summary.legal_flags
         ));
     }
-    if fail_on_blocking && summary.blocking_issues > 0 {
-        fail_reasons.push(format!(
+    if profile.fail_on_blocking_issues && summary.blocking_issues > 0 {
+        fail.push(format!(
             "blocking_issues: {} (across all pages)",
             summary.blocking_issues
         ));
     }
-    if let Some(threshold) = config.fail_below_score {
-        if threshold > 0 && average_score < threshold {
-            fail_reasons.push(format!(
+    if profile.fail_on_technical_blockers && summary.technical_blockers > 0 {
+        fail.push(format!(
+            "technical_blockers: {} (across all pages)",
+            summary.technical_blockers
+        ));
+    }
+    if let Some(threshold) = profile.fail_below_score {
+        if average_score < threshold {
+            fail.push(format!(
                 "average score {} < fail_below_score {}",
                 average_score, threshold
             ));
         }
     }
-
-    if !fail_reasons.is_empty() {
-        return VerdictResult {
-            verdict: Verdict::Fail,
-            reasons: fail_reasons,
-            // Not populated on the batch path: the batch PDF does not render
-            // the reasons yet, and the batch-specific ones (failed URLs,
-            // average score) need their own variants. `reasons` stays the
-            // source there.
-            reason_kinds: Vec::new(),
-        };
+    // `reason_kinds` stay empty on the batch path: the batch PDF does not
+    // render the reasons, and the batch-specific ones need their own
+    // variants. `reasons` is the source there.
+    let result = |verdict, reasons| VerdictResult {
+        contract: DECISION_CONTRACT.to_string(),
+        profile: profile.clone(),
+        verdict,
+        reasons,
+        reason_kinds: Vec::new(),
+    };
+    if !fail.is_empty() {
+        return result(Verdict::Fail, fail);
     }
 
-    let mut warn_reasons = Vec::new();
+    let mut warn = Vec::new();
     if !summary.coverage.is_complete() {
-        warn_reasons.push(format!(
+        warn.push(format!(
             "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked)",
             summary.coverage.succeeded,
             summary.coverage.attempted,
@@ -260,21 +411,27 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
         ));
     }
     if summary.audit_quality.qualified_results {
-        warn_reasons.push(format!("audit_quality: {:?}", summary.audit_quality.status));
+        warn.push(format!("audit_quality: {:?}", summary.audit_quality.status));
     }
-    if average_score < warn_below {
-        warn_reasons.push(format!(
+    if summary.technical_blockers > 0 {
+        warn.push(format!(
+            "technical_blockers: {} (across all pages)",
+            summary.technical_blockers
+        ));
+    }
+    if average_score < profile.warn_below_score {
+        warn.push(format!(
             "average score {} < warn_below_score {}",
-            average_score, warn_below
+            average_score, profile.warn_below_score
         ));
     } else if summary.failed > 0 {
-        warn_reasons.push(format!(
+        warn.push(format!(
             "{} {} failed quality threshold",
             summary.failed,
             if summary.failed == 1 { "URL" } else { "URLs" }
         ));
     } else if summary.total_violations > 0 {
-        warn_reasons.push(format!(
+        warn.push(format!(
             "{} {} found",
             summary.total_violations,
             if summary.total_violations == 1 {
@@ -284,19 +441,10 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
             }
         ));
     }
-
-    if !warn_reasons.is_empty() {
-        VerdictResult {
-            verdict: Verdict::Warn,
-            reasons: warn_reasons,
-            reason_kinds: Vec::new(),
-        }
+    if warn.is_empty() {
+        result(Verdict::Pass, Vec::new())
     } else {
-        VerdictResult {
-            verdict: Verdict::Pass,
-            reasons: vec![],
-            reason_kinds: Vec::new(),
-        }
+        result(Verdict::Warn, warn)
     }
 }
 
@@ -385,7 +533,7 @@ mod tests {
         normalized.risk.legal_flags = 3;
         normalized.risk.blocking_issues = 7;
 
-        let result = compute_verdict(&normalized, &VerdictConfig::default());
+        let result = compute_verdict(&normalized, &DecisionProfile::default());
         assert_eq!(result.verdict, Verdict::Fail);
         assert_eq!(result.reasons.len(), result.reason_kinds.len());
         assert!(result
@@ -412,7 +560,9 @@ mod tests {
             legal_flags: 0,
             blocking_issues: 0,
             risk: crate::audit::normalized::RiskLevel::Low,
-            verdict_key: String::new(),
+            score_band_key: String::new(),
+            technical_blockers: 0,
+            decision: VerdictResult::undecided(),
             root_causes: Vec::new(),
             audit_quality: crate::audit::AuditQuality {
                 status: crate::audit::AuditQualityStatus::Partial,
@@ -423,12 +573,318 @@ mod tests {
             },
         };
 
-        let result = compute_batch_verdict(&summary, &VerdictConfig::default());
+        let result = compute_batch_verdict(&summary, &DecisionProfile::default());
 
         assert_eq!(result.verdict, Verdict::Warn);
         assert!(result
             .reasons
             .iter()
             .any(|reason| reason.starts_with("audit_quality:")));
+    }
+
+    // ── One decision through every projection (#781) ────────────────────
+
+    use crate::audit::{normalize, AuditReport, BatchReport};
+    use crate::wcag::{Violation, WcagResults};
+
+    /// One High failure of a Level-A criterion — the U16 reproduction: it
+    /// read PASS in the terminal and FAIL in CI.
+    fn high_level_a_report() -> AuditReport {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                crate::cli::WcagLevel::A,
+                crate::taxonomy::Severity::High,
+                "Image has no text alternative",
+                "n1",
+            )
+            .with_rule_id("image-alt")
+            .with_selector("img.hero"),
+        );
+        AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            results,
+            100,
+        )
+    }
+
+    /// The verdict marker the terminal's first line starts with (ASCII
+    /// theme without colour, Unicode otherwise).
+    fn terminal_says(rendered: &str, verdict: Verdict) -> bool {
+        let markers: &[&str] = match verdict {
+            Verdict::Pass => &["[OK]", "\u{2714}"],
+            Verdict::Warn => &["[WARN]", "\u{26a0}"],
+            Verdict::Fail => &["[FAIL]", "\u{2716}"],
+        };
+        let first = rendered.lines().next().unwrap_or_default();
+        markers.iter().any(|m| first.starts_with(m))
+    }
+
+    /// Every output of `report` publishes `expected`; returns nothing, panics
+    /// with the output that disagrees.
+    fn assert_every_output_decides(report: &AuditReport, expected: Verdict) {
+        use clap::Parser;
+        let ctx = normalize(report);
+        ctx.normalized.validate().unwrap();
+        let decision = &ctx.normalized.decision;
+        assert_eq!(
+            decision.verdict, expected,
+            "normalized: {:?}",
+            decision.reasons
+        );
+        assert_eq!(decision.profile, report.run_context.decision_profile);
+        assert_eq!(
+            report.passed(),
+            expected == Verdict::Pass,
+            "AuditReport::passed"
+        );
+        assert_eq!(
+            decision.verdict.exit_code(),
+            expected.exit_code(),
+            "exit code (main maps the stored decision)"
+        );
+
+        let mut args = crate::cli::Args::parse_from(["auditmysite", "https://example.com"]);
+        args.color = crate::cli::ColorPolicy::Never;
+        let terminal = crate::output::terminal::render_single_report(report, &args);
+        assert!(
+            terminal_says(&terminal, expected),
+            "terminal does not say {expected:?}:\n{terminal}"
+        );
+
+        let json: serde_json::Value = serde_json::from_str(
+            &crate::output::UnifiedReport::single(&ctx, report)
+                .to_json(true)
+                .unwrap(),
+        )
+        .unwrap();
+        let label = serde_json::to_value(expected).unwrap();
+        assert_eq!(json["decision"]["verdict"], label, "JSON decision");
+        assert_eq!(json["pages"][0]["decision"]["verdict"], label, "JSON page");
+        assert_eq!(
+            json["summary"]["passed_url_count"],
+            serde_json::json!(usize::from(expected == Verdict::Pass)),
+            "JSON passed count"
+        );
+        assert!(json["summary"].get("score").is_none(), "no score alias");
+
+        let summary: serde_json::Value =
+            serde_json::from_str(&crate::output::summary::format_summary(&ctx.normalized).unwrap())
+                .unwrap();
+        assert_eq!(summary["verdict"], label, "summary feed");
+
+        let studio =
+            crate::studio::StudioAuditResponse::from_normalized(&ctx, report, String::new());
+        assert_eq!(studio.decision.verdict, expected, "studio");
+
+        let vm = crate::output::builder::build_view_model(&ctx, &Default::default());
+        assert_eq!(vm.summary.ci_verdict, expected, "PDF input model");
+
+        let batch = BatchReport::from_reports(vec![report.clone()], Vec::new(), 1);
+        crate::audit::validation::validate_batch(&batch).unwrap();
+        assert_eq!(batch.summary.passed, usize::from(expected == Verdict::Pass));
+        let batch_terminal = crate::output::terminal::render_batch_report(&batch, &args);
+        assert!(
+            terminal_says(&batch_terminal, batch.summary.decision.verdict),
+            "batch terminal:\n{batch_terminal}"
+        );
+        let batch_json: serde_json::Value = serde_json::from_str(
+            &crate::output::UnifiedReport::batch(&batch)
+                .to_json(true)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            batch_json["decision"],
+            serde_json::to_value(&batch.summary.decision).unwrap()
+        );
+    }
+
+    #[test]
+    fn high_level_a_defect_fails_in_every_output() {
+        let report = high_level_a_report();
+        assert_every_output_decides(&report, Verdict::Fail);
+        let n = normalize(&report).normalized;
+        assert!(n
+            .decision
+            .reason_kinds
+            .iter()
+            .any(|k| matches!(k, VerdictReasonKind::LegalFlags(_))));
+    }
+
+    /// A custom profile is stored with the report; every output follows it.
+    /// Before, the exit code used the profile and everything else the
+    /// default — FAIL in the terminal, WARN in CI.
+    #[test]
+    fn custom_profile_reaches_every_output() {
+        let mut report = high_level_a_report();
+        report.run_context.decision_profile =
+            DecisionProfile::resolve(Some(false), None, None, None, None);
+        assert_eq!(report.run_context.decision_profile.name, "custom");
+        assert_every_output_decides(&report, Verdict::Warn);
+
+        let clean = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        assert_every_output_decides(&clean, Verdict::Pass);
+    }
+
+    #[test]
+    fn profile_resolution_matches_the_contract_defaults() {
+        let default = DecisionProfile::default();
+        assert_eq!(default.name, "default");
+        assert!(default.fail_on_legal_flags && default.fail_on_blocking_issues);
+        assert!(!default.fail_on_technical_blockers);
+        assert_eq!(
+            (default.fail_below_score, default.warn_below_score),
+            (None, 70)
+        );
+        // 0 disables the fail threshold, as documented for `[verdict]`.
+        assert_eq!(
+            DecisionProfile::resolve(None, None, None, Some(0), None),
+            default
+        );
+        assert_eq!(
+            crate::cli::config::VerdictConfig {
+                fail_below_score: Some(60),
+                ..Default::default()
+            }
+            .profile()
+            .fail_below_score,
+            Some(60)
+        );
+    }
+
+    /// Thresholds compare the accessibility score at the documented
+    /// boundaries: below warns/fails, equal does not.
+    #[test]
+    fn score_boundaries_follow_the_profile() {
+        let clean = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let mut n = normalize(&clean).normalized;
+        n.overall_score = 100;
+        let profile = DecisionProfile::resolve(None, None, None, Some(50), Some(70));
+        for (score, expected) in [
+            (70, Verdict::Pass),
+            (69, Verdict::Warn),
+            (50, Verdict::Warn),
+            (49, Verdict::Fail),
+        ] {
+            n.score = score;
+            assert_eq!(
+                compute_verdict(&n, &profile).verdict,
+                expected,
+                "score {score}"
+            );
+        }
+        // The overall score never decides.
+        n.score = 100;
+        n.overall_score = 10;
+        assert_eq!(compute_verdict(&n, &profile).verdict, Verdict::Pass);
+    }
+
+    /// A stored decision its own profile does not reproduce is rejected, with
+    /// every other contradiction collected alongside — no output can publish
+    /// it by picking another format.
+    #[test]
+    fn contradicting_decision_is_rejected_with_all_violations() {
+        let mut n = normalize(&high_level_a_report()).normalized;
+        n.decision.verdict = Verdict::Pass;
+        n.decision.reasons.clear();
+        n.severity_counts.total += 1;
+        let error = n.validate().unwrap_err();
+        let codes: Vec<_> = error.violations.iter().map(|v| v.code).collect();
+        assert!(codes.contains(&"decision"), "{codes:?}");
+        assert!(codes.contains(&"severity_counts"), "{codes:?}");
+        assert!(error
+            .violations
+            .iter()
+            .any(|v| v.code == "decision" && v.path == "decision"));
+        assert!(crate::output::summary::format_summary(&n).is_err());
+        assert!(crate::output::sarif::format_sarif(&[&n]).is_err());
+
+        let mut n = normalize(&high_level_a_report()).normalized;
+        n.decision.contract = "auditmysite.decision/0".into();
+        let codes: Vec<_> = n
+            .validate()
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"decision_contract"), "{codes:?}");
+    }
+
+    /// A batch mixing profiles, or a summary whose decision does not follow
+    /// from its profile, is rejected.
+    #[test]
+    fn batch_decision_follows_its_profile() {
+        let mut strict = high_level_a_report();
+        strict.run_context.decision_profile =
+            DecisionProfile::resolve(None, None, None, Some(95), None);
+        let batch = BatchReport::from_reports(vec![high_level_a_report(), strict], Vec::new(), 1);
+        let codes: Vec<_> = crate::audit::validation::validate_batch(&batch)
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"decision_profile"), "{codes:?}");
+
+        let mut batch = BatchReport::from_reports(vec![high_level_a_report()], Vec::new(), 1);
+        assert_eq!(batch.summary.decision.verdict, Verdict::Fail);
+        batch.summary.decision.verdict = Verdict::Pass;
+        let codes: Vec<_> = crate::audit::validation::validate_batch(&batch)
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.path.clone())
+            .collect();
+        assert!(codes.contains(&"summary.decision".to_string()), "{codes:?}");
+    }
+
+    /// Compact feed with diverging scores: one grade basis (accessibility),
+    /// both scores named, no unqualified `score`. Before, `score` was the
+    /// overall value and `grade` was banded from it while the report's grade
+    /// described accessibility.
+    #[test]
+    fn compact_summary_names_both_scores_and_one_grade_basis() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
+            score: 10,
+            ..Default::default()
+        });
+        let n = normalize(&report).normalized;
+        assert!(
+            n.overall_score + 10 < n.score,
+            "{} vs {}",
+            n.overall_score,
+            n.score
+        );
+        let summary: serde_json::Value =
+            serde_json::from_str(&crate::output::summary::format_summary(&n).unwrap()).unwrap();
+        assert!(summary.get("score").is_none());
+        assert_eq!(summary["accessibilityScore"], n.score);
+        assert_eq!(summary["overallScore"], n.overall_score);
+        assert_eq!(summary["grade"], n.grade.as_str());
+        assert_eq!(
+            summary["label"],
+            crate::registry::MEDAL.label(n.score as f32, false)
+        );
     }
 }

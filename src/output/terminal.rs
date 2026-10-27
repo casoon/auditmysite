@@ -96,12 +96,7 @@ pub fn render_single_report_for(
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, &report_config(args));
 
-    let verdict =
-        match crate::audit::compute_verdict(&normalized.normalized, &Default::default()).verdict {
-            crate::audit::Verdict::Pass => Verdict::Passed,
-            crate::audit::Verdict::Warn => Verdict::Warning,
-            crate::audit::Verdict::Fail => Verdict::Failed,
-        };
+    let verdict = terminal_verdict(normalized.normalized.decision.verdict);
 
     let mut rm_report = Report::new(&vm.meta.title, verdict)
         // Accessibility first — it is what grade and certificate below
@@ -148,19 +143,24 @@ pub fn render_single_report_for(
     rm_report.render_with_options(console, render_options())
 }
 
+/// The stored decision in the terminal's vocabulary — a projection, never a
+/// rule of its own (#781).
+fn terminal_verdict(verdict: crate::audit::Verdict) -> Verdict {
+    match verdict {
+        crate::audit::Verdict::Pass => Verdict::Passed,
+        crate::audit::Verdict::Warn => Verdict::Warning,
+        crate::audit::Verdict::Fail => Verdict::Failed,
+    }
+}
+
 /// Renders a batch audit as a domain-wide summary — recurring rules across
 /// the batch as the primary issue groups, not a stack of per-page reports.
 pub fn render_batch_report(batch_report: &BatchReport, args: &Args) -> String {
     let presentation = build_batch_presentation(batch_report);
     let p = &presentation.portfolio_summary;
 
-    let verdict = if p.failed == 0 {
-        Verdict::Passed
-    } else if p.passed == 0 {
-        Verdict::Failed
-    } else {
-        Verdict::Warning
-    };
+    // The stored batch decision (#781), not a rule of its own.
+    let verdict = terminal_verdict(batch_report.summary.decision.verdict);
 
     let mut rm_report = Report::new(format!("Batch Audit — {}", p.domain), verdict)
         .add_metric(Metric::new("URLs", p.total_urls.to_string()))

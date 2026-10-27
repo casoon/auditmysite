@@ -116,11 +116,10 @@ pub struct UnifiedReport {
     /// Serialization errors encountered while building this report.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub collection_errors: Vec<ReportError>,
-    /// CI verdict derived from this report's findings.
-    pub verdict: Verdict,
-    /// Reasons that drove the verdict away from Pass.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub verdict_reasons: Vec<String>,
+    /// The decision of the report (#781): verdict, reasons, the contract
+    /// version and the profile it was computed with. The page's (single) or
+    /// the batch summary's stored decision; never recomputed here.
+    pub decision: VerdictResult,
 }
 
 #[derive(Debug, Serialize)]
@@ -181,8 +180,6 @@ pub struct UnifiedSummary {
     pub url_count: usize,
     pub accessibility_score: u32,
     pub overall_score: u32,
-    /// Alias for `overall_score` — kept for consumer compatibility.
-    pub score: u32,
     pub grade: String,
     pub certificate: String,
     pub risk_level: crate::audit::normalized::RiskLevel,
@@ -565,6 +562,10 @@ pub struct PageEntry {
     pub risk: crate::audit::normalized::RiskAssessment,
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
+    /// How each collected non-WCAG problem is represented (#780).
+    pub finding_inventory: Vec<crate::audit::finding_contract::InventoryEntry>,
+    /// The page's stored decision (#781).
+    pub decision: VerdictResult,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
     pub audit_quality: crate::audit::AuditQuality,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1012,13 +1013,10 @@ impl UnifiedReport {
         // Accessibility plus risk gate, like the single report — they followed
         // the overall score here, so 49/100 accessibility read "STABIL" (plan 111).
         let (grade, certificate) = batch_report.summary.grade_and_certificate();
-        let default_batch_verdict =
-            crate::audit::compute_batch_verdict(&batch_report.summary, &Default::default());
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,
             overall_score: overall_score_batch,
-            score: overall_score_batch,
             grade,
             certificate,
             risk_level: batch_report.summary.risk,
@@ -1169,8 +1167,7 @@ impl UnifiedReport {
             artifacts: Vec::new(),
             errors,
             collection_errors,
-            verdict: default_batch_verdict.verdict,
-            verdict_reasons: default_batch_verdict.reasons,
+            decision: batch_report.summary.decision.clone(),
         }
     }
 
@@ -1209,24 +1206,13 @@ impl UnifiedReport {
         })
     }
 
-    /// Override the default (Pass) verdict with a computed result.
-    pub fn with_verdict(mut self, vr: &VerdictResult) -> Self {
-        self.verdict = vr.verdict;
-        self.verdict_reasons = vr.reasons.clone();
-        self
-    }
-
     fn wrap_single(ctx: &AuditContext<'_>, page: PageEntry) -> Self {
-        let passed = usize::from(
-            crate::audit::compute_verdict(&ctx.normalized, &Default::default()).verdict
-                == crate::audit::Verdict::Pass,
-        );
+        let passed = usize::from(ctx.normalized.decision.verdict == Verdict::Pass);
         let violated_rule_count = page.violated_rule_count;
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
             overall_score: page.overall_score,
-            score: page.overall_score,
             grade: page.grade.clone(),
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
@@ -1319,23 +1305,18 @@ impl UnifiedReport {
             artifacts: artifacts_for(&ctx.normalized),
             errors: Vec::new(),
             collection_errors: Vec::new(),
-            verdict: Verdict::Pass,
-            verdict_reasons: Vec::new(),
+            decision: ctx.normalized.decision.clone(),
         }
     }
 
     /// Wrap a single page (cached/from-normalized path — no raw module data available).
     fn wrap_single_from_normalized(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let passed = usize::from(
-            crate::audit::compute_verdict(normalized, &Default::default()).verdict
-                == crate::audit::Verdict::Pass,
-        );
+        let passed = usize::from(normalized.decision.verdict == Verdict::Pass);
         let violated_rule_count = page.violated_rule_count;
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
             overall_score: page.overall_score,
-            score: page.overall_score,
             grade: page.grade.clone(),
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
@@ -1413,8 +1394,7 @@ impl UnifiedReport {
             artifacts: artifacts_for(normalized),
             errors: Vec::new(),
             collection_errors: Vec::new(),
-            verdict: Verdict::Pass,
-            verdict_reasons: Vec::new(),
+            decision: normalized.decision.clone(),
         }
     }
 }

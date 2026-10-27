@@ -518,6 +518,20 @@ pub struct AuditReport {
     /// Standalone screen-reader audit artifact. Written as sidecar JSON output.
     #[serde(skip)]
     pub screen_reader_audit: Option<crate::screen_reader::SrAuditReport>,
+    /// What the run judges against: declared or implied page goals and the
+    /// verdict profile (#780, #781). Normalization derives findings and the
+    /// decision from it, so every output of this report agrees.
+    #[serde(default)]
+    pub run_context: RunContext,
+}
+
+/// Declared inputs of the judgement, stored with the raw report.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct RunContext {
+    #[serde(default)]
+    pub indexability: crate::audit::finding_contract::IndexabilityExpectation,
+    #[serde(default)]
+    pub decision_profile: crate::audit::verdict::DecisionProfile,
 }
 
 /// Performance analysis results wrapper
@@ -612,6 +626,7 @@ impl AuditReport {
             accessibility_journey: None,
             interactive_findings: Vec::new(),
             screen_reader_audit: None,
+            run_context: RunContext::default(),
         }
     }
 
@@ -714,10 +729,10 @@ impl AuditReport {
         self.accessibility.wcag_results.violations.len()
     }
 
-    /// Check if the audit passed (no critical violations, score >= 70)
+    /// Whether the page passes under the decision profile stored with it —
+    /// the same decision every output publishes (#781).
     pub fn passed(&self) -> bool {
-        super::compute_verdict(&super::normalize(self).normalized, &Default::default()).verdict
-            == super::Verdict::Pass
+        super::normalize(self).normalized.decision.verdict == super::Verdict::Pass
     }
 }
 
@@ -1028,9 +1043,11 @@ pub struct BatchSummary {
     /// Average score over the URLs that produced a report
     /// (`coverage.succeeded` of `coverage.attempted`).
     pub average_score: f64,
-    /// Total violations found
+    /// WCAG occurrences across all pages — the batch sum of the pages'
+    /// `occurrence_counts.total`. Findings of other domains are not
+    /// violations.
     pub total_violations: usize,
-    /// Number of distinct WCAG + SEO rule IDs that fired anywhere across all pages.
+    /// Number of distinct WCAG rule IDs that fired anywhere across all pages.
     #[serde(default)]
     pub violated_rule_count: usize,
     /// Number of distinct WCAG Level-A rules with High/Critical severity across
@@ -1046,9 +1063,17 @@ pub struct BatchSummary {
     /// Worst-case risk level across all audited pages.
     #[serde(default)]
     pub risk: crate::audit::normalized::RiskLevel,
-    /// i18n key for the batch verdict sentence ("verdict-batch-excellent", …).
+    /// i18n key of the narrative score band sentence
+    /// ("verdict-batch-excellent", …). A band of the average score, not the
+    /// decision: that is `decision`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub verdict_key: String,
+    pub score_band_key: String,
+    /// Pages with a gate finding (technical blocker) summed over the batch.
+    #[serde(default)]
+    pub technical_blockers: usize,
+    /// The batch decision under the run's profile (#781). `passed`/`failed`
+    /// count the pages' own decisions under the same profile.
+    pub decision: crate::audit::verdict::VerdictResult,
     /// Finding patterns that recur on two or more pages, by pattern id —
     /// see `audit::template_dedup::detect_root_causes` (2.0 finding model).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1081,7 +1106,12 @@ impl BatchSummary {
 pub fn count_violated_rules(reports: &[crate::audit::normalized::NormalizedReport]) -> usize {
     reports
         .iter()
-        .flat_map(|r| r.findings.iter().map(|f| f.rule_id.as_str()))
+        .flat_map(|r| {
+            r.findings
+                .iter()
+                .filter(|f| f.category == "wcag")
+                .map(|f| f.rule_id.as_str())
+        })
         .collect::<std::collections::HashSet<_>>()
         .len()
 }
@@ -1168,18 +1198,17 @@ impl BatchReport {
             .iter()
             .map(|r| crate::audit::normalized::normalize(r).normalized)
             .collect();
-        // Pass criterion: accessibility score ≥ 80, no critical findings, and
-        // no legal exposure. See issue #253. Uses the page's own risk
-        // assessment (`r.risk.legal_flags`) rather than recomputing from
-        // findings, so screen-reader-derived legal exposure (#484) is not
-        // silently dropped in batch mode while it fails the single-page
-        // verdict (#QA-024).
+        // A page passes when its own stored decision passes (#781): the
+        // batch count is a projection of the single-page policy, never a
+        // second rule.
         let passed = normalized_reports
             .iter()
-            .filter(|r| {
-                super::compute_verdict(r, &Default::default()).verdict == super::Verdict::Pass
-            })
+            .filter(|r| r.decision.verdict == super::Verdict::Pass)
             .count();
+        let profile = reports
+            .first()
+            .map(|r| r.run_context.decision_profile.clone())
+            .unwrap_or_default();
         let failed = total_urls - passed;
 
         let average_score = if total_urls > 0 {
@@ -1194,8 +1223,11 @@ impl BatchReport {
 
         let total_violations = normalized_reports
             .iter()
-            .flat_map(|r| r.findings.iter())
-            .map(|f| f.occurrence_count)
+            .map(|r| r.occurrence_counts.total)
+            .sum();
+        let technical_blockers = normalized_reports
+            .iter()
+            .map(super::verdict::technical_blockers)
             .sum();
 
         let violated_rule_count = count_violated_rules(&normalized_reports);
@@ -1246,7 +1278,7 @@ impl BatchReport {
                 },
             }
         };
-        let verdict_key = {
+        let score_band_key = {
             let s = average_score.round() as u32;
             if s >= 90 {
                 "verdict-batch-excellent"
@@ -1274,7 +1306,9 @@ impl BatchReport {
                 legal_flags,
                 blocking_issues,
                 risk,
-                verdict_key,
+                score_band_key,
+                technical_blockers,
+                decision: super::verdict::VerdictResult::undecided(),
                 root_causes,
                 audit_quality,
             },
@@ -1284,6 +1318,7 @@ impl BatchReport {
             sample: None,
             total_duration_ms,
         };
+        result.summary.decision = super::verdict::compute_batch_verdict(&result.summary, &profile);
         result.consistency = crate::audit::batch_consistency::analyze(&result);
         result
     }

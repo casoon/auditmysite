@@ -12,6 +12,7 @@ import {
   Terminal,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
+import { url } from '@casoon/pages-theme/url';
 import { castDemo, fixture } from '../showcase';
 
 const quickstart = `# check which browser auditmysite will use
@@ -87,6 +88,34 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     ]}
   />
 
+  <section class="ways" aria-labelledby="ways-title">
+    <h2 class="cp-label" id="ways-title">Three ways to a report</h2>
+    <ul>
+      <li>
+        <h3><a href="https://github.com/casoon/auditmysite">The CLI</a></h3>
+        <p>
+          The Rust binary on this page: a single URL, a sitemap, a URL list or a same-domain crawl,
+          on macOS, Linux and Windows.
+        </p>
+      </li>
+      <li>
+        <h3><a href="https://github.com/casoon/auditmysite_downloads/releases">AuditMySite Studio</a></h3>
+        <p>
+          A desktop app (Tauri) on the same audit logic: audits grouped per domain, compared over
+          time, reports written locally as PDF. Alpha, latest release 0.2.13 (21 May 2026). The
+          source is not public; the installers are in the downloads repository.
+        </p>
+      </li>
+      <li>
+        <h3><a href="https://casoon.github.io/renderreport/">The report engine</a></h3>
+        <p>
+          The PDF reports are rendered with renderreport and Typst, as tagged PDF/UA-1. If
+          rendering fails, there is a diagnostic instead of a silent fallback.
+        </p>
+      </li>
+    </ul>
+  </section>
+
   <BuildOutput
     caption="Real output of auditmysite, recorded against casoon.de with examples/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
     file="examples/plan.txt"
@@ -105,4 +134,118 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
   >
     <CodeBlock code={quickstart} lang="sh" title="shell" label="Shell" />
   </Quickstart>
+  <section class="demo" aria-labelledby="demo-title">
+    <h2 class="cp-label" id="demo-title">Results from real audits</h2>
+    <figure>
+      <img
+        src={url('screens/rankinglab-start-700.webp')}
+        srcset={`${url('screens/rankinglab-start-700.webp')} 700w, ${url('screens/rankinglab-start.webp')} 1400w`}
+        sizes="(min-width: 760px) 720px, 100vw"
+        width="1400"
+        height="875"
+        loading="lazy"
+        alt="RankingLab: start page with public accessibility rankings"
+      />
+      <figcaption>
+        <a href="https://rankinglab.casoon.dev/">rankinglab.casoon.dev</a>: public rankings
+        produced with auditmysite, of publicly reachable pages. Captured on 2026-09-16.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="limits" aria-labelledby="limits-title">
+    <h2 class="cp-label" id="limits-title">What an automated audit does not do</h2>
+    <p class="lead">
+      Automated checking covers part of accessibility. The rest needs human judgement, and the
+      report says so.
+    </p>
+    <dl>
+      <dt>Not every criterion can be automated</dt>
+      <dd>
+        Keyboard traps, timed content and captions cannot be verified reliably by machine. They are
+        flagged <code>not_testable</code> in the JSON and listed in the report's audit scope, never
+        silently passed.
+      </dd>
+      <dt>No accessibility statement</dt>
+      <dd>
+        The EN 301 549 appendix is a technical building block for a statement written by people. It
+        is not a statement, not legal advice and not a confirmation of conformity under BFSG or
+        BITV 2.0.
+      </dd>
+      <dt>Heuristic modules are tendencies</dt>
+      <dd>
+        Indicator scores such as UX or readability heuristics are estimates, not measurements, and
+        no statement of conformity.
+      </dd>
+      <dt>AAA is not fully implemented</dt>
+      <dd><code>-l AAA</code> exists, but coverage of level AAA is still incomplete.</dd>
+      <dt>A browser has to be present</dt>
+      <dd>
+        Without Chrome or Chromium the run stops with an error. A browser is only downloaded on
+        request, with <code>auditmysite browser install</code>.
+      </dd>
+      <dt>Linked PDF documents are not checked</dt>
+      <dd>
+        Rendered web pages are audited. Linked or embedded PDF files are a documented non-goal.
+      </dd>
+    </dl>
+  </section>
 </Base>
+
+<style>
+  .ways,
+  .demo,
+  .limits {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+  .ways ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  }
+  .ways h3 {
+    margin: 0 0 6px;
+  }
+  .ways p,
+  .limits dd {
+    color: var(--muted);
+    margin: 0;
+  }
+  .demo figure {
+    margin: 0;
+    max-width: 720px;
+  }
+  .demo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .demo figcaption {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 8px;
+  }
+  .limits .lead {
+    color: var(--muted);
+    margin: 0 0 20px;
+  }
+  .limits dl {
+    display: grid;
+    gap: 6px 24px;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+  }
+  .limits dt {
+    font-weight: 600;
+    color: var(--heading);
+    margin-top: 14px;
+  }
+</style>

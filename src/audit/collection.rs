@@ -429,6 +429,8 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::performance::coverage::JS_COVERAGE,
     &crate::performance::coverage::CSS_COVERAGE,
     &crate::performance::third_party::ISOLATION,
+    &crate::ai_transparency::IMAGE_URLS,
+    &crate::ai_transparency::IMAGE_FETCHES,
     &crate::security::HEADERS,
     &crate::security::SOURCE_MAPS,
     &crate::security::CERTIFICATE,
@@ -702,6 +704,14 @@ mod tests {
             (
                 "performance.third_party_isolation",
                 crate::performance::third_party::counter_cases,
+            ),
+            (
+                "ai_transparency.image_urls",
+                crate::ai_transparency::counter_cases,
+            ),
+            (
+                "ai_transparency.image_fetches",
+                crate::ai_transparency::counter_cases,
             ),
             ("security.headers", crate::security::counter_cases),
             ("security.source_maps", crate::security::counter_cases),

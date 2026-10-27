@@ -125,6 +125,104 @@ pub struct AiTransparencyAnalysis {
     /// `image_provenance::MAX_IMAGES_CHECKED`) — lets the report distinguish
     /// "checked, none flagged" from "nothing to check".
     pub images_checked: usize,
+    /// What happened to every image on the page (#789).
+    #[serde(default)]
+    pub coverage: ImageCoverage,
+}
+
+/// Fetch coverage of the image check: how many images were attempted,
+/// checked, left out by the per-page limit, and why the rest failed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImageCoverage {
+    pub attempted: usize,
+    pub checked: usize,
+    /// Images beyond the per-page limit, not fetched.
+    pub skipped_over_limit: usize,
+    /// Failed fetches by reason (`redirect_not_followed`, `oversized`,
+    /// `timeout`, `host_not_public`, …).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub failed: std::collections::BTreeMap<String, usize>,
+}
+
+/// The `<img>` source URLs of the page.
+pub(crate) static IMAGE_URLS: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "ai_transparency.image_urls",
+        module: "ai_transparency",
+        method: crate::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: false,
+    };
+
+/// Hardened fetches of those images for their C2PA manifests.
+pub(crate) static IMAGE_FETCHES: crate::audit::collection::CollectorSpec =
+    crate::audit::collection::CollectorSpec {
+        id: "ai_transparency.image_fetches",
+        module: "ai_transparency",
+        method: crate::audit::collection::CollectionMethod::Http,
+        method_version: 2,
+        scoring: false,
+    };
+
+/// The collection state of the image fetches: every image checked is a
+/// measurement, any failure or image beyond the limit makes it partial, no
+/// image checked at all a failure (#789).
+#[cfg(any(feature = "ai-transparency", test))]
+pub(crate) fn image_fetch_state(
+    coverage: &ImageCoverage,
+) -> crate::audit::collection::Collected<()> {
+    use crate::audit::collection::Collected;
+    let failed: usize = coverage.failed.values().sum();
+    if coverage.attempted == 0 && coverage.skipped_over_limit == 0 {
+        Collected::Empty(())
+    } else if coverage.checked == 0 && failed > 0 {
+        Collected::Failed("image_fetch_failed")
+    } else if failed > 0 || coverage.skipped_over_limit > 0 {
+        let mut gaps = Vec::new();
+        if failed > 0 {
+            gaps.push("image_fetch");
+        }
+        if coverage.skipped_over_limit > 0 {
+            gaps.push("image_limit");
+        }
+        Collected::Partial { value: (), gaps }
+    } else {
+        Collected::Measured(())
+    }
+}
+
+/// Counter-cases of [`IMAGE_URLS`] and [`IMAGE_FETCHES`] (#789). The fetch
+/// itself is tested against local fixtures under the `ai-transparency`
+/// feature (`image_provenance` tests).
+#[cfg(test)]
+pub(crate) fn counter_cases() {
+    use crate::audit::collection::CollectionState;
+    let coverage = |attempted, checked, skipped, failed: &[(&str, usize)]| ImageCoverage {
+        attempted,
+        checked,
+        skipped_over_limit: skipped,
+        failed: failed.iter().map(|(r, n)| (r.to_string(), *n)).collect(),
+    };
+    assert_eq!(
+        image_fetch_state(&coverage(0, 0, 0, &[])).state(),
+        CollectionState::Empty
+    );
+    assert_eq!(
+        image_fetch_state(&coverage(3, 3, 0, &[])).state(),
+        CollectionState::Measured
+    );
+    assert_eq!(
+        image_fetch_state(&coverage(3, 2, 0, &[("timeout", 1)])).state(),
+        CollectionState::Partial
+    );
+    assert_eq!(
+        image_fetch_state(&coverage(15, 15, 4, &[])).state(),
+        CollectionState::Partial
+    );
+    assert_eq!(
+        image_fetch_state(&coverage(2, 0, 0, &[("oversized", 2)])).state(),
+        CollectionState::Failed
+    );
 }
 
 /// Localized presentation text for an ai-transparency finding (#406
