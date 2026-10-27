@@ -2643,6 +2643,8 @@ mod tests {
                         severity: "high".to_string(),
                         description: "XSS".to_string(),
                         safe_version: "3.5.0+".to_string(),
+                        advisories: vec![],
+                        exploitability: Default::default(),
                     },
                     VulnerableLibrary {
                         name: "Lodash".to_string(),
@@ -2650,6 +2652,8 @@ mod tests {
                         severity: "medium".to_string(),
                         description: "Prototype pollution".to_string(),
                         safe_version: "4.17.21+".to_string(),
+                        advisories: vec![],
+                        exploitability: Default::default(),
                     },
                 ],
                 has_vulnerabilities: true,
