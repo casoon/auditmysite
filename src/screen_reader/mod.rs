@@ -19,6 +19,7 @@ pub use types::{
 
 use crate::accessibility::AXTree;
 use crate::i18n::I18n;
+use crate::wcag::coverage::{ClaimLimits, ManualReview};
 
 /// Builds the screen-reader audit report. All issue messages and announcements
 /// are baked in canonical English so the stored struct, JSON envelope and
@@ -55,7 +56,8 @@ pub fn build_sr_audit_report(
         true,
         has_disclosure_menu_pattern,
     );
-    let bfsg_compliance = bfsg_compliance(&issues);
+    let audit_quality = detect_audit_quality(reading_items.len(), &navigation_views);
+    let bfsg_compliance = bfsg_compliance(&issues, reading_items.len(), audit_quality);
     let reading_sequence = reading_items
         .iter()
         .cloned()
@@ -79,7 +81,7 @@ pub fn build_sr_audit_report(
             landmark_quality_score: landmark_quality_score(&navigation_views),
             heading_quality_score: heading_quality_score(&navigation_views),
             quality_score_context: QualityScoreContext::default(),
-            audit_quality: detect_audit_quality(reading_items.len(), &navigation_views),
+            audit_quality,
         },
         reading_sequence,
         navigation_views,
@@ -106,7 +108,11 @@ impl SrAuditReport {
             return 0;
         }
         let dropped = drop_excluded_nodes(&mut self.issues, &excluded);
-        self.bfsg_compliance = bfsg_compliance(&self.issues);
+        self.bfsg_compliance = bfsg_compliance(
+            &self.issues,
+            self.summary.total_announced_nodes,
+            self.summary.audit_quality,
+        );
         self.summary.bfsg_violations = self.bfsg_compliance.violations.len();
         self.excluded_node_ids = excluded;
         dropped
@@ -197,7 +203,7 @@ fn percentage(passed: usize, total: usize) -> u32 {
 
 /// WCAG 2.1 A/AA criteria this module's analyzer (`analyzer.rs`) can actually
 /// detect issues for -- landmark/heading/name/reading-order structural checks
-/// only. Used to scope `passed_criteria` to the module's real evaluation
+/// only. Used to scope `criteria_without_findings` to the module's real evaluation
 /// coverage instead of claiming all 50 WCAG 2.1 A/AA criteria as "passed"
 /// just because no violation happened to be found for them: this module
 /// never looks at contrast, keyboard operability, timing, forms, parsing,
@@ -212,7 +218,14 @@ fn percentage(passed: usize, total: usize) -> u32 {
 /// violations).
 const EVALUATED_WCAG_CRITERIA: &[&str] = &["1.3.1", "2.4.1", "2.4.4", "2.4.6", "3.3.2", "4.1.2"];
 
-fn bfsg_compliance(issues: &[SrAuditIssue]) -> BfsgCompliance {
+/// The verdict states only what was found on `EVALUATED_WCAG_CRITERIA`: an
+/// empty tree is not evaluated, a suspected consent wall without findings is
+/// incomplete, and no finding is its own state — never conformance (#782).
+fn bfsg_compliance(
+    issues: &[SrAuditIssue],
+    total_nodes: usize,
+    audit_quality: SrAuditQuality,
+) -> BfsgCompliance {
     let mapped = |review: bool| {
         issues
             .iter()
@@ -239,23 +252,44 @@ fn bfsg_compliance(issues: &[SrAuditIssue]) -> BfsgCompliance {
         .chain(&needs_review)
         .map(|violation| violation.wcag_criterion.as_str())
         .collect();
-    let passed_criteria = EVALUATED_WCAG_CRITERIA
+    let criteria_without_findings = EVALUATED_WCAG_CRITERIA
         .iter()
         .filter(|criterion| !open.contains(*criterion))
         .map(|criterion| criterion.to_string())
         .collect();
 
+    let verdict = if total_nodes == 0 {
+        BfsgVerdict::NotEvaluated
+    } else if !violations.is_empty() {
+        BfsgVerdict::ViolationsFound
+    } else if !needs_review.is_empty() {
+        BfsgVerdict::NeedsReview
+    } else if audit_quality == SrAuditQuality::ConsentWallSuspected {
+        BfsgVerdict::Incomplete
+    } else {
+        BfsgVerdict::NoViolationsFound
+    };
+    let mut remaining_manual_review = vec![
+        ManualReview::ScreenReaderReferenceTest,
+        ManualReview::CriteriaOutsideAutomatedScope,
+    ];
+    if !needs_review.is_empty() {
+        remaining_manual_review.push(ManualReview::ReviewHeuristicFindings);
+    }
+    if total_nodes == 0 || audit_quality == SrAuditQuality::ConsentWallSuspected {
+        remaining_manual_review.push(ManualReview::RepeatIncompleteRun);
+    }
+
     BfsgCompliance {
-        verdict: if !violations.is_empty() {
-            BfsgVerdict::NonCompliant
-        } else if !needs_review.is_empty() {
-            BfsgVerdict::NeedsReview
-        } else {
-            BfsgVerdict::Compliant
-        },
+        verdict,
         violations,
-        passed_criteria,
+        evaluated_criteria: EVALUATED_WCAG_CRITERIA
+            .iter()
+            .map(|criterion| criterion.to_string())
+            .collect(),
+        criteria_without_findings,
         needs_review,
+        limits: ClaimLimits::with_manual_review(remaining_manual_review),
     }
 }
 
@@ -264,6 +298,7 @@ mod tests {
     use super::*;
     use crate::screen_reader::navigator::navigation_views;
     use crate::screen_reader::ReadingItem;
+    use crate::wcag::coverage::Determination;
 
     fn item(seq: usize, role: &str) -> ReadingItem {
         ReadingItem {
@@ -289,6 +324,11 @@ mod tests {
         }
     }
 
+    /// A run over a complete, non-empty tree.
+    fn complete_run(issues: &[SrAuditIssue]) -> BfsgCompliance {
+        bfsg_compliance(issues, 200, SrAuditQuality::Ok)
+    }
+
     /// Plan 74 (inros-lackner 2026-10-23): "Mehr erfahren" without context
     /// and the heading order are heuristics — they made the sidecar
     /// "non_compliant" next to the confirmed empty links. Review items are
@@ -299,14 +339,16 @@ mod tests {
             review: true,
             ..issue(wcag)
         };
-        let compliance = bfsg_compliance(&[review("2.4.4"), review("1.3.1")]);
+        let compliance = complete_run(&[review("2.4.4"), review("1.3.1")]);
         assert_eq!(compliance.verdict, BfsgVerdict::NeedsReview);
         assert!(compliance.violations.is_empty());
         assert_eq!(compliance.needs_review.len(), 2);
-        assert!(!compliance.passed_criteria.contains(&"2.4.4".to_string()));
+        assert!(!compliance
+            .criteria_without_findings
+            .contains(&"2.4.4".to_string()));
 
-        let compliance = bfsg_compliance(&[review("2.4.4"), issue("4.1.2")]);
-        assert_eq!(compliance.verdict, BfsgVerdict::NonCompliant);
+        let compliance = complete_run(&[review("2.4.4"), issue("4.1.2")]);
+        assert_eq!(compliance.verdict, BfsgVerdict::ViolationsFound);
         assert_eq!(compliance.violations.len(), 1);
     }
 
@@ -317,39 +359,112 @@ mod tests {
         // BFSG A/AA scope), previously still produced verdict "compliant"
         // with all 50 WCAG 2.1 A/AA criteria listed as "passed" -- most of
         // which (contrast, keyboard, timing, forms, ...) this module never
-        // evaluates at all. passed_criteria must only ever contain this
+        // evaluates at all. criteria_without_findings must only ever contain this
         // module's actual evaluation scope.
         let issues = vec![issue("1.3.6"), issue("1.3.6"), issue("1.3.6")];
-        let compliance = bfsg_compliance(&issues);
-        assert_eq!(compliance.verdict, BfsgVerdict::Compliant);
+        let compliance = complete_run(&issues);
+        assert_eq!(compliance.verdict, BfsgVerdict::NoViolationsFound);
         assert!(compliance.violations.is_empty());
         assert_eq!(
-            compliance.passed_criteria.len(),
+            compliance.criteria_without_findings.len(),
             EVALUATED_WCAG_CRITERIA.len()
         );
         for criterion in EVALUATED_WCAG_CRITERIA {
             assert!(
-                compliance.passed_criteria.contains(&criterion.to_string()),
-                "expected {criterion} in passed_criteria"
+                compliance
+                    .criteria_without_findings
+                    .contains(&criterion.to_string()),
+                "expected {criterion} in criteria_without_findings"
             );
         }
         // Never claims a criterion outside its own evaluation scope, e.g. the
         // contrast/keyboard/forms criteria this module never looks at.
-        assert!(!compliance.passed_criteria.contains(&"1.4.3".to_string()));
-        assert!(!compliance.passed_criteria.contains(&"2.1.1".to_string()));
+        assert!(!compliance
+            .criteria_without_findings
+            .contains(&"1.4.3".to_string()));
+        assert!(!compliance
+            .criteria_without_findings
+            .contains(&"2.1.1".to_string()));
     }
 
     #[test]
-    fn bfsg_compliance_excludes_a_failed_criterion_from_passed_criteria() {
+    fn bfsg_compliance_excludes_a_failed_criterion_from_criteria_without_findings() {
         let issues = vec![issue("2.4.4")];
-        let compliance = bfsg_compliance(&issues);
-        assert_eq!(compliance.verdict, BfsgVerdict::NonCompliant);
+        let compliance = complete_run(&issues);
+        assert_eq!(compliance.verdict, BfsgVerdict::ViolationsFound);
         assert_eq!(compliance.violations.len(), 1);
-        assert!(!compliance.passed_criteria.contains(&"2.4.4".to_string()));
+        assert!(!compliance
+            .criteria_without_findings
+            .contains(&"2.4.4".to_string()));
         assert_eq!(
-            compliance.passed_criteria.len(),
+            compliance.criteria_without_findings.len(),
             EVALUATED_WCAG_CRITERIA.len() - 1
         );
+    }
+
+    /// #782: no finding is its own state, never conformance — the verdict
+    /// says it was bounded by the evaluated criteria, and the JSON says that
+    /// conformance, BFSG applicability and a real screen-reader run are open.
+    #[test]
+    fn no_findings_never_claim_conformance_or_legal_applicability() {
+        let compliance = complete_run(&[]);
+        assert_eq!(compliance.verdict, BfsgVerdict::NoViolationsFound);
+        assert_eq!(
+            compliance.evaluated_criteria.len(),
+            EVALUATED_WCAG_CRITERIA.len()
+        );
+        assert_eq!(compliance.limits.conformance, Determination::NotDetermined);
+        assert_eq!(
+            compliance.limits.legal_applicability,
+            Determination::NotDetermined
+        );
+        assert!(compliance
+            .limits
+            .remaining_manual_review
+            .contains(&ManualReview::ScreenReaderReferenceTest));
+
+        let json = serde_json::to_value(&compliance).unwrap();
+        assert_eq!(json["verdict"], "no_violations_found");
+        assert_eq!(json["conformance"], "not_determined");
+        assert_eq!(json["legal_applicability"], "not_determined");
+        assert!(json.get("passed_criteria").is_none());
+        assert!(!json.to_string().contains("compliant"));
+    }
+
+    /// #782: an empty tree audited nothing, and a suspected consent wall
+    /// without findings proves nothing — neither may read as a clean result.
+    #[test]
+    fn empty_or_incomplete_runs_are_not_a_clean_result() {
+        let empty = bfsg_compliance(&[], 0, SrAuditQuality::Ok);
+        assert_eq!(empty.verdict, BfsgVerdict::NotEvaluated);
+        assert!(empty
+            .limits
+            .remaining_manual_review
+            .contains(&ManualReview::RepeatIncompleteRun));
+
+        let walled = bfsg_compliance(&[], 12, SrAuditQuality::ConsentWallSuspected);
+        assert_eq!(walled.verdict, BfsgVerdict::Incomplete);
+        assert!(walled
+            .limits
+            .remaining_manual_review
+            .contains(&ManualReview::RepeatIncompleteRun));
+
+        // A confirmed violation stays one, even on an incomplete tree.
+        let walled = bfsg_compliance(&[issue("4.1.2")], 12, SrAuditQuality::ConsentWallSuspected);
+        assert_eq!(walled.verdict, BfsgVerdict::ViolationsFound);
+    }
+
+    /// The full builder on an empty accessibility tree: not evaluated.
+    #[test]
+    fn report_over_an_empty_tree_is_not_evaluated() {
+        let report = build_sr_audit_report(
+            "https://x.test/",
+            chrono::Utc::now(),
+            &AXTree::new(),
+            "en",
+            None,
+        );
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::NotEvaluated);
     }
 
     #[test]
@@ -423,7 +538,9 @@ mod tests {
             "en",
             None,
         );
-        report.bfsg_compliance = bfsg_compliance(&issues);
+        report.summary.total_announced_nodes = 200;
+        report.summary.audit_quality = SrAuditQuality::Ok;
+        report.bfsg_compliance = complete_run(&issues);
         report.summary.bfsg_violations = report.bfsg_compliance.violations.len();
         report.issues = issues;
         report
@@ -433,15 +550,18 @@ mod tests {
     fn excluded_specimen_fields_no_longer_fail_the_bfsg_verdict() {
         // #703: both unlabelled inputs sit inside [data-specimen].
         let mut report = report_with(vec![high("3.3.2", &["7", "9"])]);
-        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::NonCompliant);
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::ViolationsFound);
         let dropped = report.apply_exclusion(|id| id == "7" || id == "9");
         assert_eq!(dropped, 1);
         assert!(report.issues.is_empty());
-        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::Compliant);
+        assert_eq!(
+            report.bfsg_compliance.verdict,
+            BfsgVerdict::NoViolationsFound
+        );
         assert_eq!(report.summary.bfsg_violations, 0);
         assert!(report
             .bfsg_compliance
-            .passed_criteria
+            .criteria_without_findings
             .contains(&"3.3.2".to_string()));
         assert_eq!(report.excluded_node_ids.len(), 2);
     }
@@ -452,7 +572,7 @@ mod tests {
         let dropped = report.apply_exclusion(|id| id == "7");
         assert_eq!(dropped, 0);
         assert_eq!(report.issues[0].affected_node_ids, vec!["12".to_string()]);
-        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::NonCompliant);
+        assert_eq!(report.bfsg_compliance.verdict, BfsgVerdict::ViolationsFound);
         assert_eq!(
             report.bfsg_compliance.violations[0].affected_node_ids,
             vec!["12".to_string()]

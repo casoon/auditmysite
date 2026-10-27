@@ -644,6 +644,7 @@ mod tests {
 
     fn finding(wcag_criterion: &str, rule_id: &str, occurrence_count: usize) -> NormalizedFinding {
         NormalizedFinding {
+            contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,

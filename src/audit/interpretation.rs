@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::audit::normalized::AuditContext;
+use crate::audit::{AuditQualityStatus, ExecutionStatus};
+use crate::wcag::coverage::{ClaimLimits, ManualReview};
 
 // ── LocalizedText ─────────────────────────────────────────────────────────────
 
@@ -58,6 +60,157 @@ impl ScoreBand {
     }
 }
 
+// ── AccessibilityClaim ────────────────────────────────────────────────────────
+
+/// What the automated accessibility run found, bounded by what it covered.
+/// Never a conformance state: "no automated violations" is its own kind (#782).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessibilityClaimKind {
+    /// The accessibility module did not run or failed.
+    NotMeasured,
+    /// The run was partial or insufficient and found nothing — no evidence
+    /// either way.
+    IncompleteRun,
+    ViolationsFound,
+    /// A complete run found no violation on the automatically testable
+    /// criteria. Says nothing about the criteria that need a person.
+    NoAutomatedViolationsFound,
+}
+
+/// Machine-readable accessibility statement: result, scope and what is left
+/// to a manual review (#782).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessibilityClaim {
+    pub kind: AccessibilityClaimKind,
+    /// Run coverage the kind is bounded by (`execution.quality.status`).
+    pub coverage: AuditQualityStatus,
+    pub wcag_version: String,
+    /// WCAG A/AA criteria the automated rules can fail.
+    pub automated_criteria: usize,
+    pub total_criteria: usize,
+    /// A/AA criteria only a person can judge.
+    pub manual_review_criteria: Vec<String>,
+    #[serde(flatten)]
+    pub limits: ClaimLimits,
+}
+
+impl AccessibilityClaim {
+    pub fn from_context(ctx: &AuditContext<'_>) -> Self {
+        let normalized = &ctx.normalized;
+        let run = normalized
+            .execution
+            .module_runs
+            .iter()
+            .find(|run| run.module == "accessibility")
+            .map(|run| run.status);
+        let coverage = normalized.execution.quality.status;
+        let kind = if normalized.severity_counts.total > 0 {
+            AccessibilityClaimKind::ViolationsFound
+        } else if matches!(
+            run,
+            Some(
+                ExecutionStatus::Failed
+                    | ExecutionStatus::Skipped
+                    | ExecutionStatus::NotApplicable
+                    | ExecutionStatus::NotRequested
+            )
+        ) {
+            AccessibilityClaimKind::NotMeasured
+        } else if coverage != AuditQualityStatus::Complete || run == Some(ExecutionStatus::Partial)
+        {
+            AccessibilityClaimKind::IncompleteRun
+        } else {
+            AccessibilityClaimKind::NoAutomatedViolationsFound
+        };
+        let mut remaining_manual_review = vec![ManualReview::CriteriaOutsideAutomatedScope];
+        if matches!(
+            kind,
+            AccessibilityClaimKind::NotMeasured | AccessibilityClaimKind::IncompleteRun
+        ) || coverage != AuditQualityStatus::Complete
+        {
+            remaining_manual_review.push(ManualReview::RepeatIncompleteRun);
+        }
+        let (automated_criteria, total_criteria) = crate::wcag::coverage::coverage_stats();
+        Self {
+            kind,
+            coverage,
+            wcag_version: crate::wcag::coverage::WCAG_VERSION.to_string(),
+            automated_criteria,
+            total_criteria,
+            manual_review_criteria: crate::wcag::coverage::manual_review_criteria()
+                .iter()
+                .map(|(id, _, _)| id.to_string())
+                .collect(),
+            limits: ClaimLimits::with_manual_review(remaining_manual_review),
+        }
+    }
+}
+
+/// The technical-overview bullet for the accessibility claim — the only text
+/// source for it, so the stored statement never outgrows `claim.kind`.
+pub fn accessibility_claim_text(
+    claim: &AccessibilityClaim,
+    severity: &crate::audit::normalized::SeverityCounts,
+    rule_count: usize,
+    en: bool,
+) -> String {
+    let critical = severity.critical;
+    let high = severity.high;
+    let total = severity.total;
+    let automated = claim.automated_criteria;
+    let all = claim.total_criteria;
+    let version = &claim.wcag_version;
+    match claim.kind {
+        AccessibilityClaimKind::NotMeasured => {
+            if en {
+                "Accessibility pattern: Not measured — the automated accessibility checks did not run".to_string()
+            } else {
+                "Accessibility-Systematik: Nicht gemessen — die automatisierte Accessibility-Prüfung lief nicht".to_string()
+            }
+        }
+        AccessibilityClaimKind::IncompleteRun => {
+            if en {
+                "Accessibility pattern: No violations found, but the run was incomplete — no evidence either way".to_string()
+            } else {
+                "Accessibility-Systematik: Keine Verstöße gefunden, aber der Lauf war unvollständig — kein Beleg in die eine oder andere Richtung".to_string()
+            }
+        }
+        AccessibilityClaimKind::NoAutomatedViolationsFound => {
+            if en {
+                format!("Accessibility pattern: No violations in the automated checks ({automated} of {all} WCAG {version} A/AA criteria testable) — conformance not determined, manual review needed")
+            } else {
+                format!("Accessibility-Systematik: Keine Verstöße in der automatisierten Prüfung ({automated} von {all} WCAG-{version}-A/AA-Kriterien automatisch prüfbar) — keine Konformitätsaussage, manuelle Prüfung nötig")
+            }
+        }
+        AccessibilityClaimKind::ViolationsFound => {
+            if critical >= 5 && total > 30 {
+                if en {
+                    format!("Accessibility pattern: Systematic patterns ({rule_count} rule types, {total} instances) — process problem, not a one-off")
+                } else {
+                    format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regelgruppen, {total} Vorkommen) — Prozess-Problem, kein Einzelfall")
+                }
+            } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
+                if en {
+                    format!("Accessibility pattern: Multiple critical blockers ({critical} critical, {high} high) — direct screen-reader barriers")
+                } else {
+                    format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren")
+                }
+            } else if total > 10 {
+                if en {
+                    format!("Accessibility pattern: Distributed across {rule_count} rule types — no pattern, fixable individually")
+                } else {
+                    format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar")
+                }
+            } else if en {
+                format!("Accessibility pattern: {total} violations across {rule_count} areas — focused and fixable")
+            } else {
+                format!("Accessibility-Systematik: {total} Verstöße in {rule_count} Bereichen — konzentriert und gezielt behebbar")
+            }
+        }
+    }
+}
+
 // ── Interpretation ────────────────────────────────────────────────────────────
 
 /// Pre-computed interpretation for one normalized report.
@@ -66,6 +219,9 @@ impl ScoreBand {
 /// that every output formatter can read values rather than recalculating them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Interpretation {
+    /// Scoped accessibility statement; the first technical-overview bullet
+    /// is derived from it.
+    pub accessibility_claim: AccessibilityClaim,
     /// Technical-overview bullets (a11y pattern, SEO level, security level,
     /// tech complexity) as pre-computed DE+EN pairs.
     pub technical_overview: Vec<LocalizedText>,
@@ -96,13 +252,14 @@ pub struct Interpretation {
 
 impl Interpretation {
     pub fn from_context(ctx: &AuditContext<'_>) -> Self {
-        let technical_overview = build_technical_overview_localized(ctx);
+        let accessibility_claim = AccessibilityClaim::from_context(ctx);
+        let technical_overview = build_technical_overview_localized(ctx, &accessibility_claim);
         let per_module = build_per_module_localized(ctx);
         let overall_score_band = ScoreBand::from_score(ctx.normalized.score as f32);
         let overall_impact = build_overall_impact_localized(ctx);
         let benchmark_context =
             build_benchmark_context_localized(ctx.normalized.overall_score as f32);
-        let business_consequence_key = pick_business_consequence_key(ctx);
+        let business_consequence_key = pick_business_consequence_key(ctx, &accessibility_claim);
         let consequence_key = pick_consequence_key(ctx);
         let verdict_key = pick_verdict_key(
             ctx.normalized.overall_score as f32,
@@ -112,6 +269,7 @@ impl Interpretation {
         let batch_verdict_key = String::new();
 
         Self {
+            accessibility_claim,
             technical_overview,
             per_module,
             overall_score_band,
@@ -401,40 +559,19 @@ fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedTe
 
 // ── Private builders ──────────────────────────────────────────────────────────
 
-fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<LocalizedText> {
+fn build_technical_overview_localized(
+    normalized: &AuditContext<'_>,
+    claim: &AccessibilityClaim,
+) -> Vec<LocalizedText> {
     let mut bullets = Vec::new();
 
-    let critical = normalized.normalized.severity_counts.critical;
-    let high = normalized.normalized.severity_counts.high;
-    let total = normalized.normalized.severity_counts.total;
+    let severity = &normalized.normalized.severity_counts;
     let rule_count = normalized.normalized.findings.len();
 
     // 1. Accessibility pattern
-    let a11y = if total == 0 {
-        LocalizedText {
-            de: "Accessibility-Systematik: Keine Verstöße — Basis vollständig konform".to_string(),
-            en: "Accessibility pattern: No violations — fully conformant baseline".to_string(),
-        }
-    } else if critical >= 5 && total > 30 {
-        LocalizedText {
-            de: format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regelgruppen, {total} Vorkommen) — Prozess-Problem, kein Einzelfall"),
-            en: format!("Accessibility pattern: Systematic patterns ({rule_count} rule types, {total} instances) — process problem, not a one-off"),
-        }
-    } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
-        LocalizedText {
-            de: format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren"),
-            en: format!("Accessibility pattern: Multiple critical blockers ({critical} critical, {high} high) — direct screen-reader barriers"),
-        }
-    } else if total > 10 {
-        LocalizedText {
-            de: format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar"),
-            en: format!("Accessibility pattern: Distributed across {rule_count} rule types — no pattern, fixable individually"),
-        }
-    } else {
-        LocalizedText {
-            de: format!("Accessibility-Systematik: {total} Verstöße in {rule_count} Bereichen — konzentriert und gezielt behebbar"),
-            en: format!("Accessibility pattern: {total} violations across {rule_count} areas — focused and fixable"),
-        }
+    let a11y = LocalizedText {
+        de: accessibility_claim_text(claim, severity, rule_count, false),
+        en: accessibility_claim_text(claim, severity, rule_count, true),
     };
     bullets.push(a11y);
 
@@ -784,13 +921,22 @@ fn build_benchmark_context_localized(score: f32) -> LocalizedText {
     }
 }
 
-fn pick_business_consequence_key(normalized: &AuditContext<'_>) -> String {
+fn pick_business_consequence_key(
+    normalized: &AuditContext<'_>,
+    claim: &AccessibilityClaim,
+) -> String {
     let critical = normalized.normalized.severity_counts.critical;
     let total = normalized.normalized.severity_counts.total;
     let score = normalized.normalized.score;
 
-    if total == 0 {
-        return "business-consequence-clean".to_string();
+    match claim.kind {
+        AccessibilityClaimKind::NoAutomatedViolationsFound => {
+            return "business-consequence-clean".to_string();
+        }
+        AccessibilityClaimKind::NotMeasured | AccessibilityClaimKind::IncompleteRun => {
+            return "business-consequence-unverified".to_string();
+        }
+        AccessibilityClaimKind::ViolationsFound => {}
     }
 
     let has_weak_seo = normalized.raw_seo.is_some_and(|s| s.score < 65);
@@ -1016,7 +1162,8 @@ mod tests {
         });
 
         let ctx = crate::audit::normalized::normalize(&report);
-        let bullets = build_technical_overview_localized(&ctx);
+        let bullets =
+            build_technical_overview_localized(&ctx, &AccessibilityClaim::from_context(&ctx));
         let tech_bullet = bullets
             .iter()
             .find(|b| b.de.starts_with("Tech-Komplexität"))
@@ -1218,7 +1365,10 @@ mod tests {
         );
         let normalized = crate::audit::normalized::normalize(&report);
 
-        let bullets = build_technical_overview_localized(&normalized);
+        let bullets = build_technical_overview_localized(
+            &normalized,
+            &AccessibilityClaim::from_context(&normalized),
+        );
         assert_eq!(bullets.len(), 4, "always exactly 4 overview bullets");
         for bullet in &bullets {
             assert!(!bullet.de.is_empty());
@@ -1226,26 +1376,107 @@ mod tests {
         }
     }
 
-    #[test]
-    fn technical_overview_zero_violations_message() {
-        use crate::WcagLevel;
-
-        let report = crate::audit::report::AuditReport::new(
+    fn clean_context() -> crate::audit::normalized::AuditContext<'static> {
+        let report = Box::leak(Box::new(crate::audit::report::AuditReport::new(
             "https://example.com".to_string(),
-            WcagLevel::AA,
+            crate::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             100,
-        );
-        let normalized = crate::audit::normalized::normalize(&report);
-        let bullets = build_technical_overview_localized(&normalized);
+        )));
+        crate::audit::normalized::normalize(report)
+    }
 
-        assert!(
-            bullets[0].de.contains("Keine Verstöße"),
-            "zero-violation DE message expected"
+    /// #782: a complete run without findings is "no automated violations",
+    /// its own state — the stored statement names the scope and never claims
+    /// conformance; the JSON says conformance and BFSG applicability are open.
+    #[test]
+    fn zero_findings_never_claim_conformance() {
+        let ctx = clean_context();
+        let interp = Interpretation::from_context(&ctx);
+        let claim = &interp.accessibility_claim;
+        assert_eq!(
+            claim.kind,
+            AccessibilityClaimKind::NoAutomatedViolationsFound
         );
-        assert!(
-            bullets[0].en.contains("No violations"),
-            "zero-violation EN message expected"
+        assert!(!claim.manual_review_criteria.is_empty());
+        assert!(claim.automated_criteria < claim.total_criteria);
+
+        let bullet = &interp.technical_overview[0];
+        for text in [&bullet.en, &bullet.de] {
+            let lower = text.to_lowercase();
+            assert!(!lower.contains("fully conformant"), "{text}");
+            assert!(!lower.contains("vollständig konform"), "{text}");
+        }
+        assert!(bullet.en.contains("conformance not determined"));
+        assert!(bullet.de.contains("keine Konformitätsaussage"));
+
+        let json = serde_json::to_value(claim).unwrap();
+        assert_eq!(json["kind"], "no_automated_violations_found");
+        assert_eq!(json["conformance"], "not_determined");
+        assert_eq!(json["legal_applicability"], "not_determined");
+        assert_eq!(
+            json["remaining_manual_review"][0],
+            "criteria_outside_automated_scope"
         );
+    }
+
+    /// #782: a partial run or one whose accessibility module failed found
+    /// nothing — that must stay "incomplete"/"not measured", not read clean.
+    #[test]
+    fn partial_or_failed_runs_without_findings_are_not_clean() {
+        let mut ctx = clean_context();
+        ctx.normalized.execution.quality.status = AuditQualityStatus::Partial;
+        let interp = Interpretation::from_context(&ctx);
+        assert_eq!(
+            interp.accessibility_claim.kind,
+            AccessibilityClaimKind::IncompleteRun
+        );
+        assert!(interp
+            .accessibility_claim
+            .limits
+            .remaining_manual_review
+            .contains(&ManualReview::RepeatIncompleteRun));
+        assert_eq!(
+            interp.business_consequence_key,
+            "business-consequence-unverified"
+        );
+        assert!(interp.technical_overview[0].en.contains("incomplete"));
+
+        let mut ctx = clean_context();
+        ctx.normalized
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: "accessibility".to_string(),
+                status: ExecutionStatus::Failed,
+                ..Default::default()
+            });
+        let interp = Interpretation::from_context(&ctx);
+        assert_eq!(
+            interp.accessibility_claim.kind,
+            AccessibilityClaimKind::NotMeasured
+        );
+        assert!(interp.technical_overview[0].en.contains("Not measured"));
+    }
+
+    /// Guard (#406): the English claim texts carry no German characters.
+    #[test]
+    fn accessibility_claim_texts_en_have_no_umlauts() {
+        let ctx = clean_context();
+        let mut claim = AccessibilityClaim::from_context(&ctx);
+        let severity = &ctx.normalized.severity_counts;
+        for kind in [
+            AccessibilityClaimKind::NotMeasured,
+            AccessibilityClaimKind::IncompleteRun,
+            AccessibilityClaimKind::ViolationsFound,
+            AccessibilityClaimKind::NoAutomatedViolationsFound,
+        ] {
+            claim.kind = kind;
+            let text = accessibility_claim_text(&claim, severity, 0, true);
+            assert!(
+                !text.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "{kind:?}: {text}"
+            );
+        }
     }
 }

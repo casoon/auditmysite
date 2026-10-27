@@ -26,6 +26,9 @@ use auditmysite::AXTree;
 // after normalization, aggregation and export.
 #[test]
 fn foundation_compact_export_grade_describes_its_score() {
+    // One grade basis (#781): the compact feed names both scores and bands
+    // the accessibility score, like every other output; there is no
+    // unqualified `score` that could be read against the wrong grade.
     let normalized = normalize(&make_full_report()).normalized;
     assert_ne!(
         normalized.grade,
@@ -33,12 +36,14 @@ fn foundation_compact_export_grade_describes_its_score() {
     );
     let json: serde_json::Value =
         serde_json::from_str(&auditmysite::output::format_summary(&normalized).unwrap()).unwrap();
-    assert_eq!(json["score"], normalized.overall_score);
+    assert!(json.get("score").is_none());
+    assert_eq!(json["overallScore"], normalized.overall_score);
     assert_eq!(json["accessibilityScore"], normalized.score);
     assert_eq!(
         json["grade"],
-        auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.overall_score as f32)
+        auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.score as f32)
     );
+    assert_eq!(json["grade"], normalized.grade.as_str());
 }
 
 #[test]

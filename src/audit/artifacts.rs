@@ -278,6 +278,12 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
 
     let stats = AccessibilityScorer::calculate_statistics(&wcag_results.violations);
     let mut report = AuditReport {
+        // The lossy reconstruction keeps the stored profile; indexability is
+        // not part of the normalized record.
+        run_context: crate::audit::RunContext {
+            indexability: Default::default(),
+            decision_profile: artifacts.audit.decision.profile.clone(),
+        },
         url: artifacts.audit.url.clone(),
         wcag_level: artifacts.audit.wcag_level,
         timestamp: artifacts.audit.timestamp,

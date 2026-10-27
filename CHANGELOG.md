@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **AI transparency:** `ai_transparency.coverage` counts attempted, checked and limit-skipped images and failed fetches by reason (`redirect_not_followed`, `oversized`, `timeout`, `host_not_public`, …).
 - **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
 - **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
 - **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings.
@@ -16,10 +17,16 @@ and verification for each change is in the
 - **Batch:** `summary.root_causes[]` lists finding patterns that recur on two or more pages, with all URLs, occurrence count and confidence (`confirmed` same markup, `likely` same pattern above the coverage thresholds, `open` otherwise); `id` matches `findings[].patterns[].id`.
 - **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) from its rule, and `patterns[]` with the element patterns of all its occurrences (normalized selector, occurrence count, `RC-` id that is the same for the same rule and pattern on every page); `pattern_count` gives the full number.
 - **JSON:** Every collector (JavaScript, CDP, HTTP, DNS) reports its outcome in `module_runs[].subchecks[]` with `state` (`measured`, `empty`, `partial`, `failed`, `unsupported`, `not_applicable`), `method`, `method_version`, `reason_code` and `scoring`.
+- **Findings:** Problems collected by every module now reach `pages[].findings` under one `contract` (domain, source, outcome, applicability, cause, scoring responsibility); `pages[].finding_inventory` accounts for each of them, and a lost finding fails validation. Details: [Finding contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-contract).
+- **SEO:** `--expect-indexable` (implied for sitemap runs) makes `noindex` a technical blocker that caps the SEO score and warns, or fails with `[verdict] fail_on_technical_blockers`; without a declared goal it is a finding to review. Details: [Indexability](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#indexability).
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 
 ### Changed
 
+- **Decision:** Breaking: one versioned decision under the stored `[verdict]` profile is shown by terminal, JSON, summary feed, Studio, PDF, batch counts and exit code alike; before, only the exit code honoured a custom profile. JSON `verdict`/`verdict_reasons` become `decision`. Details: [Decision contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract).
+- **JSON:** Breaking: `summary.score` (alias of `overall_score`) is removed; `report-lint` flags it as `score_alias_removed`. Batch `summary.verdict_key` is renamed `score_band_key` (a narrative band, not the decision); batch `total_violations` and `violated_rule_count` count WCAG only, like the single report.
+- **Summary feed:** Breaking: `score` is replaced by `accessibilityScore` and `overallScore`; `grade`, `label` and `medalColor` are bands of the accessibility score (the grade used to be banded from the overall score); `verdict` and `verdictReasons` are added; `ruleTypes` counts WCAG rules.
+- **Studio:** Breaking: the response and history entries carry `decision`; `executive_summary.verdict` is renamed `score_band_sentence`.
 - **DNS:** CAA and DNSKEY are looked up on the host and its parent domains; `caa_present`, `dnssec_detected` and `mx_present` are `null` when the resolver gave no answer.
 - **Performance:** Each core metric (`performance.lcp`, `fcp`, `cls`, `tbt`) and sub-analysis reports its collection state; a throttled profile without all four core metrics has no score (`score: null`) and is not adopted as the canonical measurement.
 - **Performance:** LCP is the last candidate before the read, also one painted after `load`; TBT counts long tasks over FCP→TTI (Lighthouse window) instead of up to load + 100 ms. TTI is the end of the last long task before the first 5 s quiet window.
@@ -40,6 +47,7 @@ and verification for each change is in the
 - **PDF:** The batch top-actions table shows the WCAG level instead of an expected-impact sentence that repeated the reach column, and gives the action title and reach more width.
 - **PDF:** The batch report builds its template causes and the cause column of the top actions from `root_causes`: the action names the element (`a.mainnav-toggle: recurring, identical markup not established (20 pages)`), and patterns without enough evidence read "cause open" instead of a template claim.
 - **Project site:** The start page opens with a readable excerpt of the recorded single-page audit (64 columns, with a 50-column scene on phones) under a shorter title; theme 0.8.3.
+- **JSON:** Breaking: accessibility statements no longer claim conformance. `interpretation.accessibility_claim` gives result, scope and open manual review; `screen_reader.bfsg_compliance.verdict` is `no_violations_found`/`violations_found`/`incomplete` instead of `compliant`/`non_compliant`; both state `conformance` and `legal_applicability` as `not_determined`.
 - **Reports:** Risk rationales name controls without an accessible name and controls not operable by keyboard separately (`risk.keyboard_blocking_issues`), and neither they nor the verdict reasons state any longer that nameless controls cannot be operated or that tasks cannot be completed.
 - **Reports:** The expected impact of an action states the occurrences it addresses instead of "Fixes N occurrences; expected score impact: high", which no simulation backed.
 - **Reports:** "Source quality" is shown as "Technical preparation for machine processing", an unweighted indicator. Its score combines on-page consistency and publisher/security signals; structural signals (word count, headings, structured data, metadata) are listed as observed values without a rating. `source_quality.substance.score` is deprecated and removed in 2.0.
@@ -56,6 +64,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
 - **Accessibility:** The 1.3.4 orientation check could never fire, because the computed `transform` is a matrix; it now reads the rotation and names `html` or `body`.
 - **Accessibility:** Overflow at 320 px caused only by content 1.4.10 exempts (data tables, images, media, frames) no longer fails reflow.
 - **Accessibility:** The 3.3.8 paste-blocking check, `html-has-lang` and the cross-origin frame note also find their elements in open shadow roots and same-origin frames; `html-has-lang` always records whether it ran.

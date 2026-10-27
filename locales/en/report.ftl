@@ -141,7 +141,8 @@ grade-deficient = Needs work
 grade-critical = Critical
 
 # Business / forward-looking consequence
-business-consequence-clean = No known barriers — a stable foundation for all user groups.
+business-consequence-clean = No barriers found in the automated checks — a sound starting point; the remaining criteria still need a manual review.
+business-consequence-unverified = The automated checks did not cover the page completely — the absence of findings is no evidence of accessibility.
 business-consequence-severe = Large parts of the site are unusable or barely usable for certain user groups.
 business-consequence-seo-headings = The site is harder to find and structurally inaccessible to part of users.
 business-consequence-screenreader = Individual key functions are blocked or unreliable for screen-reader users.

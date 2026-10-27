@@ -250,11 +250,10 @@ async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
         "certificate {} for a capped score",
         normalized.normalized.certificate
     );
-    let verdict = auditmysite::audit::compute_verdict(
-        &normalized.normalized,
-        &auditmysite::cli::config::VerdictConfig::default(),
+    assert_eq!(
+        normalized.normalized.decision.verdict,
+        auditmysite::audit::Verdict::Fail
     );
-    assert_eq!(verdict.verdict, auditmysite::audit::Verdict::Fail);
     auditmysite::output::UnifiedReport::single(&normalized, &report)
         .to_json(false)
         .unwrap();
@@ -408,6 +407,8 @@ fn default_config() -> PipelineConfig {
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
         display_mode: None,
+        indexability: Default::default(),
+        decision_profile: Default::default(),
     }
 }
 

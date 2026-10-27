@@ -1726,11 +1726,16 @@ pub(crate) fn counter_cases() {
             "HTTP/1.1 {code} X\r\nContent-Length: 0\r\nConnection: close\r\n{extra}\r\n"
         ))
     }
+    /// A timeout long enough for a loaded test machine; the hanging server
+    /// gets a short one of its own.
     fn fetch(url: &str) -> Collected<(HeaderMap, HeaderFetch)> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(500))
-            .build()
-            .unwrap();
+        fetch_within(url, std::time::Duration::from_secs(5))
+    }
+    fn fetch_within(
+        url: &str,
+        timeout: std::time::Duration,
+    ) -> Collected<(HeaderMap, HeaderFetch)> {
+        let client = reqwest::Client::builder().timeout(timeout).build().unwrap();
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -1746,7 +1751,13 @@ pub(crate) fn counter_cases() {
     let refused = fetch("http://127.0.0.1:9/");
     assert_eq!(reason(&refused), "http_connect_failed");
     let hanging = serve(vec![("HEAD", "/", None), ("GET", "/", None)]);
-    assert_eq!(reason(&fetch(&format!("{hanging}/"))), "http_timeout");
+    assert_eq!(
+        reason(&fetch_within(
+            &format!("{hanging}/"),
+            std::time::Duration::from_millis(300)
+        )),
+        "http_timeout"
+    );
 
     // HEAD rejected with 405: the GET answer is analysed, and says so.
     let head_rejected = serve(vec![

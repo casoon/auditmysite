@@ -299,6 +299,10 @@ pub(super) fn aggregate_report(
         duration_ms,
     );
     report.accessibility.execution.scope = audit_scope_from_config(config);
+    report.run_context = crate::audit::RunContext {
+        indexability: config.indexability,
+        decision_profile: config.decision_profile.clone(),
+    };
     report.accessibility.execution.navigation.requested_url = url.to_string();
     report.accessibility.execution.environment.source = "live".to_string();
     report.accessibility.execution.module_runs = consolidate_module_runs(&snapshot.module_runs);

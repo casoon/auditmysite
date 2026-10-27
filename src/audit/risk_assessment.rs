@@ -41,7 +41,7 @@ pub(super) fn compute_risk_assessment(
             sr.summary.audit_quality,
             crate::screen_reader::SrAuditQuality::ConsentWallSuspected
         );
-        if sr.bfsg_compliance.verdict == crate::screen_reader::BfsgVerdict::NonCompliant
+        if sr.bfsg_compliance.verdict == crate::screen_reader::BfsgVerdict::ViolationsFound
             && sr.count_severity("high") > 0
             && !consent_wall
         {

@@ -9,7 +9,8 @@
     "metadata",
     "metric_context",
     "summary",
-    "pages"
+    "pages",
+    "decision"
   ],
   "additionalProperties": false,
   "properties": {
@@ -67,19 +68,8 @@
         "$ref": "#/$defs/reportError"
       }
     },
-    "verdict": {
-      "type": "string",
-      "enum": [
-        "pass",
-        "warn",
-        "fail"
-      ]
-    },
-    "verdict_reasons": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+    "decision": {
+      "$ref": "#/$defs/decision"
     }
   },
   "$defs": {
@@ -366,11 +356,6 @@
           "maximum": 100
         },
         "overall_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "score": {
           "type": "integer",
           "minimum": 0,
           "maximum": 100
@@ -666,7 +651,9 @@
         "module_scores",
         "risk",
         "principle_coverage",
-        "findings"
+        "findings",
+        "finding_inventory",
+        "decision"
       ],
       "additionalProperties": true,
       "properties": {
@@ -776,6 +763,15 @@
         },
         "frames": {
           "$ref": "#/$defs/frameCoverage"
+        },
+        "finding_inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inventoryEntry"
+          }
+        },
+        "decision": {
+          "$ref": "#/$defs/decision"
         }
       }
     },
@@ -1230,7 +1226,8 @@
         "description",
         "occurrence_count",
         "priority_score",
-        "occurrences"
+        "occurrences",
+        "contract"
       ],
       "additionalProperties": true,
       "properties": {
@@ -1322,6 +1319,13 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of distinct patterns, also beyond the 20 listed."
+        },
+        "contract": {
+          "$ref": "#/$defs/findingContract"
+        },
+        "category": {
+          "type": "string",
+          "description": "`wcag` for accessibility rule findings, otherwise the contract domain."
         }
       }
     },
@@ -1844,6 +1848,230 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "decisionProfile": {
+      "type": "object",
+      "required": [
+        "name",
+        "fail_on_legal_flags",
+        "fail_on_blocking_issues",
+        "fail_on_technical_blockers",
+        "warn_below_score"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "default",
+            "custom"
+          ]
+        },
+        "fail_on_legal_flags": {
+          "type": "boolean"
+        },
+        "fail_on_blocking_issues": {
+          "type": "boolean"
+        },
+        "fail_on_technical_blockers": {
+          "type": "boolean"
+        },
+        "fail_below_score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "warn_below_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "decision": {
+      "description": "The decision under the stored profile (decision contract). Every output and the exit code project this value; thresholds compare the accessibility score.",
+      "type": "object",
+      "required": [
+        "contract",
+        "profile",
+        "verdict",
+        "reasons"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "type": "string",
+          "const": "auditmysite.decision/1"
+        },
+        "profile": {
+          "$ref": "#/$defs/decisionProfile"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "warn",
+            "fail"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findingContract": {
+      "description": "Finding contract shared by every domain.",
+      "type": "object",
+      "required": [
+        "domain",
+        "source",
+        "check",
+        "outcome",
+        "applicability",
+        "cause",
+        "scoring",
+        "scope"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "type": "string",
+          "enum": [
+            "accessibility",
+            "accessibility_journey",
+            "screen_reader",
+            "seo",
+            "security",
+            "mobile",
+            "performance",
+            "html_conformance",
+            "best_practices",
+            "dark_mode",
+            "design_quality",
+            "tech_stack",
+            "ux",
+            "journey",
+            "commerce",
+            "ai_transparency",
+            "network_dns"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "check": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "fail",
+            "review"
+          ]
+        },
+        "applicability": {
+          "type": "string",
+          "enum": [
+            "applies",
+            "unknown"
+          ]
+        },
+        "applicability_basis": {
+          "type": "string"
+        },
+        "cause": {
+          "type": "string",
+          "description": "Canonical cause key; findings of different domains with the same cause describe one defect."
+        },
+        "scoring": {
+          "type": "object",
+          "required": [
+            "effect"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "effect": {
+              "type": "string",
+              "enum": [
+                "deduction",
+                "gate",
+                "indicator",
+                "risk",
+                "reference",
+                "none"
+              ]
+            }
+          }
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "element",
+            "page",
+            "resource",
+            "site",
+            "interaction"
+          ]
+        }
+      }
+    },
+    "inventoryEntry": {
+      "description": "How a collected non-WCAG problem is represented: a finding id or an explicit exclusion.",
+      "type": "object",
+      "required": [
+        "domain",
+        "source",
+        "check",
+        "collected",
+        "disposition"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "check": {
+          "type": "string"
+        },
+        "collected": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disposition": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "finding",
+                "excluded"
+              ]
+            },
+            "finding_id": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "not_applicable",
+                "duplicate_of_wcag_finding"
+              ]
+            }
           }
         }
       }
