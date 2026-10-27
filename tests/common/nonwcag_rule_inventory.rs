@@ -18,13 +18,6 @@ fn security_mod_path() -> PathBuf {
         .join("mod.rs")
 }
 
-fn vulnerable_libs_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("best_practices")
-        .join("vulnerable_libs.rs")
-}
-
 /// Read a source file and drop everything from its `#[cfg(test)]` module
 /// onward — several of these files mix production code and test fixtures
 /// (fake `SecurityIssue`/etc. literals) in one file, and the test module's
@@ -50,33 +43,6 @@ fn extract_field_str(block: &str, field_name: &str) -> Option<String> {
     Some(after_quote[..quote_end].to_string())
 }
 
-/// Byte range of the first brace-matched `{ ... }` block starting right
-/// after `marker`, or `None` if `marker` doesn't occur.
-fn find_next_block<'a>(
-    source: &'a str,
-    marker: &str,
-    search_from: usize,
-) -> Option<(usize, &'a str)> {
-    let rel_start = source[search_from..].find(marker)?;
-    let block_start = search_from + rel_start + marker.len();
-    let mut depth = 1i32;
-    let mut end = source.len();
-    for (i, c) in source[block_start..].char_indices() {
-        match c {
-            '{' => depth += 1,
-            '}' => {
-                depth -= 1;
-                if depth == 0 {
-                    end = block_start + i;
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-    Some((end + 1, &source[block_start..end]))
-}
-
 /// The canonical, deduplicated list of every `"{header}:{issue_type}"` id
 /// `src/security/mod.rs` can currently produce.
 ///
@@ -89,59 +55,15 @@ pub fn canonical_security_check_ids() -> BTreeSet<String> {
         .collect()
 }
 
-/// Every library name matched as a pattern (not a value) inside
-/// `check_vulnerability`'s `match name { "jQuery" if .. => .., .. }` block —
-/// identified by scanning that function body line-by-line for lines whose
-/// *trimmed* text starts with a quote (arm patterns in this file are always
-/// written on their own line, e.g. `"jQuery"` or `"Prototype" | "MooTools"`).
-///
-/// Value-position string literals (rustfmt-wrapped `description:`/severity
-/// strings that also end up alone on their own line, e.g. a bare `"high"`
-/// inside a nested `if`/`else`) would otherwise false-positive on the same
-/// "starts with a quote" heuristic — they're distinguished by indentation:
-/// every real arm pattern sits at the *same*, shallower column (one level
-/// under `match name {`), while value literals are nested several levels
-/// deeper inside `return Some(VulnerableLibrary { .. })`. The first matching
-/// line's indentation is taken as that reference column.
-fn extract_vulnerable_library_names(source: &str) -> Vec<String> {
-    let mut names = Vec::new();
-    let Some((_, body)) = find_next_block(
-        source,
-        "fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {",
-        0,
-    ) else {
-        return names;
-    };
-    let mut arm_indent: Option<usize> = None;
-    for line in body.lines() {
-        let trimmed = line.trim_start();
-        if !trimmed.starts_with('"') {
-            continue;
-        }
-        let indent = line.len() - trimmed.len();
-        match arm_indent {
-            None => arm_indent = Some(indent),
-            Some(expected) if expected != indent => continue,
-            Some(_) => {}
-        }
-        for part in trimmed.trim_end().split('|') {
-            let part = part.trim();
-            if let Some(rest) = part.strip_prefix('"') {
-                if let Some(end) = rest.find('"') {
-                    names.push(rest[..end].to_string());
-                }
-            }
-        }
-    }
-    names
-}
-
 /// The canonical, deduplicated list of every library name
-/// `best_practices::vulnerable_libs::check_vulnerability` recognizes.
+/// `best_practices::vulnerable_libs` checks against its advisory table.
+///
+/// The scope is the public `CHECKED_LIBRARIES` list since the versioned
+/// advisory table (#773), so no source scan is needed here.
 pub fn canonical_vulnerable_library_ids() -> BTreeSet<String> {
-    let source = production_source(&vulnerable_libs_path());
-    extract_vulnerable_library_names(&source)
-        .into_iter()
+    auditmysite::best_practices::CHECKED_LIBRARIES
+        .iter()
+        .map(|name| name.to_string())
         .collect()
 }
 
