@@ -1,0 +1,26 @@
+{
+  "case": "security_frame_ancestors_without_xfo",
+  "note": "CSP frame-ancestors is set, so X-Frame-Options is not consulted at all (HTML Standard, 'The X-Frame-Options header'): the XFO check does not apply.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "X-Frame-Options:missing_header",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "pass"
+    }
+  ]
+}

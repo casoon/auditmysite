@@ -1,8 +1,15 @@
 {
   "case": "widget_patterns",
   "expectations": [
-    { "rule_id": "aria/tabpanel-missing", "verdict": "needs_review" },
-    { "rule_id": "aria/tab-selected-missing", "verdict": "needs_review" },
-    { "rule_id": "aria/combobox-popup-missing", "verdict": "violation" }
+    {"rule_id": "aria/tabpanel-missing", "verdict": "needs_review"},
+    {"rule_id": "aria/tab-selected-missing", "verdict": "needs_review"},
+    {"rule_id": "aria/combobox-popup-missing", "verdict": "violation"},
+    {"rule_id": "aria/attribute-not-allowed", "selector": "div", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/required-missing", "selector": "ul#listbox1", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

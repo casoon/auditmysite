@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<!-- Display-mode convention (#653), rendered in text mode, with the text-mode
+     mistakes real pages make: a text layer that stays visually hidden (clip
+     pattern) or transparent in text mode, and still images that are not
+     hidden. A 32x32 icon is allowed, 33x33 is not. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display modes: text mode that keeps pictures and hides text</title>
+<script>document.documentElement.dataset.display = 'text';</script>
+<style>
+  body { color: #111111; background: #ffffff; }
+  /* Forgot to reveal the text layer in text mode. */
+  #t1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #t5 { opacity: 0; }
+  html[data-display="text"] #s1, html[data-display="text"] #s5 { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <label for="display-toggle">Display</label>
+  <select id="display-toggle" data-display-toggle style="min-width: 44px; min-height: 44px">
+    <option value="visual">Visual</option>
+    <option value="calm">Calm</option>
+    <option value="text" selected>Text</option>
+  </select>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>River levels</h1>
+  <figure id="f1" data-viz="diagram">
+    <div id="s1" data-viz-static><svg width="300" height="120" aria-hidden="true"><rect width="300" height="120" fill="#4575b4"></rect></svg></div>
+    <div id="t1" data-viz-text><p>The river rose by 80 centimetres overnight.</p></div>
+    <figcaption>River level at the old bridge</figcaption>
+  </figure>
+  <figure id="f2" data-viz="diagram">
+    <img id="s2" data-viz-static width="300" height="120" alt="Bar diagram of rainfall"
+      src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120'%3E%3Crect width='300' height='120' fill='%23336699'/%3E%3C/svg%3E">
+    <div id="t2" data-viz-text><p>Rainfall was twice the monthly average.</p></div>
+    <figcaption>Rainfall in October</figcaption>
+  </figure>
+  <figure id="f3" data-viz="diagram">
+    <svg id="icon3" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#d73027"></circle></svg>
+    <div id="t3" data-viz-text><p>Flood warning level 2 is in force.</p></div>
+    <figcaption>Warning level</figcaption>
+  </figure>
+  <figure id="f4" data-viz="diagram">
+    <svg id="icon4" width="33" height="33" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#d73027"></circle></svg>
+    <div id="t4" data-viz-text><p>The ferry is suspended until further notice.</p></div>
+    <figcaption>Ferry status</figcaption>
+  </figure>
+  <figure id="f5" data-viz="diagram">
+    <div id="s5" data-viz-static><svg width="300" height="120" aria-hidden="true"><rect width="300" height="120" fill="#91bfdb"></rect></svg></div>
+    <div id="t5" data-viz-text><p>The water temperature is 11 degrees.</p></div>
+    <figcaption>Water temperature</figcaption>
+  </figure>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

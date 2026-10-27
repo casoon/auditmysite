@@ -292,12 +292,38 @@ struct RawLibOwned {
     source: String,
 }
 
-/// Attempt to detect a library name and version from a script URL.
+/// Whether a script's file name is the core build of `library` itself
+/// (`jquery.min.js`, `jquery-3.6.0.js`, `bootstrap.bundle.min.js`) rather than
+/// a plugin named after it (`jquery-ui.min.js`, `jquery.validate.js`,
+/// `bootstrap-datepicker.min.js`), whose version is the plugin's own.
+fn is_core_build(lower_path: &str, library: &str) -> bool {
+    let file = lower_path.rsplit('/').next().unwrap_or("");
+    let Some(rest) = file.strip_prefix(library) else {
+        return false;
+    };
+    let rest = rest
+        .strip_prefix('-')
+        .filter(|r| r.starts_with(|c: char| c.is_ascii_digit()))
+        .map(|r| r.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.'))
+        .map(|r| format!(".{r}"))
+        .unwrap_or_else(|| rest.to_string());
+    matches!(
+        rest.as_str(),
+        ".js" | ".min.js" | ".slim.js" | ".slim.min.js" | ".bundle.js" | ".bundle.min.js"
+    )
+}
+
+/// Attempt to detect a library name and version from a script URL. Only the
+/// path is read: a host such as `127.0.0.1` is no version.
 fn detect_from_url(url: &str) -> Option<RawLibOwned> {
+    let path = url::Url::parse(url)
+        .map(|u| u.path().to_string())
+        .unwrap_or_else(|_| url.to_string());
+    let url = path.as_str();
     let lower = url.to_lowercase();
 
     // jQuery: jquery-1.11.3.min.js, jquery/3.6.0/jquery.min.js
-    if lower.contains("jquery") {
+    if lower.contains("jquery") && is_core_build(&lower, "jquery") {
         if let Some(version) = extract_version_from_url(url) {
             return Some(RawLibOwned {
                 name: "jQuery".to_string(),
@@ -308,7 +334,7 @@ fn detect_from_url(url: &str) -> Option<RawLibOwned> {
     }
 
     // Bootstrap
-    if lower.contains("bootstrap") {
+    if lower.contains("bootstrap") && is_core_build(&lower, "bootstrap") {
         if let Some(version) = extract_version_from_url(url) {
             return Some(RawLibOwned {
                 name: "Bootstrap".to_string(),
@@ -493,21 +519,33 @@ pub(crate) const ADVISORIES: &[Advisory] = &[
             VersionRange { introduced: (3, 0, 0), fixed: (3, 4, 1) },
             VersionRange { introduced: (4, 0, 0), fixed: (4, 3, 1) },
         ],
-        safe_version: "3.4.1+ or 4.3.1+",
+        safe_version: "4.3.1+",
         source_url: "https://nvd.nist.gov/vuln/detail/CVE-2019-8331",
         reviewed: None,
     },
     Advisory {
+        library: "Bootstrap",
+        id: "local:bootstrap-3-end-of-life",
+        aliases: &["CVE-2024-6485", "CVE-2025-1647"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "medium",
+        description: "End-of-life Bootstrap line; every community release is affected by cross-site scripting in the carousel/button plugins (CVE-2024-6485, CVE-2025-1647).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 0, 0) }],
+        safe_version: "4.3.1+",
+        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+        reviewed: Some("2026-10-26"),
+    },
+    Advisory {
         library: "AngularJS",
-        id: "local:angularjs-pre-1.8",
-        aliases: &[],
+        id: "local:angularjs-end-of-life",
+        aliases: &["CVE-2022-25844", "CVE-2023-26116", "CVE-2025-4690"],
         kind: AdvisoryKind::Vulnerability,
         severity: "high",
-        description: "Client-side template injection and cross-site scripting vulnerabilities.",
-        affected: &[VersionRange { introduced: (1, 0, 0), fixed: (1, 8, 0) }],
-        safe_version: "1.8.0+",
-        source_url: "https://docs.angularjs.org/misc/version-support-status",
-        reviewed: None,
+        description: "AngularJS is end of life and every release is affected by published advisories (CVE-2022-25844, CVE-2023-26116, CVE-2025-4690).",
+        affected: ANY_VERSION,
+        safe_version: "Migrate to a maintained framework",
+        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+        reviewed: Some("2026-10-26"),
     },
     Advisory {
         library: "Handlebars",
@@ -517,21 +555,33 @@ pub(crate) const ADVISORIES: &[Advisory] = &[
         severity: "high",
         description: "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.",
         affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 7, 7) }],
-        safe_version: "4.7.7+ (for CVE-2021-23369)",
+        safe_version: "4.7.10+",
         source_url: "https://github.com/advisories/GHSA-f2jv-r9rf-7988",
+        reviewed: Some("2026-10-26"),
+    },
+    Advisory {
+        library: "Handlebars",
+        id: "local:handlebars-template-compilation",
+        aliases: &["CVE-2026-33937", "CVE-2026-106445", "CVE-2026-106446"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "high",
+        description: "Version affected by template compilation and prototype-access advisories that allow code execution when untrusted templates are compiled (CVE-2026-33937, CVE-2026-106445). Detection of the version does not establish exploitability.",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 7, 10) }],
+        safe_version: "4.7.10+",
+        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
         reviewed: Some("2026-10-26"),
     },
     Advisory {
         library: "Lodash",
         id: "local:lodash-prototype-pollution",
-        aliases: &["CVE-2021-23337", "CVE-2020-8203"],
+        aliases: &["CVE-2020-8203", "CVE-2021-23337", "CVE-2025-13465", "CVE-2026-2950", "CVE-2026-4800"],
         kind: AdvisoryKind::Vulnerability,
         severity: "medium",
-        description: "Prototype pollution vulnerabilities (CVE-2021-23337, CVE-2020-8203).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 17, 21) }],
-        safe_version: "4.17.21+",
-        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337",
-        reviewed: None,
+        description: "Prototype pollution and template code injection vulnerabilities (CVE-2020-8203, CVE-2021-23337, CVE-2025-13465, CVE-2026-2950, CVE-2026-4800).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 18, 0) }],
+        safe_version: "4.18.0+",
+        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+        reviewed: Some("2026-10-26"),
     },
     Advisory {
         library: "Underscore",
@@ -540,10 +590,22 @@ pub(crate) const ADVISORIES: &[Advisory] = &[
         kind: AdvisoryKind::Vulnerability,
         severity: "high",
         description: "Arbitrary code execution via template injection (CVE-2021-23358).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 13, 0) }],
-        safe_version: "1.13.0+",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 12, 1) }],
+        safe_version: "1.13.8+",
         source_url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23358",
-        reviewed: None,
+        reviewed: Some("2026-10-26"),
+    },
+    Advisory {
+        library: "Underscore",
+        id: "local:underscore-recursion-dos",
+        aliases: &["CVE-2026-27601"],
+        kind: AdvisoryKind::Vulnerability,
+        severity: "medium",
+        description: "Denial of service via unbounded recursion in _.flatten and _.isEqual (CVE-2026-27601).",
+        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 13, 8) }],
+        safe_version: "1.13.8+",
+        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+        reviewed: Some("2026-10-26"),
     },
     Advisory {
         library: "Prototype",
@@ -649,6 +711,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn advisory_boundaries_of_the_other_libraries() {
+        for (name, vulnerable, safe) in [
+            ("Bootstrap", "2.3.2", "4.3.1"),
+            ("Bootstrap", "3.4.1", "5.3.3"),
+            ("Bootstrap", "4.3.0", "4.6.2"),
+            ("Lodash", "4.17.21", "4.18.0"),
+            ("Underscore", "1.13.7", "1.13.8"),
+        ] {
+            assert!(
+                check_vulnerability(name, vulnerable).is_some(),
+                "{name} {vulnerable}"
+            );
+            assert!(check_vulnerability(name, safe).is_none(), "{name} {safe}");
+        }
+        assert!(check_vulnerability("AngularJS", "1.8.3").is_some());
+    }
+
+    #[test]
+    fn url_version_comes_from_the_path_not_the_host() {
+        let lib = detect_from_url("http://127.0.0.1:8080/js/jquery-1.12.4.min.js").unwrap();
+        assert_eq!(lib.version, "1.12.4");
+    }
+
+    #[test]
+    fn plugins_named_after_a_library_are_not_the_library() {
+        assert!(detect_from_url("https://code.jquery.com/ui/1.13.2/jquery-ui.min.js").is_none());
+        assert!(detect_from_url("https://example.com/js/jquery.validate-1.19.5.js").is_none());
+        assert!(
+            detect_from_url("https://example.com/js/bootstrap-datepicker-1.9.0.min.js").is_none()
+        );
+        for url in [
+            "https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js",
+            "https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.slim.min.js",
+            "https://example.com/js/jquery-3.6.0.min.js",
+        ] {
+            assert_eq!(detect_from_url(url).unwrap().version, "3.6.0", "{url}");
+        }
+        assert_eq!(
+            detect_from_url(
+                "https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.bundle.min.js"
+            )
+            .unwrap()
+            .name,
+            "Bootstrap"
+        );
+    }
+
+    #[test]
     fn find_duplicate_versions_flags_two_distinct_versions() {
         let libs = vec![
             RawLibOwned {
@@ -710,12 +820,11 @@ mod tests {
     const BOUNDS: &[(&str, &str, &str)] = &[
         ("jQuery", "3.4.1", "3.5.0"),
         ("jQuery", "1.11.3", "3.5.0"),
-        ("Bootstrap", "3.4.0", "3.4.1"),
+        ("Bootstrap", "3.4.1", "4.3.1"),
         ("Bootstrap", "4.3.0", "4.3.1"),
-        ("AngularJS", "1.7.9", "1.8.0"),
-        ("Handlebars", "4.7.6", "4.7.7"),
-        ("Lodash", "4.17.20", "4.17.21"),
-        ("Underscore", "1.12.1", "1.13.0"),
+        ("Handlebars", "4.7.9", "4.7.10"),
+        ("Lodash", "4.17.21", "4.18.0"),
+        ("Underscore", "1.13.7", "1.13.8"),
     ];
 
     #[test]
@@ -732,18 +841,27 @@ mod tests {
         }
         // Outside every affected range of the library
         assert!(check_vulnerability("Bootstrap", "5.3.3").is_none());
-        assert!(check_vulnerability("AngularJS", "1.8.3").is_none());
-        assert!(check_vulnerability("Underscore", "1.13.7").is_none());
     }
 
     #[test]
-    fn handlebars_range_is_below_4_7_7_not_below_4_5_3() {
-        // GHSA-f2jv-r9rf-7988 / CVE-2021-23369
+    fn handlebars_ranges_end_at_4_7_7_and_4_7_10() {
+        // GHSA-f2jv-r9rf-7988 / CVE-2021-23369 (< 4.7.7), not only < 4.5.3;
+        // CVE-2026-33937 (< 4.7.9) and CVE-2026-106445 (< 4.7.10).
         for version in ["4.5.2", "4.5.3", "4.6.0", "4.7.6"] {
             let found = ids("Handlebars", version).expect(version);
-            assert_eq!(found, vec!["GHSA-f2jv-r9rf-7988"]);
+            assert_eq!(
+                found,
+                vec![
+                    "GHSA-f2jv-r9rf-7988",
+                    "local:handlebars-template-compilation"
+                ]
+            );
         }
-        for version in ["4.7.7", "4.7.8", "5.0.0"] {
+        for version in ["4.7.7", "4.7.8", "4.7.9"] {
+            let found = ids("Handlebars", version).expect(version);
+            assert_eq!(found, vec!["local:handlebars-template-compilation"]);
+        }
+        for version in ["4.7.10", "4.7.11", "5.0.0"] {
             assert!(check_vulnerability("Handlebars", version).is_none());
         }
     }

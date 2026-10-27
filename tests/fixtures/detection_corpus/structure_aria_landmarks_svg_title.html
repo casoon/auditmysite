@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en-GB" xml:lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- A legacy div layout (#783): the document has no <title> in its head;
+         the only title element is the SVG logo's, which titles the graphic,
+         not the document (HTML §4.2.2, SVG 2 §5.9). Landmarks and the main
+         heading are expressed with ARIA roles instead of native elements.
+         lang and xml:lang share the primary subtag "en". -->
+    <a href="#content" class="skip-link">Skip to content</a>
+    <div role="banner">
+        <svg role="img" aria-labelledby="logo-title" width="120" height="40" viewBox="0 0 120 40">
+            <title id="logo-title">Acme Hardware</title>
+            <rect width="120" height="40" fill="#1a4d2e"></rect>
+        </svg>
+    </div>
+    <div role="navigation" aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/shop/">Shop</a></li>
+        </ul>
+    </div>
+    <div role="main" id="content">
+        <div role="heading" aria-level="1">Spring sale</div>
+        <p>All garden tools are reduced until the end of the month.</p>
+        <h2>Garden tools</h2>
+        <p>Spades, rakes and hoes.</p>
+        <h2>Power tools</h2>
+        <p>Drills and saws.</p>
+    </div>
+    <div role="contentinfo">
+        <p>Acme Hardware, Berlin</p>
+    </div>
+</body>
+</html>

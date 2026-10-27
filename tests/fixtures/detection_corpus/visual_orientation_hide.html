@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timetable hidden in portrait behind a rotate hint</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .rotate-hint { display: none; }
+  @media (orientation: portrait) {
+    .timetable { display: none; }
+    .rotate-hint { display: block; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Regional trains</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Timetable</h1>
+  <p class="rotate-hint">Please turn your device to see the timetable.</p>
+  <div class="timetable">
+    <table>
+      <caption>Departures from Central Station</caption>
+      <tr><th scope="col">Train</th><th scope="col">Time</th></tr>
+      <tr><td>RE 1</td><td>08:15</td></tr>
+    </table>
+  </div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

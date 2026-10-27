@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reading lists with broken structure</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Reading lists</h1>
+        <h2>Genres</h2>
+        <ul id="genres">
+            <li>Crime</li>
+            <div id="stray-genre">Poetry</div>
+            <li>History</li>
+        </ul>
+        <h2>Steps to join</h2>
+        <ol id="join-steps"></ol>
+        <h2>Branches</h2>
+        <div role="list" id="branch-list">
+            <div role="listitem">North branch</div>
+            <span id="stray-branch">South branch</span>
+        </div>
+        <div role="list" id="empty-aria-list"></div>
+        <h2>Glossary</h2>
+        <dl id="glossary">
+            <dt id="term-alone">Interlibrary loan</dt>
+        </dl>
+        <div role="term" id="aria-term-alone">Reservation</div>
+        <h2>Notices</h2>
+        <div class="notice"><li id="orphan-item">The north branch is closed on Monday.</li></div>
+        <div role="listitem" id="orphan-aria-item">Returns are free of charge.</div>
+        <h2>Archived lists</h2>
+        <ul id="hidden-broken" hidden><p>Old genre list</p></ul>
+        <ol id="styled-away" style="display: none"></ol>
+        <ul id="aria-hidden-broken" aria-hidden="true"><p>Decorative bullet strip</p></ul>
+        <h2>Widget lists</h2>
+        <shelf-list></shelf-list>
+        <iframe id="frame-lists" title="Branch news" style="width:400px;height:120px;border:0" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Branch news</title></head><body><ul id=&quot;frame-list&quot;><li>North</li><p id=&quot;frame-stray&quot;>South</p></ul></body></html>"></iframe>
+        <div id="late-list"></div>
+        <script>
+            customElements.define('shelf-list', class extends HTMLElement {
+                connectedCallback() {
+                    this.attachShadow({ mode: 'open' }).innerHTML =
+                        '<ul id="shadow-shelf"><li>Atlas</li><p id="shadow-stray">Maps</p></ul>';
+                }
+            });
+            document.getElementById('late-list').innerHTML =
+                '<ul id="late-empty"></ul><ol id="late-mixed"><li>Atlas</li><div>Maps</div></ol>';
+        </script>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

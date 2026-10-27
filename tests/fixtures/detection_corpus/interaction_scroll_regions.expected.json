@@ -1,0 +1,16 @@
+{
+  "case": "interaction_scroll_regions",
+  "expectations": [
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-over", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-tolerance", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-focusable", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-link", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-inert", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-empty", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-hidden", "verdict": "pass" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-mobile", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "selector": "div#sr-dynamic", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" }
+  ]
+}

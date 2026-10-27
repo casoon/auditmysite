@@ -1,0 +1,28 @@
+{
+  "case": "security_hsts_over_plain_http",
+  "note": "An STS header over plain HTTP is ignored by user agents (RFC 6797 §8.1): neither HSTS check applies.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Strict-Transport-Security": "max-age=3600; preload"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:missing_header",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "verdict": "not_applicable"
+    }
+  ]
+}

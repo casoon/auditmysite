@@ -1,0 +1,12 @@
+{
+  "case": "interaction_dialog_aria",
+  "expectations": [
+    { "rule_id": "keyboard-trap", "verdict": "needs_review", "occurrences": 2 },
+    { "rule_id": "manual/interruptions", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" },
+    { "rule_id": "dialog/modal-unmarked", "selector": "div#dlg-plain", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

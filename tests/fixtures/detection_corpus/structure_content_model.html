@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Index of tool specifications – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- Product data from a page builder (#783). The feature list wraps its
+         items in a div, which the <ul> content model does not allow; the
+         browser repairs the tree, the markup stays wrong. The definition list
+         groups name-value pairs in div elements, which <dl> does allow, and
+         the table is well-formed. -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/tools/">Tools</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <!-- The page's h1 is hidden; the visible outline starts at h2. -->
+        <h1 hidden>Cordless drill CD-18</h1>
+        <p class="product-name">Cordless drill CD-18</p>
+        <h2>Features</h2>
+        <ul id="features">
+            <div class="feature-row">
+                <li>Two speeds</li>
+                <li>LED work light</li>
+            </div>
+        </ul>
+        <h2>Specifications</h2>
+        <dl id="specs">
+            <div><dt>Voltage</dt><dd>18 V</dd></div>
+            <div><dt>Weight</dt><dd>1.4 kg</dd></div>
+        </dl>
+        <h2>Spare parts</h2>
+        <table id="parts">
+            <caption>Spare parts and prices</caption>
+            <thead>
+                <tr><th scope="col">Part</th><th scope="col">Price</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Battery 2 Ah</td><td>39 EUR</td></tr>
+                <tr><td>Charger</td><td>29 EUR</td></tr>
+            </tbody>
+        </table>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+</body>
+</html>

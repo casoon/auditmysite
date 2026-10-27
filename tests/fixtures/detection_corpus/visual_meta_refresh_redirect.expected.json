@@ -1,0 +1,22 @@
+{
+  "case": "visual_meta_refresh_redirect",
+  "expectations": [
+    {
+      "rule_id": "timing/meta-refresh",
+      "selector": "meta#slow-redirect",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "timing/meta-refresh",
+      "selector": "meta#late-refresh",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "meta-refresh",
+      "verdict": "needs_review",
+      "occurrences": 1
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "case": "schema_rules_iframe_only",
+  "note": "JSON-LD belongs to the document that contains it; the framed document's Product is not this page's.",
+  "expectations": [
+    {
+      "rule_id": "product_snippet",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "not_applicable"
+    }
+  ]
+}

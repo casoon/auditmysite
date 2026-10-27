@@ -1,10 +1,22 @@
 {
   "case": "vulnerable_libs_current_lodash",
+  "note": "Each library at a release no published advisory covers. AngularJS is end of life with no such release, so it is not on this page.",
   "expectations": [
-    { "rule_id": "jQuery", "verdict": "pass" },
-    { "rule_id": "Bootstrap", "verdict": "pass" },
-    { "rule_id": "AngularJS", "verdict": "pass" },
-    { "rule_id": "Handlebars", "verdict": "pass" },
-    { "rule_id": "Lodash", "verdict": "pass" }
+    {
+      "rule_id": "jQuery",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Handlebars",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Lodash",
+      "verdict": "pass"
+    }
   ]
 }

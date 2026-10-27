@@ -1,0 +1,11 @@
+{
+  "case": "content_tables_ok",
+  "expectations": [
+    {"rule_id": "tables/header-missing", "verdict": "pass"},
+    {"rule_id": "tables/name-missing", "verdict": "pass"},
+    {"rule_id": "tables/presentational-with-headers", "verdict": "pass"},
+    {"rule_id": "tables/header-without-data", "verdict": "pass"},
+    {"rule_id": "tables/data-undetermined", "verdict": "pass"},
+    {"rule_id": "tables/headers-attr-invalid", "verdict": "pass"}
+  ]
+}

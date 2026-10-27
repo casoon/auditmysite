@@ -1,0 +1,109 @@
+{
+  "case": "forms_submit_redundant",
+  "expectations": [
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#no-btn",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#with-btn",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#ext-btn",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#empty-form",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#aria-submit",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#reg-twice",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#confirm-twice",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#same-as",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#ac-twice",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#single-mail",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#rt-mail1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#rt-mail2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#ct-mail1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#ct-mail2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sa-street1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sa-street2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sm-mail",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

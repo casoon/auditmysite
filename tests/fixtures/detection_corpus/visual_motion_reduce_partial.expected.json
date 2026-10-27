@@ -1,0 +1,7 @@
+{
+  "case": "visual_motion_reduce_partial",
+  "expectations": [
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "motion/infinite-animation", "verdict": "not_applicable" }
+  ]
+}

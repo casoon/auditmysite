@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" xml:lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+    </title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+        .is-hidden { display: none; }
+    </style>
+</head>
+<body>
+    <!-- A CMS template with broken head data and empty heading shells (#783):
+         lang and xml:lang name different languages, the title holds only
+         whitespace, and several headings carry no accessible name. -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/shop/">Shop</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1>Product catalogue</h1>
+        <!-- Empty: no text, and the only image is decorative. -->
+        <h2 id="empty-decorative"><img src="divider.png" alt=""></h2>
+        <p>Hand tools for every workshop.</p>
+        <!-- Named by an image's alternative text: not empty. -->
+        <h2 id="named-by-alt"><img src="logo-tools.png" alt="Tools by Acme"></h2>
+        <p>Hammers, saws and planes.</p>
+        <!-- Named by aria-labelledby: not empty. -->
+        <h2 id="named-by-ref" aria-labelledby="garden-label"></h2>
+        <p id="garden-label">Garden</p>
+        <!-- An ARIA heading with no name is an empty heading as well. -->
+        <div id="empty-aria-heading" role="heading" aria-level="2"></div>
+        <p>Spades and rakes.</p>
+        <!-- Hidden and empty: not rendered, not in the outline. -->
+        <h2 id="hidden-empty" class="is-hidden"></h2>
+        <h2>Contact</h2>
+        <p>Call us during opening hours.</p>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+</body>
+</html>

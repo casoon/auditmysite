@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page rotated into landscape on portrait screens</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  /* Classic orientation lock: in portrait (the mobile pass) the whole page
+     is turned sideways so it can only be read in landscape. */
+  @media (orientation: portrait) {
+    body { transform: rotate(90deg); transform-origin: top left; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Seat map</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Choose your seat</h1>
+  <p>Rows A to F, seats 1 to 30.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

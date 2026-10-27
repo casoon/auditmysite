@@ -7,9 +7,10 @@
 //! that criterion only fails when a focused component is *entirely* hidden,
 //! this one fails as soon as *any* meaningful part of it is covered. Both
 //! rules share the same static-snapshot geometric approach and the same
-//! caveats (no real focus-walk/scroll simulation, no paint/stacking-order
-//! check) — see `focus_not_obscured_minimum` for the full rationale. Only
-//! the overlap threshold and severity/level differ.
+//! caveat (no real focus-walk/scroll simulation) — see
+//! `focus_not_obscured_minimum` for the full rationale. Paint order is
+//! checked at the centre of each overlap inside the viewport. Only the
+//! overlap threshold and severity/level differ.
 //!
 //! Because a fully-hidden element (2.4.11 violation) is by definition also
 //! partially hidden, the same element can legitimately show up as both a
@@ -72,12 +73,33 @@ fn is_partially_hidden(focusable: Rect, overlays: &[Rect]) -> bool {
         .any(|overlay| overlap_ratio(focusable, *overlay) >= PARTIALLY_HIDDEN_RATIO)
 }
 
-/// Same collection as `focus_not_obscured_minimum::FOCUS_OBSCURED_JS`, still
-/// kept as a separate copy. (The target-size rules it once cited as precedent
-/// now share their helpers, so the copy is a leftover, not a convention.)
+/// Same collection as `focus_not_obscured_minimum::FOCUS_OBSCURED_JS`, plus a
+/// paint-order check: an overlay that the browser paints below the control
+/// is no candidate. 2.4.11 gets paint order from its focus walk; this rule
+/// has only the static geometry, which alone flagged a control above a
+/// `z-index: -1` backdrop (corpus `interaction_focus_obscured`).
 const FOCUS_OBSCURED_JS: &str = r#"
 (function() {
   /*CSS_SELECTOR*/
+
+  // An overlay that paints below the control (lower stacking order) hides
+  // nothing of it. Decided in the browser's own paint order at the centre of
+  // the overlap; outside the viewport that cannot be asked, and the overlay
+  // stays a candidate.
+  function paintsBelow(ov, o, fel, frect) {
+    var left = Math.max(frect.x, o.x), right = Math.min(frect.x + frect.width, o.x + o.w);
+    var top = Math.max(frect.y, o.y), bottom = Math.min(frect.y + frect.height, o.y + o.h);
+    if (right <= left || bottom <= top) return false;
+    var cx = (left + right) / 2, cy = (top + bottom) / 2;
+    if (cx < 0 || cy < 0 || cx >= innerWidth || cy >= innerHeight) return false;
+    var painted = document.elementsFromPoint(cx, cy);
+    var control = -1, overlay = -1;
+    for (var p = 0; p < painted.length; p++) {
+      if (control < 0 && (painted[p] === fel || fel.contains(painted[p]))) control = p;
+      if (overlay < 0 && (painted[p] === ov || ov.contains(painted[p]))) overlay = p;
+    }
+    return control >= 0 && (overlay < 0 || control < overlay);
+  }
 
   var overlays = [];
   var overlayEls = [];
@@ -110,6 +132,7 @@ const FOCUS_OBSCURED_JS: &str = r#"
     var candidates = [];
     for (var k = 0; k < overlayEls.length; k++) {
       if (overlayEls[k] === fel || overlayEls[k].contains(fel)) continue;
+      if (paintsBelow(overlayEls[k], overlays[k], fel, frect)) continue;
       candidates.push(k);
     }
     if (candidates.length === 0) continue;

@@ -1,0 +1,6 @@
+{
+  "case": "visual_reflow_ok",
+  "expectations": [
+    { "rule_id": "css-overflow-hidden", "verdict": "pass" }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "case": "security_source_map_unreachable_asset",
+  "note": "The only script lives on a host that does not answer: the check could not look, which is not 'no leak'.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin"
+  },
+  "fixture": {
+    "page_body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>App</title><script src=\"{{UNREACHABLE}}/app.js\" defer></script></head><body><main><h1>App</h1></main></body></html>"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Source Map:public_source_map",
+      "verdict": "errored"
+    }
+  ]
+}

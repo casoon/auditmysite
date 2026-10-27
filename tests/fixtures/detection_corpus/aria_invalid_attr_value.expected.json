@@ -1,6 +1,10 @@
 {
   "case": "aria_invalid_attr_value",
   "expectations": [
-    { "rule_id": "aria/attribute-value-invalid", "verdict": "violation" }
+    {"rule_id": "aria/attribute-value-invalid", "verdict": "violation"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

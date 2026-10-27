@@ -1,12 +1,20 @@
 {
   "case": "aria_attribute_validation",
   "expectations": [
-    { "rule_id": "aria/attribute-unknown", "verdict": "violation" },
-    { "rule_id": "aria/attribute-prohibited", "verdict": "violation" },
-    { "rule_id": "aria/attribute-not-allowed", "verdict": "violation" },
-    { "rule_id": "aria/role-invalid", "verdict": "violation" },
-    { "rule_id": "aria/reference-missing", "verdict": "violation" },
-    { "rule_id": "aria/required-parent-missing", "verdict": "violation" },
-    { "rule_id": "keyboard/hidden-focusable", "verdict": "violation" }
+    {"rule_id": "aria/attribute-unknown", "verdict": "violation"},
+    {"rule_id": "aria/attribute-prohibited", "verdict": "violation"},
+    {"rule_id": "aria/attribute-not-allowed", "verdict": "violation"},
+    {"rule_id": "aria/role-invalid", "verdict": "violation"},
+    {"rule_id": "aria/reference-missing", "verdict": "violation"},
+    {"rule_id": "aria/required-parent-missing", "verdict": "violation"},
+    {"rule_id": "keyboard/hidden-focusable", "verdict": "violation"},
+    {"rule_id": "forms/error-unidentified", "verdict": "needs_review"},
+    {"rule_id": "forms/purpose-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

@@ -781,13 +781,29 @@ pub async fn analyze_security(
     url: &str,
     log: &crate::audit::collection::CollectionLog,
 ) -> Result<SecurityAnalysis> {
+    analyze_security_trusting(url, log, &[]).await
+}
+
+/// [`analyze_security`] with additional trust anchors for its HTTPS
+/// requests. The roots are added to reqwest's built-in set; certificate,
+/// chain and hostname validation stay fully on. Exists so the detection
+/// corpus can serve a real HTTPS fixture signed by a corpus-only CA (#783);
+/// the audit itself always calls [`analyze_security`], i.e. with none.
+#[doc(hidden)]
+pub async fn analyze_security_trusting(
+    url: &str,
+    log: &crate::audit::collection::CollectionLog,
+    extra_roots: &[reqwest::Certificate],
+) -> Result<SecurityAnalysis> {
     info!("Analyzing security headers for {}...", url);
 
-    let client = reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
-        .danger_accept_invalid_certs(false)
-        .build()
-        .map_err(AuditError::HttpError)?;
+        .danger_accept_invalid_certs(false);
+    for root in extra_roots {
+        builder = builder.add_root_certificate(root.clone());
+    }
+    let client = builder.build().map_err(AuditError::HttpError)?;
     let (response_headers, fetch) = log
         .record(&HEADERS, fetch_headers(&client, url).await)
         .into_result(&HEADERS)?;
@@ -832,7 +848,10 @@ pub async fn analyze_security(
 
     // Public source-map leak check (#538)
     let sourcemap_leaks = log
-        .record(&SOURCE_MAPS, audit_source_maps(url).await)
+        .record(
+            &SOURCE_MAPS,
+            sourcemap::audit_source_maps_trusting(url, extra_roots).await,
+        )
         .into_value()
         .unwrap_or_default();
     if !sourcemap_leaks.leaks.is_empty() {
@@ -1012,19 +1031,9 @@ fn extract_security_headers(headers: &HeaderMap) -> SecurityHeaders {
 fn analyze_ssl(https: bool, headers: &SecurityHeaders) -> SslInfo {
     let hsts = headers.strict_transport_security.as_ref();
 
-    let (hsts_max_age, hsts_include_subdomains, hsts_preload) = if let Some(hsts_value) = hsts {
-        let max_age = hsts_value
-            .split(';')
-            .find(|s| s.trim().starts_with("max-age"))
-            .and_then(|s| s.split('=').nth(1))
-            .and_then(|s| s.trim().parse().ok());
-
-        let include_subdomains = hsts_value.to_lowercase().contains("includesubdomains");
-        let preload = hsts_value.to_lowercase().contains("preload");
-
-        (max_age, include_subdomains, preload)
-    } else {
-        (None, false, false)
+    let (hsts_max_age, hsts_include_subdomains, hsts_preload) = match hsts {
+        Some(hsts_value) => parse_hsts_directives(hsts_value),
+        None => (None, false, false),
     };
 
     SslInfo {
@@ -1036,6 +1045,29 @@ fn analyze_ssl(https: bool, headers: &SecurityHeaders) -> SslInfo {
         hsts_preload,
         ..Default::default()
     }
+}
+
+/// `max-age`, `includeSubDomains` and `preload` of an STS header value.
+/// Directive names are case-insensitive and a value may be a quoted-string
+/// (RFC 6797 §6.1), so `Max-Age="31536000"` is one year like `max-age=31536000`.
+fn parse_hsts_directives(value: &str) -> (Option<u64>, bool, bool) {
+    let mut max_age = None;
+    let mut include_subdomains = false;
+    let mut preload = false;
+    for directive in value.split(';') {
+        let (name, directive_value) = match directive.split_once('=') {
+            Some((name, v)) => (name.trim(), Some(v.trim().trim_matches('"'))),
+            None => (directive.trim(), None),
+        };
+        if name.eq_ignore_ascii_case("max-age") {
+            max_age = directive_value.and_then(|v| v.parse().ok());
+        } else if name.eq_ignore_ascii_case("includesubdomains") {
+            include_subdomains = true;
+        } else if name.eq_ignore_ascii_case("preload") {
+            preload = true;
+        }
+    }
+    (max_age, include_subdomains, preload)
 }
 
 pub(crate) fn generate_security_issues(
@@ -1181,7 +1213,9 @@ fn cors_allows_wildcard_credentials(headers: &SecurityHeaders) -> bool {
 /// without meeting it is a misleading/incomplete configuration (#535).
 fn hsts_preload_ineligible(ssl: &SslInfo) -> bool {
     const ONE_YEAR_SECONDS: u64 = 31_536_000;
-    ssl.hsts_preload
+    // Over plain HTTP the header is ignored (RFC 6797 §8.1): nothing to judge.
+    ssl.https
+        && ssl.hsts_preload
         && (ssl.hsts_max_age.unwrap_or(0) < ONE_YEAR_SECONDS || !ssl.hsts_include_subdomains)
 }
 
@@ -1286,12 +1320,17 @@ fn policy_quality_issues(policy: &csp_parse::Policy) -> Vec<SecurityIssue> {
         ));
     }
 
-    for directive in CSP_REQUIRED_DIRECTIVES {
-        if !policy
+    let declares = |name: &str| {
+        policy
             .directives
             .iter()
-            .any(|d| d.name.eq_ignore_ascii_case(directive))
-        {
+            .any(|d| d.name.eq_ignore_ascii_case(name))
+    };
+    for directive in CSP_REQUIRED_DIRECTIVES {
+        // `object-src` falls back to `default-src` (CSP3 §6.1.1); `base-uri`
+        // and `frame-ancestors` have no fallback.
+        let covered = declares(directive) || (directive == "object-src" && declares("default-src"));
+        if !covered {
             issues.push(csp_issue(
                 SecurityIssueKind::CspMissingDirective,
                 SecurityIssueValues {
@@ -2176,6 +2215,7 @@ mod tests {
     #[test]
     fn hsts_preload_ineligible_flags_short_max_age() {
         let ssl = SslInfo {
+            https: true,
             hsts_preload: true,
             hsts_max_age: Some(3600),
             hsts_include_subdomains: true,
@@ -2187,6 +2227,7 @@ mod tests {
     #[test]
     fn hsts_preload_ineligible_flags_missing_subdomains() {
         let ssl = SslInfo {
+            https: true,
             hsts_preload: true,
             hsts_max_age: Some(31536000),
             hsts_include_subdomains: false,
@@ -2196,8 +2237,32 @@ mod tests {
     }
 
     #[test]
+    fn hsts_preload_over_plain_http_is_not_judged() {
+        let ssl = SslInfo {
+            https: false,
+            hsts_preload: true,
+            hsts_max_age: Some(3600),
+            ..Default::default()
+        };
+        assert!(!hsts_preload_ineligible(&ssl));
+    }
+
+    #[test]
+    fn hsts_directives_are_case_insensitive_and_may_be_quoted() {
+        assert_eq!(
+            parse_hsts_directives("Max-Age=\"31536000\" ; INCLUDESUBDOMAINS; Preload"),
+            (Some(31536000), true, true)
+        );
+        assert_eq!(
+            parse_hsts_directives("max-age=60"),
+            (Some(60), false, false)
+        );
+    }
+
+    #[test]
     fn hsts_preload_eligible_is_not_flagged() {
         let ssl = SslInfo {
+            https: true,
             hsts_preload: true,
             hsts_max_age: Some(31536000),
             hsts_include_subdomains: true,
@@ -2209,6 +2274,7 @@ mod tests {
     #[test]
     fn hsts_preload_not_set_is_not_flagged_regardless_of_max_age() {
         let ssl = SslInfo {
+            https: true,
             hsts_preload: false,
             hsts_max_age: Some(60),
             hsts_include_subdomains: false,
@@ -2265,9 +2331,28 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.issue_type == "wildcard_script_source"));
-        assert!(issues
+        // object-src falls back to `default-src *`: not missing, the
+        // wildcard is wildcard_source's finding.
+        assert!(!issues
             .iter()
             .any(|issue| issue.issue_type == "missing_object-src"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "wildcard_source"));
+    }
+
+    #[test]
+    fn csp_object_src_falls_back_to_default_src() {
+        let types = |policy: &str| -> Vec<String> {
+            collect_csp_quality_issues(policy)
+                .into_iter()
+                .map(|i| i.issue_type)
+                .collect()
+        };
+        let with_default = types("default-src 'self'; base-uri 'self'; frame-ancestors 'none'");
+        assert!(!with_default.iter().any(|t| t == "missing_object-src"));
+        let without = types("script-src 'self'; base-uri 'self'; frame-ancestors 'none'");
+        assert!(without.iter().any(|t| t == "missing_object-src"));
     }
 
     #[test]

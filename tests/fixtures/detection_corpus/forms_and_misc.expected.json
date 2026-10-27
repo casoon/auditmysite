@@ -1,16 +1,60 @@
 {
   "case": "forms_and_misc",
   "expectations": [
-    { "rule_id": "aria/owns-conflict", "verdict": "violation" },
-    { "rule_id": "forms/autocomplete-invalid", "verdict": "violation" },
-    { "rule_id": "forms/purpose-missing", "verdict": "needs_review" },
-    { "rule_id": "manual/help", "verdict": "needs_review" },
-    { "rule_id": "forms/group-missing", "verdict": "needs_review" },
-    { "rule_id": "label-in-name/mismatch", "verdict": "violation" },
-    { "rule_id": "images/server-side-map", "verdict": "needs_review" },
-    { "rule_id": "navigation/location-missing", "verdict": "needs_review" },
-    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
-    { "rule_id": "forms/title-only-label", "verdict": "needs_review" },
-    { "rule_id": "patterns/tooltip-unreferenced", "verdict": "violation", "occurrences": 1 }
+    {
+      "rule_id": "aria/owns-conflict",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "label-in-name/mismatch",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "images/server-side-map",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "patterns/tooltip-unreferenced",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a",
+      "verdict": "needs_review"
+    }
   ]
 }

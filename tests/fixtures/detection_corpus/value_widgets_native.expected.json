@@ -1,7 +1,14 @@
 {
   "case": "value_widgets_native",
   "expectations": [
-    { "rule_id": "aria/required-attribute-missing", "verdict": "pass" },
-    { "rule_id": "aria/required-children-missing", "verdict": "pass" }
+    {"rule_id": "aria/required-attribute-missing", "verdict": "pass"},
+    {"rule_id": "aria/required-children-missing", "verdict": "pass"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

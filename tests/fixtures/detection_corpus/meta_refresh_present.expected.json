@@ -1,6 +1,31 @@
 {
   "case": "meta_refresh_present",
   "expectations": [
-    { "rule_id": "timing/meta-refresh", "verdict": "violation" }
+    {
+      "rule_id": "timing/meta-refresh",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

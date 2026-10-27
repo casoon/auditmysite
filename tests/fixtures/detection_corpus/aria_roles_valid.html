@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Order overview - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Order overview</h1>
+
+        <!-- Valid concrete roles -->
+        <div id="orders" role="table" aria-label="Orders">
+            <div role="rowgroup">
+                <div role="row" id="order-head">
+                    <span role="columnheader">Order</span>
+                    <span role="columnheader">Status</span>
+                </div>
+                <div role="row" id="order-row">
+                    <span role="cell">Order 1001</span>
+                    <span role="cell">shipped</span>
+                </div>
+            </div>
+        </div>
+        <div id="filters" role="group" aria-label="Filter orders">
+            <button type="button" id="filter-open">Open orders</button>
+        </div>
+
+        <!-- A role that changes the element's semantics is not redundant -->
+        <a href="/orders/export" id="export" role="button">Export</a>
+
+        <!-- Tabs inside their tablist, through a generic wrapper; the tablist
+             owns a tab through aria-owns as well -->
+        <div id="views" role="tablist" aria-label="Views" aria-owns="view-map">
+            <div class="tab-wrap">
+                <div id="view-list" role="tab" tabindex="0" aria-selected="true" aria-controls="view-panel">List</div>
+            </div>
+            <div id="view-grid" role="tab" tabindex="-1" aria-selected="false" aria-controls="view-panel">Grid</div>
+        </div>
+        <div id="view-map" role="tab" tabindex="-1" aria-selected="false" aria-controls="view-panel">Map</div>
+        <div id="view-panel" role="tabpanel" aria-labelledby="view-list">Three orders.</div>
+
+        <!-- A busy feed may hold a placeholder instead of articles while loading -->
+        <div id="loading" role="feed" aria-busy="true" aria-label="Recent orders">
+            <p class="spinner">Loading</p>
+        </div>
+
+        <!-- Required states present; native controls carry them natively -->
+        <div id="gift" role="checkbox" tabindex="0" aria-checked="false">Gift wrap</div>
+        <div id="express" role="switch" tabindex="0" aria-checked="true">Express delivery</div>
+        <input type="checkbox" id="insure" role="switch">
+        <label for="insure">Insure parcel</label>
+        <div id="carrier" role="combobox" tabindex="0" aria-expanded="false" aria-controls="carriers" aria-label="Carrier">Standard</div>
+        <ul id="carriers" role="listbox" aria-label="Carriers" hidden>
+            <li role="option" id="carrier-std" aria-selected="true">Standard</li>
+        </ul>
+        <hr id="divider">
+        <div id="static-sep" role="separator"></div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

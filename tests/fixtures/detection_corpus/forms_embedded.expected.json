@@ -1,0 +1,356 @@
+{
+  "case": "forms_embedded",
+  "expectations": [
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#sd-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#sd-placeholder",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "input#sd-titled",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#sd-bad-ac",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sd-mail",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "input#sd-invalid",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "input#sd-radio",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "fieldset#sd-fieldset",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "input#sd-required",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#sd-date",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#sd-jump",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "form#sd-form-nosubmit",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "form#sd-form-twice",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sd-m1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#sd-m2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#sd-pw",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#sd-login",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "div#sd-focus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "button#sd-autofocus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "a#sd-empty-link",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "button#sd-empty-button",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "a#sd-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "a#sd-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "a#sd-url",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "a#sd-single",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "a#sd-new-window",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "a#sd-fake",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#sd-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "iframe#embedded-frame [frame] a#fr-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-unlabelled",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "iframe#embedded-frame [frame] input#fr-placeholder",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "selector": "iframe#embedded-frame [frame] input#fr-titled",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "iframe#embedded-frame [frame] input#fr-bad-ac",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-mail",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "selector": "iframe#embedded-frame [frame] input#fr-invalid",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-radio",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "selector": "iframe#embedded-frame [frame] fieldset#fr-fieldset",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "selector": "iframe#embedded-frame [frame] input#fr-required",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-date",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "iframe#embedded-frame [frame] select#fr-jump",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "selector": "iframe#embedded-frame [frame] form#fr-form-nosubmit",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "selector": "iframe#embedded-frame [frame] form#fr-form-twice",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-m1",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "iframe#embedded-frame [frame] input#fr-m2",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "iframe#embedded-frame [frame] input#fr-pw",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "iframe#embedded-frame [frame] form#fr-login",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/on-focus",
+      "selector": "iframe#embedded-frame [frame] div#fr-focus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "context/autofocus",
+      "selector": "iframe#embedded-frame [frame] button#fr-autofocus",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/name-missing",
+      "selector": "iframe#embedded-frame [frame] a#fr-empty-link",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "selector": "iframe#embedded-frame [frame] button#fr-empty-button",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/generic-name",
+      "selector": "iframe#embedded-frame [frame] a#fr-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "selector": "iframe#embedded-frame [frame] a#fr-generic",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/url-name",
+      "selector": "iframe#embedded-frame [frame] a#fr-url",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "selector": "iframe#embedded-frame [frame] a#fr-single",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "selector": "iframe#embedded-frame [frame] a#fr-new-window",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "selector": "iframe#embedded-frame [frame] a#fr-fake",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

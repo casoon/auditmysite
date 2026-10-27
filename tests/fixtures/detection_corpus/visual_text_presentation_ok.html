@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Readable paragraphs with a tight heading and caption</title>
+<style>
+  /* normalize.css default on html, overridden where paragraphs are set. */
+  html { line-height: 1.15; }
+  body { color: #111111; background: #ffffff; }
+  p { line-height: 1.6; text-align: left; }
+  /* Not blocks of text: a justified heading and a compact caption. */
+  h1 { text-align: justify; line-height: 1.1; }
+  figcaption { line-height: 1.2; }
+  /* Collapsed legal text: justified and tight, but not presented. */
+  .legal { text-align: justify; line-height: 1.2; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>City library news</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Opening of the new reading room</h1>
+  <p>The new reading room on the second floor opens next Monday. It offers forty
+     quiet desks, daylight from three sides and a small collection of local history.</p>
+  <p class="legal" hidden>Terms of use: the reading room is open to all card holders under
+     the library rules in force at the time of the visit.</p>
+  <figure>
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Crect width='240' height='120' fill='%23336699'/%3E%3C/svg%3E"
+         alt="Floor plan of the second floor" width="240" height="120">
+    <figcaption>Second floor, reading room on the left</figcaption>
+  </figure>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "case": "schema_rules_none",
+  "expectations": [
+    {
+      "rule_id": "product_snippet",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "article",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "breadcrumb",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "organization",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "local_business",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "faq",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "event",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "recipe",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "video",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "job_posting",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "software_application",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "profile_page",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "item_list",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "web_page",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "web_site",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "person",
+      "verdict": "not_applicable"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "case": "content_video_dynamic",
+  "expectations": [
+    {"rule_id": "video-caption", "verdict": "needs_review", "occurrences": 1}
+  ]
+}

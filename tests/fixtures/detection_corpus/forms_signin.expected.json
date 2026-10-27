@@ -1,0 +1,86 @@
+{
+  "case": "forms_signin",
+  "expectations": [
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-attr",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-listener",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-alert",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#otp-code",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-sanitise",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "selector": "input#pw-readonly",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#login-captcha",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#login-img-captcha",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#login-invisible",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#contact-captcha",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "auth/captcha",
+      "selector": "form#login-attr",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

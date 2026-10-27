@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endless loading spinners without a pause control</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #333333; border-top-color: transparent;
+             border-radius: 50%; animation: spin 1.2s linear infinite; }
+  /* Three runs, then it stops: not endless. */
+  .wiggle { width: 40px; height: 40px; background: #333333; animation: spin 1s linear 3; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Order tracking</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Your order is being prepared</h1>
+  <div><div id="spinner" class="spinner" role="img" aria-label="Loading"></div></div>
+  <div><div id="finite" class="wiggle" role="img" aria-label="New"></div></div>
+  <!-- Endless, but not rendered. -->
+  <div style="display: none"><div id="hidden-spinner" class="spinner"></div></div>
+  <!-- Dynamic: the class is added by a script after load. -->
+  <div><div id="late-spinner" role="img" aria-label="Refreshing"></div></div>
+  <p>We will send you an e-mail as soon as the parcel leaves our warehouse.</p>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  window.addEventListener('load', function () {
+    document.getElementById('late-spinner').className = 'spinner';
+  });
+</script>
+</body>
+</html>

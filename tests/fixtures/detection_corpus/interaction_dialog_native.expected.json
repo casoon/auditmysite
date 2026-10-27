@@ -1,0 +1,14 @@
+{
+  "case": "interaction_dialog_native",
+  "expectations": [
+    { "rule_id": "keyboard-trap", "verdict": "needs_review", "occurrences": 2 },
+    { "rule_id": "manual/interruptions", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" },
+    { "rule_id": "contrast/text-undetermined", "selector": "a", "verdict": "needs_review" },
+    { "rule_id": "contrast/text-undetermined", "selector": "h1", "verdict": "needs_review" },
+    { "rule_id": "contrast/text-undetermined", "selector": "p", "verdict": "needs_review" }
+  ]
+}

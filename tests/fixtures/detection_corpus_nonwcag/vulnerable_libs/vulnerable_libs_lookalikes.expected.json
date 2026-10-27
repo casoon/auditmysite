@@ -1,0 +1,26 @@
+{
+  "case": "vulnerable_libs_lookalikes",
+  "note": "jQuery UI, jQuery Validate and a Bootstrap datepicker are plugins; @angular/core is Angular, not AngularJS; neither global is the Prototype or MooTools library.",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "AngularJS",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "Prototype",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "MooTools",
+      "verdict": "absent"
+    }
+  ]
+}

@@ -168,6 +168,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 ## Code Conventions
 - Use `thiserror` for error types, `anyhow` for propagation
 - WCAG rules go in `src/wcag/rules/` as individual files, register in `mod.rs`
+- **Jede aktive Regel-ID braucht einen Vertrag** in `tests/fixtures/rule_contracts/` (Format: README dort) mit Positiv-, Negativ-, N/A- und Fehlerfall im Korpus, Variantenmatrix und gezielten Mutationen; `cargo test --test rule_contract_gate` ist sonst rot (#783). Erwartungen aus der Norm schreiben, nie aus dem Lauf; `scripts/mutation-check.py --rule <id>` prüft die Teststärke.
 - Output formatters go in `src/output/`, support both single and batch reports
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page that breaks JSON serialisation</title>
+  <script>
+    // Technical error case (#783): the page replaces JSON.stringify, which the
+    // detection scripts use to return their result. The check must be recorded
+    // as not run, never as a page without vulnerable libraries.
+    window.jQuery = { fn: { jquery: "1.9.0" } };
+    JSON.stringify = function () { return undefined; };
+  </script>
+</head>
+<body>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>Page that breaks JSON serialisation</h1>
+
+  </main>
+</body>
+</html>

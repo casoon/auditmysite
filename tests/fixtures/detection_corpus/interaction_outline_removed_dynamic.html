@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Focus outline removed by a script</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Bank</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/accounts">Accounts</a>
+    </nav>
+    <main id="main">
+        <h1>Focus outline removed by a script</h1>
+        <p>Review your recent payments or <a href="/statements">download a statement</a>.</p>
+        <button type="button">Show more payments</button>
+    </main>
+    <footer><p>Example Bank footer</p></footer>
+    <script>
+        // violation: a stylesheet injected after load removes the indicator
+        var style = document.createElement('style');
+        style.textContent = 'a:focus, button:focus { outline: none; }';
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

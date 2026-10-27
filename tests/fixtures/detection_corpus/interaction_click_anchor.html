@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Placeholder link with a click handler</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Travel</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/trips">Trips</a>
+    </nav>
+    <main id="main">
+        <h1>Your saved trips</h1>
+        <!-- violation (2.1.1): an a element without href is a placeholder, not a link
+             (HTML §4.5.1, HTML-AAM: role generic), and not focusable -->
+        <a id="ch-anchor" onclick="this.textContent = 'Saved'">Save trip</a>
+    </main>
+    <footer><p>Example Travel footer</p></footer>
+</body>
+</html>

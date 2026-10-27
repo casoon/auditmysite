@@ -57,9 +57,55 @@ pub(super) fn with_shared_page_rule_violations(
     desktop.iter().chain(shared).cloned().collect()
 }
 
+/// A role one viewport needs is not redundant (#783): `role="list"` on a
+/// list whose markers only one layout hides restores the semantics there. A
+/// `lists/role-redundant` finding stands only where both passes report it for
+/// the same element; the others leave both passes — before scoring and merge,
+/// so score and report agree — and their run records count them out.
+pub(super) fn drop_single_viewport_redundant_roles(
+    desktop: &mut WcagResults,
+    mobile: &mut WcagResults,
+) {
+    const RULE: &str = "lists/role-redundant";
+    let keys = |r: &WcagResults| -> Vec<Option<String>> {
+        r.violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(RULE))
+            .map(|v| v.selector.clone())
+            .collect()
+    };
+    let (desktop_keys, mobile_keys) = (keys(desktop), keys(mobile));
+    let keep_paired = |results: &mut WcagResults, mut other: Vec<Option<String>>| {
+        let before = results.violations.len();
+        results.violations.retain(|v| {
+            if v.rule_id.as_deref() != Some(RULE) {
+                return true;
+            }
+            match other.iter().position(|k| *k == v.selector) {
+                Some(i) => {
+                    other.swap_remove(i);
+                    true
+                }
+                None => false,
+            }
+        });
+        let dropped = before - results.violations.len();
+        for run in &mut results.rule_outcomes {
+            if run.rule_id == RULE {
+                run.findings = run.findings.saturating_sub(dropped);
+            }
+        }
+    };
+    keep_paired(desktop, mobile_keys);
+    keep_paired(mobile, desktop_keys);
+}
+
 /// Merge violations from both passes.
 ///
-/// Dedup key: (rule, selector-or-node_id).
+/// Dedup key: (rule, selector), or (rule, role and name) for a finding
+/// without selector. AX node ids are not stable across the two passes — the
+/// page is reloaded in between — so they cannot pair a finding with itself
+/// (#783: a tree-rule review per modal dialog was reported once per pass).
 /// - Violations present on both → tag "both-viewports" (reported once)
 /// - Desktop-only → tag "desktop-only"
 /// - Mobile-only → tag "mobile-only"
@@ -70,7 +116,13 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
             .as_deref()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_owned())
-            .unwrap_or_else(|| v.node_id.clone());
+            .unwrap_or_else(|| {
+                format!(
+                    "{}|{}",
+                    v.role.as_deref().unwrap_or(""),
+                    v.name.as_deref().unwrap_or("")
+                )
+            });
         (v.rule_id.as_deref().unwrap_or(&v.rule), id)
     }
 
@@ -718,6 +770,68 @@ mod tests {
                 .iter()
                 .any(|v| v.tags.iter().any(|t| t == "both-viewports")));
         }
+    }
+
+    #[test]
+    fn list_role_needed_in_one_viewport_is_not_redundant() {
+        let redundant = |selector: &str| {
+            Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                crate::wcag::Severity::Low,
+                "role=\"list\" repeats the implicit role",
+                "x",
+            )
+            .with_rule_id("lists/role-redundant")
+            .with_selector(selector)
+        };
+        let mut desktop = WcagResults::new();
+        desktop.violations.push(redundant("ul#cards"));
+        desktop.violations.push(redundant("ul#both"));
+        desktop
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::ran("lists/role-redundant", 2).in_viewport("desktop"));
+        let mut mobile = WcagResults::new();
+        mobile.violations.push(redundant("ul#both"));
+        mobile
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::ran("lists/role-redundant", 1).in_viewport("mobile"));
+        drop_single_viewport_redundant_roles(&mut desktop, &mut mobile);
+        assert_eq!(desktop.violations.len(), 1);
+        assert_eq!(desktop.violations[0].selector.as_deref(), Some("ul#both"));
+        assert_eq!(desktop.rule_outcomes[0].findings, 1);
+        assert_eq!(mobile.violations.len(), 1);
+        assert_eq!(mobile.rule_outcomes[0].findings, 1);
+    }
+
+    #[test]
+    fn review_without_selector_pairs_across_passes_despite_new_node_ids() {
+        let review = |node: &str| {
+            let mut v = Violation::new(
+                "2.1.2",
+                "No Keyboard Trap",
+                WcagLevel::A,
+                crate::wcag::Severity::Medium,
+                "Verify focus can leave this dialog",
+                node,
+            )
+            .with_rule_id("keyboard-trap")
+            .as_warning();
+            v.role = Some("dialog".into());
+            v.name = Some("Settings".into());
+            v
+        };
+        let mut desktop = WcagResults::new();
+        desktop.warnings.push(review("41"));
+        let mut mobile = WcagResults::new();
+        mobile.warnings.push(review("97"));
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.warnings.len(), 1, "one dialog, one review");
+        assert!(merged.warnings[0]
+            .tags
+            .iter()
+            .any(|t| t == "both-viewports"));
     }
 
     #[test]

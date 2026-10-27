@@ -1,0 +1,12 @@
+{
+  "case": "aria_shared_deviations",
+  "expectations": [
+    {"rule_id": "aria/role-invalid", "verdict": "pass", "selector": "div#upload"},
+    {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "a#pricing-link", "occurrences": 1},
+    {"rule_id": "names/required-missing", "verdict": "violation", "selector": "ul#folders", "occurrences": 1},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

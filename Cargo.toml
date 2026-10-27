@@ -87,7 +87,7 @@ html5ever = "0.27"
 markup5ever_rcdom = "0.3"
 
 # Deep HTML5 spec-conformance checking (RelaxNG + Schematron), scored module
-html-conform = "0.3.2"
+html-conform = "0.3.3"
 
 # i18n (Project Fluent)
 fluent-bundle = "0.15"
@@ -114,11 +114,11 @@ hickory-resolver = "0.26.1"
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.10"
 a11y-perception = "0.2.1"
-a11y-report = "0.26.0"
-web-checks = "0.4.0"
-accname = "0.26.0"
-a11y-dom = "0.26.0"
-a11y-rules = "0.26.0"
+a11y-report = "0.26.1"
+web-checks = "0.5.1"
+accname = "0.26.1"
+a11y-dom = "0.26.1"
+a11y-rules = "0.26.1"
 csp-parse = "0.1.0"
 stylesheet-parse = "0.1.0"
 
@@ -127,6 +127,13 @@ tempfile = "3"
 jsonschema = "0.18"
 lopdf = "0.45"
 insta = { version = "1", features = ["json"] }
+# TLS side of the HTTPS fixture server in tests/common/routing_server.rs
+# (#783). Same version and `ring` provider reqwest's rustls-tls already
+# builds, so no new crate enters the graph.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+# Generates the fixture CA and certificates per test run, so no private key
+# is committed (#783).
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 
 [profile.release]
 opt-level = 3

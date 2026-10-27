@@ -1,10 +1,19 @@
 {
   "case": "iframe_widget_rules",
   "expectations": [
-    { "rule_id": "dialog/name-missing", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "aria/tabpanel-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "needs_review" },
-    { "rule_id": "aria/required-children-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "violation" },
-    { "rule_id": "aria/required-parent-missing", "selector": "iframe#widget [frame] a#tab-one", "verdict": "violation" },
-    { "rule_id": "dialog/name-missing", "selector": "iframe#hidden-widget [frame] div#hidden-dialog", "verdict": "pass" }
+    {"rule_id": "dialog/name-missing", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "aria/tabpanel-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "needs_review"},
+    {"rule_id": "aria/required-children-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "violation"},
+    {"rule_id": "aria/required-parent-missing", "selector": "iframe#widget [frame] a#tab-one", "verdict": "violation"},
+    {"rule_id": "dialog/name-missing", "selector": "iframe#hidden-widget [frame] div#hidden-dialog", "verdict": "pass"},
+    {"rule_id": "aria/required-parent-missing", "selector": "iframe#widget [frame] a#tab-two", "verdict": "violation"},
+    {"rule_id": "aria/tab-selected-missing", "selector": "iframe#widget [frame] ul#tabs", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "dialog/modal-unmarked", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "focus-visible", "verdict": "needs_review"},
+    {"rule_id": "keyboard/hidden-focusable", "verdict": "violation"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "lists/item-outside-list", "verdict": "violation"}
   ]
 }

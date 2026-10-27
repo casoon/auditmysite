@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stylesheet with motion rules for elements this page does not have</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  /* Shared site stylesheet: the carousel and spinner are not on this page. */
+  .carousel-track { transition: transform 0.5s ease; }
+  .loading-spinner { animation: turn 1s linear infinite; }
+  @keyframes turn { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Imprint</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Legal notice</h1>
+  <p>Example Ltd., 1 Example Street, Example City.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

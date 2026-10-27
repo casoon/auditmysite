@@ -1,6 +1,31 @@
 {
   "case": "reduced_motion_transform",
   "expectations": [
-    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review" }
+    {
+      "rule_id": "motion/reduced-motion-ignored",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

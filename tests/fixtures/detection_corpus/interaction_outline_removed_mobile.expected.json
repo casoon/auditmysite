@@ -1,0 +1,10 @@
+{
+  "case": "interaction_outline_removed_mobile",
+  "expectations": [
+    { "rule_id": "focus/outline-removed", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

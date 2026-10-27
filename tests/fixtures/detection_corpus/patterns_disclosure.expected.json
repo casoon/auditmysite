@@ -1,8 +1,13 @@
 {
   "case": "patterns_disclosure",
   "expectations": [
-    { "rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review" },
-    { "rule_id": "patterns/accordion-controls-missing", "verdict": "needs_review" },
-    { "rule_id": "keyboard/positive-tabindex", "verdict": "needs_review" }
+    {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},
+    {"rule_id": "patterns/accordion-controls-missing", "verdict": "needs_review"},
+    {"rule_id": "keyboard/positive-tabindex", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

@@ -1,0 +1,88 @@
+{
+  "case": "structure_head_defects",
+  "expectations": [
+    {
+      "rule_id": "document/lang-mismatch",
+      "selector": "html",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document/lang-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/lang-invalid",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/title-empty",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "document/title-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "h2#empty-decorative",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "div#empty-aria-heading",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "h2#named-by-alt",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "h2#named-by-ref",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/empty",
+      "selector": "h2#hidden-empty",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/skip-level",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-multiple",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "headings/none",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

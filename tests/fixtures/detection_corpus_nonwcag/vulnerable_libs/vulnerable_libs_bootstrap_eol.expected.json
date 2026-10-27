@@ -1,0 +1,14 @@
+{
+  "case": "vulnerable_libs_bootstrap_eol",
+  "note": "Bootstrap 2 is end of life and inside CVE-2018-14040/14042 and CVE-2024-6485.",
+  "expectations": [
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "jQuery",
+      "verdict": "pass"
+    }
+  ]
+}

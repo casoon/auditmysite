@@ -1,0 +1,2 @@
+# Rule contracts for the WCAG engine (#783), split by rule area in wcag/*.toml.
+# Format: tests/fixtures/rule_contracts/README.md.

@@ -178,16 +178,28 @@ fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
 
     let browser_smoke = workflow_job_body(&ci_yml, "browser-smoke");
     assert!(
-        browser_smoke.contains("--test integration_test")
-            && browser_smoke.contains("--test detection_corpus_test"),
-        "`browser-smoke` must run the Chrome integration and detection-corpus tests"
+        browser_smoke.contains("--test integration_test"),
+        "`browser-smoke` must run the Chrome integration tests"
     );
-    assert_eq!(
-        job_condition(browser_smoke),
-        None,
-        "`browser-smoke` must not carry a job-level `if:` — it would be able to \
-         skip the browser tests for the tagged release commit"
+    // The WCAG corpus runs sharded in its own job; every shard must run it.
+    let corpus = workflow_job_body(&ci_yml, "detection-corpus");
+    assert!(
+        corpus.contains("--test detection_corpus_test")
+            && corpus.contains("shard: [1, 2, 3]")
+            && corpus.contains("CORPUS_SHARD: ${{ matrix.shard }}/3"),
+        "`detection-corpus` must run every shard of the WCAG detection corpus"
     );
+    for (job, body) in [
+        ("browser-smoke", browser_smoke),
+        ("detection-corpus", corpus),
+    ] {
+        assert_eq!(
+            job_condition(body),
+            None,
+            "`{job}` must not carry a job-level `if:` — it would be able to \
+             skip the browser tests for the tagged release commit"
+        );
+    }
 
     // Coverage is a measurement, not a release gate: skipped on tag refs.
     let coverage = workflow_job_body(&ci_yml, "coverage");
@@ -199,37 +211,29 @@ fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
 }
 
 #[test]
-fn release_requires_positive_and_negative_rule_contracts() {
-    let ci = read_repo_file(".github/workflows/ci.yml");
-    let browser = workflow_job_body(&ci, "browser-smoke");
+fn release_requires_complete_detector_contracts_and_mutation_check() {
+    // The contract gate runs in every plain `cargo test` (never ignored), so
+    // CI's test jobs and the local release check enforce it alike.
+    let gate = read_repo_file("tests/rule_contract_gate.rs");
+    let body = gate
+        .split("fn every_active_detector_has_a_complete_contract")
+        .next()
+        .expect("contract gate missing");
+    let attributes = body.rsplit("#[test]").next().unwrap_or_default();
+    assert!(
+        !attributes.contains("#[ignore"),
+        "the contract gate must not be ignored"
+    );
+    assert!(gate.contains("deferred entries never pass the gate"));
+
     let local = read_repo_file("scripts/release-check.sh");
-    for runner in [browser, local.as_str()] {
-        assert!(
-            runner.contains("detection_corpus_completeness nonwcag_detection_corpus_completeness")
-        );
-        assert!(runner.contains("release_ -- --ignored --nocapture"));
-        assert!(
-            runner.contains("||"),
-            "one coverage failure must not hide the other inventory"
-        );
-    }
-    for test in [
-        "tests/detection_corpus_completeness.rs",
-        "tests/nonwcag_detection_corpus_completeness.rs",
-    ] {
-        let source = read_repo_file(test);
-        let gate = source
-            .split("fn release_")
-            .nth(1)
-            .expect("strict release gate missing");
-        let gate = gate.split("\n}\n").next().expect("gate body missing");
-        assert!(gate.contains("Verdict::Pass") && gate.contains("Verdict::Violation"));
-        assert!(gate.contains("gaps.is_empty()"));
-        assert!(
-            !gate.contains("load_structurally_deferred"),
-            "deferral is not tested evidence"
-        );
-    }
+    assert!(local.contains("cargo test --test rule_contract_gate"));
+    assert!(local.contains("scripts/mutation-check.py"));
+
+    let ci = read_repo_file(".github/workflows/ci.yml");
+    let mutation = workflow_job_body(&ci, "mutation-check");
+    assert!(mutation.contains("python3 scripts/mutation-check.py"));
+    assert!(mutation.contains("timeout-minutes"));
 }
 
 #[test]

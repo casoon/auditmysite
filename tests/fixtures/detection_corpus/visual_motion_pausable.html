@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endless ticker with a pause control and reduced-motion fallback</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .ticker { width: 40px; height: 40px; background: #333333; animation: slide 3s linear infinite; }
+  .ticker.paused { animation-play-state: paused; }
+  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(200px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker { animation: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Order tracking</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Live departures</h1>
+  <div><div id="ticker" class="ticker" role="img" aria-label="Moving departure board"></div></div>
+  <button type="button" id="pause" style="min-width: 44px; min-height: 44px"
+    onclick="document.getElementById('ticker').classList.toggle('paused')">Pause animation</button>
+  <p>The board updates every minute.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

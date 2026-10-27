@@ -1,0 +1,18 @@
+{
+  "case": "aria_attrs_valid",
+  "expectations": [
+    {"rule_id": "aria/attribute-unknown", "verdict": "pass"},
+    {"rule_id": "aria/reference-missing", "verdict": "pass"},
+    {"rule_id": "aria/attribute-value-invalid", "verdict": "pass"},
+    {"rule_id": "aria/attribute-not-allowed", "verdict": "pass"},
+    {"rule_id": "aria/attribute-prohibited", "verdict": "pass"},
+    {"rule_id": "aria/owns-conflict", "verdict": "pass"},
+    {"rule_id": "forms/instructions-missing", "verdict": "needs_review"},
+    {"rule_id": "headings/section-without-heading", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

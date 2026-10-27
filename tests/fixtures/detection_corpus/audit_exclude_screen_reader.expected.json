@@ -2,6 +2,48 @@
   "case": "audit_exclude_screen_reader",
   "screen_reader_bfsg_verdict": "no_violations_found",
   "expectations": [
-    { "rule_id": "forms/label-missing", "verdict": "pass" }
+    {
+      "rule_id": "forms/label-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/section-without-heading",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
   ]
 }

@@ -1,0 +1,26 @@
+{
+  "case": "forms_gap_placeholder_aria",
+  "expectations": [
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "selector": "input#porch-note",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/label-missing",
+      "selector": "input#porch-note",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

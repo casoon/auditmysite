@@ -2,26 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Link in text block: only running text counts</title>
     <style>
         body { color: #222; font-family: sans-serif; }
         a { color: #0050a0; text-decoration: none; }
         ul { list-style: none; padding: 0; }
+        .skip { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
     </style>
 </head>
 <body>
     <!-- #710: standalone links, identified by position rather than colour -->
+    <a class="skip" href="#main">Skip to main content</a>
     <header>
         <div class="logo"><a id="logo-link" href="/">Government Portal</a></div>
         <div class="header-links"><a id="header-help" href="/help">Help</a> | <a id="header-contact" href="/contact">Contact</a></div>
         <nav>
             <ul>
-                <li><a id="nav-home" href="/">Home</a></li>
+                <li><a id="nav-home" href="/" aria-current="page">Home</a></li>
                 <li><a id="nav-services" href="/services">Services</a></li>
             </ul>
         </nav>
     </header>
-    <main>
+    <main id="main">
         <h1>Link in text block</h1>
         <ul class="exposed-links">
             <li><a id="list-link" href="/topics">Topics</a></li>

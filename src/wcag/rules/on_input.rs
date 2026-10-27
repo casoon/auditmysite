@@ -15,7 +15,10 @@
 //!   Kontext, ist das ein Verstoss -- die geteilte Regel sieht nur den
 //!   Aufruf und bleibt bei `REVIEW`, beide stehen dann am selben Element.
 //! - Eine Auswahl ohne Handler, deren Name nach Navigation klingt
-//!   („Language", „Country"), ohne Absende-Button auf der Seite: `REVIEW`.
+//!   („Language", „Country"), ohne Absende-Button auf der Seite und ohne
+//!   Absende-Element in ihrem eigenen Formular: `REVIEW`. Ein Formular mit
+//!   Absende-Element sendet erst auf ausdrueckliche Anforderung ab, gleich
+//!   wie der Knopf heisst („Continue", #783).
 //!
 //! Only a change of *context* counts — navigation, a form submit, a new
 //! window or a focus move. Updating content on the same page (a filter, a
@@ -37,7 +40,9 @@ pub(super) const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "Changing a setting does not automatically cause a change of context",
     help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-input.html",
-    axe_id: "input-no-context-change",
+    // Every finding carries the shared id; the former own id
+    // `input-no-context-change` was never emitted (#783).
+    axe_id: "context/on-input",
     tags: &["wcag2a", "wcag322", "cat.keyboard"],
 };
 
@@ -108,6 +113,21 @@ const ON_INPUT_BODY: &str = r#"
     buttonNames.push(accessibleName(buttons[b]).toLowerCase());
   }
 
+  // Whether the control's own form has a submit control, whatever its name.
+  function formHasSubmit(el) {
+    var form = el.form || el.closest('form');
+    if (!form) return false;
+    var owned = form.elements || [];
+    for (var k = 0; k < owned.length; k++) {
+      var c = owned[k];
+      if (c.disabled) continue;
+      var t = (c.getAttribute('type') || '').toLowerCase();
+      if ((c.tagName === 'BUTTON' && (t === '' || t === 'submit')) ||
+          (c.tagName === 'INPUT' && (t === 'submit' || t === 'image'))) return true;
+    }
+    return false;
+  }
+
   var controls = [];
   var nodes = document.querySelectorAll('select, [role="combobox"], [role="listbox"], input[type="radio"], [role="radio"]');
   for (var i = 0; i < nodes.length && __amsReal(controls) < CAP; i++) {
@@ -118,6 +138,7 @@ const ON_INPUT_BODY: &str = r#"
       name: accessibleName(el).toLowerCase(),
       selector: __amsCssSelector(el),
       handler: handler,
+      form_submit: formHasSubmit(el),
       called: handler !== null && isChangeControl(el) ? calledSource(handler) : null
     }, CAP);
   }
@@ -134,6 +155,9 @@ struct Control {
     handler: Option<String>,
     /// The source of the global function the handler calls, if any.
     called: Option<String>,
+    /// Whether the control's own form has a submit control.
+    #[serde(default)]
+    form_submit: bool,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -239,7 +263,7 @@ fn evaluate(scan: &Scan) -> Vec<Violation> {
                 });
             }
 
-            if !submit_button && NAVIGATION_HINTS.iter().any(|h| c.name.contains(h)) {
+            if !submit_button && !c.form_submit && NAVIGATION_HINTS.iter().any(|h| c.name.contains(h)) {
                 return Some(
                     finding(
                         Severity::Low,
@@ -269,6 +293,7 @@ mod tests {
             selector: "select#x".to_string(),
             handler: handler.map(str::to_string),
             called: called.map(str::to_string),
+            form_submit: false,
         }
     }
 
@@ -371,6 +396,15 @@ mod tests {
         let v = evaluate(&scan(vec![control("language", None, None)]));
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].kind, Outcome::Review);
+    }
+
+    /// A select in a form with its own submit control waits for that control,
+    /// whatever it is called ("Continue" on a checkout form, #783).
+    #[test]
+    fn navigation_hint_in_form_with_submit_control_is_not_reported() {
+        let mut c = control("country", None, None);
+        c.form_submit = true;
+        assert!(evaluate(&scan(vec![c])).is_empty());
     }
 
     #[test]

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embedded sign-up widgets</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  a.plain { text-decoration: none; }
+  main p { color: #000; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Embedded sign-up widgets</h1>
+<!-- G2 #783 frames and shadow DOM: the same patterns inside an open shadow root and inside a same-origin iframe are content of the page and are judged like the top document. -->
+<div id="shadow-host"><template shadowrootmode="open"><style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  a.plain { text-decoration: none; }
+  p { color: #000; }
+</style>
+<form id="sd-form-a" action="/a" method="post">
+  <p><input id="sd-unlabelled" name="sd-x" type="text"></p>
+  <p><input id="sd-placeholder" name="sd-v" type="text" placeholder="Voucher code"></p>
+  <p><input id="sd-titled" name="sd-d" type="text" title="Door code"></p>
+  <p><label for="sd-bad-ac">Company</label> <input id="sd-bad-ac" name="sd-c" type="text" autocomplete="company"></p>
+  <p><label for="sd-mail">Email for updates</label> <input id="sd-mail" name="sd-m" type="email"></p>
+  <p><label for="sd-invalid">Team code</label> <input id="sd-invalid" name="sd-t" type="text" aria-invalid="true"></p>
+  <label><input type="radio" name="sd-freq" id="sd-radio" value="d"> Daily</label>
+  <fieldset id="sd-fieldset"><label><input type="checkbox" name="sd-dig" id="sd-digest"> Weekly digest</label></fieldset>
+  <p><label for="sd-required">Shirt size</label> <input id="sd-required" name="sd-s" type="text" required></p>
+  <p><label for="sd-date">Start date</label> <input id="sd-date" name="sd-sd" type="text"></p>
+  <p><label for="sd-jump">Jump to section</label> <select id="sd-jump" name="sd-j" onchange="location.href = this.value"><option value="#a">Bikes</option><option value="#b">Helmets</option></select></p>
+  <p><button type="submit">Save</button></p>
+</form>
+<form id="sd-form-nosubmit" action="/n" method="post"><p><label for="sd-ns">Coupon</label> <input id="sd-ns" name="sd-ns" type="text"></p></form>
+<form id="sd-form-twice" action="/o" method="post">
+  <p><label for="sd-m1">Email</label> <input id="sd-m1" name="sd-m1" type="email" autocomplete="off"></p>
+  <p><label for="sd-m2">Email for the invoice</label> <input id="sd-m2" name="sd-m2" type="email" autocomplete="off"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="sd-login" action="/login" method="post">
+  <p><label for="sd-pw">Password</label> <input id="sd-pw" name="sd-pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<div id="sd-focus" tabindex="-1" onfocus="this.dataset.seen = 'yes'">Spring promotion</div>
+<p><button id="sd-autofocus" type="button" autofocus>Continue</button></p>
+<p><a class="solo" id="sd-empty-link" href="/cart"></a></p>
+<p><button id="sd-empty-button" type="button"></button></p>
+<p><a class="solo" id="sd-generic" href="/offers">Click here</a></p>
+<div><div><ul><li><a class="solo" id="sd-url" href="https://example.org/report">https://example.org/report</a></li></ul></div></div>
+<p><a class="solo" id="sd-single" href="/close-offer">x</a></p>
+<p><a class="solo" id="sd-new-window" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="sd-fake" href="#" onclick="return false;">Chat with us</a></p>
+<p>Please read our <a id="sd-color" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+</template></div>
+<iframe id="embedded-frame" title="Sign-up widget" width="100%" height="900" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;title&gt;Sign-up widget&lt;/title&gt;&lt;style&gt;
+  a.plain { text-decoration: none; }
+  p { color: #000; }
+
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role=&quot;button&quot;], [role=&quot;textbox&quot;], [role=&quot;radio&quot;], [role=&quot;link&quot;], [role=&quot;searchbox&quot;] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type=&quot;checkbox&quot;], input[type=&quot;radio&quot;] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;main&gt;
+&lt;form id=&quot;fr-form-a&quot; action=&quot;/a&quot; method=&quot;post&quot;&gt;
+  &lt;p&gt;&lt;input id=&quot;fr-unlabelled&quot; name=&quot;fr-x&quot; type=&quot;text&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;input id=&quot;fr-placeholder&quot; name=&quot;fr-v&quot; type=&quot;text&quot; placeholder=&quot;Voucher code&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;input id=&quot;fr-titled&quot; name=&quot;fr-d&quot; type=&quot;text&quot; title=&quot;Door code&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-bad-ac&quot;&gt;Company&lt;/label&gt; &lt;input id=&quot;fr-bad-ac&quot; name=&quot;fr-c&quot; type=&quot;text&quot; autocomplete=&quot;company&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-mail&quot;&gt;Email for updates&lt;/label&gt; &lt;input id=&quot;fr-mail&quot; name=&quot;fr-m&quot; type=&quot;email&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-invalid&quot;&gt;Team code&lt;/label&gt; &lt;input id=&quot;fr-invalid&quot; name=&quot;fr-t&quot; type=&quot;text&quot; aria-invalid=&quot;true&quot;&gt;&lt;/p&gt;
+  &lt;label&gt;&lt;input type=&quot;radio&quot; name=&quot;fr-freq&quot; id=&quot;fr-radio&quot; value=&quot;d&quot;&gt; Daily&lt;/label&gt;
+  &lt;fieldset id=&quot;fr-fieldset&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot; name=&quot;fr-dig&quot; id=&quot;fr-digest&quot;&gt; Weekly digest&lt;/label&gt;&lt;/fieldset&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-required&quot;&gt;Shirt size&lt;/label&gt; &lt;input id=&quot;fr-required&quot; name=&quot;fr-s&quot; type=&quot;text&quot; required&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-date&quot;&gt;Start date&lt;/label&gt; &lt;input id=&quot;fr-date&quot; name=&quot;fr-sd&quot; type=&quot;text&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-jump&quot;&gt;Jump to section&lt;/label&gt; &lt;select id=&quot;fr-jump&quot; name=&quot;fr-j&quot; onchange=&quot;location.href = this.value&quot;&gt;&lt;option value=&quot;#a&quot;&gt;Bikes&lt;/option&gt;&lt;option value=&quot;#b&quot;&gt;Helmets&lt;/option&gt;&lt;/select&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;button type=&quot;submit&quot;&gt;Save&lt;/button&gt;&lt;/p&gt;
+&lt;/form&gt;
+&lt;form id=&quot;fr-form-nosubmit&quot; action=&quot;/n&quot; method=&quot;post&quot;&gt;&lt;p&gt;&lt;label for=&quot;fr-ns&quot;&gt;Coupon&lt;/label&gt; &lt;input id=&quot;fr-ns&quot; name=&quot;fr-ns&quot; type=&quot;text&quot;&gt;&lt;/p&gt;&lt;/form&gt;
+&lt;form id=&quot;fr-form-twice&quot; action=&quot;/o&quot; method=&quot;post&quot;&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-m1&quot;&gt;Email&lt;/label&gt; &lt;input id=&quot;fr-m1&quot; name=&quot;fr-m1&quot; type=&quot;email&quot; autocomplete=&quot;off&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-m2&quot;&gt;Email for the invoice&lt;/label&gt; &lt;input id=&quot;fr-m2&quot; name=&quot;fr-m2&quot; type=&quot;email&quot; autocomplete=&quot;off&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;&lt;button type=&quot;submit&quot;&gt;Order&lt;/button&gt;&lt;/p&gt;
+&lt;/form&gt;
+&lt;form id=&quot;fr-login&quot; action=&quot;/login&quot; method=&quot;post&quot;&gt;
+  &lt;p&gt;&lt;label for=&quot;fr-pw&quot;&gt;Password&lt;/label&gt; &lt;input id=&quot;fr-pw&quot; name=&quot;fr-pw&quot; type=&quot;password&quot; autocomplete=&quot;current-password&quot; onpaste=&quot;return false&quot;&gt;&lt;/p&gt;
+  &lt;div class=&quot;g-recaptcha&quot; data-sitekey=&quot;demo-key&quot;&gt;&lt;/div&gt;
+  &lt;p&gt;&lt;button type=&quot;submit&quot;&gt;Sign in&lt;/button&gt;&lt;/p&gt;
+&lt;/form&gt;
+&lt;div id=&quot;fr-focus&quot; tabindex=&quot;-1&quot; onfocus=&quot;this.dataset.seen = &#x27;yes&#x27;&quot;&gt;Spring promotion&lt;/div&gt;
+&lt;p&gt;&lt;button id=&quot;fr-autofocus&quot; type=&quot;button&quot; autofocus&gt;Continue&lt;/button&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-empty-link&quot; href=&quot;/cart&quot;&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;button id=&quot;fr-empty-button&quot; type=&quot;button&quot;&gt;&lt;/button&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-generic&quot; href=&quot;/offers&quot;&gt;Click here&lt;/a&gt;&lt;/p&gt;
+&lt;div&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-url&quot; href=&quot;https://example.org/report&quot;&gt;https://example.org/report&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-single&quot; href=&quot;/close-offer&quot;&gt;x&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-new-window&quot; href=&quot;https://example.org/partner&quot; target=&quot;_blank&quot;&gt;Partner programme&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class=&quot;solo&quot; id=&quot;fr-fake&quot; href=&quot;#&quot; onclick=&quot;return false;&quot;&gt;Chat with us&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Please read our &lt;a id=&quot;fr-color&quot; class=&quot;plain&quot; href=&quot;/policy&quot;&gt;privacy policy&lt;/a&gt; before you place an order.&lt;/p&gt;
+&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;"></iframe>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "case": "content_tables_broken",
+  "expectations": [
+    {"rule_id": "tables/header-missing", "selector": "table#loans", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-missing", "selector": "div#aria-branches", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-missing", "selector": "table#shadow-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-missing", "selector": "table#late-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/header-missing", "selector": "iframe#frame-table [frame] table#frame-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/name-missing", "selector": "table#loans", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/name-missing", "selector": "div#aria-branches", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/name-missing", "selector": "table#shadow-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/name-missing", "selector": "table#late-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/name-missing", "selector": "iframe#frame-table [frame] table#frame-stats", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "tables/presentational-with-headers", "selector": "table#layout-with-headers", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/header-without-data", "selector": "th#events-date", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/header-without-data", "selector": "th#events-title", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/header-without-data", "selector": "div#aria-seat-head", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-missing-ref", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-empty-ref", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-to-cell", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-other-table", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/headers-attr-invalid", "selector": "td#hidden-cell", "verdict": "pass"},
+    {"rule_id": "tables/data-undetermined", "verdict": "pass"}
+  ]
+}

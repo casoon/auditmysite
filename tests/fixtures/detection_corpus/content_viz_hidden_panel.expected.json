@@ -1,0 +1,11 @@
+{
+  "case": "content_viz_hidden_panel",
+  "expectations": [
+    {"rule_id": "viz/caption-missing", "selector": "figure#archived-chart", "verdict": "pass"},
+    {"rule_id": "viz/static-missing", "selector": "figure#archived-chart", "verdict": "pass"},
+    {"rule_id": "viz/text-missing", "verdict": "pass"},
+    {"rule_id": "viz/table-missing", "verdict": "not_applicable"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"}
+  ]
+}

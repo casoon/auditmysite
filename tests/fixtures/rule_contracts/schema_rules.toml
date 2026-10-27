@@ -1,0 +1,640 @@
+# Rule contracts for the schema_rules corpus (#783). Format: tests/fixtures/rule_contracts/README.md.
+# Method `detect_structured_data` (JSON-LD from the rendered DOM) with the rule profiles of
+# web-checks (barrierlab), run through `audit_page` with the SEO module so that the
+# merchant-listing context is the real one. Profiles follow Google Search Central's
+# structured-data documentation as of 2026-10.
+
+[[rule]]
+id = "product_snippet"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/product-snippet (required: name; one of review, aggregateRating, offers; offers need price, AggregateOffer lowPrice and priceCurrency)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Product in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when a Product node lacks name, or has none of review / aggregateRating / offers, or an offer without price (AggregateOffer: lowPrice and priceCurrency). No recommended properties are profiled here, so a node meeting the requirements passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_graph_and_arrays", "schema_rules_incomplete"]
+negative = ["schema_rules_complete", "schema_rules_merchant_listing_complete", "schema_rules_merchant_listing_incomplete"]
+not_applicable = ["schema_rules_iframe_only", "schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { cases = ["schema_rules_iframe_only"] }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for product_snippet: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "merchant_listing"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/merchant-listing (required: name, image, offers with price and priceCurrency; recommended: description, sku, brand.name, offers.availability)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Product on a purchasable product detail page in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Applies only where the page is a purchasable product detail page; the audit establishes that from the visible page intent (shop) and the product route in the SEO module's derive step. Where that context is not established the Product gets needs_review (context unknown), never a pass or a violation. On a product detail page: fails when name, image or an Offer with price and priceCurrency is missing; with them present and recommended properties missing it is needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_complete", "schema_rules_graph_and_arrays", "schema_rules_incomplete", "schema_rules_merchant_listing_incomplete"]
+negative = ["schema_rules_merchant_listing_complete"]
+not_applicable = ["schema_rules_iframe_only", "schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { cases = ["schema_rules_iframe_only"] }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "ignore the established product context (always indeterminate)"
+find = "build_rule_assessments(&structured_data.json_ld, product_context);"
+replace = "build_rule_assessments(&structured_data.json_ld, crate::seo::schema_rules::ProductRuleContext::Indeterminate);"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for merchant_listing: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "article"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/article (no required properties; recommended: author, dateModified, datePublished, headline, image; NewsArticle also publisher)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Article, BlogPosting, NewsArticle in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Google defines no required Article properties, so there is no violation state. Missing recommended properties are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_recommended_missing", "schema_rules_subtypes"]
+negative = ["schema_rules_complete", "schema_rules_dynamic_injection", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays", "schema_rules_subtypes"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { cases = ["schema_rules_dynamic_injection"] }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for article: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "breadcrumb"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/breadcrumb (required: itemListElement with at least two ListItems; each with position and name, item on all but the last)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type BreadcrumbList in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when itemListElement is missing or has fewer than two entries, or an entry lacks position or name (name may sit on item), or a non-last entry lacks item. Two complete entries pass. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_breadcrumb_single_entry", "schema_rules_incomplete"]
+negative = ["schema_rules_complete", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { cases = ["schema_rules_complete", "schema_rules_breadcrumb_single_entry"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for breadcrumb: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "organization"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/organization (no required properties; recommended: name, url, logo, address, telephone, sameAs, among others)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Organization in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Google defines no required Organization properties, so there is no violation state. Missing recommended properties are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_recommended_missing"]
+negative = ["schema_rules_complete", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for organization: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "local_business"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/local-business (required: name, address; recommended: telephone, url, openingHoursSpecification, image, priceRange, geo)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type LocalBusiness in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when name or address is missing. Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for local_business: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "faq"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/faqpage (required: mainEntity Questions, each with acceptedAnswer)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type FAQPage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when mainEntity is missing or a Question has no acceptedAnswer. Complete questions pass. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for faq: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "event"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/event (required: name, startDate, location; recommended: description, endDate, eventStatus, image, offers, organizer, performer; previousStartDate when rescheduled)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Event in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when name, startDate or location is missing, or a rescheduled event lacks previousStartDate. Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_dynamic_injection", "schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { cases = ["schema_rules_dynamic_injection"] }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for event: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "recipe"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/recipe (required: name, image; recommended: author, datePublished, description, recipeIngredient, recipeInstructions, recipeYield, totalTime)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Recipe in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when name or image is missing (or recipeYield with nutrition.calories). Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for recipe: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "video"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/video (required: name, thumbnailUrl, uploadDate; recommended: contentUrl or embedUrl, description, duration, interactionStatistic, regionsAllowed)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type VideoObject in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when name, thumbnailUrl or uploadDate is missing. Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for video: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "job_posting"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/job-posting (required: title, datePosted, description, hiringOrganization, jobLocation or remote-job properties; recommended: baseSalary, employmentType, identifier, validThrough)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type JobPosting in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when a required property is missing (applicantLocationRequirements for a TELECOMMUTE job instead of jobLocation). Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for job_posting: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "software_application"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/software-app (required: name, offers.price, aggregateRating or review; recommended: applicationCategory, operatingSystem; priceCurrency when price > 0)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type SoftwareApplication, WebApplication, MobileApplication in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when name, offers.price, or both aggregateRating and review are missing. Required present but applicationCategory/operatingSystem missing, or a price above 0 without priceCurrency: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). A price of 0 needs no currency. All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing", "schema_rules_software_paid_without_currency"]
+negative = ["schema_rules_complete", "schema_rules_subtypes"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_subtypes"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { cases = ["schema_rules_complete", "schema_rules_software_paid_without_currency"] }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for software_application: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "profile_page"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/profile-page (required: mainEntity Person or Organization with name; recommended: dateCreated, dateModified)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type ProfilePage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+Fails when mainEntity or its name is missing, or mainEntity is neither Person nor Organization. Required present but recommended missing: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The profile is keyed by the node's normalized type; @graph entries, top-level arrays and full IRIs are normalized once for every feature (schema_rules_graph_and_arrays)." }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for profile_page: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "item_list"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://developers.google.com/search/docs/appearance/structured-data/carousel (ItemList: itemListElement with position and url; recommended: name, numberOfItems; CollectionPage: no required properties)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type ItemList, CollectionPage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+ItemList fails when itemListElement is missing or an entry lacks position or url; CollectionPage has no required properties. Missing recommended properties: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_incomplete", "schema_rules_recommended_missing"]
+negative = ["schema_rules_complete", "schema_rules_subtypes"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_subtypes"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for item_list: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "web_page"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://schema.org/WebPage (no Google rich result; profile recommends name, url, description, inLanguage, isPartOf)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type WebPage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+No required properties exist, so there is no violation state. Missing profiled recommendations are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_recommended_missing"]
+negative = ["schema_rules_complete", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for web_page: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "web_site"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://schema.org/WebSite; https://developers.google.com/search/docs/appearance/structured-data/site-names (no required properties in this profile; recommended: name, url, inLanguage, publisher, potentialAction)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type WebSite in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+No required properties are profiled (Google's site-name requirement for name and url applies to the home page only, which this profile does not establish), so there is no violation state. Missing recommended properties are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_recommended_missing"]
+negative = ["schema_rules_complete", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for web_site: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
+
+[[rule]]
+id = "person"
+automation = "automated"
+method = "detect_structured_data"
+source = "https://schema.org/Person (no Google rich result; profile recommends name, url, image, jobTitle, worksFor, sameAs)"
+capabilities = ["dom"]
+applicability = "Applies to JSON-LD nodes of type Person in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method."
+expectation = """
+No required properties exist, so there is no violation state. Missing profiled recommendations are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. A Person nested as a property value (an author) is not a node of its own. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean."""
+page_level = true
+positive = ["schema_rules_recommended_missing"]
+negative = ["schema_rules_complete", "schema_rules_graph_and_arrays"]
+not_applicable = ["schema_rules_none", "schema_rules_not_applicable"]
+errored = ["schema_rules_error_scripts_sabotaged"]
+
+[rule.variants]
+visibility = { not_relevant = "JSON-LD is never rendered; whether marked-up facts are visible is the separate content-parity check." }
+native_vs_aria = { not_relevant = "Structured data has no ARIA counterpart." }
+alternative_labels = { cases = ["schema_rules_graph_and_arrays"] }
+frames_shadow_dom = { not_relevant = "Only the audited document's JSON-LD is collected; a framed document's JSON-LD belongs to that document (schema_rules_iframe_only shows it with a Product)." }
+responsive = { not_relevant = "Structured data is collected once from the DOM and does not depend on the viewport." }
+dynamic = { not_relevant = "JSON-LD is read from the rendered DOM after load, so injected blocks count like static ones (schema_rules_dynamic_injection shows it with Article and Event)." }
+thresholds = { not_relevant = "Presence checks; no numeric threshold in this profile." }
+
+[rule.test_strength]
+status = "killed"
+[[rule.test_strength.mutations]]
+target = "src/seo/schema.rs"
+change = "drop every assessment (valid nodes filtered out)"
+find = ".filter(|(_, schema)| schema.is_valid)"
+replace = ".filter(|(_, schema)| !schema.is_valid)"
+killed_by = "test:schema_rules_detection_corpus_test"
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/web-checks/src/structured_data/rules.rs"
+change = "web-checks assess_node profile for person: drop or weaken its required/recommended checks (verified by barrierlab's own catalog; placeholder)"
+killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"

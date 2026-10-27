@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xml:lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Opening hours and contact – Acme Hardware Berlin</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- Conforming look-alike for the structure rules (#783): every
+         structure the rules look at is present and correct. -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/shop/">Shop</a></li>
+            <li><a href="/contact/">Contact</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1>Opening hours and contact</h1>
+        <p>Our store in Berlin is open six days a week. We are happy to help you
+           find the right tool for your project, and you can always call us before
+           you visit to check that an item is in stock.</p>
+        <h2>Opening hours</h2>
+        <dl>
+            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>
+            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>
+        </dl>
+        <h2>Directions</h2>
+        <!-- English text with German proper names: names are exempt from
+             3.1.2, and only two German function words occur. -->
+        <p id="directions">The store is a short walk from the Haus der Kunst gallery and the
+           old bridge that locals call die Brücke. Take the tram to the main square, then
+           follow the river for about five minutes until you see our green sign.</p>
+        <article>
+            <h3>Store news</h3>
+            <p>We now stock garden tools from local makers.</p>
+        </article>
+        <section aria-labelledby="contact-heading">
+            <h2 id="contact-heading">Contact</h2>
+            <p>Call us or send a message. Prices include <abbr title="value-added tax">VAT</abbr>.</p>
+            <form action="/contact" method="post">
+                <label for="contact-email">E-mail</label>
+                <input id="contact-email" name="email" type="email" autocomplete="email" aria-describedby="contact-hint">
+                <p id="contact-hint">We reply within one working day.</p>
+                <button type="submit">Send</button>
+            </form>
+        </section>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+    <!-- Hidden leftover outside every landmark: not rendered, not content. -->
+    <div hidden>Summer sale banner</div>
+</body>
+</html>

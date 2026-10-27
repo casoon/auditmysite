@@ -72,7 +72,7 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     },
     PageRuleEntry {
         rule_id: "iframe/same-origin-content",
-        outcome_ids: &[],
+        outcome_ids: &["html-has-lang"],
         name: "same-origin iframe content",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_same_origin_iframes_with_page(p)),

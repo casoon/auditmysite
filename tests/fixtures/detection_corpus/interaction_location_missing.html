@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Opening hours without a location cue</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Museum</p></header>
+    <!-- needs_review (2.4.8): site navigation, but no breadcrumb and no aria-current="page" -->
+    <nav aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/visit">Visit</a>
+        <a href="/exhibitions">Exhibitions</a>
+    </nav>
+    <main id="main">
+        <h1>Opening hours</h1>
+        <p>Open Tuesday to Sunday, ten to six.</p>
+    </main>
+    <footer><p>Example Museum footer</p></footer>
+</body>
+</html>

@@ -1,10 +1,46 @@
 {
   "case": "display_modes_conforming",
   "expectations": [
-    { "rule_id": "display/toggle-missing", "verdict": "pass" },
-    { "rule_id": "display/init-missing", "verdict": "pass" },
-    { "rule_id": "display/text-media-visible", "verdict": "pass" },
-    { "rule_id": "display/text-not-visible", "verdict": "pass" },
-    { "rule_id": "display/text-hidden", "verdict": "pass" }
+    {
+      "rule_id": "display/toggle-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/init-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/text-not-visible",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/text-hidden",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "select#display-toggle",
+      "verdict": "needs_review"
+    }
   ]
 }

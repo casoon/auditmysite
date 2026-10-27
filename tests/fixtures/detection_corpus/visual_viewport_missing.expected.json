@@ -1,0 +1,8 @@
+{
+  "case": "visual_viewport_missing",
+  "expectations": [
+    { "rule_id": "zoom/viewport-missing", "selector": "html", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-locked", "verdict": "not_applicable" },
+    { "rule_id": "zoom/viewport-scale-limited", "verdict": "not_applicable" }
+  ]
+}

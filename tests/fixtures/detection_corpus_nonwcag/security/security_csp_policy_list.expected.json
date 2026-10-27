@@ -1,0 +1,79 @@
+{
+  "case": "security_csp_policy_list",
+  "note": "Two enforced CSP headers form one policy list; a resource loads only if every policy allows it (CSP3, 'Policy lists'). The first allows inline script, the second does not; each covers what the other lacks.",
+  "response_headers": {},
+  "fixture": {
+    "raw_response_headers": [
+      [
+        "Content-Security-Policy",
+        "script-src 'self' 'unsafe-inline'; base-uri 'self'"
+      ],
+      [
+        "Content-Security-Policy",
+        "default-src 'self'; object-src 'none'; frame-ancestors 'none'"
+      ],
+      [
+        "X-Content-Type-Options",
+        "nosniff"
+      ],
+      [
+        "Referrer-Policy",
+        "no-referrer"
+      ],
+      [
+        "Permissions-Policy",
+        "camera=()"
+      ],
+      [
+        "Cross-Origin-Opener-Policy",
+        "same-origin"
+      ],
+      [
+        "Cross-Origin-Resource-Policy",
+        "same-origin"
+      ]
+    ]
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "pass"
+    }
+  ]
+}

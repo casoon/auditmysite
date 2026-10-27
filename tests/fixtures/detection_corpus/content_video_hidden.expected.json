@@ -1,0 +1,6 @@
+{
+  "case": "content_video_hidden",
+  "expectations": [
+    {"rule_id": "video-caption", "verdict": "not_applicable"}
+  ]
+}

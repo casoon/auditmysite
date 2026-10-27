@@ -1,0 +1,20 @@
+{
+  "case": "forms_gap_advised_change",
+  "expectations": [
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ctx-advised",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

@@ -11,6 +11,10 @@ mod common;
 
 use auditmysite::best_practices::analyze_vulnerable_libraries;
 use auditmysite::{BrowserManager, BrowserOptions};
+use common::corpus_diff::{
+    diff_case, render_report, DiffRules, FindingClass, Mismatch, MismatchKind, Observation,
+    ObservedFinding, ObservedRun, RunState,
+};
 use common::detection_corpus::{
     load_corpus_dir, load_structurally_deferred, nonwcag_detection_corpus_dir, Verdict,
 };
@@ -27,12 +31,6 @@ async fn ci_browser() -> BrowserManager {
         .expect("browser launch failed")
 }
 
-struct CaseDiff {
-    case: String,
-    false_negatives: Vec<String>,
-    false_positives: Vec<String>,
-}
-
 #[tokio::test]
 #[ignore = "needs real Chrome; run manually with `cargo test -- --ignored`"]
 async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
@@ -47,7 +45,14 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
     );
 
     let manager = ci_browser().await;
-    let mut diffs: Vec<CaseDiff> = Vec::new();
+    let all_ids = common::nonwcag_rule_inventory::canonical_vulnerable_library_ids();
+    // A library finding concerns the page as a whole.
+    let diff_rules = DiffRules {
+        page_level: all_ids.clone(),
+        run_counts_findings: false,
+        ..Default::default()
+    };
+    let mut diffs = Vec::new();
 
     for case in &cases {
         let html_path = corpus_dir.join(format!("{}.html", case.case));
@@ -66,21 +71,30 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
             .await
             .expect("navigation failed");
 
-        let analysis = analyze_vulnerable_libraries(&page)
-            .await
-            .into_value()
-            .unwrap_or_else(|| {
-                panic!(
-                    "analyze_vulnerable_libraries collected nothing for case '{}'",
-                    case.case
-                )
-            });
-
+        let collected = analyze_vulnerable_libraries(&page).await;
         fixture.stop();
 
-        let mut false_negatives = Vec::new();
-        let mut false_positives = Vec::new();
+        // A failed collection (the page broke the detection scripts) is no
+        // measurement: every library check is "not run", never clean.
+        let Some(analysis) = collected.value().cloned() else {
+            let obs = Observation {
+                findings: Vec::new(),
+                runs: all_ids
+                    .iter()
+                    .map(|id| ObservedRun {
+                        rule_id: id.clone(),
+                        state: RunState::NotRun(format!("{:?}", collected.state())),
+                    })
+                    .collect(),
+            };
+            let mismatches = diff_case(case, &obs, &diff_rules);
+            if !mismatches.is_empty() {
+                diffs.push((case.case.clone(), mismatches));
+            }
+            continue;
+        };
 
+        let mut mismatches = Vec::new();
         for exp in &case.expectations {
             assert!(
                 !deferred_ids.contains(&exp.rule_id),
@@ -88,64 +102,56 @@ async fn vulnerable_libs_detection_corpus_matches_real_analyzer_run() {
                 case.case,
                 exp.rule_id
             );
-            let detected = analysis.detected.iter().any(|lib| lib.name == exp.rule_id);
-            let flagged_vulnerable = analysis
-                .vulnerable
-                .iter()
-                .any(|lib| lib.name == exp.rule_id);
-
-            match exp.verdict {
-                Verdict::Violation => {
-                    if !flagged_vulnerable {
-                        false_negatives
-                            .push(format!("{}: expected violation, found none", exp.rule_id));
-                    }
-                }
-                Verdict::Pass | Verdict::Absent => {
-                    if flagged_vulnerable {
-                        false_positives
-                            .push(format!("{}: expected pass, found violation", exp.rule_id));
-                    } else if !detected {
-                        // A "pass" case only means something if the library
-                        // was actually detected in the first place — an
-                        // undetected library trivially "passes" but proves
-                        // nothing about the version-check logic.
-                        false_negatives.push(format!(
-                            "{}: expected pass (library detected, not vulnerable), but the \
-                             library wasn't detected at all",
-                            exp.rule_id
-                        ));
-                    }
-                }
-                Verdict::NeedsReview => {
-                    false_negatives.push(format!(
-                        "{}: needs_review is not a verdict this module produces",
+            // A pass only means something if the library was detected in
+            // the first place: an undetected library trivially "passes" but
+            // proves nothing about the version check.
+            if exp.verdict == Verdict::Pass
+                && !analysis.detected.iter().any(|lib| lib.name == exp.rule_id)
+            {
+                mismatches.push(Mismatch {
+                    kind: MismatchKind::PassWithoutRun,
+                    detail: format!(
+                        "{}: expected pass (library detected, not vulnerable), but the library \
+                         wasn't detected at all",
                         exp.rule_id
-                    ));
-                }
+                    ),
+                });
             }
         }
-
-        if !false_negatives.is_empty() || !false_positives.is_empty() {
-            diffs.push(CaseDiff {
-                case: case.case.clone(),
-                false_negatives,
-                false_positives,
-            });
+        // The analyzer returned a value, so the version check ran for every
+        // library it knows; a vulnerable entry is the only finding it makes.
+        let obs = Observation {
+            findings: analysis
+                .vulnerable
+                .iter()
+                .map(|lib| ObservedFinding {
+                    rule_id: lib.name.clone(),
+                    selector: None,
+                    class: FindingClass::Fail,
+                    located: false,
+                })
+                .collect(),
+            runs: all_ids
+                .iter()
+                .map(|id| ObservedRun {
+                    rule_id: id.clone(),
+                    state: RunState::Ran { findings: 0 },
+                })
+                .collect(),
+        };
+        mismatches.extend(diff_case(case, &obs, &diff_rules));
+        if !mismatches.is_empty() {
+            diffs.push((case.case.clone(), mismatches));
         }
     }
 
     if !diffs.is_empty() {
-        let mut msg = String::from("Vulnerable-libs detection corpus accuracy mismatches:\n");
-        for diff in &diffs {
-            msg.push_str(&format!("  case '{}':\n", diff.case));
-            for fneg in &diff.false_negatives {
-                msg.push_str(&format!("    FALSE NEGATIVE: {fneg}\n"));
-            }
-            for fpos in &diff.false_positives {
-                msg.push_str(&format!("    FALSE POSITIVE: {fpos}\n"));
-            }
-        }
-        panic!("{msg}");
+        panic!(
+            "{}",
+            render_report(
+                "Vulnerable-libs detection corpus accuracy mismatches",
+                &diffs
+            )
+        );
     }
 }

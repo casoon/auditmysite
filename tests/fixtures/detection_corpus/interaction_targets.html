@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pointer target sizes</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        nav a, .big { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        .row { display: flex; align-items: flex-start; margin: 64px 0; gap: 0; }
+        .t { display: block; flex: none; padding: 0; margin: 0; border: 1px solid #333; min-width: 0; min-height: 0; box-sizing: border-box; font-size: 8px; line-height: 1; overflow: hidden; background: #eee; color: #111; }
+        .s16 { width: 16px; height: 16px; }
+        .s23 { width: 23px; height: 23px; }
+        .s24 { width: 24px; height: 24px; }
+        .s43 { width: 43px; height: 43px; }
+        .s44 { width: 44px; height: 44px; }
+        .gap4 { gap: 4px; }
+        .gap14 { gap: 14px; }
+        .row input { margin: 0; width: 16px; height: 16px; }
+        @media (max-width: 600px) { .mobile-small { width: 16px; height: 16px; } }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Music</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/playlists">Playlists</a>
+    </nav>
+    <main id="main">
+        <h1>Player controls</h1>
+
+        <!-- needs_review (2.5.8): two 16 px ARIA buttons side by side, their 24 px circles overlap -->
+        <div class="row">
+            <span id="aria-a" class="t s16" role="button" tabindex="0">P</span>
+            <span id="aria-b" class="t s16" role="button" tabindex="0">N</span>
+        </div>
+
+        <!-- 2.5.8 boundary: 23 px fails, 24 px meets the minimum (and fails only 2.5.5) -->
+        <div class="row">
+            <button id="s23-a" class="t s23" type="button">1</button>
+            <button id="s23-b" class="t s23" type="button">2</button>
+        </div>
+        <div class="row">
+            <button id="s24-a" class="t s24" type="button">3</button>
+            <button id="s24-b" class="t s24" type="button">4</button>
+        </div>
+
+        <!-- spacing exception: 16 px targets, centres 20 px apart fail, 30 px apart pass 2.5.8 -->
+        <div class="row gap4">
+            <button id="near-a" class="t s16" type="button">A</button>
+            <button id="near-b" class="t s16" type="button">B</button>
+        </div>
+        <div class="row gap14">
+            <button id="spaced-a" class="t s16" type="button">C</button>
+            <button id="spaced-b" class="t s16" type="button">D</button>
+        </div>
+
+        <!-- 2.5.5 boundary: 43 px fails the enhanced size, 44 px meets it -->
+        <div class="row gap14">
+            <button id="s43" class="t s43" type="button">Shuffle</button>
+            <button id="s44" class="t s44" type="button">Repeat</button>
+        </div>
+
+        <!-- alternative labelling: a label element is part of the target, an aria-label is not -->
+        <div class="row">
+            <label id="label-a"><input id="cb-label-a" type="checkbox"> Lyrics</label>
+            <label id="label-b"><input id="cb-label-b" type="checkbox"> Captions</label>
+        </div>
+        <div class="row">
+            <input id="cb-aria-a" type="checkbox" aria-label="Crossfade">
+            <input id="cb-aria-b" type="checkbox" aria-label="Gapless">
+        </div>
+
+        <!-- hidden: not rendered or invisible, so no target -->
+        <div class="row">
+            <button id="hidden-none" class="t s16" type="button" style="display: none">E</button>
+            <button id="hidden-visibility" class="t s16" type="button" style="visibility: hidden">F</button>
+            <button id="hidden-gap" class="t s16" type="button" style="visibility: hidden">G</button>
+        </div>
+
+        <!-- responsive: 44 px on the desktop viewport, 16 px on the mobile one -->
+        <div class="row">
+            <button id="mobile-a" class="t s44 mobile-small" type="button">H</button>
+            <button id="mobile-b" class="t s44 mobile-small" type="button">I</button>
+        </div>
+
+        <!-- dynamic: a script shrinks the pair after load -->
+        <div class="row">
+            <button id="dyn-a" class="t s44" type="button">J</button>
+            <button id="dyn-b" class="t s44" type="button">K</button>
+        </div>
+    </main>
+    <footer><p>Example Music footer</p></footer>
+    <script>
+        ['dyn-a', 'dyn-b'].forEach(function (id) {
+            var b = document.getElementById(id);
+            b.classList.remove('s44');
+            b.classList.add('s16');
+        });
+    </script>
+</body>
+</html>

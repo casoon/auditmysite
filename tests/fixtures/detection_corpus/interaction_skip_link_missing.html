@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Museum shop without a skip link</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <!-- needs_review (2.4.1): a header and a navigation repeat on every page,
+         and no link bypasses them -->
+    <header>
+        <p>Example Museum</p>
+        <a href="/tickets">Tickets</a>
+        <a href="/members">Members</a>
+    </header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/visit">Visit</a>
+        <a href="/shop">Shop</a>
+    </nav>
+    <main>
+        <h1>Museum shop</h1>
+        <p>Catalogues, posters and postcards.</p>
+    </main>
+    <footer><p>Example Museum footer</p></footer>
+</body>
+</html>

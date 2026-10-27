@@ -1,0 +1,6 @@
+{
+  "case": "visual_text_spacing_clipped",
+  "expectations": [
+    { "rule_id": "text-spacing", "selector": "div#badge", "verdict": "violation", "occurrences": 1 }
+  ]
+}

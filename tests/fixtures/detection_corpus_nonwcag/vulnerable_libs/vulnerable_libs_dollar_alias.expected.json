@@ -1,0 +1,17 @@
+{
+  "case": "vulnerable_libs_dollar_alias",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "AngularJS",
+      "verdict": "violation"
+    }
+  ]
+}

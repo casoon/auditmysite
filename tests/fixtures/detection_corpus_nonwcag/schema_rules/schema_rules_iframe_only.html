@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Structured data only inside an embedded document</title>
+
+</head>
+<body>
+  <header><p>Example</p></header>
+  <main>
+    <h1>Structured data only inside an embedded document</h1>
+    <iframe title="Product widget" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Widget</title><script type=&quot;application/ld+json&quot;>{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@type&quot;:&quot;Product&quot;,&quot;name&quot;:&quot;Embedded&quot;}</script></head><body><p>Widget</p></body></html>"></iframe>
+  </main>
+  <footer><p>Footer</p></footer>
+</body>
+</html>

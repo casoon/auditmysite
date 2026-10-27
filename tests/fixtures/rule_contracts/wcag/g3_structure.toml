@@ -1,0 +1,1211 @@
+# Rule contracts G3 (#783): document, headings, landmarks, language, frames,
+# ids. Format: tests/fixtures/rule_contracts/README.md.
+#
+# Shared rules (method = "shared") run from a11y-rules through
+# src/wcag/shared.rs over the captured DOM in its rendered view (CSS-hidden
+# content is not part of it). Their `errored`, `shared_tests` and mutation
+# lists are filled by the coordinator.
+
+# --- document -----------------------------------------------------------------
+
+[[rule]]
+id = "document/lang-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=document/lang-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.1 Language of Page; ACT b5c3f8 (HTML page has lang attribute); H57; HTML §3.2.6.2 the lang attribute"
+capabilities = ["dom"]
+applicability = "The root html element of the top-level document; every HTML page."
+expectation = """
+Fails when the root html element has no lang attribute, or one whose value is
+empty or only whitespace: ACT b5c3f8 requires a lang attribute with a
+non-empty value, and lang="" explicitly declares the language unknown (HTML
+§3.2.6.2), so the page language is not programmatically determinable. xml:lang
+alone has no effect in text/html. A non-empty value, valid or not, passes this
+id; its validity is document/lang-invalid. A lang set by script before the
+audit reads the DOM counts like markup. Embedded documents are html-has-lang.
+One finding at the html element."""
+page_level = false
+always_applicable = true
+ambient = false
+positive = ["missing_lang", "structure_bypass_review"]
+negative = ["structure_outline_clean", "structure_head_defects", "structure_bypass_missing", "structure_modal_dynamic"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "The lang attribute of the root element is not rendered content; nothing about it can be hidden." }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language; lang is the only mechanism." }
+alternative_labels = { not_relevant = "HTML has one page-language declaration, lang on the root; xml:lang has no effect in text/html (HTML §3.2.6.2), and Content-Language headers are not a programmatic determination for AT." }
+frames_shadow_dom = { not_relevant = "Applies to the top-level document's root only; embedded documents are checked by html-has-lang, and a shadow root has no root html element." }
+responsive = { not_relevant = "The root element's attributes do not depend on the viewport." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { cases = ["structure_bypass_review", "missing_lang"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-missing)"
+
+[[rule]]
+id = "document/lang-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=document/lang-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.1 Language of Page; ACT bf051a (HTML page lang attribute has valid language tag); BCP 47 (RFC 5646) §2.1"
+capabilities = ["dom"]
+applicability = "The root html element of the top-level document when its lang attribute has a non-empty value."
+expectation = """
+Fails when the primary language subtag of the root's lang value is not a valid
+BCP 47 language subtag: "english" (not a registered subtag), "en_US" (the
+underscore is no subtag separator, so the whole value is the primary subtag).
+Region and script subtags ("en-GB", "de-AT") are valid. An absent or empty lang
+is not applicable here (ACT bf051a applies to non-empty values only); that case
+is document/lang-missing. One finding at the html element."""
+page_level = false
+ambient = false
+positive = ["invalid_lang_code", "structure_bypass_missing"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_modal_dynamic"]
+not_applicable = ["missing_lang", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "The lang attribute of the root element is not rendered content." }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { not_relevant = "Only the lang attribute declares the page language in text/html." }
+frames_shadow_dom = { not_relevant = "Applies to the top-level document's root only." }
+responsive = { not_relevant = "The root element's attributes do not depend on the viewport." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { cases = ["invalid_lang_code", "structure_bypass_missing", "structure_aria_landmarks_svg_title", "structure_bypass_review"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-invalid)"
+
+[[rule]]
+id = "document/lang-mismatch"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=document/lang-mismatch)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.1 Language of Page; ACT 5b7ae0 (HTML page lang and xml:lang attributes have matching values); HTML §3.2.6.2"
+capabilities = ["dom"]
+applicability = "The root html element of the top-level document when it has both a non-empty lang and a non-empty xml:lang."
+expectation = """
+Fails when the primary language subtags of lang and xml:lang differ
+(lang="en" xml:lang="de"): which language applies then depends on the user
+agent. Matching primary subtags with different regions (en-GB / en-US, en /
+en-GB) pass, as ACT 5b7ae0 compares primary subtags. Without xml:lang the rule
+does not apply. One finding at the html element."""
+page_level = false
+ambient = false
+positive = ["structure_head_defects"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title"]
+not_applicable = ["missing_lang", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Attributes of the root element are not rendered content." }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { not_relevant = "The rule compares exactly the two declarations lang and xml:lang." }
+frames_shadow_dom = { not_relevant = "Applies to the top-level document's root only." }
+responsive = { not_relevant = "The root element's attributes do not depend on the viewport." }
+dynamic = { not_relevant = "Both attributes are read from the captured DOM like markup; a root lang set by script is covered by document/lang-missing (structure_modal_dynamic)." }
+thresholds = { cases = ["structure_head_defects", "structure_outline_clean", "structure_aria_landmarks_svg_title"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-mismatch)"
+
+[[rule]]
+id = "document/title-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=document/title-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.2 Page Titled; ACT 2779a5 (HTML page has non-empty title); HTML §4.2.2 the title element; SVG 2 §5.9 the title element"
+capabilities = ["dom"]
+applicability = "Every top-level HTML document."
+expectation = """
+Fails when the document has no HTML title element. An SVG <title> inside the
+body titles its graphic, not the document (SVG 2 §5.9, HTML §4.2.2 counts only
+the title element in the HTML namespace), so a page whose only title element
+is an SVG title has no title. The title of an embedded document does not title
+the host page. A title written by script before the audit reads the DOM counts.
+A present but empty title is document/title-empty. The finding concerns the
+whole document and carries no element."""
+page_level = true
+always_applicable = true
+ambient = false
+positive = ["structure_bypass_missing", "structure_aria_landmarks_svg_title"]
+negative = ["structure_outline_clean", "structure_title_untitled", "structure_modal_dynamic"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "The title element is never rendered; it is metadata." }
+native_vs_aria = { not_relevant = "ARIA cannot title a document; aria-label on html is not a page title." }
+alternative_labels = { cases = ["structure_aria_landmarks_svg_title"] }
+frames_shadow_dom = { cases = ["structure_bypass_missing"] }
+responsive = { not_relevant = "The title does not depend on the viewport." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { not_relevant = "Presence check; emptiness is document/title-empty." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/title-missing)"
+
+[[rule]]
+id = "document/title-empty"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=document/title-empty)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.2 Page Titled; ACT 2779a5 (HTML page has non-empty title); HTML §4.2.2"
+capabilities = ["dom"]
+applicability = "Top-level HTML documents that have a title element."
+expectation = """
+Fails when the document's title element is empty or contains only whitespace.
+A title set by script (document.title) before the audit reads the DOM is not
+empty. Without a title element the rule does not apply (document/title-missing
+reports that). One finding at the title element."""
+page_level = false
+ambient = false
+positive = ["empty_title", "structure_head_defects"]
+negative = ["structure_outline_clean", "structure_modal_dynamic", "structure_title_untitled"]
+not_applicable = ["structure_bypass_missing", "structure_aria_landmarks_svg_title"]
+
+[rule.variants]
+visibility = { not_relevant = "The title element is never rendered." }
+native_vs_aria = { not_relevant = "ARIA cannot title a document." }
+alternative_labels = { cases = ["structure_aria_landmarks_svg_title"] }
+frames_shadow_dom = { not_relevant = "Only the top-level document's own title element counts; that an embedded document's title does not stand in is pinned by document/title-missing (structure_bypass_missing)." }
+responsive = { not_relevant = "The title does not depend on the viewport." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { cases = ["structure_head_defects", "empty_title"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/title-empty)"
+
+[[rule]]
+id = "document-title"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 2.4.2 Page Titled; failure F25 (title that does not identify the contents); G88"
+capabilities = ["dom"]
+applicability = "Top-level HTML documents whose title element has non-empty text."
+expectation = """
+Fails when the whole title, trimmed and compared case-insensitively, is an
+authoring-tool or placeholder default that identifies no content (F25:
+"Untitled Document", "New Page", "Untitled"). A descriptive title that merely
+contains such a word ("Index of tool specifications – ...") passes. A missing
+or empty title is not applicable (document/title-missing, document/title-empty).
+Only the top-level document's title counts; a default title inside an embedded
+frame document does not make the host page fail. A title written by script
+before the audit counts. One finding at the head element."""
+page_level = false
+ambient = false
+positive = ["structure_title_untitled"]
+negative = ["structure_outline_clean", "structure_ids_frames", "structure_modal_dynamic", "structure_content_model"]
+not_applicable = ["empty_title", "structure_head_defects", "structure_bypass_missing", "structure_aria_landmarks_svg_title"]
+
+[rule.variants]
+visibility = { not_relevant = "The title element is never rendered." }
+native_vs_aria = { not_relevant = "ARIA cannot title a document." }
+alternative_labels = { cases = ["structure_aria_landmarks_svg_title"] }
+frames_shadow_dom = { cases = ["structure_ids_frames"] }
+responsive = { not_relevant = "The title does not depend on the viewport." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { cases = ["structure_title_untitled", "structure_content_model"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/page_titled.rs"
+change = "invert the generic-title decision"
+find = "if title.is_empty() || !is_generic_title(title) {"
+replace = "if title.is_empty() || is_generic_title(title) {"
+killed_by = "corpus:structure_title_untitled,structure_outline_clean"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/page_titled.rs"
+change = "drop the case folding before the comparison"
+find = "let title_lower = title.to_lowercase();"
+replace = "let title_lower = title.to_string();"
+killed_by = "corpus:structure_title_untitled"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/page_titled.rs"
+change = "drop the whitespace trim before the comparison"
+find = "let title = title.trim();"
+replace = "let title = title;"
+killed_by = "corpus:structure_title_untitled"
+
+# --- headings ------------------------------------------------------------------
+
+[[rule]]
+id = "headings/empty"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/empty)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships, SC 2.4.6 Headings and Labels; ACT ffd0e9 (Heading has non-empty accessible name)"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered elements with the heading role: h1-h6 and elements with role=heading, also inside open shadow roots."
+expectation = """
+Fails for every rendered heading whose accessible name is empty: no text, and
+no name from aria-label, aria-labelledby or an image's non-empty alt. A heading
+whose only content is a decorative image (alt="") is empty. role="heading"
+elements are headings like h1-h6 (ACT ffd0e9 applies to the semantic role).
+Headings hidden with display:none are not presented and do not apply. One
+finding per empty heading, at the heading."""
+page_level = false
+ambient = false
+positive = ["structure_head_defects", "structure_ids_frames"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title"]
+not_applicable = ["structure_bypass_missing", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_head_defects"] }
+native_vs_aria = { cases = ["structure_head_defects"] }
+alternative_labels = { cases = ["structure_head_defects"] }
+frames_shadow_dom = { cases = ["structure_ids_frames"] }
+responsive = { not_relevant = "Whether a heading is rendered is the same rendered-view decision in every viewport; the breakpoint switch itself is pinned by the outline rules (structure_responsive_chrome)." }
+dynamic = { cases = ["structure_ids_frames"] }
+thresholds = { not_relevant = "A name is present or not; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/empty)"
+
+[[rule]]
+id = "headings/skip-level"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/skip-level)"]
+automation = "automated"
+method = "shared"
+source = "Best practice, no WCAG failure: G141 and H42 (advisory) for SC 1.3.1/2.4.10; axe heading-order"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered headings in document order, from the second heading on."
+expectation = """
+Flags a heading whose level is more than one deeper than the previous rendered
+heading (h2 followed by h4), at that heading. Going back up any number of
+levels (h3 to h1) or one level down is fine; the first heading may have any
+level. Hidden headings (display:none) are not part of the outline, so a hidden
+h5 between two h3 is no skip. Skipping levels is not a WCAG failure (G141 is
+advisory), so the finding is a best-practice violation without a success
+criterion."""
+page_level = false
+ambient = false
+positive = ["heading_order", "structure_heading_outline"]
+negative = ["structure_outline_clean", "structure_head_defects", "structure_aria_landmarks_svg_title", "structure_content_model"]
+not_applicable = ["structure_bypass_missing", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_heading_outline"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "The rule compares heading levels, not names." }
+frames_shadow_dom = { not_relevant = "One outline per document; a frame document has its own outline and is not part of the host's sequence." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { not_relevant = "The outline is read from the captured DOM after load; script-built headings are the same input as markup (shadow-root headings built by script: headings/empty, structure_ids_frames)." }
+thresholds = { cases = ["structure_heading_outline", "structure_content_model"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/skip-level)"
+
+[[rule]]
+id = "headings/h1-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/h1-missing)"]
+automation = "automated"
+method = "shared"
+source = "Best practice, no WCAG failure: axe page-has-heading-one; WAI tutorial Page Structure: Headings"
+capabilities = ["dom", "computed_style"]
+applicability = "Documents with at least one rendered heading."
+expectation = """
+Flags a document that has rendered headings but no rendered level-1 heading:
+neither an h1 nor role="heading" aria-level="1". A hidden h1 (hidden attribute)
+does not count. A level-1 heading inside an open shadow root counts. In each
+viewport the rendered h1 may be a different element. Not a WCAG failure (no
+criterion requires a level); a best-practice violation for the whole document,
+without an element."""
+page_level = true
+ambient = false
+positive = ["structure_content_model"]
+negative = ["structure_outline_clean", "structure_head_defects", "structure_aria_landmarks_svg_title", "structure_responsive_chrome", "landmark_main_in_shadow_root"]
+not_applicable = ["structure_bypass_missing", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_content_model"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "The rule looks at heading levels, not names." }
+frames_shadow_dom = { cases = ["landmark_main_in_shadow_root"] }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { cases = ["landmark_main_in_shadow_root"] }
+thresholds = { not_relevant = "Presence of a level-1 heading; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/h1-missing)"
+
+[[rule]]
+id = "headings/h1-multiple"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/h1-multiple)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships (review); HTML §4.3.11 headings and outlines"
+capabilities = ["dom", "computed_style"]
+applicability = "Documents with at least one rendered h1."
+expectation = """
+Asks for review when more than one h1 is rendered: HTML allows several h1, so
+it is an expectation, not a proven failure. One review at the second h1. A
+second h1 that is hidden (in a hidden main, or by a breakpoint) does not
+count."""
+page_level = false
+ambient = false
+positive = ["structure_heading_outline"]
+negative = ["structure_outline_clean", "structure_landmark_duplicates", "structure_responsive_chrome"]
+not_applicable = ["structure_bypass_missing", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_landmark_duplicates"] }
+native_vs_aria = { not_relevant = "HTML permits several h1; the review concerns the h1 element's use in the outline, and level-1 ARIA headings are covered for presence by headings/h1-missing." }
+alternative_labels = { not_relevant = "The rule counts h1 elements, not names." }
+frames_shadow_dom = { not_relevant = "One outline per document." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["structure_heading_outline", "structure_outline_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/h1-multiple)"
+
+[[rule]]
+id = "headings/none"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/none)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.1 Bypass Blocks; ACT cf77f2 (Bypass Blocks of Repeated Content); G1, H69, ARIA11"
+capabilities = ["dom", "computed_style"]
+applicability = "Every top-level document."
+expectation = """
+SC 2.4.1 is met by any one of headings (H69), a main landmark (ARIA11) or a
+skip link (G1). Fails when none of the three exists and the page marks up a
+navigation or banner block, the blocks Understanding 2.4.1 names as repeated.
+Without such a block, whether anything repeats across pages cannot be told
+from one document: review. While a modal dialog is open, the mechanisms are
+missing for the moment of measurement: review. role="heading" and role="main"
+count like native ones, also inside open shadow roots; a hidden heading
+(hidden attribute) bypasses nothing. One finding at the html element."""
+page_level = false
+always_applicable = true
+ambient = false
+positive = ["structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
+negative = ["structure_outline_clean", "missing_main_landmark", "structure_aria_landmarks_svg_title", "landmark_main_in_shadow_root"]
+not_applicable = []
+
+[rule.variants]
+visibility = { cases = ["structure_bypass_missing"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { cases = ["missing_main_landmark", "structure_aria_landmarks_svg_title"] }
+frames_shadow_dom = { cases = ["landmark_main_in_shadow_root"] }
+responsive = { not_relevant = "Headings and landmarks hidden per breakpoint are the rendered-view decision pinned by structure_responsive_chrome for the landmark rules; that page always has headings." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { cases = ["structure_bypass_missing", "structure_bypass_review"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/none)"
+
+[[rule]]
+id = "headings/section-without-heading"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/section-without-heading)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.10 Section Headings (AAA, review); G141; HTML §4.3 sections"
+capabilities = ["dom", "computed_style"]
+applicability = "article elements and named section elements (regions)."
+expectation = """
+Asks for review once per page when articles or named sections contain no
+heading: whether a section needs a heading depends on its content (teaser
+cards are often headingless), so it is not a proven failure. A section named
+by aria-labelledby to its own heading has one; an unnamed section is no region
+and is not counted. One review at the html element."""
+page_level = false
+ambient = false
+positive = ["structure_heading_outline"]
+negative = ["structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Section and heading visibility follow the rendered-view decision pinned by the outline rules; the review is page-wide." }
+native_vs_aria = { not_relevant = "2.4.10 leaves open which markup forms a section; the rule reads HTML sectioning (article, named section)." }
+alternative_labels = { cases = ["structure_outline_clean", "structure_heading_outline"] }
+frames_shadow_dom = { not_relevant = "One outline per document." }
+responsive = { not_relevant = "Section structure does not depend on the viewport on these pages; breakpoint switching is pinned by structure_responsive_chrome." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["structure_heading_outline"] }
+
+[rule.test_strength]
+status = "killed"
+
+# --- landmarks -----------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/section-without-heading)"
+
+[[rule]]
+id = "landmarks/main-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/main-missing)"]
+automation = "automated"
+method = "shared"
+source = "Best practice: WAI-ARIA 1.2 main role; ARIA11; axe landmark-one-main (bypass itself is headings/none, SC 2.4.1)"
+capabilities = ["dom", "computed_style"]
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
+expectation = """
+Flags a document without a rendered main landmark (main element or
+role="main", also inside an open shadow root), at the html element. While a
+modal dialog is open the absence concerns the moment of measurement: review
+instead. A hidden second main does not stand in for nor block the visible one.
+Best practice without a criterion; a missing bypass mechanism is
+headings/none."""
+page_level = false
+ambient = false
+positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
+negative = ["structure_outline_clean", "landmark_main_in_shadow_root", "structure_aria_landmarks_svg_title", "structure_landmark_duplicates"]
+not_applicable = ["structure_empty_body"]
+
+[rule.variants]
+visibility = { cases = ["structure_landmark_duplicates"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "The main landmark needs no name." }
+frames_shadow_dom = { cases = ["landmark_main_in_shadow_root"] }
+responsive = { not_relevant = "None of the pages hides main per breakpoint; the breakpoint switch of landmarks is pinned by structure_responsive_chrome." }
+dynamic = { cases = ["structure_modal_dynamic", "landmark_main_in_shadow_root"] }
+thresholds = { not_relevant = "Presence check." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/main-missing)"
+
+[[rule]]
+id = "landmarks/main-duplicate"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/main-duplicate)"]
+automation = "automated"
+method = "shared"
+source = "HTML §4.4.14 the main element (at most one main without the hidden attribute); WAI-ARIA 1.2 main; axe landmark-no-duplicate-main"
+capabilities = ["dom", "computed_style"]
+applicability = "Documents with at least one rendered main landmark."
+expectation = """
+Flags a document with more than one rendered main landmark (main or
+role="main"), at the second one. A main with the hidden attribute does not
+count: HTML explicitly allows hidden alternative views. Best practice without
+a criterion since 4.1.1 was removed."""
+page_level = false
+ambient = false
+positive = ["landmark_granular"]
+negative = ["structure_landmark_duplicates", "structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_landmark_duplicates"] }
+native_vs_aria = { cases = ["landmark_granular"] }
+alternative_labels = { not_relevant = "The main landmark needs no name." }
+frames_shadow_dom = { not_relevant = "One main per document; a frame document has its own." }
+responsive = { not_relevant = "Same rendered-view decision as the hidden attribute; breakpoint switching is pinned by structure_responsive_chrome for banner and navigation." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["landmark_granular", "structure_outline_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/main-duplicate)"
+
+[[rule]]
+id = "landmarks/banner-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/banner-missing)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 banner role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
+capabilities = ["dom", "computed_style"]
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
+expectation = """
+Asks for review when the document has no rendered banner landmark: a body-level
+header (not inside article, aside, main, nav or section) or role="banner". A
+header inside main or article is no banner. A page may legitimately have no
+site header, so this is an expectation, not a failure. One review at the html
+element."""
+page_level = false
+ambient = false
+positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_responsive_chrome", "structure_landmark_duplicates"]
+not_applicable = ["structure_empty_body"]
+
+[rule.variants]
+visibility = { cases = ["structure_responsive_chrome"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "The banner landmark needs no name." }
+frames_shadow_dom = { not_relevant = "Landmarks inside a shadow root are pinned by landmarks/main-missing (landmark_main_in_shadow_root); the banner lookup walks the same tree." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { not_relevant = "Presence check." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/banner-missing)"
+
+[[rule]]
+id = "landmarks/contentinfo-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/contentinfo-missing)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 contentinfo role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
+capabilities = ["dom", "computed_style"]
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
+expectation = """
+Asks for review when the document has no rendered contentinfo landmark: a
+body-level footer or role="contentinfo". A footer inside an article is the
+article's footer, not contentinfo. A page may legitimately have no footer, so
+this is an expectation, not a failure. One review at the html element."""
+page_level = false
+ambient = false
+positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_landmark_duplicates"]
+not_applicable = ["structure_empty_body"]
+
+[rule.variants]
+visibility = { not_relevant = "Same rendered-view decision as banner-missing (structure_responsive_chrome)." }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "The contentinfo landmark needs no name." }
+frames_shadow_dom = { not_relevant = "Same tree walk as landmarks/main-missing (landmark_main_in_shadow_root)." }
+responsive = { not_relevant = "The footers of these pages do not change per breakpoint; the breakpoint switch is pinned by banner-missing and navigation-missing." }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { not_relevant = "Presence check." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/contentinfo-missing)"
+
+[[rule]]
+id = "landmarks/navigation-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/navigation-missing)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 navigation role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
+capabilities = ["dom", "computed_style"]
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
+expectation = """
+Asks for review when the document has no rendered navigation landmark (nav or
+role="navigation"). A page may legitimately have no navigation (a single
+delivery note, a consent wall), so this is an expectation, not a failure. When
+the desktop and the mobile navigation are separate elements shown per
+breakpoint, each viewport has one: nothing to report. One review at the html
+element."""
+page_level = false
+ambient = false
+positive = ["missing_main_landmark", "structure_bypass_review", "structure_modal_dynamic"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_bypass_missing", "structure_responsive_chrome"]
+not_applicable = ["structure_empty_body"]
+
+[rule.variants]
+visibility = { cases = ["structure_responsive_chrome"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { not_relevant = "Presence does not depend on the name." }
+frames_shadow_dom = { not_relevant = "Same tree walk as landmarks/main-missing (landmark_main_in_shadow_root)." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { cases = ["structure_modal_dynamic"] }
+thresholds = { not_relevant = "Presence check." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/navigation-missing)"
+
+[[rule]]
+id = "landmarks/not-unique"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/not-unique)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 landmark roles (several landmarks of one role should have unique labels); ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered landmarks: banner and contentinfo (document-scoped header/footer or role), main, navigation, complementary (top-level aside, or a named aside in a section), and named form/region/section."
+expectation = """
+Asks for review at every landmark that shares its role and accessible name
+(both unnamed counts as the same name) with another rendered landmark: such
+landmarks cannot be told apart. The name may come from aria-label,
+aria-labelledby or title. An unnamed aside inside article/section is generic,
+not complementary; a header inside main/article is generic, not banner. Copies
+hidden per breakpoint are not exposed. A SHOULD in ARIA, hence review. One
+review per offending element."""
+page_level = false
+ambient = false
+positive = ["landmark_aside_named_duplicate", "landmark_granular", "landmark_unique_one_per_element", "structure_landmark_duplicates"]
+negative = ["landmark_aside_scoping", "landmark_header_in_main", "structure_responsive_chrome", "structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_responsive_chrome"] }
+native_vs_aria = { cases = ["structure_landmark_duplicates", "landmark_granular"] }
+alternative_labels = { cases = ["landmark_aside_named_duplicate"] }
+frames_shadow_dom = { not_relevant = "Landmark lookup walks the same tree as landmarks/main-missing (landmark_main_in_shadow_root); a frame document has its own landmarks." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["landmark_unique_one_per_element", "landmark_aside_scoping"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/not-unique)"
+
+[[rule]]
+id = "landmarks/not-top-level"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/not-top-level)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 banner, contentinfo and main roles (should not be contained in another landmark); axe landmark-*-is-top-level"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered banner, contentinfo and main landmarks."
+expectation = """
+Flags a banner, contentinfo or main landmark nested inside another landmark,
+at the nested one. A header or footer inside main or article is no banner or
+contentinfo at all and is not flagged. Best practice without a criterion."""
+page_level = false
+ambient = false
+positive = ["landmark_granular", "structure_landmark_duplicates"]
+negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "landmark_header_in_main"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Hidden landmarks are excluded by the same rendered view pinned for main-duplicate (structure_landmark_duplicates)." }
+native_vs_aria = { cases = ["structure_landmark_duplicates", "landmark_header_in_main"] }
+alternative_labels = { not_relevant = "Nesting does not depend on names." }
+frames_shadow_dom = { not_relevant = "Nesting is within one document; a frame document has its own top level." }
+responsive = { not_relevant = "Nesting does not change with the viewport." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { not_relevant = "Structural check, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/not-top-level)"
+
+[[rule]]
+id = "landmarks/banner-duplicate"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/banner-duplicate)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 banner role (no more than one banner per document); axe landmark-no-duplicate-banner"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered banner landmarks."
+expectation = """
+Flags a document with more than one rendered banner (document-scoped header or
+role="banner"), at the second. A header inside an article or main is no banner;
+a second header hidden at the current breakpoint is not rendered. Best practice
+without a criterion."""
+page_level = false
+ambient = false
+positive = ["landmark_granular", "structure_landmark_duplicates"]
+negative = ["landmark_header_in_main", "structure_responsive_chrome", "structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_responsive_chrome"] }
+native_vs_aria = { cases = ["structure_landmark_duplicates"] }
+alternative_labels = { not_relevant = "Counting does not depend on names." }
+frames_shadow_dom = { not_relevant = "One banner per document; a frame document has its own." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["landmark_granular", "landmark_header_in_main"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/banner-duplicate)"
+
+[[rule]]
+id = "landmarks/contentinfo-duplicate"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/contentinfo-duplicate)"]
+automation = "automated"
+method = "shared"
+source = "WAI-ARIA 1.2 contentinfo role (no more than one contentinfo per document); axe landmark-no-duplicate-contentinfo"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered contentinfo landmarks."
+expectation = """
+Flags a document with more than one rendered contentinfo (document-scoped
+footer or role="contentinfo"), at the second. A footer inside an article is no
+contentinfo. Best practice without a criterion."""
+page_level = false
+ambient = false
+positive = ["landmark_granular", "structure_landmark_duplicates"]
+negative = ["landmark_header_in_main", "structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Same rendered view as banner-duplicate (structure_responsive_chrome)." }
+native_vs_aria = { cases = ["structure_landmark_duplicates"] }
+alternative_labels = { not_relevant = "Counting does not depend on names." }
+frames_shadow_dom = { not_relevant = "One contentinfo per document." }
+responsive = { not_relevant = "The footers of these pages do not change per breakpoint." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["landmark_granular", "landmark_header_in_main"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/contentinfo-duplicate)"
+
+[[rule]]
+id = "landmarks/content-outside"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/content-outside)"]
+automation = "automated"
+method = "shared"
+source = "Best practice: ARIA Authoring Practices, Landmark Regions (all perceivable content should be in a landmark); axe region"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered content in the body: text and named content elements."
+expectation = """
+Flags the outermost rendered element that holds content but contains no
+landmark, once per block. Skip links (same-page fragment links before the first
+link that leaves the page) are exempt, whatever their language; the same link
+after regular links is ordinary content. Content hidden with the hidden
+attribute is not content. ARIA landmarks count like native ones, also inside
+open shadow roots. Best practice without a criterion."""
+page_level = false
+ambient = false
+positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "skip_link_language"]
+negative = ["structure_outline_clean", "structure_head_defects", "structure_aria_landmarks_svg_title", "structure_responsive_chrome"]
+not_applicable = ["structure_empty_body"]
+
+[rule.variants]
+visibility = { cases = ["structure_outline_clean"] }
+native_vs_aria = { cases = ["structure_aria_landmarks_svg_title"] }
+alternative_labels = { cases = ["skip_link_language"] }
+frames_shadow_dom = { not_relevant = "Shadow-root landmarks follow the same tree walk as landmarks/main-missing (landmark_main_in_shadow_root)." }
+responsive = { cases = ["structure_responsive_chrome"] }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["skip_link_language"] }
+
+[rule.test_strength]
+status = "killed"
+
+# --- ids, frames ---------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/content-outside)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/content-outside)"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: text below an excluded subtree counts as exposed"
+find = "            None if node.kind() == NodeKind::Text => {"
+replace = "            None if false => {"
+killed_by = "corpus:interaction_dialog_native"
+[[rule]]
+id = "ids/duplicate"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=ids/duplicate)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (review); HTML §3.2.6 the id attribute (unique in its tree); DOM getElementById / IDREF resolution"
+capabilities = ["dom"]
+applicability = "id values that an IDREF attribute (for, aria-labelledby, aria-describedby, aria-controls, headers, list, ...) in the same tree refers to."
+expectation = """
+Asks for review at the second element carrying an id that occurs more than
+once in the same tree and is referenced: the reference resolves to the first
+element, and whether that is the intended one cannot be told from markup. A
+duplicate id nobody references breaks no relationship (4.1.1 was removed in
+WCAG 2.2): nothing to report. IDs are scoped per tree, so the same id in the
+light DOM and inside a shadow root is not a duplicate. Applies whether the
+reference is native (label for) or ARIA (aria-describedby). One review per
+duplicated id."""
+page_level = false
+ambient = false
+positive = ["duplicate_id", "structure_ids_frames"]
+negative = ["structure_outline_clean", "duplicate_id"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "IDREF resolution ignores rendering; a hidden duplicate is resolved like a visible one." }
+native_vs_aria = { cases = ["duplicate_id", "structure_ids_frames"] }
+alternative_labels = { not_relevant = "The rule concerns the uniqueness of the target, not the naming mechanism." }
+frames_shadow_dom = { cases = ["structure_ids_frames"] }
+responsive = { not_relevant = "IDs do not depend on the viewport." }
+dynamic = { cases = ["structure_ids_frames"] }
+thresholds = { cases = ["duplicate_id"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id ids/duplicate)"
+
+[[rule]]
+id = "frames/name-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=frames/name-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; ACT cae760 (iframe element has accessible name); H64"
+capabilities = ["dom", "computed_style"]
+applicability = "iframe elements included in the accessibility tree, also inside open shadow roots: not display:none, not aria-hidden, not role=none/presentation."
+expectation = """
+Fails for every applicable iframe whose accessible name is empty: no title, an
+empty title, no aria-label or aria-labelledby. A name from title or aria-label
+passes. Frames that are hidden (display:none, aria-hidden) or presentational
+are not exposed as frames and do not apply. One finding per frame, at the
+iframe."""
+page_level = false
+ambient = false
+positive = ["frame_missing_title", "structure_ids_frames"]
+negative = ["structure_ids_frames", "structure_bypass_missing"]
+not_applicable = ["structure_outline_clean", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_ids_frames"] }
+native_vs_aria = { cases = ["structure_ids_frames"] }
+alternative_labels = { cases = ["structure_ids_frames", "structure_bypass_missing"] }
+frames_shadow_dom = { cases = ["structure_ids_frames"] }
+responsive = { not_relevant = "Frames hidden per breakpoint follow the rendered-view decision pinned by the collapsed frame (structure_ids_frames)." }
+dynamic = { cases = ["structure_ids_frames"] }
+thresholds = { cases = ["structure_ids_frames"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id frames/name-missing)"
+
+[[rule]]
+id = "html-has-lang"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 3.1.1 Language of Page; H57; HTML §3.2.6.2 (lang is inherited within a document only)"
+capabilities = ["dom", "frames", "computed_style", "geometry"]
+applicability = "Rendered same-origin iframe documents (also in open shadow roots): the frame is not display:none/visibility:hidden, not aria-hidden, not role=none/presentation, larger than 1x1 px."
+expectation = """
+Fails for every applicable frame document whose root html element has no
+non-empty lang: lang does not inherit across the document boundary, so the
+embedded content's language is not programmatically determinable although it
+is part of the page. A frame document with lang passes. Collapsed or hidden
+frames present nothing and do not apply. Cross-origin frames cannot be read
+(frame-tested). One finding per frame."""
+page_level = false
+ambient = false
+positive = ["structure_ids_frames"]
+negative = ["structure_bypass_missing"]
+not_applicable = ["structure_outline_clean", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { cases = ["structure_ids_frames"] }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { not_relevant = "lang on the frame document's root is the only declaration." }
+frames_shadow_dom = { cases = ["structure_ids_frames"] }
+responsive = { not_relevant = "Frames hidden per breakpoint follow the same computed-style check pinned by the collapsed frame." }
+dynamic = { cases = ["structure_ids_frames"] }
+thresholds = { not_relevant = "The 1x1 px cut-off excludes tracking frames that present nothing; no corpus page relies on the boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/iframe_rules.rs"
+change = "invert the missing-lang condition"
+find = "if (iframeHtmlEl && !(iframeHtmlEl.getAttribute('lang') || '').trim()) {"
+replace = "if (iframeHtmlEl && (iframeHtmlEl.getAttribute('lang') || '').trim()) {"
+killed_by = "corpus:structure_ids_frames"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/iframe_rules.rs"
+change = "stop descending into shadow roots"
+find = "if (el.shadowRoot) collect(el.shadowRoot);"
+replace = ""
+killed_by = "corpus:structure_ids_frames"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/iframe_rules.rs"
+change = "drop the finding"
+find = "IFRAME_HTML_HAS_LANG_AXE_ID => ("
+replace = "\"html-has-lang-disabled\" => ("
+killed_by = "corpus:structure_ids_frames"
+
+# --- language ------------------------------------------------------------------
+
+[[rule]]
+id = "language/part-unmarked"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/part-unmarked)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.2 Language of Parts (review); H58"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered text blocks (p, li, dd, td, figcaption, innermost) of at least 100 characters and 16 words on a page whose language is German or English."
+expectation = """
+Asks for review at every innermost text block that reads clearly as the other
+of German/English (a clear majority of that language's function words) but
+inherits the page language: AT reads it with the wrong pronunciation. Review,
+because names and terms deceive the heuristic. A passage marked with its own
+lang passes. A quotation is not exempt (3.1.2 exempts only proper names,
+technical terms, words of indeterminate language and vernacular). English text
+with German proper names is not a language part. A passage inserted by script
+before the audit counts. Without a German or English page language the rule
+does not apply (language/part-undetermined)."""
+page_level = false
+ambient = false
+positive = ["structure_language_parts"]
+negative = ["structure_outline_clean", "structure_language_parts"]
+not_applicable = ["missing_lang", "structure_bypass_missing", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Passages are taken from the rendered view, the decision pinned for the heading rules; a hidden passage is read by no one." }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { cases = ["structure_language_parts"] }
+frames_shadow_dom = { not_relevant = "Each frame document has its own language; the frame pass runs element rules only." }
+responsive = { not_relevant = "Text language does not change per breakpoint." }
+dynamic = { cases = ["structure_language_parts"] }
+thresholds = { cases = ["structure_language_parts", "structure_outline_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-unmarked)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-unmarked)"
+
+[[rule]]
+id = "language/part-undetermined"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/part-undetermined)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.2 Language of Parts (not tested)"
+capabilities = ["dom"]
+applicability = "Pages with a non-empty lang whose primary subtag is neither de nor en."
+expectation = """
+Marks 3.1.2 as not tested, once at the html element, when the page language is
+neither German nor English (including a malformed value such as "en_US" whose
+primary subtag is not "en"): passages in other languages cannot be recognised
+there, and silence must not read as a pass. On German or English pages nothing
+is reported; without a page language the rule does not apply."""
+page_level = false
+ambient = false
+positive = ["skip_link_language", "structure_bypass_missing"]
+negative = ["structure_outline_clean", "structure_language_parts"]
+not_applicable = ["missing_lang", "structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Depends only on the root's lang attribute." }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { not_relevant = "Depends only on the root's lang attribute." }
+frames_shadow_dom = { not_relevant = "Top-level document only." }
+responsive = { not_relevant = "The root's lang does not depend on the viewport." }
+dynamic = { not_relevant = "The root's lang set by script is pinned for document/lang-missing (structure_modal_dynamic)." }
+thresholds = { cases = ["skip_link_language", "structure_bypass_missing", "structure_outline_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-undetermined)"
+
+[[rule]]
+id = "language/abbreviation-unexpanded"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/abbreviation-unexpanded)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.4 Abbreviations (AAA, review); H28, G97, G55"
+capabilities = ["dom"]
+applicability = "abbr and acronym elements."
+expectation = """
+Asks for review at every abbr/acronym without a non-empty title: 3.1.4 can
+also be met by the expansion in the text or a glossary, so a missing title is
+not a proven failure. An empty title counts as missing; a non-empty title
+passes."""
+page_level = false
+ambient = false
+positive = ["structure_language_parts"]
+negative = ["structure_outline_clean"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "The expansion mechanism is markup; nothing about it depends on rendering." }
+native_vs_aria = { not_relevant = "abbr has no ARIA counterpart." }
+alternative_labels = { cases = ["structure_language_parts"] }
+frames_shadow_dom = { not_relevant = "Element-level markup check; frames run their own pass." }
+responsive = { not_relevant = "Markup does not change per breakpoint." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["structure_language_parts"] }
+
+[rule.test_strength]
+status = "killed"
+
+# --- HTML content model ------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/abbreviation-unexpanded)"
+
+[[rule]]
+id = "html-content-model"
+errored = ["error_dom_too_deep"]
+automation = "automated"
+method = "pipeline"
+source = "WCAG 2.2 SC 1.3.1 Info and Relationships; HTML content models: §4.4.5 ul, §4.4.6 ol, §4.4.9 dl, §4.9 tabular data, §4.10.7 select, §4.10.15 fieldset"
+capabilities = ["network"]
+applicability = "The served HTML of the page, where it contains structural containers whose content model AT relies on (dl, table and its sections, ul/ol, select/optgroup, fieldset)."
+expectation = """
+Fails for every content-model violation that occurs inside such a container in
+the served markup, e.g. a div as a child of ul. The browser repairs or absorbs
+such markup, so the accessibility tree can look valid while the structure is
+broken. Allowed wrappers pass (div grouping dt/dd in dl), and so does a
+well-formed table. Selector is the container's tag."""
+page_level = false
+ambient = false
+positive = ["structure_content_model"]
+negative = ["structure_outline_clean", "structure_content_model"]
+not_applicable = ["structure_bypass_review"]
+
+[rule.variants]
+visibility = { not_relevant = "Validates the served source; rendering does not change the content model." }
+native_vs_aria = { not_relevant = "ARIA roles do not change what the HTML content model allows." }
+alternative_labels = { not_relevant = "No naming involved." }
+frames_shadow_dom = { not_relevant = "Only the top-level document's served HTML is validated." }
+responsive = { not_relevant = "The served source does not depend on the viewport." }
+dynamic = { cases = ["content_lists_broken"] }
+thresholds = { cases = ["structure_content_model"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/html_content_model.rs"
+change = "invert the schema finding filter"
+find = "if finding.rule_id != \"schema.html5\" || is_attribute_error(&finding.message) {"
+replace = "if finding.rule_id == \"schema.html5\" {"
+killed_by = "lib:html_content_model"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/html_content_model.rs"
+change = "drop dl from the structural families"
+find = "\"dl\", \"table\", \"thead\""
+replace = "\"table\", \"thead\""
+killed_by = "lib:html_content_model"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/html_content_model.rs"
+change = "drop the finding"
+find = "violations.push("
+replace = "std::mem::drop("
+killed_by = "lib:html_content_model"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/pipeline/mod.rs"
+change = "host: no not-run record when html-conform declines the document"
+find = "        if hc.raw_html.is_none()\n"
+replace = "        if false && hc.raw_html.is_none()\n"
+killed_by = "corpus:error_dom_too_deep"

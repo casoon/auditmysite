@@ -1,0 +1,22 @@
+{
+  "case": "vulnerable_libs_boundaries_last_vulnerable",
+  "note": "The release just below each fix: jQuery 3.5.0, Bootstrap 4.3.1, Handlebars 4.7.10, Lodash 4.18.0.",
+  "expectations": [
+    {
+      "rule_id": "jQuery",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Bootstrap",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Handlebars",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Lodash",
+      "verdict": "violation"
+    }
+  ]
+}

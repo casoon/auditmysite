@@ -1,10 +1,15 @@
 {
   "case": "media_and_motion",
   "expectations": [
-    { "rule_id": "media-alt", "verdict": "needs_review" },
-    { "rule_id": "video-caption", "verdict": "needs_review" },
-    { "rule_id": "orientation/content-hidden", "verdict": "needs_review" },
-    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review" },
-    { "rule_id": "focus/outline-removed", "verdict": "violation" }
+    {"rule_id": "media-alt", "verdict": "needs_review"},
+    {"rule_id": "video-caption", "verdict": "needs_review"},
+    {"rule_id": "orientation/content-hidden", "verdict": "needs_review"},
+    {"rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review"},
+    {"rule_id": "focus/outline-removed", "verdict": "violation"},
+    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "motion/infinite-animation", "selector": "div.spinner", "verdict": "needs_review"}
   ]
 }

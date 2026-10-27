@@ -1,0 +1,47 @@
+{
+  "case": "structure_empty_body",
+  "expectations": [
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "headings/none",
+      "selector": "html",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "document/title-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "verdict": "not_applicable"
+    }
+  ]
+}

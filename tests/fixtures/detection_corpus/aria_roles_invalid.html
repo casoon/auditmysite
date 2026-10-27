@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Order overview - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Order overview</h1>
+
+        <!-- aria/role-invalid: misspelled role, the element stays generic -->
+        <div id="orders" role="tabel">
+            <p>Order 1001 - shipped</p>
+        </div>
+
+        <!-- aria/role-abstract: abstract roles must not be authored -->
+        <div id="filters" role="widget" tabindex="0">Filter orders</div>
+
+        <!-- aria/role-redundant: the role repeats the implicit role -->
+        <button type="button" id="reorder" role="button">Reorder</button>
+
+        <!-- aria/required-parent-missing: tab outside any tablist -->
+        <div id="tab-returns" role="tab" tabindex="0" aria-selected="true">Returns</div>
+
+        <!-- aria/required-children-missing: a tablist owning buttons, not tabs -->
+        <div id="views" role="tablist" aria-label="Views">
+            <button type="button" id="view-list">List</button>
+            <button type="button" id="view-grid">Grid</button>
+        </div>
+
+        <!-- aria/required-attribute-missing: custom checkbox and switch without
+             aria-checked, combobox without aria-expanded -->
+        <div id="gift" role="checkbox" tabindex="0">Gift wrap</div>
+        <div id="express" role="switch" tabindex="0">Express delivery</div>
+        <div id="carrier" role="combobox" tabindex="0" aria-controls="carriers" aria-label="Carrier">Standard</div>
+        <ul id="carriers" role="listbox" aria-label="Carriers">
+            <li role="option" id="carrier-std" aria-selected="true">Standard</li>
+            <li role="option" id="carrier-fast">Fast</li>
+        </ul>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

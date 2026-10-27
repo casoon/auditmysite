@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deals</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Deals</h1>
+<!-- G2 #783: 2.4.4 and 2.4.9 apply to every link, native or role=link: the same vague text, bare address and single character as on native links. -->
+<p><span id="gn-aria-role" role="link" tabindex="0" onclick="location.href = '/deals'" onkeydown="if (event.key === 'Enter') location.href = '/deals'">Click here</span></p>
+<div><div><ul><li><span id="url-aria-role" role="link" tabindex="0" onclick="location.href = 'https://example.org/press'" onkeydown="if (event.key === 'Enter') location.href = 'https://example.org/press'">https://example.org/press</span></li></ul></div></div>
+<p><span id="sc-aria-role" role="link" tabindex="0" onclick="location.href = '/close-offer'" onkeydown="if (event.key === 'Enter') location.href = '/close-offer'">x</span></p>
+<p><span id="good-aria-role" role="link" tabindex="0" onclick="location.href = '/deals/bikes'" onkeydown="if (event.key === 'Enter') location.href = '/deals/bikes'">Bike deals of the week</span></p>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

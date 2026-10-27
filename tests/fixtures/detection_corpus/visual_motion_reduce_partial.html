@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reduced-motion block that only shortens the movement</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .tile { transition: transform 0.4s ease; padding: 8px; border: 1px solid #333333; }
+  .tile:hover { transform: scale(1.08); }
+  /* 200 ms is shorter, but the tile still moves: not switched off. */
+  @media (prefers-reduced-motion: reduce) {
+    .tile { transition-duration: 0.2s; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Gallery</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Photo gallery</h1>
+  <div class="tile">Harbour at dawn</div>
+  <div class="tile">Old town square</div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

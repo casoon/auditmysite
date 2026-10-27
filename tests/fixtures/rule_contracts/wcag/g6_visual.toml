@@ -1,0 +1,1011 @@
+# Rule contracts, group G6: contrast, text presentation, motion, orientation,
+# zoom, display modes, timing (#783). Format: ../README.md.
+#
+# The corpus runs every case at WCAG level AAA, in the desktop (1280x800,
+# landscape) and the mobile pass (390x844, portrait); reflow is measured once
+# more at 320x256. Findings of both passes are merged.
+
+# --- Contrast (shared, a11y-rules rendering tier) ----------------------------
+
+[[rule]]
+id = "contrast/text-insufficient"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/text-insufficient)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.3 Contrast (Minimum); definitions 'contrast ratio', 'relative luminance', 'large scale (text)'"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Every element that itself carries rendered, visible text (own non-empty text node; not display:none, visibility:hidden or visually hidden), in the top document, open shadow roots and frames."
+expectation = """
+Fails when the contrast ratio between the text colour actually painted
+(-webkit-text-fill-color wins over color; a translucent foreground is
+composited) and the effective background is below 4.5:1, or below 3:1 for
+large text (at least 18pt = 24px, or 14pt = 18.66px bold). WCAG forbids
+rounding up: 4.48:1 fails, 2.96:1 fails for large text; 4.54:1 and 3.03:1
+pass. Text that is not rendered or only visually hidden is not visible text
+and is not measured. Text under aria-hidden is still visible text and is
+measured (1.4.3 is about what is seen, not the accessibility tree). Text in
+a shadow root or a frame is part of the page. A viewport-specific colour
+counts in the viewport where it applies; a colour set by script after load
+counts as rendered. When the background cannot be resolved (gradient,
+background-clip:text, covered by an overlay) the rule does not guess: that
+is contrast/text-undetermined, never a pass or fail here."""
+positive = ["low_contrast_text", "contrast_shadow_and_inline", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_thresholds", "visual_contrast_frame"]
+negative = ["visual_contrast_thresholds", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_covered", "visual_contrast_frame"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_contrast_thresholds"] }
+native_vs_aria = { cases = ["visual_contrast_thresholds"] }
+alternative_labels = { not_relevant = "Contrast concerns rendered colour, not names; alternative ways of painting glyphs (-webkit-text-fill-color) are covered under positive/negative by text_fill_color_contrast." }
+frames_shadow_dom = { cases = ["contrast_shadow_and_inline", "visual_contrast_frame"] }
+responsive = { cases = ["visual_contrast_thresholds"] }
+dynamic = { cases = ["visual_contrast_thresholds"] }
+thresholds = { cases = ["visual_contrast_thresholds"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-insufficient)"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/frames.rs"
+change = "host: stop running the rule inside frames"
+find = "    \"contrast/text-insufficient\",\n"
+replace = ""
+killed_by = "corpus:visual_contrast_frame"
+[[rule]]
+id = "contrast/text-undetermined"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/text-undetermined)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.3 Contrast (Minimum); a11y-rules rule 3 (not determinable is not a pass)"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Elements carrying rendered, visible text whose foreground or background colour cannot be resolved, or whose centre is covered by a foreign fixed or sticky element."
+expectation = """
+Reports a review (UNTESTED) instead of a pass or fail when the contrast cannot
+be measured: glyphs painted transparent over a gradient (background-clip:
+text), no resolvable colour, or the text covered by a fixed/sticky overlay
+such as a cookie banner (the overlay's own text is measurable and not
+reported). Over an image or gradient that can be sampled, a median that
+passes with a 40th percentile that fails is a borderline review under this
+id as well. Text on a solid background never produces this finding. It is
+never a confirmed violation."""
+positive = ["gradient_text_contrast", "visual_contrast_covered"]
+negative = ["visual_contrast_thresholds", "visual_contrast_covered"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_contrast_covered"] }
+native_vs_aria = { not_relevant = "Whether colours are resolvable does not depend on roles or ARIA attributes." }
+alternative_labels = { not_relevant = "Contrast concerns rendered colour, not names." }
+frames_shadow_dom = { not_relevant = "Same measurement as contrast/text-insufficient, whose frame and shadow-root traversal is proven there (contrast_shadow_and_inline, visual_contrast_frame); an unresolvable background behaves the same inside them." }
+responsive = { not_relevant = "The same measurement runs per viewport; contrast/text-insufficient proves the viewport-specific colour." }
+dynamic = { not_relevant = "The same post-load snapshot as contrast/text-insufficient, which proves a colour set by script." }
+thresholds = { not_relevant = "The sampled borderline (median passes, 40th percentile fails) depends on screenshot pixels and font rasterisation; no static page pins it reproducibly. The 4.5/3/7 thresholds are proven on contrast/text-insufficient and contrast/text-enhanced." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-undetermined)"
+
+[[rule]]
+id = "contrast/text-enhanced"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/text-enhanced)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.6 Contrast (Enhanced), Level AAA"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Visible text that meets 1.4.3; text failing or undetermined under 1.4.3 is reported there, not twice."
+expectation = """
+Fails when text that meets 1.4.3 stays below 7:1, or below 4.5:1 for large
+text. 7.01:1 passes, 6.90:1 fails; large text at 3.03:1 fails here although
+it meets 1.4.3. Only reported in an AAA audit (the corpus runs at AAA)."""
+positive = ["visual_contrast_thresholds"]
+negative = ["visual_contrast_thresholds"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "Same measurement (which elements count as visible text) as contrast/text-insufficient, proven there; hidden text in visual_contrast_thresholds fails 1.4.3 first and so cannot reach this check." }
+native_vs_aria = { not_relevant = "Roles and ARIA do not change rendered colour; aria-hidden text is proven on contrast/text-insufficient." }
+alternative_labels = { not_relevant = "Contrast concerns rendered colour, not names." }
+frames_shadow_dom = { not_relevant = "Same traversal as contrast/text-insufficient, proven there." }
+responsive = { not_relevant = "Same per-viewport measurement as contrast/text-insufficient, proven there." }
+dynamic = { not_relevant = "Same post-load snapshot as contrast/text-insufficient, proven there." }
+thresholds = { cases = ["visual_contrast_thresholds"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-enhanced)"
+
+[[rule]]
+id = "contrast/control-insufficient"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/control-insufficient)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.11 Non-text Contrast (user interface components)"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Rendered checkboxes, radio buttons, ranges and role checkbox/radio/switch elements drawn by the author (appearance: none)."
+expectation = """
+Fails when the visual boundary of an author-drawn control (its top border if
+drawn, otherwise its own fill) reaches less than 3:1 against the background
+behind it; 2.995:1 fails (no rounding), 3.03:1 passes. Native controls drawn
+by the browser are not the author's boundary and are not reported. A control
+that is not rendered is not measured. An ARIA switch drawn with a span is a
+control like a native input. An unresolvable background is
+contrast/control-undetermined."""
+positive = ["visual_control_contrast"]
+negative = ["visual_control_contrast"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_control_contrast"] }
+native_vs_aria = { cases = ["visual_control_contrast"] }
+alternative_labels = { not_relevant = "The boundary contrast does not depend on how the control is labelled." }
+frames_shadow_dom = { not_relevant = "Same rendering-tier traversal as contrast/text-insufficient (frames and shadow roots proven there); controls inside them are measured the same way." }
+responsive = { not_relevant = "Custom control styles do not vary between the two audited viewports in common practice; the measurement itself is per viewport like the text contrast." }
+dynamic = { not_relevant = "Measured on the post-load snapshot shared with the text contrast, which proves script-set colours." }
+thresholds = { cases = ["visual_control_contrast"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/control-insufficient)"
+
+[[rule]]
+id = "contrast/control-undetermined"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/control-undetermined)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.11 Non-text Contrast; a11y-rules rule 3 (not determinable is not a pass)"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Author-drawn controls (appearance: none) whose background behind the control cannot be resolved (gradient or image)."
+expectation = """
+Reports a review (UNTESTED) for an author-drawn control whose parent
+background is a gradient or image, instead of comparing against white. A
+control on a solid background is measured (pass or
+contrast/control-insufficient), never reported here."""
+positive = ["visual_control_contrast"]
+negative = ["visual_control_contrast"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "Hidden controls are skipped before the background is looked at, proven on contrast/control-insufficient." }
+native_vs_aria = { not_relevant = "Native and ARIA controls reach the same background lookup, proven on contrast/control-insufficient." }
+alternative_labels = { not_relevant = "Labelling does not change the background." }
+frames_shadow_dom = { not_relevant = "Same traversal as the text contrast rules." }
+responsive = { not_relevant = "Same per-viewport measurement as contrast/control-insufficient." }
+dynamic = { not_relevant = "Same post-load snapshot as the other contrast rules." }
+thresholds = { not_relevant = "No ratio is computed: the background is either resolvable or not." }
+
+[rule.test_strength]
+status = "killed"
+
+# --- Text presentation (shared, stylesheet tier) -----------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/control-undetermined)"
+
+[[rule]]
+id = "text/justified"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text/justified)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullet 3: text is not justified"
+capabilities = ["dom", "stylesheets"]
+applicability = "Blocks of text: paragraphs with text content that are rendered."
+expectation = """
+One page-level review when at least one rendered paragraph is set with
+text-align: justify, however the author set it: in a stylesheet rule, in the
+style attribute, or in a media query that applies in an audited viewport.
+Headings, captions and other short labels are not blocks of text. A hidden
+paragraph is not presented and does not count. Review, not a violation:
+1.4.8 asks for a mechanism, which a user stylesheet may provide."""
+page_level = true
+positive = ["text_and_layout", "visual_text_presentation", "visual_text_inline_style", "visual_text_media_query"]
+negative = ["visual_text_presentation_ok"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_text_presentation_ok"] }
+native_vs_aria = { not_relevant = "Paragraphs have no ARIA counterpart in practical use (role=paragraph is not used for running text)." }
+alternative_labels = { cases = ["visual_text_inline_style"] }
+frames_shadow_dom = { not_relevant = "The rule reads the stylesheets of the top document; frame documents carry their own sheets and are not part of this check (scope limit, not a different expectation)." }
+responsive = { cases = ["visual_text_media_query"] }
+dynamic = { not_relevant = "Stylesheet rules are matched against the DOM after scripts ran; a class added at load is the static case." }
+thresholds = { not_relevant = "Presence check on one keyword value, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: stop passing rules of matching media queries"
+find = "        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);"
+replace = "        if (false) matched(r.cssRules, out, true);"
+killed_by = "corpus:visual_text_media_query"
+[[rule]]
+id = "text/line-height-tight"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text/line-height-tight)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullet 4: line spacing at least space-and-a-half"
+capabilities = ["dom", "stylesheets"]
+applicability = "Blocks of text: paragraphs with text content that are rendered."
+expectation = """
+One page-level review when at least one rendered paragraph has an effective
+line height below 1.5 times the font size, from a stylesheet, the style
+attribute, or a media query applying in an audited viewport. Exactly 1.5
+passes, 1.4 does not. A tight value on html (normalize.css) that the
+paragraphs override does not count; captions and headings are not blocks of
+text. Review, not a violation."""
+page_level = true
+positive = ["visual_text_presentation", "visual_text_inline_style", "visual_text_media_query"]
+negative = ["visual_text_presentation_ok"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_text_presentation_ok"] }
+native_vs_aria = { not_relevant = "Paragraphs have no ARIA counterpart in practical use." }
+alternative_labels = { cases = ["visual_text_inline_style"] }
+frames_shadow_dom = { not_relevant = "The rule reads the stylesheets of the top document; frame documents are not part of this check." }
+responsive = { cases = ["visual_text_media_query"] }
+dynamic = { not_relevant = "Stylesheet rules are matched against the DOM after scripts ran; a class added at load is the static case." }
+thresholds = { cases = ["visual_text_presentation"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/line-height-tight)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/line-height-tight)"
+
+[[rule]]
+id = "visual-presentation"
+automation = "manual"
+manual_reason = "1.4.8 also requires that users can select foreground and background colours and that text blocks stay within 80 characters; whether a mechanism exists and how wide a block renders for the user's chosen font cannot be decided from markup or style."
+method = "page"
+source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullets 1, 2 and 5"
+capabilities = ["dom"]
+applicability = "Every page in an AAA audit (a fixed page-wide UNTESTED note; justified text and line height are the automated text/* ids)."
+expectation = """
+Emits one page-wide UNTESTED note in every AAA audit, never a pass and never
+a violation. Strictly, 1.4.8 applies only to blocks of text, so a page
+without any (visual_no_text) should not get the note; the note is
+unconditional today, which is why no not-applicable case exists."""
+page_level = true
+ambient = true
+positive = ["text_and_layout", "visual_text_presentation"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "Fixed note, no element is inspected." }
+native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
+alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
+frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
+responsive = { not_relevant = "Fixed note, the same in every viewport." }
+dynamic = { not_relevant = "Fixed note, independent of page state." }
+thresholds = { not_relevant = "Fixed note, no measurement." }
+
+[rule.test_strength]
+status = "not_mutable"
+reason = "check_visual_presentation_with_page returns a constant UNTESTED note; there is no decision to mutate."
+
+# --- Motion -------------------------------------------------------------------
+
+[[rule]]
+id = "motion/reduced-motion-ignored"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=motion/reduced-motion-ignored)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.3.3 Animation from Interactions (Level AAA); Media Queries 5 'prefers-reduced-motion'"
+capabilities = ["dom", "stylesheets"]
+applicability = "Style rules outside a prefers-reduced-motion: reduce block that animate or transition a motion property (transform, translate, rotate, scale, position offsets, ...) on a selector matching an element of the page."
+expectation = """
+One page-level review when at least one such rule is not switched off under
+@media (prefers-reduced-motion: reduce). Switched off means animation: none,
+a duration of at most about 50 ms (the usual 0.01ms reset), paused, or
+transition: none / transition-property: none, set for the same selector or
+by a universal reset. A reduce block that only shortens the movement (0.2s)
+does not switch it off. Colour and opacity fades are not motion. Rules whose
+selector matches nothing on the page are not evidence. Review, not a
+violation: whether the motion is triggered by interaction and is essential is
+a human decision."""
+page_level = true
+positive = ["reduced_motion_transform", "visual_motion_infinite", "visual_motion_reduce_partial"]
+negative = ["reduced_motion_override", "reduced_motion_colour_only", "visual_motion_pausable"]
+not_applicable = ["visual_motion_none", "visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A stylesheet check: hover/focus motion can be triggered whether or not the element moves right now. Selectors that match nothing are proven by visual_motion_none." }
+native_vs_aria = { not_relevant = "Motion comes from CSS, independent of roles or ARIA." }
+alternative_labels = { cases = ["reduced_motion_override", "visual_motion_pausable"] }
+frames_shadow_dom = { not_relevant = "The rule reads the stylesheets of the top document; frame documents carry their own sheets and are not part of this check." }
+responsive = { not_relevant = "prefers-reduced-motion is a user preference, not a viewport feature; both viewports read the same sheets." }
+dynamic = { not_relevant = "Sheets and selector matching are read after scripts ran." }
+thresholds = { cases = ["visual_motion_reduce_partial", "reduced_motion_override"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id motion/reduced-motion-ignored)"
+
+[[rule]]
+id = "motion/infinite-animation"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=motion/infinite-animation)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.2.2 Pause, Stop, Hide (moving content that lasts more than five seconds)"
+capabilities = ["dom", "computed_style"]
+applicability = "Rendered elements with a running animation whose iteration count is infinite, and marquee elements."
+expectation = """
+A review at the outermost endlessly animated element (one per group of
+siblings) when the page offers no control to pause or stop motion. A finite
+animation (iteration count 3) is not endless; an endless animation on an
+element that is not rendered moves nothing. A control labelled to pause or
+stop (button "Pause animation") is taken as the mechanism; whether it works
+is for a human. An animation started by a script after load counts like a
+static one. Review, not a violation: an animation may end within five
+seconds of the page's own logic, which the snapshot cannot see."""
+positive = ["visual_motion_infinite"]
+negative = ["visual_motion_pausable", "visual_motion_infinite"]
+not_applicable = ["visual_motion_none", "visual_motion_reduce_partial", "visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_motion_infinite"] }
+native_vs_aria = { not_relevant = "Motion comes from CSS or marquee, not from roles; the marquee path is covered by no_focus_targets." }
+alternative_labels = { cases = ["visual_motion_pausable"] }
+frames_shadow_dom = { not_relevant = "Animations inside frames run in their own document; the computed-style snapshot of the page is what this rule reads." }
+responsive = { not_relevant = "Animation declarations rarely differ per viewport; the snapshot is taken in both passes alike." }
+dynamic = { cases = ["visual_motion_infinite"] }
+thresholds = { cases = ["visual_motion_infinite"] }
+
+[rule.test_strength]
+status = "killed"
+
+# --- Orientation -----------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id motion/infinite-animation)"
+
+[[rule]]
+id = "orientation/content-hidden"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=orientation/content-hidden)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.3.4 Orientation"
+capabilities = ["dom", "stylesheets"]
+applicability = "Style rules inside an orientation media query that hide (display: none, visibility: hidden) or rotate content, on selectors matching an element of the page."
+expectation = """
+One page-level review when such a rule exists: content hidden or turned in
+one orientation (a timetable hidden in portrait behind a rotate hint, the
+body rotated in portrait). Re-laying out content (grid columns) is not
+hiding. Pseudo-elements (breakpoint markers) and selectors matching nothing
+are not content. A rotation applied by script through an inline style is not
+a stylesheet rule and not this id's (css-orientation-lock measures it).
+Review, not a violation: whether the hidden content is available in the
+other orientation, or the orientation essential, is a human decision."""
+page_level = true
+positive = ["visual_orientation_lock", "visual_orientation_hide"]
+negative = ["visual_orientation_ok"]
+not_applicable = ["visual_orientation_script_lock", "visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_orientation_ok"] }
+native_vs_aria = { not_relevant = "Orientation media queries are CSS, independent of roles or ARIA." }
+alternative_labels = { cases = ["visual_orientation_lock", "visual_orientation_hide"] }
+frames_shadow_dom = { not_relevant = "The rule reads the stylesheets of the top document; frame documents are not part of this check." }
+responsive = { cases = ["visual_orientation_hide", "visual_orientation_lock"] }
+dynamic = { cases = ["visual_orientation_script_lock"] }
+thresholds = { not_relevant = "Presence check on hiding/rotating declarations, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id orientation/content-hidden)"
+
+[[rule]]
+id = "css-orientation-lock"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 1.3.4 Orientation"
+capabilities = ["computed_style"]
+applicability = "The root elements html and body of the top document, in each audited viewport: every page has them, so there is no page the check does not apply to."
+expectation = """
+Fails when html or body is rotated in the audited viewport (computed
+transform with a rotation component, or the rotate property), which turns the
+whole page sideways: in the mobile (portrait) pass this is the classic lock
+that forces landscape, whether set by an orientation media query or by a
+script reacting to the orientation. The finding names the rotated element.
+A full turn (360deg), a translation or no transform is no rotation. Rotations
+by a multiple of 180deg do not swap the axes and are not reported. A page
+whose computed style cannot be read is a technical failure, not a pass."""
+always_applicable = true
+positive = ["visual_orientation_lock", "visual_orientation_script_lock"]
+negative = ["visual_orientation_ok", "visual_orientation_hide"]
+
+[rule.variants]
+visibility = { not_relevant = "html and body are always present; the check is about their geometry, not their visibility." }
+native_vs_aria = { not_relevant = "Only the root elements are inspected; roles do not apply." }
+alternative_labels = { cases = ["visual_orientation_lock", "visual_orientation_script_lock"] }
+frames_shadow_dom = { not_relevant = "Orientation lock concerns the top document's root elements; a frame cannot rotate the page." }
+responsive = { cases = ["visual_orientation_lock"] }
+dynamic = { cases = ["visual_orientation_script_lock"] }
+thresholds = { cases = ["visual_orientation_ok"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/orientation.rs"
+change = "disable rotation detection in the transform matrix"
+find = "if (Math.abs(b) > 0.01 && Math.abs(b + c) < 0.01) {"
+replace = "if (false) {"
+killed_by = "corpus:visual_orientation_lock,visual_orientation_script_lock"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/orientation.rs"
+change = "invert the decisive locked condition"
+find = "if !locked {"
+replace = "if locked {"
+killed_by = "corpus:visual_orientation_ok,visual_orientation_lock"
+
+# --- Zoom (shared, viewport meta) ----------------------------------------------
+
+[[rule]]
+id = "zoom/viewport-locked"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=zoom/viewport-locked)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.4 Resize Text; CSS Device Adaptation / viewport meta 'parsing the content attribute'"
+capabilities = ["dom"]
+applicability = "meta name=viewport elements of the document (also when inserted by script)."
+expectation = """
+Fails at the meta element when it disables zooming (user-scalable=no or 0)
+or caps maximum-scale below 2, which prevents resizing text to 200 percent.
+Values are parsed as browsers do: comma, semicolon or whitespace separate
+pairs, whitespace around '=' belongs to the pair, case does not matter.
+maximum-scale=1.9 fails, 2 does not (that is zoom/viewport-scale-limited).
+No viewport meta at all is zoom/viewport-missing, not this id."""
+positive = ["restrictive_viewport", "visual_viewport_scale_below_two", "visual_viewport_alt_syntax", "visual_viewport_script"]
+negative = ["visual_viewport_scale_two", "visual_viewport_scale_five"]
+not_applicable = ["visual_viewport_missing"]
+
+[rule.variants]
+visibility = { not_relevant = "A meta element is never rendered; visibility does not exist for it." }
+native_vs_aria = { not_relevant = "The viewport meta has no ARIA counterpart." }
+alternative_labels = { cases = ["visual_viewport_alt_syntax"] }
+frames_shadow_dom = { not_relevant = "Only the top document's viewport meta governs zoom; a frame's is ignored by browsers." }
+responsive = { not_relevant = "The declaration is the same in both viewports." }
+dynamic = { cases = ["visual_viewport_script"] }
+thresholds = { cases = ["visual_viewport_scale_below_two", "visual_viewport_scale_two"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-locked)"
+
+[[rule]]
+id = "zoom/viewport-scale-limited"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=zoom/viewport-scale-limited)"]
+automation = "automated"
+method = "shared"
+source = "Best practice beyond WCAG 2.2 SC 1.4.4 (zoom capped between 200 and 500 percent)"
+capabilities = ["dom"]
+applicability = "meta name=viewport elements that allow at least 200 percent zoom."
+expectation = """
+A best-practice finding at the meta element when maximum-scale is at least 2
+but below 5: 1.4.4 is met, but users who need more magnification are capped.
+maximum-scale=2 is reported, 5 is not; below 2 is zoom/viewport-locked
+instead and not reported twice. Not a WCAG failure (auditmysite currently
+files it under 1.4.4, see the G6 report)."""
+positive = ["visual_viewport_scale_two"]
+negative = ["visual_viewport_scale_five", "visual_viewport_scale_below_two"]
+not_applicable = ["visual_viewport_missing"]
+
+[rule.variants]
+visibility = { not_relevant = "A meta element is never rendered." }
+native_vs_aria = { not_relevant = "The viewport meta has no ARIA counterpart." }
+alternative_labels = { not_relevant = "The parser is shared with zoom/viewport-locked, whose alternative syntax case proves it." }
+frames_shadow_dom = { not_relevant = "Only the top document's viewport meta governs zoom." }
+responsive = { not_relevant = "The declaration is the same in both viewports." }
+dynamic = { not_relevant = "Read from the same post-load DOM as zoom/viewport-locked, whose script case proves it." }
+thresholds = { cases = ["visual_viewport_scale_below_two", "visual_viewport_scale_two", "visual_viewport_scale_five"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-scale-limited)"
+
+[[rule]]
+id = "zoom/viewport-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=zoom/viewport-missing)"]
+automation = "automated"
+method = "shared"
+source = "Best practice (no WCAG criterion): without a viewport declaration mobile browsers lay out at desktop width and scale the page down; CSS Device Adaptation"
+capabilities = ["dom"]
+applicability = "Every HTML document: there is no document the check does not apply to."
+expectation = """
+A best-practice finding at the root element when the document has no meta
+name=viewport, neither in the markup nor inserted by script. Any viewport
+declaration, whatever its content, satisfies this id. No not-applicable case
+exists: every HTML document is in scope."""
+page_level = true
+always_applicable = true
+positive = ["visual_viewport_missing"]
+negative = ["visual_viewport_scale_five", "visual_viewport_script", "visual_viewport_scale_below_two"]
+
+[rule.variants]
+visibility = { not_relevant = "A meta element is never rendered." }
+native_vs_aria = { not_relevant = "The viewport meta has no ARIA counterpart." }
+alternative_labels = { not_relevant = "Presence check: any viewport meta counts." }
+frames_shadow_dom = { not_relevant = "Only the top document's viewport meta matters." }
+responsive = { not_relevant = "Presence is the same in both viewports." }
+dynamic = { cases = ["visual_viewport_script"] }
+thresholds = { not_relevant = "Presence check, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+# --- Reflow and text spacing (local) ---------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-missing)"
+
+[[rule]]
+id = "css-overflow-hidden"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "pipeline"
+source = "WCAG 2.2 SC 1.4.10 Reflow (320 CSS px width; exception for content requiring two-dimensional layout)"
+capabilities = ["geometry", "interaction"]
+applicability = "The page at a 320 x 256 CSS px viewport (run once after the mobile pass), except content that needs two-dimensional layout: data tables, images, maps, diagrams, video, application areas."
+expectation = """
+Fails when the document needs horizontal scrolling at 320 CSS px (scroll
+width more than 5 px beyond the viewport) because of content that should
+reflow; the finding names the widest such element. Exactly 320 px wide
+content passes. A fixed width that only applies above 400 px does not apply
+at 320 px. A width capped by script after load passes. Overflow caused only
+by a data table, image or other 2D content is excepted by the criterion and
+passes; a layout table (role=presentation/none) is not excepted. Overflowing
+text without a wider element box (an unbroken string) still fails. A page
+whose only wide content is such 2D content (visual_no_text: one image) has
+nothing the criterion applies to."""
+positive = ["visual_reflow_fixed_width"]
+negative = ["visual_reflow_ok"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "An element that is not rendered has no box and cannot widen the document; only rendered geometry is measured." }
+native_vs_aria = { not_relevant = "The 2D exception keys on native table/img/video as well as role table/grid/img; no separate decision path." }
+alternative_labels = { not_relevant = "Reflow does not depend on names or labels." }
+frames_shadow_dom = { not_relevant = "Content of a frame scrolls inside the frame; only the top document's scroll width is the page's reflow." }
+responsive = { cases = ["visual_reflow_ok"] }
+dynamic = { cases = ["visual_reflow_ok"] }
+thresholds = { cases = ["visual_reflow_ok", "visual_reflow_fixed_width"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/reflow.rs"
+change = "disable detection: never see a horizontal overflow"
+find = "if (document.documentElement.scrollWidth <= vw + 5) return null;"
+replace = "if (true) return null;"
+killed_by = "corpus:visual_reflow_fixed_width"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/reflow.rs"
+change = "drop the 2D-content exception"
+find = "if (el.closest(TWO_D)) {"
+replace = "if (false) {"
+killed_by = "corpus:visual_reflow_ok"
+
+[[rule]]
+id = "text-spacing"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "WCAG 2.2 SC 1.4.12 Text Spacing; W3C text spacing bookmarklet technique"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Rendered elements with text that clip their own content (overflow: hidden) in the top document."
+expectation = """
+Fails when applying the 1.4.12 minimums (line height 1.5, paragraph spacing
+2em, letter spacing 0.12em, word spacing 0.16em) makes a container clip text
+it did not clip before: a fixed-height badge (20px at line-height 1.2) or a
+fixed-width, nowrap label. Content clipped already before the change
+(teasers cut by design, the 1x1 visually-hidden pattern) is not caused by
+spacing and not reported. A container exactly as tall as one line at 1.5
+(24px) still fits; one that grows (min-height) or whose fixed height a
+script removes after load passes. The first newly clipped element is
+reported (one finding per page and viewport). A page whose probe cannot run
+is a technical failure, not a pass."""
+positive = ["visual_text_spacing_clipped", "visual_text_spacing_letter"]
+negative = ["visual_text_spacing_ok"]
+not_applicable = ["visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_text_spacing_clipped"] }
+native_vs_aria = { not_relevant = "Clipping is geometry, independent of roles or ARIA." }
+alternative_labels = { not_relevant = "Clipping does not depend on names; the alternative spacing properties (letter spacing) are proven by visual_text_spacing_letter." }
+frames_shadow_dom = { not_relevant = "The probe applies the spacing stylesheet to the top document only; frame documents and shadow roots keep their own styles (known scope limit of the probe, not a different expectation)." }
+responsive = { not_relevant = "The probe runs in both viewports with the same logic; which container clips may differ, the decision does not." }
+dynamic = { cases = ["visual_text_spacing_ok"] }
+thresholds = { cases = ["visual_text_spacing_ok", "visual_text_spacing_clipped"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/text_spacing.rs"
+change = "disable detection: never flag a clipping container"
+find = "flags[i] = (clipsX || clipsY) && el.textContent.trim().length > 0;"
+replace = "flags[i] = false;"
+killed_by = "corpus:visual_text_spacing_clipped,visual_text_spacing_letter"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/text_spacing.rs"
+change = "drop the baseline: report content that was clipped before spacing changed"
+find = "if (after[i] && !before[i]) {"
+replace = "if (after[i]) {"
+killed_by = "corpus:visual_text_spacing_ok"
+
+# --- Display-mode convention (best practice) ---------------------------------------
+
+[[rule]]
+id = "display/toggle-missing"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=display/toggle-missing)"]
+automation = "automated"
+method = "shared"
+source = "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice"
+capabilities = ["dom"]
+applicability = "Pages that contain at least one figure[data-viz]."
+expectation = """
+A best-practice finding at the root element when a page with visualisations
+has no element marked [data-display-toggle] (select, button or any element).
+Pages without figure[data-viz] are out of scope."""
+page_level = true
+positive = ["display_modes_violations"]
+negative = ["display_modes_conforming", "visual_display_never_set", "visual_display_text_mode_broken"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "Presence of a marked toggle in the DOM; the convention does not require it to be visible at audit time." }
+native_vs_aria = { not_relevant = "The marker is an attribute, independent of element type or role." }
+alternative_labels = { cases = ["display_modes_conforming", "visual_display_never_set"] }
+frames_shadow_dom = { not_relevant = "The convention marks figures and the toggle in the top document." }
+responsive = { not_relevant = "DOM presence check, the same in both viewports." }
+dynamic = { not_relevant = "Read from the post-load DOM; no state change decides it." }
+thresholds = { not_relevant = "Presence check, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id display/toggle-missing)"
+
+[[rule]]
+id = "display/init-missing"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice"
+capabilities = ["dom", "interaction"]
+applicability = "Pages that use the convention: at least one figure[data-viz] or a [data-display-toggle]."
+expectation = """
+A best-practice violation at html when html[data-display] is never set, or is
+set only after the body started rendering (a script at the end of body), so
+the page can show the wrong mode first. A blocking script in head that sets
+it passes, whatever form the toggle takes. Pages without the convention are
+out of scope."""
+page_level = true
+positive = ["display_modes_violations", "visual_display_never_set"]
+negative = ["display_modes_conforming", "display_modes_described_text", "display_modes_hidden_panel", "visual_display_text_mode_broken"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "An attribute on html and its timing; nothing rendered is inspected." }
+native_vs_aria = { not_relevant = "An attribute on html; roles do not apply." }
+alternative_labels = { cases = ["display_modes_conforming", "visual_display_never_set"] }
+frames_shadow_dom = { not_relevant = "The convention concerns the top document's html element." }
+responsive = { not_relevant = "The attribute is the same in both viewports." }
+dynamic = { cases = ["display_modes_violations"] }
+thresholds = { not_relevant = "Timing is before/after body parsing, a binary observation." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/display_modes.rs"
+change = "invert the never-set condition"
+find = "if (!html.hasAttribute('data-display')) {"
+replace = "if (html.hasAttribute('data-display')) {"
+killed_by = "corpus:visual_display_never_set,display_modes_conforming"
+
+[[rule]]
+id = "display/text-media-visible"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Pages rendered in text mode (html[data-display=text]) with figure[data-viz]."
+expectation = """
+A best-practice violation at the first rendered visualisation medium of a
+figure (static/live layer, canvas, svg, img, video, iframe, object, embed)
+that stays visible in text mode, outside the text layer. Hidden media pass;
+icons up to 32 x 32 px stay allowed (32 x 32 passes, 33 x 33 fails). Outside
+text mode the rule does not apply."""
+positive = ["display_modes_violations", "visual_display_text_mode_broken"]
+negative = ["display_modes_conforming", "visual_display_text_mode_broken"]
+not_applicable = ["visual_display_never_set", "visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["display_modes_conforming", "visual_display_text_mode_broken"] }
+native_vs_aria = { not_relevant = "Media are recognised by element and convention attribute; roles do not change what is painted." }
+alternative_labels = { not_relevant = "The check concerns painted media, not names." }
+frames_shadow_dom = { not_relevant = "The convention marks figures in the top document." }
+responsive = { not_relevant = "The convention keys on html[data-display], the same in both viewports; viewport-specific hiding is not part of it." }
+dynamic = { cases = ["display_modes_violations"] }
+thresholds = { cases = ["visual_display_text_mode_broken"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/display_modes.rs"
+change = "shift the icon threshold from 32x32 to 34x34"
+find = "if (r.width * r.height <= 32 * 32) continue;"
+replace = "if (r.width * r.height <= 34 * 34) continue;"
+killed_by = "corpus:visual_display_text_mode_broken"
+
+[[rule]]
+id = "display/text-not-visible"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; best practice"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Pages rendered in text mode with figure[data-viz] whose [data-viz-text] has content."
+expectation = """
+A best-practice violation at the figure when, in text mode, none of its
+non-empty text layers is rendered: still clipped to 1 x 1 by the
+visually-hidden pattern, or transparent (opacity 0). A text layer removed
+from assistive technology is display/text-hidden instead and not reported
+twice; a figure without any text is viz/text-missing. Outside text mode the
+rule does not apply."""
+positive = ["visual_display_text_mode_broken"]
+negative = ["display_modes_conforming", "visual_display_text_mode_broken"]
+not_applicable = ["visual_display_never_set", "visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["visual_display_text_mode_broken"] }
+native_vs_aria = { not_relevant = "The text layer is a convention attribute; roles do not change rendering." }
+alternative_labels = { not_relevant = "The check concerns rendering, not names." }
+frames_shadow_dom = { not_relevant = "The convention marks figures in the top document." }
+responsive = { not_relevant = "The convention keys on html[data-display], the same in both viewports." }
+dynamic = { not_relevant = "The mode is read after scripts ran; a late mode switch is display/init-missing's concern." }
+thresholds = { not_relevant = "Rendered or not (more than 1 x 1 px, not transparent); the 1px clip pattern is the boundary and is in the visibility case." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/display_modes.rs"
+change = "drop the text-not-visible finding"
+find = "if (!textOk && !hiddenReported && hasStatement) push('text', fig, 'invisible');"
+replace = "if (false) push('text', fig, 'invisible');"
+killed_by = "corpus:visual_display_text_mode_broken"
+
+[[rule]]
+id = "display/text-hidden"
+errored = ["error_page_scripts_sabotaged"]
+automation = "automated"
+method = "page"
+source = "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; accname 1.2 (description from hidden referenced nodes); HTML inert"
+capabilities = ["dom", "computed_style", "geometry"]
+applicability = "Pages with figure[data-viz] and a [data-viz-text], in any mode."
+expectation = """
+A best-practice violation at the text layer when it is removed from
+assistive technology while its figure is shown: hidden attribute,
+aria-hidden=true, inert, or CSS (display: none) on it or an ancestor, also
+when set by script after load. Visually hidden but exposed (clip pattern)
+passes. A figure that is itself not shown (inactive tab panel with hidden)
+hides its statement for everyone and passes. A CSS-hidden or hidden layer
+that a rendered element of the figure references by aria-describedby or
+aria-details still reaches assistive technology as a description: a low
+review, not a violation; inert does not get that exception."""
+positive = ["display_modes_violations", "display_modes_described_text", "visual_display_never_set"]
+negative = ["display_modes_hidden_panel", "display_modes_conforming", "visual_display_text_mode_broken"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { cases = ["display_modes_hidden_panel", "visual_display_never_set"] }
+native_vs_aria = { cases = ["visual_display_never_set", "display_modes_violations"] }
+alternative_labels = { cases = ["display_modes_described_text"] }
+frames_shadow_dom = { not_relevant = "The convention marks figures in the top document." }
+responsive = { not_relevant = "Hiding by attribute is the same in both viewports; the convention does not vary it by viewport." }
+dynamic = { cases = ["visual_display_never_set"] }
+thresholds = { not_relevant = "Hidden or not, no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/display_modes.rs"
+change = "drop inert from the hidden reasons"
+find = "if (n.hasAttribute('inert')) return 'inert';"
+replace = ""
+killed_by = "corpus:visual_display_never_set"
+
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/display_modes.rs"
+change = "drop the hidden-together-with-figure exception"
+find = "if (reason && !hiddenWithFig) {"
+replace = "if (reason) {"
+killed_by = "corpus:display_modes_hidden_panel"
+
+# --- Timing ---------------------------------------------------------------------
+
+[[rule]]
+id = "timing/meta-refresh"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=timing/meta-refresh)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.2.1 Timing Adjustable (20-hour exception); technique H76/F40/F41; HTML 'shared declarative refresh steps'"
+capabilities = ["dom"]
+applicability = "meta elements with http-equiv=refresh (any case) whose content starts with digits, also when inserted by script."
+expectation = """
+Fails at the meta element when it reloads or redirects after a delay of
+1 s up to just under 20 hours (71999 s fails, 72000 s is the 20-hour
+exception and passes): users can neither stop nor extend it. Attribute case,
+leading whitespace and a url part do not matter. Content without leading
+digits is ignored by browsers and passes. A delay of 0 is an immediate
+redirect, not a time limit (H76); it is not exercised in the corpus because
+it would navigate the fixture away."""
+positive = ["meta_refresh_present", "visual_meta_refresh_redirect"]
+negative = ["visual_meta_refresh_exempt"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A meta element is never rendered." }
+native_vs_aria = { not_relevant = "meta refresh has no ARIA counterpart." }
+alternative_labels = { cases = ["visual_meta_refresh_redirect"] }
+frames_shadow_dom = { not_relevant = "A refresh inside a frame reloads only that frame's document; the shared rule reads the top document (scope limit, not a different expectation)." }
+responsive = { not_relevant = "The declaration is the same in both viewports." }
+dynamic = { cases = ["visual_meta_refresh_redirect"] }
+thresholds = { cases = ["visual_meta_refresh_redirect", "visual_meta_refresh_exempt", "visual_meta_refresh_twenty_hours"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id timing/meta-refresh)"
+
+[[rule]]
+id = "meta-refresh"
+automation = "manual"
+manual_reason = "Script-driven time limits (setTimeout/setInterval, session expiry) and whether users can turn them off, adjust or extend them are not visible in the DOM. The id is historical: it names the 2.2.1 page note for script time limits, while the actual meta refresh detection is timing/meta-refresh."
+method = "page"
+source = "WCAG 2.2 SC 2.2.1 Timing Adjustable"
+capabilities = ["dom"]
+applicability = "Every page (a fixed page-wide UNTESTED note)."
+expectation = """
+Emits one page-wide UNTESTED note on every page, never a pass and never a
+violation. Strictly, 2.2.1 applies only where content sets a time limit, so
+a page without scripts or forms would be out of scope; the note is
+unconditional today, which is why no not-applicable case exists."""
+page_level = true
+ambient = true
+positive = ["visual_meta_refresh_redirect"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "Fixed note, no element is inspected." }
+native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
+alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
+frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
+responsive = { not_relevant = "Fixed note, the same in every viewport." }
+dynamic = { not_relevant = "Fixed note, independent of page state." }
+thresholds = { not_relevant = "Fixed note, no measurement." }
+
+[rule.test_strength]
+status = "not_mutable"
+reason = "check_timing_with_page returns a constant UNTESTED note; there is no decision to mutate."
+
+[[rule]]
+id = "timeouts"
+automation = "manual"
+manual_reason = "Whether an inactivity timeout exists, can lose data and is announced to users depends on server and session behaviour that a single page load cannot observe."
+method = "page"
+source = "WCAG 2.2 SC 2.2.6 Timeouts (Level AAA)"
+capabilities = ["dom"]
+applicability = "Every page in an AAA audit (a fixed page-wide UNTESTED note)."
+expectation = """
+Emits one page-wide UNTESTED note in every AAA audit, never a pass and never
+a violation. Strictly, 2.2.6 concerns data loss through inactivity, so a page
+without any data entry would be out of scope; the note is unconditional
+today, which is why no not-applicable case exists."""
+page_level = true
+ambient = true
+positive = ["visual_control_contrast"]
+not_applicable = []
+
+[rule.variants]
+visibility = { not_relevant = "Fixed note, no element is inspected." }
+native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
+alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
+frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
+responsive = { not_relevant = "Fixed note, the same in every viewport." }
+dynamic = { not_relevant = "Fixed note, independent of page state." }
+thresholds = { not_relevant = "Fixed note, no measurement." }
+
+[rule.test_strength]
+status = "not_mutable"
+reason = "check_timeouts_with_page returns a constant UNTESTED note; there is no decision to mutate."

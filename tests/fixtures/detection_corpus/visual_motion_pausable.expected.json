@@ -1,0 +1,7 @@
+{
+  "case": "visual_motion_pausable",
+  "expectations": [
+    { "rule_id": "motion/infinite-animation", "verdict": "absent" },
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "pass" }
+  ]
+}

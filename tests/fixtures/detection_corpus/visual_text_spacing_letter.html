@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Button label clipped when letter spacing grows</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+  /* 13 monospace characters (7.8em) fit into 8em on one line; with 0.12em
+     letter spacing and 0.16em word spacing they no longer do. */
+  #chip { display: inline-block; width: 8em; white-space: nowrap; overflow: hidden;
+          font-family: monospace; font-size: 16px; line-height: 2; vertical-align: top; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Garden chairs</h1>
+  <p><span id="chip">Add to basket</span></p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

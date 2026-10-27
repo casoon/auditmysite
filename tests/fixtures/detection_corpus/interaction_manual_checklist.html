@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Member area</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Club</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/events">Events</a>
+    </nav>
+    <main id="main">
+        <h1>Member area</h1>
+
+        <!-- manual/pointer-gestures: a swipe carousel -->
+        <section aria-label="Photo gallery">
+            <h2>Last season</h2>
+            <div class="carousel" id="gallery">
+                <p>Slide 1 of 3: the summer tournament.</p>
+            </div>
+            <button type="button">Previous photo</button>
+            <button type="button">Next photo</button>
+        </section>
+
+        <!-- manual/re-authenticating, manual/no-timing, manual/help: a sign-in form -->
+        <form action="/login" method="post">
+            <h2>Sign in</h2>
+            <p><label for="user">Member number</label> <input id="user" name="user" type="text" autocomplete="username"></p>
+            <p><label for="pass">Password</label> <input id="pass" name="pass" type="password" autocomplete="current-password"></p>
+            <p><button type="submit">Sign in</button></p>
+        </form>
+
+        <!-- manual/interruptions: a live region announcing updates -->
+        <div role="status" aria-live="polite" id="news">Next event: Saturday.</div>
+    </main>
+    <footer><p>Example Club footer</p></footer>
+    <script>
+        // manual/motion-actuation: shake to refresh the photos
+        window.addEventListener('devicemotion', function (event) {
+            if (event.acceleration && event.acceleration.x > 20) { location.reload(); }
+        });
+    </script>
+</body>
+</html>

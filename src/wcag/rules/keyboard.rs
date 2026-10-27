@@ -25,8 +25,14 @@ pub(super) const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {
 };
 
 /// Hinweise zur Tastaturfalle (2.1.2): je modalem Dialog und seitenweit.
+///
+/// 2.1.2 gilt nur, wenn der Fokus überhaupt auf eine Komponente der Seite
+/// kommen kann. Ohne fokussierbares Element (die Dokumentwurzel zählt nicht,
+/// sie ist Chromes eigenes Fokusziel) gibt es keine Falle zu prüfen, und der
+/// seitenweite Vermerk entfällt.
 pub fn check_keyboard(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
+    let mut focusable = false;
 
     for node in tree.iter() {
         if node.ignored {
@@ -34,6 +40,10 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
         }
 
         results.nodes_checked += 1;
+
+        if node.role.as_deref() != Some("RootWebArea") && node.is_focusable() {
+            focusable = true;
+        }
 
         // Check for potential keyboard traps (modal dialogs). Reported as Warning
         // (issue #569): the AX tree only confirms a modal dialog exists — it does
@@ -60,6 +70,10 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
         }
     }
 
+    if !focusable {
+        return results;
+    }
+
     // 2.1.2 No Keyboard Trap — structural check only detects modal `modal=true` dialogs.
     // JavaScript focus management in custom widgets requires manual Tab-key verification.
     results.add_violation(
@@ -77,7 +91,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
             "Ensure every focusable region has a keyboard escape path (Escape key, visible close button reachable by Tab, or documented keyboard shortcut).",
         )
         .with_help_url(NO_KEYBOARD_TRAP_RULE.help_url)
-            .with_rule_id(NO_KEYBOARD_TRAP_RULE.axe_id)
+        .with_rule_id(NO_KEYBOARD_TRAP_RULE.axe_id)
         .with_kind(Outcome::Untested),
     );
 
@@ -142,5 +156,32 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.rule == NO_KEYBOARD_TRAP_RULE.id && v.node_id == "1"));
+    }
+
+    fn focusable(mut node: AXNode) -> AXNode {
+        node.properties.push(AXProperty {
+            name: "focusable".to_string(),
+            value: AXValue::Bool(true),
+        });
+        node
+    }
+
+    #[test]
+    fn page_note_needs_a_focusable_component() {
+        // 2.1.2 applies only where focus can reach a component. The document
+        // root is always focusable in Chrome and does not count.
+        let static_page = AXTree::from_nodes(vec![
+            focusable(create_test_node("1", "RootWebArea", None)),
+            create_test_node("2", "paragraph", None),
+        ]);
+        assert!(check_keyboard(&static_page).not_testables.is_empty());
+
+        let with_link = AXTree::from_nodes(vec![
+            focusable(create_test_node("1", "RootWebArea", None)),
+            focusable(create_test_node("2", "link", Some("Home"))),
+        ]);
+        let results = check_keyboard(&with_link);
+        assert_eq!(results.not_testables.len(), 1);
+        assert_eq!(results.not_testables[0].node_id, "page");
     }
 }

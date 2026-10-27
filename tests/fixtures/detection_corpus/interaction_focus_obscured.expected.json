@@ -1,0 +1,29 @@
+{
+  "case": "interaction_focus_obscured",
+  "expectations": [
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-covered", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-covered", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-partial", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-partial", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-edge", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-edge", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-under-hidden", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-under-hidden", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-above-backdrop", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-above-backdrop", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-mobile", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-mobile", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "a#fo-dynamic", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "a#fo-dynamic", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-not-obscured-minimum", "selector": "button#fo-in-banner", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-enhanced", "selector": "button#fo-in-banner", "verdict": "absent" },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "contrast/text-undetermined", "selector": "a#fo-covered", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "contrast/text-undetermined", "selector": "a#fo-dynamic", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "contrast/text-undetermined", "selector": "a#fo-mobile", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/positive-tabindex", "verdict": "not_applicable" },
+    { "rule_id": "order/visual-mismatch", "verdict": "not_applicable" },
+    { "rule_id": "focus/outline-removed", "verdict": "not_applicable" }
+  ]
+}

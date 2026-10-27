@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Store finder</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Store finder</h1>
+<!-- G2 #783: 3.2.2 allows a change of context on input when the user is advised before using the control (G13): the note precedes the select and is its description. -->
+<p id="ctx-advised-note">Choosing a store below opens its page right away.</p>
+<p><label for="ctx-advised">Store</label>
+<select id="ctx-advised" name="store" aria-describedby="ctx-advised-note" onchange="location.href = this.value"><option value="/stores/berlin">Berlin</option><option value="/stores/hamburg">Hamburg</option></select></p>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

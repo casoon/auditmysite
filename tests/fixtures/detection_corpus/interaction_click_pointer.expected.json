@@ -1,0 +1,25 @@
+{
+  "case": "interaction_click_pointer",
+  "expectations": [
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#ch-div", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#ch-card", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#ch-role", "verdict": "pass" },
+    { "rule_id": "keyboard/click-handler-not-focusable", "selector": "div#ch-dynamic", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-filter", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-card", "verdict": "absent" },
+    { "rule_id": "keyboard/pointer-only", "selector": "span#po-child", "verdict": "absent" },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-parent", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-hidden", "verdict": "absent" },
+    { "rule_id": "keyboard/pointer-only", "selector": "button#po-button", "verdict": "absent" },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-mobile", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#po-dynamic", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/pointer-only", "selector": "div#ch-div", "verdict": "absent" },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "pointer-cancellation", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard-trap", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-visible", "verdict": "absent" },
+    { "rule_id": "focus-not-obscured-minimum", "verdict": "not_applicable" },
+    { "rule_id": "focus-not-obscured-enhanced", "verdict": "not_applicable" }
+  ]
+}

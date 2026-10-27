@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Glossary with a trailing term</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Glossary</h1>
+        <dl id="glossary">
+            <dt>Catalogue</dt>
+            <dd>The searchable index of all holdings.</dd>
+            <dt id="trailing-term">Stacks</dt>
+        </dl>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

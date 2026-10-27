@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shopping cart - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Shopping cart</h1>
+
+        <!-- Live regions with their default urgency, stated or implicit; a
+             log may change its urgency -->
+        <div id="cart-status" role="status" aria-live="polite">2 items in your cart</div>
+        <div id="stock-alert" role="alert">Only 1 left in stock</div>
+        <output id="total">Total: 59 EUR</output>
+        <div id="activity" role="log" aria-live="assertive">Coupon applied.</div>
+        <!-- aria-live off on an element that is no live region role -->
+        <div id="ticker" aria-live="off">Prices include VAT.</div>
+
+        <!-- Named modal dialog with a control, named by aria-labelledby -->
+        <div id="coupon-dlg" role="dialog" aria-modal="true" aria-labelledby="coupon-title">
+            <h2 id="coupon-title">Coupon</h2>
+            <button type="button" id="coupon-ok">Apply</button>
+        </div>
+
+        <!-- Open native dialog named by aria-label, with a control -->
+        <dialog open id="saved-dlg" aria-label="Cart saved">
+            <p>Your cart was saved.</p>
+            <button type="button" id="saved-ok">OK</button>
+        </dialog>
+
+        <!-- Closed native dialogs are not presented: no name needed, inert is
+             harmless -->
+        <dialog id="closed-dlg"><p>Not shown.</p></dialog>
+        <dialog id="closed-inert-dlg" inert><p>Not shown either.</p></dialog>
+
+        <!-- Inert background content next to the dialog is the intended use -->
+        <div id="background" inert>
+            <p>Recommended products</p>
+        </div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

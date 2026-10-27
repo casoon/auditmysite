@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workshop guides – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+        .print-only { display: none; }
+    </style>
+</head>
+<body>
+    <!-- A guide page with an uneven outline (#783). -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/guides/">Guides</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1 id="page-title">Workshop guides</h1>
+        <h2>Woodwork</h2>
+        <!-- h2 to h4: one level skipped. -->
+        <h4 id="skipped-level">Choosing a saw</h4>
+        <p>Crosscut or rip cut, depending on the grain.</p>
+        <!-- Back up to h2, then one level down: both fine. -->
+        <h2>Metalwork</h2>
+        <h3>Drilling steel</h3>
+        <p>Use cutting oil and a low speed.</p>
+        <!-- Not rendered, so not part of the outline: h3 to (h5) is no skip. -->
+        <h5 class="print-only">Printed safety sheet</h5>
+        <h3>Filing</h3>
+        <p>Push strokes only.</p>
+        <!-- A second h1 for a sub-page area. -->
+        <h1 id="second-title">Guide archive</h1>
+        <!-- Teaser cards without headings: an article and a named section. -->
+        <article>
+            <p>How to sharpen a chisel in five minutes.</p>
+        </article>
+        <section aria-label="Popular downloads">
+            <p>Measuring chart, cutting list template.</p>
+        </section>
+        <!-- An unnamed section is no region and needs no heading. -->
+        <section>
+            <p>Updated monthly.</p>
+        </section>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+</body>
+</html>

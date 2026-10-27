@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library in numbers: archived panel</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    html:not([data-display="text"]) [data-viz-text] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap;
+    }
+    body > a[href="#main"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }
+  </style>
+</head>
+<body>
+  <a href="#main">Skip to main content</a>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main id="main">
+    <h1>Library in numbers</h1>
+    <section aria-labelledby="this-year">
+      <h2 id="this-year">This year</h2>
+      <p>Figures for this year follow in spring.</p>
+    </section>
+    <section aria-labelledby="last-year" hidden>
+      <h2 id="last-year">Last year</h2>
+      <figure id="archived-chart" data-viz="interactive">
+        <canvas data-viz-live width="200" height="100" aria-hidden="true"></canvas>
+        <div data-viz-text><p>Loans fell slightly to 14,200.</p></div>
+      </figure>
+    </section>
+  </main>
+  <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

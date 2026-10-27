@@ -1,0 +1,6 @@
+{
+  "case": "visual_reflow_fixed_width",
+  "expectations": [
+    { "rule_id": "css-overflow-hidden", "selector": "div#promo", "verdict": "violation", "occurrences": 1 }
+  ]
+}

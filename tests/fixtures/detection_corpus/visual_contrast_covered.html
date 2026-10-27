@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast under a fixed banner</title>
+<style>
+  body { margin: 0; background: #ffffff; color: #111111; }
+  #banner { position: fixed; top: 0; left: 0; width: 100%; height: 110px; margin: 0;
+            background: #ffffff; color: #111111; border-bottom: 2px solid #111111; z-index: 10; }
+  #covered { margin: 0; padding-top: 30px; color: #111111; }
+  main { margin-top: 160px; padding: 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <!-- A fixed banner covers the next paragraph: its contrast cannot be
+       determined with the overlay open, which is a review, not a pass. -->
+  <p id="banner">We use cookies to run this shop.</p>
+  <p id="covered">Opening hours: Monday to Friday, 9 to 18.</p>
+</header>
+<main id="main">
+  <h1>Text behind a fixed overlay</h1>
+  <p id="solid">This paragraph sits on a solid white background.</p>
+</main>
+<footer><p>Footer text</p>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</footer>
+</body>
+</html>

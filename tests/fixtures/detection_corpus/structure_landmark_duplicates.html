@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Order history – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- A single-page app shell (#783). The inactive view's main is hidden,
+         which HTML allows (only one main without the hidden attribute). A
+         promo widget inside main declares itself a banner, and a cookie note
+         declares itself a second contentinfo. The article's header belongs to
+         the article and is no banner. -->
+    <a href="#orders" class="skip-link">Skip to content</a>
+    <header id="site-header">
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Account">
+        <ul>
+            <li><a href="/account/">Account</a></li>
+            <li><a href="/orders/">Orders</a></li>
+        </ul>
+    </nav>
+    <main id="profile" hidden>
+        <h1>Your profile</h1>
+    </main>
+    <main id="orders">
+        <h1>Order history</h1>
+        <div id="promo" role="banner">
+            <p>Free delivery this week.</p>
+        </div>
+        <article>
+            <header><h2>Order 2026-0412</h2></header>
+            <p>Three boxes of wood screws.</p>
+        </article>
+    </main>
+    <footer id="site-footer">
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+    <div id="cookie-note" role="contentinfo">
+        <p>This site stores your basket in a cookie.</p>
+    </div>
+</body>
+</html>

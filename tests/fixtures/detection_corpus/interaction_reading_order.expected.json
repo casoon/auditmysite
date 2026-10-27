@@ -1,0 +1,18 @@
+{
+  "case": "interaction_reading_order",
+  "expectations": [
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-reverse", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-column", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-order", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-zero", "verdict": "absent" },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-same-target", "verdict": "absent" },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-single", "verdict": "absent" },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-hidden", "verdict": "absent" },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-mobile", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "order/visual-mismatch", "selector": "div#ord-dynamic", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Customer stories – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <!-- An English page quoting German customers (#783). -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header>
+        <p>Acme Hardware</p>
+    </header>
+    <nav aria-label="Main">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/stories/">Stories</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1>Customer stories</h1>
+        <p>Our customers in Berlin wrote to us about their projects. We publish their
+           words as they sent them.</p>
+        <!-- German passage without lang: inherits "en" and is read with English
+             pronunciation. -->
+        <p id="unmarked-german">Die Werkbank ist das Herz der Werkstatt, und mit der neuen
+           Platte von Acme ist sie auch nach zehn Jahren noch stabil. Das Holz wird nicht
+           rissig, die Kanten sind sauber und die Montage war für uns kein Problem.</p>
+        <!-- The same kind of passage, marked: fine. -->
+        <p id="marked-german" lang="de">Die Lieferung kam pünktlich, und der Fahrer hat die
+           schweren Kartons sogar in den Keller getragen. Das ist nicht selbstverständlich,
+           und dafür sind wir sehr dankbar.</p>
+        <!-- A quotation in German without lang: a quote is not exempt from 3.1.2. -->
+        <blockquote>
+            <p id="unmarked-quote">Wir sind mit der Beratung sehr zufrieden, weil die Mitarbeiter sich Zeit nehmen
+               und auch bei kleinen Fragen geduldig sind. Das ist der Grund, warum wir immer
+               wieder kommen.</p>
+        </blockquote>
+        <h2>Abbreviations</h2>
+        <p>All prices include <abbr title="value-added tax">VAT</abbr>. Orders ship with
+           <abbr>DHL</abbr> or <abbr title="">UPS</abbr>.</p>
+        <div id="late-story"></div>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+    <script>
+        // A story loaded after the page: German again, without lang.
+        const p = document.createElement('p');
+        p.id = 'loaded-german';
+        p.textContent = 'Der Kundendienst hat uns die Ersatzteile für die alte Maschine ' +
+            'besorgt, obwohl der Hersteller sie nicht mehr liefert. Das war eine große ' +
+            'Hilfe, und die Maschine läuft wieder wie am ersten Tag.';
+        document.getElementById('late-story').appendChild(p);
+    </script>
+</body>
+</html>

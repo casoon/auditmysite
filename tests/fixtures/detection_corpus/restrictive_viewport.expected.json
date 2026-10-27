@@ -1,6 +1,26 @@
 {
   "case": "restrictive_viewport",
   "expectations": [
-    { "rule_id": "zoom/viewport-locked", "verdict": "violation" }
+    {
+      "rule_id": "zoom/viewport-locked",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    }
   ]
 }

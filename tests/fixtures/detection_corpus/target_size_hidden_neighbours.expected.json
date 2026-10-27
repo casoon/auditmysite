@@ -4,6 +4,19 @@
     { "rule_id": "targets/size", "selector": "a#control", "verdict": "needs_review" },
     { "rule_id": "targets/size", "selector": "a#beside-details", "verdict": "absent" },
     { "rule_id": "targets/size", "selector": "a#beside-inert", "verdict": "absent" },
-    { "rule_id": "targets/size", "selector": "a#beside-no-pointer", "verdict": "absent" }
+    { "rule_id": "targets/size", "selector": "a#beside-no-pointer", "verdict": "absent" },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-missing", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "links/single-character-name", "selector": "a#beside-details", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "links/single-character-name", "selector": "a#beside-inert", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "links/single-character-name", "selector": "a#beside-no-pointer", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "links/single-character-name", "selector": "a#control", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "links/single-character-name", "selector": "a.n", "verdict": "needs_review" },
+    { "rule_id": "targets/size-enhanced", "selector": "a#beside-details", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "targets/size-enhanced", "selector": "a#beside-inert", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "targets/size-enhanced", "selector": "a#beside-no-pointer", "verdict": "needs_review", "occurrences": 1 }
   ]
 }

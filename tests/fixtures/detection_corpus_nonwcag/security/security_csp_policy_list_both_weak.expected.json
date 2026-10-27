@@ -1,0 +1,79 @@
+{
+  "case": "security_csp_policy_list_both_weak",
+  "note": "Both policies allow eval and neither sets base-uri: those weaknesses reach the page.",
+  "response_headers": {},
+  "fixture": {
+    "raw_response_headers": [
+      [
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-eval'; object-src 'none'; frame-ancestors 'none'"
+      ],
+      [
+        "content-security-policy",
+        "script-src 'self' 'unsafe-eval'; object-src 'none'"
+      ],
+      [
+        "X-Content-Type-Options",
+        "nosniff"
+      ],
+      [
+        "Referrer-Policy",
+        "no-referrer"
+      ],
+      [
+        "Permissions-Policy",
+        "camera=()"
+      ],
+      [
+        "Cross-Origin-Opener-Policy",
+        "same-origin"
+      ],
+      [
+        "Cross-Origin-Resource-Policy",
+        "same-origin"
+      ]
+    ]
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "pass"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "case": "visual_meta_refresh_twenty_hours",
+  "expectations": [
+    { "rule_id": "timing/meta-refresh", "selector": "meta#daily-refresh", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "timing/meta-refresh", "selector": "meta#broken-refresh", "verdict": "pass" }
+  ]
+}

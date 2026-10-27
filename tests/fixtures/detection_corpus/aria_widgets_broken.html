@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trail running shoe - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Trail running shoe</h1>
+
+        <!-- aria/tab-selected-missing and aria/tabpanel-missing: no tab is
+             selected, and the document has no tab panel -->
+        <div id="product-tabs" role="tablist" aria-label="Product information">
+            <button type="button" role="tab" id="tab-desc">Description</button>
+            <button type="button" role="tab" id="tab-reviews">Reviews</button>
+        </div>
+        <div id="product-text">Lightweight shoe with a grippy sole.</div>
+
+        <!-- aria/combobox-popup-missing: expanded, popup not referenced -->
+        <label for="size">Size</label>
+        <input id="size" type="text" role="combobox" aria-expanded="true" aria-autocomplete="list">
+        <ul id="size-options" role="listbox" aria-label="Sizes">
+            <li role="option" id="size-42" aria-selected="false">42</li>
+            <li role="option" id="size-43" aria-selected="false">43</li>
+        </ul>
+
+        <!-- popover/target-missing and popover/target-invalid -->
+        <button type="button" id="guide-btn" popovertarget="size-guide">Size guide</button>
+        <button type="button" id="shipping-btn" popovertarget="shipping-info">Shipping</button>
+        <div id="shipping-info">Free shipping from 50 EUR.</div>
+
+        <!-- patterns/accordion-controls-missing: expanded, region unknown -->
+        <button type="button" id="care-btn" aria-expanded="true">Care instructions</button>
+        <div id="care-text">Clean with a damp cloth.</div>
+        <div id="fit-btn" role="button" tabindex="0" aria-expanded="true">Fit</div>
+        <div id="fit-text">True to size.</div>
+
+        <!-- patterns/tooltip-unreferenced: nothing points at the tooltip -->
+        <button type="button" id="fav-btn">Add to wish list</button>
+        <div role="tooltip" id="fav-tip">Saved items stay for 30 days</div>
+
+        <!-- modern-attribute-misuse (active_surface_inert): the promotion is
+             shown as an open popover but marked inert, so its button cannot be
+             reached or operated -->
+        <div id="promo" popover="manual" inert aria-label="Promotion">
+            <p>10 % off your first order.</p>
+            <button type="button" id="promo-close">Close</button>
+        </div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+    <script>
+        document.getElementById('promo').showPopover();
+    </script>
+</body>
+</html>

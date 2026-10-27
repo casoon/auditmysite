@@ -1,0 +1,136 @@
+{
+  "case": "structure_outline_clean",
+  "expectations": [
+    {
+      "rule_id": "document/lang-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/lang-invalid",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/lang-mismatch",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/title-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document/title-empty",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/empty",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/skip-level",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/h1-multiple",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "headings/none",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "headings/section-without-heading",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/main-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/main-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "landmarks/not-top-level",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/banner-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-duplicate",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "landmarks/content-outside",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "ids/duplicate",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "frames/name-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "language/part-unmarked",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "language/part-undetermined",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "language/abbreviation-unexpanded",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "html-content-model",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "html-has-lang",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

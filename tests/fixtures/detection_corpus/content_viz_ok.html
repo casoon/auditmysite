@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library in numbers</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    html:not([data-display="text"]) [data-viz-text] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap;
+    }
+    body > a[href="#main"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }
+  </style>
+</head>
+<body>
+  <a href="#main">Skip to main content</a>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main id="main">
+    <h1>Library in numbers</h1>
+    <figure id="loans-chart" data-viz="chart">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+      <div data-viz-text>
+        <table>
+          <caption>Loans per year</caption>
+          <tr><th scope="col">Year</th><th scope="col">Loans</th></tr>
+          <tr><td>2024</td><td>14,200</td></tr>
+          <tr><td>2025</td><td>15,100</td></tr>
+        </table>
+      </div>
+      <figcaption>Loans per year</figcaption>
+    </figure>
+    <figure id="branch-map" data-viz="map">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+      <div data-viz-text>North</div>
+      <figcaption>Branches on the map</figcaption>
+    </figure>
+    <figure id="globe" data-viz="3d">
+      <canvas data-viz-live width="200" height="100" aria-hidden="true"></canvas>
+      <img data-viz-static src="/globe.png" alt="" width="200" height="100">
+      <div data-viz-text><p>A globe of partner libraries in 14 countries.</p></div>
+      <figcaption>Partner libraries</figcaption>
+    </figure>
+    <figure id="photo">
+      <img src="/reading-room.jpg" alt="The reading room with its long oak tables" width="200" height="100">
+      <figcaption>The reading room</figcaption>
+    </figure>
+  </main>
+  <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Justified paragraph set with an inline style</title>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>City library news</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Opening of the new reading room</h1>
+  <!-- CMS output: the alignment and line height sit in the style attribute,
+       not in a stylesheet. The paragraph is still justified and tight. -->
+  <p style="text-align: justify; line-height: 1.2">The new reading room on the second floor
+     opens next Monday. It offers forty quiet desks, daylight from three sides and a small
+     collection of local history for everyone with a library card.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

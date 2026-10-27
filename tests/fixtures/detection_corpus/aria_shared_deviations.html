@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>File manager - Example cloud</title>
+</head>
+<body>
+    <header>
+        <p>Example cloud</p>
+    </header>
+    <main>
+        <h1>Your files</h1>
+
+        <!-- Role fallback list: the first token is unknown, the second a
+             valid role; user agents use the first valid token (WAI-ARIA 1.2,
+             section 7.1). ACT 674b10 passes it. -->
+        <div id="upload" role="upload button" tabindex="0">Upload</div>
+
+        <!-- Name is part of the visible label but does not contain it:
+             speaking "Pricing plans" does not match the name "Pricing"
+             (WCAG 2.5.3). -->
+        <a href="/pricing" id="pricing-link" aria-label="Pricing">Pricing plans</a>
+
+        <!-- A tree needs a name (WAI-ARIA 1.2, tree: accessible name
+             required). -->
+        <ul id="folders" role="tree">
+            <li role="treeitem" id="folder-docs" tabindex="0" aria-selected="true">Documents</li>
+            <li role="treeitem" id="folder-photos" tabindex="-1" aria-selected="false">Photos</li>
+        </ul>
+    </main>
+    <footer>
+        <p>Example cloud</p>
+    </footer>
+</body>
+</html>

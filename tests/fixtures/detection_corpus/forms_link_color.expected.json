@@ -1,0 +1,52 @@
+{
+  "case": "forms_link_color",
+  "expectations": [
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-color-only",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-g183-low",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-underlined",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-bold",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-border",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-bg",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-list",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "selector": "a#lc-standalone",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-enhanced",
+      "selector": "a#lc-bg",
+      "verdict": "violation"
+    }
+  ]
+}

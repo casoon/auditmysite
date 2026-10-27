@@ -1,0 +1,20 @@
+{
+  "case": "aria_roles_invalid",
+  "expectations": [
+    {"rule_id": "aria/role-invalid", "verdict": "violation", "selector": "div#orders", "occurrences": 1},
+    {"rule_id": "aria/role-abstract", "verdict": "violation", "selector": "div#filters", "occurrences": 1},
+    {"rule_id": "aria/role-redundant", "verdict": "violation", "selector": "button#reorder", "occurrences": 1},
+    {"rule_id": "aria/required-parent-missing", "verdict": "violation", "selector": "div#tab-returns", "occurrences": 1},
+    {"rule_id": "aria/required-children-missing", "verdict": "violation", "selector": "div#views", "occurrences": 1},
+    {"rule_id": "aria/required-attribute-missing", "verdict": "violation", "selector": "div#gift", "occurrences": 1},
+    {"rule_id": "aria/required-attribute-missing", "verdict": "violation", "selector": "div#express", "occurrences": 1},
+    {"rule_id": "aria/required-attribute-missing", "verdict": "violation", "selector": "div#carrier", "occurrences": 1},
+    {"rule_id": "aria/tabpanel-missing", "selector": "div#views", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "keyboard/focusable-no-role", "verdict": "needs_review"},
+    {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},
+    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

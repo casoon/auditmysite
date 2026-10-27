@@ -1,0 +1,17 @@
+{
+  "case": "schema_rules_merchant_listing_incomplete",
+  "note": "The same shop page with a Product that has a price but no image and no priceCurrency: enough for a product snippet, not for a merchant listing.",
+  "fixture": {
+    "path": "/product/milk-frother"
+  },
+  "expectations": [
+    {
+      "rule_id": "merchant_listing",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "product_snippet",
+      "verdict": "pass"
+    }
+  ]
+}

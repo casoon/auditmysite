@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shopping cart - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Shopping cart</h1>
+
+        <!-- status/live-overridden: the cart status is switched off -->
+        <div id="cart-status" role="status" aria-live="off">2 items in your cart</div>
+        <!-- status/live-overridden (review): urgency changed, still announced -->
+        <div id="stock-alert" role="alert" aria-live="polite">Only 1 left in stock</div>
+        <output id="total" aria-live="assertive">Total: 59 EUR</output>
+
+        <!-- dialog/name-missing and dialog/modal-unmarked: unnamed custom
+             dialog without aria-modal -->
+        <div id="coupon-dlg" role="dialog">
+            <p>Enter your coupon code.</p>
+            <button type="button" id="coupon-ok">Apply</button>
+        </div>
+
+        <!-- dialog/name-missing and dialog/focusable-missing: open native
+             dialog without a name and without anything to focus -->
+        <dialog open id="saved-dlg">
+            <p>Your cart was saved.</p>
+        </dialog>
+
+        <!-- dialog/focusable-missing: named alert dialog, nothing to focus -->
+        <div id="timeout-dlg" role="alertdialog" aria-modal="true" aria-labelledby="timeout-title">
+            <h2 id="timeout-title">Session ending</h2>
+            <p>Your session ends in one minute.</p>
+        </div>
+
+        <!-- inert/dialog-inert: an open dialog that is inert -->
+        <dialog open inert id="survey-dlg" aria-label="Quick survey">
+            <p>How was your visit?</p>
+            <button type="button" id="survey-ok">Answer</button>
+        </dialog>
+        <!-- inert/dialog-inert (review): custom dialog under an inert ancestor;
+             without styles it may as well be a closed one -->
+        <div inert>
+            <div id="help-dlg" role="dialog" aria-modal="true" aria-label="Help">
+                <button type="button" id="help-close">Close</button>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

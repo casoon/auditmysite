@@ -1,0 +1,15 @@
+{
+  "case": "content_images_ok",
+  "expectations": [
+    {"rule_id": "images/alt-missing", "verdict": "pass"},
+    {"rule_id": "images/alt-suspicious", "verdict": "pass"},
+    {"rule_id": "images/area-alt-missing", "verdict": "pass"},
+    {"rule_id": "images/input-alt-missing", "verdict": "pass"},
+    {"rule_id": "images/server-side-map", "verdict": "pass"},
+    {"rule_id": "objects/alt-missing", "verdict": "pass"},
+    {"rule_id": "media/audio-autoplay", "verdict": "pass"},
+    {"rule_id": "image-alt", "verdict": "pass"},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"}
+  ]
+}

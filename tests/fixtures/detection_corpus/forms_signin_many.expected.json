@@ -1,0 +1,25 @@
+{
+  "case": "forms_signin_many",
+  "expectations": [
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "verdict": "violation",
+      "occurrences": 5
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

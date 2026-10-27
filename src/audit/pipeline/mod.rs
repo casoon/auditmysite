@@ -25,8 +25,8 @@ use tracing::{debug, info, warn};
 
 use self::assembly::{
     aggregate_report, compute_viewport_overall, consolidate_module_runs,
-    ensure_requested_module_runs, merge_wcag_violations, update_audit_quality,
-    with_shared_page_rule_violations,
+    drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
+    update_audit_quality, with_shared_page_rule_violations,
 };
 use self::throttled::{
     apply_canonical_perf, attach_throttled_profile_subchecks, collect_throttled_performance,
@@ -896,7 +896,7 @@ pub async fn audit_page(
     let desktop_exclusion =
         crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
     exclusion_tally.record_scope(&desktop_exclusion);
-    let (desktop_wcag, desktop_excluded, desktop_frames) = run_rules(
+    let (mut desktop_wcag, desktop_excluded, desktop_frames) = run_rules(
         page,
         &desktop_snap,
         config,
@@ -972,6 +972,7 @@ pub async fn audit_page(
     }
 
     // ── Merge ─────────────────────────────────────────────────────────────────
+    drop_single_viewport_redundant_roles(&mut desktop_wcag, &mut mobile_wcag);
     let mut merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
 
     // Page-level rules run once, on the mobile pass, but describe the page in
@@ -1736,6 +1737,23 @@ async fn run_rules(
     // mobile viewport pass (see `PipelineConfig::for_viewport`) — so this
     // is naturally a no-op on the desktop pass without any extra gating.
     if let Some(ref hc) = snapshot.html_conform {
+        // html-conform declined the document (for example nesting beyond
+        // its depth limit): the rule could not run, and says so (#783).
+        if hc.raw_html.is_none()
+            && config
+                .rule_filter
+                .should_run(wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id)
+        {
+            wcag_results.rule_outcomes.push(
+                crate::wcag::RuleRun::not_run(
+                    wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
+                    crate::wcag::NotRun::Errored,
+                )
+                .with_wcag([wcag::rules::HTML_CONTENT_MODEL_RULE.id])
+                .in_viewport(viewport_label)
+                .with_reason("html_conform_not_measured"),
+            );
+        }
         if let Some(ref html) = hc.raw_html {
             if config
                 .rule_filter

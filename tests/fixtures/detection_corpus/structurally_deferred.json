@@ -1,6 +1,1 @@
-[
-  {
-    "rule_id": "frame-tested",
-    "reason": "Fires only for a genuinely cross-origin iframe (checked live: same-port/host iframes never trigger it). The corpus harness (tests/detection_corpus_test.rs) serves each case from a single local origin with no second origin available to embed, so this rule cannot be exercised without adding cross-origin serving infrastructure to the harness itself."
-  }
-]
+[]

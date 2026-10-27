@@ -1,8 +1,17 @@
 {
   "case": "vulnerable_libs_outdated_underscore_and_legacy",
   "expectations": [
-    { "rule_id": "Underscore", "verdict": "violation" },
-    { "rule_id": "Prototype", "verdict": "violation" },
-    { "rule_id": "MooTools", "verdict": "violation" }
+    {
+      "rule_id": "Underscore",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "Prototype",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "MooTools",
+      "verdict": "violation"
+    }
   ]
 }

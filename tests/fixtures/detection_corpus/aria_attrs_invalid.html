@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Account settings - Example shop</title>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Account settings</h1>
+
+        <h2>Contact</h2>
+        <!-- aria/attribute-unknown: typo, the hint is never announced -->
+        <label for="email">E-mail address</label>
+        <input id="email" type="email" autocomplete="email" aria-describeby="email-hint">
+        <p id="email-hint">We only use it for order confirmations.</p>
+
+        <!-- aria/reference-missing: the referenced hint does not exist -->
+        <label for="phone">Phone number</label>
+        <input id="phone" type="tel" autocomplete="tel" aria-describedby="phone-hint">
+
+        <!-- aria/attribute-value-invalid: aria-pressed is a tristate -->
+        <button type="button" id="mute" aria-pressed="yes">Mute notifications</button>
+
+        <!-- aria/attribute-value-invalid: aria-level is an integer -->
+        <div id="privacy-heading" role="heading" aria-level="two">Privacy</div>
+
+        <!-- aria/attribute-not-allowed: ARIA in HTML forbids aria-checked on a
+             native checkbox -->
+        <input type="checkbox" id="agree" aria-checked="true">
+        <label for="agree">Share my wish list</label>
+
+        <!-- aria/attribute-not-allowed: listitem does not support aria-selected -->
+        <ul id="sections">
+            <li id="sec-overview" aria-selected="true">Overview</li>
+            <li id="sec-details">Details</li>
+        </ul>
+
+        <!-- aria/attribute-prohibited: naming is prohibited on paragraph -->
+        <p id="lead" aria-label="Introduction">Manage how we contact you.</p>
+        <p id="lead-2" aria-labelledby="privacy-heading">Your data stays with us.</p>
+
+        <!-- aria/owns-conflict: two groups claim the same element -->
+        <div role="group" id="owner-a" aria-label="Billing" aria-owns="shared-address"></div>
+        <div role="group" id="owner-b" aria-label="Shipping" aria-owns="shared-address"></div>
+        <p id="shared-address">Main Street 1, 12345 Sampletown</p>
+
+        <!-- aria/reference-missing: an expanded button points at nothing -->
+        <button type="button" id="more-btn" aria-expanded="true" aria-controls="more-panel">More options</button>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

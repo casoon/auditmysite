@@ -1,0 +1,9 @@
+{
+  "case": "content_lists_trailing_term",
+  "expectations": [
+    {"rule_id": "lists/term-without-definition", "selector": "dt#trailing-term", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "verdict": "not_applicable"},
+    {"rule_id": "lists/empty", "verdict": "not_applicable"},
+    {"rule_id": "lists/item-outside-list", "verdict": "not_applicable"}
+  ]
+}

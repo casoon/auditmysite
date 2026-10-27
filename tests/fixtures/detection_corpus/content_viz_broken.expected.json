@@ -1,0 +1,18 @@
+{
+  "case": "content_viz_broken",
+  "expectations": [
+    {"rule_id": "viz/text-missing", "selector": "figure#loans-chart", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/text-missing", "selector": "figure#blank-text", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/caption-missing", "selector": "figure#loans-chart", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/caption-missing", "selector": "figure#floor-explorer", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/caption-missing", "selector": "figure#shadow-chart", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/caption-missing", "selector": "figure#late-chart", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/static-missing", "selector": "figure#globe", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/static-missing", "selector": "figure#floor-explorer", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "viz/table-missing", "selector": "figure#loans-chart", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "viz/table-missing", "selector": "figure#shadow-chart", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "viz/table-missing", "selector": "figure#late-chart", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "manual/help", "verdict": "needs_review"}
+  ]
+}

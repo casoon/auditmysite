@@ -1,0 +1,69 @@
+{
+  "case": "error_page_scripts_sabotaged",
+  "expectations": [
+    {
+      "rule_id": "frame-tested",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "video-caption",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "document-title",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "modern-attribute-misuse",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "display/init-missing",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "display/text-hidden",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "display/text-not-visible",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "text-spacing",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "focus-not-obscured-minimum",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "focus-not-obscured-enhanced",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "media-alt",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "html-has-lang",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "css-orientation-lock",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "css-overflow-hidden",
+      "verdict": "errored"
+    }
+  ]
+}

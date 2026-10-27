@@ -1,6 +1,9 @@
 {
   "case": "vulnerable_libs_current_underscore",
   "expectations": [
-    { "rule_id": "Underscore", "verdict": "pass" }
+    {
+      "rule_id": "Underscore",
+      "verdict": "pass"
+    }
   ]
 }

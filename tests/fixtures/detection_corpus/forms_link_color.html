@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipping information</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  main p, main li { color: #000; }
+  a.plain { text-decoration: none; }
+  a.bold { font-weight: 700; }
+  a.border { border-bottom: 2px solid currentColor; }
+  a.shaded { background: #e8eefc; }
+  a.block { display: block; padding: 12px 0; min-height: 44px; }
+  .aria-link { color: #0050a0; cursor: pointer; }
+  a.g183 { color: #2563c9; text-decoration: none; }
+  a.g183:hover, a.g183:focus { text-decoration: underline; }
+  a.g183-low { color: #2a4f8f; text-decoration: none; }
+  a.g183-low:hover, a.g183-low:focus { text-decoration: underline; }
+  .link-list { list-style: none; padding: 0; }
+  .link-list a { display: inline-block; padding: 12px 0; min-height: 44px; min-width: 44px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Shipping information</h1>
+<!-- G2 #783: 1.4.1 Use of Color. A link in running text that differs from the text around it only by colour fails (F73), unless the colours differ by 3:1 and a non-colour cue appears on hover and focus (G183). Underline, weight, border or background are non-colour cues. -->
+<p>Please read our <a id="lc-color-only" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+<p>See the <a id="lc-underlined" href="/terms">terms of sale</a> for the details of each order.</p>
+<p>Our <a id="lc-bold" class="plain bold" href="/returns">returns policy</a> covers thirty days after delivery.</p>
+<p>Ask our <a id="lc-border" class="plain border" href="/support">support team</a> about delivery times.</p>
+<p>Visit the <a id="lc-bg" class="plain shaded" href="/faq">questions page</a> for quick answers.</p>
+<p>Check the <a id="lc-g183-low" class="g183-low" href="/customs">customs notes</a> before you ship abroad.</p>
+<ul class="link-list">
+  <li><a id="lc-list" class="plain" href="/stores">Stores</a></li>
+  <li><a id="lc-list-2" class="plain" href="/careers">Careers</a></li>
+</ul>
+<p><a id="lc-standalone" class="plain block" href="/sitemap">Sitemap</a></p>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

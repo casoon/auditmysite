@@ -69,7 +69,23 @@ struct AxFacts {
     /// (siehe [`CdpDocument::with_chrome_name_sources`]).
     chrome_name_source: Option<String>,
     ignored: bool,
+    /// Ignored together with everything below it (`inert`, a modal dialog,
+    /// `aria-hidden`, not rendered) — not merely a node Chrome leaves out
+    /// itself, like a generic `div` whose content stays exposed (#783).
+    excludes_subtree: bool,
 }
+
+/// Chrome's ignored reasons that take the whole subtree out of the tree.
+const SUBTREE_EXCLUDING_REASONS: &[&str] = &[
+    "activeModalDialog",
+    "ariaModalDialog",
+    "ariaHiddenElement",
+    "ariaHiddenSubtree",
+    "inertElement",
+    "inertSubtree",
+    "notRendered",
+    "notVisible",
+];
 
 /// Ein über CDP geholtes Dokument, das [`Document`] und [`Semantics`] erfüllt.
 ///
@@ -1555,9 +1571,16 @@ impl Semantics for CdpDocument {
     /// jeder Link darin einen leeren Namen und einen `FAIL` (geographia.eu:
     /// 22 Karten in `details.more`). Gilt nur, wenn der Baum überhaupt Fakten
     /// trägt; ein gescheiterter Abgleich soll nicht alles verschwinden lassen.
+    ///
+    /// A text node without its own entry is ignored when an ancestor element
+    /// is excluded together with its subtree; text in a generic container
+    /// Chrome merely leaves out stays exposed (#783).
     fn is_ignored<'n>(&'n self, node: Self::N<'n>) -> bool {
         match self.facts(node) {
             Some(f) => f.ignored,
+            None if node.kind() == NodeKind::Text => {
+                a11y_dom::ancestors(node).any(|a| self.facts(a).is_some_and(|f| f.excludes_subtree))
+            }
             None => !self.ax.is_empty() && node.kind() == NodeKind::Element,
         }
     }
@@ -1614,6 +1637,11 @@ fn index_ax_tree(ax_tree: &AXTree) -> HashMap<i64, AxFacts> {
                 name_source: node.name_source.and_then(map_name_source),
                 chrome_name_source: None,
                 ignored: node.ignored,
+                excludes_subtree: node.ignored
+                    && node
+                        .ignored_reasons
+                        .iter()
+                        .any(|r| SUBTREE_EXCLUDING_REASONS.contains(&r.name.as_str())),
             },
         );
     }
@@ -1900,12 +1928,29 @@ pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
 /// -- wie in den früheren JavaScript-Regeln, die dieselbe Liste lasen.
 const STYLESHEETS_JS: &str = r#"
 (function() {
+  // Rules inside `@media` blocks that match the current viewport, appended as
+  // plain rules: the shared stylesheet rules know no viewport, so they would
+  // miss a declaration that only applies at this width (#783). The blocks
+  // themselves stay, for rules that read the condition (reduced motion).
+  function matched(rules, out, inMatch) {
+    for (var j = 0; j < rules.length; j++) {
+      var r = rules[j];
+      if (typeof CSSMediaRule !== 'undefined' && r instanceof CSSMediaRule) {
+        var cond = r.conditionText || (r.media && r.media.mediaText) || '';
+        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);
+      } else if (inMatch) {
+        out.push(r.cssText);
+      }
+    }
+  }
   var out = [];
   for (var i = 0; i < document.styleSheets.length; i++) {
     var rules;
     try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
     if (!rules) continue;
-    out.push(Array.from(rules).map(function (r) { return r.cssText; }).join('\n'));
+    var extra = [];
+    matched(rules, extra, false);
+    out.push(Array.from(rules).map(function (r) { return r.cssText; }).concat(extra).join('\n'));
   }
   return out;
 })()

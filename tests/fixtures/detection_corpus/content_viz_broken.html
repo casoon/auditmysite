@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library in numbers: broken figures</title>
+  <script>document.documentElement.dataset.display = 'visual';</script>
+  <style>
+    html:not([data-display="text"]) [data-viz-text] {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap;
+    }
+    body > a[href="#main"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }
+  </style>
+</head>
+<body>
+  <a href="#main">Skip to main content</a>
+  <header>
+    <nav aria-label="Display">
+      <label for="display-toggle">Display</label>
+      <select id="display-toggle" data-display-toggle>
+        <option value="visual" selected>Visual</option>
+        <option value="calm">Calm</option>
+        <option value="text">Text</option>
+      </select>
+    </nav>
+  </header>
+  <main id="main">
+    <h1>Library in numbers</h1>
+    <figure id="loans-chart" data-viz="chart">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+    </figure>
+    <figure id="blank-text" data-viz="map">
+      <svg data-viz-static aria-hidden="true" width="120" height="30" viewBox="0 0 120 30"><path d="M0 25 L120 5" stroke="#333" fill="none"></path></svg>
+      <div data-viz-text>   </div>
+      <figcaption>Branches on the map</figcaption>
+    </figure>
+    <figure id="globe" data-viz="3d">
+      <canvas data-viz-live width="200" height="100" aria-hidden="true"></canvas>
+      <div data-viz-text><p>A globe of partner libraries; drag to turn it.</p></div>
+      <figcaption>Partner libraries</figcaption>
+    </figure>
+    <figure id="floor-explorer" data-viz="Interactive">
+      <canvas data-viz-live width="200" height="100" aria-hidden="true"></canvas>
+      <div data-viz-text><p>Floor plan; select a room to see its seats.</p></div>
+      <div><figcaption>Floor explorer</figcaption></div>
+    </figure>
+    <viz-card></viz-card>
+    <div id="late-viz"></div>
+    <script>
+      customElements.define('viz-card', class extends HTMLElement {
+        connectedCallback() {
+          this.attachShadow({ mode: 'open' }).innerHTML =
+            '<figure id="shadow-chart" data-viz="chart"><div data-viz-text><p>Visits rose from 200 to 310.</p></div></figure>';
+        }
+      });
+      document.getElementById('late-viz').innerHTML =
+        '<figure id="late-chart" data-viz="chart"><div data-viz-text><p>Members rose from 4,100 to 4,800.</p></div></figure>';
+    </script>
+  </main>
+  <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

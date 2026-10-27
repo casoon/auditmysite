@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embedded article</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Embedded article</h1>
+<!-- G2 #783: a link that differs only by colour inside a same-origin frame is content of the page and fails 1.4.1 there too. -->
+<iframe id="article-frame" title="Partner article" width="100%" height="300" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;title&gt;Partner article&lt;/title&gt;&lt;style&gt;
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role=&quot;button&quot;], [role=&quot;textbox&quot;], [role=&quot;radio&quot;], [role=&quot;link&quot;], [role=&quot;searchbox&quot;] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type=&quot;checkbox&quot;], input[type=&quot;radio&quot;] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;main&gt;&lt;p&gt;Please read our &lt;a id=&quot;frame-color&quot; href=&quot;/policy&quot; style=&quot;text-decoration: none&quot;&gt;privacy policy&lt;/a&gt; before you place an order.&lt;/p&gt;&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;"></iframe>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+  "case": "schema_rules_recommended_missing",
+  "note": "Every node meets its required properties (or the feature defines none) but lacks Google-recommended ones. Google's Rich Results Test reports these as non-critical issues: still eligible, a human decides whether the data exists.",
+  "expectations": [
+    {
+      "rule_id": "article",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "organization",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "person",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "web_page",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "web_site",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "local_business",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "event",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "recipe",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "video",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "job_posting",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "software_application",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "profile_page",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "item_list",
+      "verdict": "needs_review"
+    }
+  ]
+}

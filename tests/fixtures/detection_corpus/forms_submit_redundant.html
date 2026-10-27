@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order forms</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Order forms</h1>
+<!-- G2 #783: forms with and without a submit control (H32, 3.2.2) and forms asking for the same information twice (3.3.7) with the exceptions: confirmation, autofill, a same-as option, a single request. -->
+<form id="no-btn" action="/subscribe" method="post">
+  <p><label for="ns-mail">Email for the price alert</label> <input id="ns-mail" name="alert" type="email" autocomplete="email"></p>
+</form>
+<form id="with-btn" action="/subscribe" method="post">
+  <p><label for="wb-mail">Email for the newsletter</label> <input id="wb-mail" name="news" type="email" autocomplete="email"> <button type="submit">Subscribe</button></p>
+</form>
+<form id="ext-btn" action="/notify" method="post">
+  <p><label for="eb-mail">Email for restock notices</label> <input id="eb-mail" name="restock" type="email" autocomplete="email"></p>
+</form>
+<p><button type="submit" form="ext-btn">Notify me</button></p>
+<form id="aria-submit" action="/callback" method="post">
+  <p><label for="as-time">Preferred call time</label> <input id="as-time" name="slot" type="text" aria-describedby="as-hint"> <span id="as-hint">For example: mornings.</span></p>
+  <p><span role="button" tabindex="0" aria-label="Send request" data-submit onclick="this.closest('form').requestSubmit()" onkeydown="if (event.key === 'Enter' || event.key === ' ') this.closest('form').requestSubmit()">Send request</span></p>
+</form>
+<form id="empty-form" action="/ping" method="post"><input type="hidden" name="ping" value="1"><p>Nothing to fill in here.</p></form>
+
+<form id="reg-twice" action="/order" method="post">
+  <p><label for="rt-mail1">Email</label> <input id="rt-mail1" name="buyer" type="text"></p>
+  <p><label for="rt-mail2">Email for the invoice</label> <input id="rt-mail2" name="invoice" type="text"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="confirm-twice" action="/account" method="post">
+  <p><label for="ct-mail1">Email</label> <input id="ct-mail1" name="account" type="text"></p>
+  <p><label for="ct-mail2">Confirm email</label> <input id="ct-mail2" name="account-confirm" type="text"></p>
+  <p><button type="submit">Create account</button></p>
+</form>
+<form id="same-as" action="/billing" method="post">
+  <p><label for="sa-street1">Street address for delivery</label> <input id="sa-street1" name="delivery-street" type="text"></p>
+  <p><label><input type="checkbox" name="same" id="sa-same"> Billing address same as delivery address</label></p>
+  <p><label for="sa-street2">Street address for billing</label> <input id="sa-street2" name="billing-street" type="text"></p>
+  <p><button type="submit">Next step</button></p>
+</form>
+<form id="ac-twice" action="/gift" method="post">
+  <p><label for="ac-mail1">Email</label> <input id="ac-mail1" name="sender" type="email" autocomplete="email"></p>
+  <p><label for="ac-mail2">Email for the receipt</label> <input id="ac-mail2" name="receipt" type="email" autocomplete="email"></p>
+  <p><button type="submit">Send gift</button></p>
+</form>
+<form id="single-mail" action="/quote" method="post">
+  <p><label for="sm-mail">Email</label> <input id="sm-mail" name="quote" type="text"></p>
+  <p><button type="submit">Request quote</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Late and viewport-specific content</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  a.plain { text-decoration: none; }
+  main p { color: #000; }
+
+  .narrow-only { display: none; }
+  @media (max-width: 600px) { .narrow-only { display: block; } .wide-only { display: none; } }
+  a.wide-plain { text-decoration: underline; }
+  @media (min-width: 601px) { a.wide-plain { text-decoration: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Late and viewport-specific content</h1>
+<!-- G2 #783 dynamic and responsive: patterns inserted by script after load are judged; fields fixed by script after load are not; patterns shown only on narrow or only on wide viewports are judged in the viewport that shows them. -->
+<div id="dyn-slot"></div>
+<form action="/fix" method="post">
+  <p><input id="fix-field" name="order" type="text"></p>
+  <p><a class="solo" id="fix-link" href="/cart"></a></p>
+  <p><button type="submit">Track order</button></p>
+</form>
+<div class="narrow-only">
+<form id="mo-form-a" action="/a" method="post">
+  <p><input id="mo-unlabelled" name="mo-x" type="text"></p>
+  <p><input id="mo-placeholder" name="mo-v" type="text" placeholder="Voucher code"></p>
+  <p><input id="mo-titled" name="mo-d" type="text" title="Door code"></p>
+  <p><label for="mo-bad-ac">Company</label> <input id="mo-bad-ac" name="mo-c" type="text" autocomplete="company"></p>
+  <p><label for="mo-mail">Email for updates</label> <input id="mo-mail" name="mo-m" type="email"></p>
+  <p><label for="mo-invalid">Team code</label> <input id="mo-invalid" name="mo-t" type="text" aria-invalid="true"></p>
+  <label><input type="radio" name="mo-freq" id="mo-radio" value="d"> Daily</label>
+  <fieldset id="mo-fieldset"><label><input type="checkbox" name="mo-dig" id="mo-digest"> Weekly digest</label></fieldset>
+  <p><label for="mo-required">Shirt size</label> <input id="mo-required" name="mo-s" type="text" required></p>
+  <p><label for="mo-date">Start date</label> <input id="mo-date" name="mo-sd" type="text"></p>
+  <p><label for="mo-jump">Jump to section</label> <select id="mo-jump" name="mo-j" onchange="location.href = this.value"><option value="#a">Bikes</option><option value="#b">Helmets</option></select></p>
+  <p><button type="submit">Save</button></p>
+</form>
+<form id="mo-form-nosubmit" action="/n" method="post"><p><label for="mo-ns">Coupon</label> <input id="mo-ns" name="mo-ns" type="text"></p></form>
+<form id="mo-form-twice" action="/o" method="post">
+  <p><label for="mo-m1">Email</label> <input id="mo-m1" name="mo-m1" type="email" autocomplete="off"></p>
+  <p><label for="mo-m2">Email for the invoice</label> <input id="mo-m2" name="mo-m2" type="email" autocomplete="off"></p>
+  <p><button type="submit">Order</button></p>
+</form>
+<form id="mo-login" action="/login" method="post">
+  <p><label for="mo-pw">Password</label> <input id="mo-pw" name="mo-pw" type="password" autocomplete="current-password" onpaste="return false"></p>
+  <div class="g-recaptcha" data-sitekey="demo-key"></div>
+  <p><button type="submit">Sign in</button></p>
+</form>
+<div id="mo-focus" tabindex="-1" onfocus="this.dataset.seen = 'yes'">Spring promotion</div>
+<p><button id="mo-autofocus" type="button" autofocus>Continue</button></p>
+<p><a class="solo" id="mo-empty-link" href="/cart"></a></p>
+<p><button id="mo-empty-button" type="button"></button></p>
+<p><a class="solo" id="mo-generic" href="/offers">Click here</a></p>
+<div><div><ul><li><a class="solo" id="mo-url" href="https://example.org/report">https://example.org/report</a></li></ul></div></div>
+<p><a class="solo" id="mo-single" href="/close-offer">x</a></p>
+<p><a class="solo" id="mo-new-window" href="https://example.org/partner" target="_blank">Partner programme</a></p>
+<p><a class="solo" id="mo-fake" href="#" onclick="return false;">Chat with us</a></p>
+<p>Please read our <a id="mo-color" class="plain" href="/policy">privacy policy</a> before you place an order.</p>
+</div>
+<div class="wide-only">
+  <form action="/w" method="post"><p><input id="wide-unlabelled" name="w" type="text"></p><p><button type="submit">Save note</button></p></form>
+  <p>Read the <a id="wide-color" class="wide-plain" href="/policy">privacy policy</a> before you order.</p>
+</div>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+<script>
+  // After load: the patterns arrive by script, and two fields get fixed.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('dyn-slot').innerHTML = "\n<form id=\"dy-form-a\" action=\"/a\" method=\"post\">\n  <p><input id=\"dy-unlabelled\" name=\"dy-x\" type=\"text\"></p>\n  <p><input id=\"dy-placeholder\" name=\"dy-v\" type=\"text\" placeholder=\"Voucher code\"></p>\n  <p><input id=\"dy-titled\" name=\"dy-d\" type=\"text\" title=\"Door code\"></p>\n  <p><label for=\"dy-bad-ac\">Company</label> <input id=\"dy-bad-ac\" name=\"dy-c\" type=\"text\" autocomplete=\"company\"></p>\n  <p><label for=\"dy-mail\">Email for updates</label> <input id=\"dy-mail\" name=\"dy-m\" type=\"email\"></p>\n  <p><label for=\"dy-invalid\">Team code</label> <input id=\"dy-invalid\" name=\"dy-t\" type=\"text\" aria-invalid=\"true\"></p>\n  <label><input type=\"radio\" name=\"dy-freq\" id=\"dy-radio\" value=\"d\"> Daily</label>\n  <fieldset id=\"dy-fieldset\"><label><input type=\"checkbox\" name=\"dy-dig\" id=\"dy-digest\"> Weekly digest</label></fieldset>\n  <p><label for=\"dy-required\">Shirt size</label> <input id=\"dy-required\" name=\"dy-s\" type=\"text\" required></p>\n  <p><label for=\"dy-date\">Start date</label> <input id=\"dy-date\" name=\"dy-sd\" type=\"text\"></p>\n  <p><label for=\"dy-jump\">Jump to section</label> <select id=\"dy-jump\" name=\"dy-j\" onchange=\"location.href = this.value\"><option value=\"#a\">Bikes</option><option value=\"#b\">Helmets</option></select></p>\n  <p><button type=\"submit\">Save</button></p>\n</form>\n<form id=\"dy-form-nosubmit\" action=\"/n\" method=\"post\"><p><label for=\"dy-ns\">Coupon</label> <input id=\"dy-ns\" name=\"dy-ns\" type=\"text\"></p></form>\n<form id=\"dy-form-twice\" action=\"/o\" method=\"post\">\n  <p><label for=\"dy-m1\">Email</label> <input id=\"dy-m1\" name=\"dy-m1\" type=\"email\" autocomplete=\"off\"></p>\n  <p><label for=\"dy-m2\">Email for the invoice</label> <input id=\"dy-m2\" name=\"dy-m2\" type=\"email\" autocomplete=\"off\"></p>\n  <p><button type=\"submit\">Order</button></p>\n</form>\n<form id=\"dy-login\" action=\"/login\" method=\"post\">\n  <p><label for=\"dy-pw\">Password</label> <input id=\"dy-pw\" name=\"dy-pw\" type=\"password\" autocomplete=\"current-password\" onpaste=\"return false\"></p>\n  <div class=\"g-recaptcha\" data-sitekey=\"demo-key\"></div>\n  <p><button type=\"submit\">Sign in</button></p>\n</form>\n<div id=\"dy-focus\" tabindex=\"-1\" onfocus=\"this.dataset.seen = 'yes'\">Spring promotion</div>\n<p><button id=\"dy-autofocus\" type=\"button\" autofocus>Continue</button></p>\n<p><a class=\"solo\" id=\"dy-empty-link\" href=\"/cart\"></a></p>\n<p><button id=\"dy-empty-button\" type=\"button\"></button></p>\n<p><a class=\"solo\" id=\"dy-generic\" href=\"/offers\">Click here</a></p>\n<div><div><ul><li><a class=\"solo\" id=\"dy-url\" href=\"https://example.org/report\">https://example.org/report</a></li></ul></div></div>\n<p><a class=\"solo\" id=\"dy-single\" href=\"/close-offer\">x</a></p>\n<p><a class=\"solo\" id=\"dy-new-window\" href=\"https://example.org/partner\" target=\"_blank\">Partner programme</a></p>\n<p><a class=\"solo\" id=\"dy-fake\" href=\"#\" onclick=\"return false;\">Chat with us</a></p>\n<p>Please read our <a id=\"dy-color\" class=\"plain\" href=\"/policy\">privacy policy</a> before you place an order.</p>\n";
+    document.getElementById('fix-field').setAttribute('aria-label', 'Order number');
+    document.getElementById('fix-link').textContent = 'Shopping cart';
+  });
+</script>
+</body>
+</html>

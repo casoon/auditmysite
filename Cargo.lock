@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e7130864ea34c9df173fee6d57e3d58cf7a3412aca5d4195483f8354172cdae"
+checksum = "18eada0355a1824260dee56ebebd1d4ee0517caa56b9d8763759f8d94498be83"
 
 [[package]]
 name = "a11y-perception"
@@ -19,18 +19,18 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b1483e265c7e89ed65712039c8bded0147591eb8a35440e816ef33b44f6150b"
+checksum = "1fed2ce015bd55abd369e4edc6f1a61b608954670bf2a38302e134dbc79c0b58"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dafc8d77c1d3a4a0c25a60d2351194fd22bc51a2a72716b507ef0902d4b14ac"
+checksum = "f7e51ae6972917a483316a1f081f8436fa2157cc12c74734fdcc61395f5b520b"
 dependencies = [
  "a11y-dom",
  "a11y-report",
@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f67704891b8e514cf2e29bd970f5d2756158cbc0bedc372b6bcbb3d453a628"
+checksum = "99935ed39ea1f613e0269fb682ffac91c9c58971164af682662dc95f3477505b"
 dependencies = [
  "a11y-dom",
 ]
@@ -347,9 +347,11 @@ dependencies = [
  "jsonschema",
  "lopdf",
  "markup5ever_rcdom",
+ "rcgen",
  "renderreport",
  "reqwest",
  "runemark",
+ "rustls",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -710,7 +712,7 @@ dependencies = [
  "nom 7.1.3",
  "non-empty-string",
  "nonempty-collections",
- "pem",
+ "pem 4.0.0",
  "pkcs8",
  "png_pong",
  "quick-xml 0.41.0",
@@ -2497,9 +2499,9 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6f8ac01a08ae645d800ad4b5bbf2fa948b48327fbb7a7c4bd6e5954a2c0acb7"
+checksum = "d52ab92506bca3f70ed4609fdbd49e179843b48637130562587a9170f30d3860"
 dependencies = [
  "csp-parse",
  "encoding_rs",
@@ -2515,9 +2517,9 @@ dependencies = [
 
 [[package]]
 name = "html5-parser"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2813e1598b78703c3339b10ee9ea6e55c41935cba69129046a13653c0c856d84"
+checksum = "38ffb819bfbd6e33f301804dfbdc4ef8f756e731be9dcea206a39eeada55a34f"
 
 [[package]]
 name = "html5ever"
@@ -3911,6 +3913,16 @@ dependencies = [
 
 [[package]]
 name = "pem"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
+dependencies = [
+ "base64 0.22.1",
+ "serde_core",
+]
+
+[[package]]
+name = "pem"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d354a98a3d1251555de99e8fdd8afda05573c31b82f59063a7b0a29b5527f120"
@@ -4625,6 +4637,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rcgen"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75e669e5202259b5314d1ea5397316ad400819437857b90861765f24c4cf80a2"
+dependencies = [
+ "pem 3.0.6",
+ "ring",
+ "rustls-pki-types",
+ "time",
+ "yasna",
+]
+
+[[package]]
 name = "read-fonts"
 version = "0.39.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4705,9 +4730,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "relax-ng"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27b2efa2e54ad1aad613278b6a6ae9b08186b4a4cc92467f06300f3b3ab695e0"
+checksum = "67788e3178d53c0cf7f453797c76309d441fbf42a01482613eaabd1732df4330"
 dependencies = [
  "regex",
  "roxmltree 0.21.1",
@@ -7004,9 +7029,9 @@ dependencies = [
 
 [[package]]
 name = "web-checks"
-version = "0.4.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c60ab343ab4c10d104da8ca2736be963af7082f5dd88d62502560f6b0a85733"
+checksum = "96c9012aae26d5e1409ed787082a00402dd01b57f3bcae02de0676d35dd05f67"
 dependencies = [
  "serde",
  "serde_json",
@@ -7541,6 +7566,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
+]
+
+[[package]]
+name = "yasna"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
+dependencies = [
+ "time",
 ]
 
 [[package]]

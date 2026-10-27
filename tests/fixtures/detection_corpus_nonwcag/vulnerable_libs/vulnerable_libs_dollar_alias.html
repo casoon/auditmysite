@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>jQuery only as $, Bootstrap via attribute</title>
+  <script>
+    // jQuery.noConflict() hands back `jQuery`; some pages keep only `$`.
+    window.$ = { fn: { jquery: "3.4.1" } };
+    // AngularJS is end of life: even its last release is flagged.
+    window.angular = { version: { full: "1.8.3" } };
+  </script>
+</head>
+<body>
+  <header><p>Library corpus</p></header>
+  <main>
+    <h1>jQuery only as $, Bootstrap via attribute</h1>
+    <div data-bs-version="4.0.0"></div>
+  </main>
+</body>
+</html>

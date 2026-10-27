@@ -1,0 +1,124 @@
+{
+  "case": "forms_static_text",
+  "expectations": [
+    {
+      "rule_id": "forms/label-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/placeholder-as-label",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/error-unidentified",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/group-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/group-name-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/required-unmarked",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/title-only-label",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/no-submit",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "forms/redundant-entry",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/name-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/generic-name",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/url-name",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/single-character-name",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/new-window-unannounced",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/purpose-link-only",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "links/used-as-button",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "buttons/name-missing",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "auth/captcha",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "context/on-input",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "context/on-focus",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "context/autofocus",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "color/link-indistinct",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "accessible-auth-paste-blocked",
+      "verdict": "not_applicable"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

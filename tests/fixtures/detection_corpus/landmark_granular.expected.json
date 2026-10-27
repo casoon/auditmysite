@@ -1,10 +1,41 @@
 {
   "case": "landmark_granular",
   "expectations": [
-    { "rule_id": "landmarks/not-top-level", "verdict": "violation", "occurrences": 2 },
-    { "rule_id": "landmarks/banner-duplicate", "verdict": "violation" },
-    { "rule_id": "landmarks/contentinfo-duplicate", "verdict": "violation" },
-    { "rule_id": "landmarks/main-duplicate", "verdict": "violation" },
-    { "rule_id": "landmarks/not-unique", "verdict": "needs_review" }
+    {
+      "rule_id": "landmarks/not-top-level",
+      "verdict": "violation",
+      "occurrences": 2
+    },
+    {
+      "rule_id": "landmarks/banner-duplicate",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-duplicate",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/main-duplicate",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "landmarks/not-unique",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "focus-visible",
+      "selector": "root",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

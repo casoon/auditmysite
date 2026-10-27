@@ -1,0 +1,117 @@
+{
+  "case": "forms_autofill",
+  "expectations": [
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#bad-token",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#bad-contact",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#bad-order",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "textarea#bad-area",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#ship-name",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#ship-street",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#work-mail",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#tel-mobile",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "select#ship-country",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/autocomplete-invalid",
+      "selector": "input#gift-card",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-email",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-phone",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-first",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-ok",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-project",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-ip",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#pm-search",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#gift-card",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "context/on-input",
+      "selector": "select#ship-country",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

@@ -15,7 +15,8 @@
 //! that cancels the native paste and inserts the (sanitised) text itself is
 //! not blocking anything. The field's value is restored afterwards, and
 //! `alert`/`confirm`/`prompt` are stubbed for the duration so a "no pasting"
-//! dialog can't stall the page.
+//! dialog can't stall the page. Fields in open shadow roots and in
+//! same-origin frames are probed too.
 //!
 //! Das Captcha im Anmeldeformular laeuft seit #693 als `auth/captcha` im
 //! geteilten Bestand (siehe `wcag::shared`); der Einfuege-Test braucht die
@@ -53,7 +54,8 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
   function isVisible(el) {
     var r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return false;
-    var s = getComputedStyle(el);
+    var view = el.ownerDocument === document ? window : el.ownerDocument.defaultView;
+    var s = view === window ? getComputedStyle(el) : view.getComputedStyle(el);
     return s.display !== 'none' && s.visibility !== 'hidden';
   }
 
@@ -65,19 +67,22 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
   }
 
   function pasteBlocked(el) {
+    // The event comes from the field's own window, so a frame's handlers
+    // see an event of their realm.
+    var win = el.ownerDocument.defaultView || window;
     var original = el.value;
     var dt;
     try {
-      dt = new DataTransfer();
+      dt = new win.DataTransfer();
       dt.setData('text/plain', PROBE);
     } catch (e) {
       dt = null;
     }
     var ev;
     try {
-      ev = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
+      ev = new win.ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
     } catch (e) {
-      ev = new Event('paste', { bubbles: true, cancelable: true });
+      ev = new win.Event('paste', { bubbles: true, cancelable: true });
     }
     var notCancelled = el.dispatchEvent(ev);
     var inserted = (el.value || '').indexOf(PROBE) !== -1;
@@ -85,26 +90,57 @@ const ACCESSIBLE_AUTH_JS: &str = r#"
     return !notCancelled && !inserted;
   }
 
-  var savedAlert = window.alert, savedConfirm = window.confirm, savedPrompt = window.prompt;
-  window.alert = function() {};
-  window.confirm = function() { return false; };
-  window.prompt = function() { return null; };
+  // Auth fields of the document, of open shadow roots and of same-origin
+  // frames: a sign-in form inside a web component or an embedded frame blocks
+  // pasting just the same (#783). A frame's fields carry the frames.rs
+  // selector shape "{iframe} [frame] {element}".
+  var fields = [];
+  var windows = [window];
+  function collect(root, frameSel) {
+    var found = root.querySelectorAll(AUTH_FIELD);
+    for (var i = 0; i < found.length; i++) fields.push({ el: found[i], frame: frameSel });
+    var all = root.querySelectorAll('*');
+    for (var j = 0; j < all.length; j++) {
+      var el = all[j];
+      if (el.shadowRoot) collect(el.shadowRoot, frameSel);
+      if (el.tagName !== 'IFRAME' && el.tagName !== 'FRAME') continue;
+      var doc = null;
+      try { doc = el.contentDocument; } catch (e) {}
+      if (!doc || !doc.documentElement) continue;
+      if (doc.defaultView) windows.push(doc.defaultView);
+      var sel = __amsCssSelector(el);
+      collect(doc, frameSel ? frameSel + ' [frame] ' + sel : sel);
+    }
+  }
+  collect(document, null);
+
+  var saved = windows.map(function(w) {
+    var s = { w: w, alert: w.alert, confirm: w.confirm, prompt: w.prompt };
+    w.alert = function() {};
+    w.confirm = function() { return false; };
+    w.prompt = function() { return null; };
+    return s;
+  });
 
   var blocked = [];
   try {
-    var fields = document.querySelectorAll(AUTH_FIELD);
     // Probe and report caps count real and excluded (#645) fields separately.
     var probed = [];
     for (var i = 0; i < fields.length && __amsReal(probed) < 20; i++) {
-      var f = fields[i];
+      var f = fields[i].el;
       if (f.disabled || f.readOnly || !isVisible(f)) continue;
       if (!__amsPush(probed, f, f, 20)) continue;
-      if (pasteBlocked(f)) __amsPush(blocked, f, { selector: __amsCssSelector(f), kind: kindOf(f) }, /*MAX_FINDINGS*/);
+      if (!pasteBlocked(f)) continue;
+      var selector = __amsCssSelector(f);
+      if (fields[i].frame) selector = fields[i].frame + ' [frame] ' + selector;
+      __amsPush(blocked, f, { selector: selector, kind: kindOf(f) }, /*MAX_FINDINGS*/);
     }
   } finally {
-    window.alert = savedAlert;
-    window.confirm = savedConfirm;
-    window.prompt = savedPrompt;
+    saved.forEach(function(s) {
+      s.w.alert = s.alert;
+      s.w.confirm = s.confirm;
+      s.w.prompt = s.prompt;
+    });
   }
 
   return { blocked: blocked };

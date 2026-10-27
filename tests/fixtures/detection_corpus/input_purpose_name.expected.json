@@ -1,13 +1,65 @@
 {
   "case": "input_purpose_name",
   "expectations": [
-    { "rule_id": "forms/purpose-missing", "selector": "input#view-name", "verdict": "pass" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#project-title", "verdict": "pass" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#upload-target", "verdict": "pass" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#stay", "verdict": "pass" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#your-name", "verdict": "needs_review" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#given", "verdict": "needs_review" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#phone-de", "verdict": "needs_review" },
-    { "rule_id": "forms/purpose-missing", "selector": "input#zip-de", "verdict": "needs_review" }
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#view-name",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#project-title",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#upload-target",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#stay",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#your-name",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#given",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#phone-de",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/purpose-missing",
+      "selector": "input#zip-de",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#phone-de",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "forms/instructions-missing",
+      "selector": "input#zip-de",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
   ]
 }

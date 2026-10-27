@@ -1,0 +1,103 @@
+{
+  "case": "security_error_untrusted_certificate",
+  "note": "A self-signed certificate nobody trusts: the request must fail validation, so nothing is measured — never a clean HTTPS result.",
+  "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload"
+  },
+  "fixture": {
+    "transport": "https_untrusted"
+  },
+  "expectations": [
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "X-Content-Type-Options:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "X-Frame-Options:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Referrer-Policy:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Permissions-Policy:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Cross-Origin-Opener-Policy:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Cross-Origin-Resource-Policy:missing_header",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Access-Control-Allow-Origin:cors_wildcard_credentials",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Permissions-Policy:permissions_policy_permissive",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Source Map:public_source_map",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_script",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_eval_script",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_script_source",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:unsafe_inline_style",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:wildcard_source",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_object-src",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_base-uri",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "Content-Security-Policy:missing_frame-ancestors",
+      "verdict": "errored"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Help centre - Example shop</title>
+    <style>
+        .is-closed { display: none; }
+        .is-invisible { visibility: hidden; }
+    </style>
+<style>#ah-dup, #ah-lin { min-width: 44px; min-height: 44px; }</style>
+</head>
+<body>
+    <header>
+        <p>Example shop</p>
+    </header>
+    <main>
+        <h1>Help centre</h1>
+        <p>Answers to common questions.</p>
+
+        <!-- Every widget below is broken, but hidden from everyone (hidden
+             attribute, display: none, visibility: hidden). Hidden content is
+             not presented and not in the accessibility tree; the rules
+             scoped to it report nothing. -->
+        <div id="old-widgets" hidden>
+            <input id="h-unknown" type="text" aria-label="Search" aria-describeby="nothing">
+            <button type="button" id="h-value" aria-pressed="yes">Bold</button>
+            <ul><li id="h-notallowed" aria-selected="true">Overview</li></ul>
+            <p id="h-prohibited" aria-label="Lead">Lead text</p>
+            <div id="h-role" role="tabel">Table</div>
+            <div id="h-abstract" role="widget">Widget</div>
+            <button type="button" id="h-redundant" role="button">Send</button>
+            <div id="h-tab" role="tab">Orphan tab</div>
+            <div id="h-tablist" role="tablist" aria-label="Old tabs"><button type="button">One</button></div>
+            <div id="h-checkbox" role="checkbox" tabindex="0">Remember me</div>
+            <div id="h-owner-a" role="group" aria-label="A" aria-owns="h-owned"></div>
+            <div id="h-owner-b" role="group" aria-label="B" aria-owns="h-owned"></div>
+            <p id="h-owned">Owned</p>
+        </div>
+
+        <div class="is-closed">
+            <div id="h-tabs" role="tablist" aria-label="Closed tabs">
+                <div role="tab" id="h-tabs-one">One</div>
+            </div>
+            <div id="h-combo" role="combobox" aria-expanded="true" aria-label="City" tabindex="0"></div>
+            <button type="button" id="h-acc" aria-expanded="true">Shipping</button>
+            <div id="h-slider" role="slider" tabindex="0" aria-valuenow="1"></div>
+            <button type="button" id="h-symbol" aria-label="&#x00D7;">&#x00D7;</button>
+            <button type="button" id="h-title" title="Print"><svg aria-hidden="true" width="8" height="8"></svg></button>
+            <button type="button" id="h-lin" aria-label="Submit form">Send</button>
+            <button type="button" id="h-dup" aria-describedby="h-dup-desc">Close</button>
+            <span id="h-dup-desc">Close</span>
+            <details id="h-details"><summary id="h-summary"></summary><p>Text</p></details>
+            <svg id="h-svg" role="img" width="10" height="10"><rect width="10" height="10"></rect></svg>
+            <div id="h-status" role="status" aria-live="off">Saved</div>
+            <div id="h-menu" role="menu"><div role="menuitem" tabindex="-1">Copy</div></div>
+        </div>
+
+        <div class="is-invisible">
+            <div id="h-dialog" role="dialog"><p>Old notice</p></div>
+            <div id="h-inert-dialog" role="dialog" aria-modal="true" aria-label="Old" inert><button type="button">OK</button></div>
+        </div>
+
+        <!-- Hidden from assistive technology only: still visible, so an inert
+             dialog here keeps everyone from operating it, and the visible
+             label of a control counts even under aria-hidden -->
+        <div aria-hidden="true">
+            <dialog open inert id="ah-inert-dialog" aria-label="Cookie notice">
+                <button type="button" id="ah-ok" tabindex="-1">OK</button>
+            </dialog>
+            <!-- Ignored by assistive technology: its repeated description reaches nobody. -->
+            <button type="button" id="ah-dup" tabindex="-1" aria-describedby="ah-dup-desc">Close</button>
+            <span id="ah-dup-desc">Close</span>
+        </div>
+        <button type="button" id="ah-lin" aria-label="Open chat"><span aria-hidden="true">Help</span></button>
+
+        <!-- Tooltips are hidden until hover: an unreferenced hidden tooltip
+             is still never announced, a referenced one is fine -->
+        <button type="button" id="tip-btn" aria-describedby="tip-ok">Contact us</button>
+        <div role="tooltip" id="tip-ok" hidden>Mon-Fri, 9-17</div>
+        <div role="tooltip" id="tip-orphan" hidden>Average answer time: 2 hours</div>
+
+        <!-- A reference to hidden content resolves (accname 1.2, 2B) -->
+        <button type="button" id="ref-hidden" aria-describedby="ref-hidden-desc">Call back</button>
+        <p id="ref-hidden-desc" hidden>We call you within one working day.</p>
+
+        <!-- The popover target is closed, hence not rendered: it exists -->
+        <button type="button" id="pop-btn" popovertarget="pop-faq">FAQ</button>
+        <div id="pop-faq" popover>Frequently asked questions</div>
+    </main>
+    <footer>
+        <p>Example shop</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gift cards – Acme Hardware</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }
+        input, button { min-width: 44px; min-height: 44px; }
+        .mobile-only { display: none; }
+        @media (max-width: 600px) {
+            .desktop-only { display: none; }
+            .mobile-only { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <!-- A responsive template (#783): header, navigation and main heading
+         exist twice, one copy per breakpoint, and CSS shows exactly one of
+         each. In every viewport the page has one banner, one navigation and
+         one h1; the hidden copy is not rendered and not exposed. -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header class="desktop-only">
+        <p>Acme Hardware – tools since 1952</p>
+    </header>
+    <header class="mobile-only">
+        <p>Acme</p>
+    </header>
+    <nav class="desktop-only">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/shop/">Shop</a></li>
+            <li><a href="/gift-cards/">Gift cards</a></li>
+        </ul>
+    </nav>
+    <nav class="mobile-only">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/menu/">Menu</a></li>
+        </ul>
+    </nav>
+    <main id="main">
+        <h1 class="desktop-only">Gift cards for every workshop</h1>
+        <h1 class="mobile-only">Gift cards</h1>
+        <p>Choose an amount between 10 and 200 euros.</p>
+        <h2>How to redeem</h2>
+        <p>Show the card at the till or enter its code at checkout.</p>
+    </main>
+    <footer>
+        <p>Acme Hardware, Berlin</p>
+    </footer>
+</body>
+</html>

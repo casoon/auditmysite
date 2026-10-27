@@ -1,0 +1,7 @@
+{
+  "case": "visual_motion_none",
+  "expectations": [
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "not_applicable" },
+    { "rule_id": "motion/infinite-animation", "verdict": "not_applicable" }
+  ]
+}

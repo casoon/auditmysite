@@ -1,0 +1,10 @@
+{
+  "case": "schema_rules_software_paid_without_currency",
+  "note": "Above a price of 0 Google recommends priceCurrency; at 0 (schema_rules_complete) it does not.",
+  "expectations": [
+    {
+      "rule_id": "software_application",
+      "verdict": "needs_review"
+    }
+  ]
+}

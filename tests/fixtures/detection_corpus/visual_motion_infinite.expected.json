@@ -1,0 +1,10 @@
+{
+  "case": "visual_motion_infinite",
+  "expectations": [
+    { "rule_id": "motion/infinite-animation", "selector": "div#spinner", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "motion/infinite-animation", "selector": "div#late-spinner", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "motion/infinite-animation", "selector": "div#finite", "verdict": "pass" },
+    { "rule_id": "motion/infinite-animation", "selector": "div#hidden-spinner", "verdict": "pass" },
+    { "rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

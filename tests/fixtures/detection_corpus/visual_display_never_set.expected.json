@@ -1,0 +1,13 @@
+{
+  "case": "visual_display_never_set",
+  "expectations": [
+    { "rule_id": "display/init-missing", "selector": "html", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "display/text-hidden", "selector": "div#t-hidden-attr", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "display/text-hidden", "selector": "div#t-inert", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "display/text-hidden", "selector": "div#t-late", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "display/text-hidden", "selector": "div#t-ok", "verdict": "pass" },
+    { "rule_id": "display/text-not-visible", "verdict": "not_applicable" },
+    { "rule_id": "display/text-media-visible", "verdict": "not_applicable" },
+    { "rule_id": "display/toggle-missing", "verdict": "pass" }
+  ]
+}

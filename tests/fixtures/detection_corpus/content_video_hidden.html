@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video in a closed panel</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Video archive</h1>
+        <div id="archive-panel" hidden>
+            <video id="archived" controls width="320" height="180" src="/archived.mp4"></video>
+        </div>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

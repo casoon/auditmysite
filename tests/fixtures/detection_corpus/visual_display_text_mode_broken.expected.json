@@ -1,0 +1,59 @@
+{
+  "case": "visual_display_text_mode_broken",
+  "expectations": [
+    {
+      "rule_id": "display/text-not-visible",
+      "selector": "figure#f1",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "display/text-not-visible",
+      "selector": "figure#f5",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "display/text-not-visible",
+      "selector": "figure#f2",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "selector": "img#s2",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "selector": "svg#icon3",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/text-media-visible",
+      "selector": "svg#icon4",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "display/text-hidden",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/init-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "display/toggle-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "manual/help",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "verdict": "needs_review"
+    }
+  ]
+}

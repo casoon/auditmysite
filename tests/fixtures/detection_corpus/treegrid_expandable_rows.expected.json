@@ -1,6 +1,12 @@
 {
   "case": "treegrid_expandable_rows",
   "expectations": [
-    { "rule_id": "aria/attribute-not-allowed", "verdict": "pass" }
+    {"rule_id": "aria/attribute-not-allowed", "verdict": "pass"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
+    {"rule_id": "tables/header-missing", "verdict": "needs_review"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
   ]
 }

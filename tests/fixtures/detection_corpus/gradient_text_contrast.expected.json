@@ -1,10 +1,57 @@
 {
   "case": "gradient_text_contrast",
   "expectations": [
-    { "rule_id": "contrast/text-insufficient", "selector": "a#logo-main", "verdict": "pass" },
-    { "rule_id": "contrast/text-undetermined", "selector": "a#logo-main", "verdict": "needs_review" },
-    { "rule_id": "contrast/text-insufficient", "selector": "a#logo-module", "verdict": "pass" },
-    { "rule_id": "contrast/text-undetermined", "selector": "a#logo-module", "verdict": "needs_review" },
-    { "rule_id": "contrast/text-insufficient", "selector": "p#faint-text", "verdict": "violation" }
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "a#logo-main",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "a#logo-main",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "a#logo-module",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "a#logo-module",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#faint-text",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/contentinfo-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a#logo-main",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a#logo-module",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "zoom/viewport-missing",
+      "selector": "html",
+      "verdict": "violation"
+    }
   ]
 }

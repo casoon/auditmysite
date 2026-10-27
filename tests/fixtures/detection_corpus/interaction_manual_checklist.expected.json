@@ -1,0 +1,16 @@
+{
+  "case": "interaction_manual_checklist",
+  "expectations": [
+    { "rule_id": "manual/pointer-gestures", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/motion-actuation", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/no-timing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/interruptions", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/re-authenticating", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/unusual-words", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/help", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

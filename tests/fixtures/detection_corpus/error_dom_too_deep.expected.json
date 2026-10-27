@@ -1,0 +1,557 @@
+{
+ "case": "error_dom_too_deep",
+ "expectations": [
+  {
+   "rule_id": "document/lang-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "document/lang-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/empty",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/skip-level",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/h1-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/h1-multiple",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "ids/duplicate",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/positive-tabindex",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "lists/invalid-structure",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "lists/empty",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "lists/item-outside-list",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "lists/term-without-definition",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/header-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/presentational-with-headers",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "zoom/viewport-scale-limited",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "zoom/viewport-locked",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "zoom/viewport-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "document/title-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "document/title-empty",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/reference-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/required-attribute-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/hidden-focusable",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/main-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/main-duplicate",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/banner-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/contentinfo-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/navigation-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "svg/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/alt-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/alt-suspicious",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/generic-name",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/url-name",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/single-character-name",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/new-window-unannounced",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/purpose-link-only",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "buttons/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/skip-link-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/role-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/role-abstract",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/attribute-unknown",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/attribute-value-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/owns-conflict",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/tab-selected-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/tabpanel-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/combobox-popup-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "popover/target-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "popover/target-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "inert/dialog-inert",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/attribute-not-allowed",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/attribute-prohibited",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/required-parent-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/required-children-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "names/required-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "names/symbol-only",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "dialog/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "dialog/modal-unmarked",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "summary/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "status/live-overridden",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "label-in-name/mismatch",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/label-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/placeholder-as-label",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/autocomplete-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/purpose-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/error-unidentified",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/group-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/group-name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/required-unmarked",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/instructions-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/title-only-label",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/no-submit",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "forms/redundant-entry",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "context/on-focus",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "context/autofocus",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "auth/captcha",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/not-unique",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/not-top-level",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/banner-duplicate",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/contentinfo-duplicate",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "landmarks/content-outside",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/none",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/focusable-no-role",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/interactive-not-focusable",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "dialog/focusable-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "patterns/accordion-controls-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/click-handler-not-focusable",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "links/used-as-button",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "navigation/location-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/area-alt-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/input-alt-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "objects/alt-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/server-side-map",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "media/audio-autoplay",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "frames/name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/header-without-data",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/data-undetermined",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "tables/headers-attr-invalid",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "document/lang-mismatch",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "language/part-unmarked",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "language/part-undetermined",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "language/abbreviation-unexpanded",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "timing/meta-refresh",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "headings/section-without-heading",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/role-redundant",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "names/title-only",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "patterns/tooltip-unreferenced",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "lists/role-redundant",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "color/link-indistinct",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/scrollable-region-not-focusable",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "contrast/text-insufficient",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "contrast/text-undetermined",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "contrast/text-enhanced",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "focus/outline-removed",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "motion/reduced-motion-ignored",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "orientation/content-hidden",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text/justified",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text/line-height-tight",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "display/toggle-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "viz/text-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "viz/caption-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "viz/static-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "viz/table-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "targets/size",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "targets/size-enhanced",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "order/visual-mismatch",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "motion/infinite-animation",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "keyboard/pointer-only",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/pointer-gestures",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/motion-actuation",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/no-timing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/interruptions",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/re-authenticating",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/unusual-words",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "manual/help",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "contrast/control-insufficient",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "contrast/control-undetermined",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "html-content-model",
+   "verdict": "errored"
+  }
+ ]
+}

@@ -1,0 +1,43 @@
+{
+  "case": "structure_language_parts",
+  "expectations": [
+    {
+      "rule_id": "language/part-unmarked",
+      "selector": "p#unmarked-german",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "language/part-unmarked",
+      "selector": "p#unmarked-quote",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "language/part-unmarked",
+      "selector": "p#loaded-german",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "language/part-unmarked",
+      "selector": "p#marked-german",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "language/part-undetermined",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "language/abbreviation-unexpanded",
+      "selector": "abbr",
+      "verdict": "needs_review",
+      "occurrences": 2
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

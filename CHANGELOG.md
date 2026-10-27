@@ -12,7 +12,7 @@ and verification for each change is in the
 - **AI transparency:** `ai_transparency.coverage` counts attempted, checked and limit-skipped images and failed fetches by reason (`redirect_not_followed`, `oversized`, `timeout`, `host_not_public`, …).
 - **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
 - **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
-- **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings. Release checks require positive and negative corpus evidence for every inventoried WCAG, security, schema and library check; deferred checks do not satisfy this gate.
+- **Validation:** JSON export rejects contradictory scores, execution outcomes and missing rule findings.
 - **Release:** Version 2.x requires completion of the 26 foundation-audit issues and their tracker in the 2.0 milestone. Missing issues, open prerequisites, non-completion closures and GitHub API failures block the release before artifact builds.
 - **Batch:** `summary.root_causes[]` lists finding patterns that recur on two or more pages, with all URLs, occurrence count and confidence (`confirmed` same markup, `likely` same pattern above the coverage thresholds, `open` otherwise); `id` matches `findings[].patterns[].id`.
 - **JSON:** Every finding carries a stable `id` (`F-` and eight hex digits) from its rule, and `patterns[]` with the element patterns of all its occurrences (normalized selector, occurrence count, `RC-` id that is the same for the same rule and pattern on every page); `pattern_count` gives the full number.
@@ -37,12 +37,15 @@ and verification for each change is in the
 - **Performance:** LCP is the last candidate before the read, also one painted after `load`; TBT counts long tasks over FCP→TTI (Lighthouse window) instead of up to load + 100 ms. TTI is the end of the last long task before the first 5 s quiet window.
 - **Scoring:** A module that lost a collection its score depends on is shown as partial and no longer counts toward the overall score; derived indicators are not computed over a failed module.
 - **Scoring:** The overall score always uses the published module weights, including dual-viewport audits. Incomplete performance measurements and unchecked HTML conformance do not contribute; estimated Speed Index remains diagnostic. Principle coverage uses execution records instead of assuming every catalogued criterion passed.
-- **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.7 and describes conditional exploitability.
+- **Security:** Security-only audits also collect the JavaScript library checks. The known Handlebars advisory range includes versions below 4.7.10 and describes conditional exploitability.
+- **Security:** Library advisory boundaries follow the current advisories: Lodash below 4.18.0, Underscore below 1.13.8, Bootstrap before 4.0.0 (end of life) and 4.x below 4.3.1, and every AngularJS version (end of life).
+- **Accessibility:** Breaking: the 2.1.2 keyboard-trap check runs under its finding id `keyboard-trap`; `[rules] disabled = ["keyboard"]` no longer matches it. Its page-wide note appears only on pages with something focusable, the 2.5.2 pointer note only on pages with something a pointer can operate.
+- **Accessibility:** Contrast and link-colour checks, and the open-popover check, also judge content in same-origin frames. An open popover or menu without a name is listed for review instead of reported as a violation.
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Libraries:** Affected library versions come from a versioned advisory table (`ADVISORIES` in `best_practices/vulnerable_libs.rs`) with advisory id, CVE aliases, affected ranges, fixed version, source URL and review date. `vulnerable[]` entries list the matching `advisories[]` and carry `exploitability: "unconfirmed"` (a version match never proves the code path is reachable); `detected[].version_parsed` marks versions that could not be read, which are neither flagged nor cleared.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
-- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.0.
+- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.1; `web-checks` 0.5.1; `html-conform` 0.3.3.
 - **Accessibility:** Best-practice rules such as a missing `h1` or landmark rules no longer fail a WCAG criterion, and checks whose markup alone does not prove a violation (e.g. a referenced duplicate ID or positive `tabindex`) are listed for review; for 2.4.1 a `main` landmark or skip link counts as bypass.
 - **JSON:** Breaking: `top_actions[].root_cause` (free text that called anything with 10 occurrences or two pages a "likely shared component") is replaced by `finding_id` and, in batch reports, `root_cause_id` pointing into `summary.root_causes`.
 - **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
@@ -57,6 +60,7 @@ and verification for each change is in the
 - **Reports:** Consistency compares what a page can contradict on its own — declared language vs. `og:locale`, `<title>` vs. `og:title`, structured data vs. visible content — and weighs only the checks that applied.
 - **Reports:** The trust signal lists contact, imprint and privacy links that were not detected instead of reusing the UX trust score.
 - **SEO:** A missing `lang` attribute or page title is marked as also counted under accessibility (WCAG 3.1.1 / 2.4.2).
+- **Contributors:** Every active detector has an executable contract in `tests/fixtures/rule_contracts/` (cases including not-applicable and technical errors, variant matrix, targeted mutations); `cargo test` fails for a rule without one. Corpus comparisons are strict, and `scripts/mutation-check.py` proves test strength before a release. CI runs the WCAG corpus in three parallel shards (`CORPUS_SHARD=k/n`).
 
 ### Removed
 
@@ -68,6 +72,20 @@ and verification for each change is in the
 
 - **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).
 - **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
+- **Accessibility:** The 1.3.4 orientation check could never fire, because the computed `transform` is a matrix; it now reads the rotation and names `html` or `body`.
+- **Accessibility:** Overflow at 320 px caused only by content 1.4.10 exempts (data tables, images, media, frames) no longer fails reflow.
+- **Accessibility:** The 3.3.8 paste-blocking check, `html-has-lang` and the cross-origin frame note also find their elements in open shadow roots and same-origin frames; `html-has-lang` always records whether it ran.
+- **Accessibility:** A select named like a navigation control inside a form with its own submit control is no longer flagged under 3.2.2; unrendered videos are not checked for captions.
+- **Accessibility:** An overlay painted below a focused control no longer counts as obscuring it (2.4.12), and attribute errors inside tables or lists are no longer reported as content-model violations.
+- **Accessibility:** A finding without selector that both viewports report counts once instead of once per pass.
+- **Accessibility:** `role="list"` that one viewport needs (its markers hidden only there) is no longer reported as redundant; the finding stands only when both viewports report it.
+- **Accessibility:** The stylesheet rules (justified text, line height, focus outline, motion) also see declarations inside `@media` queries that apply at the audited width.
+- **Accessibility:** Content behind an open modal dialog is no longer reported as outside every landmark, while content in plain containers still is.
+- **Accessibility:** A document too deeply nested for the HTML conformance check marks the content-model rule as not run instead of passing it.
+- **Security:** HSTS preload eligibility is judged over HTTPS only; directives are read case-insensitively and with quoted values. A missing `object-src` respects the `default-src` fallback.
+- **Security:** A source-map page that answers with an error status, or a map probe without answer, is reported as not measured instead of "no leak".
+- **Security:** A very deeply nested page no longer aborts the whole audit with a stack overflow while the source-map check reads its asset links.
+- **Security:** Library versions are read from the URL path only, and plugins named after a library (jQuery UI, jquery.validate, Bootstrap Datepicker) are no longer taken for it.
 - **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
 - **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.
 - **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.

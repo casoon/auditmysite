@@ -1,0 +1,31 @@
+{
+  "case": "interaction_static_text",
+  "expectations": [
+    { "rule_id": "keyboard/positive-tabindex", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/hidden-focusable", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/focusable-no-role", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/interactive-not-focusable", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/click-handler-not-focusable", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/scrollable-region-not-focusable", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/pointer-only", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
+    { "rule_id": "focus/outline-removed", "verdict": "not_applicable" },
+    { "rule_id": "targets/size", "verdict": "not_applicable" },
+    { "rule_id": "targets/size-enhanced", "verdict": "not_applicable" },
+    { "rule_id": "order/visual-mismatch", "verdict": "not_applicable" },
+    { "rule_id": "navigation/location-missing", "verdict": "not_applicable" },
+    { "rule_id": "manual/pointer-gestures", "verdict": "not_applicable" },
+    { "rule_id": "manual/motion-actuation", "verdict": "not_applicable" },
+    { "rule_id": "manual/no-timing", "verdict": "not_applicable" },
+    { "rule_id": "manual/interruptions", "verdict": "not_applicable" },
+    { "rule_id": "manual/re-authenticating", "verdict": "not_applicable" },
+    { "rule_id": "manual/help", "verdict": "not_applicable" },
+    { "rule_id": "keyboard-trap", "verdict": "not_applicable" },
+    { "rule_id": "pointer-cancellation", "verdict": "not_applicable" },
+    { "rule_id": "focus-not-obscured-minimum", "verdict": "not_applicable" },
+    { "rule_id": "focus-not-obscured-enhanced", "verdict": "not_applicable" },
+    { "rule_id": "manual/unusual-words", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "focus-visible", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

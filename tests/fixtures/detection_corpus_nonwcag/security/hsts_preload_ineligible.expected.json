@@ -1,9 +1,31 @@
 {
   "case": "hsts_preload_ineligible",
+  "note": "preload claimed with a one-hour max-age and no includeSubDomains.",
   "response_headers": {
+    "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
     "Strict-Transport-Security": "max-age=3600; preload"
   },
+  "fixture": {
+    "transport": "https"
+  },
   "expectations": [
-    { "rule_id": "Strict-Transport-Security:hsts_preload_ineligible", "verdict": "violation" }
+    {
+      "rule_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "HTTPS:missing_https",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "Strict-Transport-Security:missing_header",
+      "verdict": "pass"
+    }
   ]
 }

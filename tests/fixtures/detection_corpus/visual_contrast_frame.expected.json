@@ -1,0 +1,21 @@
+{
+  "case": "visual_contrast_frame",
+  "expectations": [
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "iframe#promo-frame [frame] p#framed-faint",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "iframe#promo-frame [frame] p#framed-dark",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#solid",
+      "verdict": "pass"
+    }
+  ]
+}

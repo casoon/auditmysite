@@ -1,0 +1,23 @@
+{
+  "case": "content_lists_broken",
+  "expectations": [
+    {"rule_id": "lists/invalid-structure", "selector": "ul#genres", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "selector": "div#branch-list", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "selector": "ul#shadow-shelf", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "selector": "iframe#frame-lists [frame] ul#frame-list", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "selector": "ul#hidden-broken", "verdict": "pass"},
+    {"rule_id": "lists/invalid-structure", "selector": "ul#aria-hidden-broken", "verdict": "pass"},
+    {"rule_id": "lists/empty", "selector": "ol#join-steps", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/empty", "selector": "div#empty-aria-list", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/empty", "selector": "ul#late-empty", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/empty", "selector": "ol#styled-away", "verdict": "pass"},
+    {"rule_id": "lists/term-without-definition", "selector": "dt#term-alone", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/term-without-definition", "selector": "div#aria-term-alone", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/item-outside-list", "selector": "li#orphan-item", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/item-outside-list", "selector": "div#orphan-aria-item", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/role-redundant", "verdict": "not_applicable"},
+    {"rule_id": "html-content-model", "selector": "ul", "verdict": "violation", "occurrences": 3},
+    {"rule_id": "html-content-model", "selector": "ol", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "lists/invalid-structure", "selector": "ol#late-mixed", "verdict": "violation", "occurrences": 1}
+  ]
+}

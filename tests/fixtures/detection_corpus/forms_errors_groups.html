@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter settings</title>
+<style>
+  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }
+  a { color: #0050a0; }
+  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  button, input, select, textarea, [role="button"], [role="textbox"], [role="radio"], [role="link"], [role="searchbox"] {
+    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }
+  input[type="checkbox"], input[type="radio"] { width: 44px; height: 44px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Example Shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/help">Help</a></nav>
+</header>
+<main id="main">
+<h1>Newsletter settings</h1>
+<!-- G2 #783: invalid fields with and without an error description (3.3.1), radio and same-name checkbox sets with and without a group (1.3.1), and form groups with and without a name. -->
+<form action="/newsletter" method="post">
+  <p><label for="err-bare">Team code</label> <input id="err-bare" name="team" type="text" aria-invalid="true"></p>
+  <p><label for="err-grammar">Batch code</label> <input id="err-grammar" name="batch" type="text" aria-invalid="grammar"></p>
+  <p><label for="err-desc">Club code</label> <input id="err-desc" name="club" type="text" aria-invalid="true" aria-describedby="err-desc-msg"> <span id="err-desc-msg">Club code must have six characters.</span></p>
+  <p><label for="err-msg">League code</label> <input id="err-msg" name="league" type="text" aria-invalid="true" aria-errormessage="err-msg-text"> <span id="err-msg-text">League code is unknown.</span></p>
+  <p><label for="err-false">Squad code</label> <input id="err-false" name="squad" type="text" aria-invalid="false"></p>
+  <p><span id="motto-label">Team motto</span> <span id="err-aria" role="textbox" contenteditable="true" tabindex="0" aria-labelledby="motto-label" aria-invalid="true"></span></p>
+
+  <p>How often should we write?</p>
+  <label><input type="radio" name="freq" id="freq-daily" value="d"> Daily</label>
+  <label><input type="radio" name="freq" id="freq-weekly" value="w"> Weekly</label>
+  <fieldset><legend>Format</legend>
+    <label><input type="radio" name="fmt" id="fmt-html" value="h"> HTML</label>
+    <label><input type="radio" name="fmt" id="fmt-text" value="t"> Plain text</label>
+  </fieldset>
+  <p>Large print</p>
+  <span role="radio" id="aria-radio-loose" aria-checked="false" tabindex="0">Large print on</span>
+  <div role="radiogroup" aria-label="Print size">
+    <span role="radio" id="aria-radio-grouped" aria-checked="false" tabindex="0">Normal print</span>
+  </div>
+  <p>Topics</p>
+  <label><input type="checkbox" name="topic" id="topic-bikes" value="b"> Bikes</label>
+  <label><input type="checkbox" name="topic" id="topic-tours" value="t"> Tours</label>
+  <p><label><input type="checkbox" name="terms" id="terms-single" value="y"> I accept the newsletter terms</label></p>
+  <fieldset><legend>Channels</legend>
+    <label><input type="checkbox" name="channel" id="channel-mail" value="m"> Letter</label>
+    <label><input type="checkbox" name="channel" id="channel-app" value="a"> App</label>
+  </fieldset>
+
+  <fieldset id="fs-unnamed"><label><input type="checkbox" name="digest" id="digest" value="y"> Weekly digest</label></fieldset>
+  <div role="group" id="grp-unnamed"><label for="grp-in">Promo code</label> <input id="grp-in" name="promo" type="text"></div>
+  <div role="group" id="grp-named" aria-label="Delivery days"><label for="grp-named-in">Preferred day</label> <input id="grp-named-in" name="day" type="text"></div>
+  <details id="det-group"><summary class="solo">More options</summary><label for="det-in">Referral code</label> <input id="det-in" name="referral" type="text"></details>
+  <p><button type="submit">Save settings</button></p>
+</form>
+</main>
+<footer><p>Example Shop, 2026</p></footer>
+
+</body>
+</html>

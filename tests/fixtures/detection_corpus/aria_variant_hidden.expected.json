@@ -1,0 +1,185 @@
+{
+  "case": "aria_variant_hidden",
+  "expectations": [
+    {
+      "rule_id": "aria/attribute-unknown",
+      "verdict": "pass",
+      "selector": "input#h-unknown"
+    },
+    {
+      "rule_id": "aria/attribute-value-invalid",
+      "verdict": "pass",
+      "selector": "button#h-value"
+    },
+    {
+      "rule_id": "aria/attribute-not-allowed",
+      "verdict": "pass",
+      "selector": "li#h-notallowed"
+    },
+    {
+      "rule_id": "aria/attribute-prohibited",
+      "verdict": "pass",
+      "selector": "p#h-prohibited"
+    },
+    {
+      "rule_id": "aria/role-invalid",
+      "verdict": "pass",
+      "selector": "div#h-role"
+    },
+    {
+      "rule_id": "aria/role-abstract",
+      "verdict": "pass",
+      "selector": "div#h-abstract"
+    },
+    {
+      "rule_id": "aria/role-redundant",
+      "verdict": "pass",
+      "selector": "button#h-redundant"
+    },
+    {
+      "rule_id": "aria/required-parent-missing",
+      "verdict": "pass",
+      "selector": "div#h-tab"
+    },
+    {
+      "rule_id": "aria/required-children-missing",
+      "verdict": "pass",
+      "selector": "div#h-tablist"
+    },
+    {
+      "rule_id": "aria/required-attribute-missing",
+      "verdict": "pass",
+      "selector": "div#h-checkbox"
+    },
+    {
+      "rule_id": "aria/owns-conflict",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "aria/tab-selected-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "aria/tabpanel-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "aria/combobox-popup-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "patterns/accordion-controls-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "names/required-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "names/symbol-only",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "names/title-only",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "label-in-name/mismatch",
+      "verdict": "violation",
+      "selector": "button#ah-lin",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "label-in-name/mismatch",
+      "verdict": "pass",
+      "selector": "button#h-lin"
+    },
+    {
+      "rule_id": "description-duplicates-name",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "summary/name-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "svg/name-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "status/live-overridden",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "dialog/name-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "dialog/modal-unmarked",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "dialog/focusable-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "inert/dialog-inert",
+      "verdict": "violation",
+      "selector": "dialog#ah-inert-dialog",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "inert/dialog-inert",
+      "verdict": "pass",
+      "selector": "div#h-inert-dialog"
+    },
+    {
+      "rule_id": "patterns/tooltip-unreferenced",
+      "verdict": "violation",
+      "selector": "div#tip-orphan",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "patterns/tooltip-unreferenced",
+      "verdict": "pass",
+      "selector": "div#tip-ok"
+    },
+    {
+      "rule_id": "aria/reference-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "popover/target-missing",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "popover/target-invalid",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "modern-attribute-misuse",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "html-content-model",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "keyboard/skip-link-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "landmarks/navigation-missing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/interruptions",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}
