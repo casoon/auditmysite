@@ -1,0 +1,53 @@
+{
+  "format": "auditmysite.calibration-preregistration/1",
+  "registered_at": "2026-10-27",
+  "notes": "Thresholds are fixed before any label exists. Changing a threshold, cutoff or requirement after a label was written invalidates the registration: record a new one with a later date and relabel the holdout split. See docs/calibration.md.",
+  "reference_set": "tests/fixtures/calibration/reference_set.json",
+  "labels_sha256": null,
+  "max_days_between_label_and_run": 14,
+  "requirements": {
+    "min_labellers_per_case": 2,
+    "min_holdout_cases_per_signal": 30,
+    "min_holdout_positive": 10,
+    "min_holdout_negative": 10,
+    "min_holdout_borderline": 5,
+    "min_inter_rater_kappa": 0.6
+  },
+  "signals": {
+    "ux": {
+      "contract_version": 1,
+      "problem_cutoff": 60,
+      "max_false_positive_rate": 0.2,
+      "max_false_negative_rate": 0.3,
+      "min_kendall_tau_b": 0.4
+    },
+    "journey": {
+      "contract_version": 1,
+      "problem_cutoff": 60,
+      "max_false_positive_rate": 0.2,
+      "max_false_negative_rate": 0.3,
+      "min_kendall_tau_b": 0.4
+    },
+    "ai_visibility": {
+      "contract_version": 1,
+      "problem_cutoff": 60,
+      "max_false_positive_rate": 0.2,
+      "max_false_negative_rate": 0.3,
+      "min_kendall_tau_b": 0.4
+    },
+    "source_quality": {
+      "contract_version": 1,
+      "problem_cutoff": 60,
+      "max_false_positive_rate": 0.2,
+      "max_false_negative_rate": 0.3,
+      "min_kendall_tau_b": 0.4
+    },
+    "content_visibility": {
+      "contract_version": 1,
+      "problem_cutoff": 60,
+      "max_false_positive_rate": 0.2,
+      "max_false_negative_rate": 0.3,
+      "min_kendall_tau_b": 0.4
+    }
+  }
+}

@@ -35,6 +35,7 @@ Cargo.lock
 !tests/fixtures/astro_structured_data_components.json
 !tests/fixtures/reference_sites.json
 !tests/fixtures/axe_divergence_baseline.json
+!tests/fixtures/calibration/*.json
 !scripts/package-lock.json
 !scripts/v2-readiness.json
 scripts/__pycache__/
