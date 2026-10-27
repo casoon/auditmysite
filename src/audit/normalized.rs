@@ -790,15 +790,23 @@ pub struct AuditFlag {
 const MAX_OCCURRENCES: usize = 5;
 
 fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedFinding> {
-    // Group violations by rule ID
-    let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
+    // Group violations by the rule they resolve to: two checks that share a
+    // taxonomy entry are one finding with one id (#780), not two rows with
+    // the same id. Unregistered checks group by their own key.
+    let mut groups: HashMap<&str, (&str, Vec<&crate::wcag::Violation>)> = HashMap::new();
     for v in violations {
-        groups.entry(wcag_group_key(v)).or_default().push(v);
+        let key = wcag_group_key(v);
+        let identity = RuleLookup::by_legacy_wcag_id(key).map_or(key, |rule| rule.id);
+        groups
+            .entry(identity)
+            .or_insert((key, Vec::new()))
+            .1
+            .push(v);
     }
 
     // Build normalized findings
     let findings: Vec<NormalizedFinding> = groups
-        .into_iter()
+        .into_values()
         .map(|(rule_id, violations)| {
             let first = violations[0];
             let taxonomy_rule = RuleLookup::by_legacy_wcag_id(rule_id);
@@ -1697,6 +1705,43 @@ pub(crate) fn wcag_criterion_of(rule: &str) -> String {
 mod tests {
     use super::*;
     use crate::wcag::{Violation, WcagResults};
+
+    /// Two checks that resolve to one taxonomy rule (`links/name-missing`,
+    /// `buttons/name-missing`) are one finding with one id. They were two
+    /// rows sharing the id `a11y.control_name.missing` until the finding
+    /// contract rejected duplicate ids on a live page (#780).
+    #[test]
+    fn checks_of_one_rule_form_one_finding() {
+        let mut results = WcagResults::new();
+        for (axe, selector) in [
+            ("links/name-missing", "a.icon"),
+            ("buttons/name-missing", "button.x"),
+        ] {
+            results.add_violation(
+                Violation::new(
+                    "4.1.2",
+                    "Name, Role, Value",
+                    crate::cli::WcagLevel::A,
+                    Severity::High,
+                    "control has no accessible name",
+                    selector,
+                )
+                .with_rule_id(axe)
+                .with_selector(selector),
+            );
+        }
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let n = normalize(&report).normalized;
+        let rows: Vec<_> = n
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == "a11y.control_name.missing")
+            .collect();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].occurrence_count, 2);
+        assert_eq!(rows[0].pattern_count, 2);
+        n.validate().unwrap();
+    }
 
     /// The page rules that emit their own slug as `Violation::rule` still land
     /// on their WCAG criterion (plan 61: dm.de showed
