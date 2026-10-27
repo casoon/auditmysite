@@ -44,7 +44,11 @@ thresholds = { cases = ["structure_bypass_review", "missing_lang"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-missing)"
 
 [[rule]]
 id = "document/lang-invalid"
@@ -79,7 +83,11 @@ thresholds = { cases = ["invalid_lang_code", "structure_bypass_missing", "struct
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-invalid)"
 
 [[rule]]
 id = "document/lang-mismatch"
@@ -113,7 +121,11 @@ thresholds = { cases = ["structure_head_defects", "structure_outline_clean", "st
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/lang-mismatch)"
 
 [[rule]]
 id = "document/title-missing"
@@ -150,7 +162,11 @@ thresholds = { not_relevant = "Presence check; emptiness is document/title-empty
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/title-missing)"
 
 [[rule]]
 id = "document/title-empty"
@@ -183,7 +199,11 @@ thresholds = { cases = ["structure_head_defects", "empty_title"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id document/title-empty)"
 
 [[rule]]
 id = "document-title"
@@ -276,7 +296,11 @@ thresholds = { not_relevant = "A name is present or not; no threshold." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/empty)"
 
 [[rule]]
 id = "headings/skip-level"
@@ -312,7 +336,11 @@ thresholds = { cases = ["structure_heading_outline", "structure_content_model"] 
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/skip-level)"
 
 [[rule]]
 id = "headings/h1-missing"
@@ -347,7 +375,11 @@ thresholds = { not_relevant = "Presence of a level-1 heading; no threshold." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/h1-missing)"
 
 [[rule]]
 id = "headings/h1-multiple"
@@ -380,7 +412,11 @@ thresholds = { cases = ["structure_heading_outline", "structure_outline_clean"] 
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/h1-multiple)"
 
 [[rule]]
 id = "headings/none"
@@ -418,7 +454,11 @@ thresholds = { cases = ["structure_bypass_missing", "structure_bypass_review"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/none)"
 
 [[rule]]
 id = "headings/section-without-heading"
@@ -452,9 +492,13 @@ thresholds = { cases = ["structure_heading_outline"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- landmarks -----------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id headings/section-without-heading)"
 
 [[rule]]
 id = "landmarks/main-missing"
@@ -490,7 +534,11 @@ thresholds = { not_relevant = "Presence check." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/main-missing)"
 
 [[rule]]
 id = "landmarks/main-duplicate"
@@ -523,7 +571,11 @@ thresholds = { cases = ["landmark_granular", "structure_outline_clean"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/main-duplicate)"
 
 [[rule]]
 id = "landmarks/banner-missing"
@@ -558,7 +610,11 @@ thresholds = { not_relevant = "Presence check." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/banner-missing)"
 
 [[rule]]
 id = "landmarks/contentinfo-missing"
@@ -592,7 +648,11 @@ thresholds = { not_relevant = "Presence check." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/contentinfo-missing)"
 
 [[rule]]
 id = "landmarks/navigation-missing"
@@ -628,7 +688,11 @@ thresholds = { not_relevant = "Presence check." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/navigation-missing)"
 
 [[rule]]
 id = "landmarks/not-unique"
@@ -664,7 +728,11 @@ thresholds = { cases = ["landmark_unique_one_per_element", "landmark_aside_scopi
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/not-unique)"
 
 [[rule]]
 id = "landmarks/not-top-level"
@@ -696,7 +764,11 @@ thresholds = { not_relevant = "Structural check, no threshold." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/not-top-level)"
 
 [[rule]]
 id = "landmarks/banner-duplicate"
@@ -729,7 +801,11 @@ thresholds = { cases = ["landmark_granular", "landmark_header_in_main"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/banner-duplicate)"
 
 [[rule]]
 id = "landmarks/contentinfo-duplicate"
@@ -761,7 +837,11 @@ thresholds = { cases = ["landmark_granular", "landmark_header_in_main"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/contentinfo-duplicate)"
 
 [[rule]]
 id = "landmarks/content-outside"
@@ -796,9 +876,18 @@ thresholds = { cases = ["skip_link_language"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- ids, frames ---------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/landmarken.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/content-outside)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/content-outside)"
 
 [[rule]]
 id = "ids/duplicate"
@@ -835,7 +924,11 @@ thresholds = { cases = ["duplicate_id"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id ids/duplicate)"
 
 [[rule]]
 id = "frames/name-missing"
@@ -869,7 +962,11 @@ thresholds = { cases = ["structure_ids_frames"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id frames/name-missing)"
 
 [[rule]]
 id = "html-has-lang"
@@ -963,7 +1060,16 @@ thresholds = { cases = ["structure_language_parts", "structure_outline_clean"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-unmarked)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-unmarked)"
 
 [[rule]]
 id = "language/part-undetermined"
@@ -997,7 +1103,11 @@ thresholds = { cases = ["skip_link_language", "structure_bypass_missing", "struc
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-undetermined)"
 
 [[rule]]
 id = "language/abbreviation-unexpanded"
@@ -1030,9 +1140,13 @@ thresholds = { cases = ["structure_language_parts"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- HTML content model ------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/abbreviation-unexpanded)"
 
 [[rule]]
 id = "html-content-model"
@@ -1069,7 +1183,7 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/html_content_model.rs"
 change = "invert the schema finding filter"
-find = "if finding.rule_id != \"schema.html5\" {"
+find = "if finding.rule_id != \"schema.html5\" || is_attribute_error(&finding.message) {"
 replace = "if finding.rule_id == \"schema.html5\" {"
 killed_by = "lib:html_content_model"
 

@@ -38,7 +38,11 @@ thresholds = { not_relevant = "One stray child suffices; there is no count or si
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/invalid-structure)"
 
 [[rule]]
 id = "lists/empty"
@@ -72,7 +76,16 @@ thresholds = { not_relevant = "Zero items fails, one item passes (content_lists_
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/empty)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/empty)"
 
 [[rule]]
 id = "lists/item-outside-list"
@@ -106,7 +119,11 @@ thresholds = { not_relevant = "Presence check; one offending element suffices, t
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/item-outside-list)"
 
 [[rule]]
 id = "lists/term-without-definition"
@@ -141,7 +158,11 @@ thresholds = { not_relevant = "Group boundary: terms sharing a following definit
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/term-without-definition)"
 
 [[rule]]
 id = "lists/role-redundant"
@@ -175,7 +196,11 @@ thresholds = { not_relevant = "Boundary is list-style-type none vs anything else
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/role-redundant)"
 
 [[rule]]
 id = "tables/header-missing"
@@ -208,7 +233,11 @@ thresholds = { not_relevant = "Presence check; one offending element suffices, t
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/header-missing)"
 
 [[rule]]
 id = "tables/name-missing"
@@ -240,7 +269,11 @@ thresholds = { not_relevant = "An empty aria-label names nothing; presence of ca
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/name-missing)"
 
 [[rule]]
 id = "tables/presentational-with-headers"
@@ -272,7 +305,11 @@ thresholds = { not_relevant = "Presence check; one offending element suffices, t
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/presentational-with-headers)"
 
 [[rule]]
 id = "tables/header-without-data"
@@ -305,7 +342,11 @@ thresholds = { not_relevant = "Zero data cells fails, one empty data cell passes
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/header-without-data)"
 
 [[rule]]
 id = "tables/data-undetermined"
@@ -337,7 +378,11 @@ thresholds = { not_relevant = "An empty row group decides it; one row in the gro
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/data-undetermined)"
 
 [[rule]]
 id = "tables/headers-attr-invalid"
@@ -370,7 +415,16 @@ thresholds = { not_relevant = "Every token must resolve; one bad token in a list
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/headers-attr-invalid)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/struktur.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id tables/headers-attr-invalid)"
 
 [[rule]]
 id = "images/alt-missing"
@@ -403,7 +457,11 @@ thresholds = { not_relevant = "Presence check; one offending element suffices, t
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id images/alt-missing)"
 
 [[rule]]
 id = "images/alt-suspicious"
@@ -435,7 +493,11 @@ thresholds = { not_relevant = "Length boundary: 2 characters review (content_ima
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id images/alt-suspicious)"
 
 [[rule]]
 id = "images/area-alt-missing"
@@ -466,7 +528,11 @@ thresholds = { not_relevant = "href present or absent decides applicability (con
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id images/area-alt-missing)"
 
 [[rule]]
 id = "images/input-alt-missing"
@@ -497,7 +563,11 @@ thresholds = { not_relevant = "Presence check; one offending element suffices, t
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id images/input-alt-missing)"
 
 [[rule]]
 id = "images/server-side-map"
@@ -529,7 +599,11 @@ thresholds = { not_relevant = "Attribute presence decides: ismap reviews, usemap
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id images/server-side-map)"
 
 [[rule]]
 id = "objects/alt-missing"
@@ -560,7 +634,16 @@ thresholds = { not_relevant = "Whitespace-only fallback counts as none; any text
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id objects/alt-missing)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id objects/alt-missing)"
 
 [[rule]]
 id = "media/audio-autoplay"
@@ -591,7 +674,11 @@ thresholds = { not_relevant = "The three-second threshold of 1.4.2 is not in the
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id media/audio-autoplay)"
 
 [[rule]]
 id = "viz/text-missing"
@@ -624,7 +711,11 @@ thresholds = { not_relevant = "Whitespace-only text layer fails, one word passes
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/text-missing)"
 
 [[rule]]
 id = "viz/caption-missing"
@@ -656,7 +747,16 @@ thresholds = { not_relevant = "Direct child decides: a nested figcaption fails (
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/caption-missing)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/caption-missing)"
 
 [[rule]]
 id = "viz/static-missing"
@@ -688,7 +788,16 @@ thresholds = { not_relevant = "Kind boundary: 3d/interactive in any case apply, 
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/static-missing)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/static-missing)"
 
 [[rule]]
 id = "viz/table-missing"
@@ -719,7 +828,11 @@ thresholds = { not_relevant = "Kind boundary: only data-viz=\"chart\" applies (c
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id viz/table-missing)"
 
 [[rule]]
 id = "image-alt"

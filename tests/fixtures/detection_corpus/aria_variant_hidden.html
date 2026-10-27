@@ -8,6 +8,7 @@
         .is-closed { display: none; }
         .is-invisible { visibility: hidden; }
     </style>
+<style>#ah-dup, #ah-lin { min-width: 44px; min-height: 44px; }</style>
 </head>
 <body>
     <header>
@@ -67,6 +68,9 @@
             <dialog open inert id="ah-inert-dialog" aria-label="Cookie notice">
                 <button type="button" id="ah-ok" tabindex="-1">OK</button>
             </dialog>
+            <!-- Ignored by assistive technology: its repeated description reaches nobody. -->
+            <button type="button" id="ah-dup" tabindex="-1" aria-describedby="ah-dup-desc">Close</button>
+            <span id="ah-dup-desc">Close</span>
         </div>
         <button type="button" id="ah-lin" aria-label="Open chat"><span aria-hidden="true">Help</span></button>
 

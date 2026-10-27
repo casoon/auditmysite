@@ -45,8 +45,18 @@ thresholds = { cases = ["visual_contrast_thresholds"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-insufficient)"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/frames.rs"
+change = "host: stop running the rule inside frames"
+find = "    \"contrast/text-insufficient\",\n"
+replace = ""
+killed_by = "corpus:visual_contrast_frame"
 [[rule]]
 id = "contrast/text-undetermined"
 errored = ["error_dom_too_deep"]
@@ -80,7 +90,11 @@ thresholds = { not_relevant = "The sampled borderline (median passes, 40th perce
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-undetermined)"
 
 [[rule]]
 id = "contrast/text-enhanced"
@@ -110,7 +124,11 @@ thresholds = { cases = ["visual_contrast_thresholds"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-enhanced)"
 
 [[rule]]
 id = "contrast/control-insufficient"
@@ -144,7 +162,11 @@ thresholds = { cases = ["visual_control_contrast"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/control-insufficient)"
 
 [[rule]]
 id = "contrast/control-undetermined"
@@ -175,9 +197,13 @@ thresholds = { not_relevant = "No ratio is computed: the background is either re
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- Text presentation (shared, stylesheet tier) -----------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/control-undetermined)"
 
 [[rule]]
 id = "text/justified"
@@ -211,7 +237,16 @@ thresholds = { not_relevant = "Presence check on one keyword value, no threshold
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
 
 [[rule]]
 id = "text/line-height-tight"
@@ -245,7 +280,16 @@ thresholds = { cases = ["visual_text_presentation"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/line-height-tight)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/line-height-tight)"
 
 [[rule]]
 id = "visual-presentation"
@@ -315,7 +359,11 @@ thresholds = { cases = ["visual_motion_reduce_partial", "reduced_motion_override
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id motion/reduced-motion-ignored)"
 
 [[rule]]
 id = "motion/infinite-animation"
@@ -350,9 +398,13 @@ thresholds = { cases = ["visual_motion_infinite"] }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- Orientation -----------------------------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id motion/infinite-animation)"
 
 [[rule]]
 id = "orientation/content-hidden"
@@ -388,7 +440,11 @@ thresholds = { not_relevant = "Presence check on hiding/rotating declarations, n
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id orientation/content-hidden)"
 
 [[rule]]
 id = "css-orientation-lock"
@@ -470,7 +526,11 @@ thresholds = { cases = ["visual_viewport_scale_below_two", "visual_viewport_scal
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-locked)"
 
 [[rule]]
 id = "zoom/viewport-scale-limited"
@@ -502,7 +562,11 @@ thresholds = { cases = ["visual_viewport_scale_below_two", "visual_viewport_scal
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-scale-limited)"
 
 [[rule]]
 id = "zoom/viewport-missing"
@@ -534,9 +598,13 @@ thresholds = { not_relevant = "Presence check, no threshold." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
 
 # --- Reflow and text spacing (local) ---------------------------------------------
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id zoom/viewport-missing)"
 
 [[rule]]
 id = "css-overflow-hidden"
@@ -667,7 +735,11 @@ thresholds = { not_relevant = "Presence check, no threshold." }
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id display/toggle-missing)"
 
 [[rule]]
 id = "display/init-missing"
@@ -864,7 +936,11 @@ thresholds = { cases = ["visual_meta_refresh_redirect", "visual_meta_refresh_exe
 
 [rule.test_strength]
 status = "killed"
-mutations = []
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id timing/meta-refresh)"
 
 [[rule]]
 id = "meta-refresh"

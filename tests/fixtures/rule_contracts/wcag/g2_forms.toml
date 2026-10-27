@@ -34,7 +34,6 @@ this rule's elements; their missing name is names/required-missing."""
 positive = ["forms_labels", "missing_label", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_labels", "form_heuristics_clean", "forms_dynamic_responsive"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -44,6 +43,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of a labelling mechanism; there is no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/label-missing)"
 
 [[rule]]
 id = "forms/placeholder-as-label"
@@ -64,7 +71,6 @@ label is the placeholder needs review even when it also has aria-label
 positive = ["forms_labels", "forms_embedded", "forms_dynamic_responsive", "forms_gap_placeholder_aria"]
 negative = ["forms_labels", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -74,6 +80,19 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of a placeholder and of a visible label; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/placeholder-as-label)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/placeholder-as-label)"
 
 [[rule]]
 id = "forms/autocomplete-invalid"
@@ -96,7 +115,6 @@ user input and is not judged."""
 positive = ["forms_autofill", "forms_and_misc", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_autofill", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -106,6 +124,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "A grammar check on the token list; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/autocomplete-invalid)"
 
 [[rule]]
 id = "forms/purpose-missing"
@@ -128,7 +154,6 @@ field with a valid token is not reported."""
 positive = ["forms_autofill", "input_purpose_name", "form_heuristics_flagged", "forms_submit_redundant", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_autofill", "input_purpose_name", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -138,6 +163,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Word recognition in the label, id and name; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/purpose-missing)"
 
 [[rule]]
 id = "forms/error-unidentified"
@@ -158,7 +191,6 @@ aria-invalid="false" does not. Native fields and ARIA widgets alike."""
 positive = ["forms_errors_groups", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_errors_groups", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -168,6 +200,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_errors_groups"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/error-unidentified)"
 
 [[rule]]
 id = "forms/group-missing"
@@ -188,7 +228,6 @@ reported."""
 positive = ["forms_errors_groups", "form_heuristics_flagged", "forms_and_misc", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_errors_groups", "form_heuristics_clean", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -198,6 +237,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_errors_groups", "form_heuristics_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/group-missing)"
 
 [[rule]]
 id = "forms/group-name-missing"
@@ -217,7 +264,6 @@ group that are not form groups (details, figure, ...) are not reported."""
 positive = ["forms_errors_groups", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_errors_groups", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -227,6 +273,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of a group name; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/group-name-missing)"
 
 [[rule]]
 id = "forms/required-unmarked"
@@ -246,7 +300,6 @@ required."""
 positive = ["forms_required_instructions", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_required_instructions", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -256,6 +309,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Word recognition in label and description; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/required-unmarked)"
 
 [[rule]]
 id = "forms/instructions-missing"
@@ -275,7 +336,6 @@ time inputs bring their own format. Short terms count only as whole words:
 positive = ["forms_required_instructions", "form_heuristics_flagged", "input_purpose_name", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_required_instructions", "form_heuristics_clean", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -285,6 +345,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_required_instructions", "form_heuristics_clean"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/instructions-missing)"
 
 [[rule]]
 id = "forms/title-only-label"
@@ -304,7 +372,6 @@ placeholder is forms/placeholder-as-label's case."""
 positive = ["forms_labels", "forms_and_misc", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_labels", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -314,6 +381,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Source of the accessible name; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/title-only-label)"
 
 [[rule]]
 id = "forms/no-submit"
@@ -335,7 +410,6 @@ only hidden inputs is not judged."""
 positive = ["forms_submit_redundant", "form_toggles_without_submit", "on_input_context_change", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_submit_redundant", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -345,6 +419,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_submit_redundant"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/no-submit)"
 
 [[rule]]
 id = "forms/redundant-entry"
@@ -365,7 +447,6 @@ repetition."""
 positive = ["forms_submit_redundant", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_submit_redundant", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -377,6 +458,14 @@ dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_submit_redundant"] }
 
 # --- links/*, buttons/* ---------------------------------------------------------
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id forms/redundant-entry)"
 
 [[rule]]
 id = "links/name-missing"
@@ -397,7 +486,6 @@ visually hidden links in the accessibility tree are."""
 positive = ["forms_link_names", "empty_link_text", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_link_names", "forms_dynamic_responsive"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -407,6 +495,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of an accessible name; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/name-missing)"
 
 [[rule]]
 id = "links/generic-name"
@@ -428,7 +524,6 @@ aria-label or visually hidden text. role=link elements are links too
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
 negative = ["forms_link_names", "forms_hidden", "forms_gap_aria_links"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -438,6 +533,19 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "A list of non-descriptive link texts; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/generic-name)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/generic-name)"
 
 [[rule]]
 id = "links/url-name"
@@ -457,7 +565,6 @@ not reported. role=link elements are links too (forms_gap_aria_links)."""
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
 negative = ["forms_link_names", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -467,6 +574,19 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Shape of the link text and presence of context; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/url-name)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/url-name)"
 
 [[rule]]
 id = "links/single-character-name"
@@ -487,7 +607,6 @@ links/generic-name's case. role=link elements are links too
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
 negative = ["forms_link_names", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -497,6 +616,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_link_names"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/single-character-name)"
 
 [[rule]]
 id = "links/new-window-unannounced"
@@ -516,7 +643,6 @@ target=_self and other targets are not reported."""
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_link_names", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -526,6 +652,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of target=_blank and of a warning; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/new-window-unannounced)"
 
 [[rule]]
 id = "links/purpose-link-only"
@@ -545,7 +679,6 @@ hidden text. role=link elements are links too (forms_gap_aria_links)."""
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive", "forms_gap_aria_links"]
 negative = ["forms_link_names", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -555,6 +688,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "A list of vague link texts; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/purpose-link-only)"
 
 [[rule]]
 id = "links/used-as-button"
@@ -575,7 +716,6 @@ reported."""
 positive = ["forms_link_names", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_link_names", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -585,6 +725,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Shape of the href; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id links/used-as-button)"
 
 [[rule]]
 id = "buttons/name-missing"
@@ -604,7 +752,6 @@ buttons in the accessibility tree are."""
 positive = ["forms_link_names", "forms_hidden", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_link_names"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -616,6 +763,14 @@ dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of an accessible name; no numeric boundary." }
 
 # --- auth/*, accessible authentication -------------------------------------------
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id buttons/name-missing)"
 
 [[rule]]
 id = "auth/captcha"
@@ -636,7 +791,6 @@ form) is not 3.3.8."""
 positive = ["forms_signin", "accessible_authentication", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_signin", "accessible_authentication", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -646,6 +800,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of a CAPTCHA in an authentication form; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id auth/captcha)"
 
 [[rule]]
 id = "accessible-auth-paste-blocked"
@@ -795,6 +957,16 @@ find = "if !submit_button && !c.form_submit && NAVIGATION_HINTS"
 replace = "if !submit_button && NAVIGATION_HINTS"
 killed_by = "corpus:forms_autofill"
 
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id context/on-input)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id context/on-input)"
+
 [[rule]]
 id = "context/on-focus"
 errored = ["error_dom_too_deep"]
@@ -812,7 +984,6 @@ an interactive role (role=button) are ordinary and not reported."""
 positive = ["forms_context", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_context", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -822,6 +993,14 @@ frames_shadow_dom = { cases = ["forms_embedded"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of a handler on a non-interactive element; no numeric boundary." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id context/on-focus)"
 
 [[rule]]
 id = "context/autofocus"
@@ -841,7 +1020,6 @@ reported."""
 positive = ["forms_context", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_context", "forms_hidden"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -853,6 +1031,14 @@ dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { not_relevant = "Presence of autofocus on a non-entry element; no numeric boundary." }
 
 # --- color/link-indistinct ---------------------------------------------------
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/formulare.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id context/autofocus)"
 
 [[rule]]
 id = "color/link-indistinct"
@@ -877,7 +1063,6 @@ the host provides no computed style the rule reports itself untested."""
 positive = ["forms_link_color", "link_in_text_block_context", "forms_embedded", "forms_dynamic_responsive", "forms_gap_link_color", "forms_gap_frame_link_color"]
 negative = ["forms_link_color", "link_in_text_block_context", "forms_hidden", "forms_gap_link_color"]
 not_applicable = ["forms_static_text"]
-test_strength = { status = "killed", mutations = [] }
 
 [rule.variants]
 visibility = { cases = ["forms_hidden"] }
@@ -887,3 +1072,17 @@ frames_shadow_dom = { cases = ["forms_embedded", "forms_gap_frame_link_color"] }
 responsive = { cases = ["forms_dynamic_responsive"] }
 dynamic = { cases = ["forms_dynamic_responsive"] }
 thresholds = { cases = ["forms_link_color", "forms_gap_link_color"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id color/link-indistinct)"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
+change = "3 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id color/link-indistinct)"
+
