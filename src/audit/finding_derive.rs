@@ -25,63 +25,153 @@ pub(super) fn calculate_priority_score(
     (severity_weight * reach) / effort_weight
 }
 
-pub(super) fn derive_confidence(rule_id: &str, subcategory: &str, issue_class: &str) -> String {
-    let key = format!(
-        "{} {} {}",
-        rule_id.to_ascii_lowercase(),
-        subcategory.to_ascii_lowercase(),
-        issue_class.to_ascii_lowercase()
-    );
-    // "weak" rules detect a pattern reliably (a generic link text, a vague
-    // alt) but not the violation itself — the same key that makes the false
-    // positive risk medium caps the confidence at medium (plan 71).
-    if key.contains("weak")
-        || key.contains("understand")
-        || key.contains("readability")
-        || subcategory.eq_ignore_ascii_case("content")
-    {
-        "medium".to_string()
-    } else if key.contains("aria")
-        || key.contains("heading")
-        || key.contains("landmark")
-        || key.contains("focus")
-    {
-        "high".to_string()
+/// How the check behind a finding reaches its result (#784).
+///
+/// Together with [`EvidenceQuality`] the only input to `derive_assurance`:
+/// a rule id or category string alone never confirms a finding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DetectionMethod {
+    /// The check measures the property the criterion names (a missing
+    /// attribute, a computed contrast ratio).
+    #[default]
+    Measured,
+    /// The check detects a pattern that often, not always, means the
+    /// failure (a generic link text for 2.4.4). See `PATTERN_RULES`.
+    Pattern,
+    /// The check reports a suspicion, or whether it applies to the page is
+    /// unknown.
+    Review,
+}
+
+/// What the occurrences of one finding carry as evidence (#784).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceQuality {
+    /// Every occurrence names its element or carries recorded evidence.
+    #[default]
+    Located,
+    /// Some occurrences are located, others are not.
+    Partial,
+    /// A document-wide check: no element to name, the document was read.
+    Document,
+    /// Element occurrences none of which could be located.
+    Unlocated,
+}
+
+/// Evidence anchor of a single occurrence, folded by [`evidence_quality`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum OccurrenceAnchor {
+    /// Selector, HTML snippet or recorded evidence.
+    Element,
+    /// A document-wide observation without an element.
+    Document,
+    /// An element occurrence without anything that locates it.
+    Missing,
+}
+
+pub(super) fn evidence_quality(
+    anchors: impl IntoIterator<Item = OccurrenceAnchor>,
+) -> EvidenceQuality {
+    let (mut element, mut document, mut missing) = (0usize, 0usize, 0usize);
+    for anchor in anchors {
+        match anchor {
+            OccurrenceAnchor::Element => element += 1,
+            OccurrenceAnchor::Document => document += 1,
+            OccurrenceAnchor::Missing => missing += 1,
+        }
+    }
+    if element > 0 && document == 0 && missing == 0 {
+        EvidenceQuality::Located
+    } else if element > 0 {
+        EvidenceQuality::Partial
+    } else if missing > 0 || document == 0 {
+        EvidenceQuality::Unlocated
     } else {
-        "very_high".to_string()
+        EvidenceQuality::Document
     }
 }
 
-pub(super) fn derive_false_positive_risk(
-    rule_id: &str,
-    subcategory: &str,
-    issue_class: &str,
-) -> String {
-    let key = format!(
-        "{} {} {}",
-        rule_id.to_ascii_lowercase(),
-        subcategory.to_ascii_lowercase(),
-        issue_class.to_ascii_lowercase()
-    );
-    if key.contains("weak")
-        || key.contains("alt_text.weak")
-        || key.contains("understand")
-        || subcategory.eq_ignore_ascii_case("content")
-    {
-        "medium".to_string()
-    } else if key.contains("aria") || key.contains("heading") || key.contains("landmark") {
-        "low".to_string()
+/// Taxonomy rules whose check detects a pattern, not the failure of the
+/// criterion itself: the pattern is found reliably, whether it fails the
+/// criterion needs a person (plan 71, #784). A declared method, reviewed per
+/// rule — not a substring of the id.
+pub(crate) const PATTERN_RULES: &[&str] = &[
+    // DOM order diverging from the visual order; whether the order is
+    // illogical is a judgement.
+    "a11y.focus_order.weak",
+    // Generic link texts; the context may still convey the purpose.
+    "a11y.link_purpose.weak",
+    "a11y.link_purpose_only.weak",
+    "a11y.link_purpose_context.weak",
+    // Several h1 elements are allowed; 1.3.1 fails only if the structure
+    // they express is wrong.
+    "a11y.main_heading_multiple.weak",
+    // A name from `title` is a valid accessible name; fragile, not failing.
+    "a11y.title_only_description.weak",
+    // Fixed pixel values and overflow:hidden stand in for an actual
+    // resize measurement.
+    "a11y.resize_text.weak",
+    // CSS styling heuristics for line spacing and justified text.
+    "a11y.visual_presentation.weak",
+];
+
+/// Detection method of a WCAG finding: violations reaching the findings are
+/// the rule's own `fail` outcome, so a rule is measured unless declared in
+/// [`PATTERN_RULES`].
+pub(super) fn wcag_detection_method(rule_id: &str) -> DetectionMethod {
+    if PATTERN_RULES.contains(&rule_id) {
+        DetectionMethod::Pattern
     } else {
-        "very_low".to_string()
+        DetectionMethod::Measured
     }
 }
 
-pub(super) fn derive_verification(false_positive_risk: &str) -> String {
-    match false_positive_risk {
-        "medium" | "high" => "manual_review_recommended",
-        _ => "automatically_confirmed",
+/// Confidence, false-positive risk and verification of one finding, stored
+/// as the JSON strings the 1.x vocabulary defines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Assurance {
+    pub confidence: &'static str,
+    pub false_positive_risk: &'static str,
+    pub verification: &'static str,
+}
+
+/// Derives assurance from method and evidence of the single finding (#784).
+///
+/// Automatic confirmation needs both a measuring check and evidence: a
+/// located element, or a document-wide observation. A pattern, a review
+/// outcome or occurrences that could not be located always ask for a manual
+/// check — whatever the rule is called.
+pub(super) fn derive_assurance(method: DetectionMethod, evidence: EvidenceQuality) -> Assurance {
+    const REVIEW: Assurance = Assurance {
+        confidence: "medium",
+        false_positive_risk: "medium",
+        verification: "manual_review_recommended",
+    };
+    match (method, evidence) {
+        (DetectionMethod::Pattern | DetectionMethod::Review, _)
+        | (DetectionMethod::Measured, EvidenceQuality::Unlocated) => REVIEW,
+        (DetectionMethod::Measured, EvidenceQuality::Located) => Assurance {
+            confidence: "very_high",
+            false_positive_risk: "very_low",
+            verification: "automatically_confirmed",
+        },
+        (DetectionMethod::Measured, EvidenceQuality::Partial | EvidenceQuality::Document) => {
+            Assurance {
+                confidence: "high",
+                false_positive_risk: "low",
+                verification: "automatically_confirmed",
+            }
+        }
     }
-    .to_string()
+}
+
+/// The basis `derive_assurance` decided on, carried in the JSON so the
+/// confidence of every finding is traceable to it (#784).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct AssuranceBasis {
+    pub method: DetectionMethod,
+    pub evidence: EvidenceQuality,
 }
 
 /// Stable identifier for a [`NormalizedFinding`](crate::audit::normalized::NormalizedFinding)'s `complexity_reason` sentence
@@ -513,64 +603,90 @@ mod tests {
         }
     }
 
-    // Regression: the taxonomy rule id "a11y.hover.content_visibility" (the
-    // content-on-hover/focus check, WCAG 1.4.13) merely contains the
-    // substring "content" — a deterministic, DOM-observable interaction check
-    // must not be downgraded to the subjective "content quality" confidence
-    // bucket just because of that substring collision. Subcategory/issue_class
-    // are passed as the German labels actually used at the call site
-    // (`subcategory_de`/`issue_class_de`), not their English names.
     /// Plan 71: a generic link text is detected reliably, the 2.4.4 failure
-    /// is not — confidence follows the claim, as the review status does.
+    /// is not — even with a located element the finding asks for review.
     #[test]
-    fn weak_rules_are_not_very_high_confidence() {
+    fn pattern_rules_are_never_automatically_confirmed() {
+        let a = derive_assurance(
+            wcag_detection_method("a11y.link_purpose.weak"),
+            EvidenceQuality::Located,
+        );
+        assert_eq!(a.confidence, "medium");
+        assert_eq!(a.verification, "manual_review_recommended");
+    }
+
+    /// #784 counter-case: the same rule id with different evidence. A
+    /// located occurrence confirms, one that could not be located does not.
+    #[test]
+    fn same_rule_with_different_evidence_differs_in_assurance() {
+        let method = wcag_detection_method("a11y.alt_text.missing");
+        let located = derive_assurance(method, EvidenceQuality::Located);
+        let unlocated = derive_assurance(method, EvidenceQuality::Unlocated);
+        assert_eq!(located.verification, "automatically_confirmed");
+        assert_eq!(located.confidence, "very_high");
+        assert_eq!(unlocated.verification, "manual_review_recommended");
+        assert_eq!(unlocated.confidence, "medium");
+    }
+
+    /// #784: a review outcome is never confirmed, however good the evidence.
+    #[test]
+    fn review_method_is_never_automatically_confirmed() {
+        for evidence in [
+            EvidenceQuality::Located,
+            EvidenceQuality::Partial,
+            EvidenceQuality::Document,
+            EvidenceQuality::Unlocated,
+        ] {
+            assert_eq!(
+                derive_assurance(DetectionMethod::Review, evidence).verification,
+                "manual_review_recommended"
+            );
+        }
+    }
+
+    /// The old derivation matched substrings: "weak" in the id made a
+    /// computed contrast failure a manual check, "content" in the label
+    /// downgraded a measured SEO check. Neither name decides any more.
+    #[test]
+    fn names_no_longer_decide_assurance() {
         assert_eq!(
-            derive_confidence("a11y.link_purpose.weak", "Navigation & Operation", "Weak"),
-            "medium"
+            wcag_detection_method("a11y.contrast.weak"),
+            DetectionMethod::Measured
         );
         assert_eq!(
-            derive_verification(&derive_false_positive_risk(
-                "a11y.link_purpose.weak",
-                "Navigation & Operation",
-                "Weak"
-            )),
-            "manual_review_recommended"
+            wcag_detection_method("a11y.hover.content_visibility"),
+            DetectionMethod::Measured
         );
     }
 
     #[test]
-    fn derive_confidence_does_not_downgrade_content_on_hover_rule() {
+    fn evidence_quality_folds_occurrence_anchors() {
+        use OccurrenceAnchor::*;
         assert_eq!(
-            derive_confidence(
-                "a11y.hover.content_visibility",
-                "Visuelle Darstellung",
-                "Schwach"
-            ),
-            "very_high"
+            evidence_quality([Element, Element]),
+            EvidenceQuality::Located
         );
+        assert_eq!(
+            evidence_quality([Element, Missing]),
+            EvidenceQuality::Partial
+        );
+        assert_eq!(
+            evidence_quality([Element, Document]),
+            EvidenceQuality::Partial
+        );
+        assert_eq!(evidence_quality([Document]), EvidenceQuality::Document);
+        assert_eq!(
+            evidence_quality([Document, Missing]),
+            EvidenceQuality::Unlocated
+        );
+        assert_eq!(evidence_quality([Missing]), EvidenceQuality::Unlocated);
     }
 
+    /// Every declared pattern rule exists in the taxonomy.
     #[test]
-    fn derive_false_positive_risk_does_not_flag_content_on_hover_rule() {
-        assert_eq!(
-            derive_false_positive_risk(
-                "a11y.hover.content_visibility",
-                "Visuelle Darstellung",
-                "Schwach"
-            ),
-            "very_low"
-        );
-    }
-
-    #[test]
-    fn derive_confidence_still_downgrades_seo_content_subcategory() {
-        assert_eq!(
-            derive_confidence("seo.headings.missing_h1", "Content", "issue"),
-            "medium"
-        );
-        assert_eq!(
-            derive_false_positive_risk("seo.headings.missing_h1", "Content", "issue"),
-            "medium"
-        );
+    fn pattern_rules_name_taxonomy_rules() {
+        for id in PATTERN_RULES {
+            assert!(RuleLookup::by_id(id).is_some(), "unknown rule {id}");
+        }
     }
 }

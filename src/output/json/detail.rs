@@ -276,10 +276,12 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             .map(|m| with_normalized_score(m.to_json(), normalized, "Mobile")),
         ux: ctx
             .raw_ux
-            .map(|m| with_normalized_score(m.to_json(), normalized, "UX")),
+            .map(|m| with_normalized_score(m.to_json(), normalized, "UX"))
+            .map(|v| with_signal_contract(v, "ux")),
         journey: ctx
             .raw_journey
-            .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
+            .map(|m| with_normalized_score(m.to_json(), normalized, "Journey"))
+            .map(|v| with_signal_contract(v, "journey")),
         // Dark Mode is an optional/non-normative product feature, not a WCAG
         // conformance criterion — distinct from the other indicator modules
         // below, which are heuristic estimates (#577).
@@ -288,7 +290,8 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             .map(|m| with_measurement_type(inject_band(m.to_json(), m.score), "optional")),
         design_quality: ctx
             .raw_design_quality
-            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
+            .map(|v| with_signal_contract(v, "design_quality")),
         ai_transparency: ctx
             .raw_ai_transparency
             .map(|m| with_measurement_type(m.to_json(), "c2pa_manifest")),
@@ -297,10 +300,12 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             .map(|m| with_measurement_type(m.to_json(), "dns_query")),
         source_quality: ctx
             .raw_source_quality
-            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
+            .map(|v| with_signal_contract(v, "source_quality")),
         ai_visibility: ctx
             .raw_ai_visibility
-            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
+            .map(|v| with_signal_contract(v, "ai_visibility")),
         content_visibility: ctx.raw_content_visibility.and_then(|m| {
             // Only emit when SEO data was available — all signal sections are empty
             // without --full, which is misleading.
@@ -309,7 +314,10 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             }
             let cv_score = (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
                 / m.signal_count as u32;
-            let mut v = with_measurement_type(m.to_json(), "heuristic");
+            let mut v = with_signal_contract(
+                with_measurement_type(m.to_json(), "heuristic"),
+                "content_visibility",
+            );
             if let Some(obj) = v.as_object_mut() {
                 obj.insert("score".to_string(), serde_json::json!(cv_score));
                 obj.insert(

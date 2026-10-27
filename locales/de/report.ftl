@@ -334,7 +334,7 @@ diagnosis-col-max-severity = Max. Schweregrad
 batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
-label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale
+label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale, nicht extern validiert
 
 # Optional/non-normative feature (Dark Mode, #577)
 label-optional-feature = Optionales Merkmal

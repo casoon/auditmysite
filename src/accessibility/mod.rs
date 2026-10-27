@@ -29,6 +29,7 @@ pub use dom_document::{
 };
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;
+pub(crate) use enrichment::is_page_level_placeholder_node_id;
 pub use extractor::{
     extract_ax_tree, extract_ax_tree_with_name_sources, extract_frame_ax_tree, ChromeNameSources,
 };

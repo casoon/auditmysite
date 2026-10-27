@@ -1323,6 +1323,16 @@
         "contract": {
           "$ref": "#/$defs/findingContract"
         },
+        "assurance": {
+          "type": "object",
+          "description": "Basis of confidence/false_positive_risk/verification (#784): detection method and evidence quality of this finding.",
+          "required": ["method", "evidence"],
+          "additionalProperties": false,
+          "properties": {
+            "method": { "enum": ["measured", "pattern", "review"] },
+            "evidence": { "enum": ["located", "partial", "document", "unlocated"] }
+          }
+        },
         "category": {
           "type": "string",
           "description": "`wcag` for accessibility rule findings, otherwise the contract domain."
