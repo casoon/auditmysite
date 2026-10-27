@@ -28,6 +28,7 @@ pub mod prioritization;
 mod report;
 mod risk_assessment;
 mod scoring;
+pub mod signal_contract;
 pub mod summary;
 pub mod template_dedup;
 pub mod validation;

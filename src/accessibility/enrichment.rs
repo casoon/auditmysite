@@ -153,7 +153,7 @@ pub async fn enrich_violations_with_page(
 /// this a real CDP id shape" instead of matching a fixed word list is
 /// deliberate: it stays correct for whichever placeholder word some new rule
 /// file picks next, without needing this list edited every time.
-fn is_page_level_placeholder_node_id(node_id: &str) -> bool {
+pub(crate) fn is_page_level_placeholder_node_id(node_id: &str) -> bool {
     !node_id.is_empty() && !node_id.bytes().all(|b| b.is_ascii_digit())
 }
 

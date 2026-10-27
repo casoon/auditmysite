@@ -24,10 +24,12 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+use crate::audit::finding_derive::EvidenceQuality;
 use crate::audit::finding_derive::{
-    calculate_priority_score, derive_bfsg_relevance, derive_complexity, derive_confidence,
-    derive_expected_impact, derive_false_positive_risk, derive_remediation_priority,
-    derive_verification,
+    calculate_priority_score, derive_assurance, derive_bfsg_relevance, derive_complexity,
+    derive_expected_impact, derive_remediation_priority, evidence_quality, AssuranceBasis,
+    DetectionMethod, OccurrenceAnchor,
 };
 use crate::audit::normalized::{
     complexity_text, expected_impact_text, NormalizedFinding, OccurrenceDetail,
@@ -873,29 +875,38 @@ fn collect(
 
     if let Some(ux) = &report.ux {
         for issue in &ux.issues {
-            out.push(Collected::new(
-                D::Ux,
-                "ux",
-                kind_code(&issue.kind),
-                severity_from(&issue.severity),
-                issue.problem.clone(),
-                FindingScoring::new("UX", E::Indicator),
-                L::Page,
-            ));
+            // UX issues are heuristic suspicions (signal contract `ux`,
+            // #784): recorded for review, never confirmed defects.
+            out.push(
+                Collected::new(
+                    D::Ux,
+                    "ux",
+                    kind_code(&issue.kind),
+                    severity_from(&issue.severity),
+                    issue.problem.clone(),
+                    FindingScoring::new("UX", E::Indicator),
+                    L::Page,
+                )
+                .review(),
+            );
         }
     }
 
     if let Some(journey) = &report.journey {
         for point in &journey.friction_points {
-            out.push(Collected::new(
-                D::Journey,
-                "journey",
-                kind_code(&point.kind),
-                severity_from(&point.severity),
-                point.problem.clone(),
-                FindingScoring::new("Journey", E::Indicator),
-                L::Interaction,
-            ));
+            // Friction points are heuristic (signal contract `journey`, #784).
+            out.push(
+                Collected::new(
+                    D::Journey,
+                    "journey",
+                    kind_code(&point.kind),
+                    severity_from(&point.severity),
+                    point.problem.clone(),
+                    FindingScoring::new("Journey", E::Indicator),
+                    L::Interaction,
+                )
+                .review(),
+            );
         }
     }
 
@@ -1073,6 +1084,29 @@ pub(crate) fn build_domain_findings(
     (findings, inventory)
 }
 
+/// Detection method of a grouped finding (#784): any review occurrence or
+/// unknown applicability keeps the whole finding a review.
+fn collected_method(group: &[Collected]) -> DetectionMethod {
+    if group
+        .iter()
+        .any(|c| c.outcome == FindingOutcome::Review || c.applicability == Applicability::Unknown)
+    {
+        DetectionMethod::Review
+    } else {
+        DetectionMethod::Measured
+    }
+}
+
+/// An element occurrence is located by its selector; a page, resource, site
+/// or interaction occurrence without one is a document-wide observation.
+fn collected_anchor(c: &Collected) -> OccurrenceAnchor {
+    match (c.selector.is_some(), c.scope) {
+        (true, _) => OccurrenceAnchor::Element,
+        (false, LocationScope::Element) => OccurrenceAnchor::Missing,
+        (false, _) => OccurrenceAnchor::Document,
+    }
+}
+
 fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFinding {
     let first = &group[0];
     let rule_id = format!("{}.{}", first.source, first.check);
@@ -1098,10 +1132,11 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
     let subcategory_label = subcategory_kind.label(true).to_string();
     let issue_class_label = "issue";
     let priority_score = calculate_priority_score(severity, occurrence_count, &rule_id);
-    let confidence = derive_confidence(&rule_id, &subcategory_label, issue_class_label);
-    let false_positive_risk =
-        derive_false_positive_risk(&rule_id, &subcategory_label, issue_class_label);
-    let verification = derive_verification(&false_positive_risk);
+    let assurance = AssuranceBasis {
+        method: collected_method(&group),
+        evidence: evidence_quality(group.iter().map(collected_anchor)),
+    };
+    let derived = derive_assurance(assurance.method, assurance.evidence);
     let (complexity, complexity_kind) =
         derive_complexity(occurrence_count, &rule_id, issue_class_label);
     let complexity_reason = complexity_text(complexity_kind, true);
@@ -1184,9 +1219,10 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         help_url: None,
         occurrence_count,
         priority_score,
-        confidence,
-        false_positive_risk,
-        verification,
+        confidence: derived.confidence.to_string(),
+        false_positive_risk: derived.false_positive_risk.to_string(),
+        verification: derived.verification.to_string(),
+        assurance,
         complexity,
         complexity_reason,
         complexity_kind,
@@ -1233,6 +1269,105 @@ mod tests {
             kind_code(&crate::commerce::CommerceFindingKind::MissingPrice),
             "missing_price"
         );
+    }
+
+    /// #784: UX issues and journey friction points are heuristic. They were
+    /// collected as `fail` and, because their rule ids matched none of the
+    /// old name substrings, reported as `automatically_confirmed`.
+    #[test]
+    fn heuristic_domains_are_never_automatically_confirmed() {
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let tree = crate::accessibility::AXTree::from_nodes(Vec::new());
+        report.ux = Some(crate::ux::analyze_ux(&tree));
+        report.journey = Some(crate::journey::analyze_journey_with_page_context(
+            &tree, false, None,
+        ));
+        let n = normalize(&report).normalized;
+        n.validate().unwrap();
+        let heuristic: Vec<_> = n
+            .findings
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f.contract.domain,
+                    FindingDomain::Ux | FindingDomain::Journey
+                )
+            })
+            .collect();
+        assert!(
+            heuristic
+                .iter()
+                .any(|f| f.contract.domain == FindingDomain::Ux)
+                && heuristic
+                    .iter()
+                    .any(|f| f.contract.domain == FindingDomain::Journey),
+            "an empty page yields UX and journey findings"
+        );
+        for f in heuristic {
+            assert_eq!(f.contract.outcome, FindingOutcome::Review, "{}", f.rule_id);
+            assert_eq!(f.assurance.method, DetectionMethod::Review, "{}", f.rule_id);
+            assert_eq!(f.verification, "manual_review_recommended", "{}", f.rule_id);
+            assert_ne!(f.confidence, "very_high", "{}", f.rule_id);
+        }
+    }
+
+    /// #784 counter-case for collected findings: the same check, once
+    /// measured with a selector, once a review, once without anything that
+    /// locates its element.
+    #[test]
+    fn same_check_with_different_evidence_differs_in_assurance() {
+        let make = |selector: Option<&str>, review: bool| {
+            let mut c = Collected::new(
+                FindingDomain::DarkMode,
+                "dark_mode",
+                "low_contrast",
+                Severity::Medium,
+                "text too light",
+                FindingScoring::none(),
+                LocationScope::Element,
+            )
+            .selector(selector.map(str::to_string));
+            if review {
+                c = c.review();
+            }
+            group_finding(vec![c], 5)
+        };
+        let located = make(Some("p.lead"), false);
+        assert_eq!(located.rule_id, "dark_mode.low_contrast");
+        assert_eq!(located.verification, "automatically_confirmed");
+        assert_eq!(located.assurance.evidence, EvidenceQuality::Located);
+
+        let review = make(Some("p.lead"), true);
+        assert_eq!(review.rule_id, located.rule_id);
+        assert_eq!(review.verification, "manual_review_recommended");
+
+        let unlocated = make(None, false);
+        assert_eq!(unlocated.rule_id, located.rule_id);
+        assert_eq!(unlocated.assurance.evidence, EvidenceQuality::Unlocated);
+        assert_eq!(unlocated.verification, "manual_review_recommended");
+    }
+
+    /// Unknown applicability never confirms (#784).
+    #[test]
+    fn unknown_applicability_is_a_review() {
+        let mut c = Collected::new(
+            FindingDomain::Seo,
+            "seo.technical",
+            "noindex",
+            Severity::Medium,
+            "noindex",
+            FindingScoring::none(),
+            LocationScope::Page,
+        );
+        c.applicability = Applicability::Unknown;
+        let f = group_finding(vec![c], 5);
+        assert_eq!(f.assurance.method, DetectionMethod::Review);
+        assert_eq!(f.verification, "manual_review_recommended");
     }
 
     #[test]

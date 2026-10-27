@@ -220,6 +220,7 @@ mod fallback_tests {
             confidence: "high".into(),
             false_positive_risk: "low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "medium".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,
