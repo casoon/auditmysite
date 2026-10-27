@@ -866,7 +866,20 @@ async fn audit_url_with_pool(
         let result = tokio::time::timeout(per_attempt_timeout, async {
             let page = pooled_page.page()?;
             // audit_page handles viewport switching and navigation internally
-            let (report, snapshot) = audit_page(page, url, config, pool.browser()).await?;
+            let (mut report, snapshot) = audit_page(page, url, config, pool.browser()).await?;
+            // Requested extra-reload checks run here as they do for a single
+            // URL; the report is re-qualified once they have recorded (#788).
+            if config.check_isolate_third_party_impact || config.check_ssr_content {
+                crate::audit::pipeline::run_extra_page_checks(
+                    page,
+                    url,
+                    pool.browser(),
+                    config,
+                    &mut report,
+                )
+                .await;
+                crate::audit::pipeline::refresh_audit_quality(&mut report);
+            }
             // Batch applies no canonical-performance pass, so the report is
             // final here — persist it (audit_page no longer persists itself).
             if config.persist_artifacts {

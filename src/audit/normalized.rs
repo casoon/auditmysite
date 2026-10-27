@@ -25,12 +25,13 @@ use crate::taxonomy::{ReportVisibility, RuleLookup, Scaling, Severity};
 use crate::wcag::WcagResults;
 
 use crate::audit::finding_derive::{
-    calculate_priority_score, derive_bfsg_relevance, derive_complexity, derive_confidence,
-    derive_expected_impact, derive_false_positive_risk, derive_remediation_priority,
-    derive_verification,
+    calculate_priority_score, derive_assurance, derive_bfsg_relevance, derive_complexity,
+    derive_expected_impact, derive_remediation_priority, evidence_quality, wcag_detection_method,
+    OccurrenceAnchor,
 };
 pub use crate::audit::finding_derive::{
-    complexity_text, expected_impact_text, ComplexityKind, ExpectedImpactKind, ScoreEffect,
+    complexity_text, expected_impact_text, AssuranceBasis, ComplexityKind, DetectionMethod,
+    EvidenceQuality, ExpectedImpactKind, ScoreEffect,
 };
 pub use crate::audit::interactive_finding::{
     finding_uncertainty_text, interactive_finding_text, AccessibilityJourney, FindingUncertainty,
@@ -379,6 +380,10 @@ pub struct NormalizedFinding {
     /// Verification wording: confirmed automatically or manual review recommended.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub verification: String,
+    /// Detection method and evidence quality `confidence`,
+    /// `false_positive_risk` and `verification` were derived from (#784).
+    #[serde(default)]
+    pub assurance: AssuranceBasis,
     /// Implementation complexity class, independent from severity.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub complexity: String,
@@ -789,6 +794,19 @@ pub struct AuditFlag {
 // serialized to keep JSON payloads compact.
 const MAX_OCCURRENCES: usize = 5;
 
+/// Evidence anchor of one WCAG violation: a selector, HTML snippet or
+/// recorded evidence locates it; a page-level placeholder node id
+/// (`"page"`, `"document"`) marks a document-wide check (#784).
+fn wcag_anchor(v: &crate::wcag::Violation) -> OccurrenceAnchor {
+    if v.selector.is_some() || v.html_snippet.is_some() || !v.evidence.is_empty() {
+        OccurrenceAnchor::Element
+    } else if crate::accessibility::is_page_level_placeholder_node_id(&v.node_id) {
+        OccurrenceAnchor::Document
+    } else {
+        OccurrenceAnchor::Missing
+    }
+}
+
 fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedFinding> {
     // Group violations by the rule they resolve to: two checks that share a
     // taxonomy entry are one finding with one id (#780), not two rows with
@@ -927,17 +945,20 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .max()
                 .unwrap_or(first.severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
-            // The confidence/risk/complexity heuristics match lowercased tokens that
-            // historically saw the German labels. Pass the German labels (label(false))
-            // so the classification stays byte-for-byte identical now that the stored
-            // string fields are canonical English (e.g. "Weak"/"Content" must not start
-            // matching the English "weak"/"content" token branches).
-            let subcategory_de = subcategory_kind.label(false);
+            // Assurance from the rule's detection method and what the
+            // occurrences of this page carry as evidence (#784).
+            let assurance = AssuranceBasis {
+                method: wcag_detection_method(&tax_id),
+                evidence: evidence_quality(violations.iter().map(|&v| wcag_anchor(v))),
+            };
+            let derived = derive_assurance(assurance.method, assurance.evidence);
+            let confidence = derived.confidence.to_string();
+            let false_positive_risk = derived.false_positive_risk.to_string();
+            let verification = derived.verification.to_string();
+            // The complexity heuristic matches lowercased tokens that
+            // historically saw the German labels; keep passing them so the
+            // classification stays byte-for-byte identical.
             let issue_class_de = issue_class_kind.label(false);
-            let confidence = derive_confidence(&tax_id, subcategory_de, issue_class_de);
-            let false_positive_risk =
-                derive_false_positive_risk(&tax_id, subcategory_de, issue_class_de);
-            let verification = derive_verification(&false_positive_risk);
             let (complexity, complexity_kind) =
                 derive_complexity(occurrence_count, &tax_id, issue_class_de);
             let complexity_reason = complexity_text(complexity_kind, true);
@@ -1006,6 +1027,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 confidence,
                 false_positive_risk,
                 verification,
+                assurance,
                 complexity,
                 complexity_reason,
                 complexity_kind,
@@ -1741,6 +1763,70 @@ mod tests {
         assert_eq!(rows[0].occurrence_count, 2);
         assert_eq!(rows[0].pattern_count, 2);
         n.validate().unwrap();
+    }
+
+    /// #784 counter-case: the same rule id with different evidence. A
+    /// located missing alt is confirmed and a legal flag; one whose element
+    /// could not be located (real AX node id, no selector, no evidence) asks
+    /// for review and raises no flag. The old derivation looked only at the
+    /// rule id and confirmed both.
+    #[test]
+    fn same_wcag_rule_with_different_evidence_differs_in_assurance() {
+        let finding = |selector: Option<&str>| {
+            let mut v = Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "no alt",
+                "42",
+            );
+            if let Some(s) = selector {
+                v = v.with_selector(s);
+            }
+            let mut results = WcagResults::new();
+            results.add_violation(v);
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let n = normalize(&report).normalized;
+            n.validate().unwrap();
+            n.findings.into_iter().next().unwrap()
+        };
+        let located = finding(Some("img.hero"));
+        let unlocated = finding(None);
+        assert_eq!(located.rule_id, unlocated.rule_id);
+        assert_eq!(located.assurance.evidence, EvidenceQuality::Located);
+        assert_eq!(located.confidence, "very_high");
+        assert_eq!(located.verification, "automatically_confirmed");
+        assert!(located.is_legal_flag());
+        assert_eq!(unlocated.assurance.evidence, EvidenceQuality::Unlocated);
+        assert_eq!(unlocated.confidence, "medium");
+        assert_eq!(unlocated.verification, "manual_review_recommended");
+        assert!(!unlocated.is_legal_flag());
+    }
+
+    /// A page-level check (placeholder node id) is a document observation:
+    /// confirmed, at `high` rather than `very_high` confidence.
+    #[test]
+    fn document_wide_wcag_finding_is_confirmed_at_high_confidence() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "3.1.1",
+            "Language of Page",
+            WcagLevel::A,
+            Severity::High,
+            "no lang",
+            "page",
+        ));
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let f = normalize(&report)
+            .normalized
+            .findings
+            .into_iter()
+            .next()
+            .unwrap();
+        assert_eq!(f.assurance.evidence, EvidenceQuality::Document);
+        assert_eq!(f.confidence, "high");
+        assert_eq!(f.verification, "automatically_confirmed");
     }
 
     /// The page rules that emit their own slug as `Violation::rule` still land
@@ -2557,6 +2643,8 @@ mod tests {
                         severity: "high".to_string(),
                         description: "XSS".to_string(),
                         safe_version: "3.5.0+".to_string(),
+                        advisories: vec![],
+                        exploitability: Default::default(),
                     },
                     VulnerableLibrary {
                         name: "Lodash".to_string(),
@@ -2564,6 +2652,8 @@ mod tests {
                         severity: "medium".to_string(),
                         description: "Prototype pollution".to_string(),
                         safe_version: "4.17.21+".to_string(),
+                        advisories: vec![],
+                        exploitability: Default::default(),
                     },
                 ],
                 has_vulnerabilities: true,

@@ -202,6 +202,10 @@ pub struct UnifiedSummary {
     /// `errors` (#651).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attempted_url_count: Option<usize>,
+    /// Batch only: discovered, selected, attempted, succeeded, blocked and
+    /// failed URLs. Averages are over `succeeded` only (#768).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<crate::audit::BatchCoverage>,
     /// Batch only: audit exclusions (#645) aggregated over all pages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusions: Option<crate::audit::exclusion::BatchExclusionSummary>,
@@ -1025,7 +1029,8 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
-            attempted_url_count: Some(batch_report.summary.total_urls + batch_report.errors.len()),
+            attempted_url_count: Some(batch_report.summary.coverage.attempted),
+            coverage: Some(batch_report.summary.coverage.clone()),
             exclusions: crate::audit::exclusion::BatchExclusionSummary::aggregate(
                 batch_report
                     .reports
@@ -1221,6 +1226,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            coverage: None,
             exclusions: None,
             violated_rule_count,
             root_causes: Vec::new(),
@@ -1324,6 +1330,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             attempted_url_count: None,
+            coverage: None,
             exclusions: None,
             violated_rule_count,
             root_causes: Vec::new(),

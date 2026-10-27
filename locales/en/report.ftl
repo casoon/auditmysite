@@ -334,7 +334,7 @@ diagnosis-col-max-severity = Max. severity
 batch-panel-module-averages = Module averages (avg. across all URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
-label-heuristic-indicator = Heuristic estimate based on structural signals
+label-heuristic-indicator = Heuristic estimate based on structural signals, not externally validated
 
 # Optional/non-normative feature (Dark Mode, #577)
 label-optional-feature = Optional feature

@@ -151,14 +151,14 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
 pub(crate) fn detail_encryption(present: bool, en: bool) -> String {
     if present {
         if en {
-            "HTTPS — trust signal for citation-worthiness".into()
+            "HTTPS — transport encrypted".into()
         } else {
-            "HTTPS — Vertrauenssignal für Zitierwürdigkeit".into()
+            "HTTPS — Übertragung verschlüsselt".into()
         }
     } else if en {
-        "No HTTPS — reduces trust in the source".into()
+        "No HTTPS — transport not encrypted".into()
     } else {
-        "Kein HTTPS — mindert Vertrauen in die Quelle".into()
+        "Kein HTTPS — Übertragung nicht verschlüsselt".into()
     }
 }
 
@@ -167,9 +167,9 @@ pub(crate) fn detail_publisher_identity(v: &AiSignalValues, en: bool) -> String 
     let has_org = v.has_org.unwrap_or(false);
     if has_author && has_org {
         if en {
-            "Author + organization identified via Schema.org — strong authority signal".into()
+            "Author + organization identified via Schema.org".into()
         } else {
-            "Autor + Organisation per Schema.org identifiziert — starkes Autoritätssignal".into()
+            "Autor + Organisation per Schema.org identifiziert".into()
         }
     } else if has_author {
         if en {
@@ -275,14 +275,14 @@ pub(crate) fn detail_snippet_quality(v: &AiSignalValues, en: bool) -> String {
 pub(crate) fn detail_question_answer(present: bool, en: bool) -> String {
     if present {
         if en {
-            "FAQ schema — answers directly usable as quotes".into()
+            "FAQ schema — question/answer pairs marked up".into()
         } else {
-            "FAQ-Schema — Antworten direkt als Zitat nutzbar".into()
+            "FAQ-Schema — Frage-Antwort-Paare ausgezeichnet".into()
         }
     } else if en {
-        "No FAQ structure — no direct quote potential".into()
+        "No FAQ structure marked up".into()
     } else {
-        "Keine FAQ-Struktur — kein direktes Zitat-Potenzial".into()
+        "Keine FAQ-Struktur ausgezeichnet".into()
     }
 }
 

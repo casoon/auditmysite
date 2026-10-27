@@ -2291,6 +2291,66 @@ async fn batch_retries_pool_timeouts_serially_body() {
     );
 }
 
+/// #788: requested extra checks run in batch mode too — each requested check
+/// is in the scope and has a recorded subcheck run, never a silent no-op.
+#[test]
+#[ignore]
+fn batch_runs_requested_ssr_gap_check() {
+    std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(batch_runs_requested_ssr_gap_check_body())
+        })
+        .expect("test thread")
+        .join()
+        .expect("test body panicked");
+}
+
+async fn batch_runs_requested_ssr_gap_check_body() {
+    use auditmysite::{run_concurrent_batch, Args, BatchConfig};
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("perfect.html");
+    let args = Args::parse_from([
+        "auditmysite",
+        "--url-file",
+        "unused.txt",
+        "--seo",
+        "--check-ssr-content",
+    ]);
+    let mut config = BatchConfig::from(&args);
+    config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
+    config.pipeline.persist_artifacts = false;
+
+    let batch = run_concurrent_batch(vec![format!("{url}/a")], &config, None)
+        .await
+        .expect("batch runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(batch.errors.is_empty(), "errors: {:?}", batch.errors);
+    let execution = &batch.reports[0].accessibility.execution;
+    assert_eq!(
+        execution.scope.requested_subchecks,
+        vec!["content_visibility.ssr_gap".to_string()]
+    );
+    let run = execution
+        .module_runs
+        .iter()
+        .find(|run| run.module == "content_visibility")
+        .expect("content_visibility run");
+    assert!(
+        run.subchecks
+            .iter()
+            .any(|s| s.subcheck == "content_visibility.ssr_gap"),
+        "subchecks: {:?}",
+        run.subchecks
+    );
+}
+
 /// Plan 67: a small `--url-file` run in technician mode, through the real
 /// binary. The path filter drops one URL before the run; an unreachable URL
 /// is a `failed` index entry without a file; every audited page gets a JSON

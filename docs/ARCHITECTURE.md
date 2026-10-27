@@ -117,7 +117,8 @@ src/
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
 │   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
 │   ├── finding_contract.rs # One finding contract for every domain: domain adapters, cause/scoring responsibility, finding inventory, indexability expectation
-│   ├── finding_derive.rs # Derived finding fields: priority score, confidence, complexity/expected-impact kinds + texts, BFSG relevance
+│   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
+│   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation

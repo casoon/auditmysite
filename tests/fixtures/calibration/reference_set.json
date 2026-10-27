@@ -1,0 +1,6 @@
+{
+  "format": "auditmysite.calibration-set/1",
+  "version": 1,
+  "notes": "Blind, human-labelled reference set for the heuristic signal contracts (#784). Procedure: docs/calibration.md. Cases are selected and labelled without looking at any auditmysite output; labels are frozen (sha256 in preregistration.json) before the first calibration run.",
+  "cases": []
+}

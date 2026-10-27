@@ -1563,6 +1563,28 @@ fn test_json_report_includes_extra_module_keys() {
         modules["content_visibility"]["measurement_type"],
         "heuristic"
     );
+
+    // #784: every heuristic module carries its signal contract and says it
+    // is not externally validated.
+    let mut heuristic = 0;
+    for (key, module) in modules.as_object().unwrap() {
+        if module["measurement_type"] != "heuristic" {
+            continue;
+        }
+        heuristic += 1;
+        let contract = &module["signal_contract"];
+        assert_eq!(
+            contract["format"], "auditmysite.signal-contract/1",
+            "{key} lacks its signal contract"
+        );
+        assert_eq!(contract["contract"]["id"], key.as_str());
+        assert_eq!(contract["contract"]["validation"]["status"], "unvalidated");
+        assert!(!contract["contract"]["not_established"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+    assert!(heuristic >= 3, "only {heuristic} heuristic modules checked");
 }
 
 #[test]

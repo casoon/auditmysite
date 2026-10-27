@@ -256,6 +256,8 @@ fn report_with_every_domain() -> AuditReport {
                 severity: "medium".to_string(),
                 description: "XSS in htmlPrefilter".to_string(),
                 safe_version: "3.5.0".to_string(),
+                advisories: vec![],
+                exploitability: Default::default(),
             }],
             has_vulnerabilities: true,
             duplicate_libraries: vec![],

@@ -715,6 +715,27 @@ pub(super) fn with_measurement_type(
     value
 }
 
+/// Attaches the module's heuristic signal contract (#784): what its score
+/// may and may not be read as, and that it is not externally validated.
+pub(super) fn with_signal_contract(
+    mut value: serde_json::Value,
+    module_id: &str,
+) -> serde_json::Value {
+    if let (Some(obj), Some(contract)) = (
+        value.as_object_mut(),
+        crate::audit::signal_contract::signal_contract(module_id),
+    ) {
+        obj.insert(
+            "signal_contract".to_string(),
+            serde_json::json!({
+                "format": crate::audit::signal_contract::SIGNAL_CONTRACT_FORMAT,
+                "contract": contract,
+            }),
+        );
+    }
+    value
+}
+
 pub(super) fn batch_report_timestamp(batch_report: &BatchReport) -> DateTime<Utc> {
     batch_report
         .reports
@@ -768,6 +789,7 @@ mod tests {
             confidence: "very_high".into(),
             false_positive_risk: "very_low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "low".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,

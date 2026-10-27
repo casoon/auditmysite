@@ -31,8 +31,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "shift the fix boundary to 3.4.1"
-find = "if v < (3, 5, 0) => {"
-replace = "if v < (3, 4, 1) => {"
+find = "fixed: (3, 5, 0) }]"
+replace = "fixed: (3, 4, 1) }]"
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -76,8 +76,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "restore the old 3.x-only boundary (miss Bootstrap 1/2 and 3.4.1)"
-find = "if v < (4, 0, 0) || (v.0 == 4 && v < (4, 3, 1)) => {"
-replace = "if (v.0 == 3 && v < (3, 4, 1)) || (v.0 == 4 && v < (4, 3, 1)) => {"
+find = "affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 0, 0) }],"
+replace = "affected: &[VersionRange { introduced: (3, 0, 0), fixed: (3, 4, 1) }],"
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -115,8 +115,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "reintroduce the old < 1.8.0 boundary"
-find = "\"AngularJS\" => {"
-replace = "\"AngularJS\" if v < (1, 8, 0) => {"
+find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained framework\","
+replace = "affected: &[VersionRange { introduced: (1, 0, 0), fixed: (1, 8, 0) }],\n        safe_version: \"Migrate to a maintained framework\","
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -148,8 +148,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "restore the outdated 4.7.7 boundary"
-find = "if v < (4, 7, 10) => {"
-replace = "if v < (4, 7, 7) => {"
+find = "fixed: (4, 7, 10) }]"
+replace = "fixed: (4, 7, 7) }]"
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -187,8 +187,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "restore the outdated 4.17.21 boundary"
-find = "if v < (4, 18, 0) => {"
-replace = "if v < (4, 17, 21) => {"
+find = "fixed: (4, 18, 0) }]"
+replace = "fixed: (4, 17, 21) }]"
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -220,8 +220,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "restore the outdated 1.13.0 boundary"
-find = "if v < (1, 13, 8) => {"
-replace = "if v < (1, 13, 0) => {"
+find = "fixed: (1, 13, 8) }]"
+replace = "fixed: (1, 13, 0) }]"
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -259,8 +259,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "stop flagging Prototype"
-find = "\"Prototype\" | \"MooTools\" => {"
-replace = "\"MooTools\" => {"
+find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://prototypejs.org/\","
+replace = "affected: &[],\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://prototypejs.org/\","
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -292,8 +292,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
 change = "stop flagging MooTools"
-find = "\"Prototype\" | \"MooTools\" => {"
-replace = "\"Prototype\" => {"
+find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://mootools.net/\","
+replace = "affected: &[],\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://mootools.net/\","
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"

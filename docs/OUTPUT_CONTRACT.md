@@ -52,6 +52,18 @@
 
 `severity_counts`, `occurrence_counts`, `violation_count` and `violated_rule_count` stay WCAG-only.
 
+### Finding assurance
+
+`confidence`, `false_positive_risk` and `verification` follow from `assurance`, never from a rule id or category name:
+
+- `assurance.method` — `measured` (the check measures the property the criterion names), `pattern` (it detects a pattern that often, not always, means the failure; the WCAG rules declared in `PATTERN_RULES`), or `review` (`contract.outcome: review` or `applicability: unknown`; UX and Journey findings are always `review`).
+- `assurance.evidence` — `located` (every occurrence names its element or carries recorded evidence), `partial`, `document` (a document-wide check without an element) or `unlocated`.
+- `verification: automatically_confirmed` requires `measured` with `located`, `partial` or `document` evidence (`confidence` `very_high` for located, `high` otherwise). Everything else is `manual_review_recommended` at `medium` confidence, and a finding that needs review raises no legal flag.
+
+### Signal contracts
+
+Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`, `design_quality`) carries `signal_contract: { format: "auditmysite.signal-contract/1", contract }`. `contract` states `target_statement`, `method`, `applicability`, `evidence`, `uncertainty`, `permitted_interpretation`, the claims it does not establish (`not_established`) and `validation.status` — `unvalidated` until a pre-registered calibration run passes (`docs/calibration.md`). A score of an unvalidated contract is not evidence of visibility, AI citation, user quality or source truth.
+
 ### Indexability
 
 `noindex` is judged against the page goal. `--expect-indexable true` (or `[audit] expect_indexable = true`, implied for sitemap runs) makes it a gate: the SEO score is capped at 39 and the decision gets the reason `technical_blockers`. `false` excludes it as intended. Without either, the finding is listed with `applicability: unknown` and has no score effect.

@@ -20,9 +20,14 @@ and verification for each change is in the
 - **Findings:** Problems collected by every module now reach `pages[].findings` under one `contract` (domain, source, outcome, applicability, cause, scoring responsibility); `pages[].finding_inventory` accounts for each of them, and a lost finding fails validation. Details: [Finding contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-contract).
 - **SEO:** `--expect-indexable` (implied for sitemap runs) makes `noindex` a technical blocker that caps the SEO score and warns, or fails with `[verdict] fail_on_technical_blockers`; without a declared goal it is a finding to review. Details: [Indexability](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#indexability).
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
+- **Heuristic signals:** Every heuristic module carries a versioned `signal_contract` stating what its score may be read as and that it is `unvalidated`; a pre-registered, blind calibration harness is in place, its reference set still empty. Details: [Calibration](https://github.com/casoon/auditmysite/blob/main/docs/calibration.md).
 
 ### Changed
 
+- **Batch:** `summary.coverage` counts discovered, selected, attempted, succeeded, blocked and failed URLs separately; `average_score` and `url_count` stay over succeeded URLs. A batch with failed or blocked URLs is never `Complete` or PASS (verdict `warn` with `incomplete_scope`), and a batch where no URL produced a report is `fail` (exit code 2).
+- **Audit scope:** `--isolate-third-party-impact` and `--check-ssr-content` now also run in batch mode (sitemap, URL file, crawl). They are listed in `scope.requested_subchecks`, and a requested isolation pass that cannot run records `not_applicable` or `failed` in `module_runs[].subchecks[]` instead of leaving no trace.
+- **Findings:** `confidence` and `verification` follow from detection method and the finding's own evidence (new `assurance`), not from rule-id substrings: UX/Journey findings and unlocated WCAG findings ask for review, measured contrast failures are confirmed. Details: [Finding assurance](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-assurance).
+- **AI Visibility:** The disclaimer and signal texts no longer imply citation likelihood or trust effects: the score counts structural signals and is not externally validated. The PDF labels every heuristic estimate as not externally validated.
 - **Decision:** Breaking: one versioned decision under the stored `[verdict]` profile is shown by terminal, JSON, summary feed, Studio, PDF, batch counts and exit code alike; before, only the exit code honoured a custom profile. JSON `verdict`/`verdict_reasons` become `decision`. Details: [Decision contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract).
 - **JSON:** Breaking: `summary.score` (alias of `overall_score`) is removed; `report-lint` flags it as `score_alias_removed`. Batch `summary.verdict_key` is renamed `score_band_key` (a narrative band, not the decision); batch `total_violations` and `violated_rule_count` count WCAG only, like the single report.
 - **Summary feed:** Breaking: `score` is replaced by `accessibilityScore` and `overallScore`; `grade`, `label` and `medalColor` are bands of the accessibility score (the grade used to be banded from the overall score); `verdict` and `verdictReasons` are added; `ruleTypes` counts WCAG rules.
@@ -37,6 +42,7 @@ and verification for each change is in the
 - **Accessibility:** Breaking: the 2.1.2 keyboard-trap check runs under its finding id `keyboard-trap`; `[rules] disabled = ["keyboard"]` no longer matches it. Its page-wide note appears only on pages with something focusable, the 2.5.2 pointer note only on pages with something a pointer can operate.
 - **Accessibility:** Contrast and link-colour checks, and the open-popover check, also judge content in same-origin frames. An open popover or menu without a name is listed for review instead of reported as a violation.
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
+- **Libraries:** Affected library versions come from a versioned advisory table (`ADVISORIES` in `best_practices/vulnerable_libs.rs`) with advisory id, CVE aliases, affected ranges, fixed version, source URL and review date. `vulnerable[]` entries list the matching `advisories[]` and carry `exploitability: "unconfirmed"` (a version match never proves the code path is reachable); `detected[].version_parsed` marks versions that could not be read, which are neither flagged nor cleared.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
 - **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.1; `web-checks` 0.5.1; `html-conform` 0.3.3.
@@ -64,6 +70,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).
 - **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
 - **Accessibility:** The 1.3.4 orientation check could never fire, because the computed `transform` is a matrix; it now reads the rotation and names `html` or `body`.
 - **Accessibility:** Overflow at 320 px caused only by content 1.4.10 exempts (data tables, images, media, frames) no longer fails reflow.

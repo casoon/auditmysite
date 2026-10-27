@@ -638,6 +638,7 @@ mod tests {
             confidence: "very_high".into(),
             false_positive_risk: "very_low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "low".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,

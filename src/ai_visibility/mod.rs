@@ -5,7 +5,8 @@
 //!
 //! Five dimensions are scored:
 //! - **LLM-Lesbarkeit** — How well can LLMs extract and understand the content?
-//! - **Zitatfähigkeit** — How likely is the content to be cited by AI systems?
+//! - **Zitatfähigkeit** — Structural signals that make passages quotable (no
+//!   measured or predicted citation likelihood, #784).
 //! - **Chunk-Qualität** — How well is content structured for RAG/embedding pipelines?
 //! - **Wissensgraph** — How rich is the entity/relationship model?
 //! - **AI-Policy** — How is the site configured for AI crawler access?
@@ -294,6 +295,9 @@ pub struct AiSignal {
     /// Interpolated values needed to reproduce `detail` in another language
     #[serde(default)]
     pub values: AiSignalValues,
+    /// Batch only: the page whose `values` illustrate this aggregated signal
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub example_url: Option<String>,
 }
 
 impl AiSignal {
@@ -313,17 +317,23 @@ impl AiSignal {
             weight,
             detail,
             values,
+            example_url: None,
         }
     }
 }
 
 const DISCLAIMER_DE: &str = "Diese Bewertung basiert auf heuristischen Signalen zur \
-    AI-Sichtbarkeit. Sie bewertet, wie gut Inhalte für die maschinelle Extraktion \
-    und Zitierung durch KI-Systeme aufbereitet sind — nicht deren inhaltliche Qualität.";
+    AI-Sichtbarkeit. Sie zählt Struktursignale, die die maschinelle Extraktion \
+    erleichtern (Überschriften, Listen, strukturierte Daten, Crawler-Zugang). Ob \
+    KI-Systeme die Seite abrufen oder zitieren, misst sie nicht und sagt es nicht \
+    voraus; Schwellen und Gewichte sind nicht extern validiert. Über die inhaltliche \
+    Qualität sagt sie nichts.";
 
 const DISCLAIMER_EN: &str = "This assessment is based on heuristic signals for \
-    AI visibility. It evaluates how well content is prepared for machine extraction \
-    and citation by AI systems — not its factual quality.";
+    AI visibility. It counts structural signals that make machine extraction \
+    easier (headings, lists, structured data, crawler access). It does not measure \
+    or predict whether AI systems retrieve or cite the page; its thresholds and \
+    weights are not externally validated. It says nothing about factual quality.";
 
 /// The always-present disclaimer in the requested language.
 pub fn ai_disclaimer(en: bool) -> String {
@@ -558,27 +568,175 @@ pub fn analyze_ai_visibility(report: &AuditReport) -> AiVisibilityAnalysis {
     }
 }
 
-/// Derive AI visibility for batch mode (average across pages).
+/// Derive AI visibility for batch mode.
+///
+/// Overall score, dimension scores and signals all describe the same page
+/// set: dimension scores are the mean over pages, the overall score is the
+/// weighted average of those dimension means, and each signal is the majority
+/// outcome over the pages that carry it. A signal's interpolated values cannot
+/// be averaged, so they come from an example page named in `example_url`.
+/// Per-page lists (sections, entities, relationships, link suggestions) have
+/// no aggregate and stay empty. Pages are processed in URL order, so the
+/// result does not depend on the order of `reports`.
 pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnalysis {
     if reports.is_empty() {
         return empty_analysis();
     }
 
-    let analyses: Vec<AiVisibilityAnalysis> = reports.iter().map(analyze_ai_visibility).collect();
+    let mut pages: Vec<(&str, AiVisibilityAnalysis)> = reports
+        .iter()
+        .map(|r| (r.url.as_str(), analyze_ai_visibility(r)))
+        .collect();
+    pages.sort_by(|a, b| a.0.cmp(b.0));
 
-    let avg_score = analyses.iter().map(|a| a.score).sum::<u32>() / analyses.len() as u32;
+    let aggregate = |kind: DimensionKind, pick: fn(&AiVisibilityAnalysis) -> &DimensionScore| {
+        aggregate_dimension(kind, pages.iter().map(|(url, a)| (*url, pick(a))).collect())
+    };
+    let readability = aggregate(DimensionKind::Readability, |a| &a.readability.dimension);
+    let citation = aggregate(DimensionKind::Citability, |a| &a.citation.dimension);
+    let chunk_dim = aggregate(DimensionKind::Chunks, |a| &a.chunks.dimension);
+    let kg_dim = aggregate(DimensionKind::KnowledgeGraph, |a| {
+        &a.knowledge_graph.dimension
+    });
+    let policy_dim = aggregate(DimensionKind::Policy, |a| &a.policy.dimension);
 
-    // Use the first report's detailed analysis as template, with averaged scores
-    let mut result = analyses
+    let score = weighted_average(&[
+        (readability.score, 25),
+        (citation.score, 25),
+        (chunk_dim.score, 20),
+        (kg_dim.score, 15),
+        (policy_dim.score, 15),
+    ]);
+
+    let n = pages.len();
+    let majority =
+        |f: fn(&PolicyAnalysis) -> bool| pages.iter().filter(|(_, a)| f(&a.policy)).count() * 2 > n;
+    let mode = |mut values: Vec<String>| {
+        values.sort();
+        let mut best = (String::new(), 0);
+        for v in &values {
+            let count = values.iter().filter(|x| *x == v).count();
+            if count > best.1 {
+                best = (v.clone(), count);
+            }
+        }
+        best.0
+    };
+
+    // Most frequent recommendation; ties go to the earlier entry of this list.
+    let kinds = [
+        chunks::ChunkRecommendationKind::WellSuited,
+        chunks::ChunkRecommendationKind::SplitOversized,
+        chunks::ChunkRecommendationKind::TooLittleStructure,
+        chunks::ChunkRecommendationKind::Mixed,
+    ];
+    let recommendation_kind = kinds
         .into_iter()
-        .next()
-        .expect("analyses is non-empty: reports is non-empty, checked above");
-    result.score = avg_score;
-    result.band = crate::registry::FIVE_BAND
-        .label(avg_score as f32, true)
-        .to_string();
+        .rev()
+        .max_by_key(|k| {
+            pages
+                .iter()
+                .filter(|(_, a)| a.chunks.recommendation_kind == *k)
+                .count()
+        })
+        .expect("kinds is non-empty");
+    let recommendation_counts = pages.iter().fold((0, 0, 0), |acc, (_, a)| {
+        let c = a.chunks.recommendation_counts;
+        (acc.0 + c.0, acc.1 + c.1, acc.2 + c.2)
+    });
 
-    result
+    AiVisibilityAnalysis {
+        score,
+        band: crate::registry::FIVE_BAND
+            .label(score as f32, true)
+            .to_string(),
+        readability: ReadabilityAnalysis {
+            dimension: readability,
+        },
+        citation: CitationAnalysis {
+            dimension: citation,
+        },
+        chunks: ChunkAnalysis {
+            dimension: chunk_dim,
+            sections: vec![],
+            recommendation_kind,
+            recommendation_counts,
+            recommendation: chunks::ai_chunk_recommendation(
+                recommendation_kind,
+                recommendation_counts,
+                true,
+            ),
+        },
+        knowledge_graph: KnowledgeGraphAnalysis {
+            dimension: kg_dim,
+            entities: vec![],
+            relationships: vec![],
+            link_suggestions: vec![],
+        },
+        policy: PolicyAnalysis {
+            dimension: policy_dim,
+            blocks_ai_citation: majority(|p| p.blocks_ai_citation),
+            blocks_ai_training: majority(|p| p.blocks_ai_training),
+            blocks_all: majority(|p| p.blocks_all),
+            blocked_ai_bot_count: (pages
+                .iter()
+                .map(|(_, a)| a.policy.blocked_ai_bot_count)
+                .sum::<usize>() as f64
+                / n as f64)
+                .round() as usize,
+            inferred_policy: mode(
+                pages
+                    .iter()
+                    .map(|(_, a)| a.policy.inferred_policy.clone())
+                    .collect(),
+            ),
+        },
+        disclaimer: ai_disclaimer(true),
+    }
+}
+
+/// One dimension over a URL-sorted page set: mean score, majority signals.
+fn aggregate_dimension(kind: DimensionKind, pages: Vec<(&str, &DimensionScore)>) -> DimensionScore {
+    let score = (pages.iter().map(|(_, d)| d.score as f64).sum::<f64>() / pages.len() as f64)
+        .round() as u32;
+
+    let mut kinds: Vec<AiSignalKind> = Vec::new();
+    for (_, d) in &pages {
+        for s in &d.signals {
+            if !kinds.contains(&s.kind) {
+                kinds.push(s.kind);
+            }
+        }
+    }
+    kinds.sort_by_key(|k| *k as u32);
+
+    let signals = kinds
+        .into_iter()
+        .map(|k| {
+            let carrying: Vec<(&str, &AiSignal)> = pages
+                .iter()
+                .filter_map(|(url, d)| d.signals.iter().find(|s| s.kind == k).map(|s| (*url, s)))
+                .collect();
+            let present = carrying.iter().filter(|(_, s)| s.present).count() * 2 > carrying.len();
+            let weight =
+                carrying.iter().map(|(_, s)| s.weight).sum::<f32>() / carrying.len() as f32;
+            let (url, example) = carrying
+                .iter()
+                .find(|(_, s)| s.present == present)
+                .expect("a majority outcome is carried by at least one page");
+            let mut signal = AiSignal::new(k, present, weight, example.values.clone());
+            signal.example_url = Some((*url).to_string());
+            signal
+        })
+        .collect();
+
+    DimensionScore {
+        kind,
+        name: ai_dimension_name(kind, true).to_string(),
+        score,
+        label: ai_dimension_label(score, true),
+        signals,
+    }
 }
 
 // ─── Policy analysis ────────────────────────────────────────────────────────
@@ -1300,6 +1458,164 @@ mod tests {
         let reports = vec![minimal_report(), minimal_report()];
         let analysis = analyze_ai_visibility_batch(&reports);
         assert!(analysis.score <= 100);
+    }
+
+    /// Three strongly different pages: no SEO data, a rich page with a
+    /// reachable robots.txt, and a thin page with a robots.txt that blocks all.
+    fn different_pages() -> Vec<AuditReport> {
+        use crate::seo::{
+            HeadingStructure, MetaTags, SeoAnalysis, SocialTags, StructuredData, TechnicalSeo,
+        };
+        let seo = |word_count: u32, has_lang: bool, desc: Option<&str>| {
+            let technical = TechnicalSeo {
+                word_count,
+                has_lang,
+                ..Default::default()
+            };
+            let meta = MetaTags {
+                description: desc.map(str::to_string),
+                ..Default::default()
+            };
+            SeoAnalysis {
+                meta,
+                headings: HeadingStructure::default(),
+                technical,
+                social: SocialTags::default(),
+                structured_data: StructuredData::default(),
+                score: 50,
+                content_profile: None,
+                robots: None,
+                page_health: None,
+                serp: None,
+                meta_issues: vec![],
+                image_efficiency: None,
+                indexability: crate::seo::IndexabilityCheck::default(),
+            }
+        };
+
+        let bare = minimal_report();
+
+        let mut rich = minimal_report();
+        rich.url = "https://example.com/rich".into();
+        let mut rich_seo = seo(
+            2400,
+            true,
+            Some("A long and useful description of the page."),
+        );
+        rich_seo.robots = Some(crate::seo::robots::RobotsAudit {
+            fetched: true,
+            ..Default::default()
+        });
+        rich.discoverability.seo = Some(rich_seo);
+
+        let mut thin = minimal_report();
+        thin.url = "https://example.com/thin".into();
+        let mut thin_seo = seo(40, false, None);
+        thin_seo.robots = Some(crate::seo::robots::RobotsAudit {
+            fetched: true,
+            has_wildcard_disallow_all: true,
+            blocks_ai_citation: true,
+            ..Default::default()
+        });
+        thin.discoverability.seo = Some(thin_seo);
+
+        vec![bare, rich, thin]
+    }
+
+    #[test]
+    fn batch_is_invariant_under_page_order_and_consistent_with_its_dimensions() {
+        let reports = different_pages();
+        let singles: Vec<AiVisibilityAnalysis> =
+            reports.iter().map(analyze_ai_visibility).collect();
+        // The pages must actually differ, or the test proves nothing.
+        assert!(singles.iter().any(|a| a.score != singles[0].score));
+        assert!(singles
+            .iter()
+            .any(|a| a.readability.dimension.score != singles[0].readability.dimension.score));
+
+        let permutations: [[usize; 3]; 6] = [
+            [0, 1, 2],
+            [0, 2, 1],
+            [1, 0, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+            [2, 1, 0],
+        ];
+        let json_of = |order: &[usize; 3]| {
+            let ordered: Vec<AuditReport> = order.iter().map(|&i| reports[i].clone()).collect();
+            serde_json::to_string(&analyze_ai_visibility_batch(&ordered)).unwrap()
+        };
+        let expected = json_of(&permutations[0]);
+        for order in &permutations {
+            assert_eq!(json_of(order), expected, "order {order:?}");
+        }
+
+        let batch = analyze_ai_visibility_batch(&reports);
+        let mean = |pick: fn(&AiVisibilityAnalysis) -> u32| {
+            (singles.iter().map(|a| pick(a) as f64).sum::<f64>() / singles.len() as f64).round()
+                as u32
+        };
+        assert_eq!(
+            batch.readability.dimension.score,
+            mean(|a| a.readability.dimension.score)
+        );
+        assert_eq!(
+            batch.citation.dimension.score,
+            mean(|a| a.citation.dimension.score)
+        );
+        assert_eq!(
+            batch.chunks.dimension.score,
+            mean(|a| a.chunks.dimension.score)
+        );
+        assert_eq!(
+            batch.knowledge_graph.dimension.score,
+            mean(|a| a.knowledge_graph.dimension.score)
+        );
+        assert_eq!(
+            batch.policy.dimension.score,
+            mean(|a| a.policy.dimension.score)
+        );
+        assert_eq!(
+            batch.score,
+            weighted_average(&[
+                (batch.readability.dimension.score, 25),
+                (batch.citation.dimension.score, 25),
+                (batch.chunks.dimension.score, 20),
+                (batch.knowledge_graph.dimension.score, 15),
+                (batch.policy.dimension.score, 15),
+            ])
+        );
+        // Same page set as the per-page mean of the overall score (rounding only).
+        assert!(batch.score.abs_diff(mean(|a| a.score)) <= 1);
+    }
+
+    #[test]
+    fn batch_signals_are_majority_outcomes_with_an_example_url() {
+        let reports = different_pages();
+        let batch = analyze_ai_visibility_batch(&reports);
+        for s in batch
+            .readability
+            .dimension
+            .signals
+            .iter()
+            .chain(&batch.policy.dimension.signals)
+        {
+            let url = s
+                .example_url
+                .as_deref()
+                .expect("aggregated signal names an example");
+            assert!(reports.iter().any(|r| r.url == url));
+        }
+        // Wildcard block exists on 1 of 2 pages carrying the signal: not a majority.
+        let wildcard = batch
+            .policy
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.kind == AiSignalKind::NoWildcardBlock)
+            .unwrap();
+        assert!(!wildcard.present);
+        assert!(!batch.policy.blocks_all);
     }
 
     #[test]
