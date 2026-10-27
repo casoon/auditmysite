@@ -5,7 +5,8 @@
 //!
 //! Five dimensions are scored:
 //! - **LLM-Lesbarkeit** — How well can LLMs extract and understand the content?
-//! - **Zitatfähigkeit** — How likely is the content to be cited by AI systems?
+//! - **Zitatfähigkeit** — Structural signals that make passages quotable (no
+//!   measured or predicted citation likelihood, #784).
 //! - **Chunk-Qualität** — How well is content structured for RAG/embedding pipelines?
 //! - **Wissensgraph** — How rich is the entity/relationship model?
 //! - **AI-Policy** — How is the site configured for AI crawler access?
@@ -322,12 +323,17 @@ impl AiSignal {
 }
 
 const DISCLAIMER_DE: &str = "Diese Bewertung basiert auf heuristischen Signalen zur \
-    AI-Sichtbarkeit. Sie bewertet, wie gut Inhalte für die maschinelle Extraktion \
-    und Zitierung durch KI-Systeme aufbereitet sind — nicht deren inhaltliche Qualität.";
+    AI-Sichtbarkeit. Sie zählt Struktursignale, die die maschinelle Extraktion \
+    erleichtern (Überschriften, Listen, strukturierte Daten, Crawler-Zugang). Ob \
+    KI-Systeme die Seite abrufen oder zitieren, misst sie nicht und sagt es nicht \
+    voraus; Schwellen und Gewichte sind nicht extern validiert. Über die inhaltliche \
+    Qualität sagt sie nichts.";
 
 const DISCLAIMER_EN: &str = "This assessment is based on heuristic signals for \
-    AI visibility. It evaluates how well content is prepared for machine extraction \
-    and citation by AI systems — not its factual quality.";
+    AI visibility. It counts structural signals that make machine extraction \
+    easier (headings, lists, structured data, crawler access). It does not measure \
+    or predict whether AI systems retrieve or cite the page; its thresholds and \
+    weights are not externally validated. It says nothing about factual quality.";
 
 /// The always-present disclaimer in the requested language.
 pub fn ai_disclaimer(en: bool) -> String {
@@ -1381,6 +1387,7 @@ mod tests {
 
     fn minimal_report() -> AuditReport {
         AuditReport {
+            run_context: Default::default(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),
@@ -1460,11 +1467,15 @@ mod tests {
             HeadingStructure, MetaTags, SeoAnalysis, SocialTags, StructuredData, TechnicalSeo,
         };
         let seo = |word_count: u32, has_lang: bool, desc: Option<&str>| {
-            let mut technical = TechnicalSeo::default();
-            technical.word_count = word_count;
-            technical.has_lang = has_lang;
-            let mut meta = MetaTags::default();
-            meta.description = desc.map(str::to_string);
+            let technical = TechnicalSeo {
+                word_count,
+                has_lang,
+                ..Default::default()
+            };
+            let meta = MetaTags {
+                description: desc.map(str::to_string),
+                ..Default::default()
+            };
             SeoAnalysis {
                 meta,
                 headings: HeadingStructure::default(),
@@ -1478,6 +1489,7 @@ mod tests {
                 serp: None,
                 meta_issues: vec![],
                 image_efficiency: None,
+                indexability: crate::seo::IndexabilityCheck::default(),
             }
         };
 
@@ -1636,6 +1648,7 @@ mod tests {
         // Bare SEO so every "missing"/"weak" branch contributes a string.
         let mut report = minimal_report();
         report.discoverability.seo = Some(SeoAnalysis {
+            indexability: Default::default(),
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

@@ -185,6 +185,7 @@ mod fallback_tests {
     /// to a raw-English marker that must never surface as `customer_description`.
     fn uncovered_rule_finding() -> NormalizedFinding {
         NormalizedFinding {
+            contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
@@ -219,6 +220,7 @@ mod fallback_tests {
             confidence: "high".into(),
             false_positive_risk: "low".into(),
             verification: "automatically_confirmed".into(),
+            assurance: Default::default(),
             complexity: "medium".into(),
             complexity_reason: "Test fixture".into(),
             complexity_kind: ComplexityKind::LowScope,

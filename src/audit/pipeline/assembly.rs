@@ -247,6 +247,10 @@ pub(super) fn aggregate_report(
         duration_ms,
     );
     report.accessibility.execution.scope = audit_scope_from_config(config);
+    report.run_context = crate::audit::RunContext {
+        indexability: config.indexability,
+        decision_profile: config.decision_profile.clone(),
+    };
     report.accessibility.execution.navigation.requested_url = url.to_string();
     report.accessibility.execution.environment.source = "live".to_string();
     report.accessibility.execution.module_runs = consolidate_module_runs(&snapshot.module_runs);
@@ -362,7 +366,7 @@ pub(super) fn reconcile_image_alt_count(report: &mut AuditReport) {
     }
 }
 
-fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
+pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
     let catalog = AuditCatalog::standard();
     let mut requested_modules = vec!["accessibility".to_string()];
     if !matches!(config.interactive, crate::cli::InteractiveMode::Off) {
@@ -376,8 +380,17 @@ fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope 
     requested_modules.sort();
     requested_modules.dedup();
 
+    let mut requested_subchecks = Vec::new();
+    if config.check_isolate_third_party_impact {
+        requested_subchecks.push(crate::performance::third_party::ISOLATION.id.to_string());
+    }
+    if config.check_ssr_content {
+        requested_subchecks.push(crate::content_visibility::ssr_gap::SSR_GAP.id.to_string());
+    }
+
     crate::audit::AuditScope {
         requested_modules,
+        requested_subchecks,
         full_audit: config.full_audit,
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,

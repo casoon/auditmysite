@@ -25,12 +25,13 @@ use crate::taxonomy::{ReportVisibility, RuleLookup, Scaling, Severity};
 use crate::wcag::WcagResults;
 
 use crate::audit::finding_derive::{
-    calculate_priority_score, derive_bfsg_relevance, derive_complexity, derive_confidence,
-    derive_expected_impact, derive_false_positive_risk, derive_remediation_priority,
-    derive_verification,
+    calculate_priority_score, derive_assurance, derive_bfsg_relevance, derive_complexity,
+    derive_expected_impact, derive_remediation_priority, evidence_quality, wcag_detection_method,
+    OccurrenceAnchor,
 };
 pub use crate::audit::finding_derive::{
-    complexity_text, expected_impact_text, ComplexityKind, ExpectedImpactKind, ScoreEffect,
+    complexity_text, expected_impact_text, AssuranceBasis, ComplexityKind, DetectionMethod,
+    EvidenceQuality, ExpectedImpactKind, ScoreEffect,
 };
 pub use crate::audit::interactive_finding::{
     finding_uncertainty_text, interactive_finding_text, AccessibilityJourney, FindingUncertainty,
@@ -55,8 +56,15 @@ pub struct NormalizedReport {
     /// Certificate aus `score`, gegebenenfalls durch das Risiko-Veto begrenzt
     pub certificate: String,
 
-    /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
+    /// Every collected problem of every domain, grouped per rule or check,
+    /// with the shared finding contract (#780).
     pub findings: Vec<NormalizedFinding>,
+    /// How each collected non-WCAG problem is represented: a finding id or an
+    /// explicit exclusion. WCAG rule runs are accounted in `rule_outcomes`.
+    pub finding_inventory: Vec<crate::audit::finding_contract::InventoryEntry>,
+    /// The decision under the stored profile (#781): the one PASS/WARN/FAIL
+    /// every output projects.
+    pub decision: crate::audit::verdict::VerdictResult,
     /// Severity-Zähler — zählt **Findings** (eine Zeile pro Regel + Severity).
     pub severity_counts: SeverityCounts,
     /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
@@ -257,7 +265,7 @@ pub const MAX_PATTERNS: usize = 20;
 
 /// Group selectors into patterns: one entry per normalized selector, with
 /// the shortest raw selector as representative, most occurrences first.
-fn finding_patterns<'a>(
+pub(super) fn finding_patterns<'a>(
     rule_id: &str,
     selectors: impl IntoIterator<Item = &'a str>,
 ) -> (Vec<FindingPattern>, usize) {
@@ -372,6 +380,10 @@ pub struct NormalizedFinding {
     /// Verification wording: confirmed automatically or manual review recommended.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub verification: String,
+    /// Detection method and evidence quality `confidence`,
+    /// `false_positive_risk` and `verification` were derived from (#784).
+    #[serde(default)]
+    pub assurance: AssuranceBasis,
     /// Implementation complexity class, independent from severity.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub complexity: String,
@@ -397,6 +409,9 @@ pub struct NormalizedFinding {
     pub remediation_priority: String,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
+    /// Domain, source, outcome, applicability, cause and scoring
+    /// responsibility — the contract every domain shares (#780).
+    pub contract: crate::audit::finding_contract::FindingContract,
 }
 
 impl NormalizedFinding {
@@ -779,16 +794,37 @@ pub struct AuditFlag {
 // serialized to keep JSON payloads compact.
 const MAX_OCCURRENCES: usize = 5;
 
+/// Evidence anchor of one WCAG violation: a selector, HTML snippet or
+/// recorded evidence locates it; a page-level placeholder node id
+/// (`"page"`, `"document"`) marks a document-wide check (#784).
+fn wcag_anchor(v: &crate::wcag::Violation) -> OccurrenceAnchor {
+    if v.selector.is_some() || v.html_snippet.is_some() || !v.evidence.is_empty() {
+        OccurrenceAnchor::Element
+    } else if crate::accessibility::is_page_level_placeholder_node_id(&v.node_id) {
+        OccurrenceAnchor::Document
+    } else {
+        OccurrenceAnchor::Missing
+    }
+}
+
 fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedFinding> {
-    // Group violations by rule ID
-    let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
+    // Group violations by the rule they resolve to: two checks that share a
+    // taxonomy entry are one finding with one id (#780), not two rows with
+    // the same id. Unregistered checks group by their own key.
+    let mut groups: HashMap<&str, (&str, Vec<&crate::wcag::Violation>)> = HashMap::new();
     for v in violations {
-        groups.entry(wcag_group_key(v)).or_default().push(v);
+        let key = wcag_group_key(v);
+        let identity = RuleLookup::by_legacy_wcag_id(key).map_or(key, |rule| rule.id);
+        groups
+            .entry(identity)
+            .or_insert((key, Vec::new()))
+            .1
+            .push(v);
     }
 
     // Build normalized findings
     let findings: Vec<NormalizedFinding> = groups
-        .into_iter()
+        .into_values()
         .map(|(rule_id, violations)| {
             let first = violations[0];
             let taxonomy_rule = RuleLookup::by_legacy_wcag_id(rule_id);
@@ -909,17 +945,20 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .max()
                 .unwrap_or(first.severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
-            // The confidence/risk/complexity heuristics match lowercased tokens that
-            // historically saw the German labels. Pass the German labels (label(false))
-            // so the classification stays byte-for-byte identical now that the stored
-            // string fields are canonical English (e.g. "Weak"/"Content" must not start
-            // matching the English "weak"/"content" token branches).
-            let subcategory_de = subcategory_kind.label(false);
+            // Assurance from the rule's detection method and what the
+            // occurrences of this page carry as evidence (#784).
+            let assurance = AssuranceBasis {
+                method: wcag_detection_method(&tax_id),
+                evidence: evidence_quality(violations.iter().map(|&v| wcag_anchor(v))),
+            };
+            let derived = derive_assurance(assurance.method, assurance.evidence);
+            let confidence = derived.confidence.to_string();
+            let false_positive_risk = derived.false_positive_risk.to_string();
+            let verification = derived.verification.to_string();
+            // The complexity heuristic matches lowercased tokens that
+            // historically saw the German labels; keep passing them so the
+            // classification stays byte-for-byte identical.
             let issue_class_de = issue_class_kind.label(false);
-            let confidence = derive_confidence(&tax_id, subcategory_de, issue_class_de);
-            let false_positive_risk =
-                derive_false_positive_risk(&tax_id, subcategory_de, issue_class_de);
-            let verification = derive_verification(&false_positive_risk);
             let (complexity, complexity_kind) =
                 derive_complexity(occurrence_count, &tax_id, issue_class_de);
             let complexity_reason = complexity_text(complexity_kind, true);
@@ -950,6 +989,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .unwrap_or_else(|| first.rule_name.clone());
 
             let id = a11y_report::FindingId::new(&tax_id, std::iter::empty()).to_string();
+            let contract = crate::audit::finding_contract::FindingContract::wcag(&tax_id, &id);
             // All occurrences, not the capped `occurrences` sample.
             let (patterns, pattern_count) = finding_patterns(
                 &tax_id,
@@ -987,6 +1027,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 confidence,
                 false_positive_risk,
                 verification,
+                assurance,
                 complexity,
                 complexity_reason,
                 complexity_kind,
@@ -995,6 +1036,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 bfsg_relevance,
                 remediation_priority,
                 occurrences,
+                contract,
             }
         })
         .collect();
@@ -1025,7 +1067,9 @@ pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFindin
     let mut aggregated: Vec<BatchFinding> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     for report in reports {
-        for finding in &report.findings {
+        // Actions are primary findings: references and derived indicator
+        // findings stay on the page, not in the batch action list (#780).
+        for finding in report.findings.iter().filter(|f| f.contract.is_primary()) {
             match index.get(&finding.aggregation_key) {
                 Some(&i) => {
                     let entry = &mut aggregated[i];
@@ -1199,97 +1243,6 @@ pub fn seo_heading_finding_text(
     (title, technical_impact)
 }
 
-fn aggregate_seo_findings(
-    seo: &crate::seo::SeoAnalysis,
-    max_occurrences: usize,
-) -> Vec<NormalizedFinding> {
-    let mut heading_groups: HashMap<&str, Vec<&crate::seo::HeadingIssue>> = HashMap::new();
-    for issue in &seo.headings.issues {
-        heading_groups
-            .entry(&issue.issue_type)
-            .or_default()
-            .push(issue);
-    }
-    let mut findings = Vec::new();
-    for (issue_type, issues) in heading_groups {
-        let first = issues[0];
-        let occurrence_count = issues.len();
-        let rule_id = format!("seo.headings.{}", issue_type);
-        // Canonical English is baked into the finding (→ JSON); the PDF re-derives
-        // German via `seo_heading_finding_text(.., false)` at render time (#406).
-        let (title, technical_impact) = seo_heading_finding_text(issue_type, true, &first.message);
-        let priority_score = calculate_priority_score(first.severity, occurrence_count, &rule_id);
-        let confidence = derive_confidence(&rule_id, "Content", "issue");
-        let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");
-        let verification = derive_verification(&false_positive_risk);
-        let (complexity, complexity_kind) = derive_complexity(occurrence_count, &rule_id, "issue");
-        let complexity_reason = complexity_text(complexity_kind, true);
-        let expected_impact_kind =
-            derive_expected_impact(first.severity, occurrence_count, "seo", "");
-        let expected_impact = expected_impact_text(&expected_impact_kind, true);
-        let bfsg_relevance = derive_bfsg_relevance("", "seo", "", "", first.severity);
-        let remediation_priority =
-            derive_remediation_priority(first.severity, occurrence_count, &complexity);
-        findings.push(NormalizedFinding {
-            // Page-level SEO checks have no element: the page is the pattern.
-            id: a11y_report::FindingId::new(&rule_id, std::iter::empty()).to_string(),
-            patterns: Vec::new(),
-            pattern_count: 0,
-            category: "seo".to_string(),
-            rule_id: rule_id.clone(),
-            wcag_criterion: String::new(),
-            axe_id: None,
-            wcag_level: String::new(),
-            dimension: "SEO".to_string(),
-            subcategory: "Content".to_string(),
-            issue_class: "issue".to_string(),
-            dimension_kind: crate::taxonomy::Dimension::Seo,
-            subcategory_kind: crate::taxonomy::Subcategory::ContentStructure,
-            issue_class_kind: crate::taxonomy::IssueClass::Weak,
-            severity: first.severity,
-            user_impact: String::new(),
-            technical_impact,
-            score_impact: ScoreImpactData {
-                base_penalty: 0.0,
-                max_penalty: 0.0,
-                scaling: "none".to_string(),
-            },
-            report_visibility: ReportVisibilityData::default(),
-            aggregation_key: rule_id,
-            title,
-            description: first.message.clone(),
-            help_url: None,
-            occurrence_count,
-            priority_score,
-            confidence,
-            false_positive_risk,
-            verification,
-            complexity,
-            complexity_reason,
-            complexity_kind,
-            expected_impact,
-            expected_impact_kind,
-            bfsg_relevance,
-            remediation_priority,
-            occurrences: issues
-                .iter()
-                .take(max_occurrences)
-                .map(|i| OccurrenceDetail {
-                    node_id: i.issue_type.clone(),
-                    message: i.message.clone(),
-                    selector: None,
-                    fix_suggestion: None,
-                    html_snippet: None,
-                    suggested_code: None,
-                    tags: vec!["seo".to_string()],
-                    ..Default::default()
-                })
-                .collect(),
-        });
-    }
-    findings
-}
-
 fn filter_aria_hidden_interactive(
     interactive_findings: &mut Vec<InteractiveFinding>,
     findings: &[NormalizedFinding],
@@ -1416,14 +1369,29 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     let mut findings = build_wcag_findings(violations);
-    if let Some(seo) = &report.discoverability.seo {
-        findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
-    }
-
-    findings.sort_by(crate::audit::prioritization::action_order);
 
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
+    let removed_interactive = report.interactive_findings.len() - interactive_findings.len();
+
+    let screen_reader = report
+        .screen_reader_audit
+        .as_ref()
+        .map(crate::screen_reader::ScreenReaderSummary::from_report);
+
+    // Every other domain joins the same finding set under the shared
+    // contract; the inventory accounts for each collected problem (#780).
+    let (domain_findings, finding_inventory) =
+        crate::audit::finding_contract::build_domain_findings(
+            report,
+            &interactive_findings,
+            removed_interactive,
+            screen_reader.as_ref(),
+            MAX_OCCURRENCES,
+        );
+    findings.extend(domain_findings);
+
+    findings.sort_by(crate::audit::prioritization::action_order);
 
     let score = report
         .viewport_scores
@@ -1641,11 +1609,6 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         });
     }
 
-    let screen_reader = report
-        .screen_reader_audit
-        .as_ref()
-        .map(crate::screen_reader::ScreenReaderSummary::from_report);
-
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = compute_risk_assessment(
         &findings,
@@ -1688,6 +1651,8 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         grade,
         certificate,
         findings,
+        finding_inventory,
+        decision: crate::audit::verdict::VerdictResult::undecided(),
         severity_counts,
         occurrence_counts,
         accessibility_assessments: normalize_assessments(&report.accessibility.wcag_results),
@@ -1741,6 +1706,12 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_commerce: report.commerce.as_ref(),
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
+    // Last: the decision reads the finished report, under the profile the
+    // run declared (#781).
+    ctx.normalized.decision = crate::audit::verdict::compute_verdict(
+        &ctx.normalized,
+        &report.run_context.decision_profile,
+    );
     ctx
 }
 
@@ -1756,6 +1727,107 @@ pub(crate) fn wcag_criterion_of(rule: &str) -> String {
 mod tests {
     use super::*;
     use crate::wcag::{Violation, WcagResults};
+
+    /// Two checks that resolve to one taxonomy rule (`links/name-missing`,
+    /// `buttons/name-missing`) are one finding with one id. They were two
+    /// rows sharing the id `a11y.control_name.missing` until the finding
+    /// contract rejected duplicate ids on a live page (#780).
+    #[test]
+    fn checks_of_one_rule_form_one_finding() {
+        let mut results = WcagResults::new();
+        for (axe, selector) in [
+            ("links/name-missing", "a.icon"),
+            ("buttons/name-missing", "button.x"),
+        ] {
+            results.add_violation(
+                Violation::new(
+                    "4.1.2",
+                    "Name, Role, Value",
+                    crate::cli::WcagLevel::A,
+                    Severity::High,
+                    "control has no accessible name",
+                    selector,
+                )
+                .with_rule_id(axe)
+                .with_selector(selector),
+            );
+        }
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let n = normalize(&report).normalized;
+        let rows: Vec<_> = n
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == "a11y.control_name.missing")
+            .collect();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].occurrence_count, 2);
+        assert_eq!(rows[0].pattern_count, 2);
+        n.validate().unwrap();
+    }
+
+    /// #784 counter-case: the same rule id with different evidence. A
+    /// located missing alt is confirmed and a legal flag; one whose element
+    /// could not be located (real AX node id, no selector, no evidence) asks
+    /// for review and raises no flag. The old derivation looked only at the
+    /// rule id and confirmed both.
+    #[test]
+    fn same_wcag_rule_with_different_evidence_differs_in_assurance() {
+        let finding = |selector: Option<&str>| {
+            let mut v = Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "no alt",
+                "42",
+            );
+            if let Some(s) = selector {
+                v = v.with_selector(s);
+            }
+            let mut results = WcagResults::new();
+            results.add_violation(v);
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let n = normalize(&report).normalized;
+            n.validate().unwrap();
+            n.findings.into_iter().next().unwrap()
+        };
+        let located = finding(Some("img.hero"));
+        let unlocated = finding(None);
+        assert_eq!(located.rule_id, unlocated.rule_id);
+        assert_eq!(located.assurance.evidence, EvidenceQuality::Located);
+        assert_eq!(located.confidence, "very_high");
+        assert_eq!(located.verification, "automatically_confirmed");
+        assert!(located.is_legal_flag());
+        assert_eq!(unlocated.assurance.evidence, EvidenceQuality::Unlocated);
+        assert_eq!(unlocated.confidence, "medium");
+        assert_eq!(unlocated.verification, "manual_review_recommended");
+        assert!(!unlocated.is_legal_flag());
+    }
+
+    /// A page-level check (placeholder node id) is a document observation:
+    /// confirmed, at `high` rather than `very_high` confidence.
+    #[test]
+    fn document_wide_wcag_finding_is_confirmed_at_high_confidence() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "3.1.1",
+            "Language of Page",
+            WcagLevel::A,
+            Severity::High,
+            "no lang",
+            "page",
+        ));
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let f = normalize(&report)
+            .normalized
+            .findings
+            .into_iter()
+            .next()
+            .unwrap();
+        assert_eq!(f.assurance.evidence, EvidenceQuality::Document);
+        assert_eq!(f.confidence, "high");
+        assert_eq!(f.verification, "automatically_confirmed");
+    }
 
     /// The page rules that emit their own slug as `Violation::rule` still land
     /// on their WCAG criterion (plan 61: dm.de showed

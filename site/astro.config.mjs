@@ -18,7 +18,6 @@ export default defineConfig({
       description:
         'WCAG 2.2 AA accessibility and website audits of rendered pages via the Chrome DevTools Protocol. JSON and PDF reports, PDF in German and English.',
       tagline: 'WCAG audits in a real browser',
-      website: 'https://auditmysite.casoon.de',
       repo: 'casoon/auditmysite',
       version,
       license: 'MIT',

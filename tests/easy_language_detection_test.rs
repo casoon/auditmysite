@@ -70,6 +70,8 @@ fn default_config() -> PipelineConfig {
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         lang: "de".to_string(),
         display_mode: None,
+        indexability: Default::default(),
+        decision_profile: Default::default(),
     }
 }
 

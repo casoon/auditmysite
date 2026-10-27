@@ -13,7 +13,7 @@ This workflow describes how to prepare the JSON output for a qualitative LLM ana
 | `navigation_views.landmarks` | Present ARIA landmarks |
 | `navigation_views.links` | All links, grouped and rated |
 | `issues` | Rule-based violations detected automatically |
-| `bfsg_compliance` | BFSG obligations and affected nodes |
+| `bfsg_compliance` | Outcome on the BFSG-relevant criteria the module checks (`verdict`, `evaluated_criteria`, `criteria_without_findings`, affected nodes) and what it leaves open (`conformance` and `legal_applicability` are always `not_determined`, `remaining_manual_review`) |
 
 ## What an LLM can add
 

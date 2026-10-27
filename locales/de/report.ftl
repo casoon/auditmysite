@@ -141,7 +141,8 @@ grade-deficient = Ausbaufähig
 grade-critical = Kritisch
 
 # Business / forward-looking consequence
-business-consequence-clean = Keine bekannten Barrieren — gutes Fundament für alle Nutzergruppen.
+business-consequence-clean = Keine Barrieren in der automatisierten Prüfung gefunden — eine solide Ausgangslage; die übrigen Kriterien brauchen noch eine manuelle Prüfung.
+business-consequence-unverified = Die automatisierte Prüfung hat die Seite nicht vollständig erfasst — das Ausbleiben von Befunden belegt keine Barrierefreiheit.
 business-consequence-severe = Weite Teile der Seite sind für bestimmte Nutzergruppen nicht oder kaum nutzbar.
 business-consequence-seo-headings = Seite wird schlechter gefunden und ist für Teile der Nutzer strukturell nicht zugänglich.
 business-consequence-screenreader = Einzelne Kernfunktionen sind für Screenreader-Nutzer blockiert oder fehleranfällig.
@@ -333,7 +334,7 @@ diagnosis-col-max-severity = Max. Schweregrad
 batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
-label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale
+label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale, nicht extern validiert
 
 # Optional/non-normative feature (Dark Mode, #577)
 label-optional-feature = Optionales Merkmal

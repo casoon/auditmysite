@@ -219,7 +219,7 @@ pub struct Args {
     /// resulting Total Blocking Time against the normal audit pass. Opt-in
     /// and costly (up to 5 extra full page reloads per audited page) —
     /// requires performance checking (`--full` or `--performance`) to also
-    /// be active, and only runs in single-URL mode.
+    /// be active; runs in single-URL and batch mode alike.
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
@@ -233,8 +233,8 @@ pub struct Args {
     /// search crawlers and assistive tools that do not execute JavaScript
     /// would see substantially less content. Opt-in and costly (one extra
     /// full page reload per audited page) — requires SEO checking
-    /// (`--full` or `--seo`) to also be active, and only runs in
-    /// single-URL mode.
+    /// (`--full` or `--seo`) to also be active; runs in single-URL
+    /// and batch mode alike.
     #[arg(long)]
     pub check_ssr_content: bool,
 
@@ -255,6 +255,15 @@ pub struct Args {
     /// `[data-audit-exclude]` is always honoured without this flag.
     #[arg(long = "exclude-selector", value_name = "CSS")]
     pub exclude_selector: Vec<String>,
+
+    /// Whether the audited pages are meant to be indexed by search engines.
+    ///
+    /// `true`: a `noindex` directive is a technical blocker (SEO score capped,
+    /// decision reason). `false`: `noindex` is intended and not reported.
+    /// Unset: a `noindex` stays a finding to review; sitemap runs assume
+    /// `true`, because a sitemap lists the URLs a site wants indexed.
+    #[arg(long = "expect-indexable", value_name = "BOOL")]
+    pub expect_indexable: Option<bool>,
 
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
@@ -966,6 +975,7 @@ mod tests {
 
     fn test_args(url: Option<&str>) -> Args {
         Args {
+            expect_indexable: None,
             command: None,
             url: url.map(|s| s.to_string()),
             sitemap: None,
