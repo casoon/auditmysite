@@ -135,11 +135,6 @@
       "rule_id": "focus-visible",
       "selector": "root",
       "verdict": "needs_review"
-    },
-    {
-      "rule_id": "keyboard/skip-link-missing",
-      "selector": "html",
-      "verdict": "needs_review"
     }
   ]
 }

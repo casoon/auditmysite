@@ -99,7 +99,7 @@ pub async fn analyze_html_conform(
     let report = match html_conform::check(&html) {
         Ok(report) => report,
         Err(e) => {
-            warn!("HTML conformance check setup failed: {}", e);
+            warn!("HTML conformance not checked: {}", e);
             return Ok(not_measured());
         }
     };

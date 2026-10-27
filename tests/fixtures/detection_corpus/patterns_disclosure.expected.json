@@ -4,7 +4,6 @@
     {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},
     {"rule_id": "patterns/accordion-controls-missing", "verdict": "needs_review"},
     {"rule_id": "keyboard/positive-tabindex", "verdict": "needs_review"},
-    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},

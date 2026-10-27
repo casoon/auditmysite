@@ -32,7 +32,7 @@ and verification for each change is in the
 - **CLI:** After the audited pages, the batch progress bar shows the sitemap check as its own stage instead of resting on the last page count.
 - **Dependencies:** `runemark` 0.9.
 - **Dependencies:** `renderreport` 0.7.1.
-- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.0.
+- **Dependencies:** `a11y-rules`, `a11y-report`, `a11y-dom`, `accname` 0.26.1; `web-checks` 0.5.1; `html-conform` 0.3.3.
 - **Accessibility:** Best-practice rules such as a missing `h1` or landmark rules no longer fail a WCAG criterion, and checks whose markup alone does not prove a violation (e.g. a referenced duplicate ID or positive `tabindex`) are listed for review; for 2.4.1 a `main` landmark or skip link counts as bypass.
 - **JSON:** Breaking: `top_actions[].root_cause` (free text that called anything with 10 occurrences or two pages a "likely shared component") is replaced by `finding_id` and, in batch reports, `root_cause_id` pointing into `summary.root_causes`.
 - **Mobile:** A disabled zoom (`user-scalable=no`) is still listed but no longer lowers the mobile score; it counts under accessibility (WCAG 1.4.4), where the same condition is already a finding.
@@ -62,8 +62,13 @@ and verification for each change is in the
 - **Accessibility:** A select named like a navigation control inside a form with its own submit control is no longer flagged under 3.2.2; unrendered videos are not checked for captions.
 - **Accessibility:** An overlay painted below a focused control no longer counts as obscuring it (2.4.12), and attribute errors inside tables or lists are no longer reported as content-model violations.
 - **Accessibility:** A finding without selector that both viewports report counts once instead of once per pass.
+- **Accessibility:** `role="list"` that one viewport needs (its markers hidden only there) is no longer reported as redundant; the finding stands only when both viewports report it.
+- **Accessibility:** The stylesheet rules (justified text, line height, focus outline, motion) also see declarations inside `@media` queries that apply at the audited width.
+- **Accessibility:** Content behind an open modal dialog is no longer reported as outside every landmark, while content in plain containers still is.
+- **Accessibility:** A document too deeply nested for the HTML conformance check marks the content-model rule as not run instead of passing it.
 - **Security:** HSTS preload eligibility is judged over HTTPS only; directives are read case-insensitively and with quoted values. A missing `object-src` respects the `default-src` fallback.
 - **Security:** A source-map page that answers with an error status, or a map probe without answer, is reported as not measured instead of "no leak".
+- **Security:** A very deeply nested page no longer aborts the whole audit with a stack overflow while the source-map check reads its asset links.
 - **Security:** Library versions are read from the URL path only, and plugins named after a library (jQuery UI, jquery.validate, Bootstrap Datepicker) are no longer taken for it.
 - **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
 - **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.

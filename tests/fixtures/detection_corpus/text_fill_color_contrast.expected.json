@@ -17,10 +17,6 @@
       "verdict": "needs_review"
     },
     {
-      "rule_id": "keyboard/skip-link-missing",
-      "verdict": "needs_review"
-    },
-    {
       "rule_id": "landmarks/banner-missing",
       "verdict": "needs_review"
     },

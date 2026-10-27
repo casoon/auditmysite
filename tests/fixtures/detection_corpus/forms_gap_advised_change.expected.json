@@ -4,7 +4,7 @@
     {
       "rule_id": "context/on-input",
       "selector": "select#ctx-advised",
-      "verdict": "absent"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "manual/no-timing",

@@ -299,6 +299,18 @@ impl Conn {
                         break;
                     }
                 }
+                // A connection the client opened but never used (a pooled or
+                // speculative connect) times out before sending a byte; that
+                // is no failed exchange. A timeout mid-request still is.
+                Err(e)
+                    if request.is_empty()
+                        && matches!(
+                            e.kind(),
+                            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                        ) =>
+                {
+                    return;
+                }
                 Err(e) => {
                     self.note(format!("read failed: {e}"));
                     return;

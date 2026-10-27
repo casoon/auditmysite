@@ -5,7 +5,6 @@
     {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
-    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
-    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"}
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"}
   ]
 }

@@ -17,11 +17,6 @@
       "occurrences": 1
     },
     {
-      "rule_id": "keyboard/skip-link-missing",
-      "selector": "html",
-      "verdict": "needs_review"
-    },
-    {
       "rule_id": "zoom/viewport-missing",
       "selector": "html",
       "verdict": "violation"

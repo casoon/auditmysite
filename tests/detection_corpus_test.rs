@@ -83,9 +83,14 @@ async fn detection_corpus_matches_real_audit_run() {
         let mut config = PipelineConfig::from_args_and_config(&args, None);
         config.wcag_level = WcagLevel::AAA;
 
-        let (report, _snapshot) = audit_page(&page, &fixture.url, &config, &manager)
-            .await
-            .unwrap_or_else(|e| panic!("Audit failed for case '{}': {e}", case.case));
+        // A hung case fails by name instead of blocking the whole run.
+        let (report, _snapshot) = tokio::time::timeout(
+            std::time::Duration::from_secs(300),
+            audit_page(&page, &fixture.url, &config, &manager),
+        )
+        .await
+        .unwrap_or_else(|_| panic!("Audit timed out after 300 s for case '{}'", case.case))
+        .unwrap_or_else(|e| panic!("Audit failed for case '{}': {e}", case.case));
 
         let normalized = auditmysite::audit::normalize(&report);
         let exported = auditmysite::output::UnifiedReport::single(&normalized, &report);
@@ -116,9 +121,22 @@ async fn detection_corpus_matches_real_audit_run() {
             let dir =
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/corpus-observations");
             std::fs::create_dir_all(&dir).unwrap();
+            let wcag = &report.accessibility.wcag_results;
+            let messages: Vec<String> = wcag
+                .violations
+                .iter()
+                .chain(&wcag.warnings)
+                .chain(&wcag.not_testables)
+                .map(|v| {
+                    format!(
+                        "{:?} {:?} {:?}: {}",
+                        v.kind, v.rule_id, v.selector, v.message
+                    )
+                })
+                .collect();
             std::fs::write(
                 dir.join(format!("{}.txt", case.case)),
-                format!("{observation:#?}"),
+                format!("{observation:#?}\n\n{}", messages.join("\n")),
             )
             .unwrap();
         }

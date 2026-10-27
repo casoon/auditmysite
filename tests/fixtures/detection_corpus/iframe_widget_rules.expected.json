@@ -11,7 +11,6 @@
     {"rule_id": "dialog/modal-unmarked", "selector": "iframe#widget [frame] div#consent-dialog", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "focus-visible", "verdict": "needs_review"},
     {"rule_id": "keyboard/hidden-focusable", "verdict": "violation"},
-    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},

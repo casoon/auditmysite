@@ -57,6 +57,49 @@ pub(super) fn with_shared_page_rule_violations(
     desktop.iter().chain(shared).cloned().collect()
 }
 
+/// A role one viewport needs is not redundant (#783): `role="list"` on a
+/// list whose markers only one layout hides restores the semantics there. A
+/// `lists/role-redundant` finding stands only where both passes report it for
+/// the same element; the others leave both passes — before scoring and merge,
+/// so score and report agree — and their run records count them out.
+pub(super) fn drop_single_viewport_redundant_roles(
+    desktop: &mut WcagResults,
+    mobile: &mut WcagResults,
+) {
+    const RULE: &str = "lists/role-redundant";
+    let keys = |r: &WcagResults| -> Vec<Option<String>> {
+        r.violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(RULE))
+            .map(|v| v.selector.clone())
+            .collect()
+    };
+    let (desktop_keys, mobile_keys) = (keys(desktop), keys(mobile));
+    let keep_paired = |results: &mut WcagResults, mut other: Vec<Option<String>>| {
+        let before = results.violations.len();
+        results.violations.retain(|v| {
+            if v.rule_id.as_deref() != Some(RULE) {
+                return true;
+            }
+            match other.iter().position(|k| *k == v.selector) {
+                Some(i) => {
+                    other.swap_remove(i);
+                    true
+                }
+                None => false,
+            }
+        });
+        let dropped = before - results.violations.len();
+        for run in &mut results.rule_outcomes {
+            if run.rule_id == RULE {
+                run.findings = run.findings.saturating_sub(dropped);
+            }
+        }
+    };
+    keep_paired(desktop, mobile_keys);
+    keep_paired(mobile, desktop_keys);
+}
+
 /// Merge violations from both passes.
 ///
 /// Dedup key: (rule, selector), or (rule, role and name) for a finding
@@ -714,6 +757,39 @@ mod tests {
                 .iter()
                 .any(|v| v.tags.iter().any(|t| t == "both-viewports")));
         }
+    }
+
+    #[test]
+    fn list_role_needed_in_one_viewport_is_not_redundant() {
+        let redundant = |selector: &str| {
+            Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                crate::wcag::Severity::Low,
+                "role=\"list\" repeats the implicit role",
+                "x",
+            )
+            .with_rule_id("lists/role-redundant")
+            .with_selector(selector)
+        };
+        let mut desktop = WcagResults::new();
+        desktop.violations.push(redundant("ul#cards"));
+        desktop.violations.push(redundant("ul#both"));
+        desktop
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::ran("lists/role-redundant", 2).in_viewport("desktop"));
+        let mut mobile = WcagResults::new();
+        mobile.violations.push(redundant("ul#both"));
+        mobile
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::ran("lists/role-redundant", 1).in_viewport("mobile"));
+        drop_single_viewport_redundant_roles(&mut desktop, &mut mobile);
+        assert_eq!(desktop.violations.len(), 1);
+        assert_eq!(desktop.violations[0].selector.as_deref(), Some("ul#both"));
+        assert_eq!(desktop.rule_outcomes[0].findings, 1);
+        assert_eq!(mobile.violations.len(), 1);
+        assert_eq!(mobile.rule_outcomes[0].findings, 1);
     }
 
     #[test]

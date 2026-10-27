@@ -1,0 +1,9 @@
+{
+  "case": "error_dom_too_deep_sabotaged",
+  "expectations": [
+    {
+      "rule_id": "context/on-input",
+      "verdict": "errored"
+    }
+  ]
+}

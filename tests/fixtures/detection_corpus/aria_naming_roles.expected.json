@@ -6,7 +6,6 @@
     {"rule_id": "dialog/modal-unmarked", "verdict": "needs_review"},
     {"rule_id": "dialog/focusable-missing", "verdict": "needs_review"},
     {"rule_id": "aria/required-parent-missing", "selector": "div", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"}

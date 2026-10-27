@@ -248,6 +248,12 @@ target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
 change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
 
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: stop passing rules of matching media queries"
+find = "        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);"
+replace = "        if (false) matched(r.cssRules, out, true);"
+killed_by = "corpus:visual_text_media_query"
 [[rule]]
 id = "text/line-height-tight"
 errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
@@ -932,7 +938,7 @@ alternative_labels = { cases = ["visual_meta_refresh_redirect"] }
 frames_shadow_dom = { not_relevant = "A refresh inside a frame reloads only that frame's document; the shared rule reads the top document (scope limit, not a different expectation)." }
 responsive = { not_relevant = "The declaration is the same in both viewports." }
 dynamic = { cases = ["visual_meta_refresh_redirect"] }
-thresholds = { cases = ["visual_meta_refresh_redirect", "visual_meta_refresh_exempt"] }
+thresholds = { cases = ["visual_meta_refresh_redirect", "visual_meta_refresh_exempt", "visual_meta_refresh_twenty_hours"] }
 
 [rule.test_strength]
 status = "killed"

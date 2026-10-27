@@ -170,6 +170,12 @@
       "occurrences": 1
     },
     {
+      "rule_id": "color/link-indistinct",
+      "selector": "iframe#embedded-frame [frame] a#fr-color",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
       "rule_id": "forms/label-missing",
       "selector": "iframe#embedded-frame [frame] input#fr-unlabelled",
       "verdict": "violation",

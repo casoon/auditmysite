@@ -508,7 +508,7 @@ automation = "automated"
 method = "shared"
 source = "Best practice: WAI-ARIA 1.2 main role; ARIA11; axe landmark-one-main (bypass itself is headings/none, SC 2.4.1)"
 capabilities = ["dom", "computed_style"]
-applicability = "Every top-level document."
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
 expectation = """
 Flags a document without a rendered main landmark (main element or
 role="main", also inside an open shadow root), at the html element. While a
@@ -517,11 +517,10 @@ instead. A hidden second main does not stand in for nor block the visible one.
 Best practice without a criterion; a missing bypass mechanism is
 headings/none."""
 page_level = false
-always_applicable = true
 ambient = false
 positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
 negative = ["structure_outline_clean", "landmark_main_in_shadow_root", "structure_aria_landmarks_svg_title", "structure_landmark_duplicates"]
-not_applicable = []
+not_applicable = ["structure_empty_body"]
 
 [rule.variants]
 visibility = { cases = ["structure_landmark_duplicates"] }
@@ -585,7 +584,7 @@ automation = "automated"
 method = "shared"
 source = "WAI-ARIA 1.2 banner role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
-applicability = "Every top-level document."
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
 expectation = """
 Asks for review when the document has no rendered banner landmark: a body-level
 header (not inside article, aside, main, nav or section) or role="banner". A
@@ -593,11 +592,10 @@ header inside main or article is no banner. A page may legitimately have no
 site header, so this is an expectation, not a failure. One review at the html
 element."""
 page_level = false
-always_applicable = true
 ambient = false
 positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
 negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_responsive_chrome", "structure_landmark_duplicates"]
-not_applicable = []
+not_applicable = ["structure_empty_body"]
 
 [rule.variants]
 visibility = { cases = ["structure_responsive_chrome"] }
@@ -624,18 +622,17 @@ automation = "automated"
 method = "shared"
 source = "WAI-ARIA 1.2 contentinfo role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
-applicability = "Every top-level document."
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
 expectation = """
 Asks for review when the document has no rendered contentinfo landmark: a
 body-level footer or role="contentinfo". A footer inside an article is the
 article's footer, not contentinfo. A page may legitimately have no footer, so
 this is an expectation, not a failure. One review at the html element."""
 page_level = false
-always_applicable = true
 ambient = false
 positive = ["missing_main_landmark", "structure_bypass_missing", "structure_bypass_review", "structure_modal_dynamic"]
 negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_landmark_duplicates"]
-not_applicable = []
+not_applicable = ["structure_empty_body"]
 
 [rule.variants]
 visibility = { not_relevant = "Same rendered-view decision as banner-missing (structure_responsive_chrome)." }
@@ -662,7 +659,7 @@ automation = "automated"
 method = "shared"
 source = "WAI-ARIA 1.2 navigation role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
-applicability = "Every top-level document."
+applicability = "Every top-level document. A body without any content has nothing to structure and is not applicable."
 expectation = """
 Asks for review when the document has no rendered navigation landmark (nav or
 role="navigation"). A page may legitimately have no navigation (a single
@@ -671,11 +668,10 @@ the desktop and the mobile navigation are separate elements shown per
 breakpoint, each viewport has one: nothing to report. One review at the html
 element."""
 page_level = false
-always_applicable = true
 ambient = false
 positive = ["missing_main_landmark", "structure_bypass_review", "structure_modal_dynamic"]
 negative = ["structure_outline_clean", "structure_aria_landmarks_svg_title", "structure_bypass_missing", "structure_responsive_chrome"]
-not_applicable = []
+not_applicable = ["structure_empty_body"]
 
 [rule.variants]
 visibility = { cases = ["structure_responsive_chrome"] }
@@ -889,6 +885,12 @@ target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
 change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id landmarks/content-outside)"
 
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: text below an excluded subtree counts as exposed"
+find = "            None if node.kind() == NodeKind::Text => {"
+replace = "            None if false => {"
+killed_by = "corpus:interaction_dialog_native"
 [[rule]]
 id = "ids/duplicate"
 errored = ["error_dom_too_deep"]
@@ -1200,3 +1202,10 @@ change = "drop the finding"
 find = "violations.push("
 replace = "std::mem::drop("
 killed_by = "lib:html_content_model"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/pipeline/mod.rs"
+change = "host: no not-run record when html-conform declines the document"
+find = "        if hc.raw_html.is_none()\n"
+replace = "        if false && hc.raw_html.is_none()\n"
+killed_by = "corpus:error_dom_too_deep"

@@ -5,7 +5,6 @@
     {"rule_id": "aria/required-attribute-missing", "selector": "div#quantity", "verdict": "violation"},
     {"rule_id": "aria/required-attribute-missing", "selector": "div#splitter", "verdict": "violation"},
     {"rule_id": "aria/required-attribute-missing", "selector": "input#text-slider", "verdict": "violation"},
-    {"rule_id": "keyboard/skip-link-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},

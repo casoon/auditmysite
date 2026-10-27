@@ -71,8 +71,8 @@ fn error_case_tests() -> BTreeSet<String> {
         .collect()
 }
 
-fn verdicts_for<'a>(
-    cases: &'a BTreeMap<String, ExpectedCase>,
+fn verdicts_for(
+    cases: &BTreeMap<String, ExpectedCase>,
     case: &str,
     id: &str,
 ) -> Option<Vec<Verdict>> {

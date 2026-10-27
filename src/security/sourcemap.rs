@@ -177,44 +177,46 @@ fn extract_asset_urls(page_url: &str, html: &str) -> Vec<String> {
 }
 
 /// Depth-first DOM walk collecting `<script src>` and
-/// `<link rel="stylesheet" href>` attribute values.
-fn collect_asset_hrefs(handle: &Handle, out: &mut Vec<String>) {
-    if let NodeData::Element { name, attrs, .. } = &handle.data {
-        let tag = name.local.as_ref();
-        let attrs = attrs.borrow();
-        let attr = |attr_name: &str| {
-            attrs
-                .iter()
-                .find(|a| a.name.local.as_ref().eq_ignore_ascii_case(attr_name))
-                .map(|a| a.value.to_string())
-        };
+/// `<link rel="stylesheet" href>` attribute values, in document order.
+/// Iterative: a deeply nested document must not overflow the stack (#783).
+fn collect_asset_hrefs(root: &Handle, out: &mut Vec<String>) {
+    let mut stack = vec![root.clone()];
+    while let Some(handle) = stack.pop() {
+        if let NodeData::Element { name, attrs, .. } = &handle.data {
+            let tag = name.local.as_ref();
+            let attrs = attrs.borrow();
+            let attr = |attr_name: &str| {
+                attrs
+                    .iter()
+                    .find(|a| a.name.local.as_ref().eq_ignore_ascii_case(attr_name))
+                    .map(|a| a.value.to_string())
+            };
 
-        if tag.eq_ignore_ascii_case("script") {
-            if let Some(src) = attr("src") {
-                if !src.trim().is_empty() {
-                    out.push(src);
+            if tag.eq_ignore_ascii_case("script") {
+                if let Some(src) = attr("src") {
+                    if !src.trim().is_empty() {
+                        out.push(src);
+                    }
                 }
-            }
-        } else if tag.eq_ignore_ascii_case("link") {
-            let is_stylesheet = attr("rel")
-                .map(|r| {
-                    r.to_ascii_lowercase()
-                        .split_whitespace()
-                        .any(|t| t == "stylesheet")
-                })
-                .unwrap_or(false);
-            if is_stylesheet {
-                if let Some(href) = attr("href") {
-                    if !href.trim().is_empty() {
-                        out.push(href);
+            } else if tag.eq_ignore_ascii_case("link") {
+                let is_stylesheet = attr("rel")
+                    .map(|r| {
+                        r.to_ascii_lowercase()
+                            .split_whitespace()
+                            .any(|t| t == "stylesheet")
+                    })
+                    .unwrap_or(false);
+                if is_stylesheet {
+                    if let Some(href) = attr("href") {
+                        if !href.trim().is_empty() {
+                            out.push(href);
+                        }
                     }
                 }
             }
         }
-    }
-
-    for child in handle.children.borrow().iter() {
-        collect_asset_hrefs(child, out);
+        // Reversed, so the first child is popped first.
+        stack.extend(handle.children.borrow().iter().rev().cloned());
     }
 }
 
@@ -234,6 +236,23 @@ fn extract_source_mapping_url(body: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn deeply_nested_document_does_not_overflow_the_stack() {
+        let depth = 20_000;
+        let html = format!(
+            "<html><body>{}<script src=\"/deep.js\"></script>{}</body></html>",
+            "<div>".repeat(depth),
+            "</div>".repeat(depth)
+        );
+        let assets = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || super::extract_asset_urls("https://example.com/", &html))
+            .unwrap()
+            .join()
+            .expect("no stack overflow");
+        assert_eq!(assets, vec!["https://example.com/deep.js".to_string()]);
+    }
+
     use super::*;
 
     #[test]

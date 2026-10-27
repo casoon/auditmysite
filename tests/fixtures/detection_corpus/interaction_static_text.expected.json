@@ -8,7 +8,7 @@
     { "rule_id": "keyboard/click-handler-not-focusable", "verdict": "not_applicable" },
     { "rule_id": "keyboard/scrollable-region-not-focusable", "verdict": "not_applicable" },
     { "rule_id": "keyboard/pointer-only", "verdict": "not_applicable" },
-    { "rule_id": "keyboard/skip-link-missing", "verdict": "not_applicable" },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "needs_review" },
     { "rule_id": "focus/outline-removed", "verdict": "not_applicable" },
     { "rule_id": "targets/size", "verdict": "not_applicable" },
     { "rule_id": "targets/size-enhanced", "verdict": "not_applicable" },

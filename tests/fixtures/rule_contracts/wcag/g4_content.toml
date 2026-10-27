@@ -202,6 +202,12 @@ target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
 change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id lists/role-redundant)"
 
+[[rule.test_strength.mutations]]
+target = "src/audit/pipeline/mod.rs"
+change = "host: keep role findings that only one viewport reports"
+find = "    drop_single_viewport_redundant_roles(&mut desktop_wcag, &mut mobile_wcag);\n"
+replace = ""
+killed_by = "corpus:content_lists_responsive_role"
 [[rule]]
 id = "tables/header-missing"
 errored = ["error_dom_too_deep"]

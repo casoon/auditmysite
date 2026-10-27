@@ -42,11 +42,6 @@
     },
     {
       "rule_id": "viz/table-missing",
-      "selector": "figure#f-europe",
-      "verdict": "needs_review"
-    },
-    {
-      "rule_id": "viz/table-missing",
       "selector": "figure#f-world",
       "verdict": "needs_review"
     }

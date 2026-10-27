@@ -158,8 +158,8 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
     // Ein Baum, auf den ohne Filter zwei Regeln anschlagen: 1.1.1 (Bild ohne
-    // Alternativtext) und `keyboard` (der seitenweite `UNTESTED`-Vermerk zur
-    // Tastaturfalle, `keyboard-trap`).
+    // Alternativtext) und `keyboard-trap` (der seitenweite `UNTESTED`-Vermerk
+    // zur Tastaturfalle, sobald etwas fokussierbar ist).
     //
     // Davor war das zweite Beispiel bypass (keine einzige Ueberschrift); die
     // Seite ohne Ueberschriften laeuft seit #694 als `headings/none` im
@@ -210,12 +210,17 @@ fn test_enabled_only_runs_exactly_those_rules() {
             node_id: "p1".to_string(),
             ignored: false,
             ignored_reasons: vec![],
-            role: Some("paragraph".to_string()),
-            name: None,
+            // A focusable component: the keyboard-trap note applies only
+            // where focus can reach one (#783).
+            role: Some("button".to_string()),
+            name: Some("Send".to_string()),
             name_source: None,
             description: None,
             value: None,
-            properties: vec![],
+            properties: vec![AXProperty {
+                name: "focusable".to_string(),
+                value: AXValue::Bool(true),
+            }],
             child_ids: vec![],
             parent_id: Some("root".to_string()),
             backend_dom_node_id: None,

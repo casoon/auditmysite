@@ -104,9 +104,16 @@ def build_command(cmd):
     return head + ["--no-run"]
 
 
-def passes(cmd, env):
-    return subprocess.run(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL).returncode == 0
+class TimedOut(Exception):
+    pass
+
+
+def passes(cmd, env, timeout=1800):
+    try:
+        return subprocess.run(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=timeout).returncode == 0
+    except subprocess.TimeoutExpired as e:
+        raise TimedOut(" ".join(cmd)) from e
 
 
 baseline_cache = {}
@@ -155,7 +162,11 @@ def main():
         print(f"[{i}/{len(todo)}] {domain}/{rule_id}: {m['change']}", flush=True)
         # One mutation per lock hold, so other sessions' builds interleave.
         with BuildLock():
-            problem = run_one(domain, rule_id, m)
+            try:
+                problem = run_one(domain, rule_id, m)
+            except TimedOut as e:
+                # A hang is no verdict: neither killed nor survived.
+                problem = f"{domain}/{rule_id}: INVALID — timed out ({e})"
         if problem:
             print(f"  {problem}", flush=True)
             problems.append(problem)

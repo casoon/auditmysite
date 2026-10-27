@@ -294,10 +294,6 @@
    "verdict": "errored"
   },
   {
-   "rule_id": "context/on-input",
-   "verdict": "errored"
-  },
-  {
    "rule_id": "context/on-focus",
    "verdict": "errored"
   },

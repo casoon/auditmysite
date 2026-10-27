@@ -1,22 +1,107 @@
 {
   "case": "content_images_broken",
   "expectations": [
-    {"rule_id": "images/alt-missing", "selector": "img#poster", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-missing", "selector": "img#wide-banner", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-missing", "selector": "img#narrow-banner", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-missing", "selector": "img#shadow-photo", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-missing", "selector": "img#late-photo", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-missing", "selector": "iframe#frame-gallery [frame] img#frame-photo", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/alt-suspicious", "selector": "img#file-alt", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "images/alt-suspicious", "selector": "img#short-alt", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "images/alt-suspicious", "selector": "img#filler-alt", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "images/area-alt-missing", "selector": "area#area-market", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/input-alt-missing", "selector": "input#search-go", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "images/server-side-map", "selector": "img#server-map", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "objects/alt-missing", "selector": "object#catalogue-pdf", "verdict": "violation", "occurrences": 1},
-    {"rule_id": "media/audio-autoplay", "selector": "audio#welcome-audio", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "image-alt", "verdict": "violation", "occurrences": 2},
-    {"rule_id": "manual/no-timing", "verdict": "needs_review"},
-    {"rule_id": "manual/help", "verdict": "needs_review"}
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "img#poster",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "img#wide-banner",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "img#narrow-banner",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "img#shadow-photo",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "img#late-photo",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-missing",
+      "selector": "iframe#frame-gallery [frame] img#frame-photo",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-suspicious",
+      "selector": "img#file-alt",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-suspicious",
+      "selector": "img#short-alt",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/alt-suspicious",
+      "selector": "img#filler-alt",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/area-alt-missing",
+      "selector": "area#area-market",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/input-alt-missing",
+      "selector": "input#search-go",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "images/server-side-map",
+      "selector": "img#server-map",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "objects/alt-missing",
+      "selector": "object#catalogue-pdf",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "media/audio-autoplay",
+      "selector": "audio#welcome-audio",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "image-alt",
+      "verdict": "violation",
+      "occurrences": 2
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/help",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a",
+      "verdict": "needs_review"
+    }
   ]
 }

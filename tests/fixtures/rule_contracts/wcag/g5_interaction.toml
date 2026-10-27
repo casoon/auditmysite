@@ -183,7 +183,7 @@ applicable (nothing to tab past)."""
 page_level = true
 positive = ["interaction_skip_link_missing"]
 negative = ["interaction_tab_order", "interaction_location_breadcrumb", "skip_link_language"]
-not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
+not_applicable = ["interaction_no_text", "no_focus_targets"]
 
 [rule.variants]
 visibility = { cases = ["interaction_tab_order"] }

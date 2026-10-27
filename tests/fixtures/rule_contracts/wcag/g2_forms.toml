@@ -898,7 +898,7 @@ killed_by = "corpus:forms_signin_many"
 
 [[rule]]
 id = "context/on-input"
-errored = ["error_dom_too_deep"]
+errored = ["error_dom_too_deep_sabotaged"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=context/on-input)"]
 automation = "automated"
 method = "shared"
@@ -919,7 +919,7 @@ navigation control ("Language", "Country") needs review when neither the
 page nor its own form offers a submit control; inside a form with a submit
 control nothing changes before the user submits."""
 positive = ["forms_context", "on_input_context_change", "forms_extended", "forms_embedded", "forms_dynamic_responsive"]
-negative = ["forms_context", "forms_autofill", "on_input_context_change", "forms_hidden", "forms_gap_advised_change"]
+negative = ["forms_context", "forms_autofill", "on_input_context_change", "forms_hidden"]
 not_applicable = ["forms_static_text"]
 
 [rule.variants]
@@ -1061,7 +1061,7 @@ position. role=link elements in running text are links too. Links inside a
 same-origin frame are content of the page (forms_gap_frame_link_color). If
 the host provides no computed style the rule reports itself untested."""
 positive = ["forms_link_color", "link_in_text_block_context", "forms_embedded", "forms_dynamic_responsive", "forms_gap_link_color", "forms_gap_frame_link_color"]
-negative = ["forms_link_color", "link_in_text_block_context", "forms_hidden", "forms_gap_link_color"]
+negative = ["forms_link_color", "link_in_text_block_context", "forms_hidden"]
 not_applicable = ["forms_static_text"]
 
 [rule.variants]
