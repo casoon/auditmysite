@@ -10,6 +10,7 @@ import {
   Features,
   Hero,
   Install,
+  Keymap,
   Quickstart,
   ReleaseHighlights,
   Terminal,
@@ -135,6 +136,37 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
   >
     <Terminal ansi={fixture('plan.txt')} />
   </BuildOutput>
+
+  <Keymap
+    heading="Common flags"
+    groups={[
+      {
+        heading: 'What to audit',
+        items: [
+          { label: 'Sitemap, as one batch report', keys: ['-s', '<sitemap-url>'] },
+          { label: 'URL list from a file', keys: ['-u', '<file>'] },
+          { label: 'Same-domain crawl from the URL', keys: ['--crawl'] },
+          { label: 'Cap the number of pages', keys: ['-m', '<num>'] },
+        ],
+      },
+      {
+        heading: 'What to check',
+        items: [
+          { label: 'Add performance, SEO, security, mobile', keys: ['--full'] },
+          { label: 'WCAG level (AAA is incomplete)', keys: ['-l', 'A|AA|AAA'] },
+        ],
+      },
+      {
+        heading: 'What to write',
+        items: [
+          { label: 'Report format', keys: ['-f', 'json|pdf|table'] },
+          { label: 'Output file', keys: ['-o', '<file>'] },
+          { label: 'PDF language', keys: ['--lang', 'de|en'] },
+          { label: 'One JSON per page plus findings.jsonl', keys: ['--technician'] },
+        ],
+      },
+    ]}
+  />
 
   <Quickstart
     lead="Install the binary, make sure a Chrome is available, point it at a URL. The documentation covers batch modes, reports and CI."
@@ -271,6 +303,9 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     color: var(--muted);
     font-size: 0.9rem;
     margin-top: 8px;
+  }
+  .demo figcaption a {
+    text-decoration: underline;
   }
   .limits .lead {
     color: var(--muted);
