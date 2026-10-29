@@ -3,7 +3,7 @@
 //! Handles launching Chrome in headless mode with optimized flags,
 //! managing CDP connections, and graceful shutdown.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,6 +19,13 @@ use super::resolver::{self, BrowserResolveOptions};
 use crate::error::{AuditError, Result};
 
 static BROWSER_PROFILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Prefix of every Chrome profile directory this tool creates in the temp
+/// dir: `auditmysite-chrome-<owner pid>-<nanos>-<n>`.
+const PROFILE_PREFIX: &str = "auditmysite-chrome-";
+
+/// Orphaned profiles are reaped once per process, before the first launch.
+static REAP_ORPHANS: std::sync::Once = std::sync::Once::new();
 
 /// Browser configuration options
 #[derive(Debug, Clone)]
@@ -87,6 +94,15 @@ impl BrowserManager {
 
     /// Create a new BrowserManager with custom options
     pub async fn with_options(options: BrowserOptions) -> Result<Self> {
+        REAP_ORPHANS.call_once(|| {
+            let reaped = reap_orphaned_profiles(&std::env::temp_dir());
+            if reaped > 0 {
+                info!(
+                    "Removed {} orphaned browser profile(s) of ended runs",
+                    reaped
+                );
+            }
+        });
         let user_data_dir = Self::create_user_data_dir()?;
 
         // Resolve browser first so we can use the real version in the UA string
@@ -309,7 +325,7 @@ impl BrowserManager {
             })?
             .as_nanos();
         let dir =
-            std::env::temp_dir().join(format!("auditmysite-chrome-{}-{}-{}", pid, unique, nonce));
+            std::env::temp_dir().join(format!("{PROFILE_PREFIX}{}-{}-{}", pid, unique, nonce));
         std::fs::create_dir_all(&dir).map_err(|e| AuditError::BrowserLaunchFailed {
             reason: format!(
                 "Failed to create browser profile directory {}: {}",
@@ -759,9 +775,192 @@ async fn follow_refresh_interstitial(page: &Page, url: &str) -> Option<MetaRefre
     Some(MetaRefresh { outcome, hops })
 }
 
+/// Removes what runs ended from outside left behind. A run killed by
+/// SIGKILL, a test-harness timeout or a supervisor never reaches `close()` or
+/// `Drop`: its headless Chrome keeps running under init and its profile stays
+/// in the temp dir. A profile whose owning auditmysite process is gone is
+/// orphaned; the Chrome still holding it (named in Chrome's own
+/// `SingletonLock`) is ended before the directory is removed. Returns the
+/// number of removed profiles.
+#[cfg(unix)]
+fn reap_orphaned_profiles(temp_dir: &Path) -> usize {
+    let Ok(entries) = std::fs::read_dir(temp_dir) else {
+        return 0;
+    };
+    let mut reaped = 0;
+    for entry in entries.flatten() {
+        let Some(owner) = entry.file_name().to_str().and_then(profile_owner_pid) else {
+            continue;
+        };
+        // A live owner (or a reused pid we cannot tell apart) keeps its profile.
+        if owner == std::process::id() || process_command(owner).is_some() {
+            continue;
+        }
+        let dir = entry.path();
+        if let Some(chrome) = singleton_lock_pid(&dir) {
+            // Only a process that runs on this very profile is ended, never
+            // whatever else got the pid since.
+            let profile = dir.to_string_lossy();
+            if process_command(chrome).is_some_and(|cmd| cmd.contains(profile.as_ref())) {
+                end_process(chrome);
+            }
+        }
+        if std::fs::remove_dir_all(&dir).is_ok() {
+            reaped += 1;
+        }
+    }
+    reaped
+}
+
+#[cfg(not(unix))]
+fn reap_orphaned_profiles(_temp_dir: &Path) -> usize {
+    0
+}
+
+/// The owning auditmysite pid encoded in a profile directory name.
+#[cfg(any(unix, test))]
+fn profile_owner_pid(name: &str) -> Option<u32> {
+    name.strip_prefix(PROFILE_PREFIX)?
+        .split('-')
+        .next()?
+        .parse()
+        .ok()
+}
+
+/// The pid of the Chrome holding `dir`, from its `SingletonLock` symlink
+/// (`<hostname>-<pid>`).
+#[cfg(any(unix, test))]
+fn singleton_lock_pid(dir: &Path) -> Option<u32> {
+    let target = std::fs::read_link(dir.join("SingletonLock")).ok()?;
+    target.to_str()?.rsplit('-').next()?.parse().ok()
+}
+
+/// The command line of a running process, `None` when there is none.
+#[cfg(unix)]
+fn process_command(pid: u32) -> Option<String> {
+    let output = std::process::Command::new("ps")
+        .args(["-o", "command=", "-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (output.status.success() && !command.is_empty()).then_some(command)
+}
+
+/// SIGTERM, then SIGKILL if the process is still there after two seconds.
+#[cfg(unix)]
+fn end_process(pid: u32) {
+    let signal = |sig: &str| {
+        let _ = std::process::Command::new("kill")
+            .args([sig, &pid.to_string()])
+            .status();
+    };
+    signal("-TERM");
+    for _ in 0..20 {
+        if process_command(pid).is_none() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    signal("-KILL");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_owner_and_lock_pid_are_parsed() {
+        assert_eq!(
+            profile_owner_pid("auditmysite-chrome-51833-1793097415612468000-0"),
+            Some(51833)
+        );
+        assert_eq!(profile_owner_pid("auditmysite-chrome-x-1-0"), None);
+        assert_eq!(profile_owner_pid("com.google.Chrome.7IUZYP"), None);
+
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(singleton_lock_pid(dir.path()), None);
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("Mac-mini-52181", dir.path().join("SingletonLock")).unwrap();
+            assert_eq!(singleton_lock_pid(dir.path()), Some(52181));
+        }
+    }
+
+    /// A pid that is certainly free right now: a child that has exited.
+    #[cfg(unix)]
+    fn dead_pid() -> u32 {
+        let mut child = std::process::Command::new("true").spawn().unwrap();
+        let pid = child.id();
+        child.wait().unwrap();
+        pid
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn orphaned_profile_and_its_chrome_are_reaped_but_live_ones_are_kept() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let orphan = temp
+            .path()
+            .join(format!("{PROFILE_PREFIX}{}-1-0", dead_pid()));
+        let own = temp
+            .path()
+            .join(format!("{PROFILE_PREFIX}{}-1-0", std::process::id()));
+        let unrelated = temp.path().join("someone-elses-dir");
+        for dir in [&orphan, &own, &unrelated] {
+            std::fs::create_dir(dir).unwrap();
+        }
+
+        // Stand-in for the orphaned Chrome: a process whose command line
+        // names the profile, like `--user-data-dir=<profile>` does. The `;`
+        // keeps `sh` from exec-ing `sleep` and dropping the argument.
+        let mut chrome = std::process::Command::new("sh")
+            .args(["-c", "sleep 30; :", "chrome"])
+            .arg(&orphan)
+            .spawn()
+            .unwrap();
+        std::os::unix::fs::symlink(
+            format!("host-{}", chrome.id()),
+            orphan.join("SingletonLock"),
+        )
+        .unwrap();
+
+        assert_eq!(reap_orphaned_profiles(temp.path()), 1);
+        assert!(!orphan.exists());
+        assert!(own.exists(), "a live owner keeps its profile");
+        assert!(unrelated.exists(), "foreign directories are never touched");
+        assert!(
+            chrome.wait().unwrap().signal().is_some(),
+            "the orphaned Chrome was ended"
+        );
+    }
+
+    /// The lock may name a pid that now belongs to another program; that
+    /// program must survive, only the profile goes.
+    #[cfg(unix)]
+    #[test]
+    fn a_reused_lock_pid_is_not_killed() {
+        let temp = tempfile::tempdir().unwrap();
+        let orphan = temp
+            .path()
+            .join(format!("{PROFILE_PREFIX}{}-1-0", dead_pid()));
+        std::fs::create_dir(&orphan).unwrap();
+        let mut other = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        std::os::unix::fs::symlink(format!("host-{}", other.id()), orphan.join("SingletonLock"))
+            .unwrap();
+
+        assert_eq!(reap_orphaned_profiles(temp.path()), 1);
+        assert!(
+            other.try_wait().unwrap().is_none(),
+            "unrelated process still runs"
+        );
+        other.kill().unwrap();
+        let _ = other.wait();
+    }
 
     #[test]
     fn test_short_refresh_delay_secs() {
