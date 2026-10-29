@@ -26,6 +26,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -109,11 +110,22 @@ class TimedOut(Exception):
 
 
 def passes(cmd, env, timeout=1800):
+    # Own process group: on a timeout the whole group goes, not only cargo.
+    # Killing cargo alone left the test binary and its headless Chrome
+    # running under init.
+    proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, start_new_session=True)
     try:
-        return subprocess.run(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, timeout=timeout).returncode == 0
+        return proc.wait(timeout=timeout) == 0
     except subprocess.TimeoutExpired as e:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
         raise TimedOut(" ".join(cmd)) from e
+    except KeyboardInterrupt:
+        # The own session no longer receives the terminal's Ctrl-C.
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        raise
 
 
 baseline_cache = {}
