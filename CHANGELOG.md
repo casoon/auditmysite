@@ -72,6 +72,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
 - **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.
 - **Browser:** A run that was killed from outside (SIGKILL, a supervisor or test timeout) no longer leaves its headless Chrome and profile directory behind for good: the next run ends a Chrome still holding an orphaned `auditmysite-chrome-*` profile and removes the profile.
 - **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).

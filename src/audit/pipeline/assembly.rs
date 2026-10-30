@@ -443,6 +443,10 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     crate::audit::AuditScope {
         requested_modules,
         requested_subchecks,
+        requested_rules: crate::wcag::shared::SHARED_RULES
+            .iter()
+            .map(|rule| rule.id.to_string())
+            .collect(),
         full_audit: config.full_audit,
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,
@@ -634,10 +638,13 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
         .module_runs
         .iter()
         .filter(|run| {
-            matches!(
-                run.status,
-                crate::audit::ExecutionStatus::Partial | crate::audit::ExecutionStatus::Failed
-            )
+            // The accessibility run is partial *because of* the errored rule
+            // checks counted above — one fact, one counter (#778).
+            run.reason_code.as_deref() != Some("one_or_more_rule_checks_failed")
+                && matches!(
+                    run.status,
+                    crate::audit::ExecutionStatus::Partial | crate::audit::ExecutionStatus::Failed
+                )
         })
         .count();
     let missing_capabilities = report
@@ -737,6 +744,146 @@ mod tests {
             );
             crate::audit::normalize_checked(&report).unwrap();
         }
+    }
+
+    fn quality_of(report: &mut AuditReport) -> crate::audit::AuditQualityStatus {
+        update_audit_quality(report);
+        report.accessibility.execution.quality.status
+    }
+
+    #[test]
+    fn execution_state_matrix_qualifies_the_audit() {
+        use crate::audit::AuditQualityStatus::{Complete, Insufficient, Partial};
+        use crate::interaction::stability::{StabilityProvenance, StabilityStatus};
+        use crate::wcag::{NotRun, RuleRun};
+
+        let with_rule = |run: RuleRun| {
+            let mut report = report_with_run("accessibility");
+            report.accessibility.wcag_results.rule_outcomes.push(run);
+            report
+        };
+        let with_stability = |status| {
+            let mut report = report_with_run("accessibility");
+            report
+                .accessibility
+                .execution
+                .navigation
+                .stability
+                .push(StabilityProvenance {
+                    viewport: "desktop".into(),
+                    status,
+                    ..Default::default()
+                });
+            report
+        };
+        let cases = [
+            ("ran", with_rule(RuleRun::ran("r", 0)), Complete),
+            (
+                "not applicable",
+                with_rule(RuleRun::not_run("r", NotRun::NotApplicable)),
+                Complete,
+            ),
+            (
+                "disabled by configuration",
+                with_rule(RuleRun::not_run("r", NotRun::Disabled)),
+                Complete,
+            ),
+            (
+                "capability missing",
+                with_rule(RuleRun::not_run("r", NotRun::CapabilityMissing)),
+                Partial,
+            ),
+            (
+                "errored",
+                with_rule(RuleRun::not_run("r", NotRun::Errored)),
+                Insufficient,
+            ),
+            ("stable", with_stability(StabilityStatus::Stable), Complete),
+            (
+                "ongoing animation",
+                with_stability(StabilityStatus::OngoingAnimation),
+                Complete,
+            ),
+            (
+                "fallback",
+                with_stability(StabilityStatus::Fallback),
+                Partial,
+            ),
+            (
+                "budget exhausted",
+                with_stability(StabilityStatus::BudgetExhausted),
+                Partial,
+            ),
+        ];
+        for (name, mut report, expected) in cases {
+            assert_eq!(quality_of(&mut report), expected, "{name}");
+            crate::audit::normalize_checked(&report)
+                .unwrap_or_else(|e| panic!("{name} must stay valid data: {e}"));
+        }
+    }
+
+    #[test]
+    fn an_errored_rule_is_counted_once() {
+        let mut report = report_with_run("probe");
+        report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::not_run(
+                "r",
+                crate::wcag::NotRun::Errored,
+            ));
+        ensure_requested_module_runs(&mut report);
+        update_audit_quality(&mut report);
+        let quality = &report.accessibility.execution.quality;
+        assert_eq!(quality.failed_rule_checks, 1);
+        assert_eq!(quality.partial_or_failed_modules, 0);
+    }
+
+    #[test]
+    fn a_complete_claim_over_incomplete_execution_is_rejected() {
+        use crate::wcag::{NotRun, RuleRun};
+        for run in [
+            RuleRun::not_run("r", NotRun::Errored),
+            RuleRun::not_run("r", NotRun::CapabilityMissing),
+        ] {
+            let mut report = report_with_run("accessibility");
+            report.accessibility.wcag_results.rule_outcomes.push(run);
+            update_audit_quality(&mut report);
+            // Tamper: claim completeness the execution data contradicts.
+            report.accessibility.execution.quality.status =
+                crate::audit::AuditQualityStatus::Complete;
+            report.accessibility.execution.quality.qualified_results = false;
+            let Err(err) = crate::audit::normalize_checked(&report) else {
+                panic!("contradiction must be rejected");
+            };
+            assert!(err
+                .violations
+                .iter()
+                .any(|v| v.code == "execution_completeness"));
+        }
+    }
+
+    #[test]
+    fn a_requested_rule_without_outcome_is_a_gap() {
+        let mut report = report_with_run("accessibility");
+        report.accessibility.execution.scope.requested_rules = vec!["lang/missing".into()];
+        update_audit_quality(&mut report);
+        let Err(err) = crate::audit::normalize_checked(&report) else {
+            panic!("contradiction must be rejected");
+        };
+        assert!(err
+            .violations
+            .iter()
+            .any(|v| v.code == "requested_rule_outcome"));
+
+        report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .push(crate::wcag::RuleRun::ran("lang/missing", 0));
+        update_audit_quality(&mut report);
+        crate::audit::normalize_checked(&report).unwrap();
     }
 
     #[test]

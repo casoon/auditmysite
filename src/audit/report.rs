@@ -103,6 +103,11 @@ pub struct AuditScope {
     /// Each carries a subcheck run in its module's `module_runs` (#788).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_subchecks: Vec<String>,
+    /// Shared rules this run is expected to account for with an outcome — run,
+    /// disabled by filter or level, or errored — in at least one viewport
+    /// (#778). Empty for reports from before the field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requested_rules: Vec<String>,
     pub full_audit: bool,
     pub interactive_mode: String,
     pub journey_budget_ms: u64,

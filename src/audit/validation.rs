@@ -272,6 +272,16 @@ impl NormalizedReport {
                 "each requested module needs exactly one explicit execution outcome".into(),
             );
         }
+        // Every requested rule has an outcome; its absence is a gap, not a
+        // pass (#778).
+        for rule in &self.execution.scope.requested_rules {
+            check(
+                self.rule_outcomes.iter().any(|run| &run.rule_id == rule),
+                "requested_rule_outcome",
+                format!("rule_outcomes[{rule}]"),
+                "each requested rule needs an explicit execution outcome".into(),
+            );
+        }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement
         // nor feeds the overall score (#777).
@@ -498,6 +508,20 @@ impl NormalizedReport {
                 Some(crate::wcag::NotRun::Errored | crate::wcag::NotRun::CapabilityMissing)
             )
         });
+        let errored = self
+            .rule_outcomes
+            .iter()
+            .filter(|run| crate::wcag::rule_run_errored(run))
+            .count();
+        check(
+            q.failed_rule_checks == errored,
+            "failed_rule_checks",
+            "execution.quality.failed_rule_checks".into(),
+            format!(
+                "quality counts {} failed rule checks, outcomes show {errored}",
+                q.failed_rule_checks
+            ),
+        );
         check(
             !(incomplete
                 || gaps.stability_fallbacks > 0
