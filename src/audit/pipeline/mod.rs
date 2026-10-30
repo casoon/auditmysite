@@ -1043,6 +1043,10 @@ pub async fn audit_page(
 
     // ── Merge ─────────────────────────────────────────────────────────────────
     drop_single_viewport_redundant_roles(&mut desktop_wcag, &mut mobile_wcag);
+    // Best practice without a criterion is a hint, not a WCAG failure (#779);
+    // after the pairing above, which still reads it as a violation.
+    wcag::shared::demote_best_practice(&mut desktop_wcag);
+    wcag::shared::demote_best_practice(&mut mobile_wcag);
     let mut merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
 
     // Page-level rules run once, on the mobile pass, but describe the page in

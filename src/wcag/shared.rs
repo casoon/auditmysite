@@ -1942,29 +1942,45 @@ fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom:
 }
 
 /// Schlagwort, mit dem `a11y-rules` eine Empfehlung kennzeichnet, die kein
-/// Erfolgskriterium belegt (`Normative Zuordnung`, a11y-rules 0.26).
+/// Erfolgskriterium belegt (`Normative Zuordnung`, a11y-rules 0.26). Ohne die
+/// Ausnahme [`CONVENTION_PREFIXES`] trägt kein Befund mit diesem Schlagwort
+/// ein Kriterium.
 const BEST_PRACTICE_TAG: &str = "best-practice";
 
-/// Ob die geteilte Regel nur eine Empfehlung belegt: Schlagwort
-/// `best-practice` und kein Kriterium am Befund.
-fn is_best_practice(finding: &Finding) -> bool {
-    finding.wcag.is_empty() && finding.tags.iter().any(|t| t == BEST_PRACTICE_TAG)
-}
+/// Die Darstellungskonvention (`viz/*`, `display/*`) trägt `best-practice`
+/// **und** das nächste Kriterium -- beabsichtigt, sie melden nur auf Seiten,
+/// die die Konvention benutzen. Für sie gilt die Herabstufung nicht.
+const CONVENTION_PREFIXES: [&str; 2] = ["viz/", "display/"];
 
-/// Das Urteil, das der Host aus dem Befund übernimmt.
+/// Stuft die Empfehlungen aus dem geteilten Bestand vom Verstoß zum Hinweis
+/// (`REVIEW`) herab.
 ///
-/// Die Tabelle [`SHARED_RULES`] trägt zu jeder Kennung ein Kriterium, weil
-/// die Ausgabe eines braucht. Bei einer Empfehlung wäre `FAIL` darunter eine
-/// Behauptung, die die Bibliothek bewusst nicht macht: eine h2 ohne h1 ist
-/// unter 1.3.1 als Überschrift bestimmbar (#779). Als bestätigter WCAG-
-/// Verstoß würde sie außerdem gewertet und neben `seo.headings.missing_h1`
-/// doppelt gezählt. Sie bleibt deshalb als Hinweis (`REVIEW`) sichtbar, mit
-/// dem Schlagwort `best-practice`, aber ohne Verstoß und ohne Punktabzug.
-fn host_outcome(finding: &Finding) -> Outcome {
-    if finding.outcome == Outcome::Fail && is_best_practice(finding) {
-        Outcome::Review
-    } else {
-        finding.outcome
+/// [`SHARED_RULES`] trägt zu jeder Kennung ein Kriterium, weil die Ausgabe
+/// eines braucht. Bei einer Empfehlung wäre `FAIL` darunter eine Behauptung,
+/// die die Bibliothek bewusst nicht macht: eine h2 ohne h1 ist unter 1.3.1
+/// als Überschrift bestimmbar (#779). Als bestätigter WCAG-Verstoß würde sie
+/// außerdem gewertet und neben `seo.headings.missing_h1` doppelt gezählt. Sie
+/// bleibt als Hinweis mit dem Schlagwort `best-practice` sichtbar, ohne
+/// Verstoß und ohne Punktabzug.
+///
+/// Eigener Schritt statt Teil von [`to_violation`]: Die Paarung der beiden
+/// Viewport-Durchgänge (`drop_single_viewport_redundant_roles`) liest die
+/// Verstöße und muss `lists/role-redundant` noch dort finden. Die Pipeline
+/// ruft das hier danach auf, vor Wertung und Zusammenführung.
+pub fn demote_best_practice(results: &mut WcagResults) {
+    let (demoted, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut results.violations)
+        .into_iter()
+        .partition(|v| {
+            v.kind == Outcome::Fail
+                && v.tags.iter().any(|t| t == BEST_PRACTICE_TAG)
+                && v.rule_id.as_deref().is_some_and(|id| {
+                    shared_rule(id).is_some()
+                        && !CONVENTION_PREFIXES.iter().any(|p| id.starts_with(p))
+                })
+        });
+    results.violations = kept;
+    for v in demoted {
+        results.add_violation(v.with_kind(Outcome::Review));
     }
 }
 
@@ -1989,7 +2005,7 @@ fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Viol
     )
     .with_rule_id(rule.id)
     .with_help_url(rule.help_url)
-    .with_kind(host_outcome(finding))
+    .with_kind(finding.outcome)
     .with_tags(finding.tags.clone());
 
     if let Some(n) = node {
@@ -2384,9 +2400,12 @@ mod tests {
         .expect("CDP-Knoten")
     }
 
+    /// Wie die Pipeline: geteilte Regeln, dann die Empfehlungen herabstufen.
     fn lauf_ueber(kinder: Vec<serde_json::Value>) -> WcagResults {
         let doc = build_document(&seite_mit_koerper(kinder), &AXTree::new()).unwrap();
-        run_shared_rules(&doc, "en")
+        let mut r = run_shared_rules(&doc, "en");
+        demote_best_practice(&mut r);
+        r
     }
 
     fn unter<'a>(liste: &'a [Violation], id: &str) -> Vec<&'a Violation> {
@@ -2417,6 +2436,23 @@ mod tests {
         assert_eq!(hinweis.len(), 1, "{:?}", r.warnings);
         assert_eq!(hinweis[0].kind, Outcome::Review);
         assert!(hinweis[0].tags.iter().any(|t| t == "best-practice"));
+    }
+
+    /// Die Darstellungskonvention behaelt ihr Kriterium: `viz/*` traegt
+    /// `best-practice` und 1.1.1 zugleich und bleibt ein Verstoss.
+    #[test]
+    fn darstellungskonvention_wird_nicht_herabgestuft() {
+        let mut r = WcagResults::new();
+        for id in ["viz/text-missing", "headings/h1-missing"] {
+            r.add_violation(
+                Violation::new("1.1.1", "x", WcagLevel::A, Severity::Medium, "m", "n")
+                    .with_rule_id(id)
+                    .with_tags(vec!["best-practice".to_string()]),
+            );
+        }
+        demote_best_practice(&mut r);
+        assert_eq!(unter(&r.violations, "viz/text-missing").len(), 1);
+        assert_eq!(unter(&r.warnings, "headings/h1-missing").len(), 1);
     }
 
     /// Gegenprobe: mit h1 meldet die Regel nichts. Die Korrektur darf den
