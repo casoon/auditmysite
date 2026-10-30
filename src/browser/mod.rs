@@ -20,6 +20,7 @@ pub mod mock;
 mod pool;
 mod registry;
 pub mod resolver;
+pub mod state;
 pub mod throttle;
 pub mod types;
 
@@ -37,4 +38,5 @@ pub use detection::{detect_chrome, find_chrome, ChromeInfo};
 pub use manager::{BrowserManager, BrowserOptions, MetaRefresh, MetaRefreshOutcome, SessionPolicy};
 pub(crate) use pool::PAGE_RETURN_BUDGET_SECS;
 pub use pool::{BrowserPool, PoolConfig, PoolStats, PooledPage};
+pub use state::StorageState;
 pub use throttle::ThrottleProfile;

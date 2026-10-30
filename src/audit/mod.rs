@@ -58,8 +58,8 @@ pub use report::{
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
     ExecutionStatus, ExperienceSection, MeasurementProfile, ModuleRun, NavigationSnapshot,
     PageScreenshots, PerformanceResults, RedirectChain, RobotsSitemapConflict, RunContext,
-    SampleMetadata, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun,
-    ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,
+    SampleMetadata, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, StorageStateRef,
+    SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,
     ViewportScoreSet, ViewportScores, ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};

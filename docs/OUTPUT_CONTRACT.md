@@ -120,6 +120,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 ## Measurement Profile
 
 - `audit_scope.measurement_profile` states how the pages were measured: `version` (meaning of the profile), `session_policy` (`isolated` or `shared`; `unknown` for reports from before the field), `read_only`, and `state_changing_journeys` (`form_error_submit`, `add_to_cart`, `quantity_stepper` when `--interactive full` permits them).
+- `state_id` and `storage_state` (`sha256`, `cookies`, `origins`) name a declared browser state (`--storage-state`, `--state-id`). Values never enter the report. A different state file is a different `sha256` and so another measurement.
 - A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
 
 ## Batch Sample Metadata

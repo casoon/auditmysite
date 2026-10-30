@@ -275,6 +275,22 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "isolated")]
     pub session: crate::browser::SessionPolicy,
 
+    /// Start every page from a declared browser state: a Playwright-style
+    /// `storage-state` JSON (`cookies[]`, `origins[].localStorage[]`), for a
+    /// reproducible login, consent or SPA state.
+    ///
+    /// Digest and counts — never values — are stored in the report's
+    /// measurement profile. The file may hold credentials: keep it out of
+    /// version control.
+    #[arg(long = "storage-state", value_name = "FILE")]
+    pub storage_state: Option<std::path::PathBuf>,
+
+    /// Name of the declared state (for example `logged-in`, `consent-all`),
+    /// stored in the measurement profile so a result names the state it was
+    /// measured in.
+    #[arg(long = "state-id", value_name = "ID")]
+    pub state_id: Option<String>,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
@@ -794,11 +810,20 @@ impl Args {
     }
 
     /// Validate arguments
+    /// The declared browser state, if `--storage-state` names one.
+    pub fn load_storage_state(&self) -> Result<Option<crate::browser::StorageState>, String> {
+        self.storage_state
+            .as_deref()
+            .map(|path| crate::browser::StorageState::load(path).map_err(|e| e.to_string()))
+            .transpose()
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
         }
+        self.load_storage_state()?;
 
         // At least one input source required (unless --detect-chrome)
         if !self.detect_chrome
@@ -1049,6 +1074,8 @@ mod tests {
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             session: Default::default(),
+            storage_state: None,
+            state_id: None,
             display: None,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),

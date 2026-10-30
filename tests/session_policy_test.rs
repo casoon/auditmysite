@@ -69,3 +69,65 @@ async fn shared_pages_carry_state_to_the_next_page() {
     assert_ne!(seen[0], seen[1]);
     assert!(seen[1].contains("k=1"), "{seen:?}");
 }
+
+/// What a page finds at load when the run starts from `state`, then what the
+/// next page finds when it starts from `next` (a login/consent switch).
+async fn seen_with_states(
+    first: Option<&auditmysite::browser::StorageState>,
+    next: Option<&auditmysite::browser::StorageState>,
+) -> Vec<String> {
+    let fixture = common::fixture_server::serve_html(PAGE.to_string());
+    let pool = BrowserPool::new(PoolConfig {
+        max_pages: 1,
+        browser_options: BrowserOptions {
+            no_sandbox: std::env::var("CI").is_ok(),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .await
+    .expect("pool");
+    let mut seen = Vec::new();
+    for state in [first, next] {
+        let pooled = pool.acquire().await.expect("page");
+        let page = pooled.page().expect("page");
+        if let Some(state) = state {
+            state.apply(page, &fixture.url).await;
+        }
+        pool.browser()
+            .navigate(page, &fixture.url)
+            .await
+            .expect("navigate");
+        seen.push(
+            page.evaluate("JSON.stringify(window.__seen)")
+                .await
+                .expect("evaluate")
+                .into_value::<String>()
+                .expect("value"),
+        );
+        drop(pooled);
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+    pool.close().await.ok();
+    fixture.stop();
+    seen
+}
+
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn declared_state_is_present_on_each_page_and_does_not_leak_to_the_next() {
+    // The fixture server's port is not known before it runs, so the state
+    // names the host and path scope and the origin is matched at runtime
+    // through a cookie only; localStorage is checked for the origin-bound
+    // script separately in the unit tests.
+    let state = auditmysite::browser::StorageState::from_bytes(
+        br#"{"cookies":[{"name":"login","value":"user-a","domain":"127.0.0.1","path":"/"}]}"#,
+    )
+    .unwrap();
+    let seen = seen_with_states(Some(&state), None).await;
+    assert!(seen[0].contains("login=user-a"), "{seen:?}");
+    assert!(
+        !seen[1].contains("login"),
+        "a login switch must not carry the previous state: {seen:?}"
+    );
+}

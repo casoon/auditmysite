@@ -148,6 +148,22 @@ pub struct MeasurementProfile {
     /// Journeys permitted to change state (submit clicks, cart triggers).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub state_changing_journeys: Vec<String>,
+    /// Name of the declared state the run started from (`--state-id`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_id: Option<String>,
+    /// The declared browser state by identity: digest and counts, never
+    /// values. `None` when every page started from an empty profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_state: Option<StorageStateRef>,
+}
+
+/// Identity of a declared browser state (`--storage-state`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageStateRef {
+    /// SHA-256 of the state file, hex.
+    pub sha256: String,
+    pub cookies: usize,
+    pub origins: usize,
 }
 
 impl Default for MeasurementProfile {
@@ -157,6 +173,8 @@ impl Default for MeasurementProfile {
             session_policy: "unknown".to_string(),
             read_only: false,
             state_changing_journeys: Vec::new(),
+            state_id: None,
+            storage_state: None,
         }
     }
 }

@@ -458,6 +458,14 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             .iter()
             .map(|j| j.to_string())
             .collect(),
+            state_id: config.state_id.clone(),
+            storage_state: config.storage_state.as_ref().map(|state| {
+                crate::audit::StorageStateRef {
+                    sha256: state.digest.clone(),
+                    cookies: state.cookie_count(),
+                    origins: state.origin_count(),
+                }
+            }),
         },
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,
@@ -869,6 +877,44 @@ mod tests {
             .iter()
             .any(|v| v.code == "measurement_profile_read_only"
                 || v.code == "measurement_profile_journeys"));
+    }
+
+    #[test]
+    fn declared_state_enters_the_profile_by_identity_not_by_value() {
+        use clap::Parser;
+        let mut config = crate::audit::PipelineConfig::from_args_and_config(
+            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
+        config.state_id = Some("logged-in".into());
+        config.storage_state = Some(
+            crate::browser::StorageState::from_bytes(
+                br#"{"cookies":[{"name":"sid","value":"TOPSECRET"}],"origins":[]}"#,
+            )
+            .unwrap(),
+        );
+        let scope = audit_scope_from_config(&config);
+        let json = serde_json::to_string(&scope).unwrap();
+        assert!(json.contains("logged-in") && json.contains("\"cookies\":1"));
+        assert!(!json.contains("TOPSECRET"), "{json}");
+        let without = audit_scope_from_config(&crate::audit::PipelineConfig {
+            storage_state: None,
+            state_id: None,
+            ..config.clone()
+        });
+        assert_ne!(
+            serde_json::to_string(&without).unwrap(),
+            json,
+            "another state is another measurement"
+        );
+        assert_ne!(
+            config.audit_signature(),
+            crate::audit::PipelineConfig {
+                storage_state: None,
+                ..config.clone()
+            }
+            .audit_signature()
+        );
     }
 
     #[test]

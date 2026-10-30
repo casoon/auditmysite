@@ -197,6 +197,21 @@
               "items": {
                 "type": "string"
               }
+            },
+            "state_id": {
+              "description": "Name of the declared state the run started from (--state-id).",
+              "type": "string"
+            },
+            "storage_state": {
+              "description": "Identity of the declared browser state: digest and counts, never values.",
+              "type": "object",
+              "required": ["sha256", "cookies", "origins"],
+              "additionalProperties": false,
+              "properties": {
+                "sha256": { "type": "string" },
+                "cookies": { "type": "integer", "minimum": 0 },
+                "origins": { "type": "integer", "minimum": 0 }
+              }
             }
           }
         },
