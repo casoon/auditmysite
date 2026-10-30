@@ -55,6 +55,21 @@ pub fn format_json_cached(normalized: &NormalizedReport, pretty: bool) -> Result
     UnifiedReport::single_from_normalized(normalized).to_json(pretty)
 }
 
+/// Generate single-report JSON by replaying a snapshot: no browser, no
+/// network, and `detail.modules` restored from the collected data
+/// (`module_detail: full`), unlike [`format_json_cached`]. A snapshot that is
+/// incomplete or from other versions is an error, never a report under
+/// today's semantics (#790).
+pub fn format_json_replay(
+    snapshot: &crate::audit::SnapshotArtifact,
+    pretty: bool,
+) -> std::result::Result<String, crate::audit::ReplayError> {
+    let report = crate::audit::replay_report(snapshot)?;
+    let ctx = crate::audit::normalize_checked(&report)?;
+    format_json_normalized(&ctx, &report, pretty)
+        .map_err(|e| crate::audit::ReplayError::Export(e.to_string()))
+}
+
 /// Generate batch-report JSON. `pages[i].detail` is omitted.
 pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<String> {
     crate::audit::validate_batch(batch_report)?;

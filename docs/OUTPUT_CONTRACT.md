@@ -123,6 +123,18 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 - `state_id` and `storage_state` (`sha256`, `cookies`, `origins`) name a declared browser state (`--storage-state`, `--state-id`). Values never enter the report. A different state file is a different `sha256` and so another measurement.
 - A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
 
+## Snapshot, Replay and Validation Paths
+
+The cache entry's `snapshot.json` is the collected evidence, independent of any presentation: the AX tree and raw module captures, the whole collected report (modules and subchecks, rule outcomes, execution states, `audit_scope` with its `measurement_profile`, the run context; screenshots excluded), the document identity (`requested_url`, `final_url`, `status_code`, `redirect_count`), the run language and `versions`.
+
+- `versions` records the snapshot schema, the content fingerprint, the collection contract, the measurement-profile version, the evaluation version (normalization, scoring, decision derivation), the decision contract and a digest of the shared rule catalogue. A snapshot is replayed only when all of them equal the current values.
+- `audit::replay(snapshot)` evaluates a snapshot without browser or network and returns the same `NormalizedReport` as the fresh run. Only `timestamp`, `duration_ms` and `execution.environment.source` (`replay`) may differ. `output::format_json_replay` exports it with `detail.module_detail: full`.
+- A snapshot that lacks parts (`ReplayError::Incomplete`, naming them) or was written under other versions (`ReplayError::Incompatible`, naming field, stored and current value) is never evaluated under today's semantics. `load_artifacts` treats it as a cache miss.
+- `format_json_cached` works on a stored `NormalizedReport` alone and says so with `module_detail: not_restored`; an empty module block there never stands for restored data.
+- Bump `SNAPSHOT_SCHEMA_VERSION` when the shape of the collected report changes in a way old data would survive deserialization, and `EVALUATION_VERSION` when a change moves a score, finding or verdict for unchanged input.
+
+Every fallible hand-over (live pipeline, `normalize_checked`, `validate_batch`, JSON single/cached/replay/batch, summary, SARIF, PDF source) validates the domain data first; `tests/validation_path_matrix.rs` refuses contradictory data at each of them and keeps the CLI dispatchers and the cache-hit path on the validating route. `audit::normalize`, `output::format_ai_json`, the terminal renderers and `technician::finding_rows` are infallible compatibility APIs: they hold no check of their own and are called only on data that came through a checked entry. A new unchecked `normalize()` call in `cli`, `output`, `studio` or `lib.rs` fails the test unless the baseline in `tests/fixtures/architecture/unchecked_normalize.txt` is changed on purpose. The 2.0 migration path for callers outside the crate is `normalize_checked` (identical model for valid data, `ReportContractError` with codes and data paths otherwise).
+
 ## Batch Sample Metadata
 
 - Batch reports may include a top-level `sample` block describing how the audited URL set was discovered and sampled:

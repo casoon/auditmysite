@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Added
 
+- **Snapshot:** `snapshot.json` now holds the whole collected report, the document identity (requested/final URL, status, redirects), the run language and the versions it was written under (snapshot schema, fingerprint, collection contract, measurement profile, evaluation, decision contract, rule-set digest). `audit::replay` evaluates it without browser or network into the same model as the fresh run; `output::format_json_replay` exports it with `detail.module_detail: full`. Incomplete or version-mismatched snapshots are reported as such (`ReplayError`) and are a cache miss, never read under current semantics. Cache entries of earlier builds are not reused. Details: [Snapshot, replay and validation paths](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#snapshot-replay-and-validation-paths).
+- **Validation:** `tests/validation_path_matrix.rs` checks that every fallible export entry refuses contradictory data and that unchecked `normalize()` calls in `cli`, `output` and `studio` do not grow.
 - **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
 - **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
 - **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.
