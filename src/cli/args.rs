@@ -265,13 +265,26 @@ pub struct Args {
     #[arg(long = "expect-indexable", value_name = "BOOL")]
     pub expect_indexable: Option<bool>,
 
+    /// Which cookies, storage and cache the audited pages share.
+    ///
+    /// `isolated` (default) — every URL runs in a browser context of its own,
+    /// so audit order and repetition cannot change a result.
+    /// `shared` — all pages use one profile: a consent choice, login or cart
+    /// created by one page reaches the next. Stored in the report's
+    /// measurement profile.
+    #[arg(long, value_enum, default_value = "isolated")]
+    pub session: crate::browser::SessionPolicy,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
     /// `off`   — no interactive phase, fastest.
     /// `basic` — tab walk + skip link + obvious pattern journeys.
     /// `full`  (default) — adds SPA navigation, form-error announcement,
-    ///           link-text inventory and outline export.
+    ///           link-text inventory and outline export. Also clicks submit
+    ///           buttons and add-to-cart triggers, which can change page or
+    ///           account state: listed in the report's measurement profile
+    ///           (`state_changing_journeys`). Use `basic` for a read-only run.
     ///
     /// Adds a few seconds per URL; recommended for single-URL audits.
     #[arg(long, value_enum, default_value = "full")]
@@ -560,6 +573,17 @@ pub enum InteractiveMode {
 }
 
 impl InteractiveMode {
+    /// The mode named in `audit_scope.interactive_mode`; `None` for a name
+    /// this version does not know.
+    pub fn from_scope_name(name: &str) -> Option<Self> {
+        match name {
+            "off" => Some(Self::Off),
+            "basic" => Some(Self::Basic),
+            "full" => Some(Self::Full),
+            _ => None,
+        }
+    }
+
     pub fn is_enabled(self) -> bool {
         !matches!(self, InteractiveMode::Off)
     }
@@ -1024,6 +1048,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
+            session: Default::default(),
             display: None,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),

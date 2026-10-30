@@ -70,6 +70,7 @@ mod tests {
             exclude_selectors: Vec::new(),
             interactive: InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+            session: Default::default(),
             lang: "de".to_string(),
             display_mode: None,
             indexability: Default::default(),

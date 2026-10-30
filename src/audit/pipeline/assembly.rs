@@ -448,6 +448,17 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             .map(|rule| rule.id.to_string())
             .collect(),
         full_audit: config.full_audit,
+        measurement_profile: crate::audit::MeasurementProfile {
+            version: crate::audit::MEASUREMENT_PROFILE_VERSION,
+            session_policy: config.session.as_str().to_string(),
+            read_only: crate::a11y_journey::state_changing_journeys(config.interactive).is_empty(),
+            state_changing_journeys: crate::a11y_journey::state_changing_journeys(
+                config.interactive,
+            )
+            .iter()
+            .map(|j| j.to_string())
+            .collect(),
+        },
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,
         throttling_profiles: if config.check_performance {
@@ -820,6 +831,44 @@ mod tests {
             crate::audit::normalize_checked(&report)
                 .unwrap_or_else(|e| panic!("{name} must stay valid data: {e}"));
         }
+    }
+
+    #[test]
+    fn measurement_profile_must_agree_with_the_interactive_depth() {
+        use clap::Parser;
+        let config_scope = |interactive: crate::cli::InteractiveMode| {
+            let mut config = crate::audit::PipelineConfig::from_args_and_config(
+                &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
+                None,
+            );
+            config.interactive = interactive;
+            audit_scope_from_config(&config)
+        };
+        let full = config_scope(crate::cli::InteractiveMode::Full);
+        assert!(!full.measurement_profile.read_only);
+        assert!(!full.measurement_profile.state_changing_journeys.is_empty());
+        assert_eq!(full.measurement_profile.session_policy, "isolated");
+        let basic = config_scope(crate::cli::InteractiveMode::Basic);
+        assert!(basic.measurement_profile.read_only);
+
+        // A read-only mode claiming a state-changing journey is rejected.
+        let mut report = report_with_run("accessibility");
+        report.accessibility.execution.scope = basic;
+        report
+            .accessibility
+            .execution
+            .scope
+            .measurement_profile
+            .state_changing_journeys = vec!["add_to_cart".into()];
+        update_audit_quality(&mut report);
+        let Err(err) = crate::audit::normalize_checked(&report) else {
+            panic!("contradiction must be rejected");
+        };
+        assert!(err
+            .violations
+            .iter()
+            .any(|v| v.code == "measurement_profile_read_only"
+                || v.code == "measurement_profile_journeys"));
     }
 
     #[test]

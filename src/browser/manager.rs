@@ -9,6 +9,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chromiumoxide::browser::{Browser, BrowserConfig, HeadlessMode};
+use chromiumoxide::cdp::browser_protocol::browser::BrowserContextId;
+use chromiumoxide::cdp::browser_protocol::target::{
+    CreateBrowserContextParams, CreateTargetParams,
+};
 use chromiumoxide::Page;
 use futures::StreamExt;
 use tokio::sync::Mutex;
@@ -26,6 +30,44 @@ const PROFILE_PREFIX: &str = "auditmysite-chrome-";
 
 /// Orphaned profiles are reaped once per process, before the first launch.
 static REAP_ORPHANS: std::sync::Once = std::sync::Once::new();
+
+/// Which cookies, storage and cache pages of one run share (#787).
+///
+/// The choice is part of the measurement profile and is stored in the report:
+/// the same URL measured under another policy is another measurement.
+#[derive(
+    clap::ValueEnum,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionPolicy {
+    /// Every URL runs in a browser context of its own: no cookies, storage
+    /// or cache survive from the pages audited before it, so order and
+    /// repetition cannot change a result.
+    #[default]
+    #[value(name = "isolated")]
+    Isolated,
+    /// All pages share one browser profile; a consent choice, login or cart
+    /// created by one page is seen by the next.
+    #[value(name = "shared")]
+    Shared,
+}
+
+impl SessionPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Isolated => "isolated",
+            Self::Shared => "shared",
+        }
+    }
+}
 
 /// Browser configuration options
 #[derive(Debug, Clone)]
@@ -51,6 +93,8 @@ pub struct BrowserOptions {
     /// Report every page as focused and visible (CDP focus emulation). Only
     /// parallel batch pages need it; see [`BrowserManager::new_page`].
     pub focus_emulation: bool,
+    /// Whether the pages of a pool share cookies and storage (#787).
+    pub session: SessionPolicy,
 }
 
 impl Default for BrowserOptions {
@@ -66,6 +110,7 @@ impl Default for BrowserOptions {
             verbose: false,
             user_agent_override: None,
             focus_emulation: false,
+            session: SessionPolicy::default(),
         }
     }
 }
@@ -336,17 +381,59 @@ impl BrowserManager {
         Ok(dir)
     }
 
-    /// Create a new page (tab) in the browser
+    /// The session policy this browser was launched with.
+    pub fn session_policy(&self) -> SessionPolicy {
+        self.options.session
+    }
+
+    /// Create a new page (tab) in the browser's default context.
     pub async fn new_page(&self) -> Result<Page> {
+        self.new_page_in(None).await
+    }
+
+    /// Create a page in a browser context of its own: no cookies, storage or
+    /// cache are shared with any other page (session policy `isolated`).
+    /// Dispose the context with [`Self::dispose_context`] when the page is
+    /// done.
+    pub async fn new_isolated_page(&self) -> Result<(Page, BrowserContextId)> {
+        let context = self
+            .browser
+            .create_browser_context(CreateBrowserContextParams::default())
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to create isolated browser context: {e}"),
+            })?;
+        match self.new_page_in(Some(context.clone())).await {
+            Ok(page) => Ok((page, context)),
+            Err(e) => {
+                self.dispose_context(context).await;
+                Err(e)
+            }
+        }
+    }
+
+    /// Drop a context created by [`Self::new_isolated_page`] with everything
+    /// it stored.
+    pub async fn dispose_context(&self, context: BrowserContextId) {
+        if let Err(e) = self.browser.dispose_browser_context(context).await {
+            warn!("Failed to dispose browser context: {e}");
+        }
+    }
+
+    async fn new_page_in(&self, context: Option<BrowserContextId>) -> Result<Page> {
         use chromiumoxide::cdp::browser_protocol::emulation::SetFocusEmulationEnabledParams;
         use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 
-        let page = self.browser.new_page("about:blank").await.map_err(|e| {
-            AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to create new page: {}", e),
-            }
-        })?;
+        let mut target = CreateTargetParams::new("about:blank");
+        target.browser_context_id = context;
+        let page =
+            self.browser
+                .new_page(target)
+                .await
+                .map_err(|e| AuditError::BrowserLaunchFailed {
+                    reason: format!("Failed to create new page: {}", e),
+                })?;
 
         // Tabs of one window are hidden except the active one: a hidden page
         // never runs requestAnimationFrame and has no focus. In a batch that

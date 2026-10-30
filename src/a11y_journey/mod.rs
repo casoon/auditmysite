@@ -82,13 +82,30 @@ pub const DEFAULT_BUDGET_MS: u64 = 15_000;
 /// ohne Hänger lag bei 5,6 s (Modal).
 const JOURNEY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
+/// Journeys that click controls able to change page or account state: a
+/// submit button, an add-to-cart trigger, a quantity stepper (#787). Only
+/// `--interactive full` runs them; `basic` and `off` are read-only. The
+/// measurement profile lists the permitted ones, with the ids the JSON uses.
+const STATE_CHANGING: [(JourneyKind, &str); 3] = [
+    (JourneyKind::FormErrorSubmit, "form_error_submit"),
+    (JourneyKind::AddToCart, "add_to_cart"),
+    (JourneyKind::QuantityStepper, "quantity_stepper"),
+];
+
+/// Ids of the state-changing journeys `mode` permits; empty for a read-only
+/// run.
+pub fn state_changing_journeys(mode: InteractiveMode) -> Vec<&'static str> {
+    STATE_CHANGING
+        .iter()
+        .filter(|(kind, _)| journey_allowed(mode, *kind))
+        .map(|(_, id)| *id)
+        .collect()
+}
+
 fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
     match mode {
         InteractiveMode::Off => false,
-        InteractiveMode::Basic => !matches!(
-            journey,
-            JourneyKind::FormErrorSubmit | JourneyKind::AddToCart | JourneyKind::QuantityStepper
-        ),
+        InteractiveMode::Basic => !STATE_CHANGING.iter().any(|(kind, _)| *kind == journey),
         InteractiveMode::Full => true,
     }
 }
@@ -477,6 +494,21 @@ pub(super) async fn eval_string(page: &Page, js: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_a_full_run_may_change_state() {
+        assert!(state_changing_journeys(InteractiveMode::Off).is_empty());
+        assert!(state_changing_journeys(InteractiveMode::Basic).is_empty());
+        assert_eq!(
+            state_changing_journeys(InteractiveMode::Full),
+            ["form_error_submit", "add_to_cart", "quantity_stepper"]
+        );
+        // The profile list and the gate are one fact.
+        for (kind, id) in STATE_CHANGING {
+            assert!(!journey_allowed(InteractiveMode::Basic, kind), "{id}");
+            assert!(journey_allowed(InteractiveMode::Full, kind), "{id}");
+        }
+    }
+
     use super::*;
 
     fn candidate(confidence: f32, backend: i64) -> JourneyCandidate {

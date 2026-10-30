@@ -52,6 +52,7 @@
 //!         exclude_selectors: Vec::new(),
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
 //!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
+//!         session: Default::default(),
 //!         lang: "de".to_string(),
 //!         display_mode: None,
 //!         indexability: Default::default(),

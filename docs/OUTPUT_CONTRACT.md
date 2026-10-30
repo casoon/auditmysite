@@ -117,6 +117,11 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). These are approximations, not direct measurements, and must not be read as field metrics.
 - In rendered reports, estimated metrics carry a localized "(lab estimate)" / "(Lab-Schätzung)" suffix, and the performance section states that all values are lab data, not field data.
 
+## Measurement Profile
+
+- `audit_scope.measurement_profile` states how the pages were measured: `version` (meaning of the profile), `session_policy` (`isolated` or `shared`; `unknown` for reports from before the field), `read_only`, and `state_changing_journeys` (`form_error_submit`, `add_to_cart`, `quantity_stepper` when `--interactive full` permits them).
+- A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
+
 ## Batch Sample Metadata
 
 - Batch reports may include a top-level `sample` block describing how the audited URL set was discovered and sampled:

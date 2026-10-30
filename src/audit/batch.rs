@@ -47,6 +47,7 @@ impl From<&Args> for BatchConfig {
             browser_options: BrowserOptions {
                 // Parallel pages share one window; only then are tabs hidden.
                 focus_emulation: args.effective_concurrency() > 1,
+                session: args.session,
                 chrome_path: args.chrome_path.clone(),
                 no_sandbox: args.no_sandbox,
                 disable_images: args.disable_images,

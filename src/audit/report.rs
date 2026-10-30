@@ -109,6 +109,10 @@ pub struct AuditScope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_rules: Vec<String>,
     pub full_audit: bool,
+    /// Measurement profile: under which session policy the pages ran and
+    /// which journeys may change page or account state (#787).
+    #[serde(default)]
+    pub measurement_profile: MeasurementProfile,
     pub interactive_mode: String,
     pub journey_budget_ms: u64,
     #[serde(default)]
@@ -122,6 +126,39 @@ pub struct AuditScope {
     /// `--display` default to `site_default`, which is what they measured.
     #[serde(default)]
     pub display_mode: crate::display::AuditedDisplayMode,
+}
+
+/// Version of the measurement profile's meaning. A report of another
+/// version is another contract, never the same measurement.
+pub const MEASUREMENT_PROFILE_VERSION: u32 = 1;
+
+/// How the pages of a run were measured beyond the viewport (#787).
+///
+/// `read_only` runs observe; a run with `state_changing_journeys` also
+/// clicks controls that can submit a form or change a cart. The distinction
+/// is stored with the result so it is never an invisible side effect.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MeasurementProfile {
+    pub version: u32,
+    /// Cookie/storage/cache sharing between the pages of the run:
+    /// `isolated` or `shared`. `unknown` for reports from before the field.
+    pub session_policy: String,
+    /// True when no journey that can change page or account state may run.
+    pub read_only: bool,
+    /// Journeys permitted to change state (submit clicks, cart triggers).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub state_changing_journeys: Vec<String>,
+}
+
+impl Default for MeasurementProfile {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            session_policy: "unknown".to_string(),
+            read_only: false,
+            state_changing_journeys: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

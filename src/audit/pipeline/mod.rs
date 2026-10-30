@@ -372,6 +372,9 @@ pub struct PipelineConfig {
     pub interactive: crate::cli::InteractiveMode,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     pub journey_budget_ms: u64,
+    /// Session policy of the browser the pages run in; part of the
+    /// measurement profile (#787).
+    pub session: crate::browser::SessionPolicy,
     /// Report locale ("de" / "en") — used for i18n stopword loading.
     pub lang: String,
     /// Display mode of the data-display convention to audit in (#653).
@@ -428,13 +431,13 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 22;
+        const CACHE_FMT: u8 = 23;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -453,6 +456,7 @@ impl PipelineConfig {
             self.dismiss_consent as u8,
             self.interactive,
             self.journey_budget_ms,
+            self.session.as_str(),
             self.lang,
             disabled.join(","),
             enabled_only.join(","),
@@ -569,6 +573,7 @@ impl PipelineConfig {
                 .collect(),
             interactive: args.interactive,
             journey_budget_ms,
+            session: args.session,
             lang: args.lang.clone(),
             display_mode: args.display.and_then(|d| d.mode()),
             indexability: {
@@ -2155,6 +2160,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            session: Default::default(),
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
             display: None,
@@ -2335,6 +2341,7 @@ mod tests {
             exclude_selectors: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+            session: Default::default(),
             lang: "de".to_string(),
             display_mode: None,
             indexability: Default::default(),

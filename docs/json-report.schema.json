@@ -154,6 +154,52 @@
             "type": "string"
           }
         },
+        "requested_subchecks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requested_rules": {
+          "description": "Shared rules the run must account for with an outcome (#778).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "measurement_profile": {
+          "description": "How the pages were measured: session policy and state-changing journeys (#787).",
+          "type": "object",
+          "required": [
+            "version",
+            "session_policy",
+            "read_only"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "session_policy": {
+              "type": "string",
+              "enum": [
+                "isolated",
+                "shared",
+                "unknown"
+              ]
+            },
+            "read_only": {
+              "type": "boolean"
+            },
+            "state_changing_journeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "full_audit": {
           "type": "boolean"
         },

@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Session:** `--session isolated|shared` (default `isolated`) chooses whether the pages of a run share cookies and storage; isolated pages run in a browser context of their own, so audit order and repetition cannot change a result. The choice is stored in `audit_scope.measurement_profile` (`version`, `session_policy`, `read_only`, `state_changing_journeys`) and in the cache key; `--interactive basic` is a read-only run, `full` lists the journeys that can submit forms or change a cart.
 - **Batch:** `summary.score_spread` (min, median, max, standard deviation, five worst pages) and `summary.selection_profile` (audited pages by page type and language, unknowns counted) accompany `average_score`; a `first_n` selection is documented as valid for the audited pages only, not as a representative sample of the site.
 - **AI transparency:** `ai_transparency.coverage` counts attempted, checked and limit-skipped images and failed fetches by reason (`redirect_not_followed`, `oversized`, `timeout`, `host_not_public`, …).
 - **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
