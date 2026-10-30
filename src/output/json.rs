@@ -623,6 +623,15 @@ pub struct BatchContentProfile {
     pub top_issues: Vec<String>,
 }
 
+/// How complete `detail.modules` is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModuleDetailState {
+    Full,
+    Omitted,
+    NotRestored,
+}
+
 /// Per-page module detail blob — single reports only.
 #[derive(Debug, Serialize)]
 pub struct PageDetail {
@@ -645,6 +654,12 @@ pub struct PageDetail {
     /// (#581). Single reports only.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub security_category_scores: Vec<crate::audit::normalized::SecurityCategoryScoreEntry>,
+    /// What `modules` holds: collected data (`full`), nothing because the
+    /// projection is compact by design (`omitted`), or nothing because the
+    /// run is a cache replay without raw module data (`not_restored`). An
+    /// empty `modules` is never to be read as "the modules found nothing"
+    /// unless this says `full` (#790).
+    pub module_detail: ModuleDetailState,
     pub modules: ModuleBlob,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub confidence_summary: Vec<OutputConfidenceSignal>,

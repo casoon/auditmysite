@@ -906,6 +906,11 @@
             }
           }
         },
+        "module_detail": {
+          "description": "What detail.modules holds: full (collected data), omitted (compact batch projection) or not_restored (cache replay without raw module data). Empty modules mean 'nothing found' only when this is full.",
+          "type": "string",
+          "enum": ["full", "omitted", "not_restored"]
+        },
         "viewport_scores": {
           "type": [
             "object",

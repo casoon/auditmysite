@@ -1990,6 +1990,7 @@ pub(crate) fn persist_artifacts(
         cached_at: report.timestamp,
         content_hash: hash.clone(),
         audit_signature: config.audit_signature(),
+        fingerprint_version: crate::audit::artifacts::FINGERPRINT_VERSION,
     };
     // Persist the full report so cache hits render every module faithfully.
     // Screenshots reference temp files that won't exist on reload, so strip them.
