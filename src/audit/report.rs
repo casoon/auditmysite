@@ -763,7 +763,9 @@ pub struct BatchReport {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub consistency: Option<crate::audit::batch_consistency::BatchConsistencyAnalysis>,
     /// How the audited URLs were discovered and sampled. Lets consumers tell a
-    /// representative sample apart from full domain coverage (issue #261).
+    /// partial selection apart from full domain coverage (issues #261, #791).
+    /// A selection is no evidence of representativeness: statements hold for
+    /// the successfully audited pages only.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub sample: Option<SampleMetadata>,
     /// Total execution time
@@ -1080,6 +1082,113 @@ pub struct BatchSummary {
     pub root_causes: Vec<crate::audit::template_dedup::RootCause>,
     #[serde(default)]
     pub audit_quality: AuditQuality,
+    /// Spread and worst cases of the page scores next to the mean (#791).
+    /// `None` when no page produced a report.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score_spread: Option<ScoreSpread>,
+    /// What the successfully audited pages are: page types and languages
+    /// (#791). Describes the selection; it does not make it representative.
+    #[serde(default)]
+    pub selection_profile: SelectionProfile,
+}
+
+/// Distribution of the page scores behind `average_score`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScoreSpread {
+    pub min: u32,
+    pub median: f64,
+    pub max: u32,
+    /// Population standard deviation of the page scores.
+    pub std_dev: f64,
+    /// Lowest-scoring pages, worst first (at most [`ScoreSpread::WORST_CASES`]).
+    pub worst_pages: Vec<WorstPage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorstPage {
+    pub url: String,
+    pub score: u32,
+}
+
+impl ScoreSpread {
+    pub const WORST_CASES: usize = 5;
+
+    fn from_pages(pages: &[(String, u32)]) -> Option<Self> {
+        if pages.is_empty() {
+            return None;
+        }
+        let mut sorted: Vec<&(String, u32)> = pages.iter().collect();
+        sorted.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        let n = sorted.len();
+        let mean = sorted.iter().map(|p| p.1 as f64).sum::<f64>() / n as f64;
+        let variance = sorted
+            .iter()
+            .map(|p| (p.1 as f64 - mean).powi(2))
+            .sum::<f64>()
+            / n as f64;
+        let median = if n % 2 == 1 {
+            sorted[n / 2].1 as f64
+        } else {
+            (sorted[n / 2 - 1].1 + sorted[n / 2].1) as f64 / 2.0
+        };
+        Some(Self {
+            min: sorted[0].1,
+            median,
+            max: sorted[n - 1].1,
+            std_dev: variance.sqrt(),
+            worst_pages: sorted
+                .iter()
+                .take(Self::WORST_CASES)
+                .map(|p| WorstPage {
+                    url: p.0.clone(),
+                    score: p.1,
+                })
+                .collect(),
+        })
+    }
+}
+
+/// Page types and languages of the pages that produced a report. Keys are
+/// canonical (snake_case page type, lower-case primary language subtag), so
+/// the JSON stays language-independent. Pages without the signal count under
+/// `unclassified` / `language_unknown`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SelectionProfile {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub page_types: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub unclassified: usize,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub languages: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub language_unknown: usize,
+}
+
+impl SelectionProfile {
+    fn from_reports(reports: &[AuditReport]) -> Self {
+        let mut profile = Self::default();
+        for report in reports {
+            let seo = report.discoverability.seo.as_ref();
+            match seo
+                .and_then(|s| s.content_profile.as_ref())
+                .and_then(|p| serde_json::to_value(&p.page_classification.primary_type).ok())
+                .and_then(|v| v.as_str().map(str::to_string))
+            {
+                Some(kind) => *profile.page_types.entry(kind).or_default() += 1,
+                None => profile.unclassified += 1,
+            }
+            match seo
+                .and_then(|s| s.technical.lang.as_deref())
+                .and_then(|l| l.split(['-', '_']).next())
+                .map(|l| l.trim().to_ascii_lowercase())
+                .filter(|l| !l.is_empty())
+            {
+                Some(lang) => *profile.languages.entry(lang).or_default() += 1,
+                None => profile.language_unknown += 1,
+            }
+        }
+        profile
+    }
 }
 
 impl BatchSummary {
@@ -1221,6 +1330,14 @@ impl BatchReport {
             0.0
         };
 
+        let score_spread = ScoreSpread::from_pages(
+            &normalized_reports
+                .iter()
+                .map(|r| (r.url.clone(), r.score))
+                .collect::<Vec<_>>(),
+        );
+        let selection_profile = SelectionProfile::from_reports(&reports);
+
         let total_violations = normalized_reports
             .iter()
             .map(|r| r.occurrence_counts.total)
@@ -1311,6 +1428,8 @@ impl BatchReport {
                 decision: super::verdict::VerdictResult::undecided(),
                 root_causes,
                 audit_quality,
+                score_spread,
+                selection_profile,
             },
             crawl_diagnostics: None,
             sitemap_diagnostics: None,
@@ -1365,6 +1484,47 @@ mod tests {
     }
     use super::*;
     use crate::wcag::WcagResults;
+
+    #[test]
+    fn score_spread_exposes_worst_cases_next_to_the_mean() {
+        let pages: Vec<(String, u32)> = [("a", 100), ("b", 100), ("c", 100), ("d", 20)]
+            .iter()
+            .map(|(u, s)| (u.to_string(), *s))
+            .collect();
+        let spread = ScoreSpread::from_pages(&pages).unwrap();
+        assert_eq!((spread.min, spread.max), (20, 100));
+        assert_eq!(spread.median, 100.0);
+        assert!(spread.std_dev > 30.0, "{}", spread.std_dev);
+        assert_eq!(spread.worst_pages[0].url, "d");
+        assert!(ScoreSpread::from_pages(&[]).is_none());
+    }
+
+    #[test]
+    fn selection_profile_counts_unknown_instead_of_dropping_pages() {
+        let mut with_lang = AuditReport::new(
+            "https://e.com/a".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1,
+        );
+        with_lang.discoverability.seo = Some(crate::seo::SeoAnalysis {
+            technical: crate::seo::technical::TechnicalSeo {
+                lang: Some("de-AT".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let bare = AuditReport::new(
+            "https://e.com/b".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1,
+        );
+        let profile = SelectionProfile::from_reports(&[with_lang, bare]);
+        assert_eq!(profile.languages.get("de"), Some(&1));
+        assert_eq!(profile.language_unknown, 1);
+        assert_eq!(profile.unclassified, 2);
+    }
 
     #[test]
     fn test_audit_report_new() {

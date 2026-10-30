@@ -128,9 +128,11 @@ Lokal vor dem Tag, falls `cargo-docs-rs` installiert ist: `cargo docs-rs` baut m
 # 1. Single page audit (all modules) — tiefe Analyse einer konkreten Seite
 ./target/release/auditmysite https://example.com --full --format pdf --output reports/example-audit.pdf
 
-# 2. Sample batch audit — 20 Seiten als repräsentativer Durchschnitt
-# Ideal um template-weite Probleme (fehlendes ARIA, Struktur, SEO-Muster)
-# von seitenspezifischen Fehlern zu trennen. Liefert stabile Durchschnittswerte.
+# 2. Sample batch audit — die ersten 20 Seiten der Sitemap (first_n)
+# Aussage gilt nur für diese erfolgreich geprüfte Auswahl, nicht für die Website:
+# first_n ist nach Reihenfolge gewählt, nicht nach Seitentyp/Template/Sprache.
+# Brauchbar für eine erste Einschätzung template-weiter Probleme; Streuung und
+# Worst Cases stehen in summary.score_spread, die Auswahl in summary.selection_profile.
 ./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full --format pdf --output reports/example-sample-audit.pdf --max-pages 20
 
 # 3. Full sitemap batch audit — alle Seiten, domain-weit
