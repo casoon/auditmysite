@@ -261,6 +261,56 @@ async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
     fixture.stop();
 }
 
+/// #775: the main document's redirects are captured once, with the requested
+/// URL and the URL it was served from; modules read the served document, not
+/// the requested URL. (The `http:` → `https:` direction needs a certificate
+/// Chrome trusts; its transport decision is pinned by the module unit tests
+/// `*_follows_the_served_document`, this test pins the capture they rely on.)
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_redirect_chain_is_captured_once_for_all_modules() {
+    use common::routing_server::{serve_routes, Route, Transport};
+    let page_html = r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Final</title><main><h1>Final</h1></main></html>"#;
+    let fixture = serve_routes(
+        vec![
+            Route::new("/start", 301, "").header("Location", "/middle"),
+            Route::new("/middle", 302, "").header("Location", "/final"),
+            Route::new("/final", 200, page_html).header("Content-Type", "text/html"),
+        ],
+        Transport::Http,
+    );
+    let requested = format!("{}/start", fixture.url);
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.unwrap();
+    let (report, _) = audit_page(&page, &requested, &default_config(), &manager)
+        .await
+        .unwrap();
+
+    let nav = &report.accessibility.execution.navigation;
+    assert_eq!(nav.requested_url, requested);
+    assert_eq!(
+        nav.final_url.as_deref(),
+        Some(format!("{}/final", fixture.url).as_str())
+    );
+    assert_eq!(nav.redirect_count, 2);
+    let hops: Vec<_> = nav
+        .redirect_chain
+        .iter()
+        .map(|h| (h.url.clone(), h.status))
+        .collect();
+    assert_eq!(
+        hops,
+        vec![
+            (requested.clone(), 301),
+            (format!("{}/middle", fixture.url), 302)
+        ]
+    );
+    assert_eq!(report.document_url(), format!("{}/final", fixture.url));
+    assert!(!report.document_is_https());
+    page.close().await.unwrap();
+    fixture.stop();
+}
+
 /// #766: different rules at the same element in the two viewport passes both
 /// survive the merge with their own viewport tag, and the same inner selector
 /// in two frames stays two findings (the composite frame selector keeps them

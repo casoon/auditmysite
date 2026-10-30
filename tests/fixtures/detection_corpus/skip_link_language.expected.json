@@ -9,7 +9,7 @@
     {
       "rule_id": "landmarks/content-outside",
       "selector": "div",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "keyboard/skip-link-missing",
@@ -44,7 +44,7 @@
     {
       "rule_id": "zoom/viewport-missing",
       "selector": "html",
-      "verdict": "violation"
+      "verdict": "needs_review"
     }
   ]
 }

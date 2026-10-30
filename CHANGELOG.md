@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Navigation:** `navigation.redirect_chain` lists the main document's redirects (URL and status, in order) next to `requested_url`, `final_url` and `redirect_count`.
 - **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
 - **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
 - **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.
@@ -29,6 +30,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Transport:** Source Quality's HTTPS signal and AI Visibility's citation input judge TLS from the document the browser was served (`final_url`), not the requested URL; an `http://` entry that redirects to `https://` counts as secure, an `https://` entry that ends on `http://` does not.
+- **WCAG:** A shared-library finding tagged `best-practice` without a criterion (missing `h1`, skipped heading level, landmark and redundant-role advice, …) is reported as a review hint, no longer as a confirmed WCAG 1.3.1 failure that lowers the score; a page with only an `h2` no longer fails 1.3.1.
 - **Batch:** `summary.coverage` counts discovered, selected, attempted, succeeded, blocked and failed URLs separately; `average_score` and `url_count` stay over succeeded URLs. A batch with failed or blocked URLs is never `Complete` or PASS (verdict `warn` with `incomplete_scope`), and a batch where no URL produced a report is `fail` (exit code 2).
 - **Audit scope:** `--isolate-third-party-impact` and `--check-ssr-content` now also run in batch mode (sitemap, URL file, crawl). They are listed in `scope.requested_subchecks`, and a requested isolation pass that cannot run records `not_applicable` or `failed` in `module_runs[].subchecks[]` instead of leaving no trace.
 - **Findings:** `confidence` and `verification` follow from detection method and the finding's own evidence (new `assurance`), not from rule-id substrings: UX/Journey findings and unlocated WCAG findings ask for review, measured contrast failures are confirmed. Details: [Finding assurance](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-assurance).

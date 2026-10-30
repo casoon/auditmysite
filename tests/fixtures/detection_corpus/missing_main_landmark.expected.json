@@ -3,12 +3,12 @@
   "expectations": [
     {
       "rule_id": "landmarks/main-missing",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {
       "rule_id": "landmarks/content-outside",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "headings/none",
@@ -34,7 +34,7 @@
     {
       "rule_id": "zoom/viewport-missing",
       "selector": "html",
-      "verdict": "violation"
+      "verdict": "needs_review"
     }
   ]
 }

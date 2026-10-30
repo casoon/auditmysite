@@ -49,13 +49,13 @@
     {
       "rule_id": "landmarks/main-missing",
       "selector": "html",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {
       "rule_id": "landmarks/content-outside",
       "selector": "div.content",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {

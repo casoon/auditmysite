@@ -7,7 +7,7 @@
     {"rule_id": "popover/target-missing", "verdict": "violation", "selector": "button#guide-btn", "occurrences": 1},
     {"rule_id": "popover/target-invalid", "verdict": "violation", "selector": "button#shipping-btn", "occurrences": 1},
     {"rule_id": "patterns/accordion-controls-missing", "verdict": "needs_review", "selector": "button#care-btn", "occurrences": 1},
-    {"rule_id": "patterns/tooltip-unreferenced", "verdict": "violation", "selector": "div#fav-tip", "occurrences": 1},
+    {"rule_id": "patterns/tooltip-unreferenced", "verdict": "needs_review", "selector": "div#fav-tip", "occurrences": 1},
     {"rule_id": "modern-attribute-misuse", "verdict": "violation", "occurrences": 1},
     {"rule_id": "patterns/accordion-controls-missing", "selector": "div#fit-btn", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "keyboard/interactive-not-focusable", "verdict": "needs_review"},

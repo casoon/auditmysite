@@ -13,6 +13,10 @@ mod throttled;
 use std::collections::BTreeSet;
 use std::time::Instant;
 
+use chromiumoxide::cdp::browser_protocol::network::{
+    DisableParams as NetworkDisableParams, EnableParams as NetworkEnableParams,
+    EventRequestWillBeSent, ResourceType,
+};
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::cdp::browser_protocol::security::{
     EnableParams as SecurityEnableParams, EventVisibleSecurityStateChanged,
@@ -92,6 +96,38 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
         })?;
     settle(page).await?;
     Ok(())
+}
+
+/// Redirects the main document went through, read from the network events of
+/// the desktop navigation (#775). The first `Document` request is the
+/// navigation itself; each later event of the same request carrying a
+/// `redirectResponse` is one hop, and that response's URL is the redirecting
+/// side. Frames load their own `Document` requests under other ids and are
+/// ignored.
+async fn drain_redirect_chain(
+    events: &mut EventStream<EventRequestWillBeSent>,
+) -> Vec<crate::audit::RedirectHop> {
+    use futures::StreamExt;
+    let mut navigation = None;
+    let mut chain = Vec::new();
+    while let Ok(Some(event)) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), events.next()).await
+    {
+        if event.r#type != Some(ResourceType::Document) {
+            continue;
+        }
+        let id = navigation.get_or_insert_with(|| event.request_id.clone());
+        if *id != event.request_id {
+            continue;
+        }
+        if let Some(response) = &event.redirect_response {
+            chain.push(crate::audit::RedirectHop {
+                url: response.url.clone(),
+                status: u16::try_from(response.status).unwrap_or(0),
+            });
+        }
+    }
+    chain
 }
 
 async fn collect_certificate_details(
@@ -864,7 +900,20 @@ pub async fn audit_page(
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
     prepare_pass_collection(page, "desktop", config).await;
+    let mut navigation_events = page.event_listener::<EventRequestWillBeSent>().await.ok();
+    if navigation_events.is_some() {
+        let _ = page.execute(NetworkEnableParams::default()).await;
+    }
     let desktop_refresh = browser.navigate(page, url).await?;
+    let redirect_chain = match navigation_events.as_mut() {
+        Some(events) => {
+            let chain = drain_redirect_chain(events).await;
+            let _ = page.execute(NetworkDisableParams::default()).await;
+            chain
+        }
+        None => Vec::new(),
+    };
+    drop(navigation_events);
     if let Some(sec) = &mut security {
         let https = sec.fetch.final_url.starts_with("https://");
         let details = if security_listener_failed {
@@ -1203,6 +1252,7 @@ pub async fn audit_page(
         source: "live".to_string(),
     };
     report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    report.accessibility.execution.navigation.redirect_chain = redirect_chain;
     // The security headers come from a separate probe: they describe the
     // audited page only if the probe ended on the document the browser
     // loaded — same scheme and host after redirects (#775).
@@ -1466,6 +1516,7 @@ async fn collect_navigation_snapshot(
             .map(str::to_string),
         stability: Vec::new(),
         meta_refresh: Vec::new(),
+        redirect_chain: Vec::new(),
     }
 }
 

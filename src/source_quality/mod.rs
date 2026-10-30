@@ -940,7 +940,7 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     let mut signals = Vec::new();
 
     // 1. HTTPS
-    let has_https = report.url.starts_with("https://");
+    let has_https = report.document_is_https();
     signals.push(QualitySignal::new(
         Https,
         has_https,
@@ -1478,6 +1478,27 @@ mod tests {
             interactive_findings: Vec::new(),
             screen_reader_audit: None,
         }
+    }
+
+    /// The HTTPS signal reads the document the browser was served, not the
+    /// requested URL: `http://` → `https://` is secure, `https://` →
+    /// `http://` is not (#775).
+    #[test]
+    fn https_signal_follows_the_served_document() {
+        let signal = |requested: &str, served: Option<&str>| {
+            let mut report = minimal_report();
+            report.url = requested.into();
+            report.accessibility.execution.navigation.final_url = served.map(str::to_string);
+            evaluate_authority(&report)
+                .signals
+                .iter()
+                .find(|s| s.kind == QualitySignalKind::Https)
+                .map(|s| s.present)
+                .expect("https signal")
+        };
+        assert!(signal("http://example.com/", Some("https://example.com/")));
+        assert!(!signal("https://example.com/", Some("http://example.com/")));
+        assert!(signal("https://example.com/", None));
     }
 
     #[test]
