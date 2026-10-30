@@ -751,7 +751,7 @@ mod tests {
                 interactive_high_issues: 0,
                 summary: String::new(),
             },
-            principle_coverage: crate::audit::scoring::AccessibilityScorer::calculate_coverage(&[]),
+            principle_coverage: Default::default(),
         }
     }
 

@@ -5,16 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::taxonomy::{
     criterion_for_rule, principle_for_criterion, RuleLookup, Scaling, ScoreImpact, WcagPrinciple,
 };
-use crate::wcag::coverage::automated_criteria;
 use crate::wcag::types::{Severity, Violation};
-
-/// Number of automatically-checked WCAG criteria belonging to a principle.
-fn checked_criteria_count(principle: WcagPrinciple) -> usize {
-    automated_criteria()
-        .iter()
-        .filter(|(c, _)| principle_for_criterion(c) == Some(principle))
-        .count()
-}
 
 /// Calculates accessibility scores and grades based on WCAG violations
 pub struct AccessibilityScorer;
@@ -155,19 +146,32 @@ impl AccessibilityScorer {
     /// Missing, failed and review-only checks must never become passes merely
     /// because no violation was retained. This is not WCAG conformance.
     pub fn calculate_execution_coverage(results: &crate::wcag::WcagResults) -> PrincipleCoverage {
-        let mut criteria: BTreeMap<String, bool> = BTreeMap::new();
+        // Per criterion: `Some(true)` ran and found nothing, `Some(false)` did
+        // not pass (finding, error, disabled, capability missing), `None` has
+        // nothing to check on this page and leaves the denominator (#778).
+        let mut criteria: BTreeMap<String, Option<bool>> = BTreeMap::new();
         for run in &results.rule_outcomes {
             let ids = if run.wcag.is_empty() {
                 criterion_for_rule(&run.rule_id).into_iter().collect()
             } else {
                 run.wcag.clone()
             };
+            let state = match run.not_run {
+                None => Some(true),
+                Some(a11y_report::NotRun::NotApplicable) => None,
+                Some(_) => Some(false),
+            };
             for id in ids {
-                let passed = run.not_run.is_none();
                 criteria
                     .entry(id)
-                    .and_modify(|p| *p &= passed)
-                    .or_insert(passed);
+                    .and_modify(|p| {
+                        *p = match (*p, state) {
+                            (Some(false), _) | (_, Some(false)) => Some(false),
+                            (Some(true), _) | (_, Some(true)) => Some(true),
+                            _ => None,
+                        }
+                    })
+                    .or_insert(state);
             }
         }
         for finding in results
@@ -177,9 +181,13 @@ impl AccessibilityScorer {
             .chain(&results.not_testables)
         {
             if let Some(id) = criterion_for_rule(&finding.rule) {
-                criteria.insert(id, false);
+                criteria.insert(id, Some(false));
             }
         }
+        let criteria: BTreeMap<String, bool> = criteria
+            .into_iter()
+            .filter_map(|(id, state)| state.map(|passed| (id, passed)))
+            .collect();
         let ratio_for = |principle| {
             let entries: Vec<_> = criteria
                 .iter()
@@ -308,44 +316,6 @@ impl AccessibilityScorer {
     /// - UNGENÜGEND: <40 (failed)
     pub fn calculate_certificate(score: f32) -> &'static str {
         crate::registry::CERTIFICATE.label(score, false)
-    }
-
-    /// Calculate WCAG principle coverage — a purely informative secondary
-    /// indicator that does *not* feed into the numeric score.
-    ///
-    /// For each of the four WCAG principles it reports how many of the
-    /// criteria the tool checks passed (had no violation).
-    pub fn calculate_coverage(violations: &[Violation]) -> PrincipleCoverage {
-        let failed: HashSet<String> = violations
-            .iter()
-            .filter_map(|v| criterion_for_rule(&v.rule))
-            .collect();
-
-        let ratio_for = |principle: WcagPrinciple| -> CoverageRatio {
-            let total = checked_criteria_count(principle) as u32;
-            let failed_in_principle = failed
-                .iter()
-                .filter(|c| principle_for_criterion(c) == Some(principle))
-                .count() as u32;
-            let passed = total.saturating_sub(failed_in_principle);
-            CoverageRatio {
-                passed,
-                total,
-                ratio: if total == 0 {
-                    1.0
-                } else {
-                    let r = passed as f32 / total as f32;
-                    (r * 10000.0).round() / 10000.0
-                },
-            }
-        };
-
-        PrincipleCoverage {
-            perceivable: ratio_for(WcagPrinciple::Perceivable),
-            operable: ratio_for(WcagPrinciple::Operable),
-            understandable: ratio_for(WcagPrinciple::Understandable),
-            robust: ratio_for(WcagPrinciple::Robust),
-        }
     }
 
     /// Calculate detailed statistics for a set of violations
@@ -661,39 +631,50 @@ mod tests {
         assert!(apply_soft_floor(-60.0) < 1.0);
     }
 
+    fn run_results(runs: Vec<crate::wcag::RuleRun>) -> crate::wcag::WcagResults {
+        let mut results = crate::wcag::WcagResults::new();
+        results.rule_outcomes = runs;
+        results
+    }
+
     #[test]
-    fn test_coverage_all_pass_when_no_violations() {
-        let coverage = AccessibilityScorer::calculate_coverage(&[]);
+    fn test_coverage_of_an_empty_run_is_not_a_pass() {
+        let coverage = AccessibilityScorer::calculate_execution_coverage(&run_results(vec![]));
         for ratio in [
             &coverage.perceivable,
             &coverage.operable,
             &coverage.understandable,
             &coverage.robust,
         ] {
-            assert_eq!(ratio.passed, ratio.total);
-            assert!(ratio.total > 0);
-            assert_eq!(ratio.ratio, 1.0);
+            assert_eq!((ratio.passed, ratio.total), (0, 0));
+            assert_eq!(ratio.ratio, 0.0);
         }
     }
 
     #[test]
-    fn test_coverage_reflects_violations() {
-        use crate::cli::WcagLevel;
-
-        let violations = vec![Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
+    fn test_coverage_counts_only_what_ran() {
+        use crate::wcag::RuleRun;
+        use a11y_report::NotRun;
+        let mut results = run_results(vec![
+            RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("b", 2).with_wcag(["1.4.3"]),
+            RuleRun::not_run("c", NotRun::CapabilityMissing).with_wcag(["1.4.11"]),
+            RuleRun::not_run("d", NotRun::Errored).with_wcag(["1.4.4"]),
+            RuleRun::not_run("e", NotRun::NotApplicable).with_wcag(["1.2.1"]),
+        ]);
+        results.violations.push(Violation::new(
+            "1.4.3",
+            "Contrast",
+            crate::cli::WcagLevel::AA,
             Severity::High,
-            "Missing alt",
+            "Low contrast",
             "n1",
-        )];
-        let coverage = AccessibilityScorer::calculate_coverage(&violations);
-        // One Perceivable criterion failed.
-        assert_eq!(coverage.perceivable.passed, coverage.perceivable.total - 1);
-        // Other principles untouched.
-        assert_eq!(coverage.operable.passed, coverage.operable.total);
-        assert_eq!(coverage.robust.passed, coverage.robust.total);
+        ));
+        let coverage = AccessibilityScorer::calculate_execution_coverage(&results);
+        // 1.1.1 passed; 1.4.4 errored, 1.4.11 capability missing: not passed;
+        // 1.2.1 has nothing to check and leaves the denominator.
+        assert_eq!(coverage.perceivable.total, 4);
+        assert_eq!(coverage.perceivable.passed, 1);
     }
 
     #[test]
