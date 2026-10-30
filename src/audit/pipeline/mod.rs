@@ -1032,11 +1032,7 @@ pub async fn audit_page(
         .as_ref()
         .filter(|_| !mobile_snap.scoring_gap("mobile"))
         .map(|m| m.score);
-    let mobile_hc_score = mobile_snap
-        .html_conform
-        .as_ref()
-        .filter(|h| h.checked)
-        .map(|h| h.score);
+    let mobile_hc_score = measured_html_conform_score(mobile_snap.html_conform.as_ref());
 
     let desktop_overall =
         compute_viewport_overall(desktop_acc, &[("Performance", desktop_perf_input)]);
@@ -1378,6 +1374,15 @@ pub async fn audit_page(
     // persisting here would cache a pre-canonical report that differs from a
     // fresh render (#404). The caller persists once the report is final.
     Ok((report, primary_snap))
+}
+
+/// The HTML-conformance score a viewport blend may use: an unchecked run
+/// (`checked: false`, score 100 by contract) is no measurement and stays out
+/// of the denominator, as in `module_scores` (#767).
+pub(super) fn measured_html_conform_score(
+    html: Option<&crate::html_conform::HtmlConformAnalysis>,
+) -> Option<u32> {
+    html.filter(|h| h.checked).map(|h| h.score)
 }
 
 /// Inject the per-pass collectors before a viewport pass navigates: the
@@ -2923,6 +2928,35 @@ journey_budget_ms = 1234
         assert!(v.tags.contains(&"both-viewports".to_string()));
     }
 
+    /// #767: html-conform declining the document reports `checked: false`
+    /// with the neutral score 100. On the viewport path that 100 must not
+    /// enter the blend; a measured 0 must.
+    #[test]
+    fn unchecked_html_conformance_stays_out_of_the_viewport_blend() {
+        let html = |checked: bool, score: u32| crate::html_conform::HtmlConformAnalysis {
+            score,
+            checked,
+            error_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 0,
+            findings: Vec::new(),
+            raw_html: None,
+        };
+        let blend = |hc: Option<&crate::html_conform::HtmlConformAnalysis>| {
+            compute_viewport_overall(
+                60.0,
+                &[("HTML Conformance", measured_html_conform_score(hc))],
+            )
+        };
+        // Unchecked: accessibility alone, whatever score the struct carries.
+        assert_eq!(blend(Some(&html(false, 100))), 60);
+        assert_eq!(blend(None), 60);
+        // Measured 0 counts at the published weight 5 against 40:
+        // (60*40 + 0*5) / 45 = 53.3.
+        assert_eq!(blend(Some(&html(true, 0))), 53);
+    }
+
     #[test]
     fn test_compute_viewport_overall_acc_only() {
         assert_eq!(compute_viewport_overall(80.0, &[]), 80);
@@ -2960,6 +2994,42 @@ journey_budget_ms = 1234
         assert_eq!(modules(100, 0), 64);
         // Unmeasured performance drops out instead of counting as 0.
         assert_eq!(compute_viewport_overall(80.0, &[("Performance", None)]), 80);
+    }
+
+    /// #771: the raw viewport path against an independent weight table, for
+    /// every subset of the four modules it blends and boundary accessibility
+    /// scores. Weights are written out here (Accessibility 40, Performance
+    /// 20, SEO 15, Mobile 10, HTML 5; Security joins after the blend), not
+    /// read from `taxonomy`, so a drifting weight fails.
+    #[test]
+    fn viewport_overall_matches_the_published_weights_for_every_subset() {
+        let table = [
+            ("Performance", 20.0, 35u32),
+            ("SEO", 15.0, 80),
+            ("Mobile", 10.0, 55),
+            ("HTML Conformance", 5.0, 10),
+        ];
+        for mask in 0..16 {
+            for acc in [0u32, 49, 70, 100] {
+                let modules: Vec<(&str, Option<u32>)> = table
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (name, _, score))| (*name, (mask >> i & 1 == 1).then_some(*score)))
+                    .collect();
+                let (mut sum, mut weight) = (acc as f64 * 40.0, 40.0);
+                for (i, (_, w, score)) in table.iter().enumerate() {
+                    if mask >> i & 1 == 1 {
+                        sum += *score as f64 * w;
+                        weight += w;
+                    }
+                }
+                assert_eq!(
+                    compute_viewport_overall(acc as f32, &modules),
+                    (sum / weight).round() as u32,
+                    "subset {mask:04b}, accessibility {acc}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -3020,6 +3090,51 @@ journey_budget_ms = 1234
             crate::audit::ExecutionStatus::Failed
         );
         assert!(report.accessibility.execution.quality.qualified_results);
+    }
+
+    /// #774: a header fetch that failed leaves `security` empty. The export
+    /// carries no Security score and no security finding, and the report is
+    /// qualified by the missing module: "not measured", never "all headers
+    /// missing" and never an unqualified pass.
+    #[test]
+    fn failed_security_fetch_is_not_measured_in_the_export() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1,
+        );
+        report.accessibility.execution.scope.requested_modules =
+            vec!["accessibility".to_string(), "security".to_string()];
+        assert!(report.security.is_none());
+
+        ensure_requested_module_runs(&mut report);
+        update_audit_quality(&mut report);
+
+        let security = report
+            .accessibility
+            .execution
+            .module_runs
+            .iter()
+            .find(|run| run.module == "security")
+            .expect("the requested module has a run");
+        assert_eq!(security.status, crate::audit::ExecutionStatus::Failed);
+        let normalized = crate::audit::normalize(&report);
+        assert!(normalized.normalized.execution.quality.qualified_results);
+        assert!(normalized
+            .normalized
+            .module_scores
+            .iter()
+            .all(|m| m.name != "Security"));
+        let json = serde_json::to_value(crate::output::UnifiedReport::single(&normalized, &report))
+            .unwrap();
+        let page = &json["pages"][0];
+        assert!(page["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| !f["rule_id"].as_str().unwrap_or("").starts_with("security.")));
+        assert_eq!(page["audit_quality"]["qualified_results"], true);
     }
 
     #[test]
