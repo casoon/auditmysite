@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Batch:** `--sample-strategy first-n|stratified` (default `first-n`) chooses how `--max-pages` picks URLs; `stratified` draws deterministically and round-robin across URL-structure groups (language prefix, first path section, non-HTML extension), so a large section cannot crowd out the rest. `sample.selection` is `stratified` and `sample.strata[]` lists candidates and picks per group; it is still a sample, not a statement about the unaudited pages.
 - **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
 - **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
 - **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.

@@ -18,8 +18,8 @@ use auditmysite::audit::{
     PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
-use auditmysite::cli::url_filter::select_urls;
-use auditmysite::cli::{Args, OutputFormat, RequestMode};
+use auditmysite::cli::url_filter::{select_urls, stratified_sample};
+use auditmysite::cli::{Args, OutputFormat, RequestMode, SampleStrategy};
 use auditmysite::error::{AuditError, Result};
 
 use crate::batch_lifecycle::BatchLifecyclePresenter;
@@ -501,6 +501,14 @@ async fn run_batch(
         }
     }
 
+    let stratified = args.sample_strategy == SampleStrategy::Stratified;
+    let (urls, draws) = if stratified {
+        stratified_sample(urls, args.max_pages)
+    } else {
+        (urls, Vec::new())
+    };
+    let sampled_by_strata = !draws.is_empty();
+
     let total_urls = if args.max_pages > 0 {
         args.max_pages.min(urls.len())
     } else {
@@ -512,7 +520,9 @@ async fn run_batch(
         total_discovered,
         audited: total_urls,
         sample_limit: (args.max_pages > 0).then_some(args.max_pages),
-        selection: if path_filtered {
+        selection: if sampled_by_strata {
+            "stratified".to_string()
+        } else if path_filtered {
             "path_filter".to_string()
         } else if total_urls < total_discovered {
             "first_n".to_string()
@@ -520,6 +530,14 @@ async fn run_batch(
             "all".to_string()
         },
         is_sample: total_urls < total_discovered,
+        strata: draws
+            .into_iter()
+            .map(|d| auditmysite::audit::SampleStratum {
+                key: d.key,
+                discovered: d.discovered,
+                selected: d.selected,
+            })
+            .collect(),
     };
 
     // The pages actually attempted, in input order — the technician index
@@ -529,12 +547,18 @@ async fn run_batch(
     if !args.quiet {
         if sample.is_sample {
             eprintln!(
-                "{} auditing {} of {} discovered URLs ({} order, first {})",
+                "{} auditing {} of {} discovered URLs ({})",
                 "Sample:".yellow().bold(),
                 total_urls,
                 total_discovered,
-                url_source,
-                total_urls
+                if sampled_by_strata {
+                    format!(
+                        "{url_source}, stratified over {} groups",
+                        sample.strata.len()
+                    )
+                } else {
+                    format!("{url_source} order, first {total_urls}")
+                }
             );
         }
         eprintln!(
