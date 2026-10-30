@@ -9,6 +9,11 @@ and verification for each change is in the
 
 ### Added
 
+- **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
+- **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
+- **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.
+- **Session:** `--session isolated|shared` (default `isolated`) chooses whether the pages of a run share cookies and storage; isolated pages run in a browser context of their own, so audit order and repetition cannot change a result. The choice is stored in `audit_scope.measurement_profile` (`version`, `session_policy`, `read_only`, `state_changing_journeys`) and in the cache key; `--interactive basic` is a read-only run, `full` lists the journeys that can submit forms or change a cart.
+- **Batch:** `summary.score_spread` (min, median, max, standard deviation, five worst pages) and `summary.selection_profile` (audited pages by page type and language, unknowns counted) accompany `average_score`; a `first_n` selection is documented as valid for the audited pages only, not as a representative sample of the site.
 - **AI transparency:** `ai_transparency.coverage` counts attempted, checked and limit-skipped images and failed fetches by reason (`redirect_not_followed`, `oversized`, `timeout`, `host_not_public`, …).
 - **Security:** `security.fetch` records where the analysed headers came from (`http_probe`, method, status, requested and final URL, rejected `HEAD` status); `security.document_match` records whether the probe ended on the document the browser audited.
 - **Audit contracts:** A format-independent validation boundary checks normalized page and batch data before live results are returned, final runs are persisted, or CLI reports and library exports are generated. Contract failures provide stable codes and data paths; honestly qualified partial results remain usable.
@@ -71,6 +76,9 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
+- **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
+- **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.
 - **Browser:** A run that was killed from outside (SIGKILL, a supervisor or test timeout) no longer leaves its headless Chrome and profile directory behind for good: the next run ends a Chrome still holding an orphaned `auditmysite-chrome-*` profile and removes the profile.
 - **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).
 - **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".

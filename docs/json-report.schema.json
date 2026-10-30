@@ -154,6 +154,67 @@
             "type": "string"
           }
         },
+        "requested_subchecks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requested_rules": {
+          "description": "Shared rules the run must account for with an outcome (#778).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "measurement_profile": {
+          "description": "How the pages were measured: session policy and state-changing journeys (#787).",
+          "type": "object",
+          "required": [
+            "version",
+            "session_policy",
+            "read_only"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "session_policy": {
+              "type": "string",
+              "enum": [
+                "isolated",
+                "shared",
+                "unknown"
+              ]
+            },
+            "read_only": {
+              "type": "boolean"
+            },
+            "state_changing_journeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "state_id": {
+              "description": "Name of the declared state the run started from (--state-id).",
+              "type": "string"
+            },
+            "storage_state": {
+              "description": "Identity of the declared browser state: digest and counts, never values.",
+              "type": "object",
+              "required": ["sha256", "cookies", "origins"],
+              "additionalProperties": false,
+              "properties": {
+                "sha256": { "type": "string" },
+                "cookies": { "type": "integer", "minimum": 0 },
+                "origins": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        },
         "full_audit": {
           "type": "boolean"
         },
@@ -844,6 +905,11 @@
               }
             }
           }
+        },
+        "module_detail": {
+          "description": "What detail.modules holds: full (collected data), omitted (compact batch projection) or not_restored (cache replay without raw module data). Empty modules mean 'nothing found' only when this is full.",
+          "type": "string",
+          "enum": ["full", "omitted", "not_restored"]
         },
         "viewport_scores": {
           "type": [

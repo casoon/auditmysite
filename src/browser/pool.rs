@@ -92,6 +92,14 @@ struct BrowserPoolInner {
     pages: Mutex<Vec<Page>>,
     /// Semaphore for limiting concurrent pages
     semaphore: Semaphore,
+    /// Browser contexts of isolated pages, by target id: disposed with the
+    /// page, so nothing a URL stored reaches the next one (#787).
+    contexts: Mutex<
+        std::collections::HashMap<
+            String,
+            chromiumoxide::cdp::browser_protocol::browser::BrowserContextId,
+        >,
+    >,
     /// Total pages created
     pages_created: AtomicUsize,
     /// Maximum pages allowed
@@ -105,6 +113,12 @@ struct BrowserPoolInner {
 impl BrowserPoolInner {
     /// Return a page to the pool
     async fn return_page(&self, page: Page) {
+        // An isolated page is never reused: its tab and context go, the next
+        // URL gets a fresh one.
+        if self.browser.session_policy() == super::SessionPolicy::Isolated {
+            self.discard_page(page).await;
+            return;
+        }
         // Reset the page for reuse. Guard with a short timeout — some pages become
         // unresponsive after navigating to heavy sites and the goto call would hang
         // indefinitely, starving the semaphore.
@@ -143,6 +157,11 @@ impl BrowserPoolInner {
     /// the bookkeeping happens either way so a hung close can't reintroduce
     /// the same exhaustion bug.
     async fn discard_page(&self, page: Page) {
+        let context = self
+            .contexts
+            .lock()
+            .await
+            .remove(AsRef::<str>::as_ref(page.target_id()));
         match tokio::time::timeout(PAGE_CLOSE_TIMEOUT, page.close()).await {
             Ok(Ok(())) => {}
             Ok(Err(e)) => warn!("Failed to close discarded page: {}", e),
@@ -150,6 +169,9 @@ impl BrowserPoolInner {
                 "Closing discarded page timed out after {}s",
                 PAGE_CLOSE_TIMEOUT.as_secs()
             ),
+        }
+        if let Some(context) = context {
+            self.browser.dispose_context(context).await;
         }
         self.pages_created.fetch_sub(1, Ordering::SeqCst);
         self.semaphore.add_permits(1);
@@ -180,6 +202,7 @@ impl BrowserPool {
         let inner = Arc::new(BrowserPoolInner {
             browser,
             pages: Mutex::new(Vec::with_capacity(config.max_pages)),
+            contexts: Mutex::new(Default::default()),
             semaphore: Semaphore::new(config.max_pages),
             pages_created: AtomicUsize::new(0),
             max_pages: config.max_pages,
@@ -250,19 +273,30 @@ impl BrowserPool {
         // the rest of the run and later pages wait for a slot that never
         // frees up (#651). Bounded, because a Chrome saturated by heavy pages
         // can leave the page creation unanswered for good.
-        let created = tokio::time::timeout(
-            self.inner.page_create_timeout,
-            self.inner.browser.new_page(),
-        )
-        .await
-        .unwrap_or_else(|_| {
-            Err(AuditError::BrowserLaunchFailed {
-                reason: format!(
-                    "Failed to create new page: no answer after {} seconds",
-                    self.inner.page_create_timeout.as_secs()
-                ),
-            })
-        });
+        let isolated = self.inner.browser.session_policy() == super::SessionPolicy::Isolated;
+        let creation = async {
+            if isolated {
+                let (page, context) = self.inner.browser.new_isolated_page().await?;
+                self.inner
+                    .contexts
+                    .lock()
+                    .await
+                    .insert(AsRef::<str>::as_ref(page.target_id()).to_string(), context);
+                Ok(page)
+            } else {
+                self.inner.browser.new_page().await
+            }
+        };
+        let created = tokio::time::timeout(self.inner.page_create_timeout, creation)
+            .await
+            .unwrap_or_else(|_| {
+                Err(AuditError::BrowserLaunchFailed {
+                    reason: format!(
+                        "Failed to create new page: no answer after {} seconds",
+                        self.inner.page_create_timeout.as_secs()
+                    ),
+                })
+            });
         let page = match created {
             Ok(page) => page,
             Err(e) => {

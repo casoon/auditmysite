@@ -571,6 +571,8 @@ mod tests {
                 partial_or_failed_modules: 1,
                 reasons: vec!["module_runs_incomplete".to_string()],
             },
+            score_spread: None,
+            selection_profile: Default::default(),
         };
 
         let result = compute_batch_verdict(&summary, &DecisionProfile::default());

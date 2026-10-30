@@ -117,6 +117,12 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). These are approximations, not direct measurements, and must not be read as field metrics.
 - In rendered reports, estimated metrics carry a localized "(lab estimate)" / "(Lab-Schätzung)" suffix, and the performance section states that all values are lab data, not field data.
 
+## Measurement Profile
+
+- `audit_scope.measurement_profile` states how the pages were measured: `version` (meaning of the profile), `session_policy` (`isolated` or `shared`; `unknown` for reports from before the field), `read_only`, and `state_changing_journeys` (`form_error_submit`, `add_to_cart`, `quantity_stepper` when `--interactive full` permits them).
+- `state_id` and `storage_state` (`sha256`, `cookies`, `origins`) name a declared browser state (`--storage-state`, `--state-id`). Values never enter the report. A different state file is a different `sha256` and so another measurement.
+- A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
+
 ## Batch Sample Metadata
 
 - Batch reports may include a top-level `sample` block describing how the audited URL set was discovered and sampled:
@@ -127,6 +133,9 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order).
   - `is_sample` — `true` when fewer URLs were audited than discovered.
 - The block is omitted when no sampling metadata was recorded (e.g. cached single reports).
+- A selection (`first_n`, `path_filter`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages.
+- `summary.score_spread` reports `min`, `median`, `max`, `std_dev` and the `worst_pages` (up to 5, worst first) next to `average_score`.
+- `summary.selection_profile` counts the audited pages by canonical `page_types` and primary-subtag `languages`; pages without the signal are counted in `unclassified` / `language_unknown`.
 
 ## Batch Site Analysis
 

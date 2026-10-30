@@ -272,6 +272,43 @@ impl NormalizedReport {
                 "each requested module needs exactly one explicit execution outcome".into(),
             );
         }
+        // The measurement profile and the requested interaction depth tell
+        // one story: a read-only profile lists no state-changing journey, and
+        // a run that lists one says so (#787).
+        let profile = &self.execution.scope.measurement_profile;
+        if profile.version > 0 {
+            check(
+                profile.read_only == profile.state_changing_journeys.is_empty(),
+                "measurement_profile_read_only",
+                "execution.scope.measurement_profile".into(),
+                "read_only must match the listed state-changing journeys".into(),
+            );
+            let expected = crate::cli::InteractiveMode::from_scope_name(
+                &self.execution.scope.interactive_mode,
+            )
+            .map(crate::a11y_journey::state_changing_journeys);
+            if let Some(expected) = expected {
+                check(
+                    profile.state_changing_journeys == expected,
+                    "measurement_profile_journeys",
+                    "execution.scope.measurement_profile".into(),
+                    format!(
+                        "interactive mode `{}` permits {expected:?}",
+                        self.execution.scope.interactive_mode
+                    ),
+                );
+            }
+        }
+        // Every requested rule has an outcome; its absence is a gap, not a
+        // pass (#778).
+        for rule in &self.execution.scope.requested_rules {
+            check(
+                self.rule_outcomes.iter().any(|run| &run.rule_id == rule),
+                "requested_rule_outcome",
+                format!("rule_outcomes[{rule}]"),
+                "each requested rule needs an explicit execution outcome".into(),
+            );
+        }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement
         // nor feeds the overall score (#777).
@@ -498,6 +535,20 @@ impl NormalizedReport {
                 Some(crate::wcag::NotRun::Errored | crate::wcag::NotRun::CapabilityMissing)
             )
         });
+        let errored = self
+            .rule_outcomes
+            .iter()
+            .filter(|run| crate::wcag::rule_run_errored(run))
+            .count();
+        check(
+            q.failed_rule_checks == errored,
+            "failed_rule_checks",
+            "execution.quality.failed_rule_checks".into(),
+            format!(
+                "quality counts {} failed rule checks, outcomes show {errored}",
+                q.failed_rule_checks
+            ),
+        );
         check(
             !(incomplete
                 || gaps.stability_fallbacks > 0

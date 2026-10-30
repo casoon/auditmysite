@@ -265,13 +265,42 @@ pub struct Args {
     #[arg(long = "expect-indexable", value_name = "BOOL")]
     pub expect_indexable: Option<bool>,
 
+    /// Which cookies, storage and cache the audited pages share.
+    ///
+    /// `isolated` (default) — every URL runs in a browser context of its own,
+    /// so audit order and repetition cannot change a result.
+    /// `shared` — all pages use one profile: a consent choice, login or cart
+    /// created by one page reaches the next. Stored in the report's
+    /// measurement profile.
+    #[arg(long, value_enum, default_value = "isolated")]
+    pub session: crate::browser::SessionPolicy,
+
+    /// Start every page from a declared browser state: a Playwright-style
+    /// `storage-state` JSON (`cookies[]`, `origins[].localStorage[]`), for a
+    /// reproducible login, consent or SPA state.
+    ///
+    /// Digest and counts — never values — are stored in the report's
+    /// measurement profile. The file may hold credentials: keep it out of
+    /// version control.
+    #[arg(long = "storage-state", value_name = "FILE")]
+    pub storage_state: Option<std::path::PathBuf>,
+
+    /// Name of the declared state (for example `logged-in`, `consent-all`),
+    /// stored in the measurement profile so a result names the state it was
+    /// measured in.
+    #[arg(long = "state-id", value_name = "ID")]
+    pub state_id: Option<String>,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
     /// `off`   — no interactive phase, fastest.
     /// `basic` — tab walk + skip link + obvious pattern journeys.
     /// `full`  (default) — adds SPA navigation, form-error announcement,
-    ///           link-text inventory and outline export.
+    ///           link-text inventory and outline export. Also clicks submit
+    ///           buttons and add-to-cart triggers, which can change page or
+    ///           account state: listed in the report's measurement profile
+    ///           (`state_changing_journeys`). Use `basic` for a read-only run.
     ///
     /// Adds a few seconds per URL; recommended for single-URL audits.
     #[arg(long, value_enum, default_value = "full")]
@@ -560,6 +589,17 @@ pub enum InteractiveMode {
 }
 
 impl InteractiveMode {
+    /// The mode named in `audit_scope.interactive_mode`; `None` for a name
+    /// this version does not know.
+    pub fn from_scope_name(name: &str) -> Option<Self> {
+        match name {
+            "off" => Some(Self::Off),
+            "basic" => Some(Self::Basic),
+            "full" => Some(Self::Full),
+            _ => None,
+        }
+    }
+
     pub fn is_enabled(self) -> bool {
         !matches!(self, InteractiveMode::Off)
     }
@@ -770,11 +810,20 @@ impl Args {
     }
 
     /// Validate arguments
+    /// The declared browser state, if `--storage-state` names one.
+    pub fn load_storage_state(&self) -> Result<Option<crate::browser::StorageState>, String> {
+        self.storage_state
+            .as_deref()
+            .map(|path| crate::browser::StorageState::load(path).map_err(|e| e.to_string()))
+            .transpose()
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
         }
+        self.load_storage_state()?;
 
         // At least one input source required (unless --detect-chrome)
         if !self.detect_chrome
@@ -1024,6 +1073,9 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
+            session: Default::default(),
+            storage_state: None,
+            state_id: None,
             display: None,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),

@@ -87,6 +87,7 @@ pub(super) fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
         // Batch detail stays compact (CLAUDE.md "Report Intent").
         accessibility_subcategory_scores: Vec::new(),
         security_category_scores: Vec::new(),
+        module_detail: ModuleDetailState::Omitted,
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
@@ -110,6 +111,7 @@ pub(super) fn build_detail_cached(
         bik_guide: build_bik_guide_annex(normalized, &[], &[], false),
         accessibility_subcategory_scores: normalized.accessibility_subcategory_scores.clone(),
         security_category_scores: normalized.security_category_scores.clone(),
+        module_detail: ModuleDetailState::NotRestored,
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
@@ -360,6 +362,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         ),
         accessibility_subcategory_scores: normalized.accessibility_subcategory_scores.clone(),
         security_category_scores: normalized.security_category_scores.clone(),
+        module_detail: ModuleDetailState::Full,
         modules,
         confidence_summary: vm
             .methodology

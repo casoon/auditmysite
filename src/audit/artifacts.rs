@@ -56,6 +56,19 @@ pub struct CacheMeta {
     /// this field existed — such entries are never reused.
     #[serde(default)]
     pub audit_signature: String,
+    /// What `content_hash` covered when this entry was written
+    /// ([`FINGERPRINT_VERSION`]). 0 for entries from before the field: their
+    /// hash does not compare with a current one.
+    #[serde(default)]
+    pub fingerprint_version: u32,
+}
+
+impl CacheMeta {
+    /// Whether this entry's content hash can be compared with one computed
+    /// now.
+    pub fn fingerprint_comparable(&self) -> bool {
+        self.fingerprint_version == FINGERPRINT_VERSION
+    }
 }
 
 /// Whether a cached entry was produced with an audit configuration compatible
@@ -132,6 +145,7 @@ pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -
         cached_at: Utc::now(),
         content_hash: artifacts.content_hash.clone(),
         audit_signature: artifacts.meta.audit_signature.clone(),
+        fingerprint_version: FINGERPRINT_VERSION,
     };
     fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
 
@@ -198,6 +212,7 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
             cached_at: fetch.fetched_at,
             content_hash: content_hash.clone(),
             audit_signature: String::new(),
+            fingerprint_version: 0,
         }
     };
 
@@ -211,44 +226,75 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
     }))
 }
 
-/// FNV-1a fingerprint of the snapshot's AXTree structure and key SEO signals.
+/// Version of what [`content_hash`] covers. A hash of another version never
+/// compares equal to this one's: it measured something else.
+pub const FINGERPRINT_VERSION: u32 = 2;
+
+/// FNV-1a fingerprint of the snapshot's content: every AX node with role,
+/// name, value, properties, links and DOM anchor, plus the SEO parts that
+/// describe the page (meta, headings, social tags, technical SEO, structured
+/// data).
 ///
-/// Used for delta detection between two runs of the same URL, not as a cache key.
-/// Stable across processes and platforms (unlike DefaultHasher).
+/// Used for delta detection between two runs of the same URL, not as a cache
+/// key. Stable across processes and platforms (unlike DefaultHasher) and
+/// independent of map iteration order. Measured timings (LCP, TBT, …) are
+/// not content and stay out: a slower run of an unchanged page is no change.
+///
+/// Version 1 hashed the node count, the first 100 node ids and a few SEO
+/// strings, so a changed label or text on an unchanged tree shape went
+/// undetected (#790).
 pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
-    let mut input = String::with_capacity(512);
-
-    // AXTree structural fingerprint: node count + root + sorted node IDs (first 100)
-    let node_count = snapshot.ax_tree.len();
-    input.push_str(&node_count.to_string());
-    input.push(':');
-
-    let mut node_ids: Vec<&str> = snapshot.ax_tree.nodes.keys().map(String::as_str).collect();
-    node_ids.sort_unstable();
-    for id in node_ids.iter().take(100) {
+    let mut input = String::with_capacity(4096);
+    let mut nodes: Vec<_> = snapshot.ax_tree.nodes.iter().collect();
+    nodes.sort_unstable_by(|a, b| a.0.cmp(b.0));
+    for (id, node) in nodes {
         input.push_str(id);
-        input.push(',');
+        input.push('=');
+        push_canonical(&mut input, &serde_json::to_value(node).unwrap_or_default());
+        input.push('\n');
     }
-
-    // SEO signals
-    if let Some(ref seo) = snapshot.seo {
-        if let Some(ref t) = seo.meta.title {
-            input.push_str(t);
-        }
-        if let Some(ref d) = seo.meta.description {
-            input.push_str(d);
-        }
-        input.push_str(&seo.headings.total_count.to_string());
-    }
-
-    // Performance: LCP as a change indicator
-    if let Some(ref perf) = snapshot.performance {
-        if let Some(ref lcp) = perf.vitals.lcp {
-            input.push_str(&(lcp.value as u64).to_string());
+    if let Some(seo) = &snapshot.seo {
+        for part in [
+            serde_json::to_value(&seo.meta),
+            serde_json::to_value(&seo.headings),
+            serde_json::to_value(&seo.social),
+            serde_json::to_value(&seo.technical),
+            serde_json::to_value(&seo.structured_data),
+        ] {
+            push_canonical(&mut input, &part.unwrap_or_default());
+            input.push('\n');
         }
     }
-
     format!("{:016x}", fnv1a(input.as_bytes()))
+}
+
+/// JSON with object keys sorted, so equal content hashes equal whatever the
+/// order a map was filled in.
+fn push_canonical(out: &mut String, value: &serde_json::Value) {
+    use serde_json::Value;
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort_unstable();
+            out.push('{');
+            for key in keys {
+                out.push_str(key);
+                out.push(':');
+                push_canonical(out, &map[key]);
+                out.push(',');
+            }
+            out.push('}');
+        }
+        Value::Array(items) => {
+            out.push('[');
+            for item in items {
+                push_canonical(out, item);
+                out.push(',');
+            }
+            out.push(']');
+        }
+        other => out.push_str(&other.to_string()),
+    }
 }
 
 pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport {
@@ -436,6 +482,7 @@ mod tests {
             cached_at: Utc::now(),
             content_hash: "deadbeef".to_string(),
             audit_signature: signature.to_string(),
+            fingerprint_version: 0,
         }
     }
 
@@ -467,6 +514,34 @@ mod tests {
             &meta,
             "level=AA;perf=1;seo=1;sec=0;mobile=1;dark=1;stack=0;consent=0"
         ));
+    }
+
+    fn labelled(name: Option<&str>, text_value: Option<&str>) -> SnapshotArtifact {
+        let mut snapshot = snapshot_with_unlabelled_field(&[]);
+        let field = snapshot.ax_tree.nodes.get_mut("field").unwrap();
+        field.name = name.map(str::to_string);
+        field.value = text_value.map(str::to_string);
+        snapshot
+    }
+
+    #[test]
+    fn changed_content_on_an_unchanged_tree_shape_changes_the_hash() {
+        let before = content_hash(&labelled(Some("Email"), None));
+        // Same node count, same ids: only the label differs.
+        assert_ne!(
+            before,
+            content_hash(&labelled(Some("E-Mail address"), None))
+        );
+        assert_ne!(before, content_hash(&labelled(Some("Email"), Some("x"))));
+        assert_eq!(before, content_hash(&labelled(Some("Email"), None)));
+    }
+
+    #[test]
+    fn an_entry_hashed_by_an_older_fingerprint_is_not_comparable() {
+        let mut meta = meta_with_signature("sig");
+        assert!(!meta.fingerprint_comparable());
+        meta.fingerprint_version = FINGERPRINT_VERSION;
+        assert!(meta.fingerprint_comparable());
     }
 
     fn snapshot_with_unlabelled_field(excluded: &[&str]) -> SnapshotArtifact {

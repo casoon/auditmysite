@@ -1329,3 +1329,39 @@ fn test_batch_certificate_is_risk_gated() {
     );
     assert_eq!(certificate, "EINGESCHRÄNKT");
 }
+
+#[test]
+fn empty_module_detail_says_why_it_is_empty() {
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        500,
+    );
+    let normalized = normalize(&report);
+    let state = |json: String| -> String {
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        value["pages"][0]["detail"]["module_detail"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    // A fresh run collected its modules; a cache replay has no raw data and
+    // must not look like modules that found nothing (#790).
+    assert_eq!(
+        state(
+            UnifiedReport::single(&normalized, &report)
+                .to_json(false)
+                .unwrap()
+        ),
+        "full"
+    );
+    assert_eq!(
+        state(format_json_cached(&normalized.normalized, false).unwrap()),
+        "not_restored"
+    );
+    let batch = BatchReport::from_reports(vec![report], vec![], 1);
+    let value: serde_json::Value =
+        serde_json::from_str(&format_json_batch(&batch, false).unwrap()).unwrap();
+    assert_eq!(value["pages"][0]["detail"]["module_detail"], "omitted");
+}

@@ -26,11 +26,11 @@ pub(super) fn render_wcag_coverage_section(
 
     // Principle coverage — informative secondary indicator (#99).
     let coverage =
-        AccessibilityScorer::calculate_coverage(&report.accessibility.wcag_results.violations);
+        AccessibilityScorer::calculate_execution_coverage(&report.accessibility.wcag_results);
     let cov_title = if en {
-        "Principle coverage (criteria passed)"
+        "Principle coverage (executed criteria passed)"
     } else {
-        "Prinzip-Abdeckung (bestandene Kriterien)"
+        "Prinzip-Abdeckung (ausgeführte Kriterien bestanden)"
     };
     let fmt_ratio =
         |r: &CoverageRatio| format!("{}/{} ({:.0} %)", r.passed, r.total, r.ratio * 100.0);

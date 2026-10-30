@@ -372,6 +372,14 @@ pub struct PipelineConfig {
     pub interactive: crate::cli::InteractiveMode,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     pub journey_budget_ms: u64,
+    /// Session policy of the browser the pages run in; part of the
+    /// measurement profile (#787).
+    pub session: crate::browser::SessionPolicy,
+    /// Declared browser state every page starts from (#787). Its values are
+    /// never reported; the profile carries digest and counts.
+    pub storage_state: Option<crate::browser::StorageState>,
+    /// Name of that state, stored in the measurement profile.
+    pub state_id: Option<String>,
     /// Report locale ("de" / "en") — used for i18n stopword loading.
     pub lang: String,
     /// Display mode of the data-display convention to audit in (#653).
@@ -428,13 +436,13 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 22;
+        const CACHE_FMT: u8 = 24;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -453,6 +461,9 @@ impl PipelineConfig {
             self.dismiss_consent as u8,
             self.interactive,
             self.journey_budget_ms,
+            self.session.as_str(),
+            self.state_id.as_deref().unwrap_or(""),
+            self.storage_state.as_ref().map_or("", |s| s.digest.as_str()),
             self.lang,
             disabled.join(","),
             enabled_only.join(","),
@@ -569,6 +580,11 @@ impl PipelineConfig {
                 .collect(),
             interactive: args.interactive,
             journey_budget_ms,
+            session: args.session,
+            storage_state: args
+                .load_storage_state()
+                .expect("--storage-state is checked by Args::validate"),
+            state_id: args.state_id.clone(),
             lang: args.lang.clone(),
             display_mode: args.display.and_then(|d| d.mode()),
             indexability: {
@@ -838,6 +854,11 @@ pub async fn audit_page(
     // Stored choice + reduced motion for `--display`, and the body observer
     // behind `display/init-missing`. Persists across both viewport passes.
     crate::display::prepare_page(page, config.display_mode).await;
+
+    // ── Pre-navigation: declared browser state (#787) ─────────────────────────
+    if let Some(state) = &config.storage_state {
+        state.apply(page, url).await;
+    }
 
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
@@ -1969,6 +1990,7 @@ pub(crate) fn persist_artifacts(
         cached_at: report.timestamp,
         content_hash: hash.clone(),
         audit_signature: config.audit_signature(),
+        fingerprint_version: crate::audit::artifacts::FINGERPRINT_VERSION,
     };
     // Persist the full report so cache hits render every module faithfully.
     // Screenshots reference temp files that won't exist on reload, so strip them.
@@ -2155,6 +2177,9 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            session: Default::default(),
+            storage_state: None,
+            state_id: None,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
             display: None,
@@ -2335,6 +2360,9 @@ mod tests {
             exclude_selectors: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+            session: Default::default(),
+            storage_state: None,
+            state_id: None,
             lang: "de".to_string(),
             display_mode: None,
             indexability: Default::default(),

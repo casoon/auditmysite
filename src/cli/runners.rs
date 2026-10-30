@@ -191,6 +191,9 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
             .then(|| BOT_USER_AGENT.to_string()),
         // One page, the active tab (see `BrowserManager::new_page`).
         focus_emulation: false,
+        // A single run starts a browser with a fresh profile: nothing else
+        // shares it.
+        session: args.session,
     };
 
     if !args.quiet {
