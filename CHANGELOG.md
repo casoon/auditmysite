@@ -9,6 +9,9 @@ and verification for each change is in the
 
 ### Added
 
+- **Audit contracts:** `audit::support_matrix` states for each opt-in extra check (`--isolate-third-party-impact`, `--check-ssr-content`, `--ai-transparency`, `--dns-check`) what it needs and what each mode (single, batch, cache, replay) does with it; `Args::validate` refuses a combination the run cannot execute, with the reason, instead of silently switching the check off (#788).
+- **Performance:** `performance.score_details.partial` is `true` when not all four core metrics (LCP, FCP, CLS, TBT) were measured (#769).
+- **Batch:** `summary.coverage` and `attempted_url_count` are part of the JSON schema; URLs selected but never started are counted as `not_attempted_urls` and make the batch decision `incomplete_scope` (#768).
 - **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
 - **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
 - **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.
@@ -29,6 +32,9 @@ and verification for each change is in the
 
 ### Changed
 
+- **Batch:** A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.overall_score` are `null` (schema: `integer | null`), not `0`; the denominator is `summary.coverage.succeeded` (#768).
+- **JSON:** A module with a partial or missing measurement no longer repeats its subset score as the page or summary `<module>_score` (`null`); it stays in `module_scores` (marked `partial`) and in the module detail. CLS-only performance used to read 100 (#769).
+- **CLI:** `--ai-transparency` with a batch input (`--sitemap`, `--url-file`, `--crawl`) is refused instead of printing a note and doing nothing (#788).
 - **Batch:** `summary.coverage` counts discovered, selected, attempted, succeeded, blocked and failed URLs separately; `average_score` and `url_count` stay over succeeded URLs. A batch with failed or blocked URLs is never `Complete` or PASS (verdict `warn` with `incomplete_scope`), and a batch where no URL produced a report is `fail` (exit code 2).
 - **Audit scope:** `--isolate-third-party-impact` and `--check-ssr-content` now also run in batch mode (sitemap, URL file, crawl). They are listed in `scope.requested_subchecks`, and a requested isolation pass that cannot run records `not_applicable` or `failed` in `module_runs[].subchecks[]` instead of leaving no trace.
 - **Findings:** `confidence` and `verification` follow from detection method and the finding's own evidence (new `assurance`), not from rule-id substrings: UX/Journey findings and unlocated WCAG findings ask for review, measured contrast failures are confirmed. Details: [Finding assurance](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-assurance).

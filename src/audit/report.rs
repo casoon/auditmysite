@@ -1083,9 +1083,17 @@ impl BatchCoverage {
         }
     }
 
-    /// True when every attempted URL produced a report.
+    /// True when every selected URL was attempted and produced a report.
     pub fn is_complete(&self) -> bool {
-        self.blocked == 0 && self.failed == 0 && self.succeeded == self.attempted
+        self.blocked == 0
+            && self.failed == 0
+            && self.succeeded == self.attempted
+            && self.selected <= self.attempted
+    }
+
+    /// URLs selected but never started (budget, cancellation).
+    pub fn not_attempted(&self) -> usize {
+        self.selected.saturating_sub(self.attempted)
     }
 }
 
@@ -1102,9 +1110,13 @@ pub struct BatchSummary {
     pub passed: usize,
     /// URLs that failed
     pub failed: usize,
-    /// Average score over the URLs that produced a report
-    /// (`coverage.succeeded` of `coverage.attempted`).
-    pub average_score: f64,
+    /// Average score over the URLs that produced a report. `None` when no
+    /// URL did: nothing was measured, which is not a score of 0 (#768).
+    pub average_score: Option<f64>,
+    /// Denominator of `average_score`: the URLs that produced a report
+    /// (`coverage.succeeded`), out of `coverage.attempted`.
+    #[serde(default)]
+    pub average_over: usize,
     /// WCAG occurrences across all pages — the batch sum of the pages'
     /// `occurrence_counts.total`. Findings of other domains are not
     /// violations.
@@ -1257,7 +1269,7 @@ impl BatchSummary {
     /// and the certificate is gated by the batch risk (plan 29, D1). The JSON
     /// summary and the PDF read this one function (plan 111).
     pub fn grade_and_certificate(&self) -> (String, String) {
-        let accessibility = self.average_score.round() as f32;
+        let accessibility = self.average_score.unwrap_or(0.0).round() as f32;
         let grade = AccessibilityScorer::calculate_grade(accessibility).to_string();
         let certificate = crate::audit::normalized::gate_certificate_by_risk(
             AccessibilityScorer::calculate_certificate(accessibility).to_string(),
@@ -1380,15 +1392,13 @@ impl BatchReport {
             .unwrap_or_default();
         let failed = total_urls - passed;
 
-        let average_score = if total_urls > 0 {
+        let average_score = (total_urls > 0).then(|| {
             normalized_reports
                 .iter()
                 .map(|r| r.score as f64)
                 .sum::<f64>()
                 / total_urls as f64
-        } else {
-            0.0
-        };
+        });
 
         let score_spread = ScoreSpread::from_pages(
             &normalized_reports
@@ -1456,7 +1466,7 @@ impl BatchReport {
             }
         };
         let score_band_key = {
-            let s = average_score.round() as u32;
+            let s = average_score.unwrap_or(0.0).round() as u32;
             if s >= 90 {
                 "verdict-batch-excellent"
             } else if s >= 70 {
@@ -1478,6 +1488,7 @@ impl BatchReport {
                 passed,
                 failed,
                 average_score,
+                average_over: total_urls,
                 total_violations,
                 violated_rule_count,
                 legal_flags,
@@ -1516,6 +1527,21 @@ impl BatchReport {
         self.summary.coverage.discovered = sample.total_discovered;
         self.summary.coverage.selected = sample.audited;
         self.sample = Some(sample);
+        // Selected URLs that were never started qualify the batch (#768); the
+        // decision is derived again from the final coverage.
+        let unattempted = self.summary.coverage.not_attempted();
+        if unattempted > 0 {
+            let quality = &mut self.summary.audit_quality;
+            quality
+                .reasons
+                .push(format!("not_attempted_urls:{unattempted}"));
+            quality.qualified_results = true;
+            if quality.status == AuditQualityStatus::Complete {
+                quality.status = AuditQualityStatus::Partial;
+            }
+        }
+        let profile = self.summary.decision.profile.clone();
+        self.summary.decision = super::verdict::compute_batch_verdict(&self.summary, &profile);
         self
     }
 }
@@ -1626,7 +1652,7 @@ mod tests {
 
         assert_eq!(batch.summary.total_urls, 2);
         assert_eq!(batch.summary.passed, 2);
-        assert_eq!(batch.summary.average_score, 100.0);
+        assert_eq!(batch.summary.average_score, Some(100.0));
     }
 
     #[test]
@@ -1917,7 +1943,8 @@ mod tests {
             10,
         );
         assert_eq!(batch.summary.coverage.succeeded, 0);
-        assert_eq!(batch.summary.average_score, 0.0);
+        assert_eq!(batch.summary.average_score, None);
+        assert_eq!(batch.summary.average_over, 0);
         assert_eq!(
             batch.summary.audit_quality.status,
             AuditQualityStatus::Insufficient
@@ -1925,6 +1952,34 @@ mod tests {
         let v = crate::audit::compute_batch_verdict(&batch.summary, &Default::default());
         assert_eq!(v.verdict, crate::audit::Verdict::Fail);
         assert_eq!(v.verdict.exit_code(), 2);
+    }
+
+    /// #768: URLs selected but never attempted (budget, cancel) are not a
+    /// complete batch, and the denominator names what was measured.
+    #[test]
+    fn selected_but_never_attempted_urls_qualify_the_batch() {
+        let batch = BatchReport::from_reports(vec![clean_report("https://a.com")], vec![], 10)
+            .with_sample(SampleMetadata {
+                source: "url_file".to_string(),
+                total_discovered: 3,
+                audited: 3,
+                sample_limit: None,
+                selection: "all".to_string(),
+                is_sample: false,
+            });
+        let c = &batch.summary.coverage;
+        assert_eq!((c.selected, c.attempted, c.succeeded), (3, 1, 1));
+        assert_eq!(c.not_attempted(), 2);
+        assert!(!c.is_complete());
+        assert_eq!(batch.summary.average_over, 1);
+        assert_ne!(batch.summary.decision.verdict, crate::audit::Verdict::Pass);
+        assert!(batch
+            .summary
+            .decision
+            .reasons
+            .iter()
+            .any(|r| r.contains("2 not attempted")));
+        assert!(batch.summary.audit_quality.qualified_results);
     }
 
     #[test]

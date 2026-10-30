@@ -30,6 +30,7 @@ mod risk_assessment;
 mod scoring;
 pub mod signal_contract;
 pub mod summary;
+pub mod support_matrix;
 pub mod template_dedup;
 pub mod validation;
 pub mod verdict;

@@ -637,6 +637,35 @@ pub(crate) fn refresh_audit_quality(report: &mut AuditReport) {
     update_audit_quality(report);
 }
 
+/// Why the isolation pass cannot run, given the number of attributed
+/// third-party origins (`None`: no baseline TBT or no attribution). A requested
+/// check that is skipped still leaves this outcome in `module_runs` (#788).
+pub(crate) fn isolation_skip_outcome(
+    origins: Option<usize>,
+) -> Option<crate::audit::collection::Collected<()>> {
+    use crate::audit::collection::Collected;
+    match origins {
+        None => Some(Collected::Failed(
+            "no_tbt_baseline_or_third_party_attribution",
+        )),
+        Some(0) => Some(Collected::NotApplicable("no_third_party_origins")),
+        Some(_) => None,
+    }
+}
+
+pub(crate) fn record_extra_outcome(
+    report: &mut AuditReport,
+    spec: &'static crate::audit::collection::CollectorSpec,
+    outcome: crate::audit::collection::Collected<()>,
+) {
+    let log = crate::audit::collection::CollectionLog::new();
+    log.record(spec, outcome);
+    crate::audit::collection::fold_records(
+        &mut report.accessibility.execution.module_runs,
+        log.into_records(),
+    );
+}
+
 /// The opt-in extra-reload checks (third-party isolation #531, SSR content gap
 /// #534). Shared by the single-URL and the batch path, so a requested check
 /// runs in both or leaves a recorded outcome (#788). The caller refreshes
@@ -659,22 +688,8 @@ pub(crate) async fn run_extra_page_checks(
             let origins = p.third_party.as_ref()?.origins.clone();
             Some((baseline_tbt_ms, origins))
         });
-        let skipped = match &baseline {
-            None => Some(crate::audit::collection::Collected::<()>::Failed(
-                "no_tbt_baseline_or_third_party_attribution",
-            )),
-            Some((_, origins)) if origins.is_empty() => Some(
-                crate::audit::collection::Collected::<()>::NotApplicable("no_third_party_origins"),
-            ),
-            Some(_) => None,
-        };
-        if let Some(outcome) = skipped {
-            let log = crate::audit::collection::CollectionLog::new();
-            log.record(&crate::performance::third_party::ISOLATION, outcome);
-            crate::audit::collection::fold_records(
-                &mut report.accessibility.execution.module_runs,
-                log.into_records(),
-            );
+        if let Some(outcome) = isolation_skip_outcome(baseline.as_ref().map(|(_, o)| o.len())) {
+            record_extra_outcome(report, &crate::performance::third_party::ISOLATION, outcome);
         }
         if let Some((baseline_tbt_ms, origins)) = baseline {
             if !origins.is_empty() {
@@ -2307,6 +2322,8 @@ mod tests {
         }
         assert!(scope(&["auditmysite", "--url-file", "urls.txt", "--full"]).is_empty());
         // SEO off: the SSR check has no module to attach to and is not requested.
+        // (`Args::validate` rejects this combination before it gets here; the
+        // config stays defensive — see the support-matrix test below.)
         assert_eq!(
             scope(&[
                 "auditmysite",
@@ -2318,6 +2335,200 @@ mod tests {
             ]),
             vec!["performance.third_party_isolation".to_string()]
         );
+    }
+
+    /// #788: no flag combination ends as a silent `false`. For every
+    /// combination of mode and module switches, either `Args::validate`
+    /// rejects it or the pipeline config carries each requested check on.
+    #[test]
+    fn requested_extra_checks_are_executed_or_rejected_never_dropped() {
+        let targets: [&[&str]; 2] = [&["https://example.com"], &["--url-file", "Cargo.toml"]];
+        let module_sets: [&[&str]; 6] = [
+            &[],
+            &["--full"],
+            &["--performance"],
+            &["--seo"],
+            &["--full", "--skip-performance"],
+            &["--performance", "--seo"],
+        ];
+        let checks = [
+            "--isolate-third-party-impact",
+            "--check-ssr-content",
+            "--ai-transparency",
+            "--dns-check",
+        ];
+        let (mut accepted, mut rejected) = (0, 0);
+        for target in targets {
+            for modules in module_sets {
+                for check in checks {
+                    let argv: Vec<&str> = ["auditmysite"]
+                        .into_iter()
+                        .chain(target.iter().copied())
+                        .chain(modules.iter().copied())
+                        .chain([check])
+                        .collect();
+                    let args = Args::parse_from(&argv);
+                    if args.validate().is_err() {
+                        rejected += 1;
+                        continue;
+                    }
+                    accepted += 1;
+                    let cfg = PipelineConfig::from_args_and_config(&args, None);
+                    let carried = match check {
+                        "--isolate-third-party-impact" => cfg.check_isolate_third_party_impact,
+                        "--check-ssr-content" => cfg.check_ssr_content,
+                        "--ai-transparency" => cfg.check_ai_transparency,
+                        _ => cfg.check_dns,
+                    };
+                    assert!(carried, "{argv:?} was accepted but the check is off");
+                }
+            }
+        }
+        assert!(accepted > 0 && rejected > 0, "{accepted} / {rejected}");
+    }
+
+    #[test]
+    fn unsupported_combinations_are_rejected_with_the_reason() {
+        let reject = |argv: &[&str]| {
+            Args::parse_from(argv)
+                .validate()
+                .expect_err("must be rejected")
+        };
+        let e = reject(&[
+            "auditmysite",
+            "https://example.com",
+            "--seo",
+            "--isolate-third-party-impact",
+        ]);
+        assert!(
+            e.contains("--isolate-third-party-impact") && e.contains("performance"),
+            "{e}"
+        );
+        let e = reject(&[
+            "auditmysite",
+            "--url-file",
+            "Cargo.toml",
+            "--performance",
+            "--check-ssr-content",
+        ]);
+        assert!(
+            e.contains("--check-ssr-content") && e.contains("SEO"),
+            "{e}"
+        );
+        let e = reject(&[
+            "auditmysite",
+            "--url-file",
+            "Cargo.toml",
+            "--ai-transparency",
+        ]);
+        assert!(
+            e.contains("--ai-transparency") && e.contains("single-URL"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn matrix_subcheck_ids_are_the_collector_ids() {
+        use crate::audit::support_matrix::{ExtraCheck, MATRIX};
+        let id = |check| MATRIX.iter().find(|s| s.check == check).unwrap().subcheck;
+        assert_eq!(
+            id(ExtraCheck::ThirdPartyIsolation),
+            Some(crate::performance::third_party::ISOLATION.id)
+        );
+        assert_eq!(
+            id(ExtraCheck::SsrContent),
+            Some(crate::content_visibility::ssr_gap::SSR_GAP.id)
+        );
+    }
+
+    /// Single and batch of the same flags carry the same requested scope and
+    /// the same measurement profile (#788, #787).
+    #[test]
+    fn single_and_batch_share_scope_and_measurement_profile() {
+        use super::assembly::audit_scope_from_config;
+        let flags = [
+            "--full",
+            "--isolate-third-party-impact",
+            "--check-ssr-content",
+        ];
+        let scope = |target: &[&str]| {
+            let argv: Vec<&str> = ["auditmysite"]
+                .into_iter()
+                .chain(target.iter().copied())
+                .chain(flags)
+                .collect();
+            let args = Args::parse_from(argv);
+            args.validate().unwrap();
+            audit_scope_from_config(&PipelineConfig::from_args_and_config(&args, None))
+        };
+        let single = scope(&["https://example.com"]);
+        let batch = scope(&["--url-file", "Cargo.toml"]);
+        assert_eq!(single.requested_subchecks, batch.requested_subchecks);
+        assert_eq!(single.requested_subchecks.len(), 2);
+        assert_eq!(
+            serde_json::to_value(&single.measurement_profile).unwrap(),
+            serde_json::to_value(&batch.measurement_profile).unwrap()
+        );
+    }
+
+    fn report_with_run(module: &str) -> AuditReport {
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: module.into(),
+                status: crate::audit::ExecutionStatus::Completed,
+                viewports: vec![],
+                subchecks: vec![],
+                reason_code: None,
+                message: None,
+            });
+        report
+    }
+
+    /// A requested isolation pass that cannot run leaves a recorded outcome:
+    /// Failed without baseline, NotApplicable without third-party origins —
+    /// and the module run no longer reads as cleanly completed.
+    #[test]
+    fn skipped_isolation_leaves_a_recorded_outcome() {
+        use crate::audit::collection::CollectionState;
+        let isolation = &crate::performance::third_party::ISOLATION;
+        assert!(isolation_skip_outcome(Some(2)).is_none());
+        for (origins, state, status) in [
+            (
+                None,
+                CollectionState::Failed,
+                crate::audit::ExecutionStatus::Failed,
+            ),
+            (
+                Some(0),
+                CollectionState::NotApplicable,
+                crate::audit::ExecutionStatus::Completed,
+            ),
+        ] {
+            let mut report = report_with_run("performance");
+            record_extra_outcome(
+                &mut report,
+                isolation,
+                isolation_skip_outcome(origins).unwrap(),
+            );
+            let run = &report.accessibility.execution.module_runs[0];
+            let sub = run
+                .subchecks
+                .iter()
+                .find(|s| s.subcheck == isolation.id)
+                .expect("subcheck recorded");
+            assert_eq!(sub.state, Some(state), "{origins:?}");
+            assert_eq!(run.status, status, "{origins:?}");
+            assert!(sub.reason_code.is_some());
+        }
     }
 
     #[test]

@@ -104,6 +104,12 @@ pub struct PerformanceScore {
     /// Whether the score was capped due to a critical threshold
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_capped: Option<bool>,
+    /// True when not all four core metrics (LCP, FCP, CLS, TBT) were measured:
+    /// `overall` is then a renormalized subset for diagnosis only, not a
+    /// headline performance score, and the module stays out of the weighted
+    /// report score (#769).
+    #[serde(default)]
+    pub partial: bool,
 }
 
 impl PerformanceScore {
@@ -311,6 +317,10 @@ pub fn calculate_performance_score(
         request_penalty,
         dom_penalty,
         is_capped,
+        partial: !(lcp_score.is_some()
+            && fcp_score.is_some()
+            && cls_score.is_some()
+            && interactivity_score.is_some()),
     }
 }
 

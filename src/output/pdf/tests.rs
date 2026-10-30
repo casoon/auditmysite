@@ -959,6 +959,7 @@ mod tests {
                     request_penalty: None,
                     dom_penalty: None,
                     is_capped: None,
+                    partial: false,
                 },
                 render_blocking: None,
                 content_weight: None,
@@ -1233,6 +1234,7 @@ mod tests {
                     request_penalty: None,
                     dom_penalty: None,
                     is_capped: None,
+                    partial: false,
                 },
                 render_blocking: None,
                 content_weight: None,
@@ -1305,6 +1307,7 @@ mod tests {
                 request_penalty: None,
                 dom_penalty: None,
                 is_capped: None,
+                partial: false,
             },
             render_blocking: None,
             content_weight: None,
@@ -2582,7 +2585,7 @@ mod tests {
 
         let normalized = crate::audit::normalize(&report);
         let unified = crate::output::UnifiedReport::single(&normalized, &report);
-        assert_eq!(unified.summary.accessibility_score, 38);
+        assert_eq!(unified.summary.accessibility_score, Some(38));
         assert_eq!(unified.pages[0].accessibility_score, 38);
         assert_eq!(
             unified.pages[0]

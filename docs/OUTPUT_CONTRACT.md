@@ -133,7 +133,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order).
   - `is_sample` — `true` when fewer URLs were audited than discovered.
 - The block is omitted when no sampling metadata was recorded (e.g. cached single reports).
-- A selection (`first_n`, `path_filter`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages.
+- A selection (`first_n`, `path_filter`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages. URLs selected but never started (`coverage.selected > coverage.attempted`) make the batch incomplete (`not_attempted_urls` in `audit_quality.reasons`, `incomplete_scope` in the decision).
 - `summary.score_spread` reports `min`, `median`, `max`, `std_dev` and the `worst_pages` (up to 5, worst first) next to `average_score`.
 - `summary.selection_profile` counts the audited pages by canonical `page_types` and primary-subtag `languages`; pages without the signal are counted in `unclassified` / `language_unknown`.
 
@@ -172,7 +172,7 @@ target for one registry entry; `tests/registry_contract.rs` checks that every
 Canonical accessibility score. With dual-viewport data it is 70% mobile and
 30% desktop; otherwise it is the measured single-viewport score. It covers
 automatically evaluated WCAG findings only. In batch reports this is the
-average of the canonical page accessibility scores.
+average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.overall_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
 
 <a id="overall-score"></a>
 ### overall_score — `summary.overall_score`

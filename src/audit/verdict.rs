@@ -351,7 +351,7 @@ impl Reasons {
 /// of the batch policy; `BatchReport::from_reports` stores its result in
 /// `BatchSummary.decision`.
 pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) -> VerdictResult {
-    let average_score = summary.average_score.round() as u32;
+    let average_score = summary.average_score.map(|a| a.round() as u32);
     let mut fail = Vec::new();
     // Nothing was measured: no score, no findings, so no PASS/WARN either (#768).
     if summary.coverage.attempted > 0 && summary.coverage.succeeded == 0 {
@@ -379,10 +379,11 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
         ));
     }
     if let Some(threshold) = profile.fail_below_score {
-        if average_score < threshold {
+        if average_score.is_some_and(|a| a < threshold) {
             fail.push(format!(
                 "average score {} < fail_below_score {}",
-                average_score, threshold
+                average_score.unwrap_or(0),
+                threshold
             ));
         }
     }
@@ -403,11 +404,12 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
     let mut warn = Vec::new();
     if !summary.coverage.is_complete() {
         warn.push(format!(
-            "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked)",
+            "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked, {} not attempted)",
             summary.coverage.succeeded,
-            summary.coverage.attempted,
+            summary.coverage.selected.max(summary.coverage.attempted),
             summary.coverage.failed,
-            summary.coverage.blocked
+            summary.coverage.blocked,
+            summary.coverage.not_attempted()
         ));
     }
     if summary.audit_quality.qualified_results {
@@ -419,10 +421,11 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
             summary.technical_blockers
         ));
     }
-    if average_score < profile.warn_below_score {
+    if average_score.is_some_and(|a| a < profile.warn_below_score) {
         warn.push(format!(
             "average score {} < warn_below_score {}",
-            average_score, profile.warn_below_score
+            average_score.unwrap_or(0),
+            profile.warn_below_score
         ));
     } else if summary.failed > 0 {
         warn.push(format!(
@@ -554,7 +557,8 @@ mod tests {
             coverage: Default::default(),
             passed: 1,
             failed: 0,
-            average_score: 100.0,
+            average_score: Some(100.0),
+            average_over: 1,
             total_violations: 0,
             violated_rule_count: 0,
             legal_flags: 0,

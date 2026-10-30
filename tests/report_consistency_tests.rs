@@ -407,6 +407,7 @@ fn make_performance() -> PerformanceResults {
             request_penalty: None,
             dom_penalty: None,
             is_capped: None,
+            partial: false,
         },
         render_blocking: None,
         content_weight: None,
@@ -1321,7 +1322,7 @@ fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
     let normalized = normalize(&reports[0]);
     let expected_overall = normalized.normalized.overall_score as u64;
     let batch = BatchReport::from_reports(reports, vec![], 100);
-    let expected_score = batch.summary.average_score.round() as u64;
+    let expected_score = batch.summary.average_score.unwrap().round() as u64;
     let parsed: serde_json::Value =
         serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON must render"))
             .expect("batch JSON must parse");
@@ -1370,7 +1371,7 @@ fn test_batch_summary_uses_normalized_primary_score() {
     let batch = BatchReport::from_reports(vec![report.clone()], vec![], 100);
 
     assert_eq!(normalized.normalized.score, 80);
-    assert_eq!(batch.summary.average_score, 80.0);
+    assert_eq!(batch.summary.average_score, Some(80.0));
     assert_eq!(batch.summary.passed, 1);
     assert_eq!(batch.summary.failed, 0);
 }
@@ -1995,7 +1996,7 @@ fn domain_contract_collects_errors_and_covers_batch_aggregation() {
     for field in ["average_score", "passed", "total_urls"] {
         let mut changed = batch.clone();
         match field {
-            "average_score" => changed.summary.average_score = 0.0,
+            "average_score" => changed.summary.average_score = Some(0.0),
             "passed" => changed.summary.passed = 0,
             _ => changed.summary.total_urls = 2,
         }
@@ -2129,7 +2130,7 @@ fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {
     let error = auditmysite::output::generate_pdf(&report, &ReportConfig::default()).unwrap_err();
     assert!(error.to_string().contains("score_range"));
     let mut batch = BatchReport::from_reports(vec![make_full_report()], vec![], 1);
-    batch.summary.average_score = 999.0;
+    batch.summary.average_score = Some(999.0);
     let error =
         auditmysite::output::generate_batch_pdf(&batch, &ReportConfig::default()).unwrap_err();
     assert!(error.to_string().contains("batch_aggregation"));

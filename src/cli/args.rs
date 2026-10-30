@@ -886,6 +886,20 @@ impl Args {
         }
 
         let is_batch = self.sitemap.is_some() || self.url_file.is_some() || self.crawl;
+        // Opt-in extra checks: run in the requested mode or are refused here,
+        // never silently reduced to "off" later (#788).
+        let full = self.full_audit_enabled();
+        crate::audit::support_matrix::ExtraCheckRequest {
+            isolate_third_party_impact: self.isolate_third_party_impact,
+            check_ssr_content: self.check_ssr_content,
+            ai_transparency: self.ai_transparency,
+            dns_check: self.dns_check,
+            performance_active: (full || self.performance) && !self.skip_performance,
+            seo_active: full || self.seo,
+            batch: is_batch,
+            reuse_cache: self.reuse_cache && !self.force_refresh,
+        }
+        .validate()?;
         if self.technician && !is_batch {
             return Err(
                 "--technician needs a batch input: --sitemap, --url-file or --crawl".to_string(),

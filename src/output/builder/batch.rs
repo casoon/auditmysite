@@ -835,7 +835,7 @@ pub fn build_batch_presentation_with_normalized(
             total_urls: batch.summary.total_urls,
             passed: batch.summary.passed,
             failed: batch.summary.failed,
-            average_score: batch.summary.average_score,
+            average_score: batch.summary.average_score.unwrap_or(0.0),
             average_overall_score,
             total_violations: batch.summary.total_violations,
             duration_ms: batch.total_duration_ms,
@@ -2334,6 +2334,7 @@ mod minification_inconsistency_tests {
             request_penalty: None,
             dom_penalty: None,
             is_capped: None,
+            partial: false,
         }
     }
 

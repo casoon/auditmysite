@@ -178,8 +178,9 @@ fn metric_context(report_type: &'static str) -> MetricContext {
 #[derive(Debug, Serialize)]
 pub struct UnifiedSummary {
     pub url_count: usize,
-    pub accessibility_score: u32,
-    pub overall_score: u32,
+    /// `null` for a batch without a single audited URL: nothing was measured (#768).
+    pub accessibility_score: Option<u32>,
+    pub overall_score: Option<u32>,
     pub grade: String,
     pub certificate: String,
     pub risk_level: crate::audit::normalized::RiskLevel,
@@ -1023,15 +1024,16 @@ impl UnifiedReport {
 
         let severity_counts = aggregate_severity(&pages);
         let occurrence_counts = aggregate_occurrences(&pages);
-        let accessibility_score = batch_report.summary.average_score.round() as u32;
+        let measured = batch_report.summary.average_score.is_some();
+        let accessibility_score = batch_report.summary.average_score.unwrap_or(0.0).round() as u32;
         let overall_score_batch = presentation.portfolio_summary.average_overall_score;
         // Accessibility plus risk gate, like the single report — they followed
         // the overall score here, so 49/100 accessibility read "STABIL" (plan 111).
         let (grade, certificate) = batch_report.summary.grade_and_certificate();
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
-            accessibility_score,
-            overall_score: overall_score_batch,
+            accessibility_score: measured.then_some(accessibility_score),
+            overall_score: measured.then_some(overall_score_batch),
             grade,
             certificate,
             risk_level: batch_report.summary.risk,
@@ -1226,8 +1228,8 @@ impl UnifiedReport {
         let violated_rule_count = page.violated_rule_count;
         let summary = UnifiedSummary {
             url_count: 1,
-            accessibility_score: page.accessibility_score,
-            overall_score: page.overall_score,
+            accessibility_score: Some(page.accessibility_score),
+            overall_score: Some(page.overall_score),
             grade: page.grade.clone(),
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
@@ -1330,8 +1332,8 @@ impl UnifiedReport {
         let violated_rule_count = page.violated_rule_count;
         let summary = UnifiedSummary {
             url_count: 1,
-            accessibility_score: page.accessibility_score,
-            overall_score: page.overall_score,
+            accessibility_score: Some(page.accessibility_score),
+            overall_score: Some(page.overall_score),
             grade: page.grade.clone(),
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
