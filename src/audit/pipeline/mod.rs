@@ -1801,6 +1801,26 @@ async fn run_rules(
         }
     }
 
+    // The module was requested but its collection delivered nothing (failed
+    // or timed out): the rule did not run, and says so (#778).
+    if snapshot.html_conform.is_none()
+        && config.check_html_conform
+        && viewport_label == crate::wcag::expectation::MOBILE
+        && config
+            .rule_filter
+            .should_run(wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id)
+    {
+        wcag_results.rule_outcomes.push(
+            crate::wcag::RuleRun::not_run(
+                wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
+                crate::wcag::NotRun::Errored,
+            )
+            .with_wcag([wcag::rules::HTML_CONTENT_MODEL_RULE.id])
+            .in_viewport(viewport_label)
+            .with_reason("html_conform_not_collected"),
+        );
+    }
+
     // Table-driven page rules (#334). min_level gates each entry.
     for rule in wcag::rules::PAGE_RULES {
         if config.wcag_level < rule.min_level {
@@ -1865,7 +1885,7 @@ async fn run_rules(
             if !config.rule_filter.should_run(id) {
                 concrete.not_run = Some(crate::wcag::NotRun::Disabled);
             }
-            wcag_results.rule_outcomes.push(concrete);
+            wcag_results.fold_outcome(concrete);
         }
         // The executor record describes execution. Concrete IDs above own
         // the finding counts, so an aggregate ID cannot lose or double them.
@@ -1876,7 +1896,7 @@ async fn run_rules(
                     && finding.kind == crate::wcag::Outcome::Fail
             })
             .count();
-        wcag_results.rule_outcomes.push(outcome);
+        wcag_results.fold_outcome(outcome);
         wcag_results.extend_findings(findings);
     }
 
@@ -1894,11 +1914,12 @@ async fn run_rules(
     }
 
     move_demoted_violations_to_warnings(&mut wcag_results);
-    wcag_results.incomplete = wcag_results
-        .rule_outcomes
-        .iter()
-        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
-        .count();
+    // One failed check, one incomplete: an executor and its concrete rules
+    // are the same check (#778).
+    wcag_results.incomplete = crate::wcag::expectation::count_checks(
+        &wcag_results.rule_outcomes,
+        crate::wcag::rule_run_errored,
+    );
     (wcag_results, excluded, frames)
 }
 

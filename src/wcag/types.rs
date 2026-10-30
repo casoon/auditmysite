@@ -468,6 +468,30 @@ pub fn rule_run_skipped(run: &RuleRun) -> bool {
 }
 
 impl WcagResults {
+    /// Adds an outcome under the `(rule_id, viewport)` key. A rule whose work
+    /// is split over several executors (the static and the live half of
+    /// `context/on-input`, a frame's share of a page rule) keeps one entry:
+    /// findings add up, and a half that errored makes the whole rule errored
+    /// (#778).
+    pub fn fold_outcome(&mut self, run: RuleRun) {
+        let Some(existing) = self
+            .rule_outcomes
+            .iter_mut()
+            .find(|o| o.rule_id == run.rule_id && o.viewport == run.viewport)
+        else {
+            self.rule_outcomes.push(run);
+            return;
+        };
+        match (existing.not_run, run.not_run) {
+            (None, None) => existing.findings += run.findings,
+            (None, Some(NotRun::Errored)) => {
+                existing.not_run = run.not_run;
+                existing.reason = run.reason;
+            }
+            _ => {}
+        }
+    }
+
     /// Create new empty results
     pub fn new() -> Self {
         Self {

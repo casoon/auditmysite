@@ -86,14 +86,11 @@ pub fn check_all_excluding(
     };
     run.results.nodes_checked = tree.len();
 
-    // Run Level A rules
-    debug!("Running Level A rules...");
-    run_level_a_rules(tree, &mut run, filter);
-
-    // Run Level AA rules if requested
-    if matches!(level, WcagLevel::AA | WcagLevel::AAA) {
-        debug!("Running Level AA rules...");
-        run_level_aa_rules(tree, &mut run, filter);
+    for rule in TREE_RULES {
+        if level >= rule.min_level && filter.should_run(rule.axe_id) {
+            debug!("Running tree rule {}", rule.axe_id);
+            run.record(rule.axe_id, (rule.check)(tree));
+        }
     }
 
     // Level AAA hat keine Baumregeln mehr: 1.4.6 (`contrast/text-enhanced`,
@@ -138,157 +135,45 @@ impl TreeRun<'_> {
     }
 }
 
-/// Merge rule results only if the filter allows the given axe_id
-macro_rules! run_if_allowed {
-    ($filter:expr, $axe_id:expr, $check_fn:expr, $results:expr, $tree:expr) => {
-        if $filter.should_run($axe_id) {
-            $results.record($axe_id, $check_fn($tree));
-        }
-    };
+/// One AX-tree rule. The engine runs exactly this table, and the expected
+/// outcomes of a run (`wcag::expectation`) are derived from it, so a rule
+/// cannot be added without it being requested (#778).
+pub struct TreeRule {
+    pub axe_id: &'static str,
+    /// The rule runs when the configured level is at least this one.
+    pub min_level: WcagLevel,
+    pub check: fn(&AXTree) -> WcagResults,
 }
 
-/// Run all Level A rules
-fn run_level_a_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
-    // 1.1.1 Non-text Content (Level A)
-    run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
-    // 1.1.1 `<area>`, `<input type="image">`, `<object>` und serverseitige
-    // Image-Maps laufen als `images/*` und `objects/alt-missing` im geteilten
-    // Bestand (#696).
-
-    // 2.1.1 Keyboard laeuft als `keyboard/focusable-no-role` und
-    // `keyboard/interactive-not-focusable` im geteilten Bestand (#694). Hier
-    // bleibt 2.1.2 No Keyboard Trap: Ob der Fokus wieder herauskommt, zeigt
-    // nur echte Bedienung -- ein Hinweis je modalem Dialog und seitenweit.
-    run_if_allowed!(filter, "keyboard-trap", check_keyboard, results, tree);
-
-    // 2.4.1 Bypass Blocks: Sprunglink, main-Landmark und die Seite ganz ohne
-    // Ueberschriften laufen als `keyboard/skip-link-missing`,
-    // `landmarks/main-missing` und `headings/none` im geteilten Bestand
-    // (#690, #694).
-
-    // 2.4.2 Page Titled: fehlender und leerer Titel laufen als
-    // `document/title-*` im geteilten Bestand, der nichtssagende Titel als
-    // DOM-Page-Rule `check_page_titled_with_page`. Der AX-Baum taugt dafuer
-    // nicht: Sein Wurzelname faellt ohne Titel auf die URL zurueck.
-
-    // 2.4.4 Link Purpose (In Context) und 2.4.9 (AAA) laufen als
-    // `links/generic-name`, `links/url-name`, `links/single-character-name`
-    // und `links/purpose-link-only` im geteilten Bestand (Plan 98).
-
-    // 3.1.1 Language of Page (Level A) laeuft als geteilte Regel
-    // (`document/lang-missing`, `document/lang-invalid`, siehe wcag::shared)
-    // gegen den per CDP geholten DOM. Die AX-Eigenschaft `language`
-    // synthetisiert Chrome aus Locale und Kontext, auch wenn der Autor nie
-    // ein `lang` gesetzt hat -- eine AX-basierte Pruefung ist fuer den
-    // haeufigsten Fall also blind.
-    // 3.1.1 xml:lang-Abgleich laeuft als `document/lang-mismatch` im
-    // geteilten Bestand (#697).
-
-    // 3.3.2 Labels or Instructions und 3.3.1 Error Identification laufen als
-    // `forms/*` im geteilten Bestand (#693): fehlende Beschriftung,
-    // Platzhalter als Beschriftung, Pflichtfeld, Formatangabe, Gruppenname,
-    // Fehlerbeschreibung.
-
-    // 2.4.3 Focus Order: fokussierbar trotz `aria-hidden` laeuft als
-    // `keyboard/hidden-focusable` im geteilten Bestand (siehe wcag::shared),
-    // positives `tabindex` als `keyboard/positive-tabindex`.
-
-    // 2.5.3 Label in Name laeuft als `label-in-name/mismatch` im geteilten
-    // Bestand (#692).
-
-    // 3.2.1 On Focus und 3.2.2 On Input laufen als `context/*` im geteilten
-    // Bestand (#693). Was eine laufende Seite braucht -- den Quelltext einer
-    // aufgerufenen Funktion ueber `window` --, bleibt als DOM-Page-Rule
-    // `check_on_input_with_page` in PAGE_RULES.
-
-    // 4.1.2 Formularfelder ohne Namen laufen als `forms/label-missing` und
-    // `names/required-missing` im geteilten Bestand (#693).
-
-    // 4.1.2 ARIA: Rollen, Attributnamen und -werte, erlaubte und verbotene
-    // Attribute, Kontext und Bestandteile laufen als `aria/*` im geteilten
-    // Bestand (#691), gegen den DOM -- ebenso
-    // `aria/required-attribute-missing` (#690).
-
-    // 1.3.1 Inhalt ausserhalb jeder Landmark laeuft als
-    // `landmarks/content-outside` im geteilten Bestand (#694).
-
-    // 4.1.2 Beschreibung wiederholt den Namen (Best Practice, #713). Fehlender
-    // und rein symbolischer Name laufen als `names/*` im geteilten Bestand
-    // (#692).
-    run_if_allowed!(
-        filter,
-        "description-duplicates-name",
-        check_accessible_name,
-        results,
-        tree
-    );
-
-    // 4.1.2 ARIA Relationship Attributes laeuft als `aria/reference-missing`
-    // im geteilten Bestand.
-
-    // 4.1.2 Rollen mit Namenspflicht laufen als `names/required-missing` im
-    // geteilten Bestand (#692).
-
-    // 1.3.1 / 3.3.1 / 3.3.2 Formularstruktur laeuft als `forms/*` im
-    // geteilten Bestand (#693).
-
-    // 4.1.2 Dialoge laufen als `dialog/name-missing` und
-    // `dialog/modal-unmarked` im geteilten Bestand (#692).
-
-    // 4.1.2 Tabs und Combobox laufen als `aria/tab-selected-missing`,
-    // `aria/tabpanel-missing` und `aria/combobox-popup-missing` im geteilten
-    // Bestand (#691).
-
-    // 1.1.1 / 1.2.1 AX-Pruefungen aus `media_rules` (unbenannte
-    // `application`/`img`, benannte dekorative Elemente) sind mit #696
-    // entfallen: `svg/name-missing`, `images/alt-missing` und
-    // `aria/attribute-prohibited` decken sie im geteilten Bestand.
-
-    // 1.1.1 SVG laeuft als `svg/name-missing` im geteilten Bestand.
-
-    // 1.3.1 Landmarks: eindeutige Namen, Verschachtelung und doppelte
-    // banner/contentinfo laufen als `landmarks/*` im geteilten Bestand (#694).
-    // Fehlende main-/banner-Landmark und doppelte main laufen als
-    // `landmarks/*` im geteilten Bestand.
-
-    // 1.3.1 Kopfzellen ohne Daten und `headers`-Verweise laufen als
-    // `tables/*` im geteilten Bestand (#697).
-
-    // 4.1.2 `<summary>` laeuft als `summary/name-missing` im geteilten
-    // Bestand (#692).
-
-    // 1.3.1 Beschriftung nur per `title` laeuft als `forms/title-only-label`
-    // im geteilten Bestand (#693).
-
-    // 4.1.2 Mehrdeutiges `aria-owns` laeuft als `aria/owns-conflict` im
-    // geteilten Bestand (#691).
-}
-
-/// Run all Level AA rules
-fn run_level_aa_rules(tree: &AXTree, results: &mut TreeRun<'_>, filter: &RuleFilterConfig) {
-    // 1.4.3 Contrast (Minimum) laeuft als `contrast/text-insufficient` und
-    // `contrast/text-undetermined` im geteilten Bestand (#698).
-
-    // 1.3.5 Identify Input Purpose laeuft als `forms/autocomplete-invalid`
-    // und `forms/purpose-missing` im geteilten Bestand (#693).
-
-    // 1.4.4 Resize Text: der Viewport laeuft als `zoom/*` im geteilten
-    // Bestand -- der AX-Baum hat keine `viewport`-Eigenschaft (#QA-030).
-
-    // 1.4.11 Non-text Contrast (Level AA) now runs as a DOM page rule
-    // (check_non_text_contrast_css_with_page in PAGE_RULES) — the AX tree
-    // has no CSS/color data, so a tree-only check could not verify real
-    // contrast (#QA-non-text-contrast).
-
-    // 2.4.7 Focus Visible (Level AA)
-    run_if_allowed!(filter, "focus-visible", check_focus_visible, results, tree);
-
-    // 4.1.3 Status Messages laeuft als `status/live-overridden` im geteilten
-    // Bestand (#692).
-
-    // 2.4.1 / 1.3.1 Landmark Regions laufen als `landmarks/*` im geteilten
-    // Bestand.
-}
+/// The tree rules that remain. Everything else that once ran here moved to
+/// the shared rules (`wcag::shared::SHARED_RULES`) or the page rules.
+pub const TREE_RULES: &[TreeRule] = &[
+    // 1.1.1 Non-text Content
+    TreeRule {
+        axe_id: "image-alt",
+        min_level: WcagLevel::A,
+        check: check_text_alternatives,
+    },
+    // 2.1.2 No Keyboard Trap: whether focus gets out again shows only real
+    // operation -- one note per modal dialog and one page-wide.
+    TreeRule {
+        axe_id: "keyboard-trap",
+        min_level: WcagLevel::A,
+        check: check_keyboard,
+    },
+    // 4.1.2 Description repeats the name (best practice, #713).
+    TreeRule {
+        axe_id: "description-duplicates-name",
+        min_level: WcagLevel::A,
+        check: check_accessible_name,
+    },
+    // 2.4.7 Focus Visible
+    TreeRule {
+        axe_id: "focus-visible",
+        min_level: WcagLevel::AA,
+        check: check_focus_visible,
+    },
+];
 
 #[cfg(test)]
 mod tests {

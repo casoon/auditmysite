@@ -443,10 +443,18 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     crate::audit::AuditScope {
         requested_modules,
         requested_subchecks,
-        requested_rules: crate::wcag::shared::SHARED_RULES
-            .iter()
-            .map(|rule| rule.id.to_string())
-            .collect(),
+        requested_rules: crate::wcag::expectation::expected_rules(
+            config.wcag_level,
+            &config.rule_filter,
+            config.check_html_conform,
+        )
+        .into_iter()
+        .map(|rule| crate::audit::RequestedRule {
+            rule_id: rule.rule_id,
+            viewports: rule.viewports.iter().map(|v| v.to_string()).collect(),
+        })
+        .collect(),
+        wcag_level: config.wcag_level.to_string(),
         full_audit: config.full_audit,
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
@@ -644,13 +652,11 @@ fn merge_viewport_subchecks<'a>(
 pub(super) fn update_audit_quality(report: &mut AuditReport) {
     let gaps = crate::audit::validation::capture_gaps(&report.accessibility.execution);
     let stability_budget_exhausted = gaps.exhausted_stability_budgets;
-    let failed_rule_checks = report
-        .accessibility
-        .wcag_results
-        .rule_outcomes
-        .iter()
-        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
-        .count();
+    // A page-rule executor and its concrete rules are one check (#778).
+    let failed_rule_checks = crate::wcag::expectation::count_checks(
+        &report.accessibility.wcag_results.rule_outcomes,
+        crate::wcag::rule_run_errored,
+    );
     let partial_or_failed_modules = report
         .accessibility
         .execution
@@ -666,13 +672,10 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
                 )
         })
         .count();
-    let missing_capabilities = report
-        .accessibility
-        .wcag_results
-        .rule_outcomes
-        .iter()
-        .filter(|run| run.not_run == Some(crate::wcag::NotRun::CapabilityMissing))
-        .count();
+    let missing_capabilities = crate::wcag::expectation::count_checks(
+        &report.accessibility.wcag_results.rule_outcomes,
+        |run| run.not_run == Some(crate::wcag::NotRun::CapabilityMissing),
+    );
     let status = if failed_rule_checks > 0 {
         crate::audit::AuditQualityStatus::Insufficient
     } else if partial_or_failed_modules > 0
@@ -959,26 +962,143 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_requested_rule_without_outcome_is_a_gap() {
+    /// A report whose scope was derived from the registrations (default
+    /// config) and whose outcomes are exactly the expected ones, each ran.
+    fn report_with_expected_outcomes() -> AuditReport {
+        use clap::Parser;
+        let config = crate::audit::PipelineConfig::from_args_and_config(
+            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
         let mut report = report_with_run("accessibility");
-        report.accessibility.execution.scope.requested_rules = vec!["lang/missing".into()];
+        report.accessibility.execution.scope = audit_scope_from_config(&config);
+        report
+            .accessibility
+            .execution
+            .scope
+            .requested_modules
+            .retain(|m| m == "accessibility");
+        for rule in &report.accessibility.execution.scope.requested_rules.clone() {
+            // Shared rules above the level report as disabled, as in a run.
+            let above = crate::wcag::expectation::registered_min_level(&rule.rule_id)
+                .is_some_and(|min| min > config.wcag_level);
+            for viewport in &rule.viewports {
+                let run = if above {
+                    crate::wcag::RuleRun::not_run(&rule.rule_id, crate::wcag::NotRun::Disabled)
+                } else {
+                    crate::wcag::RuleRun::ran(&rule.rule_id, 0)
+                };
+                report
+                    .accessibility
+                    .wcag_results
+                    .rule_outcomes
+                    .push(run.in_viewport(viewport));
+            }
+        }
         update_audit_quality(&mut report);
-        let Err(err) = crate::audit::normalize_checked(&report) else {
-            panic!("contradiction must be rejected");
-        };
-        assert!(err
-            .violations
-            .iter()
-            .any(|v| v.code == "requested_rule_outcome"));
+        report
+    }
 
+    fn rejected_codes(report: &AuditReport) -> Vec<&'static str> {
+        match crate::audit::normalize_checked(report) {
+            Ok(_) => Vec::new(),
+            Err(err) => err.violations.iter().map(|v| v.code).collect(),
+        }
+    }
+
+    #[test]
+    fn the_expected_scope_is_derived_from_the_registrations_and_accepted() {
+        let report = report_with_expected_outcomes();
+        let scope = &report.accessibility.execution.scope;
+        assert_eq!(scope.wcag_level, "AA");
+        // Tree, page and inline rules are in the scope, not only shared ones.
+        for id in ["image-alt", "focus-visible", "css-overflow-hidden"] {
+            assert!(
+                scope.requested_rules.iter().any(|r| r.rule_id == id),
+                "{id}"
+            );
+        }
+        assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn a_requested_rule_without_outcome_in_one_viewport_is_a_gap() {
+        let mut report = report_with_expected_outcomes();
+        // Every viewport is judged separately: losing the mobile outcome of
+        // a rule that has a desktop one is still a gap.
+        let outcomes = &mut report.accessibility.wcag_results.rule_outcomes;
+        let at = outcomes
+            .iter()
+            .position(|o| o.rule_id == "image-alt" && o.viewport.as_deref() == Some("mobile"))
+            .unwrap();
+        outcomes.remove(at);
+        assert_eq!(rejected_codes(&report), vec!["requested_rule_outcome"]);
+        // Same for an inline rule that only the mobile pass owns.
+        let mut report = report_with_expected_outcomes();
         report
             .accessibility
             .wcag_results
             .rule_outcomes
-            .push(crate::wcag::RuleRun::ran("lang/missing", 0));
+            .retain(|o| o.rule_id != "css-overflow-hidden");
+        assert_eq!(rejected_codes(&report), vec!["requested_rule_outcome"]);
+        // A page-rule executor without its row is a gap too.
+        let mut report = report_with_expected_outcomes();
+        let executor = crate::wcag::rules::PAGE_RULES[0].rule_id;
+        report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .retain(|o| o.rule_id != executor);
+        assert_eq!(rejected_codes(&report), vec!["requested_rule_outcome"; 2]);
+    }
+
+    #[test]
+    fn a_doubled_outcome_is_rejected() {
+        let mut report = report_with_expected_outcomes();
+        let copy = report.accessibility.wcag_results.rule_outcomes[0].clone();
+        report.accessibility.wcag_results.rule_outcomes.push(copy);
+        assert_eq!(rejected_codes(&report), vec!["rule_outcome_duplicate"]);
+    }
+
+    #[test]
+    fn a_rule_that_ran_above_the_level_is_rejected() {
+        let mut report = report_with_expected_outcomes();
+        report.accessibility.execution.scope.wcag_level = "A".into();
+        // `focus-visible` is AA: at level A it must not have run. The
+        // outcomes were built for AA, so it is exactly this one (and the
+        // other AA rules) that contradict the level.
+        let codes = rejected_codes(&report);
+        assert!(!codes.is_empty());
+        assert!(codes.iter().all(|c| *c == "rule_outcome_above_level"));
+        // Not run with a reason is the honest outcome for it.
+        for run in &mut report.accessibility.wcag_results.rule_outcomes {
+            if crate::wcag::expectation::registered_min_level(&run.rule_id)
+                .is_some_and(|min| min > crate::cli::WcagLevel::A)
+            {
+                *run = crate::wcag::RuleRun::not_run(&run.rule_id, crate::wcag::NotRun::Disabled)
+                    .in_viewport(run.viewport.clone().unwrap());
+            }
+        }
+        assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn a_failed_page_rule_is_one_failed_check_not_one_per_concrete_rule() {
+        let mut report = report_with_expected_outcomes();
+        let executor = crate::wcag::rules::PAGE_RULES
+            .iter()
+            .find(|r| r.outcome_ids.len() > 1)
+            .unwrap();
+        for run in &mut report.accessibility.wcag_results.rule_outcomes {
+            let owned = run.rule_id == executor.rule_id
+                || executor.outcome_ids.contains(&run.rule_id.as_str());
+            if owned && run.viewport.as_deref() == Some("mobile") {
+                run.not_run = Some(crate::wcag::NotRun::Errored);
+            }
+        }
         update_audit_quality(&mut report);
-        crate::audit::normalize_checked(&report).unwrap();
+        assert_eq!(report.accessibility.execution.quality.failed_rule_checks, 1);
+        assert!(rejected_codes(&report).is_empty());
     }
 
     #[test]
