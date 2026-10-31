@@ -729,13 +729,34 @@ pub const FINGERPRINT_VERSION: u32 = 4;
 /// undetected (#790).
 pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
     let mut input = String::with_capacity(4096);
-    let mut nodes: Vec<_> = snapshot.ax_tree.nodes.iter().collect();
-    nodes.sort_unstable_by(|a, b| a.0.cmp(b.0));
+    // Nodes the audit synthesised (negative ids from a process-wide counter)
+    // get a different id on every run; they hash by their rank instead.
+    let mut synthetic: Vec<(i64, &String)> = snapshot
+        .ax_tree
+        .nodes
+        .keys()
+        .filter_map(|id| id.parse::<i64>().ok().filter(|n| *n < 0).map(|n| (n, id)))
+        .collect();
+    synthetic.sort_unstable();
+    let rank: std::collections::HashMap<&str, String> = synthetic
+        .iter()
+        .enumerate()
+        .map(|(i, (_, id))| (id.as_str(), format!("synthetic#{i}")))
+        .collect();
+    let stable = |id: &str| rank.get(id).cloned().unwrap_or_else(|| id.to_string());
+    let mut nodes: Vec<_> = snapshot
+        .ax_tree
+        .nodes
+        .iter()
+        .map(|(id, node)| (stable(id), node))
+        .collect();
+    nodes.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     for (id, node) in nodes {
-        input.push_str(id);
+        input.push_str(&id);
         input.push('=');
         let mut value = serde_json::to_value(node).unwrap_or_default();
         strip_volatile_ids(&mut value);
+        replace_ids(&mut value, &stable);
         push_canonical(&mut input, &value);
         input.push('\n');
     }
@@ -800,6 +821,15 @@ fn strip_volatile_ids(value: &mut serde_json::Value) {
             map.values_mut().for_each(strip_volatile_ids);
         }
         serde_json::Value::Array(items) => items.iter_mut().for_each(strip_volatile_ids),
+        _ => {}
+    }
+}
+
+fn replace_ids(value: &mut serde_json::Value, stable: &dyn Fn(&str) -> String) {
+    match value {
+        serde_json::Value::String(text) => *text = stable(text),
+        serde_json::Value::Object(map) => map.values_mut().for_each(|v| replace_ids(v, stable)),
+        serde_json::Value::Array(items) => items.iter_mut().for_each(|v| replace_ids(v, stable)),
         _ => {}
     }
 }
@@ -1070,6 +1100,35 @@ mod tests {
         );
         assert_ne!(before, content_hash(&labelled(Some("Email"), Some("x"))));
         assert_eq!(before, content_hash(&labelled(Some("Email"), None)));
+    }
+
+    /// Nodes the audit synthesised carry an id from a process-wide counter;
+    /// the same page measured twice must hash equal whatever the counter says.
+    #[test]
+    fn synthesised_node_ids_do_not_change_the_hash() {
+        let with_ids = |field: &str, root: &str| {
+            let mut snapshot = labelled(Some("Email"), None);
+            let mut nodes = std::mem::take(&mut snapshot.ax_tree.nodes);
+            let mut field_node = nodes.remove("field").unwrap();
+            let mut root_node = nodes.remove("root").unwrap();
+            field_node.node_id = field.to_string();
+            field_node.parent_id = Some(root.to_string());
+            root_node.node_id = root.to_string();
+            root_node.child_ids = vec![field.to_string()];
+            nodes.insert(field.to_string(), field_node);
+            nodes.insert(root.to_string(), root_node);
+            snapshot.ax_tree.nodes = nodes;
+            snapshot
+        };
+        assert_eq!(
+            content_hash(&with_ids("-1000000007", "-1000000006")),
+            content_hash(&with_ids("-1000000009", "-1000000008"))
+        );
+        assert_ne!(
+            content_hash(&with_ids("-1000000007", "-1000000006")),
+            content_hash(&with_ids("field", "root")),
+            "a real id is content"
+        );
     }
 
     /// A pure style change leaves the AX tree untouched; the fingerprint

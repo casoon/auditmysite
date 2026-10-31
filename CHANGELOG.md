@@ -101,7 +101,7 @@ and verification for each change is in the
 ### Fixed
 
 - **Findings:** an HTML-conformance result marked as not checked no longer produces findings; "not measured" stays distinct from "measured" (#780).
-- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3 (4 with the style inputs below).
+- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal (synthesised node ids hash by rank); fingerprint version 3 (4 with the style inputs below).
 - **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
 - **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
 - **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
