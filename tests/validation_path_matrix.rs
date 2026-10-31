@@ -118,6 +118,74 @@ fn the_same_entries_accept_the_consistent_report() {
     assert!(auditmysite::output::format_json_batch(&batch(consistent()), false).is_ok());
 }
 
+/// #790: the last three entries that took a report without checking it. Each
+/// refuses a contradictory report with the machine-readable code and data path
+/// of the contract, and still serves the consistent one.
+#[test]
+fn ai_json_terminal_and_finding_rows_refuse_contradictory_data() {
+    use clap::Parser;
+    let args = auditmysite::cli::Args::parse_from(["auditmysite", "https://example.com"]);
+    let bad = contradictory();
+    let good = consistent();
+
+    let codes = |error: &auditmysite::audit::ReportContractError| -> Vec<(&'static str, String)> {
+        error
+            .violations
+            .iter()
+            .map(|v| (v.code, v.path.clone()))
+            .collect()
+    };
+    let expected = |found: Vec<(&'static str, String)>, what: &str| {
+        assert!(
+            found
+                .iter()
+                .any(|(code, path)| *code == "measurement_profile_read_only" && !path.is_empty()),
+            "{what}: {found:?}"
+        );
+    };
+
+    expected(
+        codes(&auditmysite::output::format_ai_json(&bad).unwrap_err()),
+        "format_ai_json",
+    );
+    expected(
+        codes(&auditmysite::output::terminal::render_single_report(&bad, &args).unwrap_err()),
+        "render_single_report",
+    );
+    expected(
+        codes(
+            &auditmysite::output::terminal::render_single_report_for(&bad, &args, true)
+                .unwrap_err(),
+        ),
+        "render_single_report_for",
+    );
+    // A batch is refused with the page's index in the data path.
+    let batch_error =
+        auditmysite::output::terminal::render_batch_report(&batch(contradictory()), &args)
+            .unwrap_err();
+    assert!(
+        batch_error
+            .violations
+            .iter()
+            .any(|v| v.code == "measurement_profile_read_only" && v.path.starts_with("reports[0].")),
+        "render_batch_report: {batch_error}"
+    );
+    // `finding_rows` gets the unchecked model, as the old callers had it.
+    let unchecked = normalize(&bad).normalized;
+    expected(
+        codes(&auditmysite::output::technician::finding_rows(&bad, &unchecked).unwrap_err()),
+        "finding_rows",
+    );
+
+    assert!(auditmysite::output::format_ai_json(&good).is_ok());
+    assert!(auditmysite::output::terminal::render_single_report(&good, &args).is_ok());
+    assert!(
+        auditmysite::output::terminal::render_batch_report(&batch(consistent()), &args).is_ok()
+    );
+    let checked = normalize_checked(&good).unwrap().normalized;
+    assert!(auditmysite::output::technician::finding_rows(&good, &checked).is_ok());
+}
+
 /// The infallible API stays available for callers that already hold checked
 /// data, and it never turns bad data into good: its result still fails the
 /// contract, so the checked entry points above refuse it.

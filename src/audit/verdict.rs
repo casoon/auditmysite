@@ -656,7 +656,7 @@ mod tests {
 
         let mut args = crate::cli::Args::parse_from(["auditmysite", "https://example.com"]);
         args.color = crate::cli::ColorPolicy::Never;
-        let terminal = crate::output::terminal::render_single_report(report, &args);
+        let terminal = crate::output::terminal::render_single_report(report, &args).unwrap();
         assert!(
             terminal_says(&terminal, expected),
             "terminal does not say {expected:?}:\n{terminal}"
@@ -693,7 +693,7 @@ mod tests {
         let batch = BatchReport::from_reports(vec![report.clone()], Vec::new(), 1);
         crate::audit::validation::validate_batch(&batch).unwrap();
         assert_eq!(batch.summary.passed, usize::from(expected == Verdict::Pass));
-        let batch_terminal = crate::output::terminal::render_batch_report(&batch, &args);
+        let batch_terminal = crate::output::terminal::render_batch_report(&batch, &args).unwrap();
         assert!(
             terminal_says(&batch_terminal, batch.summary.decision.verdict),
             "batch terminal:\n{batch_terminal}"
