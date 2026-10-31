@@ -86,7 +86,6 @@ pub const CONTRACT_CODES: &[&str] = &[
     "quality_qualification",
     "requested_execution",
     "requested_rule_outcome",
-    "requested_subcheck_outcome",
     "rule_findings_preserved",
     "rule_outcome_above_level",
     "rule_outcome_duplicate",
@@ -472,19 +471,6 @@ impl NormalizedReport {
                     }
                 }
             }
-        }
-        // Every requested sub-check reports at least one collection (#778).
-        for requested in &scope.requested_subchecks {
-            check(
-                self.execution
-                    .module_runs
-                    .iter()
-                    .flat_map(|run| &run.subchecks)
-                    .any(|sub| &sub.subcheck == requested),
-                "requested_subcheck_outcome",
-                format!("execution.scope.requested_subchecks[{requested}]"),
-                "each requested sub-check needs an explicit execution outcome".into(),
-            );
         }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement

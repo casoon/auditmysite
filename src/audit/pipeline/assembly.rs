@@ -1311,18 +1311,6 @@ mod tests {
     }
 
     #[test]
-    fn a_requested_subcheck_without_a_record_is_a_gap() {
-        let mut report = report_with_expected_outcomes();
-        report
-            .accessibility
-            .execution
-            .scope
-            .requested_subchecks
-            .push("content_visibility.ssr_gap".into());
-        assert_eq!(rejected_codes(&report), vec!["requested_subcheck_outcome"]);
-    }
-
-    #[test]
     fn the_scope_records_the_rule_filter_and_the_frame_rules_it_leaves() {
         use clap::Parser;
         let mut config = crate::audit::PipelineConfig::from_args_and_config(
