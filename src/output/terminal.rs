@@ -13,8 +13,9 @@ use runemark::{
     Verdict,
 };
 
-use crate::audit::normalized::normalize;
-use crate::audit::{AuditReport, BatchReport};
+use crate::audit::{
+    normalize_checked, validate_batch, AuditReport, BatchReport, ReportContractError,
+};
 use crate::cli::{Args, ColorPolicy};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
@@ -81,7 +82,10 @@ fn console_for(args: &Args, writing_to_file: bool) -> Console {
 }
 
 /// Renders a single-page audit as a decision-oriented Runemark report.
-pub fn render_single_report(report: &AuditReport, args: &Args) -> String {
+pub fn render_single_report(
+    report: &AuditReport,
+    args: &Args,
+) -> Result<String, ReportContractError> {
     render_single_report_for(report, args, args.output.is_some())
 }
 
@@ -93,8 +97,8 @@ pub fn render_single_report_for(
     report: &AuditReport,
     args: &Args,
     writing_to_file: bool,
-) -> String {
-    let normalized = normalize(report);
+) -> Result<String, ReportContractError> {
+    let normalized = normalize_checked(report)?;
     let vm = build_view_model(&normalized, &report_config(args));
 
     let verdict = terminal_verdict(normalized.normalized.decision.verdict);
@@ -141,7 +145,7 @@ pub fn render_single_report_for(
     }
 
     let console = console_for(args, writing_to_file);
-    rm_report.render_with_options(console, render_options())
+    Ok(rm_report.render_with_options(console, render_options()))
 }
 
 /// The stored decision in the terminal's vocabulary — a projection, never a
@@ -154,9 +158,15 @@ fn terminal_verdict(verdict: crate::audit::Verdict) -> Verdict {
     }
 }
 
+/// Refuses a batch whose data contradicts itself (#790).
+///
 /// Renders a batch audit as a domain-wide summary — recurring rules across
 /// the batch as the primary issue groups, not a stack of per-page reports.
-pub fn render_batch_report(batch_report: &BatchReport, args: &Args) -> String {
+pub fn render_batch_report(
+    batch_report: &BatchReport,
+    args: &Args,
+) -> Result<String, ReportContractError> {
+    validate_batch(batch_report)?;
     let presentation = build_batch_presentation(batch_report);
     let p = &presentation.portfolio_summary;
 
@@ -219,12 +229,13 @@ pub fn render_batch_report(batch_report: &BatchReport, args: &Args) -> String {
     }
 
     let console = console_for(args, args.output.is_some());
-    rm_report.render_with_options(console, render_options())
+    Ok(rm_report.render_with_options(console, render_options()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::normalized::normalize;
     use crate::audit::BatchError;
     use crate::cli::Args;
     use crate::wcag::WcagResults;
@@ -305,8 +316,8 @@ mod tests {
             normalize(&broken).normalized.decision.verdict,
             crate::audit::Verdict::Fail
         );
-        let clean_out = render_single_report(&clean, &args);
-        let broken_out = render_single_report(&broken, &args);
+        let clean_out = render_single_report(&clean, &args).unwrap();
+        let broken_out = render_single_report(&broken, &args).unwrap();
         assert!(clean_out.starts_with("[OK]"), "{clean_out}");
         assert!(broken_out.starts_with("[FAIL]"), "{broken_out}");
     }
@@ -315,7 +326,7 @@ mod tests {
     fn single_report_never_emits_ansi_under_color_never() {
         let report = fixture_report();
         let args = test_args();
-        let output = render_single_report(&report, &args);
+        let output = render_single_report(&report, &args).unwrap();
         assert!(!has_ansi(&output));
         assert!(output.contains(&vm_title(&report, &args)));
     }
@@ -330,7 +341,7 @@ mod tests {
         let report = fixture_report();
         let mut args = test_args();
         args.color = ColorPolicy::Always;
-        let output = render_single_report(&report, &args);
+        let output = render_single_report(&report, &args).unwrap();
         assert!(has_ansi(&output));
     }
 
@@ -339,7 +350,7 @@ mod tests {
         let report = fixture_report();
         let mut args = test_args();
         args.color = ColorPolicy::Auto;
-        let with_file = render_single_report_for(&report, &args, true);
+        let with_file = render_single_report_for(&report, &args, true).unwrap();
         assert!(!has_ansi(&with_file));
     }
 
@@ -348,7 +359,7 @@ mod tests {
         let report = fixture_report();
         let mut args = test_args();
         args.color = ColorPolicy::Always;
-        let with_file = render_single_report_for(&report, &args, true);
+        let with_file = render_single_report_for(&report, &args, true).unwrap();
         assert!(has_ansi(&with_file));
     }
 
@@ -356,7 +367,7 @@ mod tests {
     fn batch_report_never_emits_ansi_under_color_never() {
         let batch = fixture_batch();
         let args = test_args();
-        let output = render_batch_report(&batch, &args);
+        let output = render_batch_report(&batch, &args).unwrap();
         assert!(!has_ansi(&output));
         assert!(output.contains("example.com"));
     }
@@ -365,7 +376,7 @@ mod tests {
     fn batch_report_states_score_coverage_when_urls_failed() {
         let batch = fixture_batch();
         let args = test_args();
-        let output = render_batch_report(&batch, &args);
+        let output = render_batch_report(&batch, &args).unwrap();
         assert!(output.contains("Scores cover 1 of 2 URLs; 1 could not be audited"));
     }
 
@@ -388,7 +399,7 @@ mod tests {
             None,
             "the presentation model carries no stand-in zero"
         );
-        let output = render_batch_report(&batch, &test_args());
+        let output = render_batch_report(&batch, &test_args()).unwrap();
         let line = output
             .lines()
             .find(|line| line.contains("Avg. score"))
@@ -404,7 +415,7 @@ mod tests {
     fn batch_report_lists_errors_as_next_steps() {
         let batch = fixture_batch();
         let args = test_args();
-        let output = render_batch_report(&batch, &args);
+        let output = render_batch_report(&batch, &args).unwrap();
         assert!(output.contains("broken"));
     }
 

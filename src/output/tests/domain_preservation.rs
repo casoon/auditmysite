@@ -615,7 +615,7 @@ fn every_domain_reaches_findings_inventory_and_projections() {
 
     // ── Terminal ──────────────────────────────────────────────────────────
     let args = Args::parse_from(["auditmysite", "https://example.com"]);
-    let terminal = crate::output::terminal::render_single_report(&report, &args);
+    let terminal = crate::output::terminal::render_single_report(&report, &args).unwrap();
     // The headline carries the verdict symbol (ASCII or Unicode theme).
     let symbols: [&str; 2] = match normalized.decision.verdict {
         crate::audit::Verdict::Pass => ["[OK]", "✔"],
@@ -802,7 +802,7 @@ fn terminal_lists_the_view_model_findings_per_tier() {
     let ctx = normalize(&report);
     let vm = crate::output::builder::build_view_model(&ctx, &ReportConfig::default());
     let args = Args::parse_from(["auditmysite", "https://example.com", "--color", "never"]);
-    let terminal = crate::output::terminal::render_single_report(&report, &args);
+    let terminal = crate::output::terminal::render_single_report(&report, &args).unwrap();
 
     let mut listed = 0;
     for tier in &vm.findings.by_severity {
