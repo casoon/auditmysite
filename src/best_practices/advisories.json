@@ -104,8 +104,8 @@
         }
       ],
       "safe_version": "Migrate to a maintained framework",
-      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-      "reviewed": "2026-10-26"
+      "source_url": "https://github.com/advisories/GHSA-2vrf-hf26-jrp5",
+      "reviewed": "2026-10-31"
     },
     {
       "library": "Handlebars",

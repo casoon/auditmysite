@@ -4116,8 +4116,9 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
         severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
+        // Best practice, no success criterion (#779): the shared rule only hints.
+        external_ref: None,
+        external_level: None,
         axe_id: Some("headings/h1-missing"),
         title: "Fehlende Hauptüberschrift (h1)",
         title_en: "Missing main heading (h1)",
@@ -5110,9 +5111,16 @@ mod tests {
             let rule = RuleLookup::by_legacy_wcag_id(shared.id)
                 .or_else(|| RuleLookup::by_legacy_wcag_id(shared.criterion))
                 .unwrap_or_else(|| panic!("{} resolves to no taxonomy rule", shared.id));
+            // Best practice without a success criterion: the register claims
+            // none, although `SHARED_RULES` carries 1.3.1 for the output (#779).
+            let expected = if shared.id == "headings/h1-missing" {
+                None
+            } else {
+                Some(format!("WCAG {}", shared.criterion))
+            };
             assert_eq!(
                 rule.external_ref,
-                Some(format!("WCAG {}", shared.criterion).as_str()),
+                expected.as_deref(),
                 "{} resolves to {} with a different criterion",
                 shared.id,
                 rule.id
