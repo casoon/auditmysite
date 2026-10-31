@@ -837,6 +837,19 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
             });
         }
     }
+    if let Some(sample) = batch.sample.as_ref().filter(|s| !s.strata.is_empty()) {
+        let selected: usize = sample.strata.iter().map(|stratum| stratum.selected).sum();
+        if selected != sample.audited {
+            violations.push(ContractViolation {
+                code: "sample_strata",
+                path: "sample.strata".into(),
+                message: format!(
+                    "strata select {selected} URLs but the sample audited {}",
+                    sample.audited
+                ),
+            });
+        }
+    }
     finish(violations)
 }
 

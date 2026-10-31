@@ -297,6 +297,7 @@ pub(super) fn aggregate_report(
     snapshot: &SnapshotData,
     wcag_results: WcagResults,
     pattern_analysis: crate::patterns::PatternAnalysis,
+    navigation: crate::audit::NavigationSnapshot,
     duration_ms: u64,
 ) -> AuditReport {
     // Pattern violations were already enriched and merged into wcag_results by
@@ -312,7 +313,7 @@ pub(super) fn aggregate_report(
         indexability: config.indexability,
         decision_profile: config.decision_profile.clone(),
     };
-    report.accessibility.execution.navigation.requested_url = url.to_string();
+    report.accessibility.execution.navigation = navigation;
     report.accessibility.execution.environment.source = "live".to_string();
     report.accessibility.execution.module_runs = consolidate_module_runs(&snapshot.module_runs);
     let sr_audit = crate::screen_reader::build_sr_audit_report(

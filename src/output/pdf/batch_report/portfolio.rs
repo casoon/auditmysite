@@ -231,7 +231,11 @@ pub(super) fn render_batch_impact_summary(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
     let dist = &pres.portfolio_summary.severity_distribution;
-    let a11y_avg = pres.portfolio_summary.average_score.round() as u32;
+    let a11y_avg = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
 
     let user_impact = match (a11y_avg, en) {
         (s, true) if s < 50 => {

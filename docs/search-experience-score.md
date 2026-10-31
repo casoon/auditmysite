@@ -11,7 +11,7 @@ Klassisches SEO misst, ob eine Seite technisch auffindbar ist. Für Endkunden is
 - 35% Technisches SEO: Title, Description, Canonical, Sitemap, Schema, interne Links.
 - 25% Inhaltsverständlichkeit: Umfang, Struktur und Klarheit des sichtbaren Inhalts.
 - 15% Vertrauen: Kontakt-, Impressum-, Datenschutz-, LocalBusiness- und Autoritaetssignale.
-- 10% KI-Lesbarkeit: Lesbarkeit, Chunking und Zitierbarkeit für KI-Systeme.
+- 10% KI-Lesbarkeit: Lesbarkeit, Chunking und zitierfähige Struktur für KI-Systeme (ungeprüfte Heuristik).
 - 10% Struktur und Semantik: H1, Heading-Logik, strukturierte Daten und visuelle Hierarchie.
 - 5% Mobile Lesbarkeit: mobile Nutzbarkeit als Sichtbarkeits- und Verständlichkeitsfaktor.
 

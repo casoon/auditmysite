@@ -50,10 +50,13 @@ pub enum Support {
     Runs,
     /// The CLI refuses the combination up front with this reason.
     Rejected(&'static str),
-    /// The mode cannot measure it; the report records a not-run outcome with
-    /// this reason code instead of leaving the check silent.
-    NotRun(&'static str),
 }
+
+// A third state, "the mode cannot measure it, the report records a not-run
+// outcome", was modelled here and never used by any row: every check either
+// executes or is refused up front. Capability and budget outcomes belong to
+// the per-rule `NotRun` of the WCAG run (`CapabilityMissing`), not to this
+// table. Add the state back together with the first row that needs it.
 
 /// What must be active for the check to have anything to attach to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,7 +258,7 @@ mod tests {
             for mode in Mode::ALL {
                 // A reason is never empty: a not-run or rejection is explained.
                 match rows[0].support(mode) {
-                    Support::Rejected(r) | Support::NotRun(r) => assert!(!r.is_empty()),
+                    Support::Rejected(r) => assert!(!r.is_empty()),
                     Support::Runs => {}
                 }
             }

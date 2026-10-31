@@ -123,7 +123,10 @@ pub(super) fn build_batch_assessment(
     i18n: &I18n,
 ) -> String {
     let en = is_english(i18n);
-    let score = summary.average_score.round() as u32;
+    let score = summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
     // Score band is the primary signal; severity only refines wording within a
     // band. A low average must never yield a reassuring label (mirrors the
     // single-report logic in builder/single/executive.rs, #355).
@@ -195,7 +198,11 @@ pub(super) fn render_batch_management_risks(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
     let dist = &pres.portfolio_summary.severity_distribution;
-    let avg = pres.portfolio_summary.average_score.round() as u32;
+    let avg = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
     let seo = pres
         .portfolio_summary
         .module_averages
@@ -411,7 +418,11 @@ pub(super) fn render_batch_internal_comparison(
         builder = builder.add_component(table);
     }
 
-    let avg = pres.portfolio_summary.average_score.round() as i32;
+    let avg = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as i32;
     let outliers: Vec<_> = pres
         .url_ranking
         .iter()

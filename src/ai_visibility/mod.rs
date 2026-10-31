@@ -347,8 +347,8 @@ pub fn ai_dimension_name(kind: DimensionKind, en: bool) -> &'static str {
     match (kind, en) {
         (DimensionKind::Readability, true) => "AI readability",
         (DimensionKind::Readability, false) => "KI-Lesbarkeit",
-        (DimensionKind::Citability, true) => "Citability",
-        (DimensionKind::Citability, false) => "Zitierbarkeit",
+        (DimensionKind::Citability, true) => "Quotable structure (unvalidated)",
+        (DimensionKind::Citability, false) => "Zitierfähige Struktur (ungeprüft)",
         (DimensionKind::Chunks, true) => "Technical AI readability",
         (DimensionKind::Chunks, false) => "Technische KI-Lesbarkeit",
         (DimensionKind::KnowledgeGraph, true) => "Structured data",

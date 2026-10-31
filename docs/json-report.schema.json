@@ -243,6 +243,13 @@
             "read_only": {
               "type": "boolean"
             },
+            "extra_checks": {
+              "description": "Flags of the opt-in extra checks the run requested (#788); sorted, absent when none.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "state_changing_journeys": {
               "type": "array",
               "items": {

@@ -44,8 +44,14 @@ and verification for each change is in the
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 - **Heuristic signals:** Every heuristic module carries a versioned `signal_contract` stating what its score may be read as and that it is `unvalidated`; a pre-registered, blind calibration harness is in place, its reference set still empty. Details: [Calibration](https://github.com/casoon/auditmysite/blob/main/docs/calibration.md).
 
-### Changed
 
+- **Transport:** The browser's navigation capture now exists before modules are derived, so SEO (`technical.https`, `no_https`), Source Quality and AI Visibility judge the served document instead of the requested URL; the security analysis is re-judged under the document's transport when the probe ended elsewhere (an `https://` entry that went through cleartext). Covers both redirect directions end to end (#775).
+- **Wording:** The AI-readiness dimension is named "Quotable structure (unvalidated)" / "Zitierfähige Struktur (ungeprüft)"; it describes page structure and predicts no citation likelihood (#784).
+- **Audit contracts:** `ExpectedProfile` can assert `extra_checks`; the unused `Support::NotRun` state of the support matrix is removed (#788). `extra_checks` is documented in `OUTPUT_CONTRACT.md` and the JSON schema.
+- **Batch:** The presentation model carries no stand-in 0 for an unmeasured average (#768); validation rejects a stratified sample whose strata do not add up to the audited URLs (`sample_strata`, #791).
+- **DNS:** A resolver that cannot be built records all four checks as failed (`dns_resolver_unavailable`) instead of leaving no trace (#776).
+- **Tests:** `state_changes_test` and the new `perf_runs_browser` run in the E2E job and `release-check.sh` (#787, #791); demotion tests cover every shared best-practice id (#779); terminal and batch preservation tests (#780).
+- **Docs:** README and `docs/calibration.md` state that no heuristic signal is validated in 2.0 (`signal_contract.validation.status = "unvalidated"`) and that its score is not evidence of AI citation, visibility, user quality or source truth; the reference-set labelling follows after 2.0.
 - **Migration:** the infallible `audit::normalize` is `#[deprecated]` with `normalize_checked` as the 2.0 path; the CLI no longer calls it (#790).
 - **Snapshot:** the `rule_set` digest covers AX-tree, page and inline rules as well as the shared rules, and the content fingerprint (version 4) includes contrast violations and the mobile, design-quality and dark-mode measurements, so a style-only change is detected (#790). Older cache entries are misses.
 - **Architecture:** `WcagLevel` moved to `wcag::level` (still exported from `cli`); the backward-import baseline shrinks from 32 to 3 entries (#790).

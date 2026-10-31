@@ -5,7 +5,6 @@ use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
-use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
 use crate::audit::PipelineConfig;
@@ -80,10 +79,7 @@ impl AuditModule for NetworkDnsModule {
         let result = match cached {
             Some(result) => *result,
             None => {
-                let Some(result) = query_dns(&host).await else {
-                    warn!("DNS resolver unavailable, skipping DNS check for {host}");
-                    return Ok(ModuleData::None);
-                };
+                let result = query_dns(&host).await;
                 let complete = [result.caa, result.dnssec, result.mx, result.spf]
                     .iter()
                     .all(|answer| !matches!(answer, DnsAnswer::Unknown(_)));
