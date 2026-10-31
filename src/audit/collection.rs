@@ -765,71 +765,71 @@ mod tests {
             ("dark_mode.link_indistinct", crate::dark_mode::counter_cases),
             (
                 "accessibility.navigation_snapshot",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::navigation_snapshot,
             ),
             (
                 "accessibility.ax_tree",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::ax_tree,
             ),
             (
                 "accessibility.consent_banner",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::consent_banner,
             ),
             (
                 "accessibility.exclusion_scope",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::exclusion_scope,
             ),
             (
                 "accessibility.frames",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::frames,
             ),
             (
                 "accessibility.page_stability",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::page_stability,
             ),
             (
                 "accessibility.rule_execution",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::rule_execution,
             ),
             (
                 "accessibility_journey.tab_walk",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_tab_walk,
             ),
             (
                 "accessibility_journey.skip_link",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_skip_link,
             ),
             (
                 "accessibility_journey.disclosure",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_disclosure,
             ),
             (
                 "accessibility_journey.modal",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_modal,
             ),
             (
                 "accessibility_journey.tabs",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_tabs,
             ),
             (
                 "accessibility_journey.menu",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_menu,
             ),
             (
                 "accessibility_journey.form_error",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_form_error,
             ),
             (
                 "accessibility_journey.add_to_cart",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_add_to_cart,
             ),
             (
                 "accessibility_journey.quantity_stepper",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_quantity_stepper,
             ),
             (
                 "accessibility_journey.spa_navigation",
-                crate::audit::capture_collectors::counter_cases,
+                crate::audit::capture_collectors::cases::journey_spa_navigation,
             ),
         ]
     }
@@ -853,6 +853,52 @@ mod tests {
                 collector(id).is_some(),
                 "counter-cases for unknown collector {id}"
             );
+        }
+    }
+
+    /// #777: the seventeen capture-layer entries each own a counter-case; a
+    /// function shared between two of them would let one entry's case stand
+    /// in for the other's.
+    #[test]
+    fn every_capture_entry_has_its_own_counter_case() {
+        let cases = counter_cases();
+        let ids = [
+            "accessibility.navigation_snapshot",
+            "accessibility.ax_tree",
+            "accessibility.consent_banner",
+            "accessibility.exclusion_scope",
+            "accessibility.frames",
+            "accessibility.page_stability",
+            "accessibility.rule_execution",
+            "accessibility_journey.tab_walk",
+            "accessibility_journey.skip_link",
+            "accessibility_journey.disclosure",
+            "accessibility_journey.modal",
+            "accessibility_journey.tabs",
+            "accessibility_journey.menu",
+            "accessibility_journey.form_error",
+            "accessibility_journey.add_to_cart",
+            "accessibility_journey.quantity_stepper",
+            "accessibility_journey.spa_navigation",
+        ];
+        assert_eq!(ids.len(), 17);
+        let case_of = |id: &str| {
+            cases
+                .iter()
+                .find(|(case_id, _)| *case_id == id)
+                .unwrap_or_else(|| panic!("{id} has no counter-case"))
+                .1
+        };
+        for (i, id) in ids.iter().enumerate() {
+            for other in &ids[i + 1..] {
+                assert!(
+                    !std::ptr::fn_addr_eq(case_of(id), case_of(other)),
+                    "{id} and {other} share one counter-case"
+                );
+            }
+            // Each case runs on its own, so a failure names its entry.
+            let result = std::panic::catch_unwind(case_of(id));
+            assert!(result.is_ok(), "the counter-case of {id} failed");
         }
     }
 

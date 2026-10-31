@@ -284,186 +284,178 @@ pub(crate) fn record_journeys(log: &super::collection::CollectionLog, runs: &[Jo
     }
 }
 
-#[cfg(test)]
-pub(crate) fn counter_cases() {
-    use super::collection::reason as common;
-    use serde_json::json;
-
-    // Navigation: no answer, wrong schema and a missing timing entry are
-    // not "no redirects".
-    for (value, expected) in [
-        (None, common::NO_RESULT),
-        (Some(json!(null)), common::NO_RESULT),
-        (Some(json!("text")), common::SCHEMA_MISMATCH),
-        (Some(json!({"finalUrl": 3})), common::SCHEMA_MISMATCH),
-    ] {
-        let state = navigation_collection(common_decode(value.as_ref()));
-        assert_eq!(state.state(), CollectionState::Failed, "{value:?}");
-        assert_eq!(
-            match state {
-                Collected::Failed(r) => r,
-                _ => "",
-            },
-            expected
-        );
-    }
-    let no_entry = common_decode(Some(&json!({
-        "finalUrl": "https://a/", "status": null, "redirects": null, "readyState": "complete"
-    })));
-    match navigation_collection(no_entry) {
-        Collected::Partial { gaps, .. } => {
-            assert_eq!(gaps, vec!["main_document_status", "redirect_count"])
-        }
-        other => panic!("a missing timing entry is partial: {other:?}"),
-    }
-    let measured = common_decode(Some(&json!({
-        "finalUrl": "https://a/", "status": 200, "redirects": 0, "readyState": "complete"
-    })));
-    assert_eq!(
-        navigation_collection(measured).state(),
-        CollectionState::Measured
-    );
-
-    // AX tree.
-    assert_eq!(ax_tree_collection(0).state(), CollectionState::Failed);
-    assert_eq!(ax_tree_collection(3).state(), CollectionState::Measured);
-
-    // Consent.
-    use crate::browser::consent::ConsentHandlingStatus as Consent;
-    assert_eq!(
-        consent_collection(Consent::Unknown).state(),
-        CollectionState::Failed
-    );
-    assert_eq!(
-        consent_collection(Consent::NotDetected).state(),
-        CollectionState::Empty
-    );
-    assert_eq!(
-        consent_collection(Consent::DismissFailed).state(),
-        CollectionState::Measured
-    );
-    assert_eq!(
-        consent_collection(Consent::Dismissed).state(),
-        CollectionState::Measured
-    );
-
-    // Frames: no frames is empty, an unreachable one a gap, a hidden one
-    // a decision.
-    use super::frames::{FrameCoverage, FrameEntry, FrameSkipReason};
-    let entry = |reason| FrameEntry {
-        selector: "iframe".into(),
-        reason,
-        ..Default::default()
-    };
-    assert_eq!(
-        frames_collection(&FrameCoverage::default()).state(),
-        CollectionState::Empty
-    );
-    let coverage = |skipped| FrameCoverage {
-        audited: vec![entry(None)],
-        skipped,
-    };
-    assert_eq!(
-        frames_collection(&coverage(vec![entry(Some(FrameSkipReason::Hidden))])).state(),
-        CollectionState::Measured
-    );
-    assert_eq!(
-        frames_collection(&coverage(vec![entry(Some(FrameSkipReason::AxTreeFailed))])).state(),
-        CollectionState::Partial
-    );
-    assert_eq!(
-        frames_collection(&coverage(vec![entry(None)])).state(),
-        CollectionState::Partial
-    );
-
-    // Stability.
-    use crate::interaction::stability::{StabilityProvenance, StabilityStatus};
-    let pass = |status| StabilityProvenance {
-        status,
-        ..Default::default()
-    };
-    assert_eq!(stability_collection(&[]).state(), CollectionState::Failed);
-    assert_eq!(
-        stability_collection(&[pass(StabilityStatus::Stable)]).state(),
-        CollectionState::Measured
-    );
-    assert_eq!(
-        stability_collection(&[
-            pass(StabilityStatus::Stable),
-            pass(StabilityStatus::Fallback)
-        ])
-        .state(),
-        CollectionState::Partial
-    );
-
-    // Journeys, under both naming schemes.
-    for name in [
-        "tab_walk",
-        "skiplinkactivate",
-        "skip_link_0",
-        "disclosure_0",
-        "accordiontoggle",
-        "modalopen",
-        "tabsnavigate",
-        "menu_1",
-        "formerrorsubmit",
-        "add_to_cart_0",
-        "quantitystepper",
-        "spa_navigation",
-    ] {
-        assert!(journey_spec(name).is_some(), "{name} has no collector");
-    }
-    assert!(journey_spec("unknown_journey").is_none());
-    let run = |status, reason: Option<&str>| JourneyRun {
-        journey: "modal_0".into(),
-        status,
-        reason_code: reason.map(str::to_string),
-    };
-    for (status, reason, expected) in [
-        (ExecutionStatus::Completed, None, CollectionState::Measured),
-        (
-            ExecutionStatus::Failed,
-            Some("journey_timeout"),
-            CollectionState::Failed,
-        ),
-        (ExecutionStatus::Partial, None, CollectionState::Partial),
-        (
-            ExecutionStatus::Skipped,
-            Some("budget_exhausted"),
-            CollectionState::Unsupported,
-        ),
-        (
-            ExecutionStatus::Skipped,
-            Some("low_confidence"),
-            CollectionState::NotApplicable,
-        ),
-        (
-            ExecutionStatus::NotApplicable,
-            Some("no_spa_candidate"),
-            CollectionState::NotApplicable,
-        ),
-    ] {
-        assert_eq!(journey_state(&run(status, reason)).state(), expected);
-    }
-}
-
 /// Test support: decode a navigation script result the way the pipeline does.
 #[cfg(test)]
 fn common_decode(value: Option<&serde_json::Value>) -> Collected<NavigationRaw> {
     super::collection::decode_js_value(value)
 }
 
+/// The counter-cases of the capture layer, one function per inventoried
+/// collector (#777): `collection.rs` lists each by id, so an entry cannot
+/// borrow another entry's case. Every case drives the collector's own
+/// projection with a failed, an empty or a partial capture and expects the
+/// state to say so.
 #[cfg(test)]
-mod tests {
+pub(crate) mod cases {
     use super::*;
+    use crate::audit::collection::{reason as common, CollectionLog};
+    use serde_json::json;
 
-    #[test]
-    fn capture_counter_cases() {
-        counter_cases();
+    pub(crate) fn navigation_snapshot() {
+        // No answer, wrong schema and a missing timing entry are not "no
+        // redirects".
+        for (value, expected) in [
+            (None, common::NO_RESULT),
+            (Some(json!(null)), common::NO_RESULT),
+            (Some(json!("text")), common::SCHEMA_MISMATCH),
+            (Some(json!({"finalUrl": 3})), common::SCHEMA_MISMATCH),
+        ] {
+            let state = navigation_collection(common_decode(value.as_ref()));
+            assert_eq!(state.state(), CollectionState::Failed, "{value:?}");
+            assert_eq!(
+                match state {
+                    Collected::Failed(r) => r,
+                    _ => "",
+                },
+                expected
+            );
+        }
+        let no_entry = common_decode(Some(&json!({
+            "finalUrl": "https://a/", "status": null, "redirects": null, "readyState": "complete"
+        })));
+        match navigation_collection(no_entry) {
+            Collected::Partial { gaps, .. } => {
+                assert_eq!(gaps, vec!["main_document_status", "redirect_count"])
+            }
+            other => panic!("a missing timing entry is partial: {other:?}"),
+        }
+        let measured = common_decode(Some(&json!({
+            "finalUrl": "https://a/", "status": 200, "redirects": 0, "readyState": "complete"
+        })));
+        assert_eq!(
+            navigation_collection(measured).state(),
+            CollectionState::Measured
+        );
     }
 
-    #[test]
-    fn rule_execution_state_follows_the_rule_outcomes() {
+    pub(crate) fn ax_tree() {
+        assert_eq!(ax_tree_collection(0).state(), CollectionState::Failed);
+        assert_eq!(ax_tree_collection(3).state(), CollectionState::Measured);
+    }
+
+    pub(crate) fn consent_banner() {
+        use crate::browser::consent::ConsentHandlingStatus as Consent;
+        assert_eq!(
+            consent_collection(Consent::Unknown).state(),
+            CollectionState::Failed
+        );
+        assert_eq!(
+            consent_collection(Consent::NotDetected).state(),
+            CollectionState::Empty
+        );
+        assert_eq!(
+            consent_collection(Consent::DismissFailed).state(),
+            CollectionState::Measured
+        );
+        assert_eq!(
+            consent_collection(Consent::Dismissed).state(),
+            CollectionState::Measured
+        );
+    }
+
+    // `ExclusionScope` keeps its node ids private, so it is built from the default.
+    #[allow(clippy::field_reassign_with_default)]
+    pub(crate) fn exclusion_scope() {
+        // A scope that could not be resolved is not "nothing to exclude".
+        use crate::audit::exclusion::{ExclusionScope, SelectorMatch};
+        let matched = |matched_elements| SelectorMatch {
+            selector: ".ad".into(),
+            builtin: false,
+            matched_elements,
+            invalid: false,
+        };
+        let scope = |failure, gaps, matched_elements| {
+            let mut scope = ExclusionScope::default();
+            scope.matches = vec![matched(matched_elements)];
+            scope.failure = failure;
+            scope.gaps = gaps;
+            scope
+        };
+        assert_eq!(
+            scope(Some("selector_count_failed"), vec![], 0)
+                .collection()
+                .state(),
+            CollectionState::Failed
+        );
+        assert_eq!(
+            scope(None, vec!["subtree_unresolved"], 2)
+                .collection()
+                .state(),
+            CollectionState::Partial
+        );
+        assert_eq!(
+            scope(None, vec![], 0).collection().state(),
+            CollectionState::Empty
+        );
+        assert_eq!(
+            scope(None, vec![], 2).collection().state(),
+            CollectionState::Measured
+        );
+    }
+
+    pub(crate) fn frames() {
+        // No frames is empty, an unreachable one a gap, a hidden one a
+        // decision.
+        use crate::audit::frames::{FrameCoverage, FrameEntry, FrameSkipReason};
+        let entry = |reason| FrameEntry {
+            selector: "iframe".into(),
+            reason,
+            ..Default::default()
+        };
+        assert_eq!(
+            frames_collection(&FrameCoverage::default()).state(),
+            CollectionState::Empty
+        );
+        let coverage = |skipped| FrameCoverage {
+            audited: vec![entry(None)],
+            skipped,
+        };
+        assert_eq!(
+            frames_collection(&coverage(vec![entry(Some(FrameSkipReason::Hidden))])).state(),
+            CollectionState::Measured
+        );
+        assert_eq!(
+            frames_collection(&coverage(vec![entry(Some(FrameSkipReason::AxTreeFailed))])).state(),
+            CollectionState::Partial
+        );
+        assert_eq!(
+            frames_collection(&coverage(vec![entry(None)])).state(),
+            CollectionState::Partial
+        );
+    }
+
+    pub(crate) fn page_stability() {
+        use crate::interaction::stability::{StabilityProvenance, StabilityStatus};
+        let pass = |status| StabilityProvenance {
+            status,
+            ..Default::default()
+        };
+        assert_eq!(stability_collection(&[]).state(), CollectionState::Failed);
+        assert_eq!(
+            stability_collection(&[pass(StabilityStatus::Stable)]).state(),
+            CollectionState::Measured
+        );
+        assert_eq!(
+            stability_collection(&[
+                pass(StabilityStatus::Stable),
+                pass(StabilityStatus::Fallback)
+            ])
+            .state(),
+            CollectionState::Partial
+        );
+    }
+
+    pub(crate) fn rule_execution() {
         use crate::wcag::{NotRun, RuleRun};
         let ran = |rule: &str| RuleRun::ran(rule, 0).in_viewport("mobile");
         let lost = |rule: &str| {
@@ -486,5 +478,89 @@ mod tests {
             state(&[lost("reflow"), lost("text-spacing")]).map(|(state, _)| state),
             Some(CollectionState::Failed)
         );
+    }
+
+    /// One journey: every run name it appears under resolves to its own
+    /// collector, every execution status projects to the state it must, and a
+    /// run is recorded under this collector's id and no other.
+    fn journey_case(spec: &'static CollectorSpec, run_names: &[&str]) {
+        for name in run_names {
+            let resolved = journey_spec(name).unwrap_or_else(|| panic!("{name} has no collector"));
+            assert_eq!(resolved.id, spec.id, "{name}");
+        }
+        let run = |status, reason: Option<&str>| JourneyRun {
+            journey: run_names[0].into(),
+            status,
+            reason_code: reason.map(str::to_string),
+        };
+        for (status, reason, expected) in [
+            (ExecutionStatus::Completed, None, CollectionState::Measured),
+            (
+                ExecutionStatus::Failed,
+                Some("journey_timeout"),
+                CollectionState::Failed,
+            ),
+            (ExecutionStatus::Partial, None, CollectionState::Partial),
+            (
+                ExecutionStatus::Skipped,
+                Some("budget_exhausted"),
+                CollectionState::Unsupported,
+            ),
+            (
+                ExecutionStatus::Skipped,
+                Some("low_confidence"),
+                CollectionState::NotApplicable,
+            ),
+            (
+                ExecutionStatus::NotApplicable,
+                Some("no_spa_candidate"),
+                CollectionState::NotApplicable,
+            ),
+        ] {
+            let journey = run(status, reason);
+            assert_eq!(journey_state(&journey).state(), expected, "{journey:?}");
+            let log = CollectionLog::new();
+            record_journeys(&log, &[journey]);
+            let records = log.into_records();
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].collector, spec.id);
+            assert_eq!(records[0].state, expected);
+        }
+    }
+
+    pub(crate) fn journey_tab_walk() {
+        journey_case(&JOURNEY_TAB_WALK, &["tab_walk"]);
+    }
+    pub(crate) fn journey_skip_link() {
+        journey_case(&JOURNEY_SKIP_LINK, &["skiplinkactivate", "skip_link_0"]);
+    }
+    pub(crate) fn journey_disclosure() {
+        journey_case(&JOURNEY_DISCLOSURE, &["disclosure_0", "accordiontoggle"]);
+    }
+    pub(crate) fn journey_modal() {
+        journey_case(&JOURNEY_MODAL, &["modalopen", "modal_0"]);
+    }
+    pub(crate) fn journey_tabs() {
+        journey_case(&JOURNEY_TABS, &["tabsnavigate"]);
+    }
+    pub(crate) fn journey_menu() {
+        journey_case(&JOURNEY_MENU, &["menu_1"]);
+    }
+    pub(crate) fn journey_form_error() {
+        journey_case(&JOURNEY_FORM_ERROR, &["formerrorsubmit"]);
+    }
+    pub(crate) fn journey_add_to_cart() {
+        journey_case(&JOURNEY_ADD_TO_CART, &["add_to_cart_0"]);
+    }
+    pub(crate) fn journey_quantity_stepper() {
+        journey_case(&JOURNEY_QUANTITY_STEPPER, &["quantitystepper"]);
+    }
+    pub(crate) fn journey_spa_navigation() {
+        journey_case(&JOURNEY_SPA_NAVIGATION, &["spa_navigation"]);
+    }
+
+    #[test]
+    fn an_unknown_journey_has_no_collector() {
+        assert!(journey_spec("unknown_journey").is_none());
     }
 }

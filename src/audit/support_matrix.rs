@@ -84,9 +84,9 @@ impl Prerequisite {
 pub struct ExtraCheckSpec {
     pub check: ExtraCheck,
     pub flag: &'static str,
-    /// Id of the subcheck in `scope.requested_subchecks` / `module_runs`;
-    /// `None` when the check is a module of its own.
-    pub subcheck: Option<&'static str>,
+    /// Ids of the collections the check must leave in `module_runs[].subchecks`
+    /// and lists in `scope.requested_subchecks` (#778).
+    pub subchecks: &'static [&'static str],
     pub prerequisite: Prerequisite,
     pub single: Support,
     pub batch: Support,
@@ -110,11 +110,19 @@ const REPLAY_DOES_NOT_MEASURE: Support = Support::Rejected(
      recorded (run the audit again to change them)",
 );
 
+/// The page's image URLs are collected before anything is fetched, so this
+/// record exists whenever the module ran. A build without the feature never
+/// runs the module and so owes none.
+#[cfg(feature = "ai-transparency")]
+const AI_TRANSPARENCY_SUBCHECKS: &[&str] = &["ai_transparency.image_urls"];
+#[cfg(not(feature = "ai-transparency"))]
+const AI_TRANSPARENCY_SUBCHECKS: &[&str] = &[];
+
 pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
         check: ExtraCheck::ThirdPartyIsolation,
         flag: "--isolate-third-party-impact",
-        subcheck: Some("performance.third_party_isolation"),
+        subchecks: &["performance.third_party_isolation"],
         prerequisite: Prerequisite::Performance,
         single: Support::Runs,
         batch: Support::Runs,
@@ -124,7 +132,7 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
         check: ExtraCheck::SsrContent,
         flag: "--check-ssr-content",
-        subcheck: Some("content_visibility.ssr_gap"),
+        subchecks: &["content_visibility.ssr_gap"],
         prerequisite: Prerequisite::Seo,
         single: Support::Runs,
         batch: Support::Runs,
@@ -134,7 +142,7 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
         check: ExtraCheck::AiTransparency,
         flag: "--ai-transparency",
-        subcheck: None,
+        subchecks: AI_TRANSPARENCY_SUBCHECKS,
         prerequisite: Prerequisite::None,
         single: Support::Runs,
         batch: Support::Rejected(
@@ -147,7 +155,12 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
         check: ExtraCheck::Dns,
         flag: "--dns-check",
-        subcheck: None,
+        subchecks: &[
+            "network_dns.caa",
+            "network_dns.dnskey",
+            "network_dns.mx",
+            "network_dns.spf",
+        ],
         prerequisite: Prerequisite::None,
         single: Support::Runs,
         batch: Support::Runs,
@@ -188,6 +201,15 @@ impl ExtraCheckRequest {
             .iter()
             .filter(|spec| self.requested(spec.check))
             .map(|spec| spec.flag.to_string())
+            .collect()
+    }
+
+    /// Ids of the collections the requested checks must record, in matrix order.
+    pub fn requested_subchecks(&self) -> Vec<String> {
+        MATRIX
+            .iter()
+            .filter(|spec| self.requested(spec.check))
+            .flat_map(|spec| spec.subchecks.iter().map(|id| id.to_string()))
             .collect()
     }
 
