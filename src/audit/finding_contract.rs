@@ -302,6 +302,11 @@ const LANG_MISSING: &str = "page.lang.missing";
 const CANONICAL_MISSING: &str = "page.canonical.missing";
 const VIEWPORT_MISSING: &str = "page.viewport.missing";
 const NOT_HTTPS: &str = "page.transport.not_https";
+/// No `<h1>` in the document. SEO charges it; the UX and Journey indicators and
+/// the accessibility journey report the same absence from their own angle and
+/// stay references to it (#779). It is no WCAG failure (best practice), so
+/// Accessibility does not charge it either.
+const H1_MISSING: &str = "page.h1.missing";
 
 fn shared_cause_for_wcag(rule_id: &str) -> Option<&'static str> {
     (rule_id == "a11y.language.missing").then_some(LANG_MISSING)
@@ -570,18 +575,20 @@ fn collect(
                 true,
                 &issue.message,
             );
-            out.push(
-                Collected::new(
-                    D::Seo,
-                    "seo.headings",
-                    issue.issue_type.clone(),
-                    issue.severity,
-                    issue.message.clone(),
-                    FindingScoring::new("SEO", E::Deduction),
-                    L::Element,
-                )
-                .title(title),
-            );
+            let mut c = Collected::new(
+                D::Seo,
+                "seo.headings",
+                issue.issue_type.clone(),
+                issue.severity,
+                issue.message.clone(),
+                FindingScoring::new("SEO", E::Deduction),
+                L::Element,
+            )
+            .title(title);
+            if issue.issue_type == "missing_h1" {
+                c.cause = Some(H1_MISSING);
+            }
+            out.push(c);
         }
         // Meta: lang and canonical are charged once, in the technical
         // checks, viewport by Mobile (plan 105) — here they are references.
@@ -877,36 +884,40 @@ fn collect(
         for issue in &ux.issues {
             // UX issues are heuristic suspicions (signal contract `ux`,
             // #784): recorded for review, never confirmed defects.
-            out.push(
-                Collected::new(
-                    D::Ux,
-                    "ux",
-                    kind_code(&issue.kind),
-                    severity_from(&issue.severity),
-                    issue.problem.clone(),
-                    FindingScoring::new("UX", E::Indicator),
-                    L::Page,
-                )
-                .review(),
-            );
+            let mut c = Collected::new(
+                D::Ux,
+                "ux",
+                kind_code(&issue.kind),
+                severity_from(&issue.severity),
+                issue.problem.clone(),
+                FindingScoring::new("UX", E::Indicator),
+                L::Page,
+            )
+            .review();
+            if issue.kind == crate::ux::UxIssueKind::NoH1 {
+                c.cause = Some(H1_MISSING);
+            }
+            out.push(c);
         }
     }
 
     if let Some(journey) = &report.journey {
         for point in &journey.friction_points {
             // Friction points are heuristic (signal contract `journey`, #784).
-            out.push(
-                Collected::new(
-                    D::Journey,
-                    "journey",
-                    kind_code(&point.kind),
-                    severity_from(&point.severity),
-                    point.problem.clone(),
-                    FindingScoring::new("Journey", E::Indicator),
-                    L::Interaction,
-                )
-                .review(),
-            );
+            let mut c = Collected::new(
+                D::Journey,
+                "journey",
+                kind_code(&point.kind),
+                severity_from(&point.severity),
+                point.problem.clone(),
+                FindingScoring::new("Journey", E::Indicator),
+                L::Interaction,
+            )
+            .review();
+            if point.kind == crate::journey::FrictionKind::NoH1 {
+                c.cause = Some(H1_MISSING);
+            }
+            out.push(c);
         }
     }
 
@@ -981,6 +992,11 @@ fn collect(
         }
         if let Some(rule) = &finding.maps_to_finding {
             c.cause = Some(journey_cause(rule));
+        }
+        if finding.kind
+            == crate::audit::interactive_finding::InteractiveFindingKind::HeadingMissingH1
+        {
+            c.cause = Some(H1_MISSING);
         }
         out.push(c);
     }
@@ -1645,5 +1661,101 @@ mod tests {
             .map(|v| v.code)
             .collect();
         assert!(codes.contains(&"cause_charged_twice"), "{codes:?}");
+    }
+
+    /// One missing `<h1>` is reported by SEO, UX and Journey (#779). SEO
+    /// charges it; the other two are indicators of the same cause, and no
+    /// WCAG finding exists for it (best practice). Without the shared cause
+    /// each looked like an independent defect.
+    #[test]
+    fn missing_h1_is_one_cause_charged_by_seo_only() {
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let mut seo = seo(false);
+        seo.headings.h1_count = 0;
+        seo.headings
+            .issues
+            .push(crate::seo::headings::HeadingIssue {
+                issue_type: "missing_h1".into(),
+                message: "No h1".into(),
+                severity: Severity::High,
+            });
+        crate::seo::rescore(&mut seo, Default::default());
+        report.discoverability.seo = Some(seo);
+        let mut ux = crate::ux::analyze_ux(&crate::AXTree::new());
+        ux.issues = vec![crate::ux::UxIssue {
+            kind: crate::ux::UxIssueKind::NoH1,
+            dimension: "Visual Hierarchy".to_string(),
+            severity: "high".to_string(),
+            problem: "No H1.".to_string(),
+            impact: "Orientation suffers.".to_string(),
+            recommendation: "Add an H1.".to_string(),
+            values: Default::default(),
+        }];
+        report = report.with_ux(ux);
+        let mut journey = crate::journey::analyze_journey(&crate::AXTree::new());
+        journey.friction_points = vec![crate::journey::FrictionPoint {
+            kind: crate::journey::FrictionKind::NoH1,
+            step: "entry".to_string(),
+            severity: "high".to_string(),
+            problem: "No H1.".to_string(),
+            impact: "Orientation suffers.".to_string(),
+            recommendation: "Add an H1.".to_string(),
+            values: Default::default(),
+        }];
+        report = report.with_journey(journey);
+
+        let n = normalize(&report).normalized;
+        n.validate().unwrap();
+        let mut same_cause: Vec<_> = n
+            .findings
+            .iter()
+            .filter(|f| f.contract.cause == H1_MISSING)
+            .map(|f| {
+                (
+                    f.rule_id.clone(),
+                    f.contract.scoring.owner.clone().unwrap_or_default(),
+                    f.contract.scoring.effect,
+                )
+            })
+            .collect();
+        same_cause.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(
+            same_cause,
+            vec![
+                (
+                    "journey.no_h1".to_string(),
+                    "Journey".to_string(),
+                    ScoringEffect::Indicator
+                ),
+                (
+                    "seo.headings.missing_h1".to_string(),
+                    "SEO".to_string(),
+                    ScoringEffect::Deduction
+                ),
+                (
+                    "ux.no_h1".to_string(),
+                    "UX".to_string(),
+                    ScoringEffect::Indicator
+                ),
+            ]
+        );
+        // The only primary (actionable) finding of the cause is the SEO one.
+        let primary: Vec<_> = n
+            .findings
+            .iter()
+            .filter(|f| f.contract.cause == H1_MISSING && f.contract.is_primary())
+            .map(|f| f.rule_id.as_str())
+            .collect();
+        assert_eq!(primary, ["seo.headings.missing_h1"]);
+        // No WCAG finding: best practice is not a conformance failure.
+        assert!(n
+            .findings
+            .iter()
+            .all(|f| !f.rule_id.starts_with("a11y.main_heading")));
     }
 }

@@ -242,6 +242,25 @@ pub struct RedirectHop {
 }
 
 impl NavigationSnapshot {
+    /// Whether the chain left TLS on the way: a hop that answered over
+    /// `https://` and redirected to an `http://` URL (the next hop, or the
+    /// final URL for the last one). Such a navigation sent requests in clear
+    /// text even if it ended on `https://` again (#775).
+    pub fn passed_through_cleartext(&self) -> bool {
+        let targets = self
+            .redirect_chain
+            .iter()
+            .skip(1)
+            .map(|hop| Some(hop.url.as_str()))
+            .chain(std::iter::once(self.served_url()));
+        self.redirect_chain
+            .iter()
+            .zip(targets)
+            .any(|(hop, target)| {
+                hop.url.starts_with("https://") && target.is_some_and(|t| t.starts_with("http://"))
+            })
+    }
+
     /// The URL the document was actually served from. `None` when the
     /// navigation did not report one (older reports, failed evaluation).
     pub fn served_url(&self) -> Option<&str> {
@@ -678,9 +697,16 @@ impl AuditReport {
 
     /// Whether the document was served over TLS — the final URL's scheme,
     /// so an `http://` entry that redirects to `https://` counts as secure
-    /// and an `https://` entry that ends on `http://` does not.
+    /// and an `https://` entry that ends on `http://` does not. A navigation
+    /// that dropped from `https://` to `http://` along the redirect chain does
+    /// not either, even when it came back to `https://` (#775).
     pub fn document_is_https(&self) -> bool {
         self.document_url().starts_with("https://")
+            && !self
+                .accessibility
+                .execution
+                .navigation
+                .passed_through_cleartext()
     }
 
     /// Create a new audit report
@@ -1619,6 +1645,36 @@ impl BatchReport {
 
 #[cfg(test)]
 mod tests {
+    fn nav(chain: &[(&str, u16)], final_url: &str) -> NavigationSnapshot {
+        NavigationSnapshot {
+            final_url: Some(final_url.into()),
+            redirect_chain: chain
+                .iter()
+                .map(|(url, status)| RedirectHop {
+                    url: (*url).into(),
+                    status: *status,
+                })
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    /// An upgrade `http` -> `https` is not a downgrade; leaving TLS is, even
+    /// when the chain ends on `https` again (#775).
+    #[test]
+    fn redirect_chain_tells_a_downgrade_from_an_upgrade() {
+        let up = nav(&[("http://a.test/", 301)], "https://a.test/");
+        assert!(!up.passed_through_cleartext());
+        let down = nav(&[("https://a.test/", 302)], "http://a.test/");
+        assert!(down.passed_through_cleartext());
+        let bounce = nav(
+            &[("https://a.test/", 302), ("http://a.test/x", 301)],
+            "https://b.test/",
+        );
+        assert!(bounce.passed_through_cleartext());
+        assert!(!nav(&[], "https://a.test/").passed_through_cleartext());
+    }
+
     #[test]
     fn redirect_chain_serializes_only_when_captured() {
         let json = serde_json::to_value(NavigationSnapshot::default()).unwrap();

@@ -38,7 +38,7 @@ cargo test --test integration_test -- --ignored
 # hide another (#582); the check still fails at the end.
 echo "release-check: detection-corpus accuracy tests"
 corpus_failed=""
-for t in rule_error_cases capture_collectors_browser batch_failed_urls_cli session_policy_test detection_corpus_test schema_rules_detection_corpus_test vulnerable_libs_detection_corpus_test easy_language_detection_test help_mechanisms_detection_test score_calibration_test; do
+for t in rule_error_cases capture_collectors_browser missing_h1_browser transport_redirect_browser batch_failed_urls_cli session_policy_test detection_corpus_test schema_rules_detection_corpus_test vulnerable_libs_detection_corpus_test easy_language_detection_test help_mechanisms_detection_test score_calibration_test; do
   cargo test --test "$t" -- --ignored || corpus_failed="$corpus_failed $t"
 done
 if [ -n "$corpus_failed" ]; then
