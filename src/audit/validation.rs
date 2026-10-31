@@ -286,7 +286,12 @@ impl NormalizedReport {
             let expected = crate::cli::InteractiveMode::from_scope_name(
                 &self.execution.scope.interactive_mode,
             )
-            .map(crate::a11y_journey::state_changing_journeys);
+            .map(|mode| {
+                crate::a11y_journey::state_changing_journeys(
+                    mode,
+                    !profile.state_changing_journeys.is_empty(),
+                )
+            });
             if let Some(expected) = expected {
                 check(
                     profile.state_changing_journeys == expected,

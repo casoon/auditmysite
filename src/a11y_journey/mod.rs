@@ -37,6 +37,9 @@ use crate::patterns::{JourneyCandidate, JourneyKind, PatternAnalysis};
 pub struct RunContext<'a> {
     pub page: &'a Page,
     pub mode: InteractiveMode,
+    /// Whether journeys that can submit a form or change a cart may run
+    /// (`--allow-state-changes`).
+    pub allow_state_changes: bool,
     /// Pattern analysis from the static phase — provides journey candidates.
     pub patterns: Option<&'a PatternAnalysis>,
     /// Initial AXTree snapshot — used by pure-analysis passes (link inventory,
@@ -83,30 +86,38 @@ pub const DEFAULT_BUDGET_MS: u64 = 15_000;
 const JOURNEY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// Journeys that click controls able to change page or account state: a
-/// submit button, an add-to-cart trigger, a quantity stepper (#787). Only
-/// `--interactive full` runs them; `basic` and `off` are read-only. The
-/// measurement profile lists the permitted ones, with the ids the JSON uses.
+/// submit button, an add-to-cart trigger, a quantity stepper (#787). They run
+/// only with `--interactive full` *and* `--allow-state-changes`; every other
+/// run is read-only. The measurement profile lists the permitted ones, with
+/// the ids the JSON uses.
 const STATE_CHANGING: [(JourneyKind, &str); 3] = [
     (JourneyKind::FormErrorSubmit, "form_error_submit"),
     (JourneyKind::AddToCart, "add_to_cart"),
     (JourneyKind::QuantityStepper, "quantity_stepper"),
 ];
 
-/// Ids of the state-changing journeys `mode` permits; empty for a read-only
+/// Ids of the state-changing journeys a run permits; empty for a read-only
 /// run.
-pub fn state_changing_journeys(mode: InteractiveMode) -> Vec<&'static str> {
+pub fn state_changing_journeys(
+    mode: InteractiveMode,
+    allow_state_changes: bool,
+) -> Vec<&'static str> {
     STATE_CHANGING
         .iter()
-        .filter(|(kind, _)| journey_allowed(mode, *kind))
+        .filter(|(kind, _)| journey_allowed(mode, *kind, allow_state_changes))
         .map(|(_, id)| *id)
         .collect()
 }
 
-fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
+fn is_state_changing(journey: JourneyKind) -> bool {
+    STATE_CHANGING.iter().any(|(kind, _)| *kind == journey)
+}
+
+fn journey_allowed(mode: InteractiveMode, journey: JourneyKind, allow_state_changes: bool) -> bool {
     match mode {
         InteractiveMode::Off => false,
-        InteractiveMode::Basic => !STATE_CHANGING.iter().any(|(kind, _)| *kind == journey),
-        InteractiveMode::Full => true,
+        InteractiveMode::Basic => !is_state_changing(journey),
+        InteractiveMode::Full => allow_state_changes || !is_state_changing(journey),
     }
 }
 
@@ -256,7 +267,16 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
             }
             let skip_reason = if candidate.confidence < 0.7 {
                 Some("low_confidence")
-            } else if !journey_allowed(ctx.mode, candidate.required_journey) {
+            } else if is_state_changing(candidate.required_journey)
+                && ctx.mode == InteractiveMode::Full
+                && !ctx.allow_state_changes
+            {
+                Some("state_change_not_allowed")
+            } else if !journey_allowed(
+                ctx.mode,
+                candidate.required_journey,
+                ctx.allow_state_changes,
+            ) {
                 Some("mode_excluded")
             } else if !commerce_gate_allows(candidate.required_journey, ctx.commerce) {
                 Some("commerce_gate")
@@ -495,18 +515,29 @@ pub(super) async fn eval_string(page: &Page, js: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn only_a_full_run_may_change_state() {
-        assert!(state_changing_journeys(InteractiveMode::Off).is_empty());
-        assert!(state_changing_journeys(InteractiveMode::Basic).is_empty());
+    fn state_changing_journeys_need_full_and_an_explicit_opt_in() {
+        for allow in [false, true] {
+            assert!(state_changing_journeys(InteractiveMode::Off, allow).is_empty());
+            assert!(state_changing_journeys(InteractiveMode::Basic, allow).is_empty());
+        }
+        // `full` alone is read-only: the clicks are an opt-in.
+        assert!(state_changing_journeys(InteractiveMode::Full, false).is_empty());
         assert_eq!(
-            state_changing_journeys(InteractiveMode::Full),
+            state_changing_journeys(InteractiveMode::Full, true),
             ["form_error_submit", "add_to_cart", "quantity_stepper"]
         );
         // The profile list and the gate are one fact.
         for (kind, id) in STATE_CHANGING {
-            assert!(!journey_allowed(InteractiveMode::Basic, kind), "{id}");
-            assert!(journey_allowed(InteractiveMode::Full, kind), "{id}");
+            assert!(!journey_allowed(InteractiveMode::Basic, kind, true), "{id}");
+            assert!(!journey_allowed(InteractiveMode::Full, kind, false), "{id}");
+            assert!(journey_allowed(InteractiveMode::Full, kind, true), "{id}");
         }
+        // Read-only journeys of `full` stay on without the opt-in.
+        assert!(journey_allowed(
+            InteractiveMode::Full,
+            JourneyKind::DisclosureToggle,
+            false
+        ));
     }
 
     use super::*;
@@ -524,6 +555,7 @@ mod tests {
     /// Schneidet das Budget, sollen die unsichersten Kandidaten fallen — nicht
     /// die zuletzt erkannten. Vorher standen die nativen `<details>` (0.9)
     /// hinter jedem ARIA-Auslöser (0.7) und fielen als Erste heraus.
+
     #[test]
     fn kandidaten_laufen_nach_konfidenz_absteigend() {
         let list = vec![
@@ -544,15 +576,18 @@ mod tests {
     fn basic_mode_excludes_full_only_journeys() {
         assert!(journey_allowed(
             InteractiveMode::Basic,
-            JourneyKind::SkipLinkActivate
+            JourneyKind::SkipLinkActivate,
+            false
         ));
         assert!(journey_allowed(
             InteractiveMode::Basic,
-            JourneyKind::ModalOpen
+            JourneyKind::ModalOpen,
+            false
         ));
         assert!(!journey_allowed(
             InteractiveMode::Basic,
-            JourneyKind::FormErrorSubmit
+            JourneyKind::FormErrorSubmit,
+            true
         ));
     }
 
@@ -560,7 +595,8 @@ mod tests {
     fn full_mode_allows_full_scope_journeys() {
         assert!(journey_allowed(
             InteractiveMode::Full,
-            JourneyKind::FormErrorSubmit
+            JourneyKind::FormErrorSubmit,
+            true
         ));
     }
 

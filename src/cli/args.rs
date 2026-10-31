@@ -299,16 +299,25 @@ pub struct Args {
     #[arg(long = "state-id", value_name = "ID")]
     pub state_id: Option<String>,
 
+    /// Allow journeys that can change page or account state: clicking a
+    /// form's submit button, an add-to-cart trigger, a quantity stepper.
+    ///
+    /// Off by default, so an audit only observes. Needs `--interactive full`;
+    /// the permitted journeys are listed in the report's measurement profile
+    /// (`state_changing_journeys`). Use only on pages and shops you may
+    /// submit to.
+    #[arg(long = "allow-state-changes")]
+    pub allow_state_changes: bool,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
     /// `off`   — no interactive phase, fastest.
     /// `basic` — tab walk + skip link + obvious pattern journeys.
     /// `full`  (default) — adds SPA navigation, form-error announcement,
-    ///           link-text inventory and outline export. Also clicks submit
-    ///           buttons and add-to-cart triggers, which can change page or
-    ///           account state: listed in the report's measurement profile
-    ///           (`state_changing_journeys`). Use `basic` for a read-only run.
+    ///           link-text inventory and outline export. Submit buttons and
+    ///           add-to-cart triggers are only clicked with
+    ///           `--allow-state-changes`.
     ///
     /// Adds a few seconds per URL; recommended for single-URL audits.
     #[arg(long, value_enum, default_value = "full")]
@@ -1168,6 +1177,7 @@ mod tests {
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             session: Default::default(),
+            allow_state_changes: false,
             storage_state: None,
             state_id: None,
             display: None,

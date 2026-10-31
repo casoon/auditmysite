@@ -71,6 +71,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selectors: Vec::new(),
             interactive: InteractiveMode::Off,
+            allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: Default::default(),
             storage_state: None,

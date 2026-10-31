@@ -409,6 +409,9 @@ pub struct PipelineConfig {
     pub exclude_selectors: Vec<String>,
     /// Accessibility-Journey-Layer mode (off/basic/full).
     pub interactive: crate::cli::InteractiveMode,
+    /// Whether journeys that can submit a form or change a cart may run
+    /// (`--allow-state-changes`); part of the measurement profile.
+    pub allow_state_changes: bool,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     pub journey_budget_ms: u64,
     /// Session policy of the browser the pages run in; part of the
@@ -475,13 +478,13 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 26;
+        const CACHE_FMT: u8 = 27;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -500,6 +503,7 @@ impl PipelineConfig {
             self.check_stack as u8,
             self.dismiss_consent as u8,
             self.interactive,
+            self.allow_state_changes as u8,
             self.journey_budget_ms,
             self.session.as_str(),
             self.state_id.as_deref().unwrap_or(""),
@@ -621,6 +625,7 @@ impl PipelineConfig {
                 .chain(args.exclude_selector.iter().cloned())
                 .collect(),
             interactive: args.interactive,
+            allow_state_changes: args.allow_state_changes,
             journey_budget_ms,
             session: args.session,
             storage_state: args
@@ -1404,6 +1409,7 @@ pub async fn audit_page(
     let journey_ctx = crate::a11y_journey::RunContext {
         page,
         mode: config.interactive,
+        allow_state_changes: config.allow_state_changes,
         patterns: report.patterns.as_ref(),
         ax_tree: &primary_snap.ax_tree,
         initial_url: url,
@@ -2343,6 +2349,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            allow_state_changes: false,
             session: Default::default(),
             storage_state: None,
             state_id: None,
@@ -2745,6 +2752,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selectors: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: Default::default(),
             storage_state: None,
@@ -3600,7 +3608,7 @@ journey_budget_ms = 1234
         ensure_requested_module_runs(&mut report);
         update_audit_quality(&mut report);
 
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalize_checked(&report).unwrap();
         assert!(normalized.normalized.execution.quality.qualified_results);
         assert!(normalized
             .normalized

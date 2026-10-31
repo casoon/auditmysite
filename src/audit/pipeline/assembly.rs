@@ -468,9 +468,14 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
             session_policy: config.session.as_str().to_string(),
-            read_only: crate::a11y_journey::state_changing_journeys(config.interactive).is_empty(),
+            read_only: crate::a11y_journey::state_changing_journeys(
+                config.interactive,
+                config.allow_state_changes,
+            )
+            .is_empty(),
             state_changing_journeys: crate::a11y_journey::state_changing_journeys(
                 config.interactive,
+                config.allow_state_changes,
             )
             .iter()
             .map(|j| j.to_string())
@@ -866,19 +871,23 @@ mod tests {
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
         use clap::Parser;
-        let config_scope = |interactive: crate::cli::InteractiveMode| {
+        let config_scope = |interactive: crate::cli::InteractiveMode, allow: bool| {
             let mut config = crate::audit::PipelineConfig::from_args_and_config(
                 &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
                 None,
             );
             config.interactive = interactive;
+            config.allow_state_changes = allow;
             audit_scope_from_config(&config)
         };
-        let full = config_scope(crate::cli::InteractiveMode::Full);
+        // `full` alone only observes; the clicks are an explicit opt-in.
+        let observing = config_scope(crate::cli::InteractiveMode::Full, false);
+        assert!(observing.measurement_profile.read_only);
+        let full = config_scope(crate::cli::InteractiveMode::Full, true);
         assert!(!full.measurement_profile.read_only);
         assert!(!full.measurement_profile.state_changing_journeys.is_empty());
         assert_eq!(full.measurement_profile.session_policy, "isolated");
-        let basic = config_scope(crate::cli::InteractiveMode::Basic);
+        let basic = config_scope(crate::cli::InteractiveMode::Basic, true);
         assert!(basic.measurement_profile.read_only);
 
         // A read-only mode claiming a state-changing journey is rejected.
