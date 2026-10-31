@@ -31,7 +31,10 @@ pub enum Mode {
     Batch,
     /// `--reuse-cache` hit on a single URL: the stored report is returned.
     Cache,
-    /// Re-derivation from a stored snapshot (#790); there is no live page.
+    /// `auditmysite replay`: re-derivation from a stored snapshot (#790); there
+    /// is no live page. The report carries what the stored run measured —
+    /// including its extra checks — so a flag asking for a check *now* has
+    /// nothing to act on and is refused.
     Replay,
 }
 
@@ -99,7 +102,10 @@ impl ExtraCheckSpec {
     }
 }
 
-const REPLAY_DOES_NOT_MEASURE: Support = Support::NotRun("replay_does_not_measure");
+const REPLAY_DOES_NOT_MEASURE: Support = Support::Rejected(
+    "measures a live page; `replay` evaluates a stored snapshot and shows the checks its run \
+     recorded (run the audit again to change them)",
+);
 
 pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
@@ -159,6 +165,8 @@ pub struct ExtraCheckRequest {
     pub batch: bool,
     /// A single-URL run that may be answered from the cache.
     pub reuse_cache: bool,
+    /// The `replay` subcommand.
+    pub replay: bool,
 }
 
 impl ExtraCheckRequest {
@@ -182,6 +190,12 @@ impl ExtraCheckRequest {
     /// Reject the first requested check this run cannot execute.
     pub fn validate(&self) -> Result<(), String> {
         for spec in MATRIX.iter().filter(|spec| self.requested(spec.check)) {
+            if self.replay {
+                if let Support::Rejected(reason) = spec.support(Mode::Replay) {
+                    return Err(format!("{} {reason}", spec.flag));
+                }
+                continue;
+            }
             if !self.prerequisite_met(spec.prerequisite) {
                 if let Some(reason) = spec.prerequisite.unmet_reason() {
                     return Err(format!("{} {reason}", spec.flag));
@@ -241,9 +255,26 @@ mod tests {
 
     #[test]
     fn a_replay_never_claims_to_have_measured() {
+        // Every check is refused in replay: it neither runs nor is recorded
+        // as not run over what the stored run measured.
         assert!(MATRIX
             .iter()
-            .all(|s| matches!(s.replay, Support::NotRun(_))));
+            .all(|s| matches!(s.replay, Support::Rejected(_))));
+        for flag in 0..4 {
+            let e = request(|r| {
+                r.replay = true;
+                match flag {
+                    0 => r.isolate_third_party_impact = true,
+                    1 => r.check_ssr_content = true,
+                    2 => r.ai_transparency = true,
+                    _ => r.dns_check = true,
+                }
+            })
+            .validate()
+            .unwrap_err();
+            assert!(e.contains("replay"), "{e}");
+        }
+        assert!(request(|r| r.replay = true).validate().is_ok());
     }
 
     #[test]

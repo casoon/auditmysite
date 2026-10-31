@@ -489,6 +489,19 @@ pub enum Command {
         /// URL to plan an audit for (required unless --sitemap or --url-file is set)
         url: Option<String>,
     },
+    /// Evaluate a stored snapshot again — no browser, no network access.
+    ///
+    /// The target is a `snapshot.json`, a cache entry directory, or the URL
+    /// whose cached entry to replay. The report states `replay` as its
+    /// provenance. A snapshot that is incomplete or was written under other
+    /// versions is refused with its reason, never evaluated under today's
+    /// semantics. `--session`, `--state-id` and `--storage-state` assert the
+    /// measurement profile the snapshot must carry; another profile is
+    /// refused, not shown as the same measurement.
+    Replay {
+        /// Snapshot file, cache entry directory, or URL of a cached entry
+        target: String,
+    },
     /// Compare the own `accname` computation against Chrome's native
     /// accessibility tree — a differential test without a screen reader.
     AccnameDiff {
@@ -841,6 +854,20 @@ impl Args {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        // A replay evaluates a stored snapshot: a flag asking for a live
+        // check is refused, and a declared state must be readable (#788).
+        if matches!(self.command, Some(Command::Replay { .. })) {
+            self.load_storage_state()?;
+            return crate::audit::support_matrix::ExtraCheckRequest {
+                isolate_third_party_impact: self.isolate_third_party_impact,
+                check_ssr_content: self.check_ssr_content,
+                ai_transparency: self.ai_transparency,
+                dns_check: self.dns_check,
+                replay: true,
+                ..Default::default()
+            }
+            .validate();
+        }
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
@@ -920,6 +947,7 @@ impl Args {
             seo_active: full || self.seo,
             batch: is_batch,
             reuse_cache: self.reuse_cache && !self.force_refresh,
+            replay: false,
         }
         .validate()?;
         if self.technician && !is_batch {
@@ -1345,6 +1373,26 @@ mod tests {
         ]);
         assert_eq!(args.include_path, vec!["/a/**", "/b/**"]);
         assert_eq!(args.exclude_path, vec!["/a/tag/**"]);
+    }
+
+    #[test]
+    fn replay_takes_a_target_and_refuses_live_check_flags() {
+        let args = Args::try_parse_from(["auditmysite", "replay", "https://example.com"]).unwrap();
+        assert!(
+            matches!(args.command, Some(Command::Replay { ref target }) if target == "https://example.com")
+        );
+        assert!(args.validate().is_ok());
+
+        let args = Args::try_parse_from([
+            "auditmysite",
+            "--dns-check",
+            "replay",
+            "https://example.com",
+        ])
+        .unwrap();
+        let e = args.validate().unwrap_err();
+        assert!(e.contains("--dns-check") && e.contains("replay"), "{e}");
+        assert!(Args::try_parse_from(["auditmysite", "replay"]).is_err());
     }
 
     #[test]

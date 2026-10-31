@@ -10,13 +10,13 @@ use colored::Colorize;
 use dialoguer::Select;
 use tracing::info;
 
-use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cache_matches_signature,
-    crawl_site, hydrate_cached_report, load_artifacts, parse_sitemap, read_url_file,
-    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
-    PipelineConfig, Verdict,
+    analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cached_report, crawl_site,
+    parse_sitemap, read_url_file, replay_report, run_concurrent_batch, run_single_audit,
+    BatchConfig, CacheMiss, CrawlResult, ExpectedProfile, PipelineConfig, SnapshotArtifact,
+    Verdict,
 };
+use auditmysite::audit::{normalize, normalize_checked};
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::url_filter::{select_urls, stratified_sample};
 use auditmysite::cli::{Args, OutputFormat, RequestMode, SampleStrategy};
@@ -109,72 +109,30 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
 
     if args.reuse_cache && !args.force_refresh {
         let expected_signature = PipelineConfig::from(args).audit_signature();
-        match load_artifacts(url)? {
-            Some(cached) if cache_matches_signature(&cached.meta, &expected_signature) => {
+        // The stored snapshot is replayed (#790), not reconstructed: an entry
+        // that is incomplete, from other versions or for another audit
+        // configuration is a miss that says why, never today's semantics
+        // applied to old data.
+        match cached_report(url, &expected_signature)? {
+            Ok(report) => {
                 if !args.quiet {
                     println!(
                         "{} {}",
                         "Cache hit:".green().bold(),
-                        "using cached audit artifacts".dimmed()
+                        "replaying the stored snapshot".dimmed()
                     );
                 }
-
-                // Prefer the full cached report so every module section renders
-                // faithfully; fall back to the lossy reconstruction only for
-                // legacy entries written before report.json existed (#404).
-                let mut report = cached
-                    .report
-                    .clone()
-                    .unwrap_or_else(|| to_audit_report(&cached, &args.lang));
-                // The cached audit is judged under this run's profile, which
-                // is stored with the report, so every output and the exit
-                // code read the same decision (#781).
-                report.run_context.decision_profile = config
-                    .as_ref()
-                    .map(|c| c.effective_verdict_config().profile())
-                    .unwrap_or_default();
-                let verdict_result = normalize(&report).normalized.decision;
-                // screen_reader_audit is #[serde(skip)] and therefore absent from
-                // the persisted report — rebuild it from the cached AXTree so the
-                // cached report renders the same sections as a fresh run (#404).
-                hydrate_cached_report(&mut report, &cached.snapshot, &args.lang);
-
-                match args.effective_format() {
-                    OutputFormat::Json => {
-                        // Build the JSON from the hydrated full report (not the
-                        // normalized-only `cached.audit`) so `detail.modules`
-                        // carries the same module data the PDF renders (#404) —
-                        // a cache hit must not drop the module blob.
-                        output_single_report(&report, args)?;
-                        output_screen_reader_sidecar(&report, args)?;
-                    }
-                    OutputFormat::Table
-                    | OutputFormat::Pdf
-                    | OutputFormat::Ai
-                    | OutputFormat::Summary
-                    | OutputFormat::Sarif => {
-                        output_single_report(&report, args)?;
-                    }
-                }
-                print_verdict(&verdict_result, args.quiet);
-                return Ok(RunOutcome {
-                    verdict: verdict_result.verdict,
-                    visual_only_urls: visual_only_urls(std::iter::once((
-                        report.url.as_str(),
-                        report.accessibility.execution.display_modes.as_ref(),
-                    ))),
-                });
+                return emit_replayed(report, args, config);
             }
-            Some(_) if !args.quiet => {
+            Err(CacheMiss::Absent) => {}
+            Err(reason) if !args.quiet => {
                 println!(
                     "{} {}",
                     "Cache skipped:".yellow().bold(),
-                    "cached artifacts were produced with a different audit configuration — \
-                     running a fresh audit"
-                        .dimmed()
+                    format!("{reason} — running a fresh audit").dimmed()
                 );
             }
-            _ => {}
+            Err(_) => {}
         }
     }
 
@@ -265,6 +223,74 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
             report.accessibility.execution.display_modes.as_ref(),
         ))),
     })
+}
+
+/// Decides and emits a report that came from a stored snapshot (cache hit or
+/// `replay`): judged under this run's decision profile, which is stored with
+/// the report, so every output and the exit code read the same decision
+/// (#781).
+fn emit_replayed(
+    mut report: auditmysite::AuditReport,
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+) -> Result<RunOutcome> {
+    report.run_context.decision_profile = config
+        .as_ref()
+        .map(|c| c.effective_verdict_config().profile())
+        .unwrap_or_default();
+    let verdict_result = normalize_checked(&report)?.normalized.decision;
+    output_single_report(&report, args)?;
+    if args.effective_format() == OutputFormat::Json {
+        output_screen_reader_sidecar(&report, args)?;
+    }
+    print_verdict(&verdict_result, args.quiet);
+    Ok(RunOutcome {
+        verdict: verdict_result.verdict,
+        visual_only_urls: visual_only_urls(std::iter::once((
+            report.url.as_str(),
+            report.accessibility.execution.display_modes.as_ref(),
+        ))),
+    })
+}
+
+/// `auditmysite replay <target>`: the stored snapshot, evaluated again
+/// without browser or network. `session_from_cli` says whether `--session`
+/// was given: its default is not an assertion about the snapshot.
+pub(crate) fn run_replay_mode(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    target: &str,
+    session_from_cli: bool,
+) -> Result<Verdict> {
+    let path = std::path::Path::new(target);
+    let snapshot = if path.exists() {
+        SnapshotArtifact::read(path)?
+    } else if url::Url::parse(target).is_ok() {
+        SnapshotArtifact::read_cached(target)?
+    } else {
+        return Err(AuditError::ConfigError(format!(
+            "replay target '{target}' is neither an existing snapshot/cache directory nor a URL"
+        )));
+    };
+    let expected = ExpectedProfile {
+        session_policy: session_from_cli.then(|| args.session.as_str().to_string()),
+        state_id: args.state_id.clone(),
+        storage_state_sha256: args
+            .load_storage_state()
+            .map_err(AuditError::ConfigError)?
+            .map(|state| state.digest),
+    };
+    let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
+    snapshot.check_measurement(&expected).map_err(refuse)?;
+    let report = replay_report(&snapshot).map_err(refuse)?;
+    if !args.quiet {
+        println!(
+            "{} {}",
+            "Replay:".cyan().bold(),
+            format!("{} (no browser, no network)", report.url).dimmed()
+        );
+    }
+    emit_replayed(report, args, config).map(|o| o.verdict)
 }
 
 async fn maybe_offer_sitemap_scan(
