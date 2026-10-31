@@ -817,39 +817,7 @@ pub async fn analyze_security_trusting(
     let headers = extract_security_headers(&response_headers);
     let protection = detect_protection(&response_headers);
 
-    // Analyze SSL
     let ssl = analyze_ssl(https, &headers);
-
-    // Generate issues
-    let mut issues = generate_security_issues(&headers, https);
-
-    // HSTS preload eligibility + Permissions-Policy quality (#535)
-    if hsts_preload_ineligible(&ssl) {
-        issues.push(security_issue(
-            "Strict-Transport-Security",
-            SecurityIssueKind::HstsPreloadIneligible,
-            SecurityIssueValues {
-                hsts_max_age: Some(
-                    ssl.hsts_max_age
-                        .map(|v| v.to_string())
-                        .unwrap_or_else(|| "unset".to_string()),
-                ),
-                hsts_include_subdomains: Some(ssl.hsts_include_subdomains),
-                ..Default::default()
-            },
-            Severity::Low,
-            HeaderTier::Baseline,
-        ));
-    }
-    if permissions_policy_is_permissive(&headers) {
-        issues.push(security_issue(
-            "Permissions-Policy",
-            SecurityIssueKind::PermissionsPolicyPermissive,
-            SecurityIssueValues::default(),
-            Severity::Low,
-            HeaderTier::ArchitectureDependent,
-        ));
-    }
 
     // Public source-map leak check (#538)
     let sourcemap_leaks = log
@@ -859,30 +827,12 @@ pub async fn analyze_security_trusting(
         )
         .into_value()
         .unwrap_or_default();
-    if !sourcemap_leaks.leaks.is_empty() {
-        issues.push(security_issue(
-            "Source Map",
-            SecurityIssueKind::PublicSourceMap,
-            SecurityIssueValues {
-                source_map_count: Some(sourcemap_leaks.leaks.len()),
-                source_map_example: Some(sourcemap_leaks.leaks[0].map_url.clone()),
-                ..Default::default()
-            },
-            Severity::High,
-            HeaderTier::Baseline,
-        ));
-    }
-
-    // Generate recommendations
-    let recommendations = generate_recommendations(&headers, https);
-
-    // Calculate score
-    let score = calculate_security_score(&headers, &ssl, &issues);
-    let deductions = issue_deductions(&issues);
-    for (issue, points) in issues.iter_mut().zip(deductions) {
-        issue.score_deduction = points;
-    }
-    let grade = calculate_grade(score);
+    let Assessment {
+        issues,
+        recommendations,
+        score,
+        grade,
+    } = assess(&headers, &ssl, &sourcemap_leaks);
 
     info!(
         "Security analysis: score={}, grade={}, headers={}, protection={:?}",
@@ -907,6 +857,105 @@ pub async fn analyze_security_trusting(
         sourcemap_leaks,
         fetch,
     })
+}
+
+/// Everything the security score derives from the headers, the transport and
+/// the source-map audit; pure, so the transport can be re-judged later.
+struct Assessment {
+    issues: Vec<SecurityIssue>,
+    recommendations: Vec<String>,
+    score: u32,
+    grade: String,
+}
+
+fn assess(
+    headers: &SecurityHeaders,
+    ssl: &SslInfo,
+    sourcemap_leaks: &SourceMapLeakAudit,
+) -> Assessment {
+    // Issues
+    let mut issues = generate_security_issues(headers, ssl.https);
+
+    // HSTS preload eligibility + Permissions-Policy quality (#535)
+    if hsts_preload_ineligible(ssl) {
+        issues.push(security_issue(
+            "Strict-Transport-Security",
+            SecurityIssueKind::HstsPreloadIneligible,
+            SecurityIssueValues {
+                hsts_max_age: Some(
+                    ssl.hsts_max_age
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "unset".to_string()),
+                ),
+                hsts_include_subdomains: Some(ssl.hsts_include_subdomains),
+                ..Default::default()
+            },
+            Severity::Low,
+            HeaderTier::Baseline,
+        ));
+    }
+    if permissions_policy_is_permissive(headers) {
+        issues.push(security_issue(
+            "Permissions-Policy",
+            SecurityIssueKind::PermissionsPolicyPermissive,
+            SecurityIssueValues::default(),
+            Severity::Low,
+            HeaderTier::ArchitectureDependent,
+        ));
+    }
+
+    if !sourcemap_leaks.leaks.is_empty() {
+        issues.push(security_issue(
+            "Source Map",
+            SecurityIssueKind::PublicSourceMap,
+            SecurityIssueValues {
+                source_map_count: Some(sourcemap_leaks.leaks.len()),
+                source_map_example: Some(sourcemap_leaks.leaks[0].map_url.clone()),
+                ..Default::default()
+            },
+            Severity::High,
+            HeaderTier::Baseline,
+        ));
+    }
+
+    // Generate recommendations
+    let recommendations = generate_recommendations(headers, ssl.https);
+
+    // Calculate score
+    let score = calculate_security_score(headers, ssl, &issues);
+    let deductions = issue_deductions(&issues);
+    for (issue, points) in issues.iter_mut().zip(deductions) {
+        issue.score_deduction = points;
+    }
+    let grade = calculate_grade(score);
+    Assessment {
+        issues,
+        recommendations,
+        score,
+        grade,
+    }
+}
+
+/// Judges the headers again under the transport the browser's document used
+/// (#775). The probe fetches on its own and may end on another scheme than the
+/// page the browser loaded (an `https://` entry that dropped to `http://` and
+/// came back); the document's transport decides, not the probe's.
+pub(crate) fn align_with_document_transport(analysis: &mut SecurityAnalysis, document_https: bool) {
+    if analysis.ssl.https == document_https {
+        return;
+    }
+    analysis.ssl.https = document_https;
+    analysis.ssl.valid_certificate = document_https && analysis.ssl.certificate_error.is_none();
+    let Assessment {
+        issues,
+        recommendations,
+        score,
+        grade,
+    } = assess(&analysis.headers, &analysis.ssl, &analysis.sourcemap_leaks);
+    analysis.issues = issues;
+    analysis.recommendations = recommendations;
+    analysis.score = score;
+    analysis.grade = grade;
 }
 
 fn detect_protection(headers: &HeaderMap) -> ProtectionDetection {
@@ -1849,6 +1898,60 @@ pub(crate) fn counter_cases() {
 
 #[cfg(test)]
 mod tests {
+    fn analysis_over(https: bool) -> SecurityAnalysis {
+        let headers = SecurityHeaders::default();
+        let ssl = analyze_ssl(https, &headers);
+        let leaks = SourceMapLeakAudit::default();
+        let Assessment {
+            issues,
+            recommendations,
+            score,
+            grade,
+        } = assess(&headers, &ssl, &leaks);
+        SecurityAnalysis {
+            score,
+            grade,
+            headers,
+            ssl,
+            issues,
+            recommendations,
+            protection: ProtectionDetection::default(),
+            sourcemap_leaks: leaks,
+            fetch: HeaderFetch::default(),
+        }
+    }
+
+    /// The probe ended on `https://`, but the browser's document passed through
+    /// cleartext: the analysis follows the document and says so (#775).
+    #[test]
+    fn the_document_transport_overrides_the_probe_transport() {
+        let mut analysis = analysis_over(true);
+        let without_https_issue = analysis.issues.iter().all(|i| i.header != "HTTPS");
+        assert!(without_https_issue);
+        let score_over_tls = analysis.score;
+
+        align_with_document_transport(&mut analysis, false);
+
+        assert!(!analysis.ssl.https && !analysis.ssl.valid_certificate);
+        assert!(analysis.issues.iter().any(|i| i.header == "HTTPS"));
+        assert!(
+            analysis.score < score_over_tls,
+            "{} !< {score_over_tls}",
+            analysis.score
+        );
+        let fresh = analysis_over(false);
+        assert_eq!(analysis.score, fresh.score);
+        assert_eq!(analysis.issues.len(), fresh.issues.len());
+    }
+
+    #[test]
+    fn a_matching_document_transport_changes_nothing() {
+        let mut analysis = analysis_over(true);
+        let before = (analysis.score, analysis.issues.len());
+        align_with_document_transport(&mut analysis, true);
+        assert_eq!((analysis.score, analysis.issues.len()), before);
+    }
+
     use super::*;
 
     /// Every kind this build knows must render differently in the two

@@ -1,8 +1,9 @@
-//! Citation Likelihood Checker
+//! Quotable-structure signals
 //!
-//! Heuristic scoring of how likely a page's content is to be cited or quoted
-//! by LLMs. Evaluates authority signals, statement clarity, snippet quality,
-//! and source attribution.
+//! Heuristic scoring of how quotable a page's content is structured: authority
+//! signals, statement clarity, snippet quality and source attribution. It
+//! measures page structure only; it is not validated against real LLM citation
+//! behaviour and predicts no citation likelihood (#784).
 
 use serde::{Deserialize, Serialize};
 
@@ -387,7 +388,7 @@ mod tests {
         let result = analyze_citation(&rich_input());
         assert!(result.dimension.score >= 80);
         // Struct carries canonical English.
-        assert_eq!(result.dimension.name, "Citability");
+        assert_eq!(result.dimension.name, "Quotable structure (unvalidated)");
         assert_eq!(result.dimension.kind, DimensionKind::Citability);
     }
 

@@ -142,9 +142,9 @@ pub fn build_search_experience(
             score: ai_score,
             weight_pct: W_AI,
             explanation: if en {
-                "Readability, chunk quality and citation likelihood for AI-assisted systems."
+                "Readability, chunk quality and quotable structure for AI-assisted systems (unvalidated heuristic)."
             } else {
-                "Lesbarkeit, Abschnittsqualität und Zitierbarkeit für KI-gestützte Systeme."
+                "Lesbarkeit, Abschnittsqualität und zitierfähige Struktur für KI-gestützte Systeme (ungeprüfte Heuristik)."
             }
             .into(),
         });

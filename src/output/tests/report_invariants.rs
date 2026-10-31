@@ -231,6 +231,37 @@ fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
     );
 }
 
+/// #780: indicator modules read the evidence another module collected (which
+/// headers exist), never that module's verdict. Before, a security score of 70
+/// or more raised the AI citability score, so the same page scored differently
+/// depending on how the security module weighed its issues.
+#[test]
+fn security_verdict_does_not_feed_source_quality_or_ai_visibility() {
+    use crate::ai_visibility::analyze_ai_visibility;
+    use crate::source_quality::analyze_source_quality;
+
+    let with_score = |score: u32| {
+        let mut report = make_report(WcagResults::new());
+        let mut security = make_security_from_headers(crate::security::SecurityHeaders::default());
+        security.score = score;
+        security.grade = if score >= 70 { "B" } else { "F" }.to_string();
+        report.security = Some(security);
+        report
+    };
+    let (good, bad) = (with_score(95), with_score(10));
+
+    assert_eq!(
+        analyze_source_quality(&good).authority.score,
+        analyze_source_quality(&bad).authority.score,
+        "the security score moves Source Quality's authority dimension"
+    );
+    assert_eq!(
+        analyze_ai_visibility(&good).citation.dimension.score,
+        analyze_ai_visibility(&bad).citation.dimension.score,
+        "the security score moves the AI citation dimension"
+    );
+}
+
 /// Plan 105: the chunking signal read "no landmark violations" from the
 /// accessibility result, so one landmark finding moved the AI score too. It
 /// now reads the main content region the SEO extraction found.

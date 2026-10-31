@@ -408,6 +408,10 @@ pub struct ExpectedProfile {
     pub state_id: Option<String>,
     /// SHA-256 of the declared storage state.
     pub storage_state_sha256: Option<String>,
+    /// The opt-in extra checks the stored run must have requested (flag
+    /// names, any order). A snapshot measured without them is another
+    /// measurement.
+    pub extra_checks: Option<Vec<String>>,
 }
 
 /// How two measurement profiles differ, as `(field, a, b)` in the
@@ -478,6 +482,11 @@ impl SnapshotArtifact {
                 cookies: 0,
                 origins: 0,
             });
+        }
+        if let Some(checks) = &expected.extra_checks {
+            let mut checks = checks.clone();
+            checks.sort();
+            wanted.extra_checks = checks;
         }
         let differences = profile_differences(&stored, &wanted);
         if differences.is_empty() {
@@ -1438,6 +1447,7 @@ mod tests {
                 session_policy: Some("unknown".into()),
                 state_id: Some("logged-in".into()),
                 storage_state_sha256: Some("aa".repeat(32)),
+                extra_checks: Some(vec![]),
             })
             .is_ok());
             // Any asserted field that differs refuses, naming the field.
@@ -1462,6 +1472,13 @@ mod tests {
                         ..Default::default()
                     },
                     "storage_state",
+                ),
+                (
+                    ExpectedProfile {
+                        extra_checks: Some(vec!["--check-ssr-content".into()]),
+                        ..Default::default()
+                    },
+                    "extra_checks",
                 ),
             ] {
                 match ok(expected) {

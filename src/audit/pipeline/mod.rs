@@ -1271,12 +1271,22 @@ pub async fn audit_page(
     merged_wcag.violations.extend(kept_patterns);
     merged_wcag.warnings.extend(demoted_patterns);
 
+    // The navigation capture exists before the report is derived: modules
+    // judge transport from it, not from the requested URL (#775).
+    let (mut navigation, navigation_collection) = collect_navigation_snapshot(page, url).await;
+    page_collection.record(
+        &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
+        navigation_collection,
+    );
+    navigation.redirect_chain = redirect_chain;
+
     let mut report = aggregate_report(
         url,
         config,
         &primary_snap,
         merged_wcag,
         pattern_analysis,
+        navigation,
         start_time.elapsed().as_millis() as u64,
     );
     // The screen-reader layer reads the mobile pass's tree, so the mobile
@@ -1296,13 +1306,12 @@ pub async fn audit_page(
         headless: browser.is_headless(),
         source: "live".to_string(),
     };
-    let (navigation, navigation_collection) = collect_navigation_snapshot(page, url).await;
-    report.accessibility.execution.navigation = navigation;
-    page_collection.record(
-        &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
-        navigation_collection,
-    );
-    report.accessibility.execution.navigation.redirect_chain = redirect_chain;
+    // The transport the security analysis judges is the one the browser's
+    // document used, not the probe's (#775).
+    let document_https = report.document_is_https();
+    if let Some(security) = report.security.as_mut() {
+        crate::security::align_with_document_transport(security, document_https);
+    }
     // The security headers come from a separate probe: they describe the
     // audited page only if the probe ended on the document the browser
     // loaded — same scheme and host after redirects (#775).
