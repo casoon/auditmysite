@@ -472,7 +472,7 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 24;
+        const CACHE_FMT: u8 = 25;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -2061,7 +2061,12 @@ pub(crate) fn persist_artifacts(
             .as_ref()
             .map(|sr| sr.excluded_node_ids.clone())
             .unwrap_or_default(),
-    };
+        document: None,
+        collected: None,
+        locale: None,
+        versions: None,
+    }
+    .with_collected(url, &config.lang, report);
     let hash = content_hash(&snapshot_artifact);
     let normalized = normalize(report).normalized;
     let wcag_level = report.wcag_level.to_string();
@@ -2073,11 +2078,6 @@ pub(crate) fn persist_artifacts(
         audit_signature: config.audit_signature(),
         fingerprint_version: crate::audit::artifacts::FINGERPRINT_VERSION,
     };
-    // Persist the full report so cache hits render every module faithfully.
-    // Screenshots reference temp files that won't exist on reload, so strip them.
-    let mut report_for_cache = report.clone();
-    report_for_cache.page_screenshots = None;
-
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
             requested_url: url.to_string(),
@@ -2098,7 +2098,7 @@ pub(crate) fn persist_artifacts(
         },
         snapshot: snapshot_artifact,
         audit: normalized,
-        report: Some(report_for_cache),
+        report: None,
         content_hash: hash,
         meta,
     };

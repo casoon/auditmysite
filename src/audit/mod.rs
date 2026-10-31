@@ -35,8 +35,9 @@ pub mod validation;
 pub mod verdict;
 
 pub use artifacts::{
-    cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, save_artifacts,
-    to_audit_report, AuditArtifacts, FetchArtifact, SnapshotArtifact,
+    cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, replay,
+    replay_report, save_artifacts, to_audit_report, AuditArtifacts, DocumentIdentity,
+    FetchArtifact, ReplayError, SnapshotArtifact, SnapshotVersions,
 };
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,

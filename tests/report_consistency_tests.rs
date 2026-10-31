@@ -2150,6 +2150,181 @@ fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {
     assert!(error.to_string().contains("batch_aggregation"));
 }
 
+// ─── Snapshot replay (#790) ────────────────────────────────────────
+
+mod replay {
+    use super::*;
+    use auditmysite::audit::{replay, ReplayError, SnapshotArtifact};
+    use auditmysite::output::{format_json_cached, format_json_replay};
+    use serde_json::Value;
+
+    fn empty_snapshot() -> SnapshotArtifact {
+        serde_json::from_value(serde_json::json!({
+            "ax_tree": serde_json::to_value(AXTree::from_nodes(Vec::new())).unwrap(),
+            "performance": null, "seo": null, "security": null, "mobile": null
+        }))
+        .unwrap()
+    }
+
+    /// A report as the pipeline leaves it: measurement profile stamped and
+    /// the screen-reader layer built from the tree.
+    fn fresh_report() -> AuditReport {
+        let mut report = make_full_report();
+        let profile = &mut report.accessibility.execution.scope.measurement_profile;
+        profile.version = auditmysite::audit::MEASUREMENT_PROFILE_VERSION;
+        profile.read_only = true;
+        report.screen_reader_audit = Some(auditmysite::screen_reader::build_sr_audit_report(
+            &report.url,
+            report.timestamp,
+            &AXTree::from_nodes(Vec::new()),
+            "en",
+            report.patterns.as_ref(),
+        ));
+        report
+    }
+
+    /// A snapshot as persisted and read back from disk.
+    fn persisted(report: &AuditReport) -> SnapshotArtifact {
+        let snapshot = empty_snapshot().with_collected("https://example.com", "en", report);
+        serde_json::from_slice(&serde_json::to_vec(&snapshot).unwrap()).unwrap()
+    }
+
+    /// Metadata that may differ between a fresh run and its replay.
+    fn without_volatile(normalized: &auditmysite::audit::normalized::NormalizedReport) -> Value {
+        let mut value = serde_json::to_value(normalized).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("timestamp");
+        object.remove("duration_ms");
+        object["execution"]["environment"]
+            .as_object_mut()
+            .unwrap()
+            .remove("source");
+        value
+    }
+
+    #[test]
+    fn replay_equals_the_fresh_model_without_browser_or_network() {
+        let report = fresh_report();
+        let fresh = normalize(&report).normalized;
+        let replayed = replay(&persisted(&report)).unwrap();
+        assert_eq!(without_volatile(&fresh), without_volatile(&replayed));
+        // Named explicitly: the facts a consumer decides on.
+        assert_eq!(fresh.score, replayed.score);
+        assert_eq!(fresh.overall_score, replayed.overall_score);
+        assert_eq!(fresh.findings.len(), replayed.findings.len());
+        assert_eq!(fresh.decision.verdict, replayed.decision.verdict);
+        assert_eq!(
+            serde_json::to_value(&fresh.execution.quality).unwrap(),
+            serde_json::to_value(&replayed.execution.quality).unwrap()
+        );
+        assert_eq!(replayed.execution.environment.source, "replay");
+    }
+
+    #[test]
+    fn replay_evaluates_the_snapshot_not_a_stored_result() {
+        let report = fresh_report();
+        let mut snapshot = persisted(&report);
+        snapshot
+            .collected
+            .as_mut()
+            .unwrap()
+            .accessibility
+            .wcag_results
+            .violations
+            .clear();
+        let replayed = replay(&snapshot).unwrap();
+        assert_ne!(
+            replayed.severity_counts.total,
+            normalize(&report).normalized.severity_counts.total
+        );
+    }
+
+    #[test]
+    fn replay_json_restores_module_detail_where_cached_json_cannot() {
+        let report = fresh_report();
+        let snapshot = persisted(&report);
+        let replayed: Value =
+            serde_json::from_str(&format_json_replay(&snapshot, false).unwrap()).unwrap();
+        let detail = &replayed["pages"][0]["detail"];
+        assert_eq!(detail["module_detail"], "full");
+        assert!(detail["modules"]["seo"].is_object());
+        assert!(detail["modules"]["performance"].is_object());
+
+        let cached: Value = serde_json::from_str(
+            &format_json_cached(&normalize(&report).normalized, false).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            cached["pages"][0]["detail"]["module_detail"],
+            "not_restored"
+        );
+    }
+
+    fn mutated(f: impl FnOnce(&mut SnapshotArtifact)) -> ReplayError {
+        let mut snapshot = persisted(&fresh_report());
+        f(&mut snapshot);
+        replay(&snapshot).unwrap_err()
+    }
+
+    fn incompatible_fields(error: ReplayError) -> Vec<&'static str> {
+        match error {
+            ReplayError::Incompatible(m) => m.into_iter().map(|m| m.field).collect(),
+            other => panic!("expected Incompatible, got {other}"),
+        }
+    }
+
+    #[test]
+    fn snapshots_of_other_versions_are_incompatible_never_current_semantics() {
+        for (field, change) in [
+            (
+                "evaluation",
+                (|v: &mut auditmysite::audit::SnapshotVersions| v.evaluation += 1) as fn(&mut _),
+            ),
+            ("snapshot_schema", |v| v.snapshot_schema += 1),
+            ("fingerprint", |v| v.fingerprint = 1),
+            ("collection_contract", |v| v.collection_contract += 1),
+            ("measurement_profile", |v| v.measurement_profile += 1),
+            ("decision_contract", |v| {
+                v.decision_contract = "other/9".into()
+            }),
+            ("rule_set", |v| v.rule_set = "0000".into()),
+        ] {
+            let error = mutated(|s| change(s.versions.as_mut().unwrap()));
+            assert_eq!(incompatible_fields(error), vec![field]);
+        }
+        let error = mutated(|s| {
+            s.collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .version = 0;
+        });
+        assert_eq!(
+            incompatible_fields(error),
+            vec!["collected.measurement_profile"]
+        );
+    }
+
+    #[test]
+    fn incomplete_snapshots_name_what_is_missing() {
+        match mutated(|s| s.collected = None) {
+            ReplayError::Incomplete(missing) => assert_eq!(missing, vec!["collected"]),
+            other => panic!("expected Incomplete, got {other}"),
+        }
+        // A snapshot from before the replay fields: nothing to evaluate.
+        match replay(&empty_snapshot()).unwrap_err() {
+            ReplayError::Incomplete(missing) => {
+                assert_eq!(missing, vec!["collected", "versions", "document", "locale"])
+            }
+            other => panic!("expected Incomplete, got {other}"),
+        }
+        assert!(format_json_replay(&empty_snapshot(), false).is_err());
+    }
+}
+
 // #786: CI diffs between runs build on `findings[].id` and `patterns[].id`.
 // These identities must survive what changes between two runs of the same
 // page and must not survive what is a different defect.
