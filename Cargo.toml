@@ -87,7 +87,7 @@ html5ever = "0.27"
 markup5ever_rcdom = "0.3"
 
 # Deep HTML5 spec-conformance checking (RelaxNG + Schematron), scored module
-html-conform = "0.3.3"
+html-conform = "0.3.4"
 
 # i18n (Project Fluent)
 fluent-bundle = "0.15"
