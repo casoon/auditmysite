@@ -965,6 +965,18 @@ mod tests {
     /// A report whose scope was derived from the registrations (default
     /// config) and whose outcomes are exactly the expected ones, each ran.
     fn report_with_expected_outcomes() -> AuditReport {
+        // Building the config takes several hundred KB of stack in a debug
+        // build; under coverage instrumentation that overflows a test
+        // thread (cargo-tarpaulin segfaulted), so it gets its own.
+        std::thread::Builder::new()
+            .stack_size(32 << 20)
+            .spawn(build_report_with_expected_outcomes)
+            .unwrap()
+            .join()
+            .unwrap()
+    }
+
+    fn build_report_with_expected_outcomes() -> AuditReport {
         use clap::Parser;
         let config = crate::audit::PipelineConfig::from_args_and_config(
             &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
