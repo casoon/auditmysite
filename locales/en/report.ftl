@@ -892,6 +892,7 @@ pdf-bp-lib-col = Library
 pdf-bp-severity-col = Severity
 pdf-bp-fix-col = Fix
 pdf-bp-libs-up-to-date = Detected libraries appear to be up to date — no known vulnerabilities found.
+pdf-bp-vuln-libs-unreviewed = (Unreviewed: the affected version range has not been checked against its source yet.)
 pdf-bp-duplicate-libs-title = Duplicate Library Versions
 pdf-bp-duplicate-libs-item = { $name }: { $versions }
 pdf-bp-scope = Scope: console messages from page load to the end of the analysis (no clicks, scrolling or form submissions). Versions checked for { $libs }; other scripts are not covered.

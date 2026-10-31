@@ -317,6 +317,15 @@ Distinct violated WCAG rule groups, not affected elements.
 Finding rows and occurrences across WCAG, SEO, and every other reported
 category.
 
+## JavaScript Library Advisories
+
+`best_practices.vulnerable_libraries.vulnerable[]` lists detected libraries whose version lies in an advisory range. The ranges come from the versioned data file `src/best_practices/advisories.json` (process: [advisory-data.md](advisory-data.md)); the check covers only the libraries in `CHECKED_LIBRARIES`.
+
+- `advisories[].review_status` is `reviewed` (the range was checked against `source_url` on the date in `advisories[].reviewed`) or `unreviewed` (carried over, not yet checked). An unreviewed match is a lead, not an established statement; the PDF says so next to the finding. Reports written before the field read as `unreviewed`.
+- `exploitability` is `unconfirmed` (the version is in range; reachability on the page was not examined) or `not_applicable` (only end-of-maintenance notices matched, so no specific vulnerability exists to exploit). There is no `confirmed` state: a version never proves the code path is reachable, and the check runs no reachability probe.
+- `detected[].version_parsed: false` marks a version that could not be read; it is neither flagged nor cleared.
+- The check runs for `--performance` and for `--security` on its own.
+
 ## Schemas
 
 - Single report: [json-report.schema.json](json-report.schema.json)

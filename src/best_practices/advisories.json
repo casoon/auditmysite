@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "updated": "2026-10-26",
+  "advisories": [
+    {
+      "library": "jQuery",
+      "id": "local:jquery-html-xss",
+      "aliases": [
+        "CVE-2020-11022",
+        "CVE-2020-11023"
+      ],
+      "kind": "vulnerability",
+      "severity": "medium",
+      "description": "Cross-site scripting (XSS) via HTML string processing (CVE-2020-11022, CVE-2020-11023).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "3.5.0"
+        }
+      ],
+      "safe_version": "3.5.0+",
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-11022",
+      "reviewed": null
+    },
+    {
+      "library": "jQuery",
+      "id": "local:jquery-legacy-xss",
+      "aliases": [],
+      "kind": "vulnerability",
+      "severity": "high",
+      "description": "Multiple XSS issues in jQuery before 1.12.0 and 2.x before 2.2.0.",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "1.12.0"
+        },
+        {
+          "introduced": "2.0.0",
+          "fixed": "2.2.0"
+        }
+      ],
+      "safe_version": "3.5.0+",
+      "source_url": "https://blog.jquery.com/2016/01/08/jquery-2-2-and-1-12-released/",
+      "reviewed": null
+    },
+    {
+      "library": "Bootstrap",
+      "id": "local:bootstrap-tooltip-xss",
+      "aliases": [
+        "CVE-2019-8331"
+      ],
+      "kind": "vulnerability",
+      "severity": "medium",
+      "description": "Cross-site scripting (XSS) via tooltip/popover data attributes (CVE-2019-8331).",
+      "affected": [
+        {
+          "introduced": "3.0.0",
+          "fixed": "3.4.1"
+        },
+        {
+          "introduced": "4.0.0",
+          "fixed": "4.3.1"
+        }
+      ],
+      "safe_version": "4.3.1+",
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2019-8331",
+      "reviewed": null
+    },
+    {
+      "library": "Bootstrap",
+      "id": "local:bootstrap-3-end-of-life",
+      "aliases": [
+        "CVE-2024-6485",
+        "CVE-2025-1647"
+      ],
+      "kind": "vulnerability",
+      "severity": "medium",
+      "description": "End-of-life Bootstrap line; every community release is affected by cross-site scripting in the carousel/button plugins (CVE-2024-6485, CVE-2025-1647).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "4.0.0"
+        }
+      ],
+      "safe_version": "4.3.1+",
+      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "AngularJS",
+      "id": "local:angularjs-end-of-life",
+      "aliases": [
+        "CVE-2022-25844",
+        "CVE-2023-26116",
+        "CVE-2025-4690"
+      ],
+      "kind": "vulnerability",
+      "severity": "high",
+      "description": "AngularJS is end of life and every release is affected by published advisories (CVE-2022-25844, CVE-2023-26116, CVE-2025-4690).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": null
+        }
+      ],
+      "safe_version": "Migrate to a maintained framework",
+      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Handlebars",
+      "id": "GHSA-f2jv-r9rf-7988",
+      "aliases": [
+        "CVE-2021-23369"
+      ],
+      "kind": "vulnerability",
+      "severity": "high",
+      "description": "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "4.7.7"
+        }
+      ],
+      "safe_version": "4.7.10+",
+      "source_url": "https://github.com/advisories/GHSA-f2jv-r9rf-7988",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Handlebars",
+      "id": "local:handlebars-template-compilation",
+      "aliases": [
+        "CVE-2026-33937",
+        "CVE-2026-106445",
+        "CVE-2026-106446"
+      ],
+      "kind": "vulnerability",
+      "severity": "high",
+      "description": "Version affected by template compilation and prototype-access advisories that allow code execution when untrusted templates are compiled (CVE-2026-33937, CVE-2026-106445). Detection of the version does not establish exploitability.",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "4.7.10"
+        }
+      ],
+      "safe_version": "4.7.10+",
+      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Lodash",
+      "id": "local:lodash-prototype-pollution",
+      "aliases": [
+        "CVE-2020-8203",
+        "CVE-2021-23337",
+        "CVE-2025-13465",
+        "CVE-2026-2950",
+        "CVE-2026-4800"
+      ],
+      "kind": "vulnerability",
+      "severity": "medium",
+      "description": "Prototype pollution and template code injection vulnerabilities (CVE-2020-8203, CVE-2021-23337, CVE-2025-13465, CVE-2026-2950, CVE-2026-4800).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "4.18.0"
+        }
+      ],
+      "safe_version": "4.18.0+",
+      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Underscore",
+      "id": "local:underscore-template-rce",
+      "aliases": [
+        "CVE-2021-23358"
+      ],
+      "kind": "vulnerability",
+      "severity": "high",
+      "description": "Arbitrary code execution via template injection (CVE-2021-23358).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "1.12.1"
+        }
+      ],
+      "safe_version": "1.13.8+",
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23358",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Underscore",
+      "id": "local:underscore-recursion-dos",
+      "aliases": [
+        "CVE-2026-27601"
+      ],
+      "kind": "vulnerability",
+      "severity": "medium",
+      "description": "Denial of service via unbounded recursion in _.flatten and _.isEqual (CVE-2026-27601).",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": "1.13.8"
+        }
+      ],
+      "safe_version": "1.13.8+",
+      "source_url": "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
+      "reviewed": "2026-10-26"
+    },
+    {
+      "library": "Prototype",
+      "id": "local:prototype-unmaintained",
+      "aliases": [],
+      "kind": "unmaintained",
+      "severity": "medium",
+      "description": "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": null
+        }
+      ],
+      "safe_version": "Migrate to a maintained library",
+      "source_url": "https://prototypejs.org/",
+      "reviewed": null
+    },
+    {
+      "library": "MooTools",
+      "id": "local:mootools-unmaintained",
+      "aliases": [],
+      "kind": "unmaintained",
+      "severity": "medium",
+      "description": "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+      "affected": [
+        {
+          "introduced": "0.0.0",
+          "fixed": null
+        }
+      ],
+      "safe_version": "Migrate to a maintained library",
+      "source_url": "https://mootools.net/",
+      "reviewed": null
+    }
+  ]
+}
