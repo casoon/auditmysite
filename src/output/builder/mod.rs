@@ -226,7 +226,10 @@ mod tests {
         // Plan 29, D1: the portfolio grade and certificate describe the
         // subject of the report, so they follow the accessibility average,
         // not the weighted overall one.
-        let average_a11y = pres.portfolio_summary.average_score as f32;
+        let average_a11y = pres
+            .portfolio_summary
+            .average_score
+            .expect("measured batch") as f32;
         assert_eq!(
             pres.portfolio_summary.grade,
             crate::audit::AccessibilityScorer::calculate_grade(average_a11y).to_string()

@@ -279,6 +279,8 @@ pub(crate) fn run_replay_mode(
             .load_storage_state()
             .map_err(AuditError::ConfigError)?
             .map(|state| state.digest),
+        // Replay refuses extra-check flags (support matrix), so nothing to assert.
+        extra_checks: None,
     };
     let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
     snapshot.check_measurement(&expected).map_err(refuse)?;

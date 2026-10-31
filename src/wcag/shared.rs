@@ -2460,6 +2460,98 @@ mod tests {
         assert_eq!(unter(&r.warnings, "headings/h1-missing").len(), 1);
     }
 
+    /// #779: Jede geteilte Kennung außer der Darstellungskonvention wird von
+    /// `FAIL` zum Hinweis herabgestuft, wenn sie `best-practice` trägt. Ein
+    /// Filter, der nur `headings/h1-missing` kennte, fiele hier durch.
+    #[test]
+    fn jede_geteilte_kennung_mit_best_practice_wird_herabgestuft() {
+        for rule in SHARED_RULES {
+            let mut r = WcagResults::new();
+            r.add_violation(
+                Violation::new(
+                    rule.criterion,
+                    rule.name,
+                    rule.level,
+                    Severity::Medium,
+                    "m",
+                    "n",
+                )
+                .with_rule_id(rule.id)
+                .with_tags(vec!["best-practice".to_string()]),
+            );
+            demote_best_practice(&mut r);
+            let convention = CONVENTION_PREFIXES.iter().any(|p| rule.id.starts_with(p));
+            let (violations, warnings) = (
+                unter(&r.violations, rule.id).len(),
+                unter(&r.warnings, rule.id),
+            );
+            if convention {
+                assert_eq!(violations, 1, "{} bleibt Verstoß", rule.id);
+                assert!(warnings.is_empty(), "{}", rule.id);
+            } else {
+                assert_eq!(violations, 0, "{} als Verstoß geführt", rule.id);
+                assert_eq!(warnings.len(), 1, "{}", rule.id);
+                assert_eq!(warnings[0].kind, Outcome::Review, "{}", rule.id);
+            }
+        }
+    }
+
+    /// Ohne Schlagwort bleibt ein Verstoß ein Verstoß, auch bei den Kennungen
+    /// der Empfehlungen: die Herabstufung folgt dem Schlagwort, nicht der Kennung.
+    #[test]
+    fn ohne_best_practice_schlagwort_bleibt_der_verstoss() {
+        let mut r = WcagResults::new();
+        r.add_violation(
+            Violation::new("1.3.1", "x", WcagLevel::A, Severity::Medium, "m", "n")
+                .with_rule_id("headings/skip-level"),
+        );
+        demote_best_practice(&mut r);
+        assert_eq!(unter(&r.violations, "headings/skip-level").len(), 1);
+    }
+
+    /// #779 am echten Lauf: jede Empfehlung der Bibliothek, die auf dieser
+    /// Seite anschlägt, erscheint als Hinweis und nie als Verstoß.
+    #[test]
+    fn empfehlungen_der_bibliothek_erscheinen_nur_als_hinweis() {
+        let r = lauf_ueber(vec![
+            knoten(4, "ul", &[], vec![]),
+            knoten(5, "h2", &[], vec![text(6, "Eins")]),
+            knoten(7, "h4", &[], vec![text(8, "Vier")]),
+            knoten(9, "nav", &["role", "navigation"], vec![]),
+            knoten(10, "main", &[], vec![text(11, "A")]),
+            knoten(12, "main", &[], vec![text(13, "B")]),
+            knoten(14, "p", &[], vec![text(15, "außerhalb")]),
+        ]);
+        let ids = [
+            "lists/empty",
+            "headings/skip-level",
+            "headings/h1-missing",
+            "landmarks/main-duplicate",
+        ];
+        for id in ids {
+            assert!(
+                unter(&r.violations, id).is_empty(),
+                "{id} als Verstoß geführt: {:?}",
+                r.violations
+            );
+            assert!(
+                !unter(&r.warnings, id).is_empty(),
+                "{id} fehlt: {:?}",
+                r.warnings
+            );
+        }
+        for v in r.violations.iter() {
+            assert!(
+                !(v.tags.iter().any(|t| t == "best-practice")
+                    && !v.rule_id.as_deref().is_some_and(|id| {
+                        CONVENTION_PREFIXES.iter().any(|p| id.starts_with(p))
+                    })),
+                "Empfehlung als Verstoß: {:?}",
+                v.rule_id
+            );
+        }
+    }
+
     /// Gegenprobe: mit h1 meldet die Regel nichts. Die Korrektur darf den
     /// Befund nicht pauschal unterdruecken.
     #[test]

@@ -49,7 +49,15 @@ impl AuditModule for SeoModule {
         // score, content profile and SERP view built at collection time read
         // the heading issues, so they are rebuilt from the replaced list.
         let url = report.url.clone();
+        // The transport is the browser document's, taken from the shared
+        // navigation capture, not from `window.location` (#775).
+        let https = report.document_is_https();
         if let Some(seo) = report.discoverability.seo.as_mut() {
+            if seo.technical.https != https {
+                seo.technical.https = https;
+                seo.technical.issues =
+                    super::technical::collect_technical_issues(&seo.technical, true);
+            }
             super::headings::apply_shared_findings(
                 &mut seo.headings,
                 &report.accessibility.wcag_results,
@@ -79,5 +87,86 @@ impl AuditModule for SeoModule {
         seo.structured_data.fit_assessment = Some(fit);
         seo.content_profile = Some(crate::seo::profile::build_content_profile(seo, "en"));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{NavigationSnapshot, RedirectHop};
+    use crate::seo::SeoAnalysis;
+    use crate::wcag::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    fn report_with(entry: &str, chain: &[(&str, u16)], served: &str) -> Box<AuditReport> {
+        let mut report = Box::new(AuditReport::new(
+            entry.to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1,
+        ));
+        report.accessibility.execution.navigation = NavigationSnapshot {
+            final_url: Some(served.to_string()),
+            redirect_chain: chain
+                .iter()
+                .map(|(url, status)| RedirectHop {
+                    url: (*url).to_string(),
+                    status: *status,
+                })
+                .collect(),
+            ..Default::default()
+        };
+        // What `window.location` reports after a redirect that ended on TLS.
+        let mut seo = SeoAnalysis::default();
+        seo.technical.https = true;
+        report.discoverability.seo = Some(seo);
+        report
+    }
+
+    fn derived(entry: &str, chain: &[(&str, u16)], served: &str) -> (bool, bool) {
+        let mut report = report_with(entry, chain, served);
+        SeoModule.derive(&mut report, "en").unwrap();
+        let technical = &report.discoverability.seo.as_ref().unwrap().technical;
+        (
+            technical.https,
+            technical.issues.iter().any(|i| i.issue_type == "no_https"),
+        )
+    }
+
+    /// An `http://` entry that the server upgrades is served securely: the
+    /// requested URL must not decide (#775).
+    #[test]
+    fn an_upgrade_to_https_is_secure() {
+        assert_eq!(
+            derived(
+                "http://a.test/",
+                &[("http://a.test/", 301)],
+                "https://a.test/"
+            ),
+            (true, false)
+        );
+    }
+
+    /// The other direction: an `https://` entry that ends on `http://` is not,
+    /// and neither is one that dropped to cleartext and came back.
+    #[test]
+    fn a_downgrade_to_http_is_not_secure() {
+        let flagged = (false, true);
+        assert_eq!(
+            derived(
+                "https://a.test/",
+                &[("https://a.test/", 302)],
+                "http://a.test/"
+            ),
+            flagged
+        );
+        assert_eq!(
+            derived(
+                "https://a.test/",
+                &[("https://a.test/", 302), ("http://a.test/x", 301)],
+                "https://a.test/"
+            ),
+            flagged
+        );
     }
 }

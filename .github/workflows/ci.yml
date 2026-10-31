@@ -331,6 +331,20 @@ jobs:
           CI: "true"
         run: cargo test --test session_policy_test -- --ignored --nocapture --test-threads=1
 
+      - name: Perf runs (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test perf_runs_browser -- --ignored --nocapture --test-threads=1
+
+      - name: State changes (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test state_changes_test -- --ignored --nocapture --test-threads=1
+
       - name: Capture collectors (browser)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:

@@ -370,6 +370,37 @@ mod tests {
     }
 
     #[test]
+    fn batch_without_a_measured_url_prints_a_dash_not_a_score() {
+        let batch = BatchReport::from_reports(
+            vec![],
+            vec![BatchError {
+                url: "https://example.com/broken".to_string(),
+                error: "timeout".to_string(),
+                blocked_reason: None,
+            }],
+            1500,
+        );
+        assert!(batch.summary.average_score.is_none());
+        assert_eq!(
+            crate::output::builder::build_batch_presentation(&batch)
+                .portfolio_summary
+                .average_score,
+            None,
+            "the presentation model carries no stand-in zero"
+        );
+        let output = render_batch_report(&batch, &test_args());
+        let line = output
+            .lines()
+            .find(|line| line.contains("Avg. score"))
+            .expect("average score metric is rendered");
+        assert!(
+            line.contains('–'),
+            "unmeasured average prints a dash: {line}"
+        );
+        assert!(!line.contains("0/100"), "no stand-in zero: {line}");
+    }
+
+    #[test]
     fn batch_report_lists_errors_as_next_steps() {
         let batch = fixture_batch();
         let args = test_args();
