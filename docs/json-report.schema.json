@@ -183,6 +183,32 @@
             }
           }
         },
+        "frame_rules": {
+          "description": "Rules every audited iframe must account for with exactly one outcome per audited viewport (`frames.audited[].outcomes`): the frame tree and shared rules that the level and the rule filter leave (#778).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_filter": {
+          "description": "The `[rules]` filter the run applied; absent when none was set. A tree or inline rule it removes must not have run (#778).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "disabled_rules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "enabled_only_rules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "wcag_level": {
           "description": "WCAG level the run was configured for; a rule above it must not have run (#778).",
           "type": "string",
@@ -1917,6 +1943,13 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "outcomes": {
+          "description": "Audited frames only: what each frame rule did, one outcome per rule and viewport, shaped like `rule_outcomes` entries. The page's own `rule_outcomes` hold the frames' findings folded in; a frame rule that did not run stays visible here (#778).",
+          "type": "array",
+          "items": {
+            "type": "object"
           }
         }
       }

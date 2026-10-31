@@ -447,6 +447,26 @@ pub struct WcagResults {
 /// `reason_code` → `reason`, `finding_count` → `findings`.
 pub use a11y_report::{NotRun, RuleRun};
 
+/// Folds `run` into `outcomes`: one entry per `(rule_id, viewport)`. Two
+/// halves of one rule add their findings; an error in either half wins.
+pub fn fold_rule_run(outcomes: &mut Vec<RuleRun>, run: RuleRun) {
+    let Some(existing) = outcomes
+        .iter_mut()
+        .find(|o| o.rule_id == run.rule_id && o.viewport == run.viewport)
+    else {
+        outcomes.push(run);
+        return;
+    };
+    match (existing.not_run, run.not_run) {
+        (None, None) => existing.findings += run.findings,
+        (None, Some(NotRun::Errored)) => {
+            existing.not_run = run.not_run;
+            existing.reason = run.reason;
+        }
+        _ => {}
+    }
+}
+
 /// Ob dieser Vermerk einen technischen Fehlschlag festhält.
 ///
 /// Ersetzt das vormalige `status == RuleOutcomeStatus::Failed`. Als freie
@@ -474,22 +494,7 @@ impl WcagResults {
     /// findings add up, and a half that errored makes the whole rule errored
     /// (#778).
     pub fn fold_outcome(&mut self, run: RuleRun) {
-        let Some(existing) = self
-            .rule_outcomes
-            .iter_mut()
-            .find(|o| o.rule_id == run.rule_id && o.viewport == run.viewport)
-        else {
-            self.rule_outcomes.push(run);
-            return;
-        };
-        match (existing.not_run, run.not_run) {
-            (None, None) => existing.findings += run.findings,
-            (None, Some(NotRun::Errored)) => {
-                existing.not_run = run.not_run;
-                existing.reason = run.reason;
-            }
-            _ => {}
-        }
+        fold_rule_run(&mut self.rule_outcomes, run);
     }
 
     /// Create new empty results
