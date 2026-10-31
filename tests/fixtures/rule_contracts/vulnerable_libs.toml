@@ -29,10 +29,10 @@ thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerabl
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "shift the fix boundary to 3.4.1"
-find = "fixed: (3, 5, 0) }]"
-replace = "fixed: (3, 4, 1) }]"
+find = "\"fixed\": \"3.5.0\""
+replace = "\"fixed\": \"3.4.1\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -74,10 +74,10 @@ thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerabl
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "restore the old 3.x-only boundary (miss Bootstrap 1/2 and 3.4.1)"
-find = "affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 0, 0) }],"
-replace = "affected: &[VersionRange { introduced: (3, 0, 0), fixed: (3, 4, 1) }],"
+find = "\"introduced\": \"0.0.0\",\n          \"fixed\": \"4.0.0\""
+replace = "\"introduced\": \"3.0.0\",\n          \"fixed\": \"3.4.1\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -113,10 +113,10 @@ thresholds = { not_relevant = "Every release is affected; there is no version bo
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "reintroduce the old < 1.8.0 boundary"
-find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained framework\","
-replace = "affected: &[VersionRange { introduced: (1, 0, 0), fixed: (1, 8, 0) }],\n        safe_version: \"Migrate to a maintained framework\","
+find = "\"introduced\": \"0.0.0\",\n          \"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained framework\""
+replace = "\"introduced\": \"1.0.0\",\n          \"fixed\": \"1.8.0\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained framework\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -146,10 +146,10 @@ thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerabl
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "restore the outdated 4.7.7 boundary"
-find = "fixed: (4, 7, 10) }]"
-replace = "fixed: (4, 7, 7) }]"
+find = "\"fixed\": \"4.7.10\""
+replace = "\"fixed\": \"4.7.7\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -185,10 +185,10 @@ thresholds = { cases = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerabl
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "restore the outdated 4.17.21 boundary"
-find = "fixed: (4, 18, 0) }]"
-replace = "fixed: (4, 17, 21) }]"
+find = "\"fixed\": \"4.18.0\""
+replace = "\"fixed\": \"4.17.21\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -218,10 +218,10 @@ thresholds = { cases = ["vulnerable_libs_underscore_last_vulnerable", "vulnerabl
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "restore the outdated 1.13.0 boundary"
-find = "fixed: (1, 13, 8) }]"
-replace = "fixed: (1, 13, 0) }]"
+find = "\"fixed\": \"1.13.8\""
+replace = "\"fixed\": \"1.13.0\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"
@@ -257,10 +257,10 @@ thresholds = { not_relevant = "Every release is affected; there is no version bo
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "stop flagging Prototype"
-find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://prototypejs.org/\","
-replace = "affected: &[],\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://prototypejs.org/\","
+find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://prototypejs.org/\""
+replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://prototypejs.org/\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
@@ -290,10 +290,10 @@ thresholds = { not_relevant = "Every release is flagged; there is no version bou
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/best_practices/vulnerable_libs.rs"
+target = "src/best_practices/advisories.json"
 change = "stop flagging MooTools"
-find = "affected: ANY_VERSION,\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://mootools.net/\","
-replace = "affected: &[],\n        safe_version: \"Migrate to a maintained library\",\n        source_url: \"https://mootools.net/\","
+find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://mootools.net/\""
+replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://mootools.net/\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"

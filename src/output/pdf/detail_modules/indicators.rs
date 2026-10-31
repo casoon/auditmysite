@@ -680,11 +680,26 @@ pub(in crate::output::pdf) fn render_best_practices(
         ])
         .with_title(&title);
         for lib in &bp.vulnerable_libraries.vulnerable {
+            // A range not yet checked against its source is a lead, not an
+            // established statement (#773).
+            let unreviewed = lib
+                .advisories
+                .iter()
+                .any(|a| a.review_status == crate::best_practices::ReviewStatus::Unreviewed);
+            let description = if unreviewed {
+                format!(
+                    "{} {}",
+                    lib.description,
+                    i18n.t("pdf-bp-vuln-libs-unreviewed")
+                )
+            } else {
+                lib.description.clone()
+            };
             table = table.add_row(vec![
                 lib.name.clone(),
                 lib.version.clone(),
                 lib.severity.clone(),
-                lib.description.clone(),
+                description,
                 lib.safe_version.clone(),
             ]);
         }

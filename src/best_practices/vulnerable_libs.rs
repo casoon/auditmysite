@@ -1,8 +1,8 @@
 //! Vulnerable JavaScript library detection (#124).
 //!
 //! Scans script elements and known window globals to detect JS libraries
-//! and compares their versions against a hardcoded list of known-vulnerable
-//! version ranges.
+//! and compares their versions against a table of known-vulnerable version ranges
+//! (`advisories.json`).
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,8 @@ pub struct VulnerableLibrary {
     #[serde(default)]
     pub advisories: Vec<AdvisoryRef>,
     /// Whether exploitability is established. A detected version only ever
-    /// proves the advisory range matches, so this stays `unconfirmed`.
+    /// proves the advisory range matches, so this is `unconfirmed` — or
+    /// `not_applicable` when only maintenance notices matched.
     #[serde(default)]
     pub exploitability: Exploitability,
 }
@@ -55,9 +56,24 @@ pub struct AdvisoryRef {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub unmaintained: bool,
     pub source_url: String,
+    /// Whether the affected range was checked against `source_url`. An
+    /// `unreviewed` range is carried over from earlier rules: the match is a
+    /// lead to verify, not an established finding.
+    #[serde(default)]
+    pub review_status: ReviewStatus,
     /// Date the affected range was last checked against `source_url`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewed: Option<String>,
+}
+
+/// Whether an advisory's affected range has been checked against its source.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewStatus {
+    Reviewed,
+    /// Also what reports written before this field read as.
+    #[default]
+    Unreviewed,
 }
 
 /// Whether a matched advisory is known to be exploitable on this page.
@@ -67,6 +83,11 @@ pub enum Exploitability {
     /// Version is in the affected range; reachability was not examined.
     #[default]
     Unconfirmed,
+    /// Every matched advisory is an end-of-maintenance notice: no specific
+    /// vulnerability is named, so there is nothing to exploit or to confirm.
+    /// There is no `confirmed` state: it would need a reachability probe of the
+    /// page, which this check does not run.
+    NotApplicable,
 }
 
 /// Vulnerable library analysis results.
@@ -434,204 +455,187 @@ pub const CHECKED_LIBRARIES: &[&str] = &[
 ];
 
 /// Kind of advisory: a published vulnerability, or end of maintenance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum AdvisoryKind {
     Vulnerability,
     Unmaintained,
 }
 
 /// One affected version range: `introduced` inclusive, `fixed` exclusive.
+/// `fixed: None` means no release is fixed (every later version is affected).
+#[derive(Debug)]
 pub(crate) struct VersionRange {
     pub introduced: (u32, u32, u32),
-    pub fixed: (u32, u32, u32),
+    pub fixed: Option<(u32, u32, u32)>,
+}
+
+impl VersionRange {
+    fn contains(&self, v: (u32, u32, u32)) -> bool {
+        v >= self.introduced && self.fixed.is_none_or(|f| v < f)
+    }
 }
 
 /// One entry of the advisory table.
+#[derive(Debug)]
 pub(crate) struct Advisory {
-    pub library: &'static str,
+    pub library: String,
     /// Primary identifier (GHSA id, or `local:` id when none was reviewed)
-    pub id: &'static str,
+    pub id: String,
     /// CVE ids and other aliases
-    pub aliases: &'static [&'static str],
+    pub aliases: Vec<String>,
     pub kind: AdvisoryKind,
-    pub severity: &'static str,
-    pub description: &'static str,
-    pub affected: &'static [VersionRange],
-    pub safe_version: &'static str,
+    pub severity: String,
+    pub description: String,
+    pub affected: Vec<VersionRange>,
+    pub safe_version: String,
     /// Where the affected ranges were taken from
-    pub source_url: &'static str,
+    pub source_url: String,
     /// Date the bounds were last checked against `source_url`; `None` means
     /// carried over from the earlier hardcoded rules and not yet re-reviewed.
-    pub reviewed: Option<&'static str>,
+    pub reviewed: Option<String>,
 }
 
-const ANY_VERSION: &[VersionRange] = &[VersionRange {
-    introduced: (0, 0, 0),
-    fixed: (u32::MAX, 0, 0),
-}];
+/// Version of the data-file layout this build reads.
+const ADVISORY_SCHEMA_VERSION: u32 = 1;
 
-/// Versioned advisory table — the single source for which detected versions
-/// count as affected.
-///
-/// Updating: for each library, read the advisory at `source_url`, copy its
-/// affected ranges (`introduced` inclusive, `fixed` exclusive) and fixed
-/// version, set `reviewed` to the date of the check, and add a test case for
-/// the last affected and the first fixed version in `mod tests`. Add new
-/// libraries to `CHECKED_LIBRARIES` and the detection scripts as well. A match
-/// means the *version* is affected; it never proves the vulnerable code path
-/// is reachable on the page.
-pub(crate) const ADVISORIES: &[Advisory] = &[
-    Advisory {
-        library: "jQuery",
-        id: "local:jquery-html-xss",
-        aliases: &["CVE-2020-11022", "CVE-2020-11023"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "medium",
-        description: "Cross-site scripting (XSS) via HTML string processing (CVE-2020-11022, CVE-2020-11023).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (3, 5, 0) }],
-        safe_version: "3.5.0+",
-        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2020-11022",
-        reviewed: None,
-    },
-    Advisory {
-        library: "jQuery",
-        id: "local:jquery-legacy-xss",
-        aliases: &[],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "high",
-        description: "Multiple XSS issues in jQuery before 1.12.0 and 2.x before 2.2.0.",
-        affected: &[
-            VersionRange { introduced: (0, 0, 0), fixed: (1, 12, 0) },
-            VersionRange { introduced: (2, 0, 0), fixed: (2, 2, 0) },
-        ],
-        safe_version: "3.5.0+",
-        source_url: "https://blog.jquery.com/2016/01/08/jquery-2-2-and-1-12-released/",
-        reviewed: None,
-    },
-    Advisory {
-        library: "Bootstrap",
-        id: "local:bootstrap-tooltip-xss",
-        aliases: &["CVE-2019-8331"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "medium",
-        description: "Cross-site scripting (XSS) via tooltip/popover data attributes (CVE-2019-8331).",
-        affected: &[
-            VersionRange { introduced: (3, 0, 0), fixed: (3, 4, 1) },
-            VersionRange { introduced: (4, 0, 0), fixed: (4, 3, 1) },
-        ],
-        safe_version: "4.3.1+",
-        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2019-8331",
-        reviewed: None,
-    },
-    Advisory {
-        library: "Bootstrap",
-        id: "local:bootstrap-3-end-of-life",
-        aliases: &["CVE-2024-6485", "CVE-2025-1647"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "medium",
-        description: "End-of-life Bootstrap line; every community release is affected by cross-site scripting in the carousel/button plugins (CVE-2024-6485, CVE-2025-1647).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 0, 0) }],
-        safe_version: "4.3.1+",
-        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "AngularJS",
-        id: "local:angularjs-end-of-life",
-        aliases: &["CVE-2022-25844", "CVE-2023-26116", "CVE-2025-4690"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "high",
-        description: "AngularJS is end of life and every release is affected by published advisories (CVE-2022-25844, CVE-2023-26116, CVE-2025-4690).",
-        affected: ANY_VERSION,
-        safe_version: "Migrate to a maintained framework",
-        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Handlebars",
-        id: "GHSA-f2jv-r9rf-7988",
-        aliases: &["CVE-2021-23369"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "high",
-        description: "Version affected by CVE-2021-23369: remote code execution when untrusted templates are compiled with certain options. Detection of the version does not establish exploitability.",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 7, 7) }],
-        safe_version: "4.7.10+",
-        source_url: "https://github.com/advisories/GHSA-f2jv-r9rf-7988",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Handlebars",
-        id: "local:handlebars-template-compilation",
-        aliases: &["CVE-2026-33937", "CVE-2026-106445", "CVE-2026-106446"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "high",
-        description: "Version affected by template compilation and prototype-access advisories that allow code execution when untrusted templates are compiled (CVE-2026-33937, CVE-2026-106445). Detection of the version does not establish exploitability.",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 7, 10) }],
-        safe_version: "4.7.10+",
-        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Lodash",
-        id: "local:lodash-prototype-pollution",
-        aliases: &["CVE-2020-8203", "CVE-2021-23337", "CVE-2025-13465", "CVE-2026-2950", "CVE-2026-4800"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "medium",
-        description: "Prototype pollution and template code injection vulnerabilities (CVE-2020-8203, CVE-2021-23337, CVE-2025-13465, CVE-2026-2950, CVE-2026-4800).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (4, 18, 0) }],
-        safe_version: "4.18.0+",
-        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Underscore",
-        id: "local:underscore-template-rce",
-        aliases: &["CVE-2021-23358"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "high",
-        description: "Arbitrary code execution via template injection (CVE-2021-23358).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 12, 1) }],
-        safe_version: "1.13.8+",
-        source_url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23358",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Underscore",
-        id: "local:underscore-recursion-dos",
-        aliases: &["CVE-2026-27601"],
-        kind: AdvisoryKind::Vulnerability,
-        severity: "medium",
-        description: "Denial of service via unbounded recursion in _.flatten and _.isEqual (CVE-2026-27601).",
-        affected: &[VersionRange { introduced: (0, 0, 0), fixed: (1, 13, 8) }],
-        safe_version: "1.13.8+",
-        source_url: "https://github.com/RetireJS/retire.js/blob/master/repository/jsrepository-v4.json",
-        reviewed: Some("2026-10-26"),
-    },
-    Advisory {
-        library: "Prototype",
-        id: "local:prototype-unmaintained",
-        aliases: &[],
-        kind: AdvisoryKind::Unmaintained,
-        severity: "medium",
-        description: "This library is no longer maintained and may contain unpatched security vulnerabilities.",
-        affected: ANY_VERSION,
-        safe_version: "Migrate to a maintained library",
-        source_url: "https://prototypejs.org/",
-        reviewed: None,
-    },
-    Advisory {
-        library: "MooTools",
-        id: "local:mootools-unmaintained",
-        aliases: &[],
-        kind: AdvisoryKind::Unmaintained,
-        severity: "medium",
-        description: "This library is no longer maintained and may contain unpatched security vulnerabilities.",
-        affected: ANY_VERSION,
-        safe_version: "Migrate to a maintained library",
-        source_url: "https://mootools.net/",
-        reviewed: None,
-    },
-];
+/// The shipped advisory data, compiled in from `advisories.json`.
+const ADVISORY_DATA: &str = include_str!("advisories.json");
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdvisoryFile {
+    schema_version: u32,
+    /// Date the file as a whole was last edited
+    updated: String,
+    advisories: Vec<AdvisoryRecord>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdvisoryRecord {
+    library: String,
+    id: String,
+    #[serde(default)]
+    aliases: Vec<String>,
+    kind: AdvisoryKind,
+    severity: String,
+    description: String,
+    affected: Vec<RangeRecord>,
+    safe_version: String,
+    source_url: String,
+    reviewed: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RangeRecord {
+    introduced: String,
+    fixed: Option<String>,
+}
+
+fn parse_date(what: &str, value: &str) -> Result<(), String> {
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map(|_| ())
+        .map_err(|_| format!("{what}: {value:?} is not an ISO date (YYYY-MM-DD)"))
+}
+
+/// Strictly parse a range bound: exactly `major.minor.patch`, all numeric.
+fn parse_bound(what: &str, value: &str) -> Result<(u32, u32, u32), String> {
+    let parts: Vec<&str> = value.split('.').collect();
+    let nums: Option<Vec<u32>> = parts.iter().map(|p| p.parse().ok()).collect();
+    match nums.as_deref() {
+        Some(&[a, b, c]) => Ok((a, b, c)),
+        _ => Err(format!("{what}: {value:?} is not major.minor.patch")),
+    }
+}
+
+/// Parse and validate an advisory data file. Rejects anything that could make
+/// the check silently wrong: unknown fields, unsupported schema version,
+/// duplicate ids, libraries outside [`CHECKED_LIBRARIES`], empty or inverted or
+/// overlapping version ranges, non-HTTPS sources and malformed dates.
+pub(crate) fn load_advisories(json: &str) -> Result<Vec<Advisory>, String> {
+    let file: AdvisoryFile =
+        serde_json::from_str(json).map_err(|e| format!("advisory data: {e}"))?;
+    if file.schema_version != ADVISORY_SCHEMA_VERSION {
+        return Err(format!(
+            "advisory data: schema_version {} is not supported (expected {ADVISORY_SCHEMA_VERSION})",
+            file.schema_version
+        ));
+    }
+    parse_date("updated", &file.updated)?;
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::with_capacity(file.advisories.len());
+    for r in file.advisories {
+        let id = r.id.clone();
+        let err = |msg: &str| format!("advisory {id}: {msg}");
+        if r.id.is_empty() || !seen.insert(r.id.clone()) {
+            return Err(err("id is empty or duplicated"));
+        }
+        if !CHECKED_LIBRARIES.contains(&r.library.as_str()) {
+            return Err(err(&format!(
+                "library {:?} is not a checked library",
+                r.library
+            )));
+        }
+        if !matches!(r.severity.as_str(), "high" | "medium" | "low") {
+            return Err(err("severity must be high, medium or low"));
+        }
+        if r.description.trim().is_empty() || r.safe_version.trim().is_empty() {
+            return Err(err("description and safe_version must not be empty"));
+        }
+        if !r.source_url.starts_with("https://") {
+            return Err(err("source_url must be an https URL"));
+        }
+        if let Some(d) = &r.reviewed {
+            parse_date(&format!("advisory {id} reviewed"), d)?;
+        }
+        if r.affected.is_empty() {
+            return Err(err("affected must list at least one range"));
+        }
+        let mut affected = Vec::with_capacity(r.affected.len());
+        for range in &r.affected {
+            let introduced = parse_bound(&format!("advisory {id} introduced"), &range.introduced)?;
+            let fixed = range
+                .fixed
+                .as_deref()
+                .map(|f| parse_bound(&format!("advisory {id} fixed"), f))
+                .transpose()?;
+            if fixed.is_some_and(|f| introduced >= f) {
+                return Err(err("a range must have introduced < fixed"));
+            }
+            affected.push(VersionRange { introduced, fixed });
+        }
+        affected.sort_by_key(|r| r.introduced);
+        for pair in affected.windows(2) {
+            let overlaps = pair[0].fixed.is_none_or(|f| f > pair[1].introduced);
+            if overlaps {
+                return Err(err("ranges overlap"));
+            }
+        }
+        out.push(Advisory {
+            library: r.library,
+            id: r.id,
+            aliases: r.aliases,
+            kind: r.kind,
+            severity: r.severity,
+            description: r.description,
+            affected,
+            safe_version: r.safe_version,
+            source_url: r.source_url,
+            reviewed: r.reviewed,
+        });
+    }
+    Ok(out)
+}
+
+/// The advisory table — the single source for which detected versions count as
+/// affected. Data lives in `advisories.json`; the update process is in
+/// `docs/advisory-data.md`. A match means the *version* is affected; it never
+/// proves the vulnerable code path is reachable on the page.
+pub(crate) static ADVISORIES: std::sync::LazyLock<Vec<Advisory>> = std::sync::LazyLock::new(|| {
+    load_advisories(ADVISORY_DATA).expect("embedded advisories.json must pass validation")
+});
 
 fn severity_rank(severity: &str) -> u8 {
     match severity {
@@ -648,12 +652,12 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
     let matches: Vec<&Advisory> = ADVISORIES
         .iter()
         .filter(|a| a.library == name)
-        .filter(|a| a.affected.iter().any(|r| v >= r.introduced && v < r.fixed))
+        .filter(|a| a.affected.iter().any(|r| r.contains(v)))
         .collect();
     let first = matches.first()?;
     let severity = matches
         .iter()
-        .map(|a| a.severity)
+        .map(|a| a.severity.as_str())
         .max_by_key(|s| severity_rank(s))?;
     Some(VulnerableLibrary {
         name: name.to_string(),
@@ -661,21 +665,30 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
         severity: severity.to_string(),
         description: matches
             .iter()
-            .map(|a| a.description)
+            .map(|a| a.description.as_str())
             .collect::<Vec<_>>()
             .join(" "),
-        safe_version: first.safe_version.to_string(),
+        safe_version: first.safe_version.clone(),
         advisories: matches
             .iter()
             .map(|a| AdvisoryRef {
-                id: a.id.to_string(),
-                aliases: a.aliases.iter().map(|s| s.to_string()).collect(),
+                id: a.id.clone(),
+                aliases: a.aliases.clone(),
                 unmaintained: a.kind == AdvisoryKind::Unmaintained,
-                source_url: a.source_url.to_string(),
-                reviewed: a.reviewed.map(str::to_string),
+                source_url: a.source_url.clone(),
+                review_status: if a.reviewed.is_some() {
+                    ReviewStatus::Reviewed
+                } else {
+                    ReviewStatus::Unreviewed
+                },
+                reviewed: a.reviewed.clone(),
             })
             .collect(),
-        exploitability: Exploitability::Unconfirmed,
+        exploitability: if matches.iter().all(|a| a.kind == AdvisoryKind::Unmaintained) {
+            Exploitability::NotApplicable
+        } else {
+            Exploitability::Unconfirmed
+        },
     })
 }
 
@@ -905,6 +918,7 @@ mod tests {
         assert_eq!(f.exploitability, Exploitability::Unconfirmed);
         assert!(f.advisories[0].source_url.starts_with("https://"));
         assert_eq!(f.advisories[0].reviewed.as_deref(), Some("2026-10-26"));
+        assert_eq!(f.advisories[0].review_status, ReviewStatus::Reviewed);
         assert!(f.advisories[0]
             .aliases
             .contains(&"CVE-2021-23369".to_string()));
@@ -913,17 +927,109 @@ mod tests {
     }
 
     #[test]
-    fn advisory_table_is_well_formed() {
-        for a in ADVISORIES {
-            assert!(CHECKED_LIBRARIES.contains(&a.library), "{}", a.id);
-            assert!(!a.affected.is_empty(), "{}", a.id);
-            for r in a.affected {
-                assert!(r.introduced < r.fixed, "{}", a.id);
-            }
-            assert!(a.source_url.starts_with("https://"), "{}", a.id);
+    fn shipped_advisory_data_passes_validation() {
+        let table = load_advisories(ADVISORY_DATA).expect("advisories.json");
+        assert_eq!(table.len(), ADVISORIES.len());
+        // Every checked library is backed by at least one advisory.
+        for lib in CHECKED_LIBRARIES {
+            assert!(table.iter().any(|a| a.library == *lib), "{lib}");
         }
-        let mut seen = std::collections::HashSet::new();
-        assert!(ADVISORIES.iter().all(|a| seen.insert(a.id)));
+    }
+
+    /// The shipped file with one field of the first advisory replaced.
+    fn data_with(find: &str, replace: &str) -> String {
+        assert_eq!(ADVISORY_DATA.matches(find).count(), 1, "{find}");
+        ADVISORY_DATA.replacen(find, replace, 1)
+    }
+
+    #[test]
+    fn loader_rejects_data_that_would_make_the_check_wrong() {
+        let cases = [
+            ("\"schema_version\": 1", "\"schema_version\": 2", "schema_version"),
+            ("\"updated\": \"2026-10-26\"", "\"updated\": \"26.10.2026\"", "ISO date"),
+            ("\"id\": \"local:jquery-legacy-xss\"", "\"id\": \"local:jquery-html-xss\"", "duplicated"),
+            ("\"library\": \"Bootstrap\",\n      \"id\": \"local:bootstrap-tooltip-xss\"", "\"library\": \"React\",\n      \"id\": \"local:bootstrap-tooltip-xss\"", "checked library"),
+            ("\"severity\": \"high\",\n      \"description\": \"Multiple", "\"severity\": \"critical\",\n      \"description\": \"Multiple", "severity"),
+            ("\"source_url\": \"https://nvd.nist.gov/vuln/detail/CVE-2020-11022\"", "\"source_url\": \"http://nvd.nist.gov/\"", "https"),
+            ("\"fixed\": \"3.5.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "\"fixed\": \"0.0.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "introduced < fixed"),
+            ("\"fixed\": \"3.5.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "\"fixed\": \"3.5\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "major.minor.patch"),
+        ];
+        for (find, replace, expect) in cases {
+            let err = load_advisories(&data_with(find, replace))
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains(expect), "{expect}: got {err:?}");
+        }
+        assert!(load_advisories("{}").is_err());
+        assert!(load_advisories(&data_with("\"library\": \"jQuery\",\n      \"id\": \"local:jquery-html-xss\"", "\"unknown\": 1,\n      \"library\": \"jQuery\",\n      \"id\": \"local:jquery-html-xss\"")).is_err());
+    }
+
+    #[test]
+    fn loader_rejects_empty_and_overlapping_ranges_and_bad_review_dates() {
+        let one = |affected: &str, reviewed: &str| {
+            format!(
+                r#"{{"schema_version":1,"updated":"2026-10-31","advisories":[{{"library":"Lodash","id":"x","kind":"vulnerability","severity":"low","description":"d","affected":{affected},"safe_version":"1","source_url":"https://example.com","reviewed":{reviewed}}}]}}"#
+            )
+        };
+        assert!(
+            load_advisories(&one(r#"[{"introduced":"0.0.0","fixed":"1.0.0"}]"#, "null")).is_ok()
+        );
+        assert!(load_advisories(&one("[]", "null"))
+            .unwrap_err()
+            .contains("at least one"));
+        assert!(load_advisories(&one(
+            r#"[{"introduced":"0.0.0","fixed":"2.0.0"},{"introduced":"1.0.0","fixed":"3.0.0"}]"#,
+            "null"
+        ))
+        .unwrap_err()
+        .contains("overlap"));
+        assert!(load_advisories(&one(
+            r#"[{"introduced":"0.0.0","fixed":null},{"introduced":"1.0.0","fixed":"3.0.0"}]"#,
+            "null"
+        ))
+        .unwrap_err()
+        .contains("overlap"));
+        assert!(load_advisories(&one(
+            r#"[{"introduced":"0.0.0","fixed":"1.0.0"}]"#,
+            r#""yesterday""#
+        ))
+        .unwrap_err()
+        .contains("ISO date"));
+    }
+
+    #[test]
+    fn unreviewed_advisories_are_marked_unreviewed_in_the_finding() {
+        // jQuery < 3.5.0 matches only advisories carried over without review.
+        let f = check_vulnerability("jQuery", "3.4.1").unwrap();
+        assert_eq!(f.advisories[0].review_status, ReviewStatus::Unreviewed);
+        assert!(f.advisories[0].reviewed.is_none());
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(json["advisories"][0]["review_status"], "unreviewed");
+        let g = check_vulnerability("Lodash", "4.17.21").unwrap();
+        assert_eq!(g.advisories[0].review_status, ReviewStatus::Reviewed);
+        assert_eq!(
+            serde_json::to_value(&g).unwrap()["advisories"][0]["review_status"],
+            "reviewed"
+        );
+        // A report written before the field existed reads as unreviewed.
+        let old: AdvisoryRef =
+            serde_json::from_str(r#"{"id":"x","source_url":"https://e.com"}"#).unwrap();
+        assert_eq!(old.review_status, ReviewStatus::Unreviewed);
+    }
+
+    #[test]
+    fn maintenance_notices_have_no_exploitability_to_confirm() {
+        for lib in ["Prototype", "MooTools"] {
+            let f = check_vulnerability(lib, "1.7.3").unwrap();
+            assert_eq!(f.exploitability, Exploitability::NotApplicable, "{lib}");
+            assert_eq!(
+                serde_json::to_value(&f).unwrap()["exploitability"],
+                "not_applicable"
+            );
+        }
+        // One real advisory among the matches keeps it unconfirmed.
+        let f = check_vulnerability("AngularJS", "1.8.3").unwrap();
+        assert_eq!(f.exploitability, Exploitability::Unconfirmed);
     }
 
     #[test]

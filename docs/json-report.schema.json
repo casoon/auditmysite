@@ -1089,7 +1089,59 @@
           "type": [
             "object",
             "null"
-          ]
+          ],
+          "properties": {
+            "vulnerable_libraries": {
+              "type": "object",
+              "properties": {
+                "vulnerable": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "exploitability": {
+                        "description": "unconfirmed: the version is in the advisory range, reachability was not examined. not_applicable: only end-of-maintenance notices matched, no specific vulnerability. There is no confirmed state.",
+                        "enum": [
+                          "unconfirmed",
+                          "not_applicable"
+                        ]
+                      },
+                      "advisories": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "source_url",
+                            "review_status"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "review_status": {
+                              "description": "unreviewed: the affected range has not been checked against source_url; the match is a lead, not an established statement.",
+                              "enum": [
+                                "reviewed",
+                                "unreviewed"
+                              ]
+                            },
+                            "reviewed": {
+                              "description": "ISO date of the last check against source_url; absent when unreviewed.",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         "commerce": {
           "type": [
