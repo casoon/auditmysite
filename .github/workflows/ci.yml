@@ -324,6 +324,13 @@ jobs:
           CI: "true"
         run: cargo test --test capture_collectors_browser -- --ignored --nocapture --test-threads=1
 
+      - name: Missing h1 and redirect transport (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test missing_h1_browser --test transport_redirect_browser -- --ignored --nocapture --test-threads=1
+
       - name: Detection corpus (schema rules)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:
