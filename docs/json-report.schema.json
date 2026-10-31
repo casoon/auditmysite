@@ -161,11 +161,36 @@
           }
         },
         "requested_rules": {
-          "description": "Shared rules the run must account for with an outcome (#778).",
+          "description": "Rules the run must account for with exactly one outcome per listed viewport, ran or not run with a reason; derived from the shared, tree and page rule registrations and the inline rules (#778).",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "required": [
+              "rule_id",
+              "viewports"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "rule_id": {
+                "type": "string"
+              },
+              "viewports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
           }
+        },
+        "wcag_level": {
+          "description": "WCAG level the run was configured for; a rule above it must not have run (#778).",
+          "type": "string",
+          "enum": [
+            "A",
+            "AA",
+            "AAA"
+          ]
         },
         "measurement_profile": {
           "description": "How the pages were measured: session policy and state-changing journeys (#787).",
