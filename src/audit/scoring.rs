@@ -156,9 +156,11 @@ impl AccessibilityScorer {
             } else {
                 run.wcag.clone()
             };
+            let above_level = run.reason.as_deref() == Some("above_wcag_level");
             let state = match run.not_run {
                 None => Some(true),
                 Some(a11y_report::NotRun::NotApplicable) => None,
+                Some(a11y_report::NotRun::Disabled) if above_level => None,
                 Some(_) => Some(false),
             };
             for id in ids {
@@ -675,6 +677,39 @@ mod tests {
         // 1.2.1 has nothing to check and leaves the denominator.
         assert_eq!(coverage.perceivable.total, 4);
         assert_eq!(coverage.perceivable.passed, 1);
+    }
+
+    #[test]
+    fn test_coverage_leaves_criteria_above_the_audited_level_out() {
+        use crate::cli::WcagLevel;
+        use crate::wcag::RuleRun;
+        use a11y_report::NotRun;
+        // An AA run as the pipeline stores it: the shared AAA rule ran, then
+        // `retain_up_to_level` recorded it as disabled above the level.
+        let mut results = run_results(vec![
+            RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("navigation/location-missing", 1),
+            RuleRun::not_run("filtered", NotRun::Disabled)
+                .with_wcag(["2.4.7"])
+                .with_reason("disabled_by_rule_filter"),
+        ]);
+        crate::wcag::shared::retain_up_to_level(&mut results, WcagLevel::AA);
+        let coverage = AccessibilityScorer::calculate_execution_coverage(&results);
+        // 2.4.8 (AAA) was never promised in this run and leaves the
+        // denominator; 2.4.7 was switched off by configuration and stays an
+        // unchecked criterion, never a pass.
+        assert_eq!((coverage.operable.passed, coverage.operable.total), (0, 1));
+        assert_eq!(
+            (coverage.perceivable.passed, coverage.perceivable.total),
+            (1, 1)
+        );
+
+        // The same run without the AAA entry gives the same coverage.
+        results
+            .rule_outcomes
+            .retain(|r| r.rule_id != "navigation/location-missing");
+        let without = AccessibilityScorer::calculate_execution_coverage(&results);
+        assert_eq!(coverage.operable.total, without.operable.total);
     }
 
     #[test]

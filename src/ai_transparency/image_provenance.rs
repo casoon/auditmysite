@@ -74,16 +74,30 @@ pub(super) async fn analyze_ai_transparency(
         )
         .into_result(&super::IMAGE_URLS)?;
 
+    let (findings, coverage) = check_images(&raw.image_urls, &FetchPolicy::production()).await;
+    log.record(&super::IMAGE_FETCHES, super::image_fetch_state(&coverage));
+
+    Ok(AiTransparencyAnalysis {
+        findings,
+        images_checked: coverage.checked,
+        coverage,
+    })
+}
+
+/// Fetch and inspect up to `MAX_IMAGES_CHECKED` of the page's images, counting
+/// every attempt, success, failure reason and image left over the limit.
+async fn check_images(
+    image_urls: &[String],
+    policy: &FetchPolicy,
+) -> (Vec<ImageProvenanceFinding>, ImageCoverage) {
     let mut findings = Vec::new();
     let mut coverage = ImageCoverage {
-        skipped_over_limit: raw.image_urls.len().saturating_sub(MAX_IMAGES_CHECKED),
+        skipped_over_limit: image_urls.len().saturating_sub(MAX_IMAGES_CHECKED),
         ..Default::default()
     };
-    let policy = FetchPolicy::production();
-
-    for url in raw.image_urls.iter().take(MAX_IMAGES_CHECKED) {
+    for url in image_urls.iter().take(MAX_IMAGES_CHECKED) {
         coverage.attempted += 1;
-        match safe_fetch_image(url, &policy).await {
+        match safe_fetch_image(url, policy).await {
             Ok((bytes, content_type)) => {
                 coverage.checked += 1;
                 if let Some(finding) = inspect_image_manifest(url, &content_type, bytes) {
@@ -93,13 +107,7 @@ pub(super) async fn analyze_ai_transparency(
             Err(reason) => *coverage.failed.entry(reason.to_string()).or_insert(0) += 1,
         }
     }
-    log.record(&super::IMAGE_FETCHES, super::image_fetch_state(&coverage));
-
-    Ok(AiTransparencyAnalysis {
-        findings,
-        images_checked: coverage.checked,
-        coverage,
-    })
+    (findings, coverage)
 }
 
 /// The limits one image fetch runs under.
@@ -429,6 +437,34 @@ mod tests {
         // closes. Only the streaming check can stop it.
         let url = serve(response("200 OK", "", &[b'x'; 5000]));
         assert_eq!(fetch(&url), Err("oversized"));
+    }
+
+    /// #789: the page-level loop counts attempts, successes, failure reasons
+    /// and the images beyond the limit, from real fetches.
+    #[test]
+    fn the_page_level_counters_follow_the_fetches() {
+        let ok = serve(response("200 OK", "Content-Length: 4\r\n", b"data"));
+        let missing = serve(response("404 Not Found", "Content-Length: 0\r\n", b""));
+        let big = serve(response("200 OK", "", &[b'x'; 5000]));
+        let mut urls = vec![ok.clone(), ok.clone(), missing, big.clone(), big];
+        // Pad past the limit with more valid images.
+        urls.extend(std::iter::repeat_n(ok, 12));
+        assert_eq!(urls.len(), MAX_IMAGES_CHECKED + 2);
+        let policy = FetchPolicy {
+            allow_ip: |_| true,
+            timeout: Duration::from_secs(5),
+            max_bytes: 1_000,
+        };
+        let (_, coverage) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(check_images(&urls, &policy));
+        assert_eq!(coverage.attempted, MAX_IMAGES_CHECKED);
+        assert_eq!(coverage.skipped_over_limit, 2);
+        assert_eq!(coverage.checked, MAX_IMAGES_CHECKED - 3);
+        assert_eq!(coverage.failed.get("http_error_status"), Some(&1));
+        assert_eq!(coverage.failed.get("oversized"), Some(&2));
     }
 
     #[test]

@@ -92,6 +92,12 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
+- **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
+- **Schema:** `navigation` and its `redirect_chain` are described in `docs/json-report.schema.json` (#775); `summary.grade` and `summary.certificate` may be `null`.
+- **Docs:** `viewport_scores.weighted_overall` is labelled as the 70/30 viewport blend, not a published module weight and not `overall_score` (#771); the AI-visibility module text no longer claims content is "cited" (#784).
+- **Tests:** negative and infinite Web Vitals are not measurements (#769); the Hickory error mapping and the image-fetch page counters are tested (#776, #789); the terminal renders the stored decision (#781); `batch_failed_urls_cli` and `session_policy_test` run in the browser CI job and in `release-check.sh` (#768, #787).
+
 - **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
 - **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
 - **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).

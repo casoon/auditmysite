@@ -30,7 +30,7 @@ use tracing::{debug, info, warn};
 use self::assembly::{
     aggregate_report, compute_viewport_overall, consolidate_module_runs,
     drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
-    update_audit_quality, with_shared_page_rule_violations,
+    update_audit_quality, viewport_weighted_overall, with_shared_page_rule_violations,
 };
 use self::throttled::{
     apply_canonical_perf, attach_throttled_profile_subchecks, collect_throttled_performance,
@@ -1136,8 +1136,7 @@ pub async fn audit_page(
             ("HTML Conformance", mobile_hc_score),
         ],
     );
-    let weighted_overall =
-        (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
+    let weighted_overall = viewport_weighted_overall(mobile_overall, desktop_overall);
 
     let viewport_scores = ViewportScores {
         desktop: ViewportScoreSet {
@@ -3372,6 +3371,26 @@ journey_budget_ms = 1234
     /// 20, SEO 15, Mobile 10, HTML 5; Security joins after the blend), not
     /// read from `taxonomy`, so a drifting weight fails.
     #[test]
+    fn weighted_overall_is_the_viewport_blend_and_not_a_module_weight() {
+        // 70 % mobile, 30 % desktop, rounded.
+        assert_eq!(viewport_weighted_overall(100, 0), 70);
+        assert_eq!(viewport_weighted_overall(0, 100), 30);
+        assert_eq!(viewport_weighted_overall(80, 60), 74);
+        // Equal passes blend to themselves: no module weight sneaks in.
+        for v in [0, 1, 49, 100] {
+            assert_eq!(viewport_weighted_overall(v, v), v);
+        }
+        // Mobile: accessibility 100 (weight 40) with performance 0 (weight 20)
+        // gives 67; the blend is 0.7 * 67 + 0.3 * 100 = 77, whatever the
+        // module weights are: it stays a labelled viewport blend.
+        let mobile = compute_viewport_overall(100.0, &[("Performance", Some(0))]);
+        let desktop = compute_viewport_overall(100.0, &[]);
+        assert_eq!(desktop, 100);
+        assert_eq!(mobile, 67);
+        assert_eq!(viewport_weighted_overall(mobile, desktop), 77);
+    }
+
+    #[test]
     fn viewport_overall_matches_the_published_weights_for_every_subset() {
         let table = [
             ("Performance", 20.0, 35u32),
@@ -3505,6 +3524,72 @@ journey_budget_ms = 1234
             .iter()
             .all(|f| !f["rule_id"].as_str().unwrap_or("").starts_with("security.")));
         assert_eq!(page["audit_quality"]["qualified_results"], true);
+    }
+
+    /// #767: html-conform declining the document must qualify the run — an
+    /// unchecked module is a failed module run, never a measured 100.
+    #[test]
+    fn unchecked_html_module_qualifies_the_run() {
+        let mut snapshot = SnapshotData {
+            ax_tree: AXTree::new(),
+            performance: None,
+            seo: None,
+            security: None,
+            mobile: None,
+            ux: None,
+            journey: None,
+            dark_mode: None,
+            design_quality: None,
+            html_conform: None,
+            ai_transparency: None,
+            network_dns: None,
+            tech_stack: None,
+            best_practices: None,
+            module_runs: Vec::new(),
+        };
+        let unchecked = crate::html_conform::HtmlConformAnalysis {
+            score: 100,
+            checked: false,
+            error_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 0,
+            findings: Vec::new(),
+            raw_html: None,
+        };
+        snapshot.apply_module_data(
+            "html_conform",
+            Viewport::Desktop,
+            ModuleData::HtmlConform(Box::new(unchecked)),
+        );
+        let run = snapshot
+            .module_runs
+            .iter()
+            .find(|run| run.module == "html_conform")
+            .expect("the collected module has a run");
+        assert_eq!(run.status, crate::audit::ExecutionStatus::Failed);
+
+        let mut results = WcagResults::new();
+        results.rule_outcomes.push(
+            crate::wcag::RuleRun::ran("image_alt", 0)
+                .with_wcag(["1.1.1"])
+                .in_viewport("desktop"),
+        );
+        let mut report =
+            AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
+        report.accessibility.execution.scope.requested_modules =
+            vec!["accessibility".to_string(), "html_conform".to_string()];
+        report.accessibility.execution.module_runs = snapshot.module_runs.clone();
+        ensure_requested_module_runs(&mut report);
+        update_audit_quality(&mut report);
+
+        let normalized = crate::audit::normalize(&report);
+        assert!(normalized.normalized.execution.quality.qualified_results);
+        assert!(normalized
+            .normalized
+            .module_scores
+            .iter()
+            .all(|m| m.name != "HTML Conformance" || !m.contributes_to_overall));
     }
 
     #[test]

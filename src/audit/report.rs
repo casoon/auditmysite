@@ -1335,9 +1335,11 @@ impl BatchSummary {
     /// Grade and certificate of the batch, by the single-report rule: both
     /// describe the average accessibility score, not the weighted overall,
     /// and the certificate is gated by the batch risk (plan 29, D1). The JSON
-    /// summary and the PDF read this one function (plan 111).
-    pub fn grade_and_certificate(&self) -> (String, String) {
-        let accessibility = self.average_score.unwrap_or(0.0).round() as f32;
+    /// summary and the PDF read this one function (plan 111). `None` when no
+    /// URL was measured: a grade computed from a stand-in 0 would be an F for
+    /// a site nobody looked at (#768).
+    pub fn grade_and_certificate(&self) -> Option<(String, String)> {
+        let accessibility = self.average_score?.round() as f32;
         let grade = AccessibilityScorer::calculate_grade(accessibility).to_string();
         let certificate = crate::audit::normalized::gate_certificate_by_risk(
             AccessibilityScorer::calculate_certificate(accessibility).to_string(),
@@ -1345,7 +1347,7 @@ impl BatchSummary {
             self.legal_flags,
             self.blocking_issues,
         );
-        (grade, certificate)
+        Some((grade, certificate))
     }
 }
 
@@ -1533,8 +1535,9 @@ impl BatchReport {
                 },
             }
         };
-        let score_band_key = {
-            let s = average_score.unwrap_or(0.0).round() as u32;
+        // Empty when nothing was measured: no band for a batch without a score.
+        let score_band_key = average_score.map_or(String::new(), |average| {
+            let s = average.round() as u32;
             if s >= 90 {
                 "verdict-batch-excellent"
             } else if s >= 70 {
@@ -1545,7 +1548,7 @@ impl BatchReport {
                 "verdict-batch-critical"
             }
             .to_string()
-        };
+        });
 
         let mut result = Self {
             reports,
@@ -2030,6 +2033,9 @@ mod tests {
         assert_eq!(batch.summary.coverage.succeeded, 0);
         assert_eq!(batch.summary.average_score, None);
         assert_eq!(batch.summary.average_over, 0);
+        // No stand-in 0: no grade, no certificate, no score band (#768).
+        assert_eq!(batch.summary.grade_and_certificate(), None);
+        assert!(batch.summary.score_band_key.is_empty());
         assert_eq!(
             batch.summary.audit_quality.status,
             AuditQualityStatus::Insufficient

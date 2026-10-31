@@ -85,11 +85,11 @@ Every path that publishes a decision reads the stored one and validates before w
 | Batch JSON | `BatchSummary.decision`, per-page decisions | `validate_batch` |
 | Summary feed (`--format summary`) | `verdict`, `verdictReasons` | `validate` |
 | SARIF | findings only; refuses invalid reports | `validate` |
-| Terminal (single, batch) | stored decision | `validate` / `validate_batch` before rendering (CLI) |
-| Studio response and history | `decision` | — (projection only) |
+| Terminal (single, batch) | stored decision | `validate` / `validate_batch` before rendering (CLI); `terminal_prints_the_stored_decision` checks the rendered verdict |
+| Studio response and history | `decision` | Studio validates in its own repository; this crate checks nothing on that path (projection only) |
 | PDF / Typst input | `ReportViewModel.summary.ci_verdict` from the stored decision | `validate` / `validate_batch` |
 | Cache replay | the cached report re-judged under the current profile, stored in `run_context` | `validate` |
-| Exit code | stored decision (`0` pass, `1` warn, `2` fail) | — |
+| Exit code | stored decision (`0` pass, `1` warn, `2` fail) | `exit_code_of_the_process_is_the_exported_verdict` (real binary, needs Chrome), `batch_with_only_failed_urls_exits_2_without_a_score` |
 
 Batch: a page counts as passed when its own decision passes; the batch `decision` applies the same profile to the summary (legal flags, blocking issues, technical blockers and the average accessibility score). All pages of a batch share one profile.
 
@@ -222,8 +222,10 @@ heuristic.
 
 Desktop and mobile accessibility/overall scores on the 0-100 scale.
 `weighted_overall` is the 70% mobile and 30% desktop module blend before the
-optional Security contribution; the canonical accessibility blend is recorded
-in `score_breakdown`.
+optional Security contribution. It is a viewport-pass figure, not a published
+module weight and not the report's `overall_score` (modules weighted per the
+published weights, Security added afterwards); read `overall_score` for the
+score of the page.
 
 <a id="subcategory-scores"></a>
 ### subcategory_scores — `pages[].detail.accessibility_subcategory_scores` / `pages[].detail.security_category_scores`

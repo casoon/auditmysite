@@ -13,6 +13,15 @@ use crate::wcag::{self, Violation, WcagResults};
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
 
+/// `viewport_scores.weighted_overall`: the two per-viewport overalls blended
+/// 70 % mobile, 30 % desktop. This is a viewport-pass figure, **not** a
+/// published module weight: it is not the report's `overall_score` (which
+/// weights modules, and adds Security afterwards) and is labelled so in
+/// `docs/OUTPUT_CONTRACT.md` (#771).
+pub(super) fn viewport_weighted_overall(mobile_overall: u32, desktop_overall: u32) -> u32 {
+    (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32
+}
+
 /// Weighted overall of one viewport over the modules measured there, with
 /// the weights `module_scores` publishes (`taxonomy::module_weight`), so the
 /// shown weights are the formula: before plan 73 this path weighted SEO 20

@@ -111,7 +111,7 @@ pub const REGISTRY: &[MetricSpec] = &[
         reference_urls: &[],
         reviewed_at: REVIEWED_AT,
         pdf_component: None,
-        meaning: "Desktop and mobile accessibility/overall scores on the 0-100 scale. weighted_overall is the 70% mobile and 30% desktop module blend before the optional Security contribution; the canonical accessibility blend is recorded in score_breakdown.",
+        meaning: "Desktop and mobile accessibility/overall scores on the 0-100 scale. weighted_overall is the 70% mobile and 30% desktop blend of the per-viewport overalls before the optional Security contribution. It is a viewport-pass figure, not a published module weight and not overall_score.",
         meaning_batch_override: None,
     },
     MetricSpec {

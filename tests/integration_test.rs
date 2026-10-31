@@ -1440,6 +1440,40 @@ async fn foundation_viewport_merge_tags_a_review_seen_in_one_viewport() {
     };
     assert_eq!(tags_of("always-small"), ["both-viewports"], "{results:#?}");
     assert_eq!(tags_of("wide-small"), ["desktop-only"], "{results:#?}");
+    // Decision level (#766): the merged reviews reach the export with their
+    // viewport, and — being reviews, not failures — leave the verdict at pass
+    // without a reason, so the decision cannot drift from the merge.
+    let normalized = auditmysite::audit::normalize(&report);
+    let json: serde_json::Value = serde_json::from_str(
+        &auditmysite::output::UnifiedReport::single(&normalized, &report)
+            .to_json(false)
+            .unwrap(),
+    )
+    .unwrap();
+    let page_json = &json["pages"][0];
+    let viewport_of = |id: &str| -> Vec<String> {
+        page_json["accessibility_assessments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|a| {
+                a["rule_id"] == "targets/size"
+                    && a["selector"].as_str().is_some_and(|s| s.contains(id))
+            })
+            .map(|a| a["viewport"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(
+        viewport_of("always-small"),
+        ["both-viewports"],
+        "{page_json}"
+    );
+    assert_eq!(viewport_of("wide-small"), ["desktop-only"], "{page_json}");
+    assert_eq!(page_json["decision"]["verdict"], "pass");
+    assert_eq!(
+        page_json["decision"]["reasons"].as_array().unwrap().len(),
+        0
+    );
     page.close().await.unwrap();
     fixture.stop();
 }

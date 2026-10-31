@@ -42,6 +42,10 @@ fn build_batch_report(
     renderreport::RenderRequest,
 )> {
     crate::audit::validate_batch(batch)?;
+    anyhow::ensure!(
+        batch.summary.average_score.is_some(),
+        "no URL of the batch was measured; there is no score, grade or band to report"
+    );
     let engine = super::helpers::create_engine();
     let i18n = I18n::new(&config.locale)?;
     // Use the locale-aware presentation builder — `build_batch_presentation`
@@ -135,6 +139,24 @@ mod tests {
 
     fn report(url: &str) -> AuditReport {
         AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100)
+    }
+
+    /// #768: a batch in which every URL failed has no score, so there is no
+    /// grade or band to print; the PDF refuses instead of showing a 0.
+    #[test]
+    fn batch_without_a_measured_url_gets_no_pdf() {
+        let errors = vec![crate::audit::BatchError {
+            url: "https://a.example".to_string(),
+            error: "navigation failed".to_string(),
+            blocked_reason: None,
+        }];
+        let batch = BatchReport::from_reports(vec![], errors, 10);
+        let err = generate_batch_typ(&batch, &ReportConfig::default())
+            .expect_err("nothing measured, nothing to render");
+        assert!(
+            err.to_string().contains("no URL of the batch was measured"),
+            "{err}"
+        );
     }
 
     #[test]

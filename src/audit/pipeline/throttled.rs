@@ -5,7 +5,7 @@
 use chromiumoxide::Page;
 use tracing::{info, warn};
 
-use super::assembly::{compute_viewport_overall, update_audit_quality};
+use super::assembly::{compute_viewport_overall, update_audit_quality, viewport_weighted_overall};
 use super::{set_viewport, PipelineConfig};
 use crate::audit::module::Viewport;
 use crate::audit::report::{AuditReport, PerformanceResults};
@@ -287,7 +287,6 @@ pub(super) fn apply_canonical_perf(
         );
         let desktop_overall = vps.desktop.overall;
         vps.mobile.overall = mobile_overall;
-        vps.weighted_overall =
-            (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
+        vps.weighted_overall = viewport_weighted_overall(mobile_overall, desktop_overall);
     }
 }

@@ -400,6 +400,34 @@ mod tests {
     use crate::performance::vitals::VitalMetric;
     use crate::performance::ResourceBreakdown;
 
+    /// #769: a negative or non-finite metric is a broken measurement. It
+    /// must neither count as a (perfect) value nor as a metric available.
+    #[test]
+    fn negative_and_non_finite_metrics_are_not_measurements() {
+        for bad in [-1.0, f64::NEG_INFINITY, f64::INFINITY, f64::NAN] {
+            let vitals = WebVitals {
+                lcp: Some(VitalMetric::new(bad, 2500.0, 4000.0)),
+                fcp: Some(VitalMetric::new(bad, 1800.0, 3000.0)),
+                cls: Some(VitalMetric::new(bad, 0.1, 0.25)),
+                tbt: Some(VitalMetric::new(bad, 200.0, 600.0)),
+                ..Default::default()
+            };
+            let score = calculate_performance_score(&vitals, None);
+            assert_eq!(score.metrics_available, 0, "value {bad}");
+            assert!(score.partial, "value {bad}");
+        }
+        // One valid metric next to a broken one counts only the valid one.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(f64::INFINITY, 2500.0, 4000.0)),
+            cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
+            ..Default::default()
+        };
+        assert_eq!(
+            calculate_performance_score(&vitals, None).metrics_available,
+            1
+        );
+    }
+
     #[test]
     fn test_performance_grade_from_score() {
         assert_eq!(PerformanceGrade::from_score(95), PerformanceGrade::Platinum);
