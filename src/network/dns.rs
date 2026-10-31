@@ -292,7 +292,7 @@ pub(crate) fn resolver_unavailable() -> DnsCheckResult {
 }
 
 /// Runs the real DNS queries for one host. A resolver that cannot be built
-/// yields [`resolver_unavailable`].
+/// yields `resolver_unavailable`.
 pub async fn query_dns(host: &str) -> DnsCheckResult {
     let resolver: TokioResolver = match TokioResolver::builder_tokio() {
         Ok(builder) => match builder.build() {
