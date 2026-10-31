@@ -171,6 +171,7 @@ fn golden_render() {
                 sample_limit: None,
                 selection: "all".to_string(),
                 is_sample: false,
+                strata: Vec::new(),
             },
         )
     };

@@ -861,13 +861,29 @@ pub struct SampleMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_limit: Option<usize>,
     /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order),
-    /// `"all"` when every discovered URL was audited, or `"path_filter"` when
+    /// `"all"` when every discovered URL was audited, `"path_filter"` when
     /// `--include-path`/`--exclude-path` narrowed the set (then possibly also
-    /// capped by `sample_limit`, in discovery order).
+    /// capped by `sample_limit`, in discovery order), or `"stratified"` when
+    /// `--sample-strategy stratified` drew across structural strata (after any
+    /// path filter), listed in `strata`.
     pub selection: String,
     /// True when fewer URLs were audited than discovered — i.e. this is a sample,
     /// not full coverage.
     pub is_sample: bool,
+    /// Strata of a `"stratified"` selection with candidates and picks per
+    /// stratum; empty for every other method.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strata: Vec<SampleStratum>,
+}
+
+/// One structural stratum of a stratified selection (`[lang/]section[.ext]`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SampleStratum {
+    pub key: String,
+    /// Candidate URLs in this stratum, before the budget was applied.
+    pub discovered: usize,
+    /// URLs the draw took from this stratum (0 when the budget did not reach it).
+    pub selected: usize,
 }
 
 /// Sitemap URL validation result for sitemap-driven batch reports.
@@ -1949,6 +1965,7 @@ mod tests {
                 sample_limit: Some(1),
                 selection: "first_n".to_string(),
                 is_sample: true,
+                strata: vec![],
             });
         let c = &batch.summary.coverage;
         assert_eq!(

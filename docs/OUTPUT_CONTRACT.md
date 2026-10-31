@@ -131,10 +131,11 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `total_discovered` — candidate URLs found before any limit was applied.
   - `audited` — URLs actually audited.
   - `sample_limit` — the `--max-pages` cap, when one applied (omitted otherwise).
-  - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order).
+  - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order), or `"stratified"` (`--sample-strategy stratified`: after any path filter, a deterministic round-robin draw across structural strata, at most `sample_limit` URLs).
+  - `strata` — only with `"stratified"`: per stratum (`[lang/]section[.ext]`, e.g. `de/blog`, `shop`, `/`, `docs.pdf`) the candidates (`discovered`) and the picks (`selected`; 0 when the budget did not reach the stratum). The strata come from the URL structure alone, not from page type or process state; a stratified sample is still only a sample.
   - `is_sample` — `true` when fewer URLs were audited than discovered.
 - The block is omitted when no sampling metadata was recorded (e.g. cached single reports).
-- A selection (`first_n`, `path_filter`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages.
+- A selection (`first_n`, `path_filter`, `stratified`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages.
 - `summary.score_spread` reports `min`, `median`, `max`, `std_dev` and the `worst_pages` (up to 5, worst first) next to `average_score`.
 - `summary.selection_profile` counts the audited pages by canonical `page_types` and primary-subtag `languages`; pages without the signal are counted in `unclassified` / `language_unknown`.
 
