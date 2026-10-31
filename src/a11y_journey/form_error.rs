@@ -159,7 +159,11 @@ pub async fn test(
 
     // Wurde eine Live-Region gefüllt? Das ist die Ankündigung — nicht, ob
     // eine Region existiert.
-    let events = live_regions::drain(page).await;
+    // Ohne lesbare Aufzeichnung gilt der Beobachter als verloren: „nichts
+    // angekündigt" wäre sonst ein erfundener Befund.
+    let drained = live_regions::drain(page).await;
+    let observing = observing && drained.is_some();
+    let events = drained.unwrap_or_default();
     let announced = events.iter().any(|e| e.is_announcement());
     let assertive = events
         .iter()

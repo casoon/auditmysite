@@ -106,6 +106,7 @@ src/
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
+│   ├── capture_collectors.rs # Capture-layer collectors (navigation, AX tree, consent, exclusion, frames, stability, rule execution, journeys) projected onto the contract
 │   ├── pipeline/        # Single page audit flow
 │   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
 │   │   ├── assembly.rs  # Sync post-processing: WCAG merge, viewport scores, report aggregation, module runs, audit quality

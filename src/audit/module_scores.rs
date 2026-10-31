@@ -94,12 +94,14 @@ pub(super) fn build_module_scores(
         module_scores.push(ModuleScoreEntry::new(
             "HTML Conformance",
             hc.score,
-            if hc.checked {
-                "measured"
-            } else {
+            if !hc.checked {
                 "not_measured"
+            } else if scoring_gap("html_conform") {
+                "partial"
+            } else {
+                "measured"
             },
-            hc.checked,
+            hc.checked && !scoring_gap("html_conform"),
         ));
     }
     if let Some(ref ux) = report.ux {

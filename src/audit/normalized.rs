@@ -2792,6 +2792,177 @@ mod tests {
         assert_eq!(renormalized.overall_score, norm.overall_score);
     }
 
+    /// #777: the score validation covers every scored module, not only SEO,
+    /// Security, Mobile and Performance. A lost scoring collection of Best
+    /// Practices or HTML Conformance must not leave a measured score.
+    #[test]
+    fn lost_scoring_collection_is_checked_for_every_scored_module() {
+        use crate::audit::collection::{CollectionMethod, CollectionRecord, CollectionState};
+        let console = || crate::best_practices::console_errors::ConsoleErrorsAnalysis {
+            errors: vec![],
+            warnings: vec![],
+            error_count: 0,
+            warning_count: 0,
+            collected: true,
+        };
+        let libraries = || crate::best_practices::vulnerable_libs::VulnerableLibrariesAnalysis {
+            detected: vec![],
+            vulnerable: vec![],
+            has_vulnerabilities: false,
+            duplicate_libraries: vec![],
+            checked: true,
+        };
+        let html_conform = crate::html_conform::HtmlConformAnalysis {
+            score: 30,
+            checked: true,
+            error_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 0,
+            findings: vec![],
+            raw_html: None,
+        };
+        let best_practices = crate::best_practices::BestPracticesAnalysis {
+            console_errors: console(),
+            vulnerable_libraries: libraries(),
+            score: 40,
+        };
+        for (module, score_name, collector, report) in [
+            (
+                "html_conform",
+                "HTML Conformance",
+                "html_conform.document",
+                AuditReport::new(
+                    "https://example.com".to_string(),
+                    WcagLevel::AA,
+                    WcagResults::new(),
+                    100,
+                )
+                .with_html_conform(html_conform),
+            ),
+            (
+                "best_practices",
+                "Best Practices",
+                "best_practices.console",
+                AuditReport::new(
+                    "https://example.com".to_string(),
+                    WcagLevel::AA,
+                    WcagResults::new(),
+                    100,
+                )
+                .with_best_practices(best_practices),
+            ),
+        ] {
+            let mut report = Box::new(report);
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module: module.into(),
+                    status: crate::audit::ExecutionStatus::Partial,
+                    subchecks: vec![CollectionRecord {
+                        collector: collector.into(),
+                        module: module.into(),
+                        state: CollectionState::Failed,
+                        method: CollectionMethod::JavaScript,
+                        method_version: 1,
+                        scoring: true,
+                        reason_code: Some("evaluation_failed".into()),
+                        gaps: vec![],
+                    }
+                    .into()],
+                    ..Default::default()
+                });
+            let norm = normalize(&report).normalized;
+            let entry = norm
+                .module_scores
+                .iter()
+                .find(|m| m.name == score_name)
+                .unwrap_or_else(|| panic!("{score_name} entry"));
+            assert_ne!(entry.measurement_type, "measured", "{score_name}");
+            assert!(!entry.contributes_to_overall, "{score_name}");
+
+            let mut counted = norm.clone();
+            let m = counted
+                .module_scores
+                .iter_mut()
+                .find(|m| m.name == score_name)
+                .unwrap();
+            m.measurement_type = "measured".into();
+            m.contributes_to_overall = true;
+            let errors = counted.validate().unwrap_err();
+            assert!(
+                errors.to_string().contains("collection_gap_scored"),
+                "{score_name}: {errors}"
+            );
+        }
+    }
+
+    /// #777: a collection state that does not say why, or that names a
+    /// collector outside the inventory, is a contract violation.
+    #[test]
+    fn collection_records_must_be_known_and_explained() {
+        use crate::audit::collection::{CollectionMethod, CollectionRecord, CollectionState};
+        let record = |collector: &str, state, reason: Option<&str>| CollectionRecord {
+            collector: collector.into(),
+            module: "accessibility".into(),
+            state,
+            method: CollectionMethod::Cdp,
+            method_version: 1,
+            scoring: false,
+            reason_code: reason.map(str::to_string),
+            gaps: vec![],
+        };
+        let violations = |records: Vec<CollectionRecord>| {
+            let mut report = Box::new(AuditReport::new(
+                "https://example.com".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            ));
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module: "accessibility".into(),
+                    status: crate::audit::ExecutionStatus::Completed,
+                    subchecks: records.into_iter().map(Into::into).collect(),
+                    ..Default::default()
+                });
+            normalize(&report)
+                .normalized
+                .validate()
+                .err()
+                .map(|e| e.to_string())
+                .unwrap_or_default()
+        };
+        assert_eq!(
+            violations(vec![record(
+                "accessibility.frames",
+                CollectionState::Measured,
+                None
+            )]),
+            ""
+        );
+        let unknown = violations(vec![record(
+            "accessibility.invented",
+            CollectionState::Measured,
+            None,
+        )]);
+        assert!(unknown.contains("collector_unknown"), "{unknown}");
+        let unexplained = violations(vec![record(
+            "accessibility.frames",
+            CollectionState::Failed,
+            None,
+        )]);
+        assert!(
+            unexplained.contains("collection_state_unexplained"),
+            "{unexplained}"
+        );
+    }
+
     #[test]
     fn test_unmeasured_performance_excluded_from_overall_score() {
         // QA-023: a performance module that ran but collected zero Core Web

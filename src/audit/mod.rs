@@ -7,6 +7,7 @@ pub mod artifacts;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
+pub(crate) mod capture_collectors;
 pub mod catalog;
 pub mod collection;
 mod crawl;

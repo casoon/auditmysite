@@ -353,6 +353,35 @@ impl NormalizedReport {
         // run is not `Completed` and its score neither claims a measurement
         // nor feeds the overall score (#777).
         for run in &self.execution.module_runs {
+            // Every collection a run reports is one the inventory knows, and
+            // a state without data explains itself in machine-readable form.
+            for sub in run.subchecks.iter().filter(|s| s.state.is_some()) {
+                let path = format!(
+                    "execution.module_runs[{}].subchecks[{}]",
+                    run.module, sub.subcheck
+                );
+                check(
+                    super::collection::collector(&sub.subcheck).is_some(),
+                    "collector_unknown",
+                    path.clone(),
+                    "the collection is not part of the collector inventory".into(),
+                );
+                let explained = match sub.state {
+                    Some(super::collection::CollectionState::Partial) => !sub.gaps.is_empty(),
+                    Some(
+                        super::collection::CollectionState::Failed
+                        | super::collection::CollectionState::Unsupported
+                        | super::collection::CollectionState::NotApplicable,
+                    ) => sub.reason_code.is_some(),
+                    _ => true,
+                };
+                check(
+                    explained,
+                    "collection_state_unexplained",
+                    path,
+                    "a partial, failed, unsupported or not applicable collection needs gaps or a reason code".into(),
+                );
+            }
             let Some(gap) = run.subchecks.iter().find(|s| s.is_scoring_gap()) else {
                 continue;
             };
@@ -363,11 +392,17 @@ impl NormalizedReport {
                 path.clone(),
                 format!("collector {} lost its measurement", gap.subcheck),
             );
+            // The module score the run feeds, by its name in `module_scores`.
+            // Modules without an entry (design quality, tech stack, …) show
+            // no score a lost collection could inflate.
             let score_name = match run.module.as_str() {
                 "seo" => "SEO",
                 "security" => "Security",
                 "mobile" => "Mobile",
                 "performance" => "Performance",
+                "best_practices" => "Best Practices",
+                "dark_mode" => "Dark Mode",
+                "html_conform" => "HTML Conformance",
                 _ => continue,
             };
             if let Some(module) = self.module_scores.iter().find(|m| m.name == score_name) {
