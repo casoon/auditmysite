@@ -5,6 +5,9 @@
 //! stays out of the violations and the accessibility score. SEO, UX,
 //! Journey and the accessibility journey still see it, but as one cause that
 //! only SEO deducts for.
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 mod common;
 
