@@ -2899,6 +2899,229 @@ mod tests {
         }
     }
 
+    /// #777: every scoring collector in the inventory, run through
+    /// `normalize`: a lost measurement never leaves a measured score that
+    /// feeds the overall score, whichever module owns it. The module list is
+    /// closed — a scoring collector of a module this test cannot build fails
+    /// it, so a new scored module has to bring its score assertion here.
+    #[test]
+    fn a_lost_scoring_collection_leaves_no_measured_score_in_any_module() {
+        use crate::audit::collection::{
+            CollectionMethod, CollectionRecord, CollectionState, COLLECTORS,
+        };
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+        let base = || {
+            AuditReport::new(
+                "https://example.com".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            )
+        };
+        let with_module = |module: &str| -> (AuditReport, Option<&'static str>) {
+            match module {
+                "seo" => (
+                    base().with_seo(crate::seo::SeoAnalysis {
+                        score: 40,
+                        ..Default::default()
+                    }),
+                    Some("SEO"),
+                ),
+                "security" => (
+                    base().with_security(crate::security::SecurityAnalysis {
+                        score: 40,
+                        grade: "D".into(),
+                        headers: Default::default(),
+                        ssl: Default::default(),
+                        issues: vec![],
+                        recommendations: vec![],
+                        protection: Default::default(),
+                        sourcemap_leaks: Default::default(),
+                        fetch: Default::default(),
+                    }),
+                    Some("Security"),
+                ),
+                "mobile" => (
+                    base().with_mobile(crate::mobile::MobileFriendliness {
+                        score: 40,
+                        viewport: Default::default(),
+                        touch_targets: Default::default(),
+                        font_sizes: Default::default(),
+                        content_sizing: Default::default(),
+                        issues: vec![],
+                    }),
+                    Some("Mobile"),
+                ),
+                "performance" => (
+                    base().with_performance(crate::audit::PerformanceResults {
+                        vitals: WebVitals::default(),
+                        score: PerformanceScore {
+                            overall: 40,
+                            grade: PerformanceGrade::Bronze,
+                            lcp_score: Some(10),
+                            fcp_score: Some(5),
+                            cls_score: Some(10),
+                            interactivity_score: Some(10),
+                            si_score: None,
+                            metrics_available: 4,
+                            size_penalty: None,
+                            js_penalty: None,
+                            request_penalty: None,
+                            dom_penalty: None,
+                            is_capped: None,
+                            partial: false,
+                        },
+                        render_blocking: None,
+                        content_weight: None,
+                        third_party: None,
+                        critical_chain: None,
+                        minification: None,
+                        animations: None,
+                        coverage: None,
+                        measurement_warnings: vec![],
+                    }),
+                    Some("Performance"),
+                ),
+                "dark_mode" => (
+                    base().with_dark_mode(crate::dark_mode::DarkModeAnalysis {
+                        supported: true,
+                        class_based_dark_mode: false,
+                        score: 40,
+                        detection_methods: vec![],
+                        color_scheme_css: false,
+                        meta_color_scheme: None,
+                        meta_theme_color_dark: false,
+                        css_custom_properties: 0,
+                        dark_contrast_violations: 0,
+                        light_only_violations: 0,
+                        dark_only_violations: 0,
+                        contrast_violations: vec![],
+                        print: Default::default(),
+                        forced_colors: Default::default(),
+                        vision_deficiency: Default::default(),
+                        issues: vec![],
+                    }),
+                    Some("Dark Mode"),
+                ),
+                "html_conform" => (
+                    base().with_html_conform(crate::html_conform::HtmlConformAnalysis {
+                        score: 40,
+                        checked: true,
+                        error_count: 0,
+                        warning_count: 0,
+                        info_count: 0,
+                        distinct_defect_count: 0,
+                        findings: vec![],
+                        raw_html: None,
+                    }),
+                    Some("HTML Conformance"),
+                ),
+                "best_practices" => (
+                    base().with_best_practices(crate::best_practices::BestPracticesAnalysis {
+                        console_errors:
+                            crate::best_practices::console_errors::ConsoleErrorsAnalysis {
+                                errors: vec![],
+                                warnings: vec![],
+                                error_count: 0,
+                                warning_count: 0,
+                                collected: true,
+                            },
+                        vulnerable_libraries:
+                            crate::best_practices::vulnerable_libs::VulnerableLibrariesAnalysis {
+                                detected: vec![],
+                                vulnerable: vec![],
+                                has_vulnerabilities: false,
+                                duplicate_libraries: vec![],
+                                checked: true,
+                            },
+                        score: 40,
+                    }),
+                    Some("Best Practices"),
+                ),
+                // Modules with scoring collectors and no module score of
+                // their own: the gap may not add one.
+                "design_quality" | "tech_stack" => (base(), None),
+                other => panic!(
+                    "scoring collector of module {other}: add its score assertion to this test"
+                ),
+            }
+        };
+        let mut checked = std::collections::BTreeSet::new();
+        for spec in COLLECTORS.iter().filter(|spec| spec.scoring) {
+            let (report, score_name) = with_module(spec.module);
+            let mut report = Box::new(report);
+            let overall_without_gap = normalize(&report).normalized.overall_score;
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module: spec.module.into(),
+                    status: crate::audit::ExecutionStatus::Partial,
+                    subchecks: vec![CollectionRecord {
+                        collector: spec.id.into(),
+                        module: spec.module.into(),
+                        state: CollectionState::Failed,
+                        method: CollectionMethod::JavaScript,
+                        method_version: spec.method_version,
+                        scoring: true,
+                        reason_code: Some("evaluation_failed".into()),
+                        gaps: vec![],
+                    }
+                    .into()],
+                    ..Default::default()
+                });
+            let norm = normalize(&report).normalized;
+            match score_name {
+                Some(name) => {
+                    let entry = norm
+                        .module_scores
+                        .iter()
+                        .find(|m| m.name == name)
+                        .unwrap_or_else(|| panic!("{}: {name} entry", spec.id));
+                    assert_ne!(entry.measurement_type, "measured", "{}", spec.id);
+                    assert!(!entry.contributes_to_overall, "{}", spec.id);
+                    // Forcing the claim back is rejected by the validator.
+                    let mut counted = norm.clone();
+                    let m = counted
+                        .module_scores
+                        .iter_mut()
+                        .find(|m| m.name == name)
+                        .unwrap();
+                    m.measurement_type = "measured".into();
+                    m.contributes_to_overall = true;
+                    let errors = counted.validate().unwrap_err();
+                    assert!(
+                        errors.to_string().contains("collection_gap_scored"),
+                        "{}: {errors}",
+                        spec.id
+                    );
+                }
+                None => {
+                    assert_eq!(
+                        norm.module_scores.len(),
+                        1,
+                        "{}: only Accessibility is scored",
+                        spec.id
+                    );
+                    assert_eq!(norm.overall_score, overall_without_gap, "{}", spec.id);
+                }
+            }
+            checked.insert(spec.module);
+        }
+        for module in [
+            "seo",
+            "security",
+            "mobile",
+            "performance",
+            "dark_mode",
+            "html_conform",
+            "best_practices",
+        ] {
+            assert!(checked.contains(module), "no scoring collector of {module}");
+        }
+    }
+
     /// #777: a collection state that does not say why, or that names a
     /// collector outside the inventory, is a contract violation.
     #[test]

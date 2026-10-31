@@ -32,7 +32,8 @@ use tracing::{info, warn};
 use crate::accessibility::{AXTree, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
 use crate::cli::WcagLevel;
-use crate::wcag::{self, RuleFilterConfig, Violation, WcagResults};
+use crate::wcag::types::fold_rule_run;
+use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
@@ -211,6 +212,12 @@ pub struct FrameEntry {
     /// The viewport passes this entry applies to.
     #[serde(default)]
     pub viewports: Vec<String>,
+    /// What the frame's rules did, one outcome per rule and viewport
+    /// (audited frames only; #778). The page's own `rule_outcomes` hold the
+    /// frames' findings folded in; this is where a frame's rule that did not
+    /// run stays visible.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub outcomes: Vec<RuleRun>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -239,6 +246,9 @@ pub struct FrameObservation {
     pub url: Option<String>,
     /// `None` = audited.
     pub skipped: Option<FrameSkipReason>,
+    /// The frame's rule outcomes in this pass, tagged with its viewport.
+    /// Empty for a skipped frame.
+    pub outcomes: Vec<RuleRun>,
 }
 
 impl FrameCoverage {
@@ -258,12 +268,16 @@ impl FrameCoverage {
                     if !entry.viewports.iter().any(|v| v == viewport) {
                         entry.viewports.push(viewport.to_string());
                     }
+                    for run in &obs.outcomes {
+                        fold_rule_run(&mut entry.outcomes, run.clone());
+                    }
                 }
                 None => list.push(FrameEntry {
                     selector: obs.selector.clone(),
                     url: obs.url.clone(),
                     reason: obs.skipped,
                     viewports: vec![viewport.to_string()],
+                    outcomes: obs.outcomes.clone(),
                 }),
             }
         }
@@ -285,6 +299,29 @@ pub fn frame_rule_filter(user: &RuleFilterConfig) -> Option<RuleFilterConfig> {
         disabled_rules: Vec::new(),
         enabled_only_rules: enabled,
     })
+}
+
+/// The rules an audited frame must account for with exactly one outcome per
+/// viewport (#778): the tree rules the level and the user's filter let run
+/// ([`frame_rule_filter`]) and every frame shared rule -- those report as
+/// not run (`above_wcag_level`, `disabled_by_rule_filter`) rather than
+/// vanish. Derived from the same lists the pass runs, never from a second one.
+pub fn expected_frame_rules(level: WcagLevel, user: &RuleFilterConfig) -> Vec<String> {
+    let mut rules: Vec<String> = frame_rule_filter(user)
+        .map(|filter| {
+            FRAME_TREE_RULES
+                .iter()
+                .filter(|id| filter.should_run(id))
+                .filter(|id| {
+                    crate::wcag::expectation::registered_min_level(id)
+                        .is_none_or(|min| min <= level)
+                })
+                .map(|id| id.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    rules.extend(FRAME_SHARED_RULES.iter().map(|id| id.to_string()));
+    rules
 }
 
 /// Keeps only the findings and outcomes of [`FRAME_SHARED_RULES`].
@@ -328,7 +365,7 @@ fn attach_to_frame(v: &mut Violation, frame_selector: &str, frame_id: &str, ax: 
 
 /// Adds the frame's rule outcomes to the page's: the frame is part of the
 /// page, and an outcome is keyed `(rule_id, viewport)`.
-fn fold_outcomes(page: &mut WcagResults, frame: Vec<crate::wcag::RuleRun>) {
+fn fold_outcomes(page: &mut WcagResults, frame: Vec<RuleRun>) {
     for run in frame {
         page.fold_outcome(run);
     }
@@ -504,6 +541,7 @@ pub(crate) async fn audit_frames(
                 selector: selector.clone(),
                 url: url.clone(),
                 skipped,
+                outcomes: Vec::new(),
             });
         };
 
@@ -557,6 +595,7 @@ pub(crate) async fn audit_frames(
             }
         };
         observe(None);
+        let observed = out.frames.len() - 1;
 
         let svg_nodes = wcag::shared::svg_ax_node_ids(&doc);
         let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
@@ -616,6 +655,7 @@ pub(crate) async fn audit_frames(
             info!("Frame {selector}: {found} findings");
         }
         let outcomes = std::mem::take(&mut frame_results.rule_outcomes);
+        out.frames[observed].outcomes = outcomes.clone();
         fold_outcomes(&mut out.results, outcomes);
         out.results.merge(frame_results);
 
@@ -780,11 +820,83 @@ mod tests {
     }
 
     #[test]
+    fn expected_frame_rules_follow_level_and_filter() {
+        let all = RuleFilterConfig::default();
+        let at_aa = expected_frame_rules(WcagLevel::AA, &all);
+        for id in FRAME_TREE_RULES {
+            assert!(at_aa.iter().any(|r| r == id), "{id} expected at AA");
+        }
+        for id in FRAME_SHARED_RULES {
+            assert!(at_aa.iter().any(|r| r == id), "{id} expected at AA");
+        }
+        // A tree rule above the level does not run; the shared rules still
+        // report, as not run.
+        let at_a = expected_frame_rules(WcagLevel::A, &all);
+        let above = FRAME_TREE_RULES.iter().find(|id| {
+            crate::wcag::expectation::registered_min_level(id).is_some_and(|min| min > WcagLevel::A)
+        });
+        if let Some(id) = above {
+            assert!(!at_a.iter().any(|r| r == id), "{id} runs above level A");
+        }
+        assert_eq!(
+            at_a.iter()
+                .filter(|r| FRAME_SHARED_RULES.contains(&r.as_str()))
+                .count(),
+            FRAME_SHARED_RULES.len()
+        );
+        // The user's filter removes tree rules from the frame scope, and
+        // `enabled_only` of a page-level rule leaves only the shared ones.
+        let disabled = RuleFilterConfig {
+            disabled_rules: vec!["image-alt".into()],
+            enabled_only_rules: Vec::new(),
+        };
+        assert!(!expected_frame_rules(WcagLevel::AA, &disabled)
+            .iter()
+            .any(|r| r == "image-alt"));
+        let page_level_only = RuleFilterConfig {
+            disabled_rules: Vec::new(),
+            enabled_only_rules: vec!["focus-visible".into()],
+        };
+        let rules = expected_frame_rules(WcagLevel::AA, &page_level_only);
+        assert_eq!(rules.len(), FRAME_SHARED_RULES.len());
+    }
+
+    #[test]
+    fn coverage_keeps_one_outcome_per_rule_and_viewport_of_a_frame() {
+        let obs = |viewport: &str, findings: usize| FrameObservation {
+            selector: "iframe#w".into(),
+            url: None,
+            skipped: None,
+            outcomes: vec![RuleRun::ran("image-alt", findings).in_viewport(viewport)],
+        };
+        let mut c = FrameCoverage::default();
+        c.record("desktop", &[obs("desktop", 1)]);
+        c.record("mobile", &[obs("mobile", 2)]);
+        // The same selector twice in one pass is one entry; its outcome is
+        // folded, not doubled.
+        c.record("mobile", &[obs("mobile", 3)]);
+        assert_eq!(c.audited.len(), 1);
+        let outcomes = &c.audited[0].outcomes;
+        assert_eq!(outcomes.len(), 2);
+        assert_eq!(
+            outcomes
+                .iter()
+                .find(|o| o.viewport.as_deref() == Some("mobile"))
+                .unwrap()
+                .findings,
+            5
+        );
+        let json = serde_json::to_value(&c).unwrap();
+        assert_eq!(json["audited"][0]["outcomes"][0]["rule_id"], "image-alt");
+    }
+
+    #[test]
     fn coverage_joins_passes_per_frame() {
         let obs = |skipped| FrameObservation {
             selector: "iframe#w".into(),
             url: Some("https://example.org/w".into()),
             skipped,
+            outcomes: Vec::new(),
         };
         let mut c = FrameCoverage::default();
         c.record(
@@ -795,6 +907,7 @@ mod tests {
                     selector: "iframe#ad".into(),
                     url: None,
                     skipped: Some(FrameSkipReason::CrossOrigin),
+                    outcomes: Vec::new(),
                 },
             ],
         );
