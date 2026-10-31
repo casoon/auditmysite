@@ -44,6 +44,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Docs:** README and `docs/calibration.md` state that no heuristic signal is validated in 2.0 (`signal_contract.validation.status = "unvalidated"`) and that its score is not evidence of AI citation, visibility, user quality or source truth; the reference-set labelling follows after 2.0.
 - **Migration:** the infallible `audit::normalize` is `#[deprecated]` with `normalize_checked` as the 2.0 path; the CLI no longer calls it (#790).
 - **Snapshot:** the `rule_set` digest covers AX-tree, page and inline rules as well as the shared rules, and the content fingerprint (version 4) includes contrast violations and the mobile, design-quality and dark-mode measurements, so a style-only change is detected (#790). Older cache entries are misses.
 - **Architecture:** `WcagLevel` moved to `wcag::level` (still exported from `cli`); the backward-import baseline shrinks from 32 to 3 entries (#790).
