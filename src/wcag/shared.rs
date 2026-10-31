@@ -2086,6 +2086,11 @@ fn run_shared_rules_inner(
     // Befunde, damit ein Join über `rule_id` aufgeht.
     for run in &report.rule_runs {
         match shared_rule(&run.rule_id) {
+            // A local page rule that reports this id owns its outcome: a
+            // second "not adopted" entry would count one rule twice (#778).
+            None if crate::wcag::rules::PAGE_RULES
+                .iter()
+                .any(|page| page.outcome_ids.contains(&run.rule_id.as_str())) => {}
             None => results.rule_outcomes.push(not_yet_migrated(&run.rule_id)),
             // Seit der Vermerk selbst aus dem geteilten Crate kommt, sprechen
             // beide Seiten dasselbe Modell -- er wird durchgereicht statt

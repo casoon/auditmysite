@@ -299,15 +299,55 @@ impl NormalizedReport {
                 );
             }
         }
-        // Every requested rule has an outcome; its absence is a gap, not a
-        // pass (#778).
+        // Every requested rule has exactly one outcome per viewport it was
+        // requested in; a missing one is a gap, not a pass (#778). An outcome
+        // without a viewport (reports from before the field) counts for all.
         for rule in &self.execution.scope.requested_rules {
+            for viewport in &rule.viewports {
+                let outcomes = self
+                    .rule_outcomes
+                    .iter()
+                    .filter(|run| {
+                        run.rule_id == rule.rule_id
+                            && run.viewport.as_deref().is_none_or(|v| v == viewport)
+                    })
+                    .count();
+                check(
+                    outcomes >= 1,
+                    "requested_rule_outcome",
+                    format!("rule_outcomes[{}@{viewport}]", rule.rule_id),
+                    "each requested rule needs an explicit execution outcome".into(),
+                );
+            }
+        }
+        // ... and not more than one: a doubled outcome counts one execution
+        // twice.
+        let mut seen: HashSet<(&str, Option<&str>)> = HashSet::new();
+        for run in &self.rule_outcomes {
             check(
-                self.rule_outcomes.iter().any(|run| &run.rule_id == rule),
-                "requested_rule_outcome",
-                format!("rule_outcomes[{rule}]"),
-                "each requested rule needs an explicit execution outcome".into(),
+                seen.insert((run.rule_id.as_str(), run.viewport.as_deref())),
+                "rule_outcome_duplicate",
+                format!("rule_outcomes[{}]", run.rule_id),
+                "a rule has one outcome per viewport".into(),
             );
+        }
+        // A rule above the configured level did not run.
+        let level = match self.execution.scope.wcag_level.as_str() {
+            "A" => Some(crate::cli::WcagLevel::A),
+            "AA" => Some(crate::cli::WcagLevel::AA),
+            "AAA" => Some(crate::cli::WcagLevel::AAA),
+            _ => None,
+        };
+        if let Some(level) = level {
+            for run in self.rule_outcomes.iter().filter(|r| r.not_run.is_none()) {
+                check(
+                    crate::wcag::expectation::registered_min_level(&run.rule_id)
+                        .is_none_or(|min| min <= level),
+                    "rule_outcome_above_level",
+                    format!("rule_outcomes[{}]", run.rule_id),
+                    format!("rule ran above the configured level {level}"),
+                );
+            }
         }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement
@@ -535,11 +575,10 @@ impl NormalizedReport {
                 Some(crate::wcag::NotRun::Errored | crate::wcag::NotRun::CapabilityMissing)
             )
         });
-        let errored = self
-            .rule_outcomes
-            .iter()
-            .filter(|run| crate::wcag::rule_run_errored(run))
-            .count();
+        let errored = crate::wcag::expectation::count_checks(
+            &self.rule_outcomes,
+            crate::wcag::rule_run_errored,
+        );
         check(
             q.failed_rule_checks == errored,
             "failed_rule_checks",

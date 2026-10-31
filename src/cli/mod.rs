@@ -9,6 +9,7 @@ pub mod url_filter;
 
 pub use args::{
     AnnexKind, Args, BrowserAction, ColorPolicy, Command, DisplaySelection, InteractiveMode,
-    OutputFormat, ProgressPolicy, ReportLevel, ReportLintFailOn, RequestMode, WcagLevel,
+    OutputFormat, ProgressPolicy, ReportLevel, ReportLintFailOn, RequestMode, SampleStrategy,
+    WcagLevel,
 };
 pub use config::Config;

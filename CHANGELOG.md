@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Added
 
+- **Batch:** `--sample-strategy first-n|stratified` (default `first-n`) chooses how `--max-pages` picks URLs; `stratified` draws deterministically and round-robin across URL-structure groups (language prefix, first path section, non-HTML extension), so a large section cannot crowd out the rest. `sample.selection` is `stratified` and `sample.strata[]` lists candidates and picks per group; it is still a sample, not a statement about the unaudited pages.
+- **Audit contracts:** `audit_scope.requested_rules` now covers the AX-tree, page and inline rules as well as the shared ones, each with the viewports it runs in (derived from the rule registrations, level and `[rules]` filter); `audit_scope.wcag_level` records the level. Validation rejects a missing outcome per viewport (`requested_rule_outcome`), a doubled one (`rule_outcome_duplicate`) and a rule that ran above the level (`rule_outcome_above_level`). A failed page-rule executor counts as one failed check, not once per concrete rule. A requested HTML content-model check whose collection delivered nothing is now an errored outcome instead of a silent gap. A rule split over two executors (`context/on-input`) keeps one outcome per viewport, and the placeholder "not yet adopted" entry no longer duplicates ids a page rule owns.
 - **Audit contracts:** `audit::support_matrix` states for each opt-in extra check (`--isolate-third-party-impact`, `--check-ssr-content`, `--ai-transparency`, `--dns-check`) what it needs and what each mode (single, batch, cache, replay) does with it; `Args::validate` refuses a combination the run cannot execute, with the reason, instead of silently switching the check off (#788).
 - **Performance:** `performance.score_details.partial` is `true` when not all four core metrics (LCP, FCP, CLS, TBT) were measured (#769).
 - **Batch:** `summary.coverage` and `attempted_url_count` are part of the JSON schema; URLs selected but never started are counted as `not_attempted_urls` and make the batch decision `incomplete_scope` (#768).
@@ -82,6 +84,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
 - **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
 - **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
 - **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.

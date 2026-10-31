@@ -367,6 +367,16 @@ pub struct Args {
     #[arg(long = "exclude-path", value_name = "GLOB")]
     pub exclude_path: Vec<String>,
 
+    /// How `--max-pages` picks URLs from a batch input.
+    ///
+    /// `first-n` takes the first N in source order. `stratified` groups the
+    /// URLs by structure (language prefix, first path section, non-HTML file
+    /// extension) and draws deterministically round-robin across the groups,
+    /// so one large section cannot crowd out the others. Both are samples:
+    /// neither makes a statement about the pages left out.
+    #[arg(long, value_enum, default_value = "first-n", value_name = "STRATEGY")]
+    pub sample_strategy: SampleStrategy,
+
     /// Do not write the per-page screen-reader sidecar JSON
     /// (`*-screen-reader-audit.json`).
     ///
@@ -727,6 +737,18 @@ pub enum ProgressPolicy {
     Never,
 }
 
+/// How `--max-pages` selects URLs from a batch input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[value(rename_all = "kebab-case")]
+pub enum SampleStrategy {
+    /// The first N URLs in source order
+    #[default]
+    FirstN,
+    /// Deterministic draw across structural strata (language, section, extension)
+    Stratified,
+}
+
 /// How the browser should identify itself when making requests
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -911,6 +933,20 @@ impl Args {
                     .to_string(),
             );
         }
+        if self.sample_strategy == SampleStrategy::Stratified {
+            if !is_batch {
+                return Err(
+                    "--sample-strategy stratified needs a batch input: --sitemap, --url-file or --crawl"
+                        .to_string(),
+                );
+            }
+            if self.max_pages == 0 {
+                return Err(
+                    "--sample-strategy stratified needs --max-pages as the sample budget"
+                        .to_string(),
+                );
+            }
+        }
         for pattern in self.include_path.iter().chain(&self.exclude_path) {
             if !(pattern.starts_with('/') || pattern.starts_with('*')) {
                 return Err(format!(
@@ -1081,6 +1117,7 @@ mod tests {
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
+            sample_strategy: SampleStrategy::FirstN,
             no_screen_reader_report: false,
             html_conform: false,
             technician: false,
@@ -1248,6 +1285,20 @@ mod tests {
         args.output = Some(PathBuf::from("reports/geo.json"));
         assert!(args.validate().unwrap_err().contains("--display all"));
         args.output = Some(PathBuf::from("reports/geo-tech"));
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn stratified_sampling_needs_batch_input_and_budget() {
+        let mut args = test_args(Some("https://example.com"));
+        args.sample_strategy = SampleStrategy::Stratified;
+        assert!(args.validate().unwrap_err().contains("batch input"));
+
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        args.sample_strategy = SampleStrategy::Stratified;
+        assert!(args.validate().unwrap_err().contains("--max-pages"));
+        args.max_pages = 20;
         assert!(args.validate().is_ok());
     }
 

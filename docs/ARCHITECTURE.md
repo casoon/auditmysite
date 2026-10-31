@@ -64,7 +64,8 @@ src/
 │
 ├── wcag/                # WCAG rule engine
 │   ├── mod.rs
-│   ├── engine.rs        # Rule orchestration
+│   ├── engine.rs        # Rule orchestration; `TREE_RULES` is the AX-tree rule registration
+│   ├── expectation.rs   # Expected rule outcomes per level/filter/viewport, derived from the registrations; counting unit of checks (#778)
 │   ├── types.rs         # Violation, Severity, WcagResults
 │   ├── coverage.rs      # WCAG success-criterion coverage accounting
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation

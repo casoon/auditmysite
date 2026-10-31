@@ -93,6 +93,13 @@ impl From<super::collection::CollectionRecord> for SubcheckRun {
     }
 }
 
+/// A rule the run is expected to account for, and where (#778).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestedRule {
+    pub rule_id: String,
+    pub viewports: Vec<String>,
+}
+
 /// Requested audit scope, independent of whether the measurements succeeded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditScope {
@@ -103,11 +110,16 @@ pub struct AuditScope {
     /// Each carries a subcheck run in its module's `module_runs` (#788).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_subchecks: Vec<String>,
-    /// Shared rules this run is expected to account for with an outcome — run,
-    /// disabled by filter or level, or errored — in at least one viewport
-    /// (#778). Empty for reports from before the field.
+    /// Rules this run must account for with exactly one outcome per listed
+    /// viewport -- ran, or not run with a reason (#778). Derived from the
+    /// rule registrations (`wcag::expectation`). Empty for reports from
+    /// before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub requested_rules: Vec<String>,
+    pub requested_rules: Vec<RequestedRule>,
+    /// WCAG level the run was configured for (`A`, `AA`, `AAA`); empty for
+    /// reports from before the field. A rule above it must not have run.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub wcag_level: String,
     pub full_audit: bool,
     /// Measurement profile: under which session policy the pages ran and
     /// which journeys may change page or account state (#787).
@@ -849,13 +861,29 @@ pub struct SampleMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_limit: Option<usize>,
     /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order),
-    /// `"all"` when every discovered URL was audited, or `"path_filter"` when
+    /// `"all"` when every discovered URL was audited, `"path_filter"` when
     /// `--include-path`/`--exclude-path` narrowed the set (then possibly also
-    /// capped by `sample_limit`, in discovery order).
+    /// capped by `sample_limit`, in discovery order), or `"stratified"` when
+    /// `--sample-strategy stratified` drew across structural strata (after any
+    /// path filter), listed in `strata`.
     pub selection: String,
     /// True when fewer URLs were audited than discovered — i.e. this is a sample,
     /// not full coverage.
     pub is_sample: bool,
+    /// Strata of a `"stratified"` selection with candidates and picks per
+    /// stratum; empty for every other method.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strata: Vec<SampleStratum>,
+}
+
+/// One structural stratum of a stratified selection (`[lang/]section[.ext]`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SampleStratum {
+    pub key: String,
+    /// Candidate URLs in this stratum, before the budget was applied.
+    pub discovered: usize,
+    /// URLs the draw took from this stratum (0 when the budget did not reach it).
+    pub selected: usize,
 }
 
 /// Sitemap URL validation result for sitemap-driven batch reports.
@@ -1966,6 +1994,7 @@ mod tests {
                 sample_limit: None,
                 selection: "all".to_string(),
                 is_sample: false,
+                strata: vec![],
             });
         let c = &batch.summary.coverage;
         assert_eq!((c.selected, c.attempted, c.succeeded), (3, 1, 1));
@@ -1992,6 +2021,7 @@ mod tests {
                 sample_limit: Some(1),
                 selection: "first_n".to_string(),
                 is_sample: true,
+                strata: vec![],
             });
         let c = &batch.summary.coverage;
         assert_eq!(

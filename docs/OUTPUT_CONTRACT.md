@@ -119,6 +119,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 
 ## Measurement Profile
 
+- `audit_scope.requested_rules` lists every rule the run must account for — shared, AX-tree and page rules (executor and concrete ids) and the inline rules (reflow, HTML content model; mobile only) — with the viewports it runs in, derived from the rule registrations, the `wcag_level` and the `[rules]` filter. Each listed `(rule_id, viewport)` needs exactly one `rule_outcomes` entry; a missing one fails validation as `requested_rule_outcome`, a second one as `rule_outcome_duplicate`, and a rule that ran above `audit_scope.wcag_level` as `rule_outcome_above_level`. Frames add no outcomes of their own: their results fold into the page's entry for the rule. Error and capability counters count a page-rule executor and its concrete rules once.
 - `audit_scope.measurement_profile` states how the pages were measured: `version` (meaning of the profile), `session_policy` (`isolated` or `shared`; `unknown` for reports from before the field), `read_only`, and `state_changing_journeys` (`form_error_submit`, `add_to_cart`, `quantity_stepper` when `--interactive full` permits them).
 - `state_id` and `storage_state` (`sha256`, `cookies`, `origins`) name a declared browser state (`--storage-state`, `--state-id`). Values never enter the report. A different state file is a different `sha256` and so another measurement.
 - A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
@@ -130,10 +131,11 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `total_discovered` — candidate URLs found before any limit was applied.
   - `audited` — URLs actually audited.
   - `sample_limit` — the `--max-pages` cap, when one applied (omitted otherwise).
-  - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order).
+  - `selection` — `"first_n"` (discovery order), `"all"`, or `"path_filter"` (narrowed by `--include-path`/`--exclude-path`, then capped by `sample_limit` in discovery order), or `"stratified"` (`--sample-strategy stratified`: after any path filter, a deterministic round-robin draw across structural strata, at most `sample_limit` URLs).
+  - `strata` — only with `"stratified"`: per stratum (`[lang/]section[.ext]`, e.g. `de/blog`, `shop`, `/`, `docs.pdf`) the candidates (`discovered`) and the picks (`selected`; 0 when the budget did not reach the stratum). The strata come from the URL structure alone, not from page type or process state; a stratified sample is still only a sample.
   - `is_sample` — `true` when fewer URLs were audited than discovered.
 - The block is omitted when no sampling metadata was recorded (e.g. cached single reports).
-- A selection (`first_n`, `path_filter`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages. URLs selected but never started (`coverage.selected > coverage.attempted`) make the batch incomplete (`not_attempted_urls` in `audit_quality.reasons`, `incomplete_scope` in the decision).
+- A selection (`first_n`, `path_filter`, `stratified`) is no evidence of representativeness. Batch statements hold for the successfully audited pages (`summary.coverage.succeeded`); failed and blocked URLs are counted in `summary.coverage`, never in the averages. URLs selected but never started (`coverage.selected > coverage.attempted`) make the batch incomplete (`not_attempted_urls` in `audit_quality.reasons`, `incomplete_scope` in the decision).
 - `summary.score_spread` reports `min`, `median`, `max`, `std_dev` and the `worst_pages` (up to 5, worst first) next to `average_score`.
 - `summary.selection_profile` counts the audited pages by canonical `page_types` and primary-subtag `languages`; pages without the signal are counted in `unclassified` / `language_unknown`.
 

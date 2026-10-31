@@ -469,6 +469,7 @@ fn test_batch_envelope_includes_sample_metadata() {
         sample_limit: Some(20),
         selection: "first_n".to_string(),
         is_sample: true,
+        strata: vec![],
     });
 
     let json: serde_json::Value =
