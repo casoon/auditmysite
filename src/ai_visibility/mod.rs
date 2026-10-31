@@ -1117,7 +1117,7 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     };
 
     citation::CitationInput {
-        has_https: report.url.starts_with("https://"),
+        has_https: report.document_is_https(),
         has_author_schema,
         has_org_schema,
         has_article_schema,
@@ -1436,6 +1436,23 @@ mod tests {
             interactive_findings: Vec::new(),
             screen_reader_audit: None,
         }
+    }
+
+    /// An `http://` entry that redirects to `https://` is served over TLS;
+    /// an `https://` entry that ends on `http://` is not. The requested URL
+    /// says neither (#775).
+    #[test]
+    fn citation_transport_follows_the_served_document() {
+        let with = |requested: &str, served: Option<&str>| {
+            let mut report = minimal_report();
+            report.url = requested.into();
+            report.accessibility.execution.navigation.final_url = served.map(str::to_string);
+            build_citation_input(&report).has_https
+        };
+        assert!(with("http://example.com/", Some("https://example.com/")));
+        assert!(!with("https://example.com/", Some("http://example.com/")));
+        assert!(with("https://example.com/", None));
+        assert!(!with("http://example.com/", None));
     }
 
     #[test]

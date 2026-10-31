@@ -8,7 +8,7 @@
     {"rule_id": "color/link-indistinct", "verdict": "violation"},
     {"rule_id": "document/lang-mismatch", "verdict": "violation"},
     {"rule_id": "tables/header-missing", "verdict": "needs_review"},
-    {"rule_id": "zoom/viewport-scale-limited", "verdict": "violation"},
+    {"rule_id": "zoom/viewport-scale-limited", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},

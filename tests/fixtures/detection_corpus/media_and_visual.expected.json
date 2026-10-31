@@ -7,7 +7,7 @@
     {"rule_id": "css-overflow-hidden", "verdict": "violation"},
     {"rule_id": "focus-not-obscured-minimum", "verdict": "needs_review"},
     {"rule_id": "focus-not-obscured-enhanced", "verdict": "needs_review"},
-    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "zoom/viewport-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},

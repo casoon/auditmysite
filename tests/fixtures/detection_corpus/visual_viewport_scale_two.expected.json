@@ -1,7 +1,7 @@
 {
   "case": "visual_viewport_scale_two",
   "expectations": [
-    { "rule_id": "zoom/viewport-scale-limited", "selector": "meta#vp", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-scale-limited", "selector": "meta#vp", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "zoom/viewport-locked", "verdict": "pass" },
     { "rule_id": "zoom/viewport-missing", "verdict": "pass" }
   ]

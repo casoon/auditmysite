@@ -36,8 +36,9 @@ pub mod validation;
 pub mod verdict;
 
 pub use artifacts::{
-    cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, save_artifacts,
-    to_audit_report, AuditArtifacts, FetchArtifact, SnapshotArtifact,
+    cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, replay,
+    replay_report, save_artifacts, to_audit_report, AuditArtifacts, DocumentIdentity,
+    FetchArtifact, ReplayError, SnapshotArtifact, SnapshotVersions,
 };
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
@@ -58,11 +59,11 @@ pub use report::{
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
     ExecutionStatus, ExperienceSection, MeasurementProfile, ModuleRun, NavigationSnapshot,
-    PageScreenshots, PerformanceResults, RedirectChain, RequestedRule, RobotsSitemapConflict,
-    RunContext, SampleMetadata, SampleStratum, ScreenshotStatus, SitemapDiagnostics,
-    SitemapHttpIssue, StorageStateRef, SubcheckRun, ThrottledPerfResult, ViewportAuditData,
-    ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
-    MEASUREMENT_PROFILE_VERSION,
+    PageScreenshots, PerformanceResults, RedirectChain, RedirectHop, RequestedRule,
+    RobotsSitemapConflict, RunContext, SampleMetadata, SampleStratum, ScreenshotStatus,
+    SitemapDiagnostics, SitemapHttpIssue, StorageStateRef, SubcheckRun, ThrottledPerfResult,
+    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
+    ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

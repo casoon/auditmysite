@@ -13,6 +13,10 @@ mod throttled;
 use std::collections::BTreeSet;
 use std::time::Instant;
 
+use chromiumoxide::cdp::browser_protocol::network::{
+    DisableParams as NetworkDisableParams, EnableParams as NetworkEnableParams,
+    EventRequestWillBeSent, ResourceType,
+};
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::cdp::browser_protocol::security::{
     EnableParams as SecurityEnableParams, EventVisibleSecurityStateChanged,
@@ -92,6 +96,38 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
         })?;
     settle(page).await?;
     Ok(())
+}
+
+/// Redirects the main document went through, read from the network events of
+/// the desktop navigation (#775). The first `Document` request is the
+/// navigation itself; each later event of the same request carrying a
+/// `redirectResponse` is one hop, and that response's URL is the redirecting
+/// side. Frames load their own `Document` requests under other ids and are
+/// ignored.
+async fn drain_redirect_chain(
+    events: &mut EventStream<EventRequestWillBeSent>,
+) -> Vec<crate::audit::RedirectHop> {
+    use futures::StreamExt;
+    let mut navigation = None;
+    let mut chain = Vec::new();
+    while let Ok(Some(event)) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), events.next()).await
+    {
+        if event.r#type != Some(ResourceType::Document) {
+            continue;
+        }
+        let id = navigation.get_or_insert_with(|| event.request_id.clone());
+        if *id != event.request_id {
+            continue;
+        }
+        if let Some(response) = &event.redirect_response {
+            chain.push(crate::audit::RedirectHop {
+                url: response.url.clone(),
+                status: u16::try_from(response.status).unwrap_or(0),
+            });
+        }
+    }
+    chain
 }
 
 async fn collect_certificate_details(
@@ -436,7 +472,7 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 24;
+        const CACHE_FMT: u8 = 25;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -879,7 +915,20 @@ pub async fn audit_page(
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
     prepare_pass_collection(page, "desktop", config).await;
+    let mut navigation_events = page.event_listener::<EventRequestWillBeSent>().await.ok();
+    if navigation_events.is_some() {
+        let _ = page.execute(NetworkEnableParams::default()).await;
+    }
     let desktop_refresh = browser.navigate(page, url).await?;
+    let redirect_chain = match navigation_events.as_mut() {
+        Some(events) => {
+            let chain = drain_redirect_chain(events).await;
+            let _ = page.execute(NetworkDisableParams::default()).await;
+            chain
+        }
+        None => Vec::new(),
+    };
+    drop(navigation_events);
     if let Some(sec) = &mut security {
         let https = sec.fetch.final_url.starts_with("https://");
         let details = if security_listener_failed {
@@ -1009,6 +1058,10 @@ pub async fn audit_page(
 
     // ── Merge ─────────────────────────────────────────────────────────────────
     drop_single_viewport_redundant_roles(&mut desktop_wcag, &mut mobile_wcag);
+    // Best practice without a criterion is a hint, not a WCAG failure (#779);
+    // after the pairing above, which still reads it as a violation.
+    wcag::shared::demote_best_practice(&mut desktop_wcag);
+    wcag::shared::demote_best_practice(&mut mobile_wcag);
     let mut merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
 
     // Page-level rules run once, on the mobile pass, but describe the page in
@@ -1214,6 +1267,7 @@ pub async fn audit_page(
         source: "live".to_string(),
     };
     report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    report.accessibility.execution.navigation.redirect_chain = redirect_chain;
     // The security headers come from a separate probe: they describe the
     // audited page only if the probe ended on the document the browser
     // loaded — same scheme and host after redirects (#775).
@@ -1486,6 +1540,7 @@ async fn collect_navigation_snapshot(
             .map(str::to_string),
         stability: Vec::new(),
         meta_refresh: Vec::new(),
+        redirect_chain: Vec::new(),
     }
 }
 
@@ -2021,7 +2076,12 @@ pub(crate) fn persist_artifacts(
             .as_ref()
             .map(|sr| sr.excluded_node_ids.clone())
             .unwrap_or_default(),
-    };
+        document: None,
+        collected: None,
+        locale: None,
+        versions: None,
+    }
+    .with_collected(url, &config.lang, report);
     let hash = content_hash(&snapshot_artifact);
     let normalized = normalize(report).normalized;
     let wcag_level = report.wcag_level.to_string();
@@ -2033,11 +2093,6 @@ pub(crate) fn persist_artifacts(
         audit_signature: config.audit_signature(),
         fingerprint_version: crate::audit::artifacts::FINGERPRINT_VERSION,
     };
-    // Persist the full report so cache hits render every module faithfully.
-    // Screenshots reference temp files that won't exist on reload, so strip them.
-    let mut report_for_cache = report.clone();
-    report_for_cache.page_screenshots = None;
-
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
             requested_url: url.to_string(),
@@ -2058,7 +2113,7 @@ pub(crate) fn persist_artifacts(
         },
         snapshot: snapshot_artifact,
         audit: normalized,
-        report: Some(report_for_cache),
+        report: None,
         content_hash: hash,
         meta,
     };

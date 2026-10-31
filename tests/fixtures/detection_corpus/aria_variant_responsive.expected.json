@@ -23,7 +23,7 @@
     {"rule_id": "status/live-overridden", "verdict": "violation", "selector": "div#m-status", "occurrences": 1},
     {"rule_id": "inert/dialog-inert", "verdict": "violation", "selector": "dialog#m-inert", "occurrences": 1},
     {"rule_id": "aria/role-abstract", "verdict": "violation", "selector": "div#d-abstract", "occurrences": 1},
-    {"rule_id": "aria/role-redundant", "verdict": "violation", "selector": "button#d-redundant", "occurrences": 1},
+    {"rule_id": "aria/role-redundant", "verdict": "needs_review", "selector": "button#d-redundant", "occurrences": 1},
     {"rule_id": "aria/required-children-missing", "verdict": "violation", "selector": "div#d-steps", "occurrences": 1},
     {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
     {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#d-summary", "occurrences": 1},

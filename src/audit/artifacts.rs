@@ -100,6 +100,266 @@ pub struct SnapshotArtifact {
     /// hit, so the exclusion has to be reapplied from here (#708).
     #[serde(default, skip_serializing_if = "std::collections::BTreeSet::is_empty")]
     pub screen_reader_excluded_node_ids: std::collections::BTreeSet<String>,
+    /// Identity of the audited document: what was asked for, what answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<DocumentIdentity>,
+    /// Everything the run collected, as the evaluation consumes it: module
+    /// data and subchecks, rule outcomes, execution states, the scope with
+    /// its measurement profile, and the run context. Screenshots are not
+    /// part of it. This is evidence, not presentation (#790): replaying it
+    /// needs no browser and no network. `None` marks a snapshot that cannot
+    /// be replayed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collected: Option<AuditReport>,
+    /// Language the run derived its screen-reader texts in; the replay
+    /// rebuilds that layer from `ax_tree` the same way.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
+    /// Versions of everything that gave the collected data its meaning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub versions: Option<SnapshotVersions>,
+}
+
+/// Identity of the audited document, including where redirects led.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentIdentity {
+    pub requested_url: String,
+    pub final_url: String,
+    pub status_code: Option<u16>,
+    pub redirect_count: u32,
+}
+
+/// Version of the snapshot's shape. Bump it whenever a change to
+/// `AuditReport` (or what it embeds) would let an old snapshot deserialize
+/// without error yet mean something else.
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+
+/// Version of the evaluation applied to collected data: normalization,
+/// scoring weights, taxonomy and decision derivation. Bump it with any change
+/// that moves a score, finding or verdict for unchanged input.
+pub const EVALUATION_VERSION: u32 = 1;
+
+/// The versions under which a snapshot was written. A snapshot is replayed
+/// only when every one equals the current value: another version is another
+/// contract, never silently the current semantics.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnapshotVersions {
+    pub snapshot_schema: u32,
+    pub fingerprint: u32,
+    pub collection_contract: u32,
+    pub measurement_profile: u32,
+    pub evaluation: u32,
+    pub decision_contract: String,
+    /// Digest of the shared rule catalogue (ids, criteria, levels).
+    pub rule_set: String,
+}
+
+impl SnapshotVersions {
+    pub fn current() -> Self {
+        Self {
+            snapshot_schema: SNAPSHOT_SCHEMA_VERSION,
+            fingerprint: FINGERPRINT_VERSION,
+            collection_contract: crate::audit::collection::COLLECTION_CONTRACT_VERSION,
+            measurement_profile: crate::audit::report::MEASUREMENT_PROFILE_VERSION,
+            evaluation: EVALUATION_VERSION,
+            decision_contract: crate::audit::verdict::DECISION_CONTRACT.to_string(),
+            rule_set: rule_set_digest(),
+        }
+    }
+
+    /// Fields that differ from the current versions, as `(name, stored, current)`.
+    fn mismatches(&self) -> Vec<VersionMismatch> {
+        let now = Self::current();
+        let mut out = Vec::new();
+        let mut check = |field: &'static str, stored: String, current: String| {
+            if stored != current {
+                out.push(VersionMismatch {
+                    field,
+                    stored,
+                    current,
+                });
+            }
+        };
+        check(
+            "snapshot_schema",
+            self.snapshot_schema.to_string(),
+            now.snapshot_schema.to_string(),
+        );
+        check(
+            "fingerprint",
+            self.fingerprint.to_string(),
+            now.fingerprint.to_string(),
+        );
+        check(
+            "collection_contract",
+            self.collection_contract.to_string(),
+            now.collection_contract.to_string(),
+        );
+        check(
+            "measurement_profile",
+            self.measurement_profile.to_string(),
+            now.measurement_profile.to_string(),
+        );
+        check(
+            "evaluation",
+            self.evaluation.to_string(),
+            now.evaluation.to_string(),
+        );
+        check(
+            "decision_contract",
+            self.decision_contract.clone(),
+            now.decision_contract,
+        );
+        check("rule_set", self.rule_set.clone(), now.rule_set);
+        out
+    }
+}
+
+fn rule_set_digest() -> String {
+    let mut input = String::new();
+    for rule in crate::wcag::shared::SHARED_RULES {
+        input.push_str(&format!(
+            "{}|{}|{:?}\n",
+            rule.id, rule.criterion, rule.level
+        ));
+    }
+    format!("{:016x}", fnv1a(input.as_bytes()))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VersionMismatch {
+    pub field: &'static str,
+    pub stored: String,
+    pub current: String,
+}
+
+/// Why a snapshot cannot be replayed.
+#[derive(Debug, thiserror::Error)]
+pub enum ReplayError {
+    /// Parts the replay needs were not persisted (older snapshot, or a
+    /// reduced one).
+    #[error("snapshot is incomplete: missing {}", .0.join(", "))]
+    Incomplete(Vec<&'static str>),
+    /// Written under other versions than the current ones.
+    #[error("snapshot is incompatible: {}", format_mismatches(.0))]
+    Incompatible(Vec<VersionMismatch>),
+    /// The replayed data contradicts itself.
+    #[error("replayed data violates the report contract: {0}")]
+    Contract(#[from] crate::audit::ReportContractError),
+    /// Serializing the replayed model failed.
+    #[error("replayed report could not be exported: {0}")]
+    Export(String),
+}
+
+fn format_mismatches(mismatches: &[VersionMismatch]) -> String {
+    mismatches
+        .iter()
+        .map(|m| format!("{} {} (current {})", m.field, m.stored, m.current))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+impl SnapshotArtifact {
+    /// Adds what a replay needs beyond the raw captures: the whole collected
+    /// report (without screenshots, whose temp files do not outlive the run),
+    /// the document identity, the run language and the current versions.
+    pub fn with_collected(
+        mut self,
+        requested_url: &str,
+        locale: &str,
+        report: &AuditReport,
+    ) -> Self {
+        let navigation = &report.accessibility.execution.navigation;
+        let mut collected = report.clone();
+        collected.page_screenshots = None;
+        self.document = Some(DocumentIdentity {
+            requested_url: requested_url.to_string(),
+            final_url: navigation
+                .final_url
+                .clone()
+                .unwrap_or_else(|| report.url.clone()),
+            status_code: navigation.main_document_status,
+            redirect_count: navigation.redirect_count,
+        });
+        self.collected = Some(collected);
+        self.locale = Some(locale.to_string());
+        self.versions = Some(SnapshotVersions::current());
+        self
+    }
+
+    /// Whether this snapshot can be evaluated again without a browser or
+    /// network, and under the current semantics.
+    pub fn replayability(&self) -> std::result::Result<(), ReplayError> {
+        let mut missing = Vec::new();
+        if self.collected.is_none() {
+            missing.push("collected");
+        }
+        if self.versions.is_none() {
+            missing.push("versions");
+        }
+        match &self.document {
+            Some(doc) if !doc.requested_url.is_empty() && !doc.final_url.is_empty() => {}
+            _ => missing.push("document"),
+        }
+        if self.locale.is_none() {
+            missing.push("locale");
+        }
+        if !missing.is_empty() {
+            return Err(ReplayError::Incomplete(missing));
+        }
+        let mut mismatches = self
+            .versions
+            .as_ref()
+            .map(SnapshotVersions::mismatches)
+            .unwrap_or_default();
+        if let Some(collected) = &self.collected {
+            let profile = collected
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .version;
+            if profile != crate::audit::report::MEASUREMENT_PROFILE_VERSION {
+                mismatches.push(VersionMismatch {
+                    field: "collected.measurement_profile",
+                    stored: profile.to_string(),
+                    current: crate::audit::report::MEASUREMENT_PROFILE_VERSION.to_string(),
+                });
+            }
+        }
+        if mismatches.is_empty() {
+            Ok(())
+        } else {
+            Err(ReplayError::Incompatible(mismatches))
+        }
+    }
+}
+
+/// The report a replay evaluates: the collected data with the in-memory
+/// layers rebuilt from the persisted tree. The provenance says `replay`.
+pub fn replay_report(snapshot: &SnapshotArtifact) -> std::result::Result<AuditReport, ReplayError> {
+    snapshot.replayability()?;
+    let mut report = snapshot
+        .collected
+        .clone()
+        .ok_or(ReplayError::Incomplete(vec!["collected"]))?;
+    report.accessibility.execution.environment.source = "replay".to_string();
+    report.screen_reader_audit = Some(rebuild_screen_reader(
+        &report.url,
+        report.timestamp,
+        snapshot,
+        snapshot.locale.as_deref().unwrap_or("en"),
+        report.patterns.as_ref(),
+    ));
+    Ok(report)
+}
+
+/// The canonical model of a snapshot, evaluated without a browser or network
+/// access. Equals the fresh run's model except for the named volatile
+/// metadata (`timestamp`, `duration_ms`, `execution.environment.source`).
+pub fn replay(snapshot: &SnapshotArtifact) -> std::result::Result<NormalizedReport, ReplayError> {
+    let report = replay_report(snapshot)?;
+    Ok(crate::audit::normalize_checked(&report)?.normalized)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,7 +381,12 @@ pub struct AuditArtifacts {
 
 pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -> Result<PathBuf> {
     let dir = artifact_dir(url)?;
-    fs::create_dir_all(&dir)?;
+    write_entry(&dir, wcag_level, artifacts)?;
+    Ok(dir)
+}
+
+fn write_entry(dir: &std::path::Path, wcag_level: &str, artifacts: &AuditArtifacts) -> Result<()> {
+    fs::create_dir_all(dir)?;
 
     fs::write(
         dir.join("fetch.json"),
@@ -135,8 +400,14 @@ pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -
         dir.join("audit.json"),
         serde_json::to_vec_pretty(&artifacts.audit)?,
     )?;
-    if let Some(ref report) = artifacts.report {
-        fs::write(dir.join("report.json"), serde_json::to_vec_pretty(report)?)?;
+    // The replayable snapshot already holds the whole report; a second copy
+    // would only be able to disagree with it.
+    let report_path = dir.join("report.json");
+    match (&artifacts.report, &artifacts.snapshot.collected) {
+        (Some(report), None) => fs::write(&report_path, serde_json::to_vec_pretty(report)?)?,
+        _ => {
+            let _ = fs::remove_file(&report_path);
+        }
     }
 
     let meta = CacheMeta {
@@ -149,11 +420,14 @@ pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -
     };
     fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
 
-    Ok(dir)
+    Ok(())
 }
 
 pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
-    let dir = artifact_dir(url)?;
+    read_entry(&artifact_dir(url)?)
+}
+
+fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
     if !dir.exists() {
         return Ok(None);
     }
@@ -193,13 +467,22 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
     let fetch: FetchArtifact = load_or_miss!(fetch_path, FetchArtifact);
     let snapshot: SnapshotArtifact = load_or_miss!(snapshot_path, SnapshotArtifact);
     let audit: NormalizedReport = load_or_miss!(audit_path, NormalizedReport);
+    // A snapshot that cannot be replayed under the current semantics is a
+    // miss, never an entry read as if it were current (#790).
+    if let Err(reason) = snapshot.replayability() {
+        warn!(
+            "Cache entry {} is not reusable ({reason}); running fresh",
+            dir.display()
+        );
+        return Ok(None);
+    }
     let content_hash = content_hash(&snapshot);
 
     // Optional full report (absent for legacy entries → to_audit_report fallback).
     let report: Option<AuditReport> = if report_path.exists() {
         Some(load_or_miss!(report_path, AuditReport))
     } else {
-        None
+        snapshot.collected.clone()
     };
 
     // Load meta if present; generate a default for entries written before meta.json existed.
@@ -571,6 +854,10 @@ mod tests {
             security: None,
             mobile: None,
             screen_reader_excluded_node_ids: excluded.iter().map(|id| id.to_string()).collect(),
+            document: None,
+            collected: None,
+            locale: None,
+            versions: None,
         }
     }
 
@@ -608,5 +895,86 @@ mod tests {
             .unwrap()
             .excluded_node_ids
             .contains("field"));
+    }
+
+    fn entry(snapshot: SnapshotArtifact) -> AuditArtifacts {
+        let report = AuditReport::new(
+            "https://example.com".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+        let audit = crate::audit::normalize(&report).normalized;
+        AuditArtifacts {
+            fetch: FetchArtifact {
+                requested_url: "https://example.com".into(),
+                final_url: "https://example.com".into(),
+                status_code: Some(200),
+                fetched_at: Utc::now(),
+                duration_ms: 1,
+            },
+            content_hash: content_hash(&snapshot),
+            snapshot,
+            audit,
+            report: None,
+            meta: meta_with_signature("sig"),
+        }
+    }
+
+    fn replayable_snapshot() -> SnapshotArtifact {
+        let report = AuditReport::new(
+            "https://example.com".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+        let mut report = report;
+        let profile = &mut report.accessibility.execution.scope.measurement_profile;
+        profile.version = crate::audit::report::MEASUREMENT_PROFILE_VERSION;
+        profile.read_only = true;
+        snapshot_with_unlabelled_field(&[]).with_collected("https://example.com", "en", &report)
+    }
+
+    /// A whole report is large; unoptimized test builds move it by value.
+    fn with_big_stack(test: impl FnOnce() + Send + 'static) {
+        std::thread::Builder::new()
+            .stack_size(32 << 20)
+            .spawn(test)
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn a_replayable_entry_is_read_back_with_its_collected_report() {
+        with_big_stack(|| {
+            let dir = tempfile::tempdir().unwrap();
+            write_entry(dir.path(), "AA", &entry(replayable_snapshot())).unwrap();
+            let loaded = read_entry(dir.path()).unwrap().expect("compatible entry");
+            assert!(loaded.report.is_some());
+            assert!(!dir.path().join("report.json").exists());
+            assert!(replay(&loaded.snapshot).is_ok());
+        });
+    }
+
+    #[test]
+    fn an_incompatible_or_legacy_entry_is_a_cache_miss() {
+        with_big_stack(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let mut stale = replayable_snapshot();
+            stale.versions.as_mut().unwrap().evaluation += 1;
+            write_entry(dir.path(), "AA", &entry(stale)).unwrap();
+            assert!(read_entry(dir.path()).unwrap().is_none());
+
+            // Written before the replay fields existed: the same.
+            let legacy = tempfile::tempdir().unwrap();
+            write_entry(
+                legacy.path(),
+                "AA",
+                &entry(snapshot_with_unlabelled_field(&[])),
+            )
+            .unwrap();
+            assert!(read_entry(legacy.path()).unwrap().is_none());
+        });
     }
 }

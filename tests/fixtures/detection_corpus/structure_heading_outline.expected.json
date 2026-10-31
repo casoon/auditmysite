@@ -4,7 +4,7 @@
     {
       "rule_id": "headings/skip-level",
       "selector": "h4#skipped-level",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {

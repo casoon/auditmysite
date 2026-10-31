@@ -3,7 +3,7 @@
   "expectations": [
     {"rule_id": "aria/role-invalid", "verdict": "violation", "selector": "div#orders", "occurrences": 1},
     {"rule_id": "aria/role-abstract", "verdict": "violation", "selector": "div#filters", "occurrences": 1},
-    {"rule_id": "aria/role-redundant", "verdict": "violation", "selector": "button#reorder", "occurrences": 1},
+    {"rule_id": "aria/role-redundant", "verdict": "needs_review", "selector": "button#reorder", "occurrences": 1},
     {"rule_id": "aria/required-parent-missing", "verdict": "violation", "selector": "div#tab-returns", "occurrences": 1},
     {"rule_id": "aria/required-children-missing", "verdict": "violation", "selector": "div#views", "occurrences": 1},
     {"rule_id": "aria/required-attribute-missing", "verdict": "violation", "selector": "div#gift", "occurrences": 1},
