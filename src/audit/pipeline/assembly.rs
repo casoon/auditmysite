@@ -442,13 +442,14 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     requested_modules.sort();
     requested_modules.dedup();
 
-    let mut requested_subchecks = Vec::new();
-    if config.check_isolate_third_party_impact {
-        requested_subchecks.push(crate::performance::third_party::ISOLATION.id.to_string());
-    }
-    if config.check_ssr_content {
-        requested_subchecks.push(crate::content_visibility::ssr_gap::SSR_GAP.id.to_string());
-    }
+    let extra_checks = crate::audit::support_matrix::ExtraCheckRequest {
+        isolate_third_party_impact: config.check_isolate_third_party_impact,
+        check_ssr_content: config.check_ssr_content,
+        ai_transparency: config.check_ai_transparency,
+        dns_check: config.check_dns,
+        ..Default::default()
+    };
+    let requested_subchecks = extra_checks.requested_subchecks();
 
     crate::audit::AuditScope {
         requested_modules,
@@ -493,14 +494,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             .map(|j| j.to_string())
             .collect(),
             state_id: config.state_id.clone(),
-            extra_checks: crate::audit::support_matrix::ExtraCheckRequest {
-                isolate_third_party_impact: config.check_isolate_third_party_impact,
-                check_ssr_content: config.check_ssr_content,
-                ai_transparency: config.check_ai_transparency,
-                dns_check: config.check_dns,
-                ..Default::default()
-            }
-            .requested_flags(),
+            extra_checks: extra_checks.requested_flags(),
             storage_state: config.storage_state.as_ref().map(|state| {
                 crate::audit::StorageStateRef {
                     sha256: state.digest.clone(),
@@ -1309,6 +1303,74 @@ mod tests {
             .rule_outcomes
             .retain(|o| o.rule_id != "image-alt");
         assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn a_requested_subcheck_without_a_record_is_a_gap_once_the_extra_checks_ran() {
+        use crate::audit::collection::Collected;
+        let mut report = report_with_expected_outcomes();
+        report
+            .accessibility
+            .execution
+            .scope
+            .requested_subchecks
+            .push(crate::content_visibility::ssr_gap::SSR_GAP.id.to_string());
+        // Inside `audit_page` the extra-reload record is not due yet ...
+        assert!(crate::audit::validation::normalize_checked_before_extra_checks(&report).is_ok());
+        // ... but the report that leaves the pipeline without it is rejected.
+        assert_eq!(rejected_codes(&report), vec!["requested_subcheck_outcome"]);
+        // A skipped check still leaves its outcome, which satisfies the contract.
+        report.accessibility.execution.module_runs.push(ModuleRun {
+            module: "content_visibility".into(),
+            status: ExecutionStatus::Completed,
+            ..Default::default()
+        });
+        crate::audit::pipeline::record_extra_outcome(
+            &mut report,
+            &crate::content_visibility::ssr_gap::SSR_GAP,
+            Collected::NotApplicable("no_content_visibility_module"),
+        );
+        assert_eq!(rejected_codes(&report), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_batch_keeps_a_page_whose_requested_subcheck_recorded_and_rejects_one_without() {
+        use crate::audit::collection::Collected;
+        let spec = &crate::content_visibility::ssr_gap::SSR_GAP;
+        let page = |recorded: bool| {
+            let mut report = report_with_expected_outcomes();
+            report
+                .accessibility
+                .execution
+                .scope
+                .requested_subchecks
+                .push(spec.id.to_string());
+            report.accessibility.execution.module_runs.push(ModuleRun {
+                module: spec.module.into(),
+                status: ExecutionStatus::Completed,
+                ..Default::default()
+            });
+            if recorded {
+                crate::audit::pipeline::record_extra_outcome(
+                    &mut report,
+                    spec,
+                    Collected::Measured(()),
+                );
+            }
+            report
+        };
+        let batch = |reports| crate::audit::BatchReport::from_reports(reports, Vec::new(), 10);
+        assert!(crate::audit::validate_batch(&batch(vec![page(true), page(true)])).is_ok());
+        let error = crate::audit::validate_batch(&batch(vec![page(true), page(false)]))
+            .expect_err("the second page lost its record");
+        let paths: Vec<_> = error
+            .violations
+            .iter()
+            .filter(|v| v.code == "requested_subcheck_outcome")
+            .map(|v| v.path.as_str())
+            .collect();
+        assert_eq!(paths.len(), 1, "{paths:?}");
+        assert!(paths[0].starts_with("reports[1]."), "{paths:?}");
     }
 
     #[test]

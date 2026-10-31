@@ -86,6 +86,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "quality_qualification",
     "requested_execution",
     "requested_rule_outcome",
+    "requested_subcheck_outcome",
     "rule_findings_preserved",
     "rule_outcome_above_level",
     "rule_outcome_duplicate",
@@ -141,6 +142,18 @@ impl NormalizedReport {
     /// Check domain facts before choosing an output format. A qualified,
     /// partial audit is valid data; contradictory claims are not.
     pub fn validate(&self) -> Result<(), ReportContractError> {
+        self.validate_with(false)
+    }
+
+    /// The check the pipeline runs inside `audit_page`, before the opt-in
+    /// extra-reload checks (third-party isolation, SSR gap) have recorded:
+    /// their outcomes cannot exist yet, so `requested_subcheck_outcome` waits
+    /// for the validation after them (#778).
+    pub(crate) fn validate_before_extra_checks(&self) -> Result<(), ReportContractError> {
+        self.validate_with(true)
+    }
+
+    fn validate_with(&self, extra_checks_pending: bool) -> Result<(), ReportContractError> {
         let mut violations = Vec::new();
         let mut check = |valid: bool, code, path: String, message: String| {
             if !valid {
@@ -473,6 +486,23 @@ impl NormalizedReport {
                 }
             }
         }
+        // Every requested sub-check reports at least one collection (#778).
+        // The extra-reload checks record after `audit_page`; until then the
+        // outcome is not owed yet.
+        if !extra_checks_pending {
+            for requested in &scope.requested_subchecks {
+                check(
+                    self.execution
+                        .module_runs
+                        .iter()
+                        .flat_map(|run| &run.subchecks)
+                        .any(|sub| &sub.subcheck == requested),
+                    "requested_subcheck_outcome",
+                    format!("execution.scope.requested_subchecks[{requested}]"),
+                    "each requested sub-check needs an explicit execution outcome".into(),
+                );
+            }
+        }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement
         // nor feeds the overall score (#777).
@@ -764,6 +794,16 @@ impl NormalizedReport {
 pub fn normalize_checked(report: &AuditReport) -> Result<AuditContext<'_>, ReportContractError> {
     let context = super::normalized::normalize(report);
     context.normalized.validate()?;
+    Ok(context)
+}
+
+/// [`normalize_checked`] for the report as `audit_page` returns it, before the
+/// opt-in extra-reload checks recorded (#778).
+pub(crate) fn normalize_checked_before_extra_checks(
+    report: &AuditReport,
+) -> Result<AuditContext<'_>, ReportContractError> {
+    let context = super::normalized::normalize(report);
+    context.normalized.validate_before_extra_checks()?;
     Ok(context)
 }
 

@@ -1500,7 +1500,7 @@ pub async fn audit_page(
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
     update_audit_quality(&mut report);
-    super::normalize_checked(&report)?;
+    super::validation::normalize_checked_before_extra_checks(&report)?;
 
     // Persistence is deferred to the caller: the single-page path applies the
     // canonical (LhMobile) performance pass *after* audit_page returns, so
@@ -2488,6 +2488,11 @@ mod tests {
             assert_eq!(scope(&argv), expected, "{target:?}");
         }
         assert!(scope(&["auditmysite", "--url-file", "urls.txt", "--full"]).is_empty());
+        // The module-level checks owe their collections too (#778).
+        assert_eq!(
+            scope(&["auditmysite", "--url-file", "urls.txt", "--dns-check"]),
+            ["caa", "dnskey", "mx", "spf"].map(|id| format!("network_dns.{id}"))
+        );
         // SEO off: the SSR check has no module to attach to and is not requested.
         // (`Args::validate` rejects this combination before it gets here; the
         // config stays defensive — see the support-matrix test below.)
@@ -2597,7 +2602,15 @@ mod tests {
     #[test]
     fn matrix_subcheck_ids_are_the_collector_ids() {
         use crate::audit::support_matrix::{ExtraCheck, MATRIX};
-        let id = |check| MATRIX.iter().find(|s| s.check == check).unwrap().subcheck;
+        let id = |check| {
+            MATRIX
+                .iter()
+                .find(|s| s.check == check)
+                .unwrap()
+                .subchecks
+                .first()
+                .copied()
+        };
         assert_eq!(
             id(ExtraCheck::ThirdPartyIsolation),
             Some(crate::performance::third_party::ISOLATION.id)

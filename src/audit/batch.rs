@@ -881,6 +881,8 @@ async fn audit_url_with_pool(
                 .await;
                 crate::audit::pipeline::refresh_audit_quality(&mut report);
             }
+            // The extra-check outcomes exist now: the whole contract applies.
+            crate::audit::normalize_checked(&report)?;
             // Batch applies no canonical-performance pass, so the report is
             // final here — persist it (audit_page no longer persists itself).
             if config.persist_artifacts {
