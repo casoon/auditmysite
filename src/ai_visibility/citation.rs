@@ -194,9 +194,9 @@ pub(crate) fn detail_publisher_identity(v: &AiSignalValues, en: bool) -> String 
 pub(crate) fn detail_article_structure(present: bool, en: bool) -> String {
     if present {
         if en {
-            "Article/BlogPosting schema — marked as citable content".into()
+            "Article/BlogPosting schema — marked as quotable structure (unvalidated)".into()
         } else {
-            "Article/BlogPosting-Schema — als zitierfähiger Inhalt markiert".into()
+            "Article/BlogPosting-Schema — als zitierfähige Struktur markiert (ungeprüft)".into()
         }
     } else if en {
         "No article schema — content type not machine-readable".into()
@@ -239,12 +239,12 @@ pub(crate) fn detail_snippet_quality(v: &AiSignalValues, en: bool) -> String {
     if ratio >= 0.4 && has_lists {
         if en {
             format!(
-                "{:.0}% short paragraphs + lists — many citable text blocks",
+                "{:.0}% short paragraphs + lists — many short, quotable text blocks (unvalidated)",
                 ratio * 100.0
             )
         } else {
             format!(
-                "{:.0}% kurze Absätze + Listen — viele zitierfähige Textblöcke",
+                "{:.0}% kurze Absätze + Listen — viele kurze, zitierbare Textblöcke (ungeprüft)",
                 ratio * 100.0
             )
         }
@@ -262,9 +262,9 @@ pub(crate) fn detail_snippet_quality(v: &AiSignalValues, en: bool) -> String {
         }
     } else if has_lists {
         if en {
-            "Lists present — citable bullet points".into()
+            "Lists present — bullet points that can be quoted (unvalidated)".into()
         } else {
-            "Listen vorhanden — zitierfähige Aufzählungen".into()
+            "Listen vorhanden — zitierbare Aufzählungen (ungeprüft)".into()
         }
     } else if en {
         "Few short paragraphs, no lists — low snippet suitability".into()

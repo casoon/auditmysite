@@ -1320,7 +1320,7 @@ fn test_ai_json_scores_match_normalized_scores() {
     let report = make_full_report();
     let normalized = normalize(&report);
     let parsed: serde_json::Value =
-        serde_json::from_str(&format_ai_json(&report)).expect("AI JSON must parse");
+        serde_json::from_str(&format_ai_json(&report).unwrap()).expect("AI JSON must parse");
 
     assert_eq!(
         parsed["score"].as_u64(),

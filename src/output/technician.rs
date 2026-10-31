@@ -119,7 +119,14 @@ pub struct FindingRow {
 
 /// Every finding occurrence of one audited page, in a stable order:
 /// WCAG violations, journey findings, SEO heading issues, HTML conformance.
-pub fn finding_rows(report: &AuditReport, normalized: &NormalizedReport) -> Vec<FindingRow> {
+///
+/// The rows are derived from `normalized`, so a model that fails the report
+/// contract is refused with its violation codes and data paths (#790).
+pub fn finding_rows(
+    report: &AuditReport,
+    normalized: &NormalizedReport,
+) -> Result<Vec<FindingRow>, crate::audit::ReportContractError> {
+    normalized.validate()?;
     let url = &report.url;
     let mut rows = Vec::new();
 
@@ -199,7 +206,7 @@ pub fn finding_rows(report: &AuditReport, normalized: &NormalizedReport) -> Vec<
         }
     }
 
-    rows
+    Ok(rows)
 }
 
 /// A page report's contribution to the index, computed from its rows.
@@ -322,7 +329,7 @@ mod tests {
 
     fn ok(report: &AuditReport, file: &str) -> (String, IndexEntry, Vec<FindingRow>) {
         let normalized = normalize(report).normalized;
-        let rows = finding_rows(report, &normalized);
+        let rows = finding_rows(report, &normalized).unwrap();
         let entry = ok_entry(report, &normalized, &rows, file.to_string());
         (report.url.clone(), entry, rows)
     }
@@ -334,7 +341,7 @@ mod tests {
             .collect();
         let report = report("https://example.com/a", violations);
         let normalized = normalize(&report).normalized;
-        let rows = finding_rows(&report, &normalized);
+        let rows = finding_rows(&report, &normalized).unwrap();
 
         assert_eq!(rows.len(), 8, "one row per occurrence, no cap");
         let finding = normalized
@@ -415,7 +422,7 @@ mod tests {
             raw_html: None,
         });
         let normalized = normalize(&report).normalized;
-        assert!(finding_rows(&report, &normalized).is_empty());
+        assert!(finding_rows(&report, &normalized).unwrap().is_empty());
     }
 
     #[test]
@@ -498,7 +505,7 @@ mod tests {
             vec![violation("1.1.1", "img.a"), violation("1.1.1", "img.b")],
         );
         let normalized = normalize(&report).normalized;
-        let rows = finding_rows(&report, &normalized);
+        let rows = finding_rows(&report, &normalized).unwrap();
         let text = to_jsonl(&rows).unwrap();
         assert!(text.ends_with('\n'));
         let lines: Vec<&str> = text.lines().collect();
@@ -518,7 +525,7 @@ mod tests {
     fn rows_are_canonical_english() {
         let report = report("https://example.com/a", vec![violation("1.1.1", "img.a")]);
         let normalized = normalize(&report).normalized;
-        let text = to_jsonl(&finding_rows(&report, &normalized)).unwrap();
+        let text = to_jsonl(&finding_rows(&report, &normalized).unwrap()).unwrap();
         assert!(
             !text.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
             "{text}"

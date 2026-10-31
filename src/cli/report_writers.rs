@@ -46,7 +46,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
             }
         }
         OutputFormat::Table => {
-            let output = auditmysite::output::terminal::render_single_report(report, args);
+            let output = auditmysite::output::terminal::render_single_report(report, args)?;
             output_text(&output, &args.output, "Table", args.quiet)?;
         }
         OutputFormat::Pdf => {
@@ -57,7 +57,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
                         "{}",
                         auditmysite::output::terminal::render_single_report_for(
                             report, args, false
-                        )
+                        )?
                     );
                 }
                 let path = args.output.clone().unwrap_or_else(|| {
@@ -113,7 +113,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
             }
         }
         OutputFormat::Ai => {
-            let output = format_ai_json(report);
+            let output = format_ai_json(report)?;
             output_text(&output, &args.output, "AI JSON", args.quiet)?;
         }
         OutputFormat::Summary => {
@@ -174,7 +174,7 @@ pub(crate) fn output_batch_report(
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
-            let output = auditmysite::output::terminal::render_batch_report(batch_report, args);
+            let output = auditmysite::output::terminal::render_batch_report(batch_report, args)?;
             output_text(&output, &args.output, "Table batch", args.quiet)?;
         }
         OutputFormat::Pdf => {
@@ -222,7 +222,11 @@ pub(crate) fn output_batch_report(
         }
         OutputFormat::Ai => {
             // For batch mode, emit one AI JSON document per URL.
-            let outputs: Vec<String> = batch_report.reports.iter().map(format_ai_json).collect();
+            let outputs = batch_report
+                .reports
+                .iter()
+                .map(format_ai_json)
+                .collect::<std::result::Result<Vec<String>, _>>()?;
             let combined = format!("[\n{}\n]", outputs.join(",\n"));
             output_text(&combined, &args.output, "AI JSON batch", args.quiet)?;
         }
@@ -291,7 +295,7 @@ pub(crate) fn output_batch_as_single_reports(
 
         if with_aggregates {
             let normalized = normalize_checked(report)?.normalized;
-            let page_rows = technician::finding_rows(report, &normalized);
+            let page_rows = technician::finding_rows(report, &normalized)?;
             let file = path
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())

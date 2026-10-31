@@ -6,8 +6,7 @@
 
 use serde::Serialize;
 
-use crate::audit::normalized::normalize;
-use crate::audit::AuditReport;
+use crate::audit::{normalize_checked, AuditReport, ReportContractError};
 
 /// Impact sort order — lower number = higher priority.
 fn impact_order(impact: &str) -> u8 {
@@ -70,9 +69,10 @@ pub struct AiReport {
 }
 
 /// Build an [`AiReport`] from a raw [`AuditReport`] and serialise it as
-/// pretty-printed JSON.
-pub fn format_ai_json(report: &AuditReport) -> String {
-    let normalized = normalize(report);
+/// pretty-printed JSON. A report whose data contradicts itself is refused
+/// (#790) with the machine-readable codes and data paths of the contract.
+pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractError> {
+    let normalized = normalize_checked(report)?;
     let violations = &report.accessibility.wcag_results.violations;
 
     // Build tasks, then sort by impact severity.
@@ -133,8 +133,8 @@ pub fn format_ai_json(report: &AuditReport) -> String {
         },
     };
 
-    serde_json::to_string_pretty(&ai_report)
-        .unwrap_or_else(|e| format!("{{\"error\": \"AI JSON serialization failed: {}\"}}", e))
+    Ok(serde_json::to_string_pretty(&ai_report)
+        .unwrap_or_else(|e| format!("{{\"error\": \"AI JSON serialization failed: {}\"}}", e)))
 }
 
 #[cfg(test)]
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_format_ai_json_empty_violations() {
         let report = make_report_with_violations(vec![]);
-        let output = format_ai_json(&report);
+        let output = format_ai_json(&report).unwrap();
 
         assert!(output.contains("\"url\": \"https://example.com\""));
         assert!(output.contains("\"total_violations\": 0"));
@@ -200,7 +200,7 @@ mod tests {
         );
 
         let report = make_report_with_violations(vec![v_minor, v_critical, v_serious]);
-        let output = format_ai_json(&report);
+        let output = format_ai_json(&report).unwrap();
 
         // Critical task must appear before serious, which must appear before minor
         let pos_critical = output.find("\"critical\"").unwrap();
@@ -242,7 +242,7 @@ mod tests {
         .with_tags(vec!["wcag2a".to_string(), "wcag111".to_string()]);
 
         let report = make_report_with_violations(vec![v]);
-        let output = format_ai_json(&report);
+        let output = format_ai_json(&report).unwrap();
 
         assert!(output.contains("\"task_id\": \"image-alt-001\""));
         assert!(output.contains("\"rule_id\": \"image-alt\""));

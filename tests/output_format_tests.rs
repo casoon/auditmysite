@@ -439,7 +439,7 @@ fn test_technician_index_and_findings_match_schemas() {
     );
 
     let normalized = normalize(&report).normalized;
-    let rows = technician::finding_rows(&report, &normalized);
+    let rows = technician::finding_rows(&report, &normalized).unwrap();
     assert_eq!(rows.len(), 2, "one wcag + one html_conform row");
     let mut entries = HashMap::new();
     entries.insert(
