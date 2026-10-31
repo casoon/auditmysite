@@ -52,7 +52,23 @@ pub use catalog::AuditCatalog;
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
-pub use normalized::{normalize, AuditContext, NormalizedReport};
+pub use normalized::{AuditContext, NormalizedReport};
+
+/// Infallible normalization of a raw report: it derives a model even from a
+/// report that contradicts itself, so a caller can hand out data nobody
+/// checked.
+///
+/// Compatibility surface of 1.x, removed in 2.0. Migrate to
+/// [`normalize_checked`], which returns the same model or the
+/// [`ReportContractError`] naming the violated contract. The productive paths
+/// of this crate never call this function (#790).
+#[deprecated(
+    since = "1.9.0",
+    note = "infallible and unchecked; removed in 2.0 — use `normalize_checked`"
+)]
+pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
+    normalized::normalize(report)
+}
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
@@ -60,12 +76,12 @@ pub use report::{
     BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState,
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
-    ExecutionStatus, ExperienceSection, MeasurementProfile, ModuleRun, NavigationSnapshot,
-    PageScreenshots, PerformanceResults, RedirectChain, RedirectHop, RequestedRule,
-    RobotsSitemapConflict, RunContext, SampleMetadata, SampleStratum, ScreenshotStatus,
-    SitemapDiagnostics, SitemapHttpIssue, StorageStateRef, SubcheckRun, ThrottledPerfResult,
-    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
-    ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
+    ExecutionStatus, ExperienceSection, MeasurementProfile, MetricSpread, ModuleRun,
+    NavigationSnapshot, PageScreenshots, PerformanceResults, RedirectChain, RedirectHop,
+    RequestedRule, RobotsSitemapConflict, RunContext, RunSpread, SampleMetadata, SampleStratum,
+    ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, StorageStateRef, SubcheckRun,
+    ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,
+    ViewportScoreSet, ViewportScores, ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

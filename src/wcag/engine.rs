@@ -13,7 +13,7 @@ pub use super::rules::{
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
+use crate::wcag::WcagLevel;
 
 /// Rule filtering configuration (subset of cli::config::RulesConfig for the engine)
 #[derive(Debug, Clone, Default)]

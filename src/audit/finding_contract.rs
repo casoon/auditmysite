@@ -771,7 +771,9 @@ fn collect(
         ));
     }
 
-    if let Some(html) = &report.html_conform {
+    // An unchecked module was not measured: whatever it carries is no
+    // observation, so it yields no finding (and is not scored either).
+    if let Some(html) = report.html_conform.as_ref().filter(|html| html.checked) {
         // `score_findings` charges errors, warnings and infos.
         for finding in &html.findings {
             out.push(

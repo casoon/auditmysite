@@ -468,10 +468,12 @@
           }
         },
         "grade": {
-          "type": "string"
+          "type": ["string", "null"],
+          "description": "null together with the scores for a batch in which no URL produced a report."
         },
         "certificate": {
-          "type": "string"
+          "type": ["string", "null"],
+          "description": "null together with the scores for a batch in which no URL produced a report."
         },
         "risk_level": {
           "type": "string",
@@ -854,7 +856,26 @@
           "type": "array"
         },
         "navigation": {
-          "type": "object"
+          "type": "object",
+          "description": "How the main document was reached.",
+          "properties": {
+            "requested_url": {"type": "string"},
+            "final_url": {"type": "string"},
+            "main_document_status": {"type": "integer"},
+            "redirect_count": {"type": "integer", "minimum": 0},
+            "redirect_chain": {
+              "type": "array",
+              "description": "HTTP redirects the main document went through, in order, ending before `final_url`. Empty or absent when it loaded without a redirect or the chain was not captured (`redirect_count` still says how many).",
+              "items": {
+                "type": "object",
+                "required": ["url", "status"],
+                "properties": {
+                  "url": {"type": "string", "description": "The URL that answered with a redirect."},
+                  "status": {"type": "integer"}
+                }
+              }
+            }
+          }
         },
         "consent": {
           "type": "object"

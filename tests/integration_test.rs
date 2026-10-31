@@ -3,6 +3,9 @@
 //! These tests require Chrome/Chromium to be installed and are marked `#[ignore]`
 //! so they don't run in CI by default. Run with:
 //!   cargo test --test integration_test -- --ignored
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 mod common;
 
@@ -465,6 +468,7 @@ fn default_config() -> PipelineConfig {
         check_html_conform: false,
         check_ai_transparency: false,
         check_dns: false,
+        perf_runs: 1,
         check_isolate_third_party_impact: false,
         check_ssr_content: false,
         check_stack: false,
@@ -475,6 +479,7 @@ fn default_config() -> PipelineConfig {
         dismiss_consent: false,
         exclude_selectors: Vec::new(),
         interactive: auditmysite::cli::InteractiveMode::Off,
+        allow_state_changes: false,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
         session: Default::default(),
         storage_state: None,
@@ -1440,6 +1445,40 @@ async fn foundation_viewport_merge_tags_a_review_seen_in_one_viewport() {
     };
     assert_eq!(tags_of("always-small"), ["both-viewports"], "{results:#?}");
     assert_eq!(tags_of("wide-small"), ["desktop-only"], "{results:#?}");
+    // Decision level (#766): the merged reviews reach the export with their
+    // viewport, and — being reviews, not failures — leave the verdict at pass
+    // without a reason, so the decision cannot drift from the merge.
+    let normalized = auditmysite::audit::normalize(&report);
+    let json: serde_json::Value = serde_json::from_str(
+        &auditmysite::output::UnifiedReport::single(&normalized, &report)
+            .to_json(false)
+            .unwrap(),
+    )
+    .unwrap();
+    let page_json = &json["pages"][0];
+    let viewport_of = |id: &str| -> Vec<String> {
+        page_json["accessibility_assessments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|a| {
+                a["rule_id"] == "targets/size"
+                    && a["selector"].as_str().is_some_and(|s| s.contains(id))
+            })
+            .map(|a| a["viewport"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(
+        viewport_of("always-small"),
+        ["both-viewports"],
+        "{page_json}"
+    );
+    assert_eq!(viewport_of("wide-small"), ["desktop-only"], "{page_json}");
+    assert_eq!(page_json["decision"]["verdict"], "pass");
+    assert_eq!(
+        page_json["decision"]["reasons"].as_array().unwrap().len(),
+        0
+    );
     page.close().await.unwrap();
     fixture.stop();
 }

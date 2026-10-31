@@ -7,6 +7,9 @@
 //!   INSTA_UPDATE=always cargo test --test snapshot_tests
 //! Then review with:
 //!   cargo insta review
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;

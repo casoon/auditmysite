@@ -23,7 +23,8 @@ pub(crate) use helpers::extract_domain;
 #[allow(clippy::too_many_arguments, clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use crate::audit::{normalize, AuditReport, BatchReport};
+    use crate::audit::normalized::normalize;
+    use crate::audit::{AuditReport, BatchReport};
     use crate::cli::{ReportLevel, WcagLevel};
     use crate::output::report_model::ReportConfig;
     use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};

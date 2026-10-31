@@ -1056,6 +1056,7 @@ mod tests {
             tbt_ms: Some(180.0),
             cls: Some(0.03),
             score: Some(72),
+            spread: None,
         }];
         report = report.with_tech_stack(crate::tech_stack::TechStackAnalysis {
             detected: vec![crate::tech_stack::DetectedTech {
@@ -1251,6 +1252,7 @@ mod tests {
             tbt_ms: Some(180.0),
             cls: Some(0.03),
             score: Some(72),
+            spread: None,
         }];
 
         let config = ReportConfig {
@@ -1459,7 +1461,7 @@ mod tests {
         };
 
         let report = pdf_fixture_report_rich();
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalized::normalize(&report);
         let expected_score = normalized.normalized.score.to_string();
         let config = ReportConfig {
             level: ReportLevel::Standard,
@@ -2496,7 +2498,7 @@ mod tests {
         };
 
         // JSON holds the aggregated values that MUST also appear in the PDF.
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalized::normalize(&report);
         let unified = crate::output::UnifiedReport::single(&normalized, &report);
         let json: serde_json::Value =
             serde_json::from_str(&unified.to_json(true).expect("json")).expect("parse json");
@@ -2583,7 +2585,7 @@ mod tests {
             weighted_overall: 38,
         });
 
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalized::normalize(&report);
         let unified = crate::output::UnifiedReport::single(&normalized, &report);
         assert_eq!(unified.summary.accessibility_score, Some(38));
         assert_eq!(unified.pages[0].accessibility_score, 38);

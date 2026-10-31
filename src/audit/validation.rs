@@ -286,7 +286,12 @@ impl NormalizedReport {
             let expected = crate::cli::InteractiveMode::from_scope_name(
                 &self.execution.scope.interactive_mode,
             )
-            .map(crate::a11y_journey::state_changing_journeys);
+            .map(|mode| {
+                crate::a11y_journey::state_changing_journeys(
+                    mode,
+                    !profile.state_changing_journeys.is_empty(),
+                )
+            });
             if let Some(expected) = expected {
                 check(
                     profile.state_changing_journeys == expected,
@@ -638,7 +643,7 @@ impl NormalizedReport {
 }
 
 pub fn normalize_checked(report: &AuditReport) -> Result<AuditContext<'_>, ReportContractError> {
-    let context = super::normalize(report);
+    let context = super::normalized::normalize(report);
     context.normalized.validate()?;
     Ok(context)
 }
@@ -648,7 +653,7 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
     let mut total = 0u64;
     let mut passed = 0usize;
     for (index, report) in batch.reports.iter().enumerate() {
-        let context = super::normalize(report);
+        let context = super::normalized::normalize(report);
         if let Err(error) = context.normalized.validate() {
             violations.extend(error.violations.into_iter().map(|mut v| {
                 v.path = format!("reports[{index}].{}", v.path);

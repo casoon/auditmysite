@@ -13,6 +13,15 @@ use crate::wcag::{self, Violation, WcagResults};
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
 
+/// `viewport_scores.weighted_overall`: the two per-viewport overalls blended
+/// 70 % mobile, 30 % desktop. This is a viewport-pass figure, **not** a
+/// published module weight: it is not the report's `overall_score` (which
+/// weights modules, and adds Security afterwards) and is labelled so in
+/// `docs/OUTPUT_CONTRACT.md` (#771).
+pub(super) fn viewport_weighted_overall(mobile_overall: u32, desktop_overall: u32) -> u32 {
+    (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32
+}
+
 /// Weighted overall of one viewport over the modules measured there, with
 /// the weights `module_scores` publishes (`taxonomy::module_weight`), so the
 /// shown weights are the formula: before plan 73 this path weighted SEO 20
@@ -459,14 +468,27 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
             session_policy: config.session.as_str().to_string(),
-            read_only: crate::a11y_journey::state_changing_journeys(config.interactive).is_empty(),
+            read_only: crate::a11y_journey::state_changing_journeys(
+                config.interactive,
+                config.allow_state_changes,
+            )
+            .is_empty(),
             state_changing_journeys: crate::a11y_journey::state_changing_journeys(
                 config.interactive,
+                config.allow_state_changes,
             )
             .iter()
             .map(|j| j.to_string())
             .collect(),
             state_id: config.state_id.clone(),
+            extra_checks: crate::audit::support_matrix::ExtraCheckRequest {
+                isolate_third_party_impact: config.check_isolate_third_party_impact,
+                check_ssr_content: config.check_ssr_content,
+                ai_transparency: config.check_ai_transparency,
+                dns_check: config.check_dns,
+                ..Default::default()
+            }
+            .requested_flags(),
             storage_state: config.storage_state.as_ref().map(|state| {
                 crate::audit::StorageStateRef {
                     sha256: state.digest.clone(),
@@ -849,19 +871,23 @@ mod tests {
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
         use clap::Parser;
-        let config_scope = |interactive: crate::cli::InteractiveMode| {
+        let config_scope = |interactive: crate::cli::InteractiveMode, allow: bool| {
             let mut config = crate::audit::PipelineConfig::from_args_and_config(
                 &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
                 None,
             );
             config.interactive = interactive;
+            config.allow_state_changes = allow;
             audit_scope_from_config(&config)
         };
-        let full = config_scope(crate::cli::InteractiveMode::Full);
+        // `full` alone only observes; the clicks are an explicit opt-in.
+        let observing = config_scope(crate::cli::InteractiveMode::Full, false);
+        assert!(observing.measurement_profile.read_only);
+        let full = config_scope(crate::cli::InteractiveMode::Full, true);
         assert!(!full.measurement_profile.read_only);
         assert!(!full.measurement_profile.state_changing_journeys.is_empty());
         assert_eq!(full.measurement_profile.session_policy, "isolated");
-        let basic = config_scope(crate::cli::InteractiveMode::Basic);
+        let basic = config_scope(crate::cli::InteractiveMode::Basic, true);
         assert!(basic.measurement_profile.read_only);
 
         // A read-only mode claiming a state-changing journey is rejected.

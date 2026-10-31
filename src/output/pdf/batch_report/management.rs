@@ -26,7 +26,7 @@ pub(super) fn aggregate_audit_flags(
         std::collections::BTreeMap::new();
 
     for report in reports {
-        let normalized = crate::audit::normalize(report);
+        let normalized = crate::audit::normalized::normalize(report);
         let mut seen_on_page = std::collections::BTreeSet::new();
         for flag in &normalized.normalized.audit_flags {
             if !seen_on_page.insert(flag.kind.clone()) {

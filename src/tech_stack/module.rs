@@ -41,7 +41,8 @@ mod tests {
     use super::TechStackModule;
     use crate::audit::module::AuditModule;
     use crate::audit::PipelineConfig;
-    use crate::cli::{InteractiveMode, WcagLevel};
+    use crate::cli::InteractiveMode;
+    use crate::wcag::WcagLevel;
 
     fn config_with_stack(check_stack: bool) -> PipelineConfig {
         PipelineConfig {
@@ -59,6 +60,7 @@ mod tests {
             check_html_conform: false,
             check_ai_transparency: false,
             check_dns: false,
+            perf_runs: 1,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack,
@@ -69,6 +71,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selectors: Vec::new(),
             interactive: InteractiveMode::Off,
+            allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: Default::default(),
             storage_state: None,

@@ -1358,7 +1358,7 @@ fn filter_aria_hidden_interactive(
 /// - Gruppert Violations nach Regel-ID
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
 /// - Berechnet Grade/Certificate aus korrigiertem Score
-pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
+pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let violations = &report.accessibility.wcag_results.violations;
 
     let seo_reports_lang = report

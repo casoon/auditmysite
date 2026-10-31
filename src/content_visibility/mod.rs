@@ -2012,7 +2012,7 @@ mod tests {
 
     fn report_with_seo(seo: crate::seo::SeoAnalysis) -> AuditReport {
         use crate::audit::ViolationStatistics;
-        use crate::cli::WcagLevel;
+        use crate::wcag::WcagLevel;
         use crate::wcag::WcagResults;
         AuditReport {
             run_context: Default::default(),

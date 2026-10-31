@@ -196,8 +196,9 @@ pub struct UnifiedSummary {
     /// `null` for a batch without a single audited URL: nothing was measured (#768).
     pub accessibility_score: Option<u32>,
     pub overall_score: Option<u32>,
-    pub grade: String,
-    pub certificate: String,
+    /// `null` together with the scores for a batch that measured nothing.
+    pub grade: Option<String>,
+    pub certificate: Option<String>,
     pub risk_level: crate::audit::normalized::RiskLevel,
     /// WCAG violation occurrences only.
     pub violation_count: usize,
@@ -1010,7 +1011,7 @@ impl UnifiedReport {
         let normalized_reports: Vec<NormalizedReport> = batch_report
             .reports
             .iter()
-            .map(|r| crate::audit::normalize(r).normalized)
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
             .collect();
         let i18n = crate::i18n::I18n::new("en").expect("canonical JSON locale must load");
         let presentation =
@@ -1044,7 +1045,7 @@ impl UnifiedReport {
         let overall_score_batch = presentation.portfolio_summary.average_overall_score;
         // Accessibility plus risk gate, like the single report — they followed
         // the overall score here, so 49/100 accessibility read "STABIL" (plan 111).
-        let (grade, certificate) = batch_report.summary.grade_and_certificate();
+        let (grade, certificate) = batch_report.summary.grade_and_certificate().unzip();
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score: measured.then_some(accessibility_score),
@@ -1245,8 +1246,8 @@ impl UnifiedReport {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
             overall_score: Some(page.overall_score),
-            grade: page.grade.clone(),
-            certificate: page.certificate.clone(),
+            grade: Some(page.grade.clone()),
+            certificate: Some(page.certificate.clone()),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
             finding_count: page.finding_count,
@@ -1349,8 +1350,8 @@ impl UnifiedReport {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
             overall_score: Some(page.overall_score),
-            grade: page.grade.clone(),
-            certificate: page.certificate.clone(),
+            grade: Some(page.grade.clone()),
+            certificate: Some(page.certificate.clone()),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
             finding_count: page.finding_count,

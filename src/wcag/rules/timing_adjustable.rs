@@ -9,8 +9,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const TIMING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.1",

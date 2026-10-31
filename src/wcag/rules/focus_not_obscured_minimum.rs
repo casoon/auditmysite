@@ -51,8 +51,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const FOCUS_NOT_OBSCURED_MINIMUM_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.11",

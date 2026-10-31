@@ -3,8 +3,9 @@
 use crate::output::localized::is_english;
 use std::collections::HashMap;
 
+use crate::audit::normalized::normalize;
 use crate::audit::normalized::NormalizedFinding;
-use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
+use crate::audit::{BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;
@@ -801,7 +802,8 @@ pub fn build_batch_presentation_with_normalized(
     // The literal band tables that used to stand here were a third and fourth
     // cutoff set (95/90/85/80/70/60 for the grade), so the same score could
     // be graded differently depending on which report a reader was holding.
-    let (grade, certificate) = batch.summary.grade_and_certificate();
+    // Empty when nothing was measured; the PDF refuses such a batch.
+    let (grade, certificate) = batch.summary.grade_and_certificate().unwrap_or_default();
 
     let en = is_english(i18n);
     // From the root causes (finding patterns on two or more pages), most

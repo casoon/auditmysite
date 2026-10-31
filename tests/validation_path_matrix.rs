@@ -12,6 +12,9 @@
 //!   that exist today are a baseline that may only shrink
 //!   (`tests/fixtures/architecture/unchecked_normalize.txt`); a new call in
 //!   `cli`, `output`, `studio` or `lib.rs` fails here until it is justified.
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -285,6 +288,37 @@ fn the_cache_hit_path_emits_through_the_validating_dispatcher() {
         assert!(
             !branch.contains(direct),
             "cache hit must not format `{direct}` itself"
+        );
+    }
+}
+
+/// The infallible `normalize` is a deprecated 1.x compatibility API with one
+/// named migration target, and the CLI binary — the productive entry — no
+/// longer uses it (#790). Only the library's own presentation layers still
+/// derive from reports their callers checked (ratchet above).
+#[test]
+fn the_infallible_normalize_is_deprecated_and_the_cli_does_not_use_it() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let audit = fs::read_to_string(root.join("src/audit/mod.rs")).unwrap();
+    let at = audit
+        .find("pub fn normalize(")
+        .expect("public compatibility function");
+    let attrs = &audit[..at];
+    let deprecated = attrs.rfind("#[deprecated(").expect("marked deprecated");
+    assert!(
+        attrs[deprecated..].contains("normalize_checked"),
+        "the deprecation names the migration target"
+    );
+    let mut files = Vec::new();
+    rust_files(&root.join("src/cli"), &mut files);
+    rust_files(&root.join("src/main.rs"), &mut files);
+    for file in files {
+        let text = production_part(&fs::read_to_string(&file).unwrap());
+        assert!(
+            !text.lines().any(|l| !l.trim_start().starts_with("//")
+                && (l.contains("normalize(") || l.contains("map(normalize)"))),
+            "{} calls the infallible normalize",
+            file.display()
         );
     }
 }

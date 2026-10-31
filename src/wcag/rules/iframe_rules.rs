@@ -16,8 +16,8 @@
 use chromiumoxide::Page;
 use tracing::warn;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
+use crate::wcag::WcagLevel;
 
 /// Body of the iframe content scan. Injected after `CSS_SELECTOR_JS` so that
 /// `__amsCssSelector` is available for both the outer iframe element and inner
@@ -89,7 +89,7 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
             warn!("iframe content scan JS failed: {}", e);
             return vec![crate::wcag::technical_rule_failure_for(
                 IFRAME_HTML_HAS_LANG_AXE_ID,
-                crate::cli::WcagLevel::A,
+                crate::wcag::WcagLevel::A,
                 "page_evaluation_failed",
             )];
         }
@@ -98,7 +98,7 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
     let Some(value) = result.value() else {
         return vec![crate::wcag::technical_rule_failure_for(
             IFRAME_HTML_HAS_LANG_AXE_ID,
-            crate::cli::WcagLevel::A,
+            crate::wcag::WcagLevel::A,
             "missing_evaluation_value",
         )];
     };

@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 use colored::Colorize;
 
-use auditmysite::audit::normalize;
 use auditmysite::audit::{normalize_checked, validate_batch};
 use auditmysite::cli::{Args, OutputFormat};
 use auditmysite::error::{AuditError, Result};
@@ -232,7 +231,7 @@ pub(crate) fn output_batch_report(
                 .reports
                 .iter()
                 .filter_map(|r| {
-                    let normalized = normalize(r);
+                    let normalized = normalize_checked(r).ok()?;
                     format_summary(&normalized.normalized).ok()
                 })
                 .collect();
@@ -240,7 +239,11 @@ pub(crate) fn output_batch_report(
             output_text(&combined, &args.output, "summary JSON batch", args.quiet)?;
         }
         OutputFormat::Sarif => {
-            let normalized_reports: Vec<_> = batch_report.reports.iter().map(normalize).collect();
+            let normalized_reports = batch_report
+                .reports
+                .iter()
+                .map(normalize_checked)
+                .collect::<std::result::Result<Vec<_>, _>>()?;
             let refs: Vec<_> = normalized_reports.iter().map(|n| &n.normalized).collect();
             let output = format_sarif(&refs).map_err(|e| AuditError::OutputError {
                 reason: e.to_string(),
@@ -287,7 +290,7 @@ pub(crate) fn output_batch_as_single_reports(
         output_single_report(report, &single_args)?;
 
         if with_aggregates {
-            let normalized = normalize(report).normalized;
+            let normalized = normalize_checked(report)?.normalized;
             let page_rows = technician::finding_rows(report, &normalized);
             let file = path
                 .file_name()

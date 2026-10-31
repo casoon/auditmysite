@@ -17,9 +17,9 @@
 use chromiumoxide::Page;
 use tracing::warn;
 
-use crate::cli::WcagLevel;
 use crate::i18n::I18n;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const MEDIA_ALTERNATIVE_RULE: RuleMetadata = RuleMetadata {
     id: "1.2.8",

@@ -223,6 +223,14 @@ pub struct Args {
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
+    /// Measure each throttled performance profile N times (1-9, default 1)
+    /// and report the median run with min/median/max per metric. A single
+    /// lab run varies from load to load; repeated runs show how much. Each
+    /// extra run is one more page load per throttle profile, so it needs
+    /// performance checking (`--full` or `--performance`).
+    #[arg(long, default_value_t = 1)]
+    pub perf_runs: u32,
+
     /// Detect SSR/hydration content gaps by reloading the page a second
     /// time with JavaScript execution disabled (CDP
     /// `Emulation.setScriptExecutionDisabled`) and comparing visible
@@ -291,16 +299,25 @@ pub struct Args {
     #[arg(long = "state-id", value_name = "ID")]
     pub state_id: Option<String>,
 
+    /// Allow journeys that can change page or account state: clicking a
+    /// form's submit button, an add-to-cart trigger, a quantity stepper.
+    ///
+    /// Off by default, so an audit only observes. Needs `--interactive full`;
+    /// the permitted journeys are listed in the report's measurement profile
+    /// (`state_changing_journeys`). Use only on pages and shops you may
+    /// submit to.
+    #[arg(long = "allow-state-changes")]
+    pub allow_state_changes: bool,
+
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
     /// `off`   — no interactive phase, fastest.
     /// `basic` — tab walk + skip link + obvious pattern journeys.
     /// `full`  (default) — adds SPA navigation, form-error announcement,
-    ///           link-text inventory and outline export. Also clicks submit
-    ///           buttons and add-to-cart triggers, which can change page or
-    ///           account state: listed in the report's measurement profile
-    ///           (`state_changing_journeys`). Use `basic` for a read-only run.
+    ///           link-text inventory and outline export. Submit buttons and
+    ///           add-to-cart triggers are only clicked with
+    ///           `--allow-state-changes`.
     ///
     /// Adds a few seconds per URL; recommended for single-URL audits.
     #[arg(long, value_enum, default_value = "full")]
@@ -575,25 +592,7 @@ pub enum BrowserAction {
     Path,
 }
 
-/// WCAG conformance levels
-///
-/// Variant order is significant: derives `PartialOrd`/`Ord` so a higher
-/// configured level is `>=` every lower required level. This lets rule
-/// catalogs filter with `cfg.wcag_level >= rule.min_level` instead of
-/// pattern-matching the gate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum WcagLevel {
-    /// Level A - Minimum conformance
-    #[value(name = "a", alias = "A")]
-    A,
-    /// Level AA - Recommended conformance (default)
-    #[value(name = "aa", alias = "AA")]
-    AA,
-    /// Level AAA - Maximum conformance
-    #[value(name = "aaa", alias = "AAA")]
-    AAA,
-}
+pub use crate::wcag::WcagLevel;
 
 /// Depth of the Accessibility-Journey-Layer.
 #[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -858,6 +857,12 @@ impl Args {
         // check is refused, and a declared state must be readable (#788).
         if matches!(self.command, Some(Command::Replay { .. })) {
             self.load_storage_state()?;
+            if self.perf_runs > 1 {
+                return Err(
+                    "--perf-runs measures a live page; `replay` evaluates a stored snapshot"
+                        .to_string(),
+                );
+            }
             return crate::audit::support_matrix::ExtraCheckRequest {
                 isolate_third_party_impact: self.isolate_third_party_impact,
                 check_ssr_content: self.check_ssr_content,
@@ -935,6 +940,24 @@ impl Args {
         }
 
         let is_batch = self.sitemap.is_some() || self.url_file.is_some() || self.crawl;
+        if !(1..=9).contains(&self.perf_runs) {
+            return Err("--perf-runs must be between 1 and 9".to_string());
+        }
+        if self.perf_runs > 1 {
+            // The throttled passes it repeats exist for a single URL only.
+            if is_batch {
+                return Err(
+                    "--perf-runs measures the throttled passes of a single URL; it is not run in batch mode"
+                        .to_string(),
+                );
+            }
+            if !((self.full_audit_enabled() || self.performance) && !self.skip_performance) {
+                return Err(
+                    "--perf-runs needs performance checking (use --full or --performance, without --skip-performance)"
+                        .to_string(),
+                );
+            }
+        }
         // Opt-in extra checks: run in the requested mode or are refused here,
         // never silently reduced to "off" later (#788).
         let full = self.full_audit_enabled();
@@ -1136,6 +1159,7 @@ mod tests {
             ai_transparency: false,
             dns_check: false,
             isolate_third_party_impact: false,
+            perf_runs: 1,
             check_ssr_content: false,
             stack: false,
             reuse_cache: false,
@@ -1153,6 +1177,7 @@ mod tests {
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             session: Default::default(),
+            allow_state_changes: false,
             storage_state: None,
             state_id: None,
             display: None,
@@ -1373,6 +1398,38 @@ mod tests {
         ]);
         assert_eq!(args.include_path, vec!["/a/**", "/b/**"]);
         assert_eq!(args.exclude_path, vec!["/a/tag/**"]);
+    }
+
+    #[test]
+    fn perf_runs_needs_a_single_url_with_performance_and_stays_in_range() {
+        let check = |argv: &[&str]| {
+            let mut full = vec!["auditmysite"];
+            full.extend_from_slice(argv);
+            Args::try_parse_from(full).unwrap().validate()
+        };
+        assert_eq!(
+            Args::try_parse_from(["auditmysite", "https://example.com"])
+                .unwrap()
+                .perf_runs,
+            1
+        );
+        assert!(check(&["https://example.com", "--full", "--perf-runs", "3"]).is_ok());
+        assert!(check(&["https://example.com", "--performance", "--perf-runs", "9"]).is_ok());
+        let e = check(&["https://example.com", "--full", "--perf-runs", "10"]).unwrap_err();
+        assert!(e.contains("between 1 and 9"), "{e}");
+        assert!(check(&["https://example.com", "--full", "--perf-runs", "0"]).is_err());
+        let e = check(&[
+            "https://example.com",
+            "--skip-performance",
+            "--perf-runs",
+            "3",
+        ])
+        .unwrap_err();
+        assert!(e.contains("performance"), "{e}");
+        let e = check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "3"]).unwrap_err();
+        assert!(e.contains("single URL"), "{e}");
+        let e = check(&["--perf-runs", "3", "replay", "https://example.com"]).unwrap_err();
+        assert!(e.contains("replay"), "{e}");
     }
 
     #[test]

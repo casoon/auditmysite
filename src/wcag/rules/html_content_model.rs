@@ -16,9 +16,9 @@
 //! stack is reconstructed here via a small, best-effort scanner (not a
 //! full HTML5 parse; see `enclosing_tag_stack`).
 
-use crate::cli::WcagLevel;
 use crate::html_conform::HtmlConformFinding;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "1.3.1",

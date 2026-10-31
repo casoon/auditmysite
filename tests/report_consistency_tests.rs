@@ -6,6 +6,9 @@
 //! - Severity counts match finding occurrences
 //! - fix_guidance entries match findings
 //! - Score/grade/certificate are consistent
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
@@ -1634,6 +1637,7 @@ fn test_json_report_includes_report_artifact_fields() {
         tbt_ms: Some(180.0),
         cls: Some(0.03),
         score: Some(72),
+        spread: None,
     }];
     report.patterns = Some(auditmysite::patterns::PatternAnalysis {
         recognized: vec![auditmysite::patterns::RecognizedPattern {

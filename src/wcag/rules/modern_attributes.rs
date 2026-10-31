@@ -12,8 +12,8 @@
 use chromiumoxide::Page;
 use tracing::warn;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Evidence, Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const MODERN_ATTRIBUTES_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.2",
@@ -124,7 +124,7 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
             warn!("modern attributes DOM JS failed: {}", e);
             return vec![crate::wcag::technical_rule_failure_for(
                 "modern-attributes",
-                crate::cli::WcagLevel::A,
+                crate::wcag::WcagLevel::A,
                 "page_evaluation_failed",
             )];
         }
@@ -133,7 +133,7 @@ pub async fn check_modern_attributes_with_page(page: &Page) -> Vec<Violation> {
     let Some(value) = result.value() else {
         return vec![crate::wcag::technical_rule_failure_for(
             "modern-attributes",
-            crate::cli::WcagLevel::A,
+            crate::wcag::WcagLevel::A,
             "missing_evaluation_value",
         )];
     };

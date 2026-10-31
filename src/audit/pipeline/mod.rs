@@ -30,7 +30,7 @@ use tracing::{debug, info, warn};
 use self::assembly::{
     aggregate_report, compute_viewport_overall, consolidate_module_runs,
     drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
-    update_audit_quality, with_shared_page_rule_violations,
+    update_audit_quality, viewport_weighted_overall, with_shared_page_rule_violations,
 };
 use self::throttled::{
     apply_canonical_perf, attach_throttled_profile_subchecks, collect_throttled_performance,
@@ -38,7 +38,7 @@ use self::throttled::{
 use super::artifacts::{
     content_hash, save_artifacts, AuditArtifacts, CacheMeta, FetchArtifact, SnapshotArtifact,
 };
-use super::normalize;
+use super::normalized::normalize;
 use super::report::{
     AuditReport, ConsentCookieSignal, ConsentPrivacySnapshot, DualViewportResults,
     PerformanceResults, ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
@@ -360,6 +360,9 @@ pub struct PipelineConfig {
     /// unique host per process run regardless of how many pages are audited
     /// (see `network::dns::module`'s per-host memoization).
     pub check_dns: bool,
+    /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
+    /// reported run is the median; the spread is stored beside it.
+    pub perf_runs: u32,
     /// Run the opt-in isolated third-party script impact measurement
     /// (#531): reload the page once per top third-party origin with that
     /// origin's requests blocked via CDP, and diff TBT against the baseline.
@@ -406,6 +409,9 @@ pub struct PipelineConfig {
     pub exclude_selectors: Vec<String>,
     /// Accessibility-Journey-Layer mode (off/basic/full).
     pub interactive: crate::cli::InteractiveMode,
+    /// Whether journeys that can submit a form or change a cart may run
+    /// (`--allow-state-changes`); part of the measurement profile.
+    pub allow_state_changes: bool,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     pub journey_budget_ms: u64,
     /// Session policy of the browser the pages run in; part of the
@@ -472,13 +478,13 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 25;
+        const CACHE_FMT: u8 = 27;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -492,10 +498,12 @@ impl PipelineConfig {
             self.check_ai_transparency as u8,
             self.check_dns as u8,
             self.check_isolate_third_party_impact as u8,
+            self.perf_runs,
             self.check_ssr_content as u8,
             self.check_stack as u8,
             self.dismiss_consent as u8,
             self.interactive,
+            self.allow_state_changes as u8,
             self.journey_budget_ms,
             self.session.as_str(),
             self.state_id.as_deref().unwrap_or(""),
@@ -533,6 +541,7 @@ impl PipelineConfig {
                 check_html_conform: false,
                 check_ai_transparency: false,
                 check_dns: false,
+                perf_runs: 1,
                 check_stack: false,
                 ..self.clone()
             },
@@ -590,6 +599,7 @@ impl PipelineConfig {
             // detail is only ever `fix_guidance`/`en301549_annex`).
             check_ai_transparency: args.ai_transparency && args.url.is_some(),
             check_dns: args.dns_check,
+            perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
@@ -615,6 +625,7 @@ impl PipelineConfig {
                 .chain(args.exclude_selector.iter().cloned())
                 .collect(),
             interactive: args.interactive,
+            allow_state_changes: args.allow_state_changes,
             journey_budget_ms,
             session: args.session,
             storage_state: args
@@ -1136,8 +1147,7 @@ pub async fn audit_page(
             ("HTML Conformance", mobile_hc_score),
         ],
     );
-    let weighted_overall =
-        (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
+    let weighted_overall = viewport_weighted_overall(mobile_overall, desktop_overall);
 
     let viewport_scores = ViewportScores {
         desktop: ViewportScoreSet {
@@ -1399,6 +1409,7 @@ pub async fn audit_page(
     let journey_ctx = crate::a11y_journey::RunContext {
         page,
         mode: config.interactive,
+        allow_state_changes: config.allow_state_changes,
         patterns: report.patterns.as_ref(),
         ax_tree: &primary_snap.ax_tree,
         initial_url: url,
@@ -2321,6 +2332,7 @@ mod tests {
             ai_transparency: false,
             dns_check: false,
             isolate_third_party_impact: false,
+            perf_runs: 1,
             check_ssr_content: false,
             stack: false,
             reuse_cache: false,
@@ -2337,6 +2349,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            allow_state_changes: false,
             session: Default::default(),
             storage_state: None,
             state_id: None,
@@ -2611,6 +2624,10 @@ mod tests {
         assert_eq!(single.requested_subchecks, batch.requested_subchecks);
         assert_eq!(single.requested_subchecks.len(), 2);
         assert_eq!(
+            single.measurement_profile.extra_checks,
+            ["--isolate-third-party-impact", "--check-ssr-content"]
+        );
+        assert_eq!(
             serde_json::to_value(&single.measurement_profile).unwrap(),
             serde_json::to_value(&batch.measurement_profile).unwrap()
         );
@@ -2724,6 +2741,7 @@ mod tests {
             check_html_conform: false,
             check_ai_transparency: false,
             check_dns: false,
+            perf_runs: 1,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack: false,
@@ -2734,6 +2752,7 @@ mod tests {
             dismiss_consent: false,
             exclude_selectors: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
+            allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: Default::default(),
             storage_state: None,
@@ -2758,6 +2777,11 @@ mod tests {
         // Toggling a module changes the signature.
         let mut other = test_pipeline_config();
         other.check_security = true;
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Repeated performance runs store a spread a single run does not (#791).
+        let mut other = test_pipeline_config();
+        other.perf_runs = 3;
         assert_ne!(base_sig, other.audit_signature());
 
         // Consent handling changes the signature.
@@ -3372,6 +3396,26 @@ journey_budget_ms = 1234
     /// 20, SEO 15, Mobile 10, HTML 5; Security joins after the blend), not
     /// read from `taxonomy`, so a drifting weight fails.
     #[test]
+    fn weighted_overall_is_the_viewport_blend_and_not_a_module_weight() {
+        // 70 % mobile, 30 % desktop, rounded.
+        assert_eq!(viewport_weighted_overall(100, 0), 70);
+        assert_eq!(viewport_weighted_overall(0, 100), 30);
+        assert_eq!(viewport_weighted_overall(80, 60), 74);
+        // Equal passes blend to themselves: no module weight sneaks in.
+        for v in [0, 1, 49, 100] {
+            assert_eq!(viewport_weighted_overall(v, v), v);
+        }
+        // Mobile: accessibility 100 (weight 40) with performance 0 (weight 20)
+        // gives 67; the blend is 0.7 * 67 + 0.3 * 100 = 77, whatever the
+        // module weights are: it stays a labelled viewport blend.
+        let mobile = compute_viewport_overall(100.0, &[("Performance", Some(0))]);
+        let desktop = compute_viewport_overall(100.0, &[]);
+        assert_eq!(desktop, 100);
+        assert_eq!(mobile, 67);
+        assert_eq!(viewport_weighted_overall(mobile, desktop), 77);
+    }
+
+    #[test]
     fn viewport_overall_matches_the_published_weights_for_every_subset() {
         let table = [
             ("Performance", 20.0, 35u32),
@@ -3489,7 +3533,7 @@ journey_budget_ms = 1234
             .find(|run| run.module == "security")
             .expect("the requested module has a run");
         assert_eq!(security.status, crate::audit::ExecutionStatus::Failed);
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalized::normalize(&report);
         assert!(normalized.normalized.execution.quality.qualified_results);
         assert!(normalized
             .normalized
@@ -3505,6 +3549,72 @@ journey_budget_ms = 1234
             .iter()
             .all(|f| !f["rule_id"].as_str().unwrap_or("").starts_with("security.")));
         assert_eq!(page["audit_quality"]["qualified_results"], true);
+    }
+
+    /// #767: html-conform declining the document must qualify the run — an
+    /// unchecked module is a failed module run, never a measured 100.
+    #[test]
+    fn unchecked_html_module_qualifies_the_run() {
+        let mut snapshot = SnapshotData {
+            ax_tree: AXTree::new(),
+            performance: None,
+            seo: None,
+            security: None,
+            mobile: None,
+            ux: None,
+            journey: None,
+            dark_mode: None,
+            design_quality: None,
+            html_conform: None,
+            ai_transparency: None,
+            network_dns: None,
+            tech_stack: None,
+            best_practices: None,
+            module_runs: Vec::new(),
+        };
+        let unchecked = crate::html_conform::HtmlConformAnalysis {
+            score: 100,
+            checked: false,
+            error_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 0,
+            findings: Vec::new(),
+            raw_html: None,
+        };
+        snapshot.apply_module_data(
+            "html_conform",
+            Viewport::Desktop,
+            ModuleData::HtmlConform(Box::new(unchecked)),
+        );
+        let run = snapshot
+            .module_runs
+            .iter()
+            .find(|run| run.module == "html_conform")
+            .expect("the collected module has a run");
+        assert_eq!(run.status, crate::audit::ExecutionStatus::Failed);
+
+        let mut results = WcagResults::new();
+        results.rule_outcomes.push(
+            crate::wcag::RuleRun::ran("image_alt", 0)
+                .with_wcag(["1.1.1"])
+                .in_viewport("desktop"),
+        );
+        let mut report =
+            AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
+        report.accessibility.execution.scope.requested_modules =
+            vec!["accessibility".to_string(), "html_conform".to_string()];
+        report.accessibility.execution.module_runs = snapshot.module_runs.clone();
+        ensure_requested_module_runs(&mut report);
+        update_audit_quality(&mut report);
+
+        let normalized = crate::audit::normalize_checked(&report).unwrap();
+        assert!(normalized.normalized.execution.quality.qualified_results);
+        assert!(normalized
+            .normalized
+            .module_scores
+            .iter()
+            .all(|m| m.name != "HTML Conformance" || !m.contributes_to_overall));
     }
 
     #[test]

@@ -112,12 +112,20 @@ impl DnsLookup for HickoryLookup {
                     RecordLookup::Found(answers)
                 }
             }
-            Err(error) if error.is_no_records_found() || error.is_nx_domain() => {
-                RecordLookup::Absent
-            }
-            Err(hickory_resolver::net::NetError::Timeout) => RecordLookup::Unknown("dns_timeout"),
-            Err(_) => RecordLookup::Unknown("dns_lookup_failed"),
+            Err(error) => lookup_error(&error),
         }
+    }
+}
+
+/// What a resolver error says about the record: NODATA and NXDOMAIN prove
+/// absence; a timeout or any other failure proves nothing (#776).
+fn lookup_error(error: &hickory_resolver::net::NetError) -> RecordLookup {
+    if error.is_no_records_found() || error.is_nx_domain() {
+        RecordLookup::Absent
+    } else if matches!(error, hickory_resolver::net::NetError::Timeout) {
+        RecordLookup::Unknown("dns_timeout")
+    } else {
+        RecordLookup::Unknown("dns_lookup_failed")
     }
 }
 
@@ -369,6 +377,45 @@ mod tests {
         assert_eq!(analysis.dnssec_detected, None);
         assert_eq!(analysis.mx_present, None);
         assert_eq!(analysis.spf_present, None);
+    }
+
+    /// The mapping of the real resolver's errors (#776): only a proven
+    /// negative answer is an absence; everything else stays unknown.
+    #[test]
+    fn resolver_errors_map_to_absent_or_unknown() {
+        use hickory_resolver::net::{DnsError, NetError, NoRecords};
+        use hickory_resolver::proto::op::{Query, ResponseCode};
+        let no_records = |code| {
+            NetError::Dns(DnsError::NoRecordsFound(NoRecords::new(
+                Query::default(),
+                code,
+            )))
+        };
+        assert!(matches!(
+            lookup_error(&no_records(ResponseCode::NoError)),
+            RecordLookup::Absent
+        ));
+        assert!(matches!(
+            lookup_error(&no_records(ResponseCode::NXDomain)),
+            RecordLookup::Absent
+        ));
+        assert!(matches!(
+            lookup_error(&NetError::Timeout),
+            RecordLookup::Unknown("dns_timeout")
+        ));
+        for failure in [
+            NetError::Dns(DnsError::ResponseCode(ResponseCode::ServFail)),
+            NetError::NoConnections,
+            NetError::Message("resolver unavailable"),
+        ] {
+            assert!(
+                matches!(
+                    lookup_error(&failure),
+                    RecordLookup::Unknown("dns_lookup_failed")
+                ),
+                "{failure}"
+            );
+        }
     }
 
     /// A scripted resolver: answers by (name, type), everything else NODATA.

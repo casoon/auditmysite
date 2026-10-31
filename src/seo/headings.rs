@@ -275,7 +275,7 @@ mod tests {
             crate::wcag::Violation::new(
                 "1.3.1",
                 "Info and Relationships",
-                crate::cli::WcagLevel::A,
+                crate::wcag::WcagLevel::A,
                 crate::wcag::types::Severity::Medium,
                 message,
                 selector,

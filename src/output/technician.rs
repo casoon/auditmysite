@@ -296,7 +296,8 @@ pub fn to_jsonl(rows: &[FindingRow]) -> serde_json::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audit::{normalize, BatchError};
+    use crate::audit::normalized::normalize;
+    use crate::audit::BatchError;
     use crate::cli::WcagLevel;
     use crate::wcag::{Violation, WcagResults};
 

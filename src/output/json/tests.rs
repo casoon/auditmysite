@@ -1162,8 +1162,8 @@ fn test_collection_errors_serialized_when_present() {
             url_count: 0,
             accessibility_score: Some(0),
             overall_score: Some(0),
-            grade: "F".to_string(),
-            certificate: "UNGENÜGEND".to_string(),
+            grade: Some("F".to_string()),
+            certificate: Some("UNGENÜGEND".to_string()),
             risk_level: crate::audit::normalized::RiskLevel::Low,
             violation_count: 0,
             finding_count: 0,
@@ -1325,7 +1325,7 @@ fn test_batch_certificate_is_risk_gated() {
     );
     batch.summary.average_score = Some(80.0);
     batch.summary.blocking_issues = 3;
-    let (grade, certificate) = batch.summary.grade_and_certificate();
+    let (grade, certificate) = batch.summary.grade_and_certificate().unwrap();
     assert_eq!(
         grade,
         crate::audit::AccessibilityScorer::calculate_grade(80.0)
@@ -1392,6 +1392,9 @@ fn fully_failed_batch_json_has_no_score_and_an_explicit_denominator() {
     let summary = &json["summary"];
     assert!(summary["accessibility_score"].is_null(), "{summary}");
     assert!(summary["overall_score"].is_null(), "{summary}");
+    // No grade and no certificate computed from a stand-in 0 either.
+    assert!(summary["grade"].is_null(), "{summary}");
+    assert!(summary["certificate"].is_null(), "{summary}");
     assert_eq!(summary["coverage"]["succeeded"], 0);
     assert_eq!(summary["coverage"]["attempted"], 2);
     assert_eq!(summary["coverage"]["failed"], 2);

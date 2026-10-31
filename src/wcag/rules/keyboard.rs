@@ -9,8 +9,8 @@
 //! (siehe `wcag::shared`).
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::WcagLevel;
 
 /// Rule metadata for 2.1.2
 pub(super) const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {

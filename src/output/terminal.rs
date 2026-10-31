@@ -13,7 +13,8 @@ use runemark::{
     Verdict,
 };
 
-use crate::audit::{normalize, AuditReport, BatchReport};
+use crate::audit::normalized::normalize;
+use crate::audit::{AuditReport, BatchReport};
 use crate::cli::{Args, ColorPolicy};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
@@ -168,7 +169,10 @@ pub fn render_batch_report(batch_report: &BatchReport, args: &Args) -> String {
         .add_metric(Metric::new("Failed", p.failed.to_string()))
         .add_metric(Metric::new(
             "Avg. score",
-            format!("{:.0}/100", p.average_score),
+            batch_report
+                .summary
+                .average_score
+                .map_or("–".to_string(), |average| format!("{average:.0}/100")),
         ))
         .add_metric(Metric::new("Violations", p.total_violations.to_string()))
         .add_metric(Metric::new("Duration", format!("{}ms", p.duration_ms)));
@@ -272,6 +276,39 @@ mod tests {
         assert!(!at_80.is_empty());
         assert!(!has_ansi(&at_40));
         assert!(!has_ansi(&at_80));
+    }
+
+    /// #781: the terminal prints the stored decision. A page with a High
+    /// Level A barrier fails there exactly as in the JSON and the exit code;
+    /// a clean page does not.
+    #[test]
+    fn terminal_prints_the_stored_decision() {
+        use crate::wcag::Violation;
+        let clean = fixture_report();
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            crate::cli::WcagLevel::A,
+            crate::taxonomy::Severity::High,
+            "Image without alternative text",
+            "img-1",
+        ));
+        let broken = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            results,
+            42,
+        );
+        let args = test_args();
+        assert_eq!(
+            normalize(&broken).normalized.decision.verdict,
+            crate::audit::Verdict::Fail
+        );
+        let clean_out = render_single_report(&clean, &args);
+        let broken_out = render_single_report(&broken, &args);
+        assert!(clean_out.starts_with("[OK]"), "{clean_out}");
+        assert!(broken_out.starts_with("[FAIL]"), "{broken_out}");
     }
 
     #[test]
