@@ -309,11 +309,37 @@
           "enum": [
             "first_n",
             "all",
-            "path_filter"
+            "path_filter",
+            "stratified"
           ]
         },
         "is_sample": {
           "type": "boolean"
+        },
+        "strata": {
+          "type": "array",
+          "description": "Strata of a stratified selection with candidates and picks per stratum; absent for other methods.",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "discovered",
+              "selected"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "discovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selected": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
         }
       }
     },
