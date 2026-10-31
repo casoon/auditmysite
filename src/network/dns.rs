@@ -278,23 +278,36 @@ pub async fn check_dns(lookup: &dyn DnsLookup, host: &str) -> DnsCheckResult {
     }
 }
 
-/// Runs the real DNS queries for one host. `None` when the resolver could
-/// not be constructed (a local configuration problem): nothing was asked.
-pub async fn query_dns(host: &str) -> Option<DnsCheckResult> {
+/// What a host's DNS check holds when the resolver could not be constructed (a
+/// local configuration problem): nothing was asked, so every answer is
+/// unknown. Recorded as failed collections, never as absent records (#776).
+pub(crate) fn resolver_unavailable() -> DnsCheckResult {
+    const REASON: &str = "dns_resolver_unavailable";
+    DnsCheckResult {
+        caa: DnsAnswer::Unknown(REASON),
+        dnssec: DnsAnswer::Unknown(REASON),
+        mx: DnsAnswer::Unknown(REASON),
+        spf: DnsAnswer::Unknown(REASON),
+    }
+}
+
+/// Runs the real DNS queries for one host. A resolver that cannot be built
+/// yields `resolver_unavailable`.
+pub async fn query_dns(host: &str) -> DnsCheckResult {
     let resolver: TokioResolver = match TokioResolver::builder_tokio() {
         Ok(builder) => match builder.build() {
             Ok(resolver) => resolver,
             Err(e) => {
                 warn!("Failed to build DNS resolver for {host}: {e}");
-                return None;
+                return resolver_unavailable();
             }
         },
         Err(e) => {
             warn!("Failed to configure DNS resolver for {host}: {e}");
-            return None;
+            return resolver_unavailable();
         }
     };
-    Some(check_dns(&HickoryLookup(resolver), host).await)
+    check_dns(&HickoryLookup(resolver), host).await
 }
 
 /// Counter-cases of the DNS collectors (#776): an unknown answer is a failed
@@ -381,6 +394,24 @@ mod tests {
 
     /// The mapping of the real resolver's errors (#776): only a proven
     /// negative answer is an absence; everything else stays unknown.
+    #[test]
+    fn an_unavailable_resolver_is_a_failed_collection_without_findings() {
+        use crate::audit::collection::CollectionState;
+        let unavailable = resolver_unavailable();
+        for answer in [
+            unavailable.caa,
+            unavailable.dnssec,
+            unavailable.mx,
+            unavailable.spf,
+        ] {
+            assert_eq!(answer.collected().state(), CollectionState::Failed);
+            assert_eq!(answer, Unknown("dns_resolver_unavailable"));
+        }
+        let analysis = build_analysis("example.com", &unavailable);
+        assert!(analysis.findings.is_empty(), "unknown is not absence");
+        assert_eq!(analysis.caa_present, None);
+    }
+
     #[test]
     fn resolver_errors_map_to_absent_or_unknown() {
         use hickory_resolver::net::{DnsError, NetError, NoRecords};

@@ -591,13 +591,13 @@ pub fn content_visibility_signal_text(
         (LlmChunkQuality, true) => (
             "Good LLM chunk quality".into(),
             format!(
-                "AI chunk score: {score}/100 — content well structured for AI citability."
+                "AI chunk score: {score}/100 — content structured in quotable chunks."
             ),
         ),
         (LlmChunkQuality, false) => (
             "Gute LLM-Chunk-Qualität".into(),
             format!(
-                "AI-Chunk-Score: {score}/100 — Inhalt für KI-Zitierbarkeit gut strukturiert."
+                "AI-Chunk-Score: {score}/100 — Inhalt in zitierfähige Abschnitte gegliedert."
             ),
         ),
         (LinkMesh, true) => (

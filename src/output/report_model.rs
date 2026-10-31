@@ -1449,7 +1449,8 @@ pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
     pub failed: usize,
-    pub average_score: f64,
+    /// `None` when no URL was measured; the presentation never invents a 0.
+    pub average_score: Option<f64>,
     /// Weighted overall score across all active modules (averaged over URLs)
     pub average_overall_score: u32,
     pub total_violations: usize,

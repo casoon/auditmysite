@@ -860,6 +860,37 @@ mod tests {
         assert!(codes.contains(&"summary.decision".to_string()), "{codes:?}");
     }
 
+    /// A stratified sample whose strata do not add up to the audited URLs
+    /// states a selection the report cannot account for (#791).
+    #[test]
+    fn stratified_sample_strata_must_add_up_to_the_audited_urls() {
+        use crate::audit::{SampleMetadata, SampleStratum};
+        let stratum = |key: &str, selected| SampleStratum {
+            key: key.into(),
+            discovered: 10,
+            selected,
+        };
+        let mut batch = BatchReport::from_reports(vec![high_level_a_report()], Vec::new(), 1);
+        batch.sample = Some(SampleMetadata {
+            source: "sitemap".into(),
+            total_discovered: 20,
+            audited: 3,
+            sample_limit: Some(3),
+            selection: "stratified".into(),
+            is_sample: true,
+            strata: vec![stratum("blog", 2), stratum("docs", 1)],
+        });
+        let codes = |batch: &BatchReport| -> Vec<&'static str> {
+            crate::audit::validation::validate_batch(batch)
+                .err()
+                .map(|e| e.violations.iter().map(|v| v.code).collect())
+                .unwrap_or_default()
+        };
+        assert!(!codes(&batch).contains(&"sample_strata"));
+        batch.sample.as_mut().unwrap().strata[1].selected = 0;
+        assert!(codes(&batch).contains(&"sample_strata"));
+    }
+
     /// Compact feed with diverging scores: one grade basis (accessibility),
     /// both scores named, no unqualified `score`. Before, `score` was the
     /// overall value and `grade` was banded from it while the report's grade

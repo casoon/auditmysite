@@ -337,7 +337,11 @@ pub(super) fn render_batch_status_section(
     // Score overview cards
     // Both counts are WCAG occurrences: `total_violations` sums every
     // module's findings, `dist` counts per-page groups (plan 79).
-    let score = pres.portfolio_summary.average_score.round() as u32;
+    let score = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
     let occ = &pres.portfolio_summary.occurrence_distribution;
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,

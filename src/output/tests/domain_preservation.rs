@@ -792,3 +792,64 @@ fn an_unmeasured_module_leaves_no_findings() {
         .unwrap();
     assert_eq!(entry.measurement_type, "not_measured");
 }
+
+/// The terminal prints a rule id for every finding it lists (the first three
+/// of each severity tier), so a finding the view model carries cannot vanish
+/// in the terminal projection (#780).
+#[test]
+fn terminal_lists_the_view_model_findings_per_tier() {
+    let report = report_with_every_domain();
+    let ctx = normalize(&report);
+    let vm = crate::output::builder::build_view_model(&ctx, &ReportConfig::default());
+    let args = Args::parse_from(["auditmysite", "https://example.com", "--color", "never"]);
+    let terminal = crate::output::terminal::render_single_report(&report, &args);
+
+    let mut listed = 0;
+    for tier in &vm.findings.by_severity {
+        for finding in tier.findings.iter().take(3) {
+            listed += 1;
+            assert!(
+                terminal.contains(&finding.rule_id),
+                "terminal drops `{}`:\n{terminal}",
+                finding.rule_id
+            );
+        }
+    }
+    assert!(listed > 0, "fixture lists no finding in the terminal");
+}
+
+/// The batch path keeps the findings of every domain: the batch JSON of a
+/// one-page batch carries each canonical finding of the page (#780).
+#[test]
+fn batch_json_keeps_every_domain_finding_of_the_page() {
+    let report = report_with_every_domain();
+    let canonical: BTreeSet<String> = normalize(&report)
+        .normalized
+        .findings
+        .iter()
+        .map(|f| f.rule_id.clone())
+        .collect();
+    let batch = Box::new(crate::audit::BatchReport::from_reports(
+        vec![report],
+        vec![],
+        1,
+    ));
+    let json = crate::output::format_json_batch(&batch, false).expect("batch json");
+    let value: serde_json::Value = serde_json::from_str(&json).expect("json");
+    let in_batch: BTreeSet<String> = value["pages"][0]["findings"]
+        .as_array()
+        .expect("page findings")
+        .iter()
+        .filter_map(|f| {
+            f["rule_id"]
+                .as_str()
+                .or(f["id"].as_str())
+                .map(str::to_string)
+        })
+        .collect();
+    assert!(!canonical.is_empty());
+    assert_eq!(
+        in_batch, canonical,
+        "batch JSON findings differ from the page's"
+    );
+}

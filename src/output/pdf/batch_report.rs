@@ -1,4 +1,7 @@
 use crate::audit::BatchReport;
+/// `render` refuses a batch without an average before any section runs.
+const UNMEASURED_REFUSED: &str = "batch PDF is refused without a measured average";
+
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::builder::build_batch_presentation_with_locale;
