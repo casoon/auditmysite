@@ -2197,6 +2197,7 @@ mod tests {
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
+            sample_strategy: Default::default(),
             no_screen_reader_report: false,
             html_conform: false,
             technician: false,

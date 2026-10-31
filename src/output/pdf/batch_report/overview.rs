@@ -98,10 +98,10 @@ pub(super) fn render_batch_cover(
             };
             let scope = if sample.is_sample {
                 i18n.t_args(
-                    if sample.selection == "first_n" {
-                        "batch-scope-sample"
-                    } else {
-                        "batch-scope-sample-filtered"
+                    match sample.selection.as_str() {
+                        "first_n" => "batch-scope-sample",
+                        "stratified" => "batch-scope-sample-stratified",
+                        _ => "batch-scope-sample-filtered",
                     },
                     &[
                         ("audited", sample.audited.to_string()),
