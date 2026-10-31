@@ -782,7 +782,9 @@ mod tests {
         let with_rule = |run: RuleRun| {
             let mut report = report_with_run("accessibility");
             report.accessibility.wcag_results.rule_outcomes.push(run);
-            report
+            // Boxed: nine reports by value are ~2 MB of stack, the whole
+            // default test-thread stack.
+            Box::new(report)
         };
         let with_stability = |status| {
             let mut report = report_with_run("accessibility");
@@ -796,7 +798,7 @@ mod tests {
                     status,
                     ..Default::default()
                 });
-            report
+            Box::new(report)
         };
         let cases = [
             ("ran", with_rule(RuleRun::ran("r", 0)), Complete),
