@@ -90,6 +90,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "rule_outcome_above_level",
     "rule_outcome_duplicate",
     "rule_outcome_filtered",
+    "sample_strata",
     "score_method",
     "score_range",
     "semantic_score_cap",
