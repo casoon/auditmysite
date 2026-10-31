@@ -132,6 +132,11 @@ pub struct ExclusionScope {
     pub matches: Vec<SelectorMatch>,
     /// Backend node ids of every node inside an excluded subtree.
     backend_ids: HashSet<i64>,
+    /// Why the scope could not be resolved completely (#777). A scope that
+    /// matched nothing because the browser did not answer is not "nothing
+    /// to exclude".
+    pub failure: Option<&'static str>,
+    pub gaps: Vec<&'static str>,
 }
 
 impl ExclusionScope {
@@ -153,11 +158,28 @@ impl ExclusionScope {
             .collect()
     }
 
+    /// The resolution as a collection state: failed when the selectors could
+    /// not be counted, partial when matched subtrees could not be resolved,
+    /// empty when nothing matched.
+    pub fn collection(&self) -> super::collection::Collected<()> {
+        use super::collection::Collected;
+        match (self.failure, self.gaps.is_empty()) {
+            (Some(reason), _) => Collected::Failed(reason),
+            (None, false) => Collected::Partial {
+                value: (),
+                gaps: self.gaps.clone(),
+            },
+            (None, true) if self.is_active() => Collected::Measured(()),
+            (None, true) => Collected::Empty(()),
+        }
+    }
+
     #[cfg(test)]
     fn with_backend_ids(matches: Vec<SelectorMatch>, ids: impl IntoIterator<Item = i64>) -> Self {
         Self {
             matches,
             backend_ids: ids.into_iter().collect(),
+            ..Default::default()
         }
     }
 }
@@ -169,7 +191,9 @@ impl ExclusionScope {
 /// and collect the backend ids of every matched subtree (children, shadow
 /// roots, frame and template content included).
 pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope {
-    let counts = count_matches(page, selectors).await;
+    let counted = count_matches(page, selectors).await;
+    let count_failure = counted.as_ref().err().copied();
+    let counts = counted.unwrap_or_else(|_| selectors.iter().map(|_| Some(0)).collect());
     let mut matches: Vec<SelectorMatch> = selectors
         .iter()
         .zip(counts)
@@ -181,7 +205,10 @@ pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope 
         })
         .collect();
 
-    let mut scope = ExclusionScope::default();
+    let mut scope = ExclusionScope {
+        failure: count_failure,
+        ..Default::default()
+    };
     if !matches.iter().any(|m| m.matched_elements > 0) {
         scope.matches = matches;
         return scope;
@@ -203,6 +230,7 @@ pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope 
                 m.matched_elements = 0;
             }
             scope.matches = matches;
+            scope.failure = Some(crate::audit::collection::reason::CDP_COMMAND_FAILED);
             return scope;
         }
     };
@@ -230,6 +258,7 @@ pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope 
                     m.selector
                 );
                 m.matched_elements = 0;
+                scope.gaps.push("selector_resolution_failed");
             }
         }
     }
@@ -277,8 +306,12 @@ async fn install_in_page_marker(page: &Page, scope: &ExclusionScope) {
     }
 }
 
-/// Match count per selector; `None` for a selector the browser rejects.
-async fn count_matches(page: &Page, selectors: &[String]) -> Vec<Option<usize>> {
+/// Match count per selector; `None` for a selector the browser rejects. An
+/// evaluation that gave no usable answer is an error, not "nothing matched".
+async fn count_matches(
+    page: &Page,
+    selectors: &[String],
+) -> Result<Vec<Option<usize>>, &'static str> {
     let js = format!(
         r#"(function(sels) {{
   return sels.map(function(s) {{
@@ -287,23 +320,30 @@ async fn count_matches(page: &Page, selectors: &[String]) -> Vec<Option<usize>> 
 }})({})"#,
         serde_json::to_string(selectors).unwrap_or_else(|_| "[]".to_string())
     );
-    let values: Vec<i64> = match page.evaluate(js).await {
-        Ok(result) => result.into_value().unwrap_or_default(),
-        Err(e) => {
-            warn!("Exclusion: selector count failed: {e}");
-            Vec::new()
-        }
-    };
-    selectors
-        .iter()
-        .enumerate()
-        .map(|(i, _)| match values.get(i) {
-            Some(n) if *n >= 0 => Some(*n as usize),
-            Some(_) => None,
-            // Evaluation failed as a whole: nothing matched, nothing excluded.
-            None => Some(0),
-        })
-        .collect()
+    let result = page.evaluate(js).await.map_err(|e| {
+        warn!("Exclusion: selector count failed: {e}");
+        crate::audit::collection::reason::EVALUATION_FAILED
+    })?;
+    count_answers(selectors.len(), result.value())
+}
+
+/// One count per selector from the script's answer; anything but a full
+/// list of integers is a failure.
+fn count_answers(
+    expected: usize,
+    value: Option<&serde_json::Value>,
+) -> Result<Vec<Option<usize>>, &'static str> {
+    use crate::audit::collection::{decode_js_value, reason};
+    let values = decode_js_value::<Vec<i64>>(value)
+        .into_value()
+        .ok_or(reason::NO_RESULT)?;
+    if values.len() != expected {
+        return Err(reason::SCHEMA_MISMATCH);
+    }
+    Ok(values
+        .into_iter()
+        .map(|n| usize::try_from(n).ok())
+        .collect())
 }
 
 fn child_nodes(node: &CdpNode) -> impl Iterator<Item = &CdpNode> {

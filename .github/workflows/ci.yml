@@ -311,6 +311,13 @@ jobs:
           CI: "true"
         run: cargo test --test rule_error_cases -- --include-ignored --nocapture --test-threads=1
 
+      - name: Capture collectors (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test capture_collectors_browser -- --ignored --nocapture --test-threads=1
+
       - name: Detection corpus (schema rules)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:

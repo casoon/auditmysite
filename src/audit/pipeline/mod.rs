@@ -973,13 +973,24 @@ pub async fn audit_page(
     // Capture desktop screenshot
     let desktop_screenshot = capture_pass_screenshot(page, "Desktop").await;
 
+    // Page-level collections outside the module catalog; folded into the
+    // accessibility run once it exists (#777).
+    let page_collection = crate::audit::collection::CollectionLog::new();
     let desktop_config = config.for_viewport(Viewport::Desktop);
     let desktop_snap = extract_snapshot(page, url, Viewport::Desktop, &desktop_config).await?;
+    page_collection.record(
+        &crate::audit::capture_collectors::AX_TREE,
+        crate::audit::capture_collectors::ax_tree_collection(desktop_snap.ax_tree.len()),
+    );
     let exclusion_selectors =
         crate::audit::exclusion::effective_selectors(&config.exclude_selectors);
     let mut exclusion_tally = crate::audit::exclusion::ExclusionTally::default();
     let desktop_exclusion =
         crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
+    page_collection.record(
+        &crate::audit::capture_collectors::EXCLUSION_SCOPE,
+        desktop_exclusion.collection(),
+    );
     exclusion_tally.record_scope(&desktop_exclusion);
     let (mut desktop_wcag, desktop_excluded, desktop_frames) = run_rules(
         page,
@@ -1004,6 +1015,10 @@ pub async fn audit_page(
     let mobile_stability =
         wait_for_page_stability(page, "mobile", config.stability_budget_ms).await;
     consent_result.merge(mobile_consent);
+    page_collection.record(
+        &crate::audit::capture_collectors::CONSENT_BANNER,
+        crate::audit::capture_collectors::consent_collection(consent_result.status),
+    );
 
     settle_animations(page, "mobile", config.stability_budget_ms).await;
 
@@ -1012,7 +1027,15 @@ pub async fn audit_page(
 
     let mobile_config = config.for_viewport(Viewport::Mobile);
     let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
+    page_collection.record(
+        &crate::audit::capture_collectors::AX_TREE,
+        crate::audit::capture_collectors::ax_tree_collection(mobile_snap.ax_tree.len()),
+    );
     let mobile_exclusion = crate::audit::exclusion::resolve_scope(page, &exclusion_selectors).await;
+    page_collection.record(
+        &crate::audit::capture_collectors::EXCLUSION_SCOPE,
+        mobile_exclusion.collection(),
+    );
     exclusion_tally.record_scope(&mobile_exclusion);
     let (mut mobile_wcag, mobile_excluded, mobile_frames) = run_rules(
         page,
@@ -1207,9 +1230,6 @@ pub async fn audit_page(
     // Pattern violations come from the AXTree and reference real DOM nodes, so
     // they can be enriched with selectors just like WCAG violations. Running this
     // here (rather than inside aggregate_report) gives us access to the live page.
-    // Page-level collections outside the module catalog; folded into the
-    // accessibility run once it exists (#777).
-    let page_collection = crate::audit::collection::CollectionLog::new();
     let mut pattern_analysis = crate::patterns::analyze(&primary_snap.ax_tree);
     // Easy-language ("Leichte Sprache") availability needs raw DOM access
     // (CSS class names, <link hreflang> in <head>) not present in the
@@ -1266,7 +1286,12 @@ pub async fn audit_page(
         headless: browser.is_headless(),
         source: "live".to_string(),
     };
-    report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    let (navigation, navigation_collection) = collect_navigation_snapshot(page, url).await;
+    report.accessibility.execution.navigation = navigation;
+    page_collection.record(
+        &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
+        navigation_collection,
+    );
     report.accessibility.execution.navigation.redirect_chain = redirect_chain;
     // The security headers come from a separate probe: they describe the
     // audited page only if the probe ended on the document the browser
@@ -1305,6 +1330,12 @@ pub async fn audit_page(
         });
     }
     report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
+    page_collection.record(
+        &crate::audit::capture_collectors::PAGE_STABILITY,
+        crate::audit::capture_collectors::stability_collection(
+            &report.accessibility.execution.navigation.stability,
+        ),
+    );
     // Before the journeys: they may operate the display toggle.
     report.accessibility.execution.display_modes =
         crate::display::detect(page, &page_collection).await;
@@ -1379,6 +1410,10 @@ pub async fn audit_page(
         Ok(Some(out)) => {
             let journey_partial =
                 out.journey.execution.failed > 0 || out.journey.execution.budget_exhausted;
+            crate::audit::capture_collectors::record_journeys(
+                &page_collection,
+                &out.journey.execution.runs,
+            );
             report.accessibility_journey = Some(out.journey);
             report.interactive_findings = out.findings;
             let dropped = crate::audit::exclusion::filter_interactive_findings(
@@ -1426,9 +1461,18 @@ pub async fn audit_page(
     let mut frame_coverage = crate::audit::frames::FrameCoverage::default();
     frame_coverage.record("desktop", &desktop_frames);
     frame_coverage.record("mobile", &mobile_frames);
+    page_collection.record(
+        &crate::audit::capture_collectors::FRAMES,
+        crate::audit::capture_collectors::frames_collection(&frame_coverage),
+    );
     report.accessibility.execution.frames = Some(frame_coverage);
 
     ensure_requested_module_runs(&mut report);
+    if let Some(record) = crate::audit::capture_collectors::rule_execution_record(
+        &report.accessibility.wcag_results.rule_outcomes,
+    ) {
+        page_collection.push(record);
+    }
     crate::audit::collection::fold_records(
         &mut report.accessibility.execution.module_runs,
         page_collection.into_records(),
@@ -1507,41 +1551,60 @@ async fn reset_tab_after_journeys(page: &Page) {
 async fn collect_navigation_snapshot(
     page: &Page,
     requested_url: &str,
-) -> crate::audit::NavigationSnapshot {
-    let value = page
-        .evaluate(
-            "(() => { const n = performance.getEntriesByType('navigation')[0]; return { finalUrl: location.href, status: n && Number.isFinite(n.responseStatus) ? n.responseStatus : null, redirects: n ? n.redirectCount : 0, readyState: document.readyState }; })()",
+) -> (
+    crate::audit::NavigationSnapshot,
+    crate::audit::collection::Collected<()>,
+) {
+    use crate::audit::capture_collectors::{navigation_collection, NavigationRaw};
+    let raw = navigation_collection(
+        crate::audit::collection::evaluate_js_value::<NavigationRaw>(
+            page,
+            "(() => { const n = performance.getEntriesByType('navigation')[0]; return { finalUrl: location.href, status: n && Number.isFinite(n.responseStatus) ? n.responseStatus : null, redirects: n ? n.redirectCount : null, readyState: document.readyState }; })()",
         )
-        .await
-        .ok()
-        .and_then(|result| result.value().cloned());
-    crate::audit::NavigationSnapshot {
+        .await,
+    );
+    let state = match &raw {
+        crate::audit::collection::Collected::Measured(_) => {
+            crate::audit::collection::Collected::Measured(())
+        }
+        crate::audit::collection::Collected::Partial { gaps, .. } => {
+            crate::audit::collection::Collected::Partial {
+                value: (),
+                gaps: gaps.clone(),
+            }
+        }
+        crate::audit::collection::Collected::Empty(_) => {
+            crate::audit::collection::Collected::Empty(())
+        }
+        crate::audit::collection::Collected::Failed(r) => {
+            crate::audit::collection::Collected::Failed(r)
+        }
+        crate::audit::collection::Collected::Unsupported(r) => {
+            crate::audit::collection::Collected::Unsupported(r)
+        }
+        crate::audit::collection::Collected::NotApplicable(r) => {
+            crate::audit::collection::Collected::NotApplicable(r)
+        }
+    };
+    let value = raw.into_value();
+    let snapshot = crate::audit::NavigationSnapshot {
         requested_url: requested_url.to_string(),
-        final_url: value
-            .as_ref()
-            .and_then(|v| v.get("finalUrl"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string),
+        final_url: value.as_ref().map(|v| v.final_url.clone()),
         main_document_status: value
             .as_ref()
-            .and_then(|v| v.get("status"))
-            .and_then(|v| v.as_u64())
+            .and_then(|v| v.status)
             .and_then(|v| u16::try_from(v).ok()),
         redirect_count: value
             .as_ref()
-            .and_then(|v| v.get("redirects"))
-            .and_then(|v| v.as_u64())
+            .and_then(|v| v.redirects)
             .and_then(|v| u32::try_from(v).ok())
             .unwrap_or(0),
-        ready_state: value
-            .as_ref()
-            .and_then(|v| v.get("readyState"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string),
+        ready_state: value.as_ref().map(|v| v.ready_state.clone()),
         stability: Vec::new(),
         meta_refresh: Vec::new(),
         redirect_chain: Vec::new(),
-    }
+    };
+    (snapshot, state)
 }
 
 // ── Screenshot capture ────────────────────────────────────────────────────────

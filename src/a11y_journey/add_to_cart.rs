@@ -108,7 +108,11 @@ pub async fn test(
 
     let _ = stability::settle_after_action(page).await;
 
-    let events = live_regions::drain(page).await;
+    // Ohne lesbare Aufzeichnung gilt der Beobachter als verloren: „nichts
+    // angekündigt" wäre sonst ein erfundener Befund.
+    let drained = live_regions::drain(page).await;
+    let observing = observing && drained.is_some();
+    let events = drained.unwrap_or_default();
     let announced = events.iter().any(|e| e.is_announcement());
     let badge_after = cart_badge_snapshot(page).await;
     let focus_moved_to_dialog = focus_in_dialog(page).await?;

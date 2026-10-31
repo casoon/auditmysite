@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Collection contract:** the `COLLECTORS` inventory now covers the capture layer (navigation snapshot, AX tree, consent, exclusion scope, frames, page stability, rule execution, one collector per journey kind). A lost capture shows up in `module_runs[].subchecks[]` instead of reading as "no redirects", "no frames" or "nothing excluded"; validation rejects collections outside the inventory or without a reason (`collector_unknown`, `collection_state_unexplained`) and `collection_gap_scored` covers every scored module (#777).
 - **Snapshot:** `snapshot.json` now holds the whole collected report, the document identity (requested/final URL, status, redirects), the run language and the versions it was written under (snapshot schema, fingerprint, collection contract, measurement profile, evaluation, decision contract, rule-set digest). `audit::replay` evaluates it without browser or network into the same model as the fresh run; `output::format_json_replay` exports it with `detail.module_detail: full`. Incomplete or version-mismatched snapshots are reported as such (`ReplayError`) and are a cache miss, never read under current semantics. Cache entries of earlier builds are not reused. Details: [Snapshot, replay and validation paths](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#snapshot-replay-and-validation-paths).
 - **Validation:** `tests/validation_path_matrix.rs` checks that every fallible export entry refuses contradictory data and that unchecked `normalize()` calls in `cli`, `output` and `studio` do not grow.
 - **Navigation:** `navigation.redirect_chain` lists the main document's redirects (URL and status, in order) next to `requested_url`, `final_url` and `redirect_count`.
@@ -89,6 +90,9 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
+- **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
+- **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
 - **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
 - **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
 - **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.

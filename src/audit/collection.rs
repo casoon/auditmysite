@@ -327,6 +327,15 @@ impl CollectionLog {
         collected
     }
 
+    /// Add a record that was built from an existing ledger (rule outcomes)
+    /// rather than from one collection call.
+    pub(crate) fn push(&self, record: CollectionRecord) {
+        self.records
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(record);
+    }
+
     pub fn into_records(self) -> Vec<CollectionRecord> {
         self.records
             .into_inner()
@@ -446,6 +455,23 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::dark_mode::FORCED_COLORS_LAYOUT,
     &crate::dark_mode::CONTRAST,
     &crate::dark_mode::LINK_INDISTINCT,
+    &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
+    &crate::audit::capture_collectors::AX_TREE,
+    &crate::audit::capture_collectors::CONSENT_BANNER,
+    &crate::audit::capture_collectors::EXCLUSION_SCOPE,
+    &crate::audit::capture_collectors::FRAMES,
+    &crate::audit::capture_collectors::PAGE_STABILITY,
+    &crate::audit::capture_collectors::RULE_EXECUTION,
+    &crate::audit::capture_collectors::JOURNEY_TAB_WALK,
+    &crate::audit::capture_collectors::JOURNEY_SKIP_LINK,
+    &crate::audit::capture_collectors::JOURNEY_DISCLOSURE,
+    &crate::audit::capture_collectors::JOURNEY_MODAL,
+    &crate::audit::capture_collectors::JOURNEY_TABS,
+    &crate::audit::capture_collectors::JOURNEY_MENU,
+    &crate::audit::capture_collectors::JOURNEY_FORM_ERROR,
+    &crate::audit::capture_collectors::JOURNEY_ADD_TO_CART,
+    &crate::audit::capture_collectors::JOURNEY_QUANTITY_STEPPER,
+    &crate::audit::capture_collectors::JOURNEY_SPA_NAVIGATION,
 ];
 
 /// Test support: [`assert_js_contract`] for scripts that return a plain
@@ -737,6 +763,74 @@ mod tests {
             ),
             ("dark_mode.contrast", crate::dark_mode::counter_cases),
             ("dark_mode.link_indistinct", crate::dark_mode::counter_cases),
+            (
+                "accessibility.navigation_snapshot",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.ax_tree",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.consent_banner",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.exclusion_scope",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.frames",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.page_stability",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility.rule_execution",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.tab_walk",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.skip_link",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.disclosure",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.modal",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.tabs",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.menu",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.form_error",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.add_to_cart",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.quantity_stepper",
+                crate::audit::capture_collectors::counter_cases,
+            ),
+            (
+                "accessibility_journey.spa_navigation",
+                crate::audit::capture_collectors::counter_cases,
+            ),
         ]
     }
 
