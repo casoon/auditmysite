@@ -111,3 +111,20 @@ judges what a person sees, using their own expertise.
 
 Registration: 2026-10-27, reference set v1, no cases yet. All signal
 contracts are `unvalidated`.
+
+## Scope decision for 2.0 (2026-10-31)
+
+The blind, human-labelled reference set is not part of 2.0. The release
+ships with every heuristic signal `unvalidated`, and says so:
+
+- the JSON carries `signal_contract.contract.validation.status =
+  "unvalidated"` and the claims the signal does not establish;
+- README and docs word the scores as structural indicators, never as evidence
+  of AI citation, visibility, user quality or source truth;
+- no code path may present a calibrated result: the status changes only with
+  a passing run of `cargo test --test calibration_test -- --ignored`
+  against a frozen `labels_sha256` (procedure above).
+
+The labelling itself (at least two independent labels per case, at least 30
+holdout cases per signal) follows after 2.0 and flips the status per signal
+when its thresholds are met. Issue #784 stays open until then.
