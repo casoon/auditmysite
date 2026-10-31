@@ -402,14 +402,6 @@ async fn run_batch(
     _config: &Option<auditmysite::cli::Config>,
     urls_override: Option<Vec<String>>,
 ) -> Result<RunOutcome> {
-    check_ai_transparency_feature(args)?;
-    if args.ai_transparency && !args.quiet {
-        eprintln!(
-            "{} --ai-transparency is single-URL-only and has no effect on this batch run.",
-            "Note:".yellow().bold()
-        );
-    }
-
     let mut crawl_result: Option<CrawlResult> = None;
 
     let url_source: &str;

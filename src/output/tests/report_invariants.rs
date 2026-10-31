@@ -357,6 +357,7 @@ fn measurement_warnings_present_in_json_when_set() {
             request_penalty: None,
             dom_penalty: None,
             is_capped: None,
+            partial: false,
         },
         render_blocking: None,
         content_weight: None,

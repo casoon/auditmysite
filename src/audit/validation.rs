@@ -631,11 +631,7 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
         }
     }
     let count = batch.reports.len();
-    let expected_average = if count == 0 {
-        0.0
-    } else {
-        total as f64 / count as f64
-    };
+    let expected_average = (count > 0).then(|| total as f64 / count as f64);
     let summary = &batch.summary;
     for (valid, path, message) in [
         (
@@ -656,8 +652,11 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
             "the stored batch decision must follow from its own profile",
         ),
         (
-            summary.average_score.is_finite()
-                && (summary.average_score - expected_average).abs() < 1e-6,
+            match (summary.average_score, expected_average) {
+                (None, None) => true,
+                (Some(a), Some(e)) => a.is_finite() && (a - e).abs() < 1e-6,
+                _ => false,
+            } && summary.average_over == count,
             "average_score",
             "average must use the measured accessibility scores and their actual denominator",
         ),

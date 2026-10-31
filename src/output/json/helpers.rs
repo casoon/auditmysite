@@ -610,14 +610,23 @@ pub(super) fn normalized_module_score(
         .module_scores
         .iter()
         .find(|m| m.name == module_name)
+        .filter(|m| has_headline_score(m))
         .map(|m| m.score)
+}
+
+/// A module whose measurement is partial or missing has no headline score:
+/// the number is a diagnostic subset (e.g. CLS-only performance reads 100),
+/// kept in `module_scores` and the module detail, but not repeated as the
+/// page's `<module>_score` (#769).
+fn has_headline_score(entry: &crate::audit::normalized::ModuleScoreEntry) -> bool {
+    !matches!(entry.measurement_type.as_str(), "partial" | "not_measured")
 }
 
 pub(super) fn avg_module_score(pages: &[PageEntry], name: &str) -> Option<u32> {
     let scores: Vec<u32> = pages
         .iter()
         .flat_map(|p| p.module_scores.iter())
-        .filter(|m| m.name == name)
+        .filter(|m| m.name == name && has_headline_score(m))
         .map(|m| m.score)
         .collect();
     if scores.is_empty() {

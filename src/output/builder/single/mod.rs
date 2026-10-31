@@ -848,6 +848,7 @@ mod tests {
                 request_penalty: None,
                 dom_penalty: None,
                 is_capped: None,
+                partial: false,
             },
             render_blocking: None,
             content_weight: None,

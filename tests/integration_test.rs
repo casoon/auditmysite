@@ -2469,6 +2469,71 @@ async fn batch_runs_requested_ssr_gap_check_body() {
     );
 }
 
+/// #788: a requested third-party isolation pass in batch mode leaves a
+/// recorded outcome even when it cannot measure anything (the fixture has no
+/// third-party origins), and the page's scope carries it with the measurement
+/// profile — one contract for single and batch.
+#[test]
+#[ignore]
+fn batch_records_requested_isolation_outcome() {
+    std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(batch_records_requested_isolation_outcome_body())
+        })
+        .expect("test thread")
+        .join()
+        .expect("test body panicked");
+}
+
+async fn batch_records_requested_isolation_outcome_body() {
+    use auditmysite::{run_concurrent_batch, Args, BatchConfig};
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("perfect.html");
+    let args = Args::parse_from([
+        "auditmysite",
+        "--url-file",
+        "unused.txt",
+        "--performance",
+        "--isolate-third-party-impact",
+    ]);
+    let mut config = BatchConfig::from(&args);
+    config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
+    config.pipeline.persist_artifacts = false;
+
+    let batch = run_concurrent_batch(vec![format!("{url}/a")], &config, None)
+        .await
+        .expect("batch runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(batch.errors.is_empty(), "errors: {:?}", batch.errors);
+    let execution = &batch.reports[0].accessibility.execution;
+    assert_eq!(
+        execution.scope.requested_subchecks,
+        vec!["performance.third_party_isolation".to_string()]
+    );
+    assert!(execution.scope.measurement_profile.version > 0);
+    let run = execution
+        .module_runs
+        .iter()
+        .find(|run| run.module == "performance")
+        .expect("performance run");
+    let sub = run
+        .subchecks
+        .iter()
+        .find(|s| s.subcheck == "performance.third_party_isolation")
+        .unwrap_or_else(|| panic!("no isolation outcome: {:?}", run.subchecks));
+    assert!(
+        sub.reason_code.is_some() || sub.state.is_some(),
+        "outcome without state or reason: {sub:?}"
+    );
+}
+
 /// Runs the real binary on one page and returns its exit code and the
 /// verdict the JSON export names.
 fn run_cli_for_exit_code(html: &str) -> (i32, String) {

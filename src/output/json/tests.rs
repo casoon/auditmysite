@@ -123,11 +123,11 @@ fn test_single_summary_fields_present() {
 
     assert_eq!(
         unified.summary.accessibility_score,
-        normalized.normalized.score
+        Some(normalized.normalized.score)
     );
     assert_eq!(
         unified.summary.overall_score,
-        normalized.normalized.overall_score
+        Some(normalized.normalized.overall_score)
     );
     assert_eq!(unified.summary.violation_count, 0);
     assert_eq!(unified.summary.finding_count, 0);
@@ -536,6 +536,7 @@ fn test_modules_under_page_detail() {
             request_penalty: None,
             dom_penalty: None,
             is_capped: None,
+            partial: false,
         },
         render_blocking: None,
         content_weight: None,
@@ -612,6 +613,7 @@ fn all_active_modules_report() -> AuditReport {
             request_penalty: None,
             dom_penalty: None,
             is_capped: None,
+            partial: false,
         },
         render_blocking: None,
         content_weight: None,
@@ -1158,8 +1160,8 @@ fn test_collection_errors_serialized_when_present() {
         artifacts: Vec::new(),
         summary: UnifiedSummary {
             url_count: 0,
-            accessibility_score: 0,
-            overall_score: 0,
+            accessibility_score: Some(0),
+            overall_score: Some(0),
             grade: "F".to_string(),
             certificate: "UNGENÜGEND".to_string(),
             risk_level: crate::audit::normalized::RiskLevel::Low,
@@ -1321,7 +1323,7 @@ fn test_batch_certificate_is_risk_gated() {
         vec![],
         100,
     );
-    batch.summary.average_score = 80.0;
+    batch.summary.average_score = Some(80.0);
     batch.summary.blocking_issues = 3;
     let (grade, certificate) = batch.summary.grade_and_certificate();
     assert_eq!(
@@ -1365,4 +1367,92 @@ fn empty_module_detail_says_why_it_is_empty() {
     let value: serde_json::Value =
         serde_json::from_str(&format_json_batch(&batch, false).unwrap()).unwrap();
     assert_eq!(value["pages"][0]["detail"]["module_detail"], "omitted");
+}
+
+/// #768: a batch in which no URL produced a report has no score. The JSON says
+/// so (`null`, denominator 0, attempted/failed counts) instead of a 0.
+#[test]
+fn fully_failed_batch_json_has_no_score_and_an_explicit_denominator() {
+    let errors = vec![
+        crate::audit::BatchError {
+            url: "https://a.example".to_string(),
+            error: "navigation failed".to_string(),
+            blocked_reason: None,
+        },
+        crate::audit::BatchError {
+            url: "https://b.example".to_string(),
+            error: "navigation failed".to_string(),
+            blocked_reason: None,
+        },
+    ];
+    let batch = BatchReport::from_reports(vec![], errors, 10);
+    let json: serde_json::Value =
+        serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON renders"))
+            .unwrap();
+    let summary = &json["summary"];
+    assert!(summary["accessibility_score"].is_null(), "{summary}");
+    assert!(summary["overall_score"].is_null(), "{summary}");
+    assert_eq!(summary["coverage"]["succeeded"], 0);
+    assert_eq!(summary["coverage"]["attempted"], 2);
+    assert_eq!(summary["coverage"]["failed"], 2);
+    assert_eq!(summary["url_count"], 0);
+}
+
+/// #769: a page that only yielded CLS must not read as a perfect performance
+/// result. The original repro: CLS-only vitals scored 100 and the headline
+/// `performance.score.overall` said so next to a "partial" module score.
+#[test]
+fn cls_only_performance_is_partial_from_score_to_json() {
+    use crate::performance::{calculate_performance_score, VitalMetric, WebVitals};
+    let vitals = WebVitals {
+        cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
+        ..Default::default()
+    };
+    let score = calculate_performance_score(&vitals, None);
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        0,
+    )
+    .with_performance(crate::audit::PerformanceResults {
+        vitals,
+        score,
+        render_blocking: None,
+        content_weight: None,
+        third_party: None,
+        critical_chain: None,
+        minification: None,
+        animations: None,
+        coverage: None,
+        measurement_warnings: vec![],
+    });
+    let normalized = normalize(&report);
+    let entry = normalized
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Performance")
+        .expect("performance entry");
+    assert_eq!(entry.measurement_type, "partial");
+    assert!(!entry.contributes_to_overall);
+
+    let json: serde_json::Value = serde_json::from_str(
+        &UnifiedReport::single(&normalized, &report)
+            .to_json(false)
+            .unwrap(),
+    )
+    .unwrap();
+    let page = &json["pages"][0];
+    assert!(
+        page["performance_score"].is_null(),
+        "{}",
+        page["performance_score"]
+    );
+    assert!(json["summary"]["performance_score"].is_null());
+    let details = &page["detail"]["modules"]["performance"]["score_details"];
+    assert_eq!(details["partial"], true);
+    assert_eq!(details["metrics_available"], 1);
+    // Not counted into the weighted report score either.
+    assert_eq!(json["summary"]["overall_score_weight_basis"], 40);
 }

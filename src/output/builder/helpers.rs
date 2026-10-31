@@ -99,7 +99,7 @@ pub(super) fn build_score_note(i18n: &I18n, normalized: &NormalizedReport) -> Op
 pub(super) fn build_batch_verdict(i18n: &I18n, batch: &crate::audit::BatchReport) -> String {
     let key = &batch.summary.score_band_key;
     // The accessibility average, matching the batch cover's headline.
-    let headline_score = batch.summary.average_score.round() as u32;
+    let headline_score = batch.summary.average_score.unwrap_or(0.0).round() as u32;
     i18n.t_args(
         key,
         &[
