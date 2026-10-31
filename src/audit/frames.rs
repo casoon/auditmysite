@@ -330,18 +330,7 @@ fn attach_to_frame(v: &mut Violation, frame_selector: &str, frame_id: &str, ax: 
 /// page, and an outcome is keyed `(rule_id, viewport)`.
 fn fold_outcomes(page: &mut WcagResults, frame: Vec<crate::wcag::RuleRun>) {
     for run in frame {
-        match page
-            .rule_outcomes
-            .iter_mut()
-            .find(|o| o.rule_id == run.rule_id && o.viewport == run.viewport)
-        {
-            Some(existing) => {
-                if existing.not_run.is_none() && run.not_run.is_none() {
-                    existing.findings += run.findings;
-                }
-            }
-            None => page.rule_outcomes.push(run),
-        }
+        page.fold_outcome(run);
     }
 }
 
@@ -687,15 +676,15 @@ mod tests {
         assert!(frame_rule_filter(&only_page_level).is_none());
     }
 
-    /// Every entry must be an id that gates a tree rule in `wcag::engine`,
-    /// or the rule silently never runs in frames.
+    /// Every entry must be a registered tree rule, or the rule silently
+    /// never runs in frames.
     #[test]
     fn frame_tree_rules_are_engine_gates() {
-        let engine = include_str!("../wcag/engine.rs");
         for id in FRAME_TREE_RULES {
             assert!(
-                engine.contains(&format!("filter, \"{id}\""))
-                    || engine.contains(&format!("filter,\n        \"{id}\"")),
+                crate::wcag::engine::TREE_RULES
+                    .iter()
+                    .any(|rule| rule.axe_id == *id),
                 "{id} gates no tree rule"
             );
         }
