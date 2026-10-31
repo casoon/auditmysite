@@ -139,7 +139,7 @@ fn foundation_unmeasured_html_never_contributes_to_a_score() {
     let mut report = make_full_report();
     let html = report.html_conform.as_mut().unwrap();
     html.checked = false;
-    html.score = 100;
+    html.score = 0;
     let normalized = normalize(&report).normalized;
     let entry = normalized
         .module_scores
@@ -149,6 +149,21 @@ fn foundation_unmeasured_html_never_contributes_to_a_score() {
     assert_eq!(entry.measurement_type, "not_measured");
     assert!(!entry.contributes_to_overall);
     assert_eq!(entry.weight_pct, 0);
+    // The final score must be the weighted mean over the other modules: the
+    // same report without the HTML module, and the unchecked entry's own
+    // score (set to 0 so a leak would show) must not move it.
+    let mut without_html = make_full_report();
+    without_html.html_conform = None;
+    assert_eq!(
+        normalized.overall_score,
+        normalize(&without_html).normalized.overall_score
+    );
+    // Control: the same 0, measured, does lower the overall score.
+    let mut measured = make_full_report();
+    let hc = measured.html_conform.as_mut().unwrap();
+    hc.checked = true;
+    hc.score = 0;
+    assert!(normalize(&measured).normalized.overall_score < normalized.overall_score);
     let json = serde_json::to_value(UnifiedReport::single(&normalize(&report), &report)).unwrap();
     let entry = json["pages"][0]["module_scores"]
         .as_array()
@@ -2133,4 +2148,108 @@ fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {
     let error =
         auditmysite::output::generate_batch_pdf(&batch, &ReportConfig::default()).unwrap_err();
     assert!(error.to_string().contains("batch_aggregation"));
+}
+
+// #786: CI diffs between runs build on `findings[].id` and `patterns[].id`.
+// These identities must survive what changes between two runs of the same
+// page and must not survive what is a different defect.
+fn identity_report(
+    severity: Severity,
+    node_id: &str,
+    selector: &str,
+    rule_id: &str,
+) -> AuditReport {
+    let mut wcag = WcagResults::new();
+    let mut violation = Violation::new(
+        "1.1.1",
+        "Non-text Content",
+        WcagLevel::A,
+        severity,
+        "Missing alt",
+        node_id,
+    )
+    .with_rule_id(rule_id)
+    .with_selector(selector);
+    violation.node_id = node_id.to_string();
+    wcag.add_violation(violation);
+    AuditReport::new("https://example.com".into(), WcagLevel::AA, wcag, 1)
+}
+
+fn identities(report: &AuditReport) -> Vec<(String, Vec<String>)> {
+    normalize(report)
+        .normalized
+        .findings
+        .iter()
+        .map(|f| {
+            (
+                f.id.clone(),
+                f.patterns.iter().map(|p| p.id.clone()).collect(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn foundation_finding_identity_survives_severity_dom_ids_and_run_time() {
+    let base = identity_report(Severity::High, "node-17", "img.hero", "images/alt-missing");
+    let before = identities(&base);
+    assert_eq!(before.len(), 1);
+    assert_eq!(before[0].1.len(), 1);
+
+    // Severity changed (a rule was re-weighted between releases).
+    let reweighted = identity_report(
+        Severity::Critical,
+        "node-17",
+        "img.hero",
+        "images/alt-missing",
+    );
+    assert_eq!(identities(&reweighted), before, "severity is no identity");
+
+    // The browser numbered the DOM differently in the next run.
+    let renumbered = identity_report(Severity::High, "node-902", "img.hero", "images/alt-missing");
+    assert_eq!(identities(&renumbered), before, "DOM ids are no identity");
+
+    // Another day, another timestamp (including across the UTC date line).
+    let mut later = identity_report(Severity::High, "node-17", "img.hero", "images/alt-missing");
+    later.timestamp = base.timestamp + chrono::Duration::days(1);
+    let mut next_midnight = base.clone();
+    next_midnight.timestamp = chrono::DateTime::parse_from_rfc3339("2026-10-31T00:00:00Z")
+        .unwrap()
+        .into();
+    assert_eq!(identities(&later), before, "the date is no identity");
+    assert_eq!(identities(&next_midnight), before);
+}
+
+#[test]
+fn foundation_finding_identity_separates_different_defects() {
+    let base = identity_report(Severity::High, "n1", "img.hero", "images/alt-missing");
+    let before = identities(&base);
+
+    // Another element pattern of the same rule: same finding, another pattern.
+    let other_element = identity_report(Severity::High, "n1", "img.logo", "images/alt-missing");
+    let after = identities(&other_element);
+    assert_eq!(after[0].0, before[0].0, "one finding per rule");
+    assert_ne!(after[0].1, before[0].1, "one pattern per element form");
+
+    // Another rule is another finding.
+    let other_rule = identity_report(Severity::High, "n1", "img.hero", "buttons/name-missing");
+    assert_ne!(identities(&other_rule)[0].0, before[0].0);
+}
+
+#[test]
+fn foundation_fixed_defect_vanishes_instead_of_changing_identity() {
+    let with_defect = identity_report(Severity::High, "n1", "img.hero", "images/alt-missing");
+    let fixed = AuditReport::new(
+        "https://example.com".into(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        1,
+    );
+    let ids_before: Vec<_> = identities(&with_defect).into_iter().map(|i| i.0).collect();
+    let ids_after: Vec<_> = identities(&fixed).into_iter().map(|i| i.0).collect();
+    assert!(!ids_before.is_empty());
+    assert!(
+        ids_before.iter().all(|id| !ids_after.contains(id)),
+        "a fixed defect must not leave its id behind"
+    );
 }

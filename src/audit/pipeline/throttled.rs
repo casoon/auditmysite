@@ -273,11 +273,7 @@ pub(super) fn apply_canonical_perf(
         .map(|p| p.score.overall);
     let mobile_seo = report.discoverability.seo.as_ref().map(|s| s.score);
     let mobile_mf = report.experience.mobile.as_ref().map(|m| m.score);
-    let mobile_hc = report
-        .html_conform
-        .as_ref()
-        .filter(|h| h.checked)
-        .map(|h| h.score);
+    let mobile_hc = super::measured_html_conform_score(report.html_conform.as_ref());
     if let Some(ref mut vps) = report.viewport_scores {
         vps.mobile.performance = new_perf;
         let mobile_overall = compute_viewport_overall(
