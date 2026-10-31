@@ -1455,6 +1455,31 @@ mod tests {
         assert!(!with("http://example.com/", None));
     }
 
+    /// Ending on `https://` does not undo a hop through clear text: the
+    /// chain, not only the final URL, decides (#775).
+    #[test]
+    fn citation_transport_reads_the_redirect_chain() {
+        let with = |chain: &[(&str, u16)]| {
+            let mut report = minimal_report();
+            report.url = "https://example.com/".into();
+            let nav = &mut report.accessibility.execution.navigation;
+            nav.final_url = Some("https://www.example.com/".into());
+            nav.redirect_chain = chain
+                .iter()
+                .map(|(url, status)| crate::audit::RedirectHop {
+                    url: (*url).into(),
+                    status: *status,
+                })
+                .collect();
+            build_citation_input(&report).has_https
+        };
+        assert!(with(&[("https://example.com/", 301)]));
+        assert!(!with(&[
+            ("https://example.com/", 302),
+            ("http://example.com/", 301)
+        ]));
+    }
+
     #[test]
     fn test_minimal_report_produces_scores() {
         let report = minimal_report();

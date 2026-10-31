@@ -856,6 +856,19 @@ mod tests {
         assert!(check_vulnerability("Bootstrap", "5.3.3").is_none());
     }
 
+    /// AngularJS has no fixed release: GHSA-2vrf-hf26-jrp5 (CVE-2023-26116)
+    /// lists `<= 1.8.3` with no patched version, and 1.8.3 is the last
+    /// release on npm (2022-04-07), so every release that exists is affected.
+    /// Prototype and MooTools have no bounded advisory to check against
+    /// (their rows stay unreviewed notices, see `advisories.json`).
+    #[test]
+    fn angularjs_every_existing_release_is_affected() {
+        for version in ["1.0.0", "1.2.32", "1.7.0", "1.8.3"] {
+            let found = ids("AngularJS", version).expect(version);
+            assert_eq!(found, vec!["local:angularjs-end-of-life"], "{version}");
+        }
+    }
+
     #[test]
     fn handlebars_ranges_end_at_4_7_7_and_4_7_10() {
         // GHSA-f2jv-r9rf-7988 / CVE-2021-23369 (< 4.7.7), not only < 4.5.3;
