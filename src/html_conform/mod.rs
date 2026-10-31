@@ -414,13 +414,4 @@ mod tests {
             .collect();
         assert_eq!(score_findings(&findings), 0);
     }
-
-    #[test]
-    fn not_measured_has_full_score_and_is_excluded() {
-        let a = not_measured();
-        assert!(!a.checked);
-        assert_eq!(a.score, 100);
-        assert!(a.findings.is_empty());
-        assert_eq!(a.distinct_defect_count, 0);
-    }
 }

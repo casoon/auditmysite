@@ -77,6 +77,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
 - **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
 - **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
 - **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.
