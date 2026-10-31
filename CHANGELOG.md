@@ -101,6 +101,7 @@ and verification for each change is in the
 - **Docs:** `viewport_scores.weighted_overall` is labelled as the 70/30 viewport blend, not a published module weight and not `overall_score` (#771); the AI-visibility module text no longer claims content is "cited" (#784).
 - **Tests:** negative and infinite Web Vitals are not measurements (#769); the Hickory error mapping and the image-fetch page counters are tested (#776, #789); the terminal renders the stored decision (#781); `batch_failed_urls_cli` and `session_policy_test` run in the browser CI job and in `release-check.sh` (#768, #787).
 
+- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3.
 - **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
 - **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
 - **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
