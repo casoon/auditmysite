@@ -3,7 +3,7 @@
 # CLI dispatchers and the exporters) or builds presentation from data that was checked;
 # the baseline may only shrink (#790).
 src/cli/report_writers.rs 2
-src/cli/runners.rs 2
+src/cli/runners.rs 1
 src/output/ai.rs 1
 src/output/builder/batch.rs 1
 src/output/json.rs 1

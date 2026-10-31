@@ -31,7 +31,7 @@ use crate::audit::normalized::NormalizedReport;
 use crate::audit::PerformanceResults;
 use crate::audit::{AccessibilityScorer, AuditReport};
 use crate::cli::WcagLevel;
-use crate::error::Result;
+use crate::error::{AuditError, Result};
 use crate::mobile::MobileFriendliness;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
@@ -243,6 +243,10 @@ pub enum ReplayError {
     /// Written under other versions than the current ones.
     #[error("snapshot is incompatible: {}", format_mismatches(.0))]
     Incompatible(Vec<VersionMismatch>),
+    /// Measured under another profile than the one the caller asserts: the
+    /// replay would present another measurement as the requested one.
+    #[error("snapshot was measured under another profile: {}", format_mismatches(.0))]
+    OtherMeasurement(Vec<VersionMismatch>),
     /// The replayed data contradicts itself.
     #[error("replayed data violates the report contract: {0}")]
     Contract(#[from] crate::audit::ReportContractError),
@@ -338,12 +342,21 @@ impl SnapshotArtifact {
 /// The report a replay evaluates: the collected data with the in-memory
 /// layers rebuilt from the persisted tree. The provenance says `replay`.
 pub fn replay_report(snapshot: &SnapshotArtifact) -> std::result::Result<AuditReport, ReplayError> {
+    replay_report_as(snapshot, "replay")
+}
+
+/// [`replay_report`] with the provenance a caller names: `replay` for an
+/// explicit replay, `cache` when a cache hit is answered through it.
+pub fn replay_report_as(
+    snapshot: &SnapshotArtifact,
+    source: &str,
+) -> std::result::Result<AuditReport, ReplayError> {
     snapshot.replayability()?;
     let mut report = snapshot
         .collected
         .clone()
         .ok_or(ReplayError::Incomplete(vec!["collected"]))?;
-    report.accessibility.execution.environment.source = "replay".to_string();
+    report.accessibility.execution.environment.source = source.to_string();
     report.screen_reader_audit = Some(rebuild_screen_reader(
         &report.url,
         report.timestamp,
@@ -360,6 +373,112 @@ pub fn replay_report(snapshot: &SnapshotArtifact) -> std::result::Result<AuditRe
 pub fn replay(snapshot: &SnapshotArtifact) -> std::result::Result<NormalizedReport, ReplayError> {
     let report = replay_report(snapshot)?;
     Ok(crate::audit::normalize_checked(&report)?.normalized)
+}
+
+/// The measurement profile a caller asserts for a replay. `None` leaves the
+/// field unasserted.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ExpectedProfile {
+    pub session_policy: Option<String>,
+    pub state_id: Option<String>,
+    /// SHA-256 of the declared storage state.
+    pub storage_state_sha256: Option<String>,
+}
+
+/// How two measurement profiles differ, as `(field, a, b)` in the
+/// `stored`/`current` slots. Equal profiles differ in nothing; a page whose
+/// content differs between two runs of one URL is explained by the profile
+/// only if this list is not empty.
+pub fn profile_differences(
+    a: &crate::audit::MeasurementProfile,
+    b: &crate::audit::MeasurementProfile,
+) -> Vec<VersionMismatch> {
+    let mut out = Vec::new();
+    let mut check = |field: &'static str, a: String, b: String| {
+        if a != b {
+            out.push(VersionMismatch {
+                field,
+                stored: a,
+                current: b,
+            });
+        }
+    };
+    let sha = |p: &crate::audit::MeasurementProfile| {
+        p.storage_state
+            .as_ref()
+            .map_or("none".to_string(), |s| s.sha256.clone())
+    };
+    check(
+        "session_policy",
+        a.session_policy.clone(),
+        b.session_policy.clone(),
+    );
+    check(
+        "state_id",
+        a.state_id.clone().unwrap_or_else(|| "none".to_string()),
+        b.state_id.clone().unwrap_or_else(|| "none".to_string()),
+    );
+    check("storage_state", sha(a), sha(b));
+    out
+}
+
+impl SnapshotArtifact {
+    /// Refuses a snapshot measured under another profile than the asserted
+    /// one. Only the asserted fields are compared.
+    pub fn check_measurement(
+        &self,
+        expected: &ExpectedProfile,
+    ) -> std::result::Result<(), ReplayError> {
+        self.replayability()?;
+        let stored = self
+            .collected
+            .as_ref()
+            .map(|c| c.accessibility.execution.scope.measurement_profile.clone())
+            .unwrap_or_default();
+        let mut wanted = stored.clone();
+        if let Some(session) = &expected.session_policy {
+            wanted.session_policy = session.clone();
+        }
+        if let Some(id) = &expected.state_id {
+            wanted.state_id = Some(id.clone());
+        }
+        if let Some(sha) = &expected.storage_state_sha256 {
+            wanted.storage_state = Some(crate::audit::StorageStateRef {
+                sha256: sha.clone(),
+                cookies: 0,
+                origins: 0,
+            });
+        }
+        let differences = profile_differences(&stored, &wanted);
+        if differences.is_empty() {
+            Ok(())
+        } else {
+            Err(ReplayError::OtherMeasurement(differences))
+        }
+    }
+
+    /// Reads a stored snapshot from a `snapshot.json` or the cache entry
+    /// directory holding one.
+    pub fn read(path: &std::path::Path) -> Result<Self> {
+        let file = if path.is_dir() {
+            path.join("snapshot.json")
+        } else {
+            path.to_path_buf()
+        };
+        let bytes = fs::read(&file).map_err(|e| AuditError::FileError {
+            path: file.clone(),
+            reason: e.to_string(),
+        })?;
+        serde_json::from_slice(&bytes).map_err(|e| AuditError::FileError {
+            path: file,
+            reason: format!("not a snapshot: {e}"),
+        })
+    }
+
+    /// The snapshot of the current cache entry for `url`.
+    pub fn read_cached(url: &str) -> Result<Self> {
+        Self::read(&artifact_dir(url)?)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -423,13 +542,69 @@ fn write_entry(dir: &std::path::Path, wcag_level: &str, artifacts: &AuditArtifac
     Ok(())
 }
 
-pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
-    read_entry(&artifact_dir(url)?)
+/// Why the cache cannot answer a request.
+#[derive(Debug, thiserror::Error)]
+pub enum CacheMiss {
+    /// Nothing stored for this URL (or the entry is not complete on disk).
+    #[error("no cached audit for this URL")]
+    Absent,
+    /// The entry exists but cannot be read.
+    #[error("cached audit {} is unreadable ({reason})", .path.display())]
+    Unreadable { path: PathBuf, reason: String },
+    /// The entry was produced for another audit scope or run configuration.
+    #[error("cached audit was produced with a different audit configuration")]
+    OtherConfiguration,
+    /// The snapshot cannot be replayed under the current semantics.
+    #[error("cached audit is not reusable: {0}")]
+    NotReplayable(#[from] ReplayError),
 }
 
-fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
+/// A cache entry, or why there is none.
+#[derive(Debug)]
+pub enum CacheLookup {
+    Hit(Box<AuditArtifacts>),
+    Miss(CacheMiss),
+}
+
+pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
+    Ok(match lookup_artifacts(url)? {
+        CacheLookup::Hit(artifacts) => Some(*artifacts),
+        CacheLookup::Miss(CacheMiss::Absent) => None,
+        CacheLookup::Miss(reason) => {
+            warn!("{reason}; running fresh");
+            None
+        }
+    })
+}
+
+/// Looks up the cache entry of `url`, naming the reason when there is none.
+pub fn lookup_artifacts(url: &str) -> Result<CacheLookup> {
+    Ok(read_entry(&artifact_dir(url)?))
+}
+
+/// The report a `--reuse-cache` hit answers with: the stored snapshot
+/// replayed (#790), never a reconstruction. An entry written for another
+/// audit configuration, or one whose snapshot is incomplete or from other
+/// versions, is a miss with its reason — never the current semantics applied
+/// to old data.
+pub fn cached_report(
+    url: &str,
+    expected_signature: &str,
+) -> Result<std::result::Result<AuditReport, CacheMiss>> {
+    let cached = match lookup_artifacts(url)? {
+        CacheLookup::Hit(cached) => cached,
+        CacheLookup::Miss(reason) => return Ok(Err(reason)),
+    };
+    if !cache_matches_signature(&cached.meta, expected_signature) {
+        return Ok(Err(CacheMiss::OtherConfiguration));
+    }
+    Ok(replay_report_as(&cached.snapshot, "cache").map_err(CacheMiss::from))
+}
+
+fn read_entry(dir: &std::path::Path) -> CacheLookup {
+    use CacheLookup::{Hit, Miss};
     if !dir.exists() {
-        return Ok(None);
+        return Miss(CacheMiss::Absent);
     }
 
     let fetch_path = dir.join("fetch.json");
@@ -439,12 +614,12 @@ fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
     let meta_path = dir.join("meta.json");
 
     if !fetch_path.exists() || !snapshot_path.exists() || !audit_path.exists() {
-        return Ok(None);
+        return Miss(CacheMiss::Absent);
     }
 
-    // A truncated or otherwise corrupt cache entry must not abort the run — treat
-    // any read/parse failure as a cache miss so the caller falls back to a fresh
-    // audit (#405).
+    // A truncated or otherwise corrupt cache entry must not abort the run — it
+    // is a cache miss with a reason, so the caller falls back to a fresh audit
+    // (#405).
     macro_rules! load_or_miss {
         ($path:expr, $ty:ty) => {
             match fs::read(&$path)
@@ -452,13 +627,11 @@ fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
                 .and_then(|bytes| serde_json::from_slice::<$ty>(&bytes).map_err(|e| e.to_string()))
             {
                 Ok(value) => value,
-                Err(e) => {
-                    warn!(
-                        "Cache entry {} is unreadable ({}); ignoring and running fresh",
-                        $path.display(),
-                        e
-                    );
-                    return Ok(None);
+                Err(reason) => {
+                    return Miss(CacheMiss::Unreadable {
+                        path: $path.clone(),
+                        reason,
+                    })
                 }
             }
         };
@@ -470,11 +643,7 @@ fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
     // A snapshot that cannot be replayed under the current semantics is a
     // miss, never an entry read as if it were current (#790).
     if let Err(reason) = snapshot.replayability() {
-        warn!(
-            "Cache entry {} is not reusable ({reason}); running fresh",
-            dir.display()
-        );
-        return Ok(None);
+        return Miss(CacheMiss::NotReplayable(reason));
     }
     let content_hash = content_hash(&snapshot);
 
@@ -499,7 +668,7 @@ fn read_entry(dir: &std::path::Path) -> Result<Option<AuditArtifacts>> {
         }
     };
 
-    Ok(Some(AuditArtifacts {
+    Hit(Box::new(AuditArtifacts {
         fetch,
         snapshot,
         audit,
@@ -950,10 +1119,71 @@ mod tests {
         with_big_stack(|| {
             let dir = tempfile::tempdir().unwrap();
             write_entry(dir.path(), "AA", &entry(replayable_snapshot())).unwrap();
-            let loaded = read_entry(dir.path()).unwrap().expect("compatible entry");
+            let CacheLookup::Hit(loaded) = read_entry(dir.path()) else {
+                panic!("compatible entry expected");
+            };
             assert!(loaded.report.is_some());
             assert!(!dir.path().join("report.json").exists());
             assert!(replay(&loaded.snapshot).is_ok());
+        });
+    }
+
+    #[test]
+    fn a_snapshot_of_another_profile_is_not_the_asserted_measurement() {
+        with_big_stack(|| {
+            let mut snapshot = replayable_snapshot();
+            let profile = &mut snapshot
+                .collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile;
+            profile.state_id = Some("logged-in".to_string());
+            profile.storage_state = Some(crate::audit::StorageStateRef {
+                sha256: "aa".repeat(32),
+                cookies: 1,
+                origins: 0,
+            });
+            let ok = |e: ExpectedProfile| snapshot.check_measurement(&e);
+            // Nothing asserted, or the stored profile asserted: the same measurement.
+            assert!(ok(ExpectedProfile::default()).is_ok());
+            assert!(ok(ExpectedProfile {
+                session_policy: Some("unknown".into()),
+                state_id: Some("logged-in".into()),
+                storage_state_sha256: Some("aa".repeat(32)),
+            })
+            .is_ok());
+            // Any asserted field that differs refuses, naming the field.
+            for (expected, field) in [
+                (
+                    ExpectedProfile {
+                        session_policy: Some("shared".into()),
+                        ..Default::default()
+                    },
+                    "session_policy",
+                ),
+                (
+                    ExpectedProfile {
+                        state_id: Some("logged-out".into()),
+                        ..Default::default()
+                    },
+                    "state_id",
+                ),
+                (
+                    ExpectedProfile {
+                        storage_state_sha256: Some("bb".repeat(32)),
+                        ..Default::default()
+                    },
+                    "storage_state",
+                ),
+            ] {
+                match ok(expected) {
+                    Err(ReplayError::OtherMeasurement(d)) => assert_eq!(d[0].field, field),
+                    other => panic!("{field}: {other:?}"),
+                }
+            }
         });
     }
 
@@ -964,7 +1194,10 @@ mod tests {
             let mut stale = replayable_snapshot();
             stale.versions.as_mut().unwrap().evaluation += 1;
             write_entry(dir.path(), "AA", &entry(stale)).unwrap();
-            assert!(read_entry(dir.path()).unwrap().is_none());
+            assert!(matches!(
+                read_entry(dir.path()),
+                CacheLookup::Miss(CacheMiss::NotReplayable(ReplayError::Incompatible(_)))
+            ));
 
             // Written before the replay fields existed: the same.
             let legacy = tempfile::tempdir().unwrap();
@@ -974,7 +1207,11 @@ mod tests {
                 &entry(snapshot_with_unlabelled_field(&[])),
             )
             .unwrap();
-            assert!(read_entry(legacy.path()).unwrap().is_none());
+            let CacheLookup::Miss(reason) = read_entry(legacy.path()) else {
+                panic!("legacy entry must miss");
+            };
+            // The reason is named for the user, not swallowed.
+            assert!(reason.to_string().contains("incomplete"), "{reason}");
         });
     }
 }

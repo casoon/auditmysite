@@ -297,6 +297,12 @@ jobs:
           CI: "true"
         run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
 
+      - name: Run replay-path tests (fresh vs cache vs replay)
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test replay_paths_test -- --ignored --nocapture --test-threads=1
+
       # Schema/vulnerable-libs/easy-language detection-corpus tests
       # (#553-#558; the WCAG corpus has its own job below): real Chrome, diffed against ground-truth fixtures.
       # These are separate `#[ignore]`-gated test binaries and were never
