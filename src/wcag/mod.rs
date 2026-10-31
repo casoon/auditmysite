@@ -7,6 +7,7 @@ pub mod coverage;
 pub mod en301549;
 pub mod engine;
 pub mod expectation;
+pub mod level;
 pub mod rules;
 pub mod shared;
 pub mod types;
@@ -16,6 +17,7 @@ pub use engine::{
     check_pointer_cancellation_with_page, check_reflow_with_page, check_timeouts_with_page,
     check_timing_with_page, check_visual_presentation_with_page, RuleFilterConfig,
 };
+pub use level::WcagLevel;
 pub use types::{
     rule_run_errored, rule_run_skipped, technical_failure_reason, technical_rule_failure,
     technical_rule_failure_for, Evidence, NotRun, Outcome, RuleMetadata, RuleRun, Severity,

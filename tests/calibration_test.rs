@@ -13,6 +13,9 @@
 //!   rank agreement with the human ratings per signal, writes the result to
 //!   `reports/calibration-results.json` and fails if a pre-registered
 //!   threshold is missed. It refuses to run until labels are frozen.
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};

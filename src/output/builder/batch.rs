@@ -3,8 +3,9 @@
 use crate::output::localized::is_english;
 use std::collections::HashMap;
 
+use crate::audit::normalized::normalize;
 use crate::audit::normalized::NormalizedFinding;
-use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
+use crate::audit::{BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;

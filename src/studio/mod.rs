@@ -319,7 +319,7 @@ fn risk_level_string(level: RiskLevel) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audit::normalize;
+    use crate::audit::normalized::normalize;
     use crate::cli::WcagLevel;
     use crate::wcag::WcagResults;
 

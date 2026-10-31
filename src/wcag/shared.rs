@@ -28,9 +28,9 @@ use a11y_report::{Finding, NotRun, Outcome};
 use a11y_rules::Locale;
 
 use crate::accessibility::CdpDocument;
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleRun, Violation, WcagResults};
 use crate::wcag::RuleFilterConfig;
+use crate::wcag::WcagLevel;
 
 /// Was auditmysite über eine geteilte Regel zusätzlich wissen muss.
 ///

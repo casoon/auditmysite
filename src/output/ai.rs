@@ -6,7 +6,8 @@
 
 use serde::Serialize;
 
-use crate::audit::{normalize, AuditReport};
+use crate::audit::normalized::normalize;
+use crate::audit::AuditReport;
 
 /// Impact sort order — lower number = higher priority.
 fn impact_order(impact: &str) -> u8 {

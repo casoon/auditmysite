@@ -18,6 +18,9 @@
 //! `#[ignore]`-gated like the existing Chrome-dependent tests in
 //! `tests/integration_test.rs` — run with `cargo test -- --ignored`. If the
 //! corpus directory is ever empty, the test fails: no fixtures are no evidence.
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 mod common;
 

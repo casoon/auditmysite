@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Added
 
+- **Performance:** `--perf-runs N` (1–9, default 1) measures each throttled profile N times; the median-score run is reported and `throttled_performance[].spread` holds min/median/max of LCP, TBT, CLS and score plus the runs that measured (#791). Single URL with performance checking only.
+- **Audit contracts:** `audit_scope.measurement_profile.extra_checks` lists the opt-in extra checks of the run (`--check-ssr-content`, `--isolate-third-party-impact`, `--ai-transparency`, `--dns-check`); a stored run with other extra checks is another measurement (#788).
 - **Findings:** A missing `<h1>` seen by SEO, UX, Journey and the accessibility journey is now one cause (`page.h1.missing`) in `findings[].contract.cause`; only the SEO finding deducts, the others are indicators/risk references. The taxonomy entry `a11y.main_heading.missing` no longer claims WCAG 1.3.1 (best practice, #779).
 - **Best practices:** AngularJS advisory now cites GHSA-2vrf-hf26-jrp5 (`<= 1.8.3`, no patched release) and has a test over its existing releases; Prototype and MooTools stay unreviewed notices (#773).
 - **Collection contract:** the `COLLECTORS` inventory now covers the capture layer (navigation snapshot, AX tree, consent, exclusion scope, frames, page stability, rule execution, one collector per journey kind). A lost capture shows up in `module_runs[].subchecks[]` instead of reading as "no redirects", "no frames" or "nothing excluded"; validation rejects collections outside the inventory or without a reason (`collector_unknown`, `collection_state_unexplained`) and `collection_gap_scored` covers every scored module (#777).
@@ -41,6 +43,9 @@ and verification for each change is in the
 
 ### Changed
 
+- **Migration:** the infallible `audit::normalize` is `#[deprecated]` with `normalize_checked` as the 2.0 path; the CLI no longer calls it (#790).
+- **Snapshot:** the `rule_set` digest covers AX-tree, page and inline rules as well as the shared rules, and the content fingerprint (version 4) includes contrast violations and the mobile, design-quality and dark-mode measurements, so a style-only change is detected (#790). Older cache entries are misses.
+- **Architecture:** `WcagLevel` moved to `wcag::level` (still exported from `cli`); the backward-import baseline shrinks from 32 to 3 entries (#790).
 - **Transport:** `document_is_https()` (used by AI visibility and source quality) now also reads `navigation.redirect_chain`: a navigation that dropped from `https://` to `http://` on the way is not secure even if it ends on `https://` (#775).
 - **Transport:** Source Quality's HTTPS signal and AI Visibility's citation input judge TLS from the document the browser was served (`final_url`), not the requested URL; an `http://` entry that redirects to `https://` counts as secure, an `https://` entry that ends on `http://` does not.
 - **WCAG:** A shared-library finding tagged `best-practice` without a criterion (missing `h1`, skipped heading level, landmark and redundant-role advice, …) is reported as a review hint, no longer as a confirmed WCAG 1.3.1 failure that lowers the score; a page with only an `h2` no longer fails 1.3.1.
@@ -101,6 +106,8 @@ and verification for each change is in the
 - **Docs:** `viewport_scores.weighted_overall` is labelled as the 70/30 viewport blend, not a published module weight and not `overall_score` (#771); the AI-visibility module text no longer claims content is "cited" (#784).
 - **Tests:** negative and infinite Web Vitals are not measurements (#769); the Hickory error mapping and the image-fetch page counters are tested (#776, #789); the terminal renders the stored decision (#781); `batch_failed_urls_cli` and `session_policy_test` run in the browser CI job and in `release-check.sh` (#768, #787).
 - **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3.
+- **Findings:** an HTML-conformance result marked as not checked no longer produces findings; "not measured" stays distinct from "measured" (#780).
+- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal (synthesised node ids hash by rank); fingerprint version 3 (4 with the style inputs below).
 - **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
 - **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
 - **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).

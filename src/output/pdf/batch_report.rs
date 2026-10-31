@@ -73,7 +73,7 @@ fn build_batch_report(
     let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = batch
         .reports
         .iter()
-        .map(|r| crate::audit::normalize(r).normalized)
+        .map(|r| crate::audit::normalized::normalize(r).normalized)
         .collect();
     let en301549_rollup = crate::wcag::en301549::derive_batch_rollup(
         normalized_reports.iter().map(|r| r.findings.as_slice()),

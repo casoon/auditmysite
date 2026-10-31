@@ -10,13 +10,13 @@ use colored::Colorize;
 use dialoguer::Select;
 use tracing::info;
 
+use auditmysite::audit::normalize_checked;
 use auditmysite::audit::{
     analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cached_report, crawl_site,
     parse_sitemap, read_url_file, replay_report, run_concurrent_batch, run_single_audit,
     BatchConfig, CacheMiss, CrawlResult, ExpectedProfile, PipelineConfig, SnapshotArtifact,
     Verdict,
 };
-use auditmysite::audit::{normalize, normalize_checked};
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::url_filter::{select_urls, stratified_sample};
 use auditmysite::cli::{Args, OutputFormat, RequestMode, SampleStrategy};
@@ -213,7 +213,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
     }
 
     // The decision stored by normalization under the run's profile (#781).
-    let verdict_result = normalize(&report).normalized.decision;
+    let verdict_result = normalize_checked(&report)?.normalized.decision;
     output_single_report(&report, args)?;
     print_verdict(&verdict_result, args.quiet);
     Ok(RunOutcome {

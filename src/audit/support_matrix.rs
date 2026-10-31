@@ -179,6 +179,15 @@ impl ExtraCheckRequest {
         }
     }
 
+    /// Flag names of the requested checks, in matrix order.
+    pub fn requested_flags(&self) -> Vec<String> {
+        MATRIX
+            .iter()
+            .filter(|spec| self.requested(spec.check))
+            .map(|spec| spec.flag.to_string())
+            .collect()
+    }
+
     fn prerequisite_met(&self, prerequisite: Prerequisite) -> bool {
         match prerequisite {
             Prerequisite::None => true,

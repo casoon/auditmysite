@@ -6,7 +6,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::cli::WcagLevel;
+use crate::wcag::WcagLevel;
 
 // Re-export Severity from taxonomy module (single source of truth)
 pub use crate::taxonomy::Severity;

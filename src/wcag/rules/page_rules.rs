@@ -21,8 +21,8 @@
 use chromiumoxide::Page;
 use futures::future::BoxFuture;
 
-use crate::cli::WcagLevel;
 use crate::wcag::Violation;
+use crate::wcag::WcagLevel;
 
 use super::{
     check_accessible_authentication_with_page, check_display_modes_with_page,

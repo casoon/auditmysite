@@ -1011,7 +1011,7 @@ impl UnifiedReport {
         let normalized_reports: Vec<NormalizedReport> = batch_report
             .reports
             .iter()
-            .map(|r| crate::audit::normalize(r).normalized)
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
             .collect();
         let i18n = crate::i18n::I18n::new("en").expect("canonical JSON locale must load");
         let presentation =

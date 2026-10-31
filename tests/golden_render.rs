@@ -39,7 +39,9 @@
 //! Usage (see also `scripts/golden-diff.sh`):
 //!   AUDITMYSITE_GOLDEN_DIR=reports/golden AUDITMYSITE_GOLDEN_OUT=/tmp/golden-main \
 //!     cargo test --release --all-features --test golden_render -- --ignored
-
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 #![cfg(feature = "pdf")]
 
 use std::fs;

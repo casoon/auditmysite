@@ -22,8 +22,8 @@
 //! dead branch was removed rather than reimplemented here.
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::WcagLevel;
 
 pub(super) const FOCUS_VISIBLE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.7",

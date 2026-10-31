@@ -13,7 +13,8 @@ use runemark::{
     Verdict,
 };
 
-use crate::audit::{normalize, AuditReport, BatchReport};
+use crate::audit::normalized::normalize;
+use crate::audit::{AuditReport, BatchReport};
 use crate::cli::{Args, ColorPolicy};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;

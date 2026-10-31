@@ -30,8 +30,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{evaluate_or_fail, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 // No public page for the convention yet (draft v0); link the anchor criterion.
 const HELP_URL_222: &str = "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html";

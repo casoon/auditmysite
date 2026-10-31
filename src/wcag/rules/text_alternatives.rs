@@ -18,8 +18,8 @@
 use std::collections::HashSet;
 
 use crate::accessibility::{AXTree, NameSource};
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::WcagLevel;
 
 /// Rule metadata for 1.1.1
 pub(super) const RULE_META: RuleMetadata = RuleMetadata {

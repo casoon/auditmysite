@@ -16,8 +16,8 @@ use std::time::Duration;
 use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub const REFLOW_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.10",

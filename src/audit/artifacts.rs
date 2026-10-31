@@ -215,15 +215,40 @@ impl SnapshotVersions {
     }
 }
 
+/// Digest of every registered rule source: the shared rules, the AX-tree
+/// rules, the page-rule table with its concrete outcome ids, and the two
+/// inline page rules. Adding, removing or re-levelling a rule in any of them
+/// changes it. A change in what a rule *decides* under an unchanged
+/// registration is still a manual [`EVALUATION_VERSION`] bump.
 fn rule_set_digest() -> String {
-    let mut input = String::new();
+    format!("{:016x}", fnv1a(rule_set_lines().join("\n").as_bytes()))
+}
+
+fn rule_set_lines() -> Vec<String> {
+    use crate::wcag::engine::TREE_RULES;
+    use crate::wcag::rules::{HTML_CONTENT_MODEL_RULE, PAGE_RULES, REFLOW_RULE};
+    let mut lines: Vec<String> = Vec::new();
     for rule in crate::wcag::shared::SHARED_RULES {
-        input.push_str(&format!(
-            "{}|{}|{:?}\n",
+        lines.push(format!(
+            "shared|{}|{}|{:?}",
             rule.id, rule.criterion, rule.level
         ));
     }
-    format!("{:016x}", fnv1a(input.as_bytes()))
+    for rule in TREE_RULES {
+        lines.push(format!("tree|{}|{:?}", rule.axe_id, rule.min_level));
+    }
+    for rule in PAGE_RULES {
+        lines.push(format!(
+            "page|{}|{:?}|{}",
+            rule.rule_id,
+            rule.min_level,
+            rule.outcome_ids.join(",")
+        ));
+    }
+    for rule in [&REFLOW_RULE, &HTML_CONTENT_MODEL_RULE] {
+        lines.push(format!("inline|{}", rule.axe_id));
+    }
+    lines
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -419,6 +444,11 @@ pub fn profile_differences(
         b.state_id.clone().unwrap_or_else(|| "none".to_string()),
     );
     check("storage_state", sha(a), sha(b));
+    check(
+        "extra_checks",
+        a.extra_checks.join(","),
+        b.extra_checks.join(","),
+    );
     out
 }
 
@@ -680,7 +710,7 @@ fn read_entry(dir: &std::path::Path) -> CacheLookup {
 
 /// Version of what [`content_hash`] covers. A hash of another version never
 /// compares equal to this one's: it measured something else.
-pub const FINGERPRINT_VERSION: u32 = 3;
+pub const FINGERPRINT_VERSION: u32 = 4;
 
 /// FNV-1a fingerprint of the snapshot's content: every AX node with role,
 /// name, value, properties, links and DOM anchor, plus the SEO parts that
@@ -692,18 +722,41 @@ pub const FINGERPRINT_VERSION: u32 = 3;
 /// independent of map iteration order. Measured timings (LCP, TBT, …) are
 /// not content and stay out: a slower run of an unchanged page is no change.
 ///
+/// Version 2 hashed AX nodes and SEO parts only; version 3 ignores browser-assigned ids; version 4 adds the
+/// style inputs (contrast violations, mobile, design quality, dark mode).
 /// Version 1 hashed the node count, the first 100 node ids and a few SEO
 /// strings, so a changed label or text on an unchanged tree shape went
 /// undetected (#790).
 pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
     let mut input = String::with_capacity(4096);
-    let mut nodes: Vec<_> = snapshot.ax_tree.nodes.iter().collect();
-    nodes.sort_unstable_by(|a, b| a.0.cmp(b.0));
+    // Nodes the audit synthesised (negative ids from a process-wide counter)
+    // get a different id on every run; they hash by their rank instead.
+    let mut synthetic: Vec<(i64, &String)> = snapshot
+        .ax_tree
+        .nodes
+        .keys()
+        .filter_map(|id| id.parse::<i64>().ok().filter(|n| *n < 0).map(|n| (n, id)))
+        .collect();
+    synthetic.sort_unstable();
+    let rank: std::collections::HashMap<&str, String> = synthetic
+        .iter()
+        .enumerate()
+        .map(|(i, (_, id))| (id.as_str(), format!("synthetic#{i}")))
+        .collect();
+    let stable = |id: &str| rank.get(id).cloned().unwrap_or_else(|| id.to_string());
+    let mut nodes: Vec<_> = snapshot
+        .ax_tree
+        .nodes
+        .iter()
+        .map(|(id, node)| (stable(id), node))
+        .collect();
+    nodes.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     for (id, node) in nodes {
-        input.push_str(id);
+        input.push_str(&id);
         input.push('=');
         let mut value = serde_json::to_value(node).unwrap_or_default();
         strip_volatile_ids(&mut value);
+        replace_ids(&mut value, &stable);
         push_canonical(&mut input, &value);
         input.push('\n');
     }
@@ -714,6 +767,34 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
             serde_json::to_value(&seo.social),
             serde_json::to_value(&seo.technical),
             serde_json::to_value(&seo.structured_data),
+        ] {
+            push_canonical(&mut input, &part.unwrap_or_default());
+            input.push('\n');
+        }
+    }
+    // Presentation inputs that never reach the AX tree: a pure style change
+    // (colours, sizes, font, colour scheme) leaves node count, ids and names
+    // as they were. They surface as contrast violations and in the mobile,
+    // design-quality and dark-mode measurements.
+    if let Some(mobile) = &snapshot.mobile {
+        push_canonical(
+            &mut input,
+            &serde_json::to_value(mobile).unwrap_or_default(),
+        );
+        input.push('\n');
+    }
+    if let Some(collected) = &snapshot.collected {
+        let contrast: Vec<_> = collected
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .filter(|v| matches!(v.rule.as_str(), "1.4.3" | "1.4.6" | "1.4.11"))
+            .collect();
+        for part in [
+            serde_json::to_value(&contrast),
+            serde_json::to_value(&collected.experience.design_quality),
+            serde_json::to_value(&collected.experience.dark_mode),
         ] {
             push_canonical(&mut input, &part.unwrap_or_default());
             input.push('\n');
@@ -740,6 +821,15 @@ fn strip_volatile_ids(value: &mut serde_json::Value) {
             map.values_mut().for_each(strip_volatile_ids);
         }
         serde_json::Value::Array(items) => items.iter_mut().for_each(strip_volatile_ids),
+        _ => {}
+    }
+}
+
+fn replace_ids(value: &mut serde_json::Value, stable: &dyn Fn(&str) -> String) {
+    match value {
+        serde_json::Value::String(text) => *text = stable(text),
+        serde_json::Value::Object(map) => map.values_mut().for_each(|v| replace_ids(v, stable)),
+        serde_json::Value::Array(items) => items.iter_mut().for_each(|v| replace_ids(v, stable)),
         _ => {}
     }
 }
@@ -1012,6 +1102,75 @@ mod tests {
         assert_eq!(before, content_hash(&labelled(Some("Email"), None)));
     }
 
+    /// Nodes the audit synthesised carry an id from a process-wide counter;
+    /// the same page measured twice must hash equal whatever the counter says.
+    #[test]
+    fn synthesised_node_ids_do_not_change_the_hash() {
+        let with_ids = |field: &str, root: &str| {
+            let mut snapshot = labelled(Some("Email"), None);
+            let mut nodes = std::mem::take(&mut snapshot.ax_tree.nodes);
+            let mut field_node = nodes.remove("field").unwrap();
+            let mut root_node = nodes.remove("root").unwrap();
+            field_node.node_id = field.to_string();
+            field_node.parent_id = Some(root.to_string());
+            root_node.node_id = root.to_string();
+            root_node.child_ids = vec![field.to_string()];
+            nodes.insert(field.to_string(), field_node);
+            nodes.insert(root.to_string(), root_node);
+            snapshot.ax_tree.nodes = nodes;
+            snapshot
+        };
+        assert_eq!(
+            content_hash(&with_ids("-1000000007", "-1000000006")),
+            content_hash(&with_ids("-1000000009", "-1000000008"))
+        );
+        assert_ne!(
+            content_hash(&with_ids("-1000000007", "-1000000006")),
+            content_hash(&with_ids("field", "root")),
+            "a real id is content"
+        );
+    }
+
+    /// A pure style change leaves the AX tree untouched; the fingerprint
+    /// still moves (#790).
+    #[test]
+    fn a_style_only_change_changes_the_hash() {
+        with_big_stack(|| {
+            let base = replayable_snapshot();
+            let before = content_hash(&base);
+            assert_eq!(before, content_hash(&base.clone()));
+
+            let mut contrast = base.clone();
+            contrast
+                .collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .wcag_results
+                .violations
+                .push(crate::wcag::Violation::new(
+                    "1.4.3",
+                    "Contrast",
+                    WcagLevel::AA,
+                    crate::taxonomy::Severity::High,
+                    "Contrast 2.1:1 (#777 on #fff)",
+                    "n1",
+                ));
+            assert_ne!(before, content_hash(&contrast));
+
+            let mut other_colour = contrast.clone();
+            other_colour
+                .collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .wcag_results
+                .violations[0]
+                .message = "Contrast 2.9:1 (#666 on #fff)".to_string();
+            assert_ne!(content_hash(&contrast), content_hash(&other_colour));
+        });
+    }
+
     #[test]
     fn browser_assigned_ids_are_not_content() {
         let mut one = labelled(Some("Email"), None);
@@ -1114,7 +1273,7 @@ mod tests {
             WcagResults::new(),
             0,
         );
-        let audit = crate::audit::normalize(&report).normalized;
+        let audit = crate::audit::normalized::normalize(&report).normalized;
         AuditArtifacts {
             fetch: FetchArtifact {
                 requested_url: "https://example.com".into(),
@@ -1166,6 +1325,91 @@ mod tests {
             assert!(loaded.report.is_some());
             assert!(!dir.path().join("report.json").exists());
             assert!(replay(&loaded.snapshot).is_ok());
+        });
+    }
+
+    /// The rule-set digest covers every registered rule source, not only the
+    /// shared rules: a tree or page rule added, removed or re-levelled makes
+    /// an older snapshot incompatible (#790).
+    #[test]
+    fn the_rule_set_digest_covers_every_rule_source() {
+        let lines = rule_set_lines();
+        for kind in ["shared|", "tree|", "page|", "inline|"] {
+            assert!(lines.iter().any(|l| l.starts_with(kind)), "{kind}");
+        }
+        assert_eq!(
+            lines.iter().filter(|l| l.starts_with("tree|")).count(),
+            crate::wcag::engine::TREE_RULES.len()
+        );
+        assert_eq!(
+            lines.iter().filter(|l| l.starts_with("page|")).count(),
+            crate::wcag::rules::PAGE_RULES.len()
+        );
+        // A changed page rule changes the digest.
+        let before = fnv1a(lines.join("\n").as_bytes());
+        let mut changed = lines.clone();
+        let i = changed.iter().position(|l| l.starts_with("page|")).unwrap();
+        changed[i].push_str("|extra");
+        assert_ne!(before, fnv1a(changed.join("\n").as_bytes()));
+    }
+
+    /// A cache hit and a replay show the extra checks the stored run asked
+    /// for — requested subchecks and profile alike — and a snapshot measured
+    /// without them is another measurement (#788).
+    #[test]
+    fn cache_and_replay_keep_the_requested_extra_checks() {
+        with_big_stack(|| {
+            let mut snapshot = replayable_snapshot();
+            let scope = &mut snapshot
+                .collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .execution
+                .scope;
+            scope.requested_subchecks = vec!["content_visibility.ssr_gap".to_string()];
+            scope.measurement_profile.extra_checks = vec!["--check-ssr-content".to_string()];
+            let stored = scope.clone();
+
+            let dir = tempfile::tempdir().unwrap();
+            write_entry(dir.path(), "AA", &entry(snapshot.clone())).unwrap();
+            let CacheLookup::Hit(loaded) = read_entry(dir.path()) else {
+                panic!("compatible entry expected");
+            };
+            let replayed = replay_report_as(&loaded.snapshot, "replay").unwrap();
+            let scope = &replayed.accessibility.execution.scope;
+            assert_eq!(scope.requested_subchecks, stored.requested_subchecks);
+            assert_eq!(
+                scope.measurement_profile.extra_checks,
+                stored.measurement_profile.extra_checks
+            );
+
+            let mut without = snapshot.clone();
+            without
+                .collected
+                .as_mut()
+                .unwrap()
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .extra_checks
+                .clear();
+            let fields: Vec<_> = profile_differences(
+                &stored.measurement_profile,
+                &without
+                    .collected
+                    .as_ref()
+                    .unwrap()
+                    .accessibility
+                    .execution
+                    .scope
+                    .measurement_profile,
+            )
+            .iter()
+            .map(|d| d.field)
+            .collect();
+            assert_eq!(fields, ["extra_checks"]);
         });
     }
 

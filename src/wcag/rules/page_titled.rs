@@ -8,8 +8,8 @@
 //! Hier bleibt nur die Heuristik für den nichtssagenden Titel („Untitled",
 //! „Home"): Sie ist eigen und hat im geteilten Bestand kein Gegenstück.
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 use chromiumoxide::Page;
 use tracing::warn;
 
@@ -41,7 +41,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("document-title DOM JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for("document-title", crate::cli::WcagLevel::A, "page_evaluation_failed")];
+            return vec![crate::wcag::technical_rule_failure_for("document-title", crate::wcag::WcagLevel::A, "page_evaluation_failed")];
         }
     };
 
@@ -50,7 +50,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
     let Some(title) = result.value().and_then(|value| value.as_str()) else {
         return vec![crate::wcag::technical_rule_failure_for(
             "document-title",
-            crate::cli::WcagLevel::A,
+            crate::wcag::WcagLevel::A,
             "missing_evaluation_value",
         )];
     };

@@ -263,7 +263,7 @@ mod tests {
         results.add_violation(violation);
         let report =
             crate::audit::AuditReport::new(url.to_string(), crate::cli::WcagLevel::AA, results, 1);
-        crate::audit::normalize(&report).normalized
+        crate::audit::normalized::normalize(&report).normalized
     }
 
     fn pages(n: usize, selector: Option<&str>, snippet: Option<&str>) -> Vec<NormalizedReport> {
