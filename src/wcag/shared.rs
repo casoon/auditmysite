@@ -1941,6 +1941,49 @@ fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom:
         .and_then(|idx| doc.node_at(NodeId(idx)))
 }
 
+/// Schlagwort, mit dem `a11y-rules` eine Empfehlung kennzeichnet, die kein
+/// Erfolgskriterium belegt (`Normative Zuordnung`, a11y-rules 0.26). Ohne die
+/// Ausnahme [`CONVENTION_PREFIXES`] trägt kein Befund mit diesem Schlagwort
+/// ein Kriterium.
+const BEST_PRACTICE_TAG: &str = "best-practice";
+
+/// Die Darstellungskonvention (`viz/*`, `display/*`) trägt `best-practice`
+/// **und** das nächste Kriterium -- beabsichtigt, sie melden nur auf Seiten,
+/// die die Konvention benutzen. Für sie gilt die Herabstufung nicht.
+const CONVENTION_PREFIXES: [&str; 2] = ["viz/", "display/"];
+
+/// Stuft die Empfehlungen aus dem geteilten Bestand vom Verstoß zum Hinweis
+/// (`REVIEW`) herab.
+///
+/// [`SHARED_RULES`] trägt zu jeder Kennung ein Kriterium, weil die Ausgabe
+/// eines braucht. Bei einer Empfehlung wäre `FAIL` darunter eine Behauptung,
+/// die die Bibliothek bewusst nicht macht: eine h2 ohne h1 ist unter 1.3.1
+/// als Überschrift bestimmbar (#779). Als bestätigter WCAG-Verstoß würde sie
+/// außerdem gewertet und neben `seo.headings.missing_h1` doppelt gezählt. Sie
+/// bleibt als Hinweis mit dem Schlagwort `best-practice` sichtbar, ohne
+/// Verstoß und ohne Punktabzug.
+///
+/// Eigener Schritt statt Teil von `to_violation`: Die Paarung der beiden
+/// Viewport-Durchgänge (`drop_single_viewport_redundant_roles`) liest die
+/// Verstöße und muss `lists/role-redundant` noch dort finden. Die Pipeline
+/// ruft das hier danach auf, vor Wertung und Zusammenführung.
+pub fn demote_best_practice(results: &mut WcagResults) {
+    let (demoted, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut results.violations)
+        .into_iter()
+        .partition(|v| {
+            v.kind == Outcome::Fail
+                && v.tags.iter().any(|t| t == BEST_PRACTICE_TAG)
+                && v.rule_id.as_deref().is_some_and(|id| {
+                    shared_rule(id).is_some()
+                        && !CONVENTION_PREFIXES.iter().any(|p| id.starts_with(p))
+                })
+        });
+    results.violations = kept;
+    for v in demoted {
+        results.add_violation(v.with_kind(Outcome::Review));
+    }
+}
+
 /// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
 fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
     let node = finding_node(doc, finding);
@@ -2328,6 +2371,139 @@ mod tests {
 
         let ids = svg_ax_node_ids(&doc);
         assert_eq!(ids, ["ax-4".to_string()].into());
+    }
+
+    /// Ein Knoten mit Kindern; Text als `#text`-Kind.
+    fn knoten(
+        id: i64,
+        tag: &str,
+        attrs: &[&str],
+        kinder: Vec<serde_json::Value>,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "nodeId": id, "backendNodeId": id, "nodeType": 1,
+            "nodeName": tag.to_uppercase(), "localName": tag, "nodeValue": "",
+            "attributes": attrs, "children": kinder
+        })
+    }
+
+    fn text(id: i64, inhalt: &str) -> serde_json::Value {
+        serde_json::json!({
+            "nodeId": id, "backendNodeId": id, "nodeType": 3,
+            "nodeName": "#text", "localName": "", "nodeValue": inhalt
+        })
+    }
+
+    fn seite_mit_koerper(kinder: Vec<serde_json::Value>) -> CdpNode {
+        serde_json::from_value(serde_json::json!({
+            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
+            "nodeName": "#document", "localName": "", "nodeValue": "",
+            "children": [knoten(2, "html", &["lang", "en"], vec![
+                knoten(3, "body", &[], kinder)
+            ])]
+        }))
+        .expect("CDP-Knoten")
+    }
+
+    /// Wie die Pipeline: geteilte Regeln, dann die Empfehlungen herabstufen.
+    fn lauf_ueber(kinder: Vec<serde_json::Value>) -> WcagResults {
+        let doc = build_document(&seite_mit_koerper(kinder), &AXTree::new()).unwrap();
+        let mut r = run_shared_rules(&doc, "en");
+        demote_best_practice(&mut r);
+        r
+    }
+
+    fn unter<'a>(liste: &'a [Violation], id: &str) -> Vec<&'a Violation> {
+        liste
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some(id))
+            .collect()
+    }
+
+    /// #779: `<main><h2>` ohne h1. Die Ueberschrift ist bestimmbar (1.3.1),
+    /// WCAG verlangt keine Ebene -- das ist kein bestaetigter Verstoss. Vor der
+    /// Korrektur stand hier ein `Fail` unter 1.3.1.
+    #[test]
+    fn h2_ohne_h1_ist_kein_wcag_verstoss() {
+        let r = lauf_ueber(vec![knoten(
+            4,
+            "main",
+            &[],
+            vec![knoten(5, "h2", &[], vec![text(6, "Titel")])],
+        )]);
+
+        assert!(
+            unter(&r.violations, "headings/h1-missing").is_empty(),
+            "als WCAG-Verstoss gefuehrt: {:?}",
+            r.violations
+        );
+        let hinweis = unter(&r.warnings, "headings/h1-missing");
+        assert_eq!(hinweis.len(), 1, "{:?}", r.warnings);
+        assert_eq!(hinweis[0].kind, Outcome::Review);
+        assert!(hinweis[0].tags.iter().any(|t| t == "best-practice"));
+    }
+
+    /// Die Darstellungskonvention behaelt ihr Kriterium: `viz/*` traegt
+    /// `best-practice` und 1.1.1 zugleich und bleibt ein Verstoss.
+    #[test]
+    fn darstellungskonvention_wird_nicht_herabgestuft() {
+        let mut r = WcagResults::new();
+        for id in ["viz/text-missing", "headings/h1-missing"] {
+            r.add_violation(
+                Violation::new("1.1.1", "x", WcagLevel::A, Severity::Medium, "m", "n")
+                    .with_rule_id(id)
+                    .with_tags(vec!["best-practice".to_string()]),
+            );
+        }
+        demote_best_practice(&mut r);
+        assert_eq!(unter(&r.violations, "viz/text-missing").len(), 1);
+        assert_eq!(unter(&r.warnings, "headings/h1-missing").len(), 1);
+    }
+
+    /// Gegenprobe: mit h1 meldet die Regel nichts. Die Korrektur darf den
+    /// Befund nicht pauschal unterdruecken.
+    #[test]
+    fn h1_vorhanden_meldet_nichts() {
+        let r = lauf_ueber(vec![knoten(
+            4,
+            "main",
+            &[],
+            vec![knoten(5, "h1", &[], vec![text(6, "Titel")])],
+        )]);
+        assert!(unter(&r.violations, "headings/h1-missing").is_empty());
+        assert!(unter(&r.warnings, "headings/h1-missing").is_empty());
+    }
+
+    /// Ein echter Verstoss bleibt einer: eine leere Ueberschrift hat ein
+    /// Kriterium und kein `best-practice`.
+    #[test]
+    fn leere_ueberschrift_bleibt_verstoss() {
+        let r = lauf_ueber(vec![knoten(
+            4,
+            "main",
+            &[],
+            vec![knoten(5, "h1", &[], vec![])],
+        )]);
+        assert_eq!(unter(&r.violations, "headings/empty").len(), 1);
+    }
+
+    /// #779, zweiter Fall: `main` ohne Sprunglink, ohne Ueberschriften, ohne
+    /// wiederholte Bloecke. `main` ist ein Mechanismus (ARIA11); 2.4.1 ist
+    /// erfuellt, `headings/none` darf nicht als Verstoss erscheinen.
+    #[test]
+    fn main_ohne_sprunglink_ist_kein_bypass_verstoss() {
+        let r = lauf_ueber(vec![knoten(
+            4,
+            "main",
+            &[],
+            vec![knoten(5, "p", &[], vec![text(6, "Nur Text")])],
+        )]);
+        assert!(
+            unter(&r.violations, "headings/none").is_empty(),
+            "{:?}",
+            r.violations
+        );
+        assert!(unter(&r.warnings, "headings/none").is_empty());
     }
 
     /// Eine Seite mit zwei `<div id="dopplung">` im Koerper. `verweis` haengt,

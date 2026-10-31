@@ -58,11 +58,11 @@ pub use report::{
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
     ExecutionStatus, ExperienceSection, MeasurementProfile, ModuleRun, NavigationSnapshot,
-    PageScreenshots, PerformanceResults, RedirectChain, RequestedRule, RobotsSitemapConflict,
-    RunContext, SampleMetadata, SampleStratum, ScreenshotStatus, SitemapDiagnostics,
-    SitemapHttpIssue, StorageStateRef, SubcheckRun, ThrottledPerfResult, ViewportAuditData,
-    ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores, ViewportScreenshot,
-    MEASUREMENT_PROFILE_VERSION,
+    PageScreenshots, PerformanceResults, RedirectChain, RedirectHop, RequestedRule,
+    RobotsSitemapConflict, RunContext, SampleMetadata, SampleStratum, ScreenshotStatus,
+    SitemapDiagnostics, SitemapHttpIssue, StorageStateRef, SubcheckRun, ThrottledPerfResult,
+    ViewportAuditData, ViewportDefinition, ViewportMetaRefresh, ViewportScoreSet, ViewportScores,
+    ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
 pub(crate) use scoring::{default_impact, score_from_penalties};
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

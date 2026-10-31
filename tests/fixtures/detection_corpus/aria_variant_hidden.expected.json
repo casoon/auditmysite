@@ -135,7 +135,7 @@
     },
     {
       "rule_id": "patterns/tooltip-unreferenced",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "selector": "div#tip-orphan",
       "occurrences": 1
     },

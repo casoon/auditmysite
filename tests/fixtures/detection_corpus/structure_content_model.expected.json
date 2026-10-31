@@ -3,7 +3,7 @@
   "expectations": [
     {
       "rule_id": "headings/h1-missing",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {

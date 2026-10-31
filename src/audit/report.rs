@@ -226,6 +226,27 @@ pub struct NavigationSnapshot {
     /// Short meta refreshes met while loading, per viewport pass (Plan 47).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub meta_refresh: Vec<ViewportMetaRefresh>,
+    /// HTTP redirects the main document went through, in order, ending
+    /// before `final_url` (#775). Empty when it loaded without a redirect
+    /// or the chain was not captured (`redirect_count` still says how many).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub redirect_chain: Vec<RedirectHop>,
+}
+
+/// One redirect response in the main document's chain (#775).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RedirectHop {
+    /// The URL that answered with a redirect.
+    pub url: String,
+    pub status: u16,
+}
+
+impl NavigationSnapshot {
+    /// The URL the document was actually served from. `None` when the
+    /// navigation did not report one (older reports, failed evaluation).
+    pub fn served_url(&self) -> Option<&str> {
+        self.final_url.as_deref().filter(|u| !u.is_empty())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -643,6 +664,25 @@ pub struct PerformanceResults {
 }
 
 impl AuditReport {
+    /// The URL the audited document was served from: the browser's final URL
+    /// after redirects, else the requested one (reports without a navigation
+    /// snapshot). Modules judge transport and origin from this, never from
+    /// the requested URL (#775).
+    pub fn document_url(&self) -> &str {
+        self.accessibility
+            .execution
+            .navigation
+            .served_url()
+            .unwrap_or(&self.url)
+    }
+
+    /// Whether the document was served over TLS — the final URL's scheme,
+    /// so an `http://` entry that redirects to `https://` counts as secure
+    /// and an `https://` entry that ends on `http://` does not.
+    pub fn document_is_https(&self) -> bool {
+        self.document_url().starts_with("https://")
+    }
+
     /// Create a new audit report
     pub fn new(
         url: String,
@@ -1550,6 +1590,23 @@ impl BatchReport {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn redirect_chain_serializes_only_when_captured() {
+        let json = serde_json::to_value(NavigationSnapshot::default()).unwrap();
+        assert!(json.get("redirect_chain").is_none());
+        let nav = NavigationSnapshot {
+            redirect_chain: vec![RedirectHop {
+                url: "http://a.test/".into(),
+                status: 301,
+            }],
+            ..Default::default()
+        };
+        assert_eq!(
+            serde_json::to_value(&nav).unwrap()["redirect_chain"],
+            serde_json::json!([{"url": "http://a.test/", "status": 301}])
+        );
+    }
+
     #[test]
     fn meta_refresh_serializes_flat_per_viewport() {
         let nav = NavigationSnapshot {

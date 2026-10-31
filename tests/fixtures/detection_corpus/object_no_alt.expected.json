@@ -2,7 +2,7 @@
   "case": "object_no_alt",
   "expectations": [
     {"rule_id": "objects/alt-missing", "verdict": "violation"},
-    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "zoom/viewport-missing", "verdict": "needs_review"},
     {"rule_id": "focus-visible", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
