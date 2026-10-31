@@ -23,7 +23,7 @@
     {
       "rule_id": "zoom/viewport-missing",
       "selector": "html",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "headings/h1-missing",

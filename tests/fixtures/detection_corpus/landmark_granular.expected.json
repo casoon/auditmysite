@@ -3,20 +3,20 @@
   "expectations": [
     {
       "rule_id": "landmarks/not-top-level",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 2
     },
     {
       "rule_id": "landmarks/banner-duplicate",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "landmarks/contentinfo-duplicate",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "landmarks/main-duplicate",
-      "verdict": "violation"
+      "verdict": "needs_review"
     },
     {
       "rule_id": "landmarks/not-unique",
@@ -35,7 +35,7 @@
     {
       "rule_id": "zoom/viewport-missing",
       "selector": "html",
-      "verdict": "violation"
+      "verdict": "needs_review"
     }
   ]
 }

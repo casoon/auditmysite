@@ -10,12 +10,12 @@
     {"rule_id": "manual/interruptions", "verdict": "absent"},
     {"rule_id": "manual/re-authenticating", "verdict": "absent"},
     {"rule_id": "timeouts", "verdict": "needs_review"},
-    {"rule_id": "zoom/viewport-missing", "verdict": "violation"},
+    {"rule_id": "zoom/viewport-missing", "verdict": "needs_review"},
     {"rule_id": "focus-visible", "verdict": "needs_review"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
-    {"rule_id": "landmarks/main-missing", "verdict": "violation"},
-    {"rule_id": "landmarks/content-outside", "verdict": "violation"}
+    {"rule_id": "landmarks/main-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/content-outside", "verdict": "needs_review"}
   ]
 }

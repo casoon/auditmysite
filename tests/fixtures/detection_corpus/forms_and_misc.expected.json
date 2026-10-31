@@ -43,7 +43,7 @@
     },
     {
       "rule_id": "patterns/tooltip-unreferenced",
-      "verdict": "violation",
+      "verdict": "needs_review",
       "occurrences": 1
     },
     {

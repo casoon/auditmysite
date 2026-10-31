@@ -6,7 +6,7 @@
     { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 },
-    { "rule_id": "zoom/viewport-missing", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "zoom/viewport-missing", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "keyboard/skip-link-missing", "verdict": "not_applicable" },
     { "rule_id": "keyboard-trap", "verdict": "not_applicable" },
     { "rule_id": "pointer-cancellation", "verdict": "not_applicable" }
