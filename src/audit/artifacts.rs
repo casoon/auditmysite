@@ -710,7 +710,7 @@ fn read_entry(dir: &std::path::Path) -> CacheLookup {
 
 /// Version of what [`content_hash`] covers. A hash of another version never
 /// compares equal to this one's: it measured something else.
-pub const FINGERPRINT_VERSION: u32 = 3;
+pub const FINGERPRINT_VERSION: u32 = 4;
 
 /// FNV-1a fingerprint of the snapshot's content: every AX node with role,
 /// name, value, properties, links and DOM anchor, plus the SEO parts that
@@ -722,8 +722,8 @@ pub const FINGERPRINT_VERSION: u32 = 3;
 /// independent of map iteration order. Measured timings (LCP, TBT, …) are
 /// not content and stay out: a slower run of an unchanged page is no change.
 ///
-/// Version 2 hashed AX nodes and SEO parts only; version 3 adds the style
-/// inputs (contrast violations, mobile, design quality, dark mode).
+/// Version 2 hashed AX nodes and SEO parts only; version 3 ignores browser-assigned ids; version 4 adds the
+/// style inputs (contrast violations, mobile, design quality, dark mode).
 /// Version 1 hashed the node count, the first 100 node ids and a few SEO
 /// strings, so a changed label or text on an unchanged tree shape went
 /// undetected (#790).
@@ -734,7 +734,9 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
     for (id, node) in nodes {
         input.push_str(id);
         input.push('=');
-        push_canonical(&mut input, &serde_json::to_value(node).unwrap_or_default());
+        let mut value = serde_json::to_value(node).unwrap_or_default();
+        strip_volatile_ids(&mut value);
+        push_canonical(&mut input, &value);
         input.push('\n');
     }
     if let Some(seo) = &snapshot.seo {
@@ -778,6 +780,28 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
         }
     }
     format!("{:016x}", fnv1a(input.as_bytes()))
+}
+
+/// Keys holding a browser-assigned id that differs from one browser start to
+/// the next for the same page (the DOM backend node id, also inside related
+/// nodes). They say nothing about content, and a hash that includes them
+/// differs between two runs of an unchanged page.
+const VOLATILE_ID_KEYS: &[&str] = &["backend_dom_node_id", "backendDOMNodeId", "backend_node_id"];
+
+fn is_volatile_id(key: &str) -> bool {
+    let known = VOLATILE_ID_KEYS;
+    known.contains(&key)
+}
+
+fn strip_volatile_ids(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            map.retain(|key, _| !is_volatile_id(key));
+            map.values_mut().for_each(strip_volatile_ids);
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(strip_volatile_ids),
+        _ => {}
+    }
 }
 
 /// JSON with object keys sorted, so equal content hashes equal whatever the
@@ -1086,6 +1110,23 @@ mod tests {
                 .message = "Contrast 2.9:1 (#666 on #fff)".to_string();
             assert_ne!(content_hash(&contrast), content_hash(&other_colour));
         });
+    }
+
+    #[test]
+    fn browser_assigned_ids_are_not_content() {
+        let mut one = labelled(Some("Email"), None);
+        let mut two = one.clone();
+        one.ax_tree
+            .nodes
+            .get_mut("field")
+            .unwrap()
+            .backend_dom_node_id = Some(11);
+        two.ax_tree
+            .nodes
+            .get_mut("field")
+            .unwrap()
+            .backend_dom_node_id = Some(907);
+        assert_eq!(content_hash(&one), content_hash(&two));
     }
 
     #[test]

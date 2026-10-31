@@ -44,7 +44,7 @@ and verification for each change is in the
 ### Changed
 
 - **Migration:** the infallible `audit::normalize` is `#[deprecated]` with `normalize_checked` as the 2.0 path; the CLI no longer calls it (#790).
-- **Snapshot:** the `rule_set` digest covers AX-tree, page and inline rules as well as the shared rules, and the content fingerprint (version 3) includes contrast violations and the mobile, design-quality and dark-mode measurements, so a style-only change is detected (#790). Older cache entries are misses.
+- **Snapshot:** the `rule_set` digest covers AX-tree, page and inline rules as well as the shared rules, and the content fingerprint (version 4) includes contrast violations and the mobile, design-quality and dark-mode measurements, so a style-only change is detected (#790). Older cache entries are misses.
 - **Architecture:** `WcagLevel` moved to `wcag::level` (still exported from `cli`); the backward-import baseline shrinks from 32 to 3 entries (#790).
 - **Transport:** `document_is_https()` (used by AI visibility and source quality) now also reads `navigation.redirect_chain`: a navigation that dropped from `https://` to `http://` on the way is not secure even if it ends on `https://` (#775).
 - **Transport:** Source Quality's HTTPS signal and AI Visibility's citation input judge TLS from the document the browser was served (`final_url`), not the requested URL; an `http://` entry that redirects to `https://` counts as secure, an `https://` entry that ends on `http://` does not.
@@ -101,6 +101,7 @@ and verification for each change is in the
 ### Fixed
 
 - **Findings:** an HTML-conformance result marked as not checked no longer produces findings; "not measured" stays distinct from "measured" (#780).
+- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3 (4 with the style inputs below).
 - **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
 - **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
 - **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
