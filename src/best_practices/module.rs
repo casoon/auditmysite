@@ -13,6 +13,14 @@ use super::analyze_best_practices;
 
 pub struct BestPracticesModule;
 
+/// Whether best practices (console and library checks) are collected.
+/// Security alone is enough: the library check is a security check and must
+/// not depend on performance. Shared by the module gate and the console
+/// collector setup so the two cannot drift apart.
+pub(crate) fn collects_best_practices(cfg: &PipelineConfig) -> bool {
+    cfg.check_performance || cfg.check_security
+}
+
 #[async_trait]
 impl AuditModule for BestPracticesModule {
     fn id(&self) -> &'static str {
@@ -24,7 +32,7 @@ impl AuditModule for BestPracticesModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_performance || cfg.check_security
+        collects_best_practices(cfg)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

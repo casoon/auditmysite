@@ -37,8 +37,9 @@ pub mod validation;
 pub mod verdict;
 
 pub use artifacts::{
-    cache_matches_signature, content_hash, hydrate_cached_report, load_artifacts, replay,
-    replay_report, save_artifacts, to_audit_report, AuditArtifacts, DocumentIdentity,
+    cache_matches_signature, cached_report, content_hash, hydrate_cached_report, load_artifacts,
+    lookup_artifacts, profile_differences, replay, replay_report, replay_report_as, save_artifacts,
+    to_audit_report, AuditArtifacts, CacheLookup, CacheMiss, DocumentIdentity, ExpectedProfile,
     FetchArtifact, ReplayError, SnapshotArtifact, SnapshotVersions,
 };
 pub use batch::{

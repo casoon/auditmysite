@@ -130,7 +130,8 @@ The cache entry's `snapshot.json` is the collected evidence, independent of any 
 
 - `versions` records the snapshot schema, the content fingerprint, the collection contract, the measurement-profile version, the evaluation version (normalization, scoring, decision derivation), the decision contract and a digest of the shared rule catalogue. A snapshot is replayed only when all of them equal the current values.
 - `audit::replay(snapshot)` evaluates a snapshot without browser or network and returns the same `NormalizedReport` as the fresh run. Only `timestamp`, `duration_ms` and `execution.environment.source` (`replay`) may differ. `output::format_json_replay` exports it with `detail.module_detail: full`.
-- A snapshot that lacks parts (`ReplayError::Incomplete`, naming them) or was written under other versions (`ReplayError::Incompatible`, naming field, stored and current value) is never evaluated under today's semantics. `load_artifacts` treats it as a cache miss.
+- A snapshot that lacks parts (`ReplayError::Incomplete`, naming them) or was written under other versions (`ReplayError::Incompatible`, naming field, stored and current value) is never evaluated under today's semantics. `load_artifacts` treats it as a cache miss; `lookup_artifacts` and `cached_report` return the reason (`CacheMiss`: absent, unreadable, other configuration, not replayable), which the CLI prints.
+- `--reuse-cache` answers through `replay_report_as(snapshot, "cache")`, `auditmysite replay <snapshot|directory|URL>` through `replay_report`. `SnapshotArtifact::check_measurement(&ExpectedProfile)` refuses a snapshot whose session policy, state id or storage-state digest differs from the asserted one (`ReplayError::OtherMeasurement`); `audit::profile_differences` names the differences between two profiles. A replay measures nothing, so the extra-check flags are refused for it (support matrix, mode `Replay`).
 - `format_json_cached` works on a stored `NormalizedReport` alone and says so with `module_detail: not_restored`; an empty module block there never stands for restored data.
 - Bump `SNAPSHOT_SCHEMA_VERSION` when the shape of the collected report changes in a way old data would survive deserialization, and `EVALUATION_VERSION` when a change moves a score, finding or verdict for unchanged input.
 
@@ -316,6 +317,15 @@ Distinct violated WCAG rule groups, not affected elements.
 
 Finding rows and occurrences across WCAG, SEO, and every other reported
 category.
+
+## JavaScript Library Advisories
+
+`best_practices.vulnerable_libraries.vulnerable[]` lists detected libraries whose version lies in an advisory range. The ranges come from the versioned data file `src/best_practices/advisories.json` (process: [advisory-data.md](advisory-data.md)); the check covers only the libraries in `CHECKED_LIBRARIES`.
+
+- `advisories[].review_status` is `reviewed` (the range was checked against `source_url` on the date in `advisories[].reviewed`) or `unreviewed` (carried over, not yet checked). An unreviewed match is a lead, not an established statement; the PDF says so next to the finding. Reports written before the field read as `unreviewed`.
+- `exploitability` is `unconfirmed` (the version is in range; reachability on the page was not examined) or `not_applicable` (only end-of-maintenance notices matched, so no specific vulnerability exists to exploit). There is no `confirmed` state: a version never proves the code path is reachable, and the check runs no reachability probe.
+- `detected[].version_parsed: false` marks a version that could not be read; it is neither flagged nor cleared.
+- The check runs for `--performance` and for `--security` on its own.
 
 ## Schemas
 

@@ -199,7 +199,8 @@ src/
 ├── best_practices/      # Console errors and vulnerable JS library detection
 │   ├── mod.rs, module.rs
 │   ├── console_errors.rs # CDP-based console error/warning collection
-│   └── vulnerable_libs.rs # Known-CVE JS library detection (jQuery, Bootstrap, ...)
+│   ├── vulnerable_libs.rs # Known-CVE JS library detection (jQuery, Bootstrap, ...)
+│   └── advisories.json  # Versioned advisory data read by vulnerable_libs (validated on load)
 │
 ├── performance/         # Core Web Vitals, render-blocking, content weight
 │   ├── mod.rs, vitals.rs

@@ -22,7 +22,7 @@ mod sitemap_suggest;
 
 use commands::{detect_chrome_command, handle_command};
 use plan::print_banner;
-use runners::{run_batch_mode, run_display_all, run_single_mode};
+use runners::{run_batch_mode, run_display_all, run_replay_mode, run_single_mode};
 
 use std::io::{self, IsTerminal};
 
@@ -42,6 +42,8 @@ async fn main() {
         matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
     let request_mode_from_cli =
         matches.value_source("request_mode") == Some(clap::parser::ValueSource::CommandLine);
+    let session_from_cli =
+        matches.value_source("session") == Some(clap::parser::ValueSource::CommandLine);
     let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     setup_logging(&args);
 
@@ -54,7 +56,7 @@ async fn main() {
 
     let report_mode = args.report_mode;
     let run_result = tokio::select! {
-        result = run(args, &config, request_mode_from_cli) => result,
+        result = run(args, &config, request_mode_from_cli, session_from_cli) => result,
         signal = shutdown_signal() => Err(AuditError::Interrupted { signal }),
     };
     let exit_code = match run_result {
@@ -129,9 +131,15 @@ fn setup_logging(args: &Args) {
 /// Main application logic
 async fn run(
     mut args: Args,
-    _config: &Option<auditmysite::cli::Config>,
+    config: &Option<auditmysite::cli::Config>,
     request_mode_from_cli: bool,
+    session_from_cli: bool,
 ) -> Result<auditmysite::Verdict> {
+    // A replay is the one subcommand with a verdict of its own.
+    if let Some(auditmysite::cli::Command::Replay { target }) = &args.command {
+        args.validate().map_err(AuditError::ConfigError)?;
+        return run_replay_mode(&args, config, target, session_from_cli);
+    }
     // Handle subcommands first
     if let Some(ref command) = args.command {
         return handle_command(command, &args)
@@ -203,11 +211,11 @@ async fn run(
     let is_batch = args.sitemap.is_some() || args.url_file.is_some() || args.crawl;
 
     if args.display == Some(auditmysite::cli::DisplaySelection::All) {
-        run_display_all(&args, _config, is_batch).await
+        run_display_all(&args, config, is_batch).await
     } else if is_batch {
-        run_batch_mode(&args, _config).await
+        run_batch_mode(&args, config).await
     } else {
-        run_single_mode(&args, _config).await
+        run_single_mode(&args, config).await
     }
 }
 

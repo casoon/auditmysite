@@ -24,6 +24,8 @@ pub(crate) async fn handle_command(command: &Command, args: &Args) -> Result<f64
             Ok(0.0)
         }
         Command::Plan { url } => run_plan_command(args, url.as_deref()),
+        // Handled in `run` (it yields a verdict); never dispatched here.
+        Command::Replay { .. } => unreachable!("replay is dispatched before handle_command"),
         Command::ReportLint {
             input,
             fail_on,

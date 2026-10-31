@@ -9,7 +9,7 @@ pub use console_errors::{
 };
 pub use module::BestPracticesModule;
 pub use vulnerable_libs::{
-    analyze_vulnerable_libraries, AdvisoryRef, DetectedLibrary, Exploitability,
+    analyze_vulnerable_libraries, AdvisoryRef, DetectedLibrary, Exploitability, ReviewStatus,
     VulnerableLibrariesAnalysis, VulnerableLibrary, CHECKED_LIBRARIES,
 };
 

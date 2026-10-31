@@ -1512,7 +1512,7 @@ async fn prepare_pass_collection(page: &Page, pass: &str, config: &PipelineConfi
             warn!("Coverage collection setup failed ({pass}): {}", e);
         }
     }
-    if config.check_performance || config.check_security {
+    if crate::best_practices::module::collects_best_practices(config) {
         if let Err(e) = prepare_console_collection(page).await {
             warn!("Console collection setup failed ({pass}): {}", e);
         }
@@ -2687,6 +2687,25 @@ mod tests {
             "--html-conform",
         ]);
         assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+    }
+
+    /// Scope of the library check (#773): `--security` alone collects it,
+    /// independent of performance; with neither flag it stays off.
+    #[test]
+    fn security_only_audit_runs_the_library_check() {
+        use crate::audit::module::AuditModule;
+        use crate::best_practices::{module::collects_best_practices, BestPracticesModule};
+
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--security"]);
+        let cfg = PipelineConfig::from_args_and_config(&args, None);
+        assert!(!cfg.check_performance, "fixture must be security-only");
+        assert!(BestPracticesModule.is_enabled(&cfg));
+        assert!(collects_best_practices(&cfg));
+
+        let mut off = cfg;
+        off.check_security = false;
+        assert!(!BestPracticesModule.is_enabled(&off));
+        assert!(!collects_best_practices(&off));
     }
 
     fn test_pipeline_config() -> PipelineConfig {
