@@ -1963,7 +1963,7 @@ const CONVENTION_PREFIXES: [&str; 2] = ["viz/", "display/"];
 /// bleibt als Hinweis mit dem Schlagwort `best-practice` sichtbar, ohne
 /// Verstoß und ohne Punktabzug.
 ///
-/// Eigener Schritt statt Teil von [`to_violation`]: Die Paarung der beiden
+/// Eigener Schritt statt Teil von `to_violation`: Die Paarung der beiden
 /// Viewport-Durchgänge (`drop_single_viewport_redundant_roles`) liest die
 /// Verstöße und muss `lists/role-redundant` noch dort finden. Die Pipeline
 /// ruft das hier danach auf, vor Wertung und Zusammenführung.

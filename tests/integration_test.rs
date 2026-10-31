@@ -515,9 +515,11 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         axe_ids.contains("document/title-missing"),
         "missing title fixture should trigger document/title-missing; got {axe_ids:?}; raw {raw_rule_ids:?}"
     );
+    // `landmarks/main-missing` is best practice without a criterion (#779):
+    // a review hint, never a normalized WCAG finding.
     assert!(
-        axe_ids.contains("landmarks/main-missing"),
-        "missing main landmark fixture should trigger landmarks/main-missing; got {axe_ids:?}"
+        !axe_ids.contains("landmarks/main-missing"),
+        "best practice must not be a WCAG finding; got {axe_ids:?}"
     );
     // Since #694 `landmarks/not-unique` is a review hint (WAI-ARIA asks for
     // distinct names only as SHOULD): it lands in the warnings, not in the
@@ -538,10 +540,14 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
             .count()
     };
     assert_eq!(
-        count("landmarks/main-missing"),
+        review_ids
+            .iter()
+            .filter(|id| **id == "landmarks/main-missing")
+            .count(),
         1,
-        "missing main must be reported once; raw {raw_rule_ids:?}"
+        "missing main must be reported once as a hint; got {review_ids:?}"
     );
+    assert_eq!(count("landmarks/main-missing"), 0, "raw {raw_rule_ids:?}");
     assert_eq!(
         count("document/title-missing"),
         1,
