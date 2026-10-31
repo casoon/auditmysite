@@ -341,10 +341,10 @@ Measured:
 - HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
 - DNS configuration (opt-in `--dns-check`): CAA, best-effort DNSSEC, and SPF when an MX record exists; score-neutral
 
-Heuristic (indicator scores — tendency, not measurements):
+Heuristic (indicator scores — tendency, not measurements). In 2.0 none of these signals is validated against an independent, human-labelled reference set (`signal_contract.validation.status = "unvalidated"` in the JSON, procedure in `docs/calibration.md`); their scores order pages by the stated method and are not evidence of visibility, AI citation, user quality or source truth:
 - UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
 - Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
-- AI Visibility: structural readiness for LLM indexing and citation (readability, citability, structured data, AI policy, chunk quality)
+- AI Visibility: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality). Unvalidated: the score is not evidence of AI citation, visibility or content quality
 - Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
 - Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
