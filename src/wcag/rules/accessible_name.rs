@@ -9,8 +9,8 @@
 //! Beschreibung: `a11y_dom::Semantics` liefert keine Accessible Description.
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::WcagLevel;
 
 /// Beschreibung wiederholt den Namen (#713): eigene Best-Practice-Regel statt
 /// `aria-label`, weil das Element einen Namen *hat* -- die doppelte Ansage ist

@@ -1,6 +1,9 @@
 //! Output Format Tests
 //!
 //! Tests for JSON report generation using NormalizedReport
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 use chrono::{DateTime, Utc};
 use jsonschema::JSONSchema;

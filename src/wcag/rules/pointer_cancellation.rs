@@ -18,8 +18,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.2",

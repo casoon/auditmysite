@@ -30,8 +30,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.2",
@@ -193,7 +193,7 @@ pub async fn check_on_input_with_page(page: &Page) -> Vec<Violation> {
     let val = match crate::wcag::types::evaluate_or_fail_for(
         page,
         "on-input",
-        crate::cli::WcagLevel::A,
+        crate::wcag::WcagLevel::A,
         js.as_str(),
     )
     .await
@@ -208,7 +208,7 @@ pub async fn check_on_input_with_page(page: &Page) -> Vec<Violation> {
         Ok(scan) => evaluate(&scan),
         Err(_) => vec![crate::wcag::technical_rule_failure_for(
             "on-input",
-            crate::cli::WcagLevel::A,
+            crate::wcag::WcagLevel::A,
             "invalid_evaluation_value",
         )],
     }

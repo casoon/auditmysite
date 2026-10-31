@@ -669,3 +669,126 @@ fn changed_occurrence_count_breaks_the_inventory() {
         "{err:?}"
     );
 }
+
+/// Indicator modules publish signals, never problems (#780). Attaching them
+/// to a report full of problems must not add, change or remove a finding, and
+/// no finding may name one of them as its source.
+#[test]
+fn indicator_modules_create_no_findings_of_their_own() {
+    use crate::audit::finding_contract::{DomainPolicy, DOMAIN_POLICIES};
+
+    let plain = report_with_every_domain();
+    let mut with_indicators = report_with_every_domain();
+    with_indicators.discoverability.source_quality =
+        Some(crate::source_quality::analyze_source_quality(&plain));
+    with_indicators.discoverability.ai_visibility =
+        Some(crate::ai_visibility::analyze_ai_visibility(&plain));
+    with_indicators.discoverability.content_visibility = Some(
+        crate::content_visibility::analyze_content_visibility(&plain),
+    );
+
+    let rule_ids = |report: &AuditReport| -> Vec<(String, usize)> {
+        let mut ids: Vec<_> = normalize(report)
+            .normalized
+            .findings
+            .iter()
+            .map(|f| (f.rule_id.clone(), f.occurrence_count))
+            .collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(rule_ids(&plain), rule_ids(&with_indicators));
+
+    let indicators: Vec<&str> = DOMAIN_POLICIES
+        .iter()
+        .filter(|(_, policy)| matches!(policy, DomainPolicy::SignalsOnly(_)))
+        .map(|(module, _)| *module)
+        .collect();
+    assert!(indicators.len() >= 3, "{indicators:?}");
+    let normalized = normalize(&with_indicators).normalized;
+    for finding in &normalized.findings {
+        assert!(
+            !indicators
+                .iter()
+                .any(|module| finding.contract.source.starts_with(module)),
+            "{} is a finding of an indicator module",
+            finding.rule_id
+        );
+    }
+    assert!(normalized
+        .finding_inventory
+        .iter()
+        .all(|entry| !indicators.iter().any(|m| entry.source.starts_with(m))));
+}
+
+/// The WCAG domain (`Accessibility`) is built by `build_wcag_findings`, not by
+/// the domain collector, so it needs its own injection: the violation must
+/// reach the findings, the inventory-checked contract and the JSON.
+#[test]
+fn a_wcag_violation_reaches_findings_and_json() {
+    let mut results = WcagResults::new();
+    for node in ["n1", "n2"] {
+        results.add_violation(crate::wcag::Violation::new(
+            "3.1.1",
+            "Language of Page",
+            WcagLevel::A,
+            Severity::High,
+            "The page has no lang attribute.",
+            node,
+        ));
+    }
+    let report = AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
+    let ctx = normalize(&report);
+    ctx.normalized
+        .validate()
+        .expect("normalized report must satisfy its contract");
+    let finding = ctx
+        .normalized
+        .findings
+        .iter()
+        .find(|f| f.contract.domain == FindingDomain::Accessibility)
+        .expect("the WCAG violation is a finding");
+    assert_eq!(finding.occurrence_count, 2);
+
+    let json = crate::output::json::UnifiedReport::single(&ctx, &report)
+        .to_json(true)
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let ids: Vec<&str> = json["pages"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|f| f["rule_id"].as_str())
+        .collect();
+    assert!(ids.contains(&finding.rule_id.as_str()), "{ids:?}");
+}
+
+/// A module that was not measured contributes no findings and no inventory
+/// entries: "not measured" is not "measured and clean" (#780).
+#[test]
+fn an_unmeasured_module_leaves_no_findings() {
+    let mut report = report_with_every_domain();
+    let html = report.html_conform.as_mut().expect("html module injected");
+    html.checked = false;
+    let ctx = normalize(&report);
+    ctx.normalized
+        .validate()
+        .expect("normalized report must satisfy its contract");
+    assert!(ctx
+        .normalized
+        .findings
+        .iter()
+        .all(|f| f.contract.domain != FindingDomain::HtmlConformance));
+    assert!(ctx
+        .normalized
+        .finding_inventory
+        .iter()
+        .all(|e| e.domain != FindingDomain::HtmlConformance));
+    let entry = ctx
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "HTML Conformance")
+        .unwrap();
+    assert_eq!(entry.measurement_type, "not_measured");
+}

@@ -1352,7 +1352,7 @@ mod tests {
     use super::*;
     use crate::audit::AuditReport;
     use crate::audit::ViolationStatistics;
-    use crate::cli::WcagLevel;
+    use crate::wcag::WcagLevel;
     use crate::wcag::WcagResults;
 
     #[test]

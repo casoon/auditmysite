@@ -638,7 +638,7 @@ impl NormalizedReport {
 }
 
 pub fn normalize_checked(report: &AuditReport) -> Result<AuditContext<'_>, ReportContractError> {
-    let context = super::normalize(report);
+    let context = super::normalized::normalize(report);
     context.normalized.validate()?;
     Ok(context)
 }
@@ -648,7 +648,7 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
     let mut total = 0u64;
     let mut passed = 0usize;
     for (index, report) in batch.reports.iter().enumerate() {
-        let context = super::normalize(report);
+        let context = super::normalized::normalize(report);
         if let Err(error) = context.normalized.validate() {
             violations.extend(error.violations.into_iter().map(|mut v| {
                 v.path = format!("reports[{index}].{}", v.path);

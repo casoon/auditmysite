@@ -38,7 +38,7 @@ use self::throttled::{
 use super::artifacts::{
     content_hash, save_artifacts, AuditArtifacts, CacheMeta, FetchArtifact, SnapshotArtifact,
 };
-use super::normalize;
+use super::normalized::normalize;
 use super::report::{
     AuditReport, ConsentCookieSignal, ConsentPrivacySnapshot, DualViewportResults,
     PerformanceResults, ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
@@ -360,6 +360,9 @@ pub struct PipelineConfig {
     /// unique host per process run regardless of how many pages are audited
     /// (see `network::dns::module`'s per-host memoization).
     pub check_dns: bool,
+    /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
+    /// reported run is the median; the spread is stored beside it.
+    pub perf_runs: u32,
     /// Run the opt-in isolated third-party script impact measurement
     /// (#531): reload the page once per top third-party origin with that
     /// origin's requests blocked via CDP, and diff TBT against the baseline.
@@ -472,13 +475,13 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 25;
+        const CACHE_FMT: u8 = 26;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -492,6 +495,7 @@ impl PipelineConfig {
             self.check_ai_transparency as u8,
             self.check_dns as u8,
             self.check_isolate_third_party_impact as u8,
+            self.perf_runs,
             self.check_ssr_content as u8,
             self.check_stack as u8,
             self.dismiss_consent as u8,
@@ -533,6 +537,7 @@ impl PipelineConfig {
                 check_html_conform: false,
                 check_ai_transparency: false,
                 check_dns: false,
+                perf_runs: 1,
                 check_stack: false,
                 ..self.clone()
             },
@@ -590,6 +595,7 @@ impl PipelineConfig {
             // detail is only ever `fix_guidance`/`en301549_annex`).
             check_ai_transparency: args.ai_transparency && args.url.is_some(),
             check_dns: args.dns_check,
+            perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
@@ -2321,6 +2327,7 @@ mod tests {
             ai_transparency: false,
             dns_check: false,
             isolate_third_party_impact: false,
+            perf_runs: 1,
             check_ssr_content: false,
             stack: false,
             reuse_cache: false,
@@ -2611,6 +2618,10 @@ mod tests {
         assert_eq!(single.requested_subchecks, batch.requested_subchecks);
         assert_eq!(single.requested_subchecks.len(), 2);
         assert_eq!(
+            single.measurement_profile.extra_checks,
+            ["--isolate-third-party-impact", "--check-ssr-content"]
+        );
+        assert_eq!(
             serde_json::to_value(&single.measurement_profile).unwrap(),
             serde_json::to_value(&batch.measurement_profile).unwrap()
         );
@@ -2724,6 +2735,7 @@ mod tests {
             check_html_conform: false,
             check_ai_transparency: false,
             check_dns: false,
+            perf_runs: 1,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack: false,
@@ -2758,6 +2770,11 @@ mod tests {
         // Toggling a module changes the signature.
         let mut other = test_pipeline_config();
         other.check_security = true;
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Repeated performance runs store a spread a single run does not (#791).
+        let mut other = test_pipeline_config();
+        other.perf_runs = 3;
         assert_ne!(base_sig, other.audit_signature());
 
         // Consent handling changes the signature.
@@ -3489,7 +3506,7 @@ journey_budget_ms = 1234
             .find(|run| run.module == "security")
             .expect("the requested module has a run");
         assert_eq!(security.status, crate::audit::ExecutionStatus::Failed);
-        let normalized = crate::audit::normalize(&report);
+        let normalized = crate::audit::normalized::normalize(&report);
         assert!(normalized.normalized.execution.quality.qualified_results);
         assert!(normalized
             .normalized

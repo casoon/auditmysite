@@ -485,7 +485,8 @@ fn with_localized_shared_texts<'a>(ctx: &AuditContext<'a>) -> AuditContext<'a> {
 #[cfg(test)]
 mod tests {
     use super::build_view_model;
-    use crate::audit::{normalize, AuditReport};
+    use crate::audit::normalized::normalize;
+    use crate::audit::AuditReport;
     use crate::cli::WcagLevel;
     use crate::output::report_model::ReportConfig;
     use crate::wcag::{Severity, Violation, WcagResults};
@@ -579,7 +580,7 @@ mod tests {
 
     #[test]
     fn english_view_model_excludes_top_level_german_labels() {
-        use crate::audit::normalize;
+        use crate::audit::normalized::normalize;
         use crate::audit::AuditReport;
         use crate::wcag::{Severity, Violation, WcagResults};
 

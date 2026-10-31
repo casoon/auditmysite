@@ -12,8 +12,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const VISUAL_PRESENTATION_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.8",

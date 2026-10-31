@@ -590,7 +590,8 @@ mod tests {
 
     // ── One decision through every projection (#781) ────────────────────
 
-    use crate::audit::{normalize, AuditReport, BatchReport};
+    use crate::audit::normalized::normalize;
+    use crate::audit::{AuditReport, BatchReport};
     use crate::wcag::{Violation, WcagResults};
 
     /// One High failure of a Level-A criterion — the U16 reproduction: it

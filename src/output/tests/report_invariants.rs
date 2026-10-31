@@ -368,7 +368,7 @@ fn measurement_warnings_present_in_json_when_set() {
         coverage: None,
         measurement_warnings: vec!["lcp_not_measured".to_string()],
     });
-    let normalized = crate::audit::normalize(&report);
+    let normalized = crate::audit::normalized::normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
     let json_str = unified.to_json(false).unwrap();
     let json: serde_json::Value = serde_json::from_str(&json_str).unwrap();

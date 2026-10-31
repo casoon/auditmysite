@@ -14,8 +14,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const ORIENTATION_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.4",

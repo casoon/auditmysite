@@ -467,6 +467,14 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             .map(|j| j.to_string())
             .collect(),
             state_id: config.state_id.clone(),
+            extra_checks: crate::audit::support_matrix::ExtraCheckRequest {
+                isolate_third_party_impact: config.check_isolate_third_party_impact,
+                check_ssr_content: config.check_ssr_content,
+                ai_transparency: config.check_ai_transparency,
+                dns_check: config.check_dns,
+                ..Default::default()
+            }
+            .requested_flags(),
             storage_state: config.storage_state.as_ref().map(|state| {
                 crate::audit::StorageStateRef {
                     sha256: state.digest.clone(),

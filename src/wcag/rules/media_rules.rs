@@ -16,8 +16,8 @@ use std::time::Duration;
 use tracing::warn;
 use url::Url;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{Outcome, RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 /// Rule metadata for captions (1.2.2)
 pub(super) const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
@@ -388,7 +388,7 @@ pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
             warn!("frame-tested DOM JS failed: {}", e);
             return vec![crate::wcag::technical_rule_failure_for(
                 "frame-tested",
-                crate::cli::WcagLevel::A,
+                crate::wcag::WcagLevel::A,
                 "page_evaluation_failed",
             )];
         }
@@ -397,7 +397,7 @@ pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
     let Some(value) = result.value() else {
         return vec![crate::wcag::technical_rule_failure_for(
             "frame-tested",
-            crate::cli::WcagLevel::A,
+            crate::wcag::WcagLevel::A,
             "missing_evaluation_value",
         )];
     };

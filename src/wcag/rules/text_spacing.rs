@@ -16,8 +16,8 @@
 use chromiumoxide::Page;
 use tracing::warn;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const TEXT_SPACING_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.12",
@@ -104,7 +104,7 @@ pub async fn check_text_spacing_with_page(page: &Page) -> Vec<Violation> {
             warn!("text-spacing probe JS failed: {}", e);
             return vec![crate::wcag::technical_rule_failure_for(
                 "text-spacing",
-                crate::cli::WcagLevel::AA,
+                crate::wcag::WcagLevel::AA,
                 "page_evaluation_failed",
             )];
         }
@@ -118,7 +118,7 @@ pub async fn check_text_spacing_with_page(page: &Page) -> Vec<Violation> {
         _ => {
             return vec![crate::wcag::technical_rule_failure_for(
                 "text-spacing",
-                crate::cli::WcagLevel::AA,
+                crate::wcag::WcagLevel::AA,
                 "missing_evaluation_value",
             )]
         }

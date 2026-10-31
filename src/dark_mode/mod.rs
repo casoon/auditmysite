@@ -23,8 +23,8 @@ use crate::audit::collection::{
     evaluate_js, evaluate_js_value, reason, Collected, CollectionLog, CollectionMethod,
     CollectorSpec, JsObject,
 };
-use crate::cli::WcagLevel;
 use crate::error::Result;
+use crate::wcag::WcagLevel;
 
 const fn dark_mode_collector(id: &'static str, method: CollectionMethod) -> CollectorSpec {
     CollectorSpec {
@@ -1691,7 +1691,7 @@ mod tests {
         let mut v = Violation::new(
             "1.4.3",
             "Contrast (Minimum)",
-            crate::cli::WcagLevel::AA,
+            crate::wcag::WcagLevel::AA,
             Severity::High,
             message,
             "node-1",

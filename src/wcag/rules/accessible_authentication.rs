@@ -29,8 +29,8 @@
 
 use chromiumoxide::Page;
 
-use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::WcagLevel;
 
 pub(super) const ACCESSIBLE_AUTH_PASTE_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.8",

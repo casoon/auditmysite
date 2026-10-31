@@ -3,6 +3,9 @@
 //! These tests require Chrome/Chromium to be installed and are marked `#[ignore]`
 //! so they don't run in CI by default. Run with:
 //!   cargo test --test integration_test -- --ignored
+// The infallible `normalize` is the deprecated 1.x compatibility API; these tests
+// exercise the model it derives, not the migration path.
+#![allow(deprecated)]
 
 mod common;
 
@@ -465,6 +468,7 @@ fn default_config() -> PipelineConfig {
         check_html_conform: false,
         check_ai_transparency: false,
         check_dns: false,
+        perf_runs: 1,
         check_isolate_third_party_impact: false,
         check_ssr_content: false,
         check_stack: false,
