@@ -93,6 +93,13 @@ impl From<super::collection::CollectionRecord> for SubcheckRun {
     }
 }
 
+/// A rule the run is expected to account for, and where (#778).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestedRule {
+    pub rule_id: String,
+    pub viewports: Vec<String>,
+}
+
 /// Requested audit scope, independent of whether the measurements succeeded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditScope {
@@ -103,11 +110,16 @@ pub struct AuditScope {
     /// Each carries a subcheck run in its module's `module_runs` (#788).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_subchecks: Vec<String>,
-    /// Shared rules this run is expected to account for with an outcome — run,
-    /// disabled by filter or level, or errored — in at least one viewport
-    /// (#778). Empty for reports from before the field.
+    /// Rules this run must account for with exactly one outcome per listed
+    /// viewport -- ran, or not run with a reason (#778). Derived from the
+    /// rule registrations (`wcag::expectation`). Empty for reports from
+    /// before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub requested_rules: Vec<String>,
+    pub requested_rules: Vec<RequestedRule>,
+    /// WCAG level the run was configured for (`A`, `AA`, `AAA`); empty for
+    /// reports from before the field. A rule above it must not have run.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub wcag_level: String,
     pub full_audit: bool,
     /// Measurement profile: under which session policy the pages ran and
     /// which journeys may change page or account state (#787).

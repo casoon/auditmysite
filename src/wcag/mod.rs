@@ -6,6 +6,7 @@ pub mod bik_guide;
 pub mod coverage;
 pub mod en301549;
 pub mod engine;
+pub mod expectation;
 pub mod rules;
 pub mod shared;
 pub mod types;

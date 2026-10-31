@@ -213,11 +213,27 @@ async fn slow_static_page_measures_zero_blocking_time() {
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
-    let fixture = common::fixture_server::serve_html(r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Viewport cap fixture</title><main><h1>Viewport cap fixture</h1><button id=control></button></main><script>
+    assert_critical_in_one_viewport_caps("narrow.matches ? 'Menu' : ''", true).await;
+}
+
+/// #772, the other direction: a critical barrier that only the mobile pass
+/// sees limits the exported statement just the same.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_mobile_critical_caps_raw_and_exported_accessibility() {
+    assert_critical_in_one_viewport_caps("narrow.matches ? '' : 'Menu'", false).await;
+}
+
+/// The empty button label appears in one viewport only; the page is clean in
+/// the other. `label_expr` is the script expression for the button text.
+async fn assert_critical_in_one_viewport_caps(label_expr: &str, desktop_critical: bool) {
+    let html = r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Viewport cap fixture</title><main><h1>Viewport cap fixture</h1><button id=control></button></main><script>
     const narrow = matchMedia('(max-width: 700px)');
-    function update() { document.getElementById('control').textContent = narrow.matches ? 'Menu' : ''; }
+    function update() { document.getElementById('control').textContent = LABEL; }
     narrow.addEventListener('change', update); update();
-    </script></html>"#.into());
+    </script></html>"#
+        .replace("LABEL", label_expr);
+    let fixture = common::fixture_server::serve_html(html);
     let manager = ci_browser().await;
     let page = manager.new_page().await.unwrap();
     manager.navigate(&page, &fixture.url).await.unwrap();
@@ -225,9 +241,14 @@ async fn foundation_desktop_critical_caps_raw_and_exported_accessibility() {
         .await
         .unwrap();
     let scores = report.viewport_scores.as_ref().unwrap();
+    let (critical, clean) = if desktop_critical {
+        (scores.desktop.accessibility, scores.mobile.accessibility)
+    } else {
+        (scores.mobile.accessibility, scores.desktop.accessibility)
+    };
     assert!(
-        scores.desktop.accessibility <= 49 && scores.mobile.accessibility > 49,
-        "fixture must isolate the critical defect to desktop: {scores:?}"
+        critical <= 49 && clean > 49,
+        "fixture must isolate the critical defect to one viewport: {scores:?}"
     );
     assert!(report.accessibility.score <= 49.0);
     let normalized = auditmysite::audit::normalize(&report);
@@ -1385,6 +1406,44 @@ async fn test_target_size_equivalent_link_exception() {
     );
 }
 
+/// #766: a review the two viewport passes see differently keeps its viewport
+/// tag through the merge. `#wide-small` is undersized only above 700 px,
+/// `#always-small` in both. They sit side by side, so the spacing exception
+/// of 2.5.8 does not apply.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn foundation_viewport_merge_tags_a_review_seen_in_one_viewport() {
+    let fixture = common::fixture_server::serve_html(r#"<!doctype html><html lang=en><meta name=viewport content="width=device-width, initial-scale=1"><title>Target size fixture</title><style>
+    a { display: inline-block; box-sizing: border-box; }
+    #wide-small, #always-small { width: 10px; height: 10px; }
+    #wide-small { width: 48px; height: 48px; }
+    @media (min-width: 701px) { #wide-small { width: 10px; height: 10px; } }
+    </style><main><h1>Target size fixture</h1><a id=wide-small href=/one aria-label="One"></a><a id=always-small href=/two aria-label="Two"></a></main></html>"#.into());
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.unwrap();
+    manager.navigate(&page, &fixture.url).await.unwrap();
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .unwrap();
+    let results = &report.accessibility.wcag_results;
+    let tags_of = |id: &str| -> Vec<String> {
+        results
+            .violations
+            .iter()
+            .chain(&results.warnings)
+            .filter(|v| {
+                v.rule_id.as_deref() == Some("targets/size")
+                    && v.selector.as_deref().is_some_and(|s| s.contains(id))
+            })
+            .flat_map(|v| v.tags.clone())
+            .collect()
+    };
+    assert_eq!(tags_of("always-small"), ["both-viewports"], "{results:#?}");
+    assert_eq!(tags_of("wide-small"), ["desktop-only"], "{results:#?}");
+    page.close().await.unwrap();
+    fixture.stop();
+}
+
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn test_design_quality_module_findings_and_score_isolation() {
@@ -2408,6 +2467,62 @@ async fn batch_runs_requested_ssr_gap_check_body() {
         "subchecks: {:?}",
         run.subchecks
     );
+}
+
+/// Runs the real binary on one page and returns its exit code and the
+/// verdict the JSON export names.
+fn run_cli_for_exit_code(html: &str) -> (i32, String) {
+    let fixture = common::fixture_server::serve_html(html.to_string());
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("report.json");
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_auditmysite"));
+    command
+        .current_dir(dir.path())
+        .arg(&fixture.url)
+        .args(["--format", "json", "-o"])
+        .arg(&out)
+        .args(["--interactive", "off", "-q", "--progress", "never"])
+        .args(["--timeout", "15"]);
+    if std::env::var("CI").is_ok() {
+        command.arg("--no-sandbox");
+    }
+    let output = command.output().expect("binary runs");
+    fixture.stop();
+    let code = output.status.code().expect("exit code");
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&out).unwrap_or_else(|e| {
+            panic!(
+                "report missing ({e}); exit {code}; stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+        }))
+        .unwrap();
+    let verdict = json["pages"][0]["decision"]["verdict"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no verdict in {}", json["pages"][0]["decision"]))
+        .to_string();
+    (code, verdict)
+}
+
+/// #781: the process exit code is the exported verdict, through `main` —
+/// not only `Verdict::exit_code()` in isolation. A page with a critical
+/// barrier fails (2); every report's exit code equals its own verdict.
+#[test]
+#[ignore = "needs Chrome"]
+fn exit_code_of_the_process_is_the_exported_verdict() {
+    let broken = "<!doctype html><html lang=en><title>Broken</title><main><h1>Broken</h1><button></button></main></html>";
+    let clean = "<!doctype html><html lang=en><meta name=viewport content=\"width=device-width, initial-scale=1\"><title>Clean page</title><a href=\"#main\">Skip to content</a><header><nav aria-label=Main><a href=/>Home</a></nav></header><main id=main><h1>Clean page</h1><p>Plain text.</p></main><footer><p>Footer</p></footer></html>";
+    let expected = |verdict: &str| match verdict {
+        "pass" => 0,
+        "warn" => 1,
+        "fail" => 2,
+        other => panic!("unknown verdict {other}"),
+    };
+    let (code, verdict) = run_cli_for_exit_code(broken);
+    assert_eq!(verdict, "fail");
+    assert_eq!(code, 2);
+    let (code, verdict) = run_cli_for_exit_code(clean);
+    assert_eq!(code, expected(&verdict), "verdict {verdict}");
 }
 
 /// Plan 67: a small `--url-file` run in technician mode, through the real

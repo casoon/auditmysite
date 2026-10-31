@@ -157,7 +157,9 @@ pub(crate) async fn fetch_headers(
     Collected::Measured((response.headers().clone(), fetch))
 }
 
-/// Same scheme and host: the probe analysed the document the browser loaded.
+/// Same origin (scheme, host, port): the probe analysed the document the
+/// browser loaded. The path stays out: a client-side route change does not
+/// change which server answered.
 pub(crate) fn document_match(
     fetch: &HeaderFetch,
     browser_final_url: Option<&str>,
@@ -169,7 +171,10 @@ pub(crate) fn document_match(
     let Ok(probe) = url::Url::parse(&fetch.final_url) else {
         return Collected::Failed("probe_final_url_invalid");
     };
-    if probe.scheme() == browser.scheme() && probe.host_str() == browser.host_str() {
+    if probe.scheme() == browser.scheme()
+        && probe.host_str() == browser.host_str()
+        && probe.port_or_known_default() == browser.port_or_known_default()
+    {
         Collected::Measured(())
     } else {
         Collected::Failed("probe_document_mismatch")
@@ -1807,6 +1812,20 @@ pub(crate) fn counter_cases() {
     assert_eq!(
         document_match(&probe, None).state(),
         CollectionState::Failed
+    );
+    // Another port is another server (#774): the headers are not the
+    // browser's. The default port spelled out is the same origin.
+    let local = HeaderFetch {
+        final_url: "http://127.0.0.1:8080/".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        document_match(&local, Some("http://127.0.0.1:9090/")).state(),
+        CollectionState::Failed
+    );
+    assert_eq!(
+        document_match(&probe, Some("http://example.com:80/")).state(),
+        CollectionState::Measured
     );
 
     // Source maps: unreachable assets make the check partial or failed.

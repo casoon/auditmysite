@@ -10,6 +10,7 @@ and verification for each change is in the
 ### Added
 
 - **Navigation:** `navigation.redirect_chain` lists the main document's redirects (URL and status, in order) next to `requested_url`, `final_url` and `redirect_count`.
+- **Audit contracts:** `audit_scope.requested_rules` now covers the AX-tree, page and inline rules as well as the shared ones, each with the viewports it runs in (derived from the rule registrations, level and `[rules]` filter); `audit_scope.wcag_level` records the level. Validation rejects a missing outcome per viewport (`requested_rule_outcome`), a doubled one (`rule_outcome_duplicate`) and a rule that ran above the level (`rule_outcome_above_level`). A failed page-rule executor counts as one failed check, not once per concrete rule. A requested HTML content-model check whose collection delivered nothing is now an errored outcome instead of a silent gap. A rule split over two executors (`context/on-input`) keeps one outcome per viewport, and the placeholder "not yet adopted" entry no longer duplicates ids a page rule owns.
 - **JSON:** `pages[].detail.module_detail` says what `detail.modules` holds (`full`, `omitted` in a batch, `not_restored` in a cache replay), so an empty module block is not read as "nothing found".
 - **Architecture:** `tests/architecture_test.rs` fails when an analysis module imports `cli`, `output` or the audit orchestration beyond a shrinking baseline.
 - **Session:** `--storage-state FILE` (Playwright-style cookies and localStorage) starts every page from a declared login, consent or SPA state; `--state-id` names it. `audit_scope.measurement_profile` records the name, the file's SHA-256 and the counts — never the values — and the state is part of the cache key.
@@ -79,6 +80,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
 - **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
 - **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
 - **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.

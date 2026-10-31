@@ -419,9 +419,39 @@ mod tests {
         assert_eq!(fetch(&declared), Err("oversized"));
         // Declares 10 bytes, sends 2000: nothing beyond the limit is read.
         let lying = serve(response("200 OK", "Content-Length: 10\r\n", &[b'x'; 2000]));
-        assert!(fetch(&lying)
-            .map(|(bytes, _)| bytes.len() <= 1_000)
-            .unwrap_or(true));
+        let (bytes, _) = fetch(&lying).expect("the declared 10 bytes are a valid response");
+        assert_eq!(bytes.len(), 10);
+    }
+
+    #[test]
+    fn a_body_without_any_length_is_cut_off_at_the_limit() {
+        // No Content-Length, no chunking: the body ends when the server
+        // closes. Only the streaming check can stop it.
+        let url = serve(response("200 OK", "", &[b'x'; 5000]));
+        assert_eq!(fetch(&url), Err("oversized"));
+    }
+
+    #[test]
+    fn a_body_exactly_at_the_limit_is_accepted() {
+        let url = serve(response(
+            "200 OK",
+            "Content-Length: 1000\r\n",
+            &[b'x'; 1000],
+        ));
+        assert_eq!(fetch(&url).map(|(bytes, _)| bytes.len()), Ok(1000));
+    }
+
+    #[test]
+    fn failures_carry_their_reason() {
+        let status = serve(response("404 Not Found", "Content-Length: 0\r\n", b""));
+        assert_eq!(fetch(&status), Err("http_error_status"));
+        assert_eq!(fetch("not a url"), Err("invalid_url"));
+        assert_eq!(
+            fetch("ftp://127.0.0.1/image.png"),
+            Err("unsupported_scheme")
+        );
+        // `.invalid` never resolves (RFC 2606).
+        assert_eq!(fetch("http://host.invalid/image.png"), Err("dns_failed"));
     }
 
     #[test]
