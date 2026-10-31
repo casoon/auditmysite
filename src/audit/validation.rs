@@ -46,6 +46,59 @@ pub(crate) fn capture_gaps(execution: &super::AuditExecution) -> CaptureGaps {
 }
 use super::{AuditContext, AuditReport, BatchReport, NormalizedReport};
 
+/// Every machine-readable code a [`ContractViolation`] can carry (#778).
+/// Consumers match on these strings; `docs/OUTPUT_CONTRACT.md` explains
+/// them. The test below keeps the list and the checks in step.
+pub const CONTRACT_CODES: &[&str] = &[
+    "accessibility_module",
+    "audit_quality",
+    "average_score",
+    "batch_aggregation",
+    "cause_charged_twice",
+    "certificate",
+    "collection_gap_completed",
+    "collection_gap_scored",
+    "collection_state_unexplained",
+    "collector_unknown",
+    "decision",
+    "decision_contract",
+    "decision_profile",
+    "execution_completeness",
+    "failed_rule_checks",
+    "finding_domain",
+    "finding_identity",
+    "finding_inventory",
+    "finding_occurrences",
+    "frame_rule_outcome_above_level",
+    "frame_rule_outcome_duplicate",
+    "frame_rule_outcome_missing",
+    "frame_rule_outcome_unexpected",
+    "gate_score_cap",
+    "grade",
+    "measurement_profile_journeys",
+    "measurement_profile_read_only",
+    "module_grade",
+    "module_identity",
+    "module_weight",
+    "occurrence_counts",
+    "overall_score",
+    "passed",
+    "quality_qualification",
+    "requested_execution",
+    "requested_rule_outcome",
+    "rule_findings_preserved",
+    "rule_outcome_above_level",
+    "rule_outcome_duplicate",
+    "rule_outcome_filtered",
+    "sample_strata",
+    "score_method",
+    "score_range",
+    "semantic_score_cap",
+    "severity_counts",
+    "total_urls",
+    "weighted_measurement",
+];
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ContractViolation {
     pub code: &'static str,
@@ -352,6 +405,72 @@ impl NormalizedReport {
                     format!("rule_outcomes[{}]", run.rule_id),
                     format!("rule ran above the configured level {level}"),
                 );
+            }
+        }
+        // A rule the recorded `[rules]` filter removed did not run (#778).
+        if let Some(filter) = &self.execution.scope.rule_filter {
+            for run in self.rule_outcomes.iter().filter(|r| r.not_run.is_none()) {
+                check(
+                    !crate::wcag::expectation::is_filter_gated(&run.rule_id)
+                        || filter.allows(&run.rule_id),
+                    "rule_outcome_filtered",
+                    format!("rule_outcomes[{}]", run.rule_id),
+                    "rule ran although the recorded rule filter removes it".into(),
+                );
+            }
+        }
+        // Every audited iframe accounts for each frame rule with exactly one
+        // outcome per viewport it was audited in (#778). A skipped frame has
+        // none; reports from before the field list no frame rules.
+        let scope = &self.execution.scope;
+        if !scope.frame_rules.is_empty() {
+            for frame in self.execution.frames.iter().flat_map(|f| &f.audited) {
+                for viewport in &frame.viewports {
+                    for rule_id in &scope.frame_rules {
+                        let outcomes = frame
+                            .outcomes
+                            .iter()
+                            .filter(|run| {
+                                run.rule_id == *rule_id
+                                    && run.viewport.as_deref().is_none_or(|v| v == viewport)
+                            })
+                            .count();
+                        let path =
+                            format!("frames[{}].outcomes[{rule_id}@{viewport}]", frame.selector);
+                        check(
+                            outcomes >= 1,
+                            "frame_rule_outcome_missing",
+                            path.clone(),
+                            "each frame rule needs an explicit outcome in every audited viewport"
+                                .into(),
+                        );
+                        check(
+                            outcomes <= 1,
+                            "frame_rule_outcome_duplicate",
+                            path,
+                            "a frame rule has one outcome per viewport".into(),
+                        );
+                    }
+                }
+                for run in &frame.outcomes {
+                    let path = format!("frames[{}].outcomes[{}]", frame.selector, run.rule_id);
+                    check(
+                        scope.frame_rules.contains(&run.rule_id),
+                        "frame_rule_outcome_unexpected",
+                        path.clone(),
+                        "the outcome belongs to no rule the frames were scoped to".into(),
+                    );
+                    if let Some(level) = level {
+                        check(
+                            run.not_run.is_some()
+                                || crate::wcag::expectation::registered_min_level(&run.rule_id)
+                                    .is_none_or(|min| min <= level),
+                            "frame_rule_outcome_above_level",
+                            path,
+                            format!("frame rule ran above the configured level {level}"),
+                        );
+                    }
+                }
             }
         }
         // A module that lost a scoring collection was not fully measured: its
@@ -744,5 +863,49 @@ fn finish(violations: Vec<ContractViolation>) -> Result<(), ReportContractError>
         Ok(())
     } else {
         Err(ReportContractError { violations })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CONTRACT_CODES;
+    use std::collections::BTreeSet;
+
+    /// Every code the checks above can emit is listed, and every listed code
+    /// is emitted: a new check without an entry (or a dead entry) fails.
+    #[test]
+    fn the_code_list_is_the_set_of_codes_the_checks_emit() {
+        let source = include_str!("validation.rs");
+        let production = source.split("#[cfg(test)]\nmod tests").next().unwrap();
+        let start = production.find("pub struct ContractViolation").unwrap();
+        let after_list = &production[start..];
+        let mut emitted = BTreeSet::new();
+        for line in after_list.lines() {
+            let line = line.trim();
+            if let Some(code) = line
+                .strip_prefix('"')
+                .and_then(|l| l.strip_suffix("\","))
+                .filter(|c| c.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_'))
+            {
+                emitted.insert(code.to_string());
+            }
+            if let Some(rest) = line.strip_prefix("code: \"") {
+                emitted.insert(rest.trim_end_matches("\",").to_string());
+            }
+        }
+        let listed: BTreeSet<String> = CONTRACT_CODES.iter().map(|c| c.to_string()).collect();
+        assert_eq!(emitted, listed);
+        assert!(
+            CONTRACT_CODES.windows(2).all(|w| w[0] < w[1]),
+            "keep the list sorted and free of duplicates"
+        );
+    }
+
+    #[test]
+    fn the_output_contract_documents_every_code() {
+        let doc = include_str!("../../docs/OUTPUT_CONTRACT.md");
+        for code in CONTRACT_CODES {
+            assert!(doc.contains(&format!("`{code}`")), "{code} is undocumented");
+        }
     }
 }

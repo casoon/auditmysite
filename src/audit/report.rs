@@ -100,6 +100,31 @@ pub struct RequestedRule {
     pub viewports: Vec<String>,
 }
 
+/// The `[rules]` filter the run applied (`--disable-rule`, `enabled_only`),
+/// recorded so an outcome for a rule the filter removed is a contradiction
+/// that can be detected (#778).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuleFilterRecord {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_rules: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_only_rules: Vec<String>,
+}
+
+impl RuleFilterRecord {
+    /// Mirror of `RuleFilterConfig::should_run`.
+    pub fn allows(&self, rule_id: &str) -> bool {
+        if !self.enabled_only_rules.is_empty() {
+            return self.enabled_only_rules.iter().any(|r| r == rule_id);
+        }
+        !self.disabled_rules.iter().any(|r| r == rule_id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.disabled_rules.is_empty() && self.enabled_only_rules.is_empty()
+    }
+}
+
 /// Requested audit scope, independent of whether the measurements succeeded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditScope {
@@ -116,6 +141,15 @@ pub struct AuditScope {
     /// before the field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_rules: Vec<RequestedRule>,
+    /// Rules every audited iframe must account for with exactly one outcome
+    /// per viewport (`frames.audited[].outcomes`, #778): the frame tree and
+    /// shared rules the level and the rule filter leave. Empty for reports
+    /// from before the field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frame_rules: Vec<String>,
+    /// The rule filter the run applied; absent when none was set (#778).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule_filter: Option<RuleFilterRecord>,
     /// WCAG level the run was configured for (`A`, `AA`, `AAA`); empty for
     /// reports from before the field. A rule above it must not have run.
     #[serde(default, skip_serializing_if = "String::is_empty")]

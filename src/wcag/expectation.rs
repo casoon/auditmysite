@@ -7,10 +7,11 @@
 //! content model) -- never from a second list. Each expected rule needs
 //! exactly one outcome per viewport: ran, or not run with a reason.
 //!
-//! Frame rules need no entries of their own: a frame runs a subset of the
-//! tree and shared rules (`audit::frames::FRAME_TREE_RULES`,
-//! `FRAME_SHARED_RULES`) and folds its outcome into the page's
-//! `(rule_id, viewport)` entry, so a frame cannot add or drop an outcome.
+//! Frame rules need no entries here: a frame runs a subset of the tree and
+//! shared rules (`audit::frames::FRAME_TREE_RULES`, `FRAME_SHARED_RULES`)
+//! and folds its outcome into the page's `(rule_id, viewport)` entry. What
+//! each audited frame must account for is `audit::frames::expected_frame_rules`
+//! (`audit_scope.frame_rules`), checked per frame and viewport (#778).
 //!
 //! **Counting unit.** A page-rule executor (`PageRuleEntry::rule_id`) and its
 //! concrete rules (`outcome_ids`) are one check: when the executor fails,
@@ -96,6 +97,15 @@ pub fn registered_min_level(rule_id: &str) -> Option<WcagLevel> {
         return Some(rule.min_level);
     }
     (rule_id == REFLOW_RULE.axe_id).then_some(WcagLevel::AA)
+}
+
+/// Whether the user's rule filter decides if this rule runs at all: the tree
+/// rules and the two inline page rules. Shared rules answer the filter with a
+/// `disabled` outcome instead, page-rule executors ignore it.
+pub fn is_filter_gated(rule_id: &str) -> bool {
+    TREE_RULES.iter().any(|r| r.axe_id == rule_id)
+        || rule_id == REFLOW_RULE.axe_id
+        || rule_id == HTML_CONTENT_MODEL_RULE.axe_id
 }
 
 /// The check an outcome belongs to: the page-rule executor for a concrete

@@ -464,6 +464,17 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             viewports: rule.viewports.iter().map(|v| v.to_string()).collect(),
         })
         .collect(),
+        frame_rules: crate::audit::frames::expected_frame_rules(
+            config.wcag_level,
+            &config.rule_filter,
+        ),
+        rule_filter: {
+            let record = crate::audit::RuleFilterRecord {
+                disabled_rules: config.rule_filter.disabled_rules.clone(),
+                enabled_only_rules: config.rule_filter.enabled_only_rules.clone(),
+            };
+            (!record.is_empty()).then_some(record)
+        },
         wcag_level: config.wcag_level.to_string(),
         full_audit: config.full_audit,
         measurement_profile: crate::audit::MeasurementProfile {
@@ -1121,6 +1132,201 @@ mod tests {
             }
         }
         assert!(rejected_codes(&report).is_empty());
+    }
+
+    /// The report with one audited iframe that accounts for every frame rule
+    /// in both viewports, as the frame pass leaves it.
+    fn report_with_audited_frame() -> AuditReport {
+        use crate::audit::frames::{FrameCoverage, FrameEntry};
+        let mut report = report_with_expected_outcomes();
+        let scope = &report.accessibility.execution.scope;
+        assert!(!scope.frame_rules.is_empty(), "the scope names frame rules");
+        let level = crate::cli::WcagLevel::AA;
+        let outcomes = scope
+            .frame_rules
+            .iter()
+            .flat_map(|rule_id| {
+                ["desktop", "mobile"].map(|viewport| {
+                    let above = crate::wcag::expectation::registered_min_level(rule_id)
+                        .is_some_and(|min| min > level);
+                    let run = if above {
+                        crate::wcag::RuleRun::not_run(rule_id, crate::wcag::NotRun::Disabled)
+                    } else {
+                        crate::wcag::RuleRun::ran(rule_id, 0)
+                    };
+                    run.in_viewport(viewport)
+                })
+            })
+            .collect();
+        report.accessibility.execution.frames = Some(FrameCoverage {
+            audited: vec![FrameEntry {
+                selector: "iframe#w".into(),
+                url: Some("https://example.org/w".into()),
+                reason: None,
+                viewports: vec!["desktop".into(), "mobile".into()],
+                outcomes,
+            }],
+            skipped: vec![],
+        });
+        report
+    }
+
+    fn frame_outcomes(report: &mut AuditReport) -> &mut Vec<crate::wcag::RuleRun> {
+        &mut report
+            .accessibility
+            .execution
+            .frames
+            .as_mut()
+            .unwrap()
+            .audited[0]
+            .outcomes
+    }
+
+    #[test]
+    fn an_audited_frame_with_one_outcome_per_rule_and_viewport_is_accepted() {
+        assert!(rejected_codes(&report_with_audited_frame()).is_empty());
+    }
+
+    #[test]
+    fn a_frame_rule_without_outcome_in_one_viewport_is_a_gap() {
+        let mut report = report_with_audited_frame();
+        let outcomes = frame_outcomes(&mut report);
+        let at = outcomes
+            .iter()
+            .position(|o| o.rule_id == "image-alt" && o.viewport.as_deref() == Some("mobile"))
+            .unwrap();
+        outcomes.remove(at);
+        assert_eq!(rejected_codes(&report), vec!["frame_rule_outcome_missing"]);
+    }
+
+    #[test]
+    fn a_doubled_frame_outcome_is_rejected() {
+        let mut report = report_with_audited_frame();
+        let copy = frame_outcomes(&mut report)[0].clone();
+        frame_outcomes(&mut report).push(copy);
+        assert_eq!(
+            rejected_codes(&report),
+            vec!["frame_rule_outcome_duplicate"]
+        );
+    }
+
+    #[test]
+    fn a_frame_outcome_for_a_rule_outside_the_frame_scope_is_rejected() {
+        let mut report = report_with_audited_frame();
+        frame_outcomes(&mut report)
+            .push(crate::wcag::RuleRun::ran("landmarks/main-missing", 0).in_viewport("desktop"));
+        assert_eq!(
+            rejected_codes(&report),
+            vec!["frame_rule_outcome_unexpected"]
+        );
+    }
+
+    #[test]
+    fn a_frame_rule_that_ran_above_the_level_is_rejected() {
+        let mut report = report_with_audited_frame();
+        report.accessibility.execution.scope.wcag_level = "A".into();
+        let above: Vec<String> = report
+            .accessibility
+            .execution
+            .scope
+            .frame_rules
+            .iter()
+            .filter(|id| {
+                crate::wcag::expectation::registered_min_level(id)
+                    .is_some_and(|min| min > crate::cli::WcagLevel::A)
+            })
+            .cloned()
+            .collect();
+        assert!(!above.is_empty(), "an AA frame rule exists");
+        for run in frame_outcomes(&mut report) {
+            if above.contains(&run.rule_id) {
+                *run = crate::wcag::RuleRun::ran(&run.rule_id, 0)
+                    .in_viewport(run.viewport.clone().unwrap());
+            }
+        }
+        let codes = rejected_codes(&report);
+        assert!(
+            codes.contains(&"frame_rule_outcome_above_level"),
+            "{codes:?}"
+        );
+        // Reported as not run, the frame is honest again.
+        for run in frame_outcomes(&mut report) {
+            if above.contains(&run.rule_id) {
+                *run = crate::wcag::RuleRun::not_run(&run.rule_id, crate::wcag::NotRun::Disabled)
+                    .in_viewport(run.viewport.clone().unwrap());
+            }
+        }
+        report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .iter_mut()
+            .for_each(|run| {
+                if crate::wcag::expectation::registered_min_level(&run.rule_id)
+                    .is_some_and(|min| min > crate::cli::WcagLevel::A)
+                {
+                    *run =
+                        crate::wcag::RuleRun::not_run(&run.rule_id, crate::wcag::NotRun::Disabled)
+                            .in_viewport(run.viewport.clone().unwrap());
+                }
+            });
+        assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn a_skipped_frame_owes_no_outcomes() {
+        use crate::audit::frames::FrameSkipReason;
+        let mut report = report_with_audited_frame();
+        let coverage = report.accessibility.execution.frames.as_mut().unwrap();
+        let mut frame = coverage.audited.remove(0);
+        frame.outcomes.clear();
+        // A hidden frame is out of scope, not a coverage gap.
+        frame.reason = Some(FrameSkipReason::Hidden);
+        coverage.skipped.push(frame);
+        assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn a_tree_rule_that_ran_against_the_recorded_filter_is_rejected() {
+        let mut report = report_with_expected_outcomes();
+        report.accessibility.execution.scope.rule_filter = Some(crate::audit::RuleFilterRecord {
+            disabled_rules: vec!["image-alt".into()],
+            enabled_only_rules: vec![],
+        });
+        // The filter says image-alt did not run; the outcomes say it did.
+        let codes = rejected_codes(&report);
+        assert_eq!(codes, vec!["rule_outcome_filtered"; 2], "both viewports");
+        // The honest record: filtered out, so neither requested nor run.
+        report
+            .accessibility
+            .execution
+            .scope
+            .requested_rules
+            .retain(|r| r.rule_id != "image-alt");
+        report
+            .accessibility
+            .wcag_results
+            .rule_outcomes
+            .retain(|o| o.rule_id != "image-alt");
+        assert!(rejected_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn the_scope_records_the_rule_filter_and_the_frame_rules_it_leaves() {
+        use clap::Parser;
+        let mut config = crate::audit::PipelineConfig::from_args_and_config(
+            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
+        assert!(audit_scope_from_config(&config).rule_filter.is_none());
+        config.rule_filter.disabled_rules = vec!["image-alt".into()];
+        let scope = audit_scope_from_config(&config);
+        assert_eq!(
+            scope.rule_filter.unwrap().disabled_rules,
+            vec!["image-alt".to_string()]
+        );
+        assert!(!scope.frame_rules.iter().any(|id| id == "image-alt"));
+        assert!(scope.frame_rules.iter().any(|id| id == "keyboard-trap"));
     }
 
     #[test]
