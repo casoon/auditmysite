@@ -3,8 +3,36 @@ name: CI
 on:
   push:
     branches: [main]
+    # Prose and site content nothing in the build reads. Not ignored on
+    # purpose: docs/*.md and docs/*.json at the top level (OUTPUT_CONTRACT.md
+    # is `include_str!`-ed, the schemas and calibration.md are read by tests).
+    # A README edit that breaks `release_contract_tests` or `release-check.sh`
+    # is caught by the tag run, which calls this workflow through
+    # `workflow_call` (path filters do not apply there).
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "docs/index.md"
+      - "docs/getting-started/**"
+      - "docs/guides/**"
+      - "docs/concepts/**"
+      - "docs/reference/**"
+      - "docs/img/**"
+      - "site/**"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "docs/index.md"
+      - "docs/getting-started/**"
+      - "docs/guides/**"
+      - "docs/concepts/**"
+      - "docs/reference/**"
+      - "docs/img/**"
+      - "site/**"
   # Lets release.yml gate a release build on this exact workflow passing for
   # the tagged commit's own SHA (plan/25-release-workflow-quality-gate.md) —
   # a `uses: ./.github/workflows/ci.yml` call runs against the calling
