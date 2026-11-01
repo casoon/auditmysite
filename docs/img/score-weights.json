@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "type": "bar",
+  "title": "Weights in the overall score",
+  "source": "auditmysite taxonomy, MODULE_WEIGHTS",
+  "categoryAxis": { "title": "Module" },
+  "valueAxis": { "title": "Weight in percent" },
+  "categories": ["Accessibility", "Performance", "SEO", "Security", "Mobile", "HTML Conformance"],
+  "series": [
+    { "name": "Weight", "values": [40, 20, 15, 10, 10, 5] }
+  ]
+}
