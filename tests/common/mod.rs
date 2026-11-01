@@ -8,6 +8,7 @@
 
 #![allow(dead_code)]
 
+pub mod act_harness;
 pub mod corpus_diff;
 pub mod detection_corpus;
 pub mod fixture_server;
