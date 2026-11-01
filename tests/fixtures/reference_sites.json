@@ -8,7 +8,7 @@
         "max": 100
       },
       "reviewed": "2026-11-01",
-      "notes": "Only medium/low findings, axe clean; own statement: partially compliant. B4 (#694): content outside landmarks is one finding per outermost block (like axe region) instead of one per text node; 92 -> 93. 2.0 (reference run 2026-11-01, 1.8.0 gave 93, now 98): best-practice advice such as `region` (2 landmark findings) is a review hint, no longer a confirmed WCAG failure (#779); one medium finding remains (label in name, 2.5.3). Band 85-100."
+      "notes": "Only medium/low findings, axe clean; own statement: partially compliant. B4 (#694): content outside landmarks is one finding per outermost block (like axe region) instead of one per text node; 92 -> 93. 2.0 (reference run 2026-11-01, 1.8.0 gave 93, now 98): best-practice advice such as `region` (2 landmark findings) is a review hint, no longer a confirmed WCAG failure (#779); one medium finding remains (label in name, 2.5.3). Band 85-100. Independent check 2026-11-01 (axe-core 4.10.2, WCAG 2.0-2.2 A/AA tags, desktop 1280, system Chrome): 0 violations, 0 to review - consistent with a score near the top."
     },
     {
       "url": "https://www.gov.ie/",
@@ -62,7 +62,7 @@
         "max": 75
       },
       "reviewed": "2026-11-01",
-      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. B1 (#691): the swiper lists (li[role=group]) are now lists/invalid-structure (Medium) instead of aria-roles (High), same two places, so the score sits about 7 points higher. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports. Re-review for 1.8.0 (49; 1.7.3 gives 42 on the same day), as announced on 2026-10-05: most of the 12-13 contrast failures were image credits and teaser titles over photos measured against an ancestor colour; with pixel sampling (#698) they pass over the photos, 1/3 real failures remain (e.g. a.title 3.98:1). Plus landmark-unique as a review (B4). 2.0 (reference run 2026-11-01, 1.8.0 gave 49, now 69): `link-in-text-block` (9, colour-only links with 3:1 contrast to the text) is a review hint to check hover/focus cues (G183), best-practice landmark advice is no longer a failure (#779), and 14 content-model reports are gone. Remaining: 3 contrast failures (high), 2 list-children, 1 empty heading. Band 40-75."
+      "notes": "Contrast failures (12), unnamed dialog, invalid role; own statement: only partially accessible. B1 (#691): the swiper lists (li[role=group]) are now lists/invalid-structure (Medium) instead of aria-roles (High), same two places, so the score sits about 7 points higher. Earlier desktop 71 came from a bot/load interstitial the tool audited (fixed on fix/berlin-instability); the real page scores 27 in both viewports. Re-review for 1.8.0 (49; 1.7.3 gives 42 on the same day), as announced on 2026-10-05: most of the 12-13 contrast failures were image credits and teaser titles over photos measured against an ancestor colour; with pixel sampling (#698) they pass over the photos, 1/3 real failures remain (e.g. a.title 3.98:1). Plus landmark-unique as a review (B4). 2.0 (reference run 2026-11-01, 1.8.0 gave 49, now 69): `link-in-text-block` (9, colour-only links with 3:1 contrast to the text) is a review hint to check hover/focus cues (G183), best-practice landmark advice is no longer a failure (#779), and 14 content-model reports are gone. Remaining: 3 contrast failures (high), 2 list-children, 1 empty heading. Band 40-75. Independent check 2026-11-01 (axe-core 4.10.2, same setup): 4 colour-contrast and 1 list violation (+15 contrast results to review) - consistent with the 3 contrast / 2 list-children findings here."
     },
     {
       "url": "https://www.basf.com/",
@@ -70,8 +70,8 @@
         "min": 15,
         "max": 50
       },
-      "reviewed": "2026-11-01",
-      "notes": "55 focusable elements hidden from AT, 49 contrast failures, empty links, no skip link, no statement. 2.0 (reference run 2026-11-01, 1.8.0 gave 23, now 38): 405 content-model findings were Angular `_ngcontent-*` attributes inside a `<ul>` (false positive, fixed), landmark advice is no longer a failure (#779). Still critical risk: 46 focusable elements under aria-hidden, 32 contrast failures, 4 ARIA failures. Band 15-50."
+      "reviewed": "2026-09-27",
+      "notes": "55 focusable elements hidden from AT, 49 contrast failures, empty links, no skip link, no statement. 2.0 (reference run 2026-11-01, 1.8.0 gave 23, now 38): 405 content-model findings were Angular `_ngcontent-*` attributes inside a `<ul>` (false positive, fixed), landmark advice is no longer a failure (#779). Still critical risk: 46 focusable elements under aria-hidden, 32 contrast failures, 4 ARIA failures. Band 15-50. Independent check 2026-11-01 (axe-core 4.10.2, same setup): 29 colour-contrast violations (tool: 32) confirmed; the tool's 46 aria-hidden-focus reports (teaser articles/links) and 4 ARIA failures are NOT confirmed - axe lists them only as 'needs review' (9 aria-hidden-focus, 6 prohibited attr, 3 attr value). The upper end of this band is therefore tool-derived and the page needs a manual re-review; `reviewed` stays at the last manual review date."
     }
   ]
 }
