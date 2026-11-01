@@ -49,6 +49,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Docs:** The README is a landing page (about 210 lines instead of 890). The detail moved verbatim into docs pages: feature scope, CLI and output contract, typical workflows, report modes, comparison with other tools, batch audits, requirements, build from source, the barrierlab boundary and development. Nothing was removed; the README links to each page.
 - **Dependencies:** `html-conform` 0.3.3 → 0.3.4 (pulls `relax-ng` 0.2.3, `xpath-eval` 0.2.3, `schematron-engine` 0.2.1). The HTML-conformance check is much faster per page (upstream measured 8–10 ms instead of 250–900 ms for the RELAX NG stage on typical pages); findings and scores are unchanged on the pages compared.
 - **Transport:** The browser's navigation capture now exists before modules are derived, so SEO (`technical.https`, `no_https`), Source Quality and AI Visibility judge the served document instead of the requested URL; the security analysis is re-judged under the document's transport when the probe ended elsewhere (an `https://` entry that went through cleartext). Covers both redirect directions end to end (#775).
 - **Wording:** The AI-readiness dimension is named "Quotable structure (unvalidated)" / "Zitierfähige Struktur (ungeprüft)"; it describes page structure and predicts no citation likelihood (#784).

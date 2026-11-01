@@ -47,7 +47,6 @@ For CI or machine-readable output:
 ```bash
 auditmysite https://example.com -f json -o report.json --quiet
 ```
-
 ## Install
 
 ### curl installer (macOS/Linux)
@@ -86,56 +85,16 @@ That default command writes report artifacts into the current directory, for exa
 cargo install auditmysite
 ```
 
-Builds and installs the binary from source. Tested with the pinned toolchain (see [Toolchain](#toolchain)); older compilers are not supported.
+Builds and installs the binary from source. Tested with the pinned toolchain (see [Toolchain](docs/getting-started/build-from-source.md#toolchain)); older compilers are not supported.
 
-### Prebuilt binaries
-
-Download from [Releases](https://github.com/casoon/auditmysite/releases).
-
-- macOS/Linux: `.tar.gz`
-- Windows: `.zip`
-
-### Build from source
-
-```bash
-git clone https://github.com/casoon/auditmysite.git
-cd auditmysite
-cargo build --release
-./target/release/auditmysite --version
-```
-
-#### Toolchain
-
-`rust-toolchain.toml` pins the exact Rust version used for local development, CI, and release builds; rustup picks it up automatically inside the repository. There is no MSRV promise: the pin is raised deliberately, and older compilers are not supported.
-
-**Optional Cargo features:**
-
-| Feature | What it adds | Build command |
-|---------|-------------|---------------|
-| `pdf` | PDF report generation via the `renderreport`/Typst engine | `cargo build --release --features pdf` |
-| `pdf_test` | PDF rendering integration tests | `cargo test --features pdf_test` |
-| `ai-transparency` | C2PA image-provenance check (EU AI Act Art. 50, opt-in `--ai-transparency` flag, single-URL mode only) | `cargo build --release --features ai-transparency` |
+Prebuilt binaries, building from source and the optional Cargo features: [Build from source](docs/getting-started/build-from-source.md).
 
 ## Requirements
 
-- Rust as pinned in `rust-toolchain.toml` for local builds
-- Chrome, Chromium, or a managed browser install (`auditmysite browser install`)
-- macOS, Linux, or Windows for released binaries
+- Chrome, Chromium, or a managed browser install (`auditmysite browser install`). auditmysite does **not** download a browser on its own; it reports an error and exits if none is found.
+- macOS, Linux, or Windows for released binaries; Rust as pinned in `rust-toolchain.toml` for local builds.
 
-`auditmysite` requires a browser to be present at run time. It does **not** download or install one automatically — it reports an error and exits if none is found. To install a managed Chrome for Testing into `~/.auditmysite/browsers/`:
-
-```bash
-auditmysite browser detect                    # show what's found
-auditmysite browser install --headless-shell  # smaller; fallback only (see below)
-auditmysite browser install                   # download Chrome for Testing (opt-in)
-```
-
-On macOS, batches with keyboard journeys audit one page at a time when a full browser is used:
-Chrome runs the AppKit event loop even in headless mode, and keyboard events a page does not
-consume go through it on the browser's main thread; with several pages at once that can stall
-the whole browser. `--concurrency` overrides this. The headless shell is not affected, but sites
-with bot protection may serve it a challenge page, so it is only used when no system browser is
-found.
+Details, managed browsers and the macOS note on keyboard journeys: [Requirements](docs/getting-started/requirements.md).
 
 ## Quick Start
 
@@ -167,169 +126,9 @@ auditmysite https://example.com -f pdf -o report.pdf
 auditmysite https://example.com -l AAA
 ```
 
-### Batch audits
+Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).
 
-```bash
-# explicit sitemap
-auditmysite --sitemap https://example.com/sitemap.xml
-
-# crawl from a base URL and discover same-domain pages automatically
-auditmysite https://example.com --crawl --crawl-depth 2
-
-# base URL: probe robots.txt / common sitemap locations first
-auditmysite https://example.com
-
-# prefer sitemap automatically if one is found
-auditmysite https://example.com --prefer-sitemap
-
-# suppress sitemap suggestion and stay on the single page
-auditmysite https://example.com --no-sitemap-suggest
-
-# URL file
-auditmysite --url-file urls.txt
-
-# per-page reports: scan a list/sitemap but write one PDF per URL instead of an aggregated batch report
-auditmysite --url-file urls.txt --per-page-reports --output reports/per-page/
-auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
-```
-
-Pages run in parallel (`--concurrency`). A page waiting for a free browser page waits as long as
-one page in flight may take (creating the page, four times `--timeout` with a two-minute
-minimum, and the page reset), so heavy pages ahead of it no longer push it out. A page that
-still gets no browser page in time is retried one at a time after the parallel phase. Pages that cannot be audited at all are not
-part of any score: the report says how many URLs the scores cover (JSON:
-`summary.url_count` of `summary.attempted_url_count`, failures under `errors`; PDF: cover and
-status section).
-
-### Browser selection
-
-```bash
-auditmysite --browser-path /path/to/chrome https://example.com
-```
-
-## CLI
-
-```text
-auditmysite [OPTIONS] [URL] [COMMAND]
-```
-
-Primary commands:
-- `auditmysite <url>`: run a full single-page audit and write PDF/JSON into the current directory
-- `auditmysite --sitemap <url>`: audit sitemap URLs
-- `auditmysite --url-file <file>`: audit URLs from file
-- `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
-- `auditmysite browser detect`: show available browsers
-- `auditmysite browser install [--headless-shell]`: download and install Chrome for Testing or the headless shell into `~/.auditmysite/browsers/` (opt-in, never automatic; used only when no system browser is found)
-- `auditmysite doctor`: run local diagnostics
-
-Useful flags:
-- `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
-- `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
-- `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
-- `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory. With `-f json`, `index.json` and `findings.jsonl` are written next to the page files (see [Technician mode](#technician-mode))
-- `--technician`: fix-oriented batch preset, see [Technician mode](#technician-mode)
-- `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
-- `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
-- `--html-conform`: run the HTML-conformance module without `--full`
-- `--lang <de|en>`: set the language for PDF reports (default: `de`)
-- `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
-- `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs). Clicking submit buttons, add-to-cart triggers and quantity steppers is an opt-in: `--allow-state-changes` (with `full`)
-- `--annex <en301549|bik>`: add an opt-in appendix to the PDF report. `en301549` maps findings to EN 301 549 (chapter 9, "Web") clauses — a technical building block for a human-authored accessibility statement, not a statement itself. `bik` regroups the same findings by the chapters of the "BIK für Alle" editorial guide (images/alt text, link text, structure, easy language, PDFs, videos), without adding new checks. The underlying JSON data (`en301549_annex`, `bik_guide`) is always present regardless of this flag; it only gates the PDF section.
-- `--dns-check`: opt-in, score-neutral DNS configuration check (CAA presence, best-effort DNSSEC, SPF when an MX record exists); runs once per host, not once per page
-- `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires `--full` or `--performance`, single-URL mode only
-- `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
-- `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](#display-modes)
-- `--design-quality`: opt-in UX/readability heuristics, including alt-text quality checks (filename-like alt text, "image of" prefixes, overly long or redundant alt text); score-neutral and not part of `--full`
-- `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](#excluding-intentional-specimens))
-- `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
-
-For the full current interface, use:
-
-```bash
-auditmysite --help
-auditmysite browser --help
-```
-
-## Output Contract
-
-JSON output is treated as an automation contract.
-
-- Contract documentation: [docs/OUTPUT_CONTRACT.md](docs/OUTPUT_CONTRACT.md)
-- Single report schema: [docs/json-report.schema.json](docs/json-report.schema.json)
-- Batch report schema: [docs/json-batch-report.schema.json](docs/json-batch-report.schema.json)
-
-Key fields in a single-page report:
-- `metric_context` — machine-readable definitions for the 0–100 score scale and the report's scoped count fields
-- `findings` — static WCAG violations and SEO findings
-- `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used
-- `accessibility_journey` — structured trace of each journey (steps, snapshots, durations); present when `--interactive basic|full` was used
-- `audit_scope` and `execution_environment` — requested modules, viewports, throttle profiles, interaction mode, browser context, and live/cache provenance
-- `audit_quality` plus `pages[].detail.module_runs` and `pages[].detail.rule_outcomes` — distinguish complete, partial, failed, skipped, and non-applicable checks so a measurement failure cannot look like a clean result
-- `pages[].detail.accessibility_assessments` — structured warnings, manual-review items, and positive signals kept separate from confirmed violations and scoring
-- `artifacts` — descriptors for separately written evidence or screen-reader sidecars without embedding binary data in the main JSON
-- `build_id` — git short-SHA of the binary that produced the report (suffixed `-dirty` for builds from uncommitted changes, `unknown` for builds without a `.git` directory), so two reports with the same `tool_version` can be told apart
-- `pages[].detail.en301549_annex` and `pages[].detail.bik_guide` — findings mapped to EN 301 549 clauses and to the "BIK für Alle" editorial guide chapters; always present, independent of `--annex`
-- `pages[].detail.accessibility_subcategory_scores` and `pages[].detail.security_category_scores` — the Accessibility and Security scores broken down by subcategory (`{ name, score }`), the same breakdown the PDF shows; single reports only
-
-Rule IDs are stable across releases. Version 1.3.0 renamed two IDs that collided with unrelated checks: the 4.1.2 control-label check is now `control-missing-label` (was `label`, which stays with the 3.3.2 label/instructions checks), and the 2.4.9 link-purpose (link only) check is now `link-name-only` (was `link-name`, which stays with the 2.4.4 check).
-
-For dual-viewport audits, the Accessibility score is the rounded blend of 70% mobile and 30% desktop in both JSON and PDF. WCAG occurrences, distinct grouped WCAG findings, and findings from all categories are exposed separately so counts remain comparable across formats.
-
-Batch JSON additionally exposes `site_analysis`: module averages, consistency signals, page types, topic overlap, duplicate content, structured-data distribution, performance rollups, interactive coverage, and aggregated accessibility assessments. Per-page entries remain compact instead of duplicating full single-page reports.
-
-The repository validates these contracts in automated tests.
-
-## Feature Scope
-
-### WCAG rules (Level A and AA)
-
-Core rules:
-- Non-text content (1.1.1)
-- Keyboard access (2.1.1)
-- Bypass blocks (2.4.1)
-- Language of page (3.1.1)
-- Name, role, value / form labeling (4.1.2)
-- Contrast minimum (1.4.3) and non-text contrast (1.4.11)
-- Headings and labels (2.4.6)
-- Labels or instructions (3.3.2)
-- Focus order (2.4.3), focus visible (2.4.7), and focus not obscured, minimum/enhanced (2.4.11/2.4.12, WCAG 2.2)
-- Label in name (2.5.3)
-- Meaningful sequence — CSS `order` vs. reading-order mismatches (1.3.2)
-- Pause, stop, hide — `<marquee>` and long-running CSS animations without a pause control (2.2.2)
-- Redundant entry — same field requested twice with no reuse/autofill hint (3.3.7, WCAG 2.2)
-- Accessible authentication — paste blocked on password or one-time-code fields, measured with a synthetic paste event (3.3.8, WCAG 2.2); CAPTCHAs in sign-in forms as review items
-- Target size minimum (2.5.8, WCAG 2.2) and text spacing (1.4.12)
-
-ARIA and semantics:
-- ARIA role validation — invalid roles, required owned elements, required context
-- ARIA attribute checks — allowed attributes per role, required attributes, prohibited attributes
-- Accessible name checks — icon-only controls, empty aria-labelledby/describedby, name/description conflicts, naming by role type (command, input, meter, progressbar, toggle, dialog, treeitem)
-- ARIA relationship checks — aria-controls, aria-owns, aria-activedescendant, duplicate IDs
-- Landmark structure — main, navigation, banner, contentinfo (presence, uniqueness, top-level nesting, no-duplicate for banner/contentinfo/main, required parent for landmarks)
-- Content in landmarks — region rule ensuring body content lives inside landmark regions
-- Table rules — caption/name, header cells, presentational tables, cell placement
-- Form rules — fieldset/legend for grouped controls, required field indication, error description, label-title-only detection
-- List structure — listitem context, empty lists, definition list integrity
-- Dialog rules — accessible name, aria-modal, alert region labeling
-- Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context, summary element naming
-- Media rules — application and image-role elements without accessible names
-- Video checks — caption tracks for native `<video>` (a same-origin track file is probed before a pass is confirmed, 1.2.2), media alternatives with a nearby-transcript heuristic (1.2.8), and keyboard operability of native video controls (unnamed or unreachable players)
-- ARIA hygiene (best practice, low severity) — explicit roles that restate the element's implicit role, and links without a real target (`href="#"`, `javascript:`) used as button substitutes
-- Duplicated accessible names — names that repeat themselves back to back (e.g. "Contact Contact"), typically from an icon label concatenated with adjacent text
-- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), referenced duplicate IDs (4.1.2), document language attribute (3.1.1)
-- SVG rules — SVG image accessible names
-- Server-side image maps — detection and flagging
-- Meta viewport — large maximum-scale restrictions
-
-100+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
-
-Methodology numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by `tests/parity_contract.rs`: WCAG 2.2 AA has 55 A/AA criteria, 30 are covered by automated AuditMySite checks (a criterion counts only if its rule can report a violation), and 25 are listed as manual-review criteria.
-
-Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
-
-AAA is not fully implemented yet.
-
-### How the overall score is weighted
+## How the overall score is weighted
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/score-weights.dark.svg">
@@ -338,362 +137,15 @@ AAA is not fully implemented yet.
 
 Only the weighted modules enter the overall score. The heuristic indicators (UX, Journey, Best Practices, Dark Mode, …) are shown next to it with weight 0. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
 
-### Additional modules
-
-Modules are classified by how their result is obtained: **compliance** (Accessibility), **measured** (based on real browser data), **composite** (the search-experience roll-up, which blends measured SEO with heuristic sub-scores), **heuristic** (structural-signal estimates, marked with `~` in reports), and **optional** (Dark Mode — reported as a design choice, not a compliance gap).
-
-Measured:
-- Performance: Core Web Vitals (FCP, LCP, TBT, CLS), throttled profiles, DOM/load targets, render-blocking and third-party resources, critical request chains, unused code, minification potential, JavaScript heap, and modeled transfer emissions
-- SEO: meta tags, headings, structured data, page-to-schema fit, content profile, tracking/external services signals, and social-preview images (`og:image`/`twitter:image`) without an alt description
-- Security: HTTPS, header checks, and CDN/WAF protection detection. Headers are grouped by risk tier: CSP, HSTS, and clickjacking protection are baseline requirements, while context-dependent headers such as COOP/CORP get a verification question and safe-configuration guidance instead of an unconditional "add this header"
-- Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
-- HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
-- DNS configuration (opt-in `--dns-check`): CAA, best-effort DNSSEC, and SPF when an MX record exists; score-neutral
-
-Heuristic (indicator scores — tendency, not measurements). In 2.0 none of these signals is validated against an independent, human-labelled reference set (`signal_contract.validation.status = "unvalidated"` in the JSON, procedure in `docs/calibration.md`); their scores order pages by the stated method and are not evidence of visibility, AI citation, user quality or source truth:
-- UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
-- Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
-- AI Visibility: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality). Unvalidated: the score is not evidence of AI citation, visibility or content quality
-- Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
-- Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
-- Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
-- Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
-- Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.
-
-### Display modes
-
-Sites can offer display modes so that nobody depends on 3D, animation or visualisations. The BarrierLab `data-display` convention (draft v0) sets `<html data-display="visual|calm|text">` before the first paint, stores the visitor's choice in `localStorage` under the key `display`, marks each visualisation as `figure[data-viz="chart|diagram|3d|image|interactive"]` with a text layer `[data-viz-text]`, and puts a `[data-display-toggle]` control on every page with a visualisation.
-
-- **Detection (always on):** every page that sets `html[data-display]` or contains a `figure[data-viz]` reports `pages[].display_modes` in the JSON — offered modes, the mode it rendered in, whether the attribute was set before `<body>`, the toggle, and the visualisations per kind. The PDF shows it as "Page display modes: visual · calm · text".
-- **`--display calm|text|visual`:** before navigation the choice is stored in `localStorage.display` (`Page.addScriptToEvaluateOnNewDocument`), and `calm`/`text` also emulate `prefers-reduced-motion: reduce` (`Emulation.setEmulatedMedia`) — so sites without the convention that honour the media query get their reduced variant too. Without the flag the site default is audited, as before. `audit_scope.display_mode` in the JSON (`site_default`, `visual`, `calm`, `text`) and the PDF name the mode the scores belong to.
-- **`--display all`:** audits each mode as its own run and writes one report per mode (`report-calm.pdf`, `report-text.pdf`, `report-visual.pdf`; batches: one batch report per mode). There is never a blended score. `visual` runs only for pages with `figure[data-viz="3d|interactive"]`, with twice the page timeout. Findings are not cross-marked as "occurs in all modes" — compare the per-mode reports.
-- **Convention checks `display/*` and `viz/*`** (best-practice, not WCAG requirements; anchored to 2.2.2, 1.1.1 or 1.3.1). From the markup, shared with `a11y-rules`: `display/toggle-missing` (visualisations without a toggle), `viz/text-missing` (no or an empty `[data-viz-text]`), `viz/caption-missing` (no `<figcaption>`), `viz/static-missing` (`data-viz="3d"`/`"interactive"` without `[data-viz-static]`), `viz/table-missing` (a chart without a `<table>`; a review note). Measured on the running page: `display/init-missing` (`data-display` missing or set only after `<body>` started, measured by an observer injected before navigation), `display/text-media-visible` (in `text` mode a visualisation still shows canvas/SVG/video/static picture), `display/text-not-visible` (in `text` mode a visualisation's `[data-viz-text]` has content but is not visible), `display/text-hidden` (`[data-viz-text]` removed from assistive technology by `hidden`, `aria-hidden`, `inert` or CSS, in any mode). The text-mode checks key on the mode the page actually rendered in.
-
-```bash
-auditmysite --sitemap https://example.com/sitemap.xml --display calm --format pdf --output reports/example-calm.pdf
-auditmysite https://example.com/page --display all --output reports/example-page.pdf
-```
-
-### Structured-data analysis
-
-The SEO module parses JSON-LD objects, arrays, and `@graph` documents; normalizes short, multiple, and full-IRI `@type` values; and reports invalid JSON, missing or invalid context, and untyped nodes. Microdata and RDFa are detected and explicitly marked as detected but not content-validated.
-
-Type-specific rules assess Product/Product Snippet, merchant Product + Offer, Article/BlogPosting/NewsArticle, BreadcrumbList, Organization, LocalBusiness, FAQPage, Event, Recipe, VideoObject, JobPosting, SoftwareApplication/WebApplication/MobileApplication, ProfilePage, CollectionPage/ItemList, WebPage/WebSite, and Person. Each profile records its source and review date. Eligibility blockers, recommendations, and manual checks remain separate; unknown types stay visible in the inventory without being judged incomplete.
-
-Page-to-schema fit is evaluated conservatively from visible page intent, visible facts, and URL evidence. The tool distinguishes product, service/software, job, event, FAQ, person, location, editorial-review, corporate, hub, and lead-generation pages. Missing primary schema is only reported as an opportunity at high classification confidence, and single-item Product, JobPosting, or Event markup is rejected on corresponding overview routes.
-
-For supported types, visible titles, prices, availability, authors, dates, FAQ content, breadcrumbs, job titles, and event dates are compared with JSON-LD. A hard mismatch is emitted only when the visible value is unambiguous; otherwise the result explicitly remains not evaluated or requires manual review. Batch reports additionally show recurring schema blockers, page-type/schema combinations, content-parity mismatches, and conflicting Organization/WebSite identities.
-
-### Runtime and evidence reliability
-
-Page capture uses a bounded stability budget and records whether the DOM became quiet, an application-provided ready signal was observed, or the budget expired. Consent handling reports detected, dismissed, failed, and unknown states with non-sensitive evidence. Ctrl-C and SIGTERM follow the same controlled shutdown path as normal runs, and report files are written atomically so partial files are not presented as successful output.
-
-Every audited page receives Do-Not-Track and Global Privacy Control signals (`DNT: 1` and `Sec-GPC: 1` on all requests, plus the matching `navigator.doNotTrack`/`navigator.globalPrivacyControl` values), so an audit visit is less likely to show up in the site owner's analytics. This is best-effort: not every analytics tool honors these signals.
-
-Sitemap indexes are deduplicated and guarded against cycles, with hard limits of 1,000 sitemap documents and 100,000 discovered URLs. Batch aggregation stays bounded and publishes its atomic report only after collection succeeds.
-
-### Accessibility Journey Layer
-
-Interactive checks run a real browser session after the static AXTree phase. They run in `full` mode by default and can be reduced via `--interactive <off|basic|full>` or `mode` in `auditmysite.toml`.
-
-| Mode | What runs |
-|------|-----------|
-| `off` | No interactive phase — fastest, no browser interaction after initial load |
-| `basic` | Tab-walk (focus order, reverse jumps), skip-link verification, disclosure/accordion, modal focus trap, tab-list, menu journey |
-| `full` (default) | Everything in `basic`, plus: SPA-navigation detection, form-error announcement (now covering multiple independent forms per page, e.g. search + login + newsletter, and flagging live regions inserted only after submit, which not every browser/screen-reader combination announces), link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
-
-On a detected shop's product-detail page, `full` mode also runs two commerce-aware journeys: an **add-to-cart feedback check** (does adding an item announce the result via a live region or focus-managed dialog, or only update a visual cart badge — SC 4.1.3) and a **quantity-stepper operability check** (can the quantity field be operated by keyboard, and does its value stay exposed to assistive technology — SC 2.1.1/4.1.2). Both are click-only, single-interaction checks — never a real checkout submission, never a filled-in purchase form.
-
-Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. The execution block records detected, attempted, completed, failed, skipped, and budget-limited journeys separately from findings. Compact focus evidence retains visibility, viewport, focus-indicator, bounding-box, obscuring, `aria-hidden`, and `inert` signals without embedding a full AXTree. Interactive findings do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
-
-**`auditmysite.toml` configuration:**
-
-```toml
-[interactive]
-mode = "full"             # off | basic | full
-journey_budget_ms = 8000  # wall-clock budget per URL in milliseconds (default: 6000)
-```
-
-### Risk assessment
-
-Risk level is computed independently from the score. A page scoring 81 can still carry "Critical" risk if it has Level A violations relevant under BFSG/EAA. Risk levels: Low, Medium, High, Critical — based on critical/high violations, legal flags, and blocking issues (4.1.2/2.1.1).
-
-### Configuration file
-
-`auditmysite.toml` is an optional project-level config file placed in the working directory. It supports `[audit]`, `[rules]`, `[interactive]`, `[thresholds]`, and `[budget]` sections.
-
-### Rule configuration
-
-Rules can be selectively disabled or filtered via `auditmysite.toml`:
-
-```toml
-[rules]
-disabled = ["heading-order", "landmark-one-main"]
-# enabled_only = ["image-alt", "label"]  # run only these rules
-```
-
-### Excluding intentional specimens
-
-Sites that teach accessibility ship examples that are broken on purpose. Like axe-core's
-`exclude`, auditmysite can leave such regions out of the findings — never a page, never a rule:
-
-- **`data-audit-exclude`** is always honoured. Put it on an element and its whole subtree is
-  excluded: `<section data-audit-exclude>…specimen…</section>`.
-- **`--exclude-selector <CSS>`** (repeatable) excludes the subtree of every element the selector
-  matches, e.g. `--exclude-selector '[data-specimen]'`. The same list can live in
-  `auditmysite.toml`:
-
-  ```toml
-  [audit]
-  exclude_selectors = ["[data-specimen]"]
-  ```
-
-The page is still audited in full; only findings whose element lies inside an excluded subtree
-are dropped before scoring (WCAG violations and warnings, pattern findings, and journey findings
-that name their element). Page-level findings are never excluded, and a finding located only by
-a selector is dropped only when every element that selector matches lies inside an excluded
-subtree.
-
-Excluding never happens silently. The JSON report lists, per page, every applied selector with
-the number of elements it matched — including `0` and invalid selectors — and how many finding
-occurrences were dropped, per rule (`pages[].exclusions`; batch totals in
-`summary.exclusions`). The PDF names the selectors and counts in the methodology section (batch:
-in the audit frame on the cover).
-
-### AI / LLM output format
-
-Export findings as a task-oriented JSON list for direct LLM processing:
-
-```bash
-auditmysite https://example.com -f ai -o findings.json
-```
-
-Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, and `help_url` — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
-
-### Non-goals (deliberately deferred)
-
-These are recognized as potentially useful but deliberately not on the roadmap right now —
-each would pull the project away from its core shape (a stateless, single-run web-page auditor)
-for a disproportionate amount of new surface area:
-
-- **PDF document accessibility checking.** auditmysite audits rendered web pages via the browser's
-  accessibility tree; it does not parse or score linked/embedded PDF documents (tagged-PDF
-  structure, `/Lang`, alt text on figures, table header scope, etc.). Doing this properly would
-  need a new PDF-parsing dependency and a second, PDF-specific SSRF-hardened fetch path
-  (comparable in scope to the existing `ai_transparency` module) for a feature that only applies
-  when a page happens to link PDFs. Out of scope for now; revisit only as a dedicated,
-  separately-scoped module if real demand shows up.
-- **Full audit-history / report-diffing as a first-class feature.** Findings carry stable ids
-  (`findings[].id`, `findings[].patterns[].id`) that stay the same across runs while rule and
-  element pattern stay the same, so two saved JSON reports can be compared by id. A built-in
-  "compare this report against an older report" mode with its own CLI flag, PDF section,
-  and batch-vs-single/methodology-consistency handling is not planned — that turns the tool from
-  a stateless auditor into a report-history manager, a different product shape. A JSON-to-JSON
-  diff against two saved reports is straightforward to script externally (e.g. with `jq`) without
-  needing this built in.
-
-## Report Modes
-
-Single-page reports and sitemap/batch reports are intentionally different.
-
-**Single-page report** is a product-grade PDF organized as a top-down narrative:
-- Cover: a composed dashboard — dominant overall score with a score-band label (no A–F grade, no "/100"), a module gauge strip, and the WCAG findings scope.
-- Management view: severity counters, a "quality profile" spider radar, a score-driver table (which weighted module pulls the overall score down most), Accessibility and Security subcategory breakdowns, a one-line problem profile (isolated, concentrated in a few systemic patterns, or broad and systemic), and strengths / optimization cards.
-- Findings overview: a compact, priority-sorted findings matrix precedes the detailed finding cards.
-- Manual review: a fixed list of WCAG criteria that are structurally outside automated testing, and concrete VoiceOver/NVDA self-test steps where a quick manual check is realistic.
-- Accessible output: PDFs are tagged and PDF/UA-1 conformant (structure tree, document language, title, bookmarks); rendering fails with a diagnostic instead of silently producing a non-conformant PDF.
-- Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. AI Visibility, Content Visibility, and Source Quality are merged into a single "KI & Vertrauen" (AI & Trust) chapter.
-- Action plan: recommendations as action cards grouped by where the problem lives (systemic vs. local), without time or effort estimates, plus a root-cause distribution chart.
-- Evidence-grade findings: each finding card can include a cropped, highlighted screenshot of the affected element, its DOM path, and (where applicable, e.g. contrast) the measured vs. required value — so a finding stands on its own without re-running the tool.
-- Audit coverage: requested and completed checks, partial measurements, manual-review items, and Journey execution coverage are surfaced explicitly instead of treating missing data as a pass.
-- Performance decisions: raw resource and loading metrics are paired with target ranges, the largest directly actionable lever, and prioritized actions.
-
-The design follows a consistent four-color status system; reports use no emoji and report effort by priority rather than by time windows.
-
-**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics. It also verifies which recurring findings share the same underlying template component across pages — reporting "one fix resolves N pages" instead of N near-identical findings, with a confirmed/likely confidence distinction so the claim is never overstated. Template clusters require at least three affected pages and 60% site coverage, can identify selector-less document findings, and retain header/nav/main/footer context. Cross-page WCAG assessments for consistent navigation, identification, help, and multiple ways are kept separate from single-page automation and explicitly mark evidence gaps as manual review.
-
-Batch reports are not a stack of single-page reports.
-
-## Compared to typical setups
-
-- Better fit for JavaScript-heavy sites than static HTML-only checks
-- Easier to distribute than a multi-package browser toolchain
-- More automation-friendly than ad hoc console output because the JSON contract is explicit and tested
-- Broader reporting surface than a pure accessibility-only checker when you also want performance, SEO, security, and mobile signals
-- Violations carry stable `rule_id`, `tags`, and `impact` — easier to integrate with existing tooling or dashboards
-
-### Screen Reader Audit vs. axe-core / Pa11y
-
-Standard accessibility checkers verify individual rules in isolation. `auditmysite` additionally simulates the sequential experience of a screen reader user navigating the page — detecting problems that only emerge in context.
-
-| Capability | axe-core | Pa11y | auditmysite |
-|---|---|---|---|
-| Rule-based WCAG checks | ✓ | ✓ | ✓ |
-| Reading sequence simulation | — | — | ✓ |
-| Out-of-context link text analysis (duplicate "Read more" × 8) | — | — | ✓ |
-| Accessible name quality score (not just present/absent) | — | — | ✓ |
-| Landmark navigation strategy (can a SR user reach main content?) | — | — | ✓ |
-| BFSG / EN 301 549 legal mapping per finding | — | — | ✓ |
-
-Every finding also carries a per-criterion EN 301 549 (chapter 9, "Web") clause reference. A structured version — all 50 WCAG 2.1 A/AA clauses split into "violations found", "no violations in the automated scope", or "manual review required", plus which chapters (5–8, 10–13) sit outside this tool's audit scope entirely — is always in the JSON (`en301549_annex`) and can be added to the PDF as an appendix with `--annex en301549`. This is explicitly **not** an accessibility statement and doesn't claim to be one — it's a technical building block for a human-authored one, with an explicit scope disclaimer in both languages.
-
-When the screen reader module runs, a JSON sidecar is written automatically next to the primary report:
-
-```
-example-com-YYYY-MM-DD-single-report.pdf
-example-com-YYYY-MM-DD-single-report-screen-reader-audit.json  ← automatic sidecar
-```
-
-The sidecar models what a screen reader would typically announce, node by node, based on rule-based conventions (name, role, and state) — not a verified 1:1 reproduction of what NVDA, JAWS, or VoiceOver actually announce, which can vary by assistive technology, browser, and locale. It also flags which announcements are ambiguous or missing, suitable as a developer reference and as supporting evidence for BFSG compliance audits. No extra flag is required; the file is created whenever screen reader data is available in the audit result.
-
-## Typical Workflows
-
-Examples grouped by audience and goal.
-
-### Customer-facing report (PDF)
-
-Single-URL audit with full module coverage and a custom logo on the cover.
-
-```bash
-# default: writes a PDF + JSON sidecar to the current directory
-auditmysite https://example.com --full
-
-# explicit branding and output path
-auditmysite https://example.com --full --logo ./assets/customer-logo.svg --output reports/customer.pdf
-
-# pick a report depth: executive (management), standard (default), technical (developers)
-auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
-
-# PDF language (default: de)
-auditmysite https://example.com --full --lang en --output reports/report-en.pdf
-```
-
-### CI / automation (JSON)
-
-Quiet, machine-readable output for pipelines.
-
-```bash
-# exit code follows score thresholds; JSON report for downstream tooling
-auditmysite https://example.com -f json -o report.json --quiet
-
-# batch CI run on a sitemap
-auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json --quiet
-```
-
-### AI fix list
-
-Compact, agent-friendly output that focuses on actionable fixes.
-
-```bash
-auditmysite https://example.com -f ai -o fixes.json
-```
-
-### Dashboard / ranking feed
-
-Compact summary JSON with score, grade, medal, issue counts, and top 10 findings — matches the `lastAudit` schema used by dashboard tools.
-
-```bash
-auditmysite https://example.com -f summary -o summary.json
-```
-
-### Sitemap / batch
-
-Domain-wide audits with cross-page aggregation.
-
-```bash
-# explicit sitemap
-auditmysite --sitemap https://example.com/sitemap.xml --full
-
-# crawl from a base URL
-auditmysite https://example.com --crawl --crawl-depth 2 --max-pages 50 --full
-
-# URL list from file
-auditmysite --url-file urls.txt --full
-
-# one PDF per URL instead of an aggregated batch report
-auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
-```
-
-### Technician mode
-
-For people who fix the issues rather than read a report: one JSON file per page plus two flat
-files to script against, no PDF.
-
-```bash
-auditmysite --sitemap https://example.com/sitemap.xml --technician -o reports/tech/
-auditmysite --url-file urls.txt --technician -o reports/tech/
-
-# only part of the site, before -m applies
-auditmysite --sitemap https://example.com/sitemap.xml --technician \
-  --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
-```
-
-`--technician` is shorthand for `--per-page-reports -f json --no-screen-reader-report --seo
---html-conform`. It runs the modules that produce fixable findings — accessibility (including the
-keyboard journeys; `--interactive off` makes it faster), HTML conformance and SEO — and skips the
-throttled performance passes, mobile, security and tech-stack detection. Each page file records
-that partial scope in `execution.scope.requested_modules` and `execution.module_runs`. Flags you
-give explicitly win: `-f` replaces the format, and `--full`, `--performance`, `--mobile`,
-`--security` add their modules as usual.
-
-The output directory then holds:
-
-- one `<site>-<path>-<date>-single-report.json` per audited page (the regular single-page JSON),
-- `index.json`: every attempted URL in input order with `file` (or `null`), `status`
-  (`ok`, `blocked` for bot walls/access denials, `failed`), `reason`, `overall_score`,
-  `accessibility_score`, `finding_count`, `occurrence_count` and `audit_quality`
-  (schema: [`docs/technician-index.schema.json`](docs/technician-index.schema.json)),
-- `findings.jsonl`: one line per finding occurrence across all pages — `url`, `source`
-  (`wcag`, `journey`, `seo`, `html_conform`), `rule_id`, `wcag_criterion`, `level`, `severity`,
-  `selector`, `location`, `message`, `fix_suggestion`, `viewport_tags`
-  (schema: [`docs/technician-finding.schema.json`](docs/technician-finding.schema.json)).
-  Unlike the page files, which keep a few example occurrences per finding, this list is complete.
-
-Any `--per-page-reports -f json` run writes `index.json` and `findings.jsonl`; failed or blocked
-pages appear only in `index.json`, never as a page file. All text is canonical English.
-
-Path globs are matched against the whole, percent-decoded URL path (no host, no query): `*` and
-`?` stay within one path segment, `**` crosses segments, and `/**/` also matches a single `/`.
-`/blog/**` selects everything below `/blog/` but not `/blog` itself. A URL is audited when it
-matches any `--include-path` (or none is given) and no `--exclude-path`. With `--crawl`, the
-filters apply to the discovered pages; discovery itself is still capped by `-m`.
-
-```bash
-cd reports/tech
-# the worst rules across the site
-jq -r '"\(.severity)\t\(.rule_id)"' findings.jsonl | sort | uniq -c | sort -rn | head
-# every critical/high occurrence with page and selector
-jq -r 'select(.severity=="critical" or .severity=="high") | [.url, .rule_id, .selector // .location] | @tsv' findings.jsonl
-# all occurrences of one WCAG criterion
-jq -c 'select(.wcag_criterion=="1.4.3") | {url, selector, message}' findings.jsonl
-# pages that were not audited, and why
-jq -r '.pages[] | select(.status!="ok") | "\(.status)\t\(.url)\t\(.reason)"' index.json
-# pages by accessibility score, lowest first
-jq -r '.pages[] | select(.status=="ok") | "\(.accessibility_score)\t\(.occurrence_count)\t\(.url)"' index.json | sort -n
-```
-
-### Local development
-
-```bash
-# audit a local dev server with a system Chrome
-auditmysite https://localhost:3000 --browser-path /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
-
-# quick CLI summary without writing files
-auditmysite https://example.com --format table
-```
-
-### Base URL with sitemap suggestion
-
-```bash
-# interactive: ask first if a sitemap is found
-auditmysite https://example.com
-
-# non-interactive: switch directly to sitemap mode
-auditmysite https://example.com --prefer-sitemap
-
-# stay on the single URL even when a sitemap exists
-auditmysite https://example.com --no-sitemap-suggest
-```
+## What it checks
+
+- **WCAG 2.2 Level A and AA** rules on the rendered page, with rule IDs that stay stable across releases.
+- **Weighted modules:** Accessibility, Performance, SEO, Security, Mobile, HTML conformance.
+- **Heuristic indicators** (UX, Journey, AI visibility, source quality, dark mode, tech stack, commerce) shown next to the score, with weight 0 and marked as unvalidated.
+- **Accessibility journeys:** tab walk, skip link, modals, menus, SPA navigation, form errors; clicks that can change state are an opt-in (`--allow-state-changes`).
+- **Display modes, structured data, risk assessment, rule configuration and exclusions.**
+
+The full list with every module and option: [Feature scope](docs/reference/features.md).
 
 ## Architecture
 
@@ -710,129 +162,21 @@ Key layers:
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
 - `tech_stack/`, `source_quality/`, `ai_visibility/`, `dark_mode/`: heuristic indicator modules
 
-### Shared libraries from barrierlab
+Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) and come in as published crates (`a11y-rules`, `a11y-dom`, `a11y-report`, `accname`, `a11y-perception`, `web-checks`, `html-conform`); fixes there are released first and then taken over here by raising the version. Details and the boundary: [Shared libraries from barrierlab](docs/concepts/barrierlab.md). Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Parts of what auditmysite checks no longer live in this repository. They moved
-to [barrierlab](https://github.com/casoon/barrierlab), a Rust monorepo of
-accessibility and web-conformance libraries, so that the same checks, rule IDs
-and wording serve auditmysite, [astro-post-audit](https://github.com/casoon/astro-post-audit)
-and [liveaudit](https://github.com/casoon/liveaudit) alike. auditmysite pulls
-them in as published crates.io versions:
+## Documentation
 
-| Crate | Provides |
+| Topic | Where |
 |---|---|
-| `a11y-rules` | the shared WCAG rules (lists, headings, landmarks, IDs, language, …) |
-| `a11y-dom` | the document model those rules run on |
-| `a11y-report` | the finding, outcome and rule-run model |
-| `accname` | accessible name computation (accname 1.2, HTML-AAM) |
-| `a11y-perception` | accessibility tree, snapshot, reading-order projection and snapshot diff |
-| `web-checks` | robots.txt rules and bot classification, meta lengths, OpenGraph and JSON-LD structured-data checks |
-| `html-conform` | HTML5 conformance checking, comparable to the W3C validator |
-
-This is a real dependency: a fix or a new rule in one of these areas is made in
-barrierlab, released there, and then taken over here by raising the version.
-auditmysite does not patch or fork them. What stays here is everything specific
-to this tool: its own WCAG rules, the keyboard journeys, the Chrome/CDP
-capture, scoring and taxonomy, the PDF report, the CLI and the report texts.
-For work on both sides at once, point `[patch.crates-io]` in a local,
-uncommitted `.cargo/config.toml` at a barrierlab checkout; commits always
-build against the published versions.
-
-More detail:
-- Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Browser dependency details: [docs/chrome-dependency.md](docs/chrome-dependency.md)
-- Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-
-## Development
-
-### Setup
-
-```bash
-git clone https://github.com/casoon/auditmysite.git
-cd auditmysite
-cargo test
-cargo build --release
-./target/release/auditmysite https://example.com
-```
-
-### Pre-commit checks
-
-This repository uses Git hooks with a fast local `pre-commit` gate and a full `pre-push` gate.
-
-`pre-commit` runs:
-
-- `nosecrets` on staged changes
-- `rustfmt --check` on the staged `.rs` files
-- `cargo clippy --lib --bins --all-features -- -D warnings`
-
-`pre-push` runs:
-
-- a guard that refuses the push while a local `[patch]` to `../barrierlab` is
-  active in `.cargo/config.toml`, or `Cargo.lock` lists barrierlab crates without
-  a crates.io source (not skippable via `SKIP_RUST_CHECKS`)
-- `scripts/check-version-match.sh` for pushed `v*` tags
-- `cargo clippy --all-targets --all-features -- -D warnings`
-- `cargo test`
-
-Enable the repo hook path:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-Install `nosecrets` as a real binary first:
-
-```bash
-npm install -g @casoon/nosecrets
-# or
-cargo install nosecrets-cli
-```
-
-Skip the Rust checks only when you intentionally need to bypass them:
-
-```bash
-SKIP_RUST_CHECKS=1 git commit -m "..."
-```
-
-The hook expects `nosecrets` to be available in `PATH`.
-
-### Debugging report content (hidden `--debug-typ`)
-
-PDF reports are rendered through the `renderreport`/Typst engine. To review report
-**completeness and wording** without opening the binary PDF, use the hidden
-`--debug-typ` flag together with `--format pdf`. It writes the intermediate Typst
-source as a `.typ` sidecar next to the PDF, for both single and batch reports:
-
-```bash
-# Single report → reports/example-audit.pdf + reports/example-audit.typ
-./target/release/auditmysite https://example.com --full --format pdf \
-  --output reports/example-audit.pdf --debug-typ
-
-# Batch report → reports/example-batch.pdf + reports/example-batch.typ
-./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full \
-  --format pdf --output reports/example-batch.pdf --debug-typ
-```
-
-The `.typ` file is plain text and diff-friendly — useful for checking which audits
-land in the report and reviewing the exact wording of every section. The flag is
-intentionally hidden from `--help` (developer/debug use only).
-
-### Release checks
-
-Run the local release gate with:
-
-```bash
-./scripts/release-check.sh
-```
-
-It validates:
-- `cargo test`
-- ignored browser integration tests
-- builds with and without PDF
-- current `--help` output
-- JSON contract tests
-- installer/release artifact consistency
-- stale docs references
+| First audit, CI use, dashboards, technician runs | [Typical workflows](docs/guides/workflows.md), [Quickstart](docs/getting-started/quickstart.md) |
+| Batch audits, browser selection | [Batch audits](docs/guides/batch-audits.md), [Browser setup](docs/guides/browser-setup.md) |
+| Options and output formats | [CLI and output contract](docs/reference/cli-and-output.md), [Output contract](docs/OUTPUT_CONTRACT.md) |
+| Report types and levels | [Report modes](docs/guides/report-modes.md), [Reports](docs/guides/reports.mdx) |
+| What is checked | [Feature scope](docs/reference/features.md) |
+| How it differs from axe-core and Pa11y | [Compared to typical setups](docs/reference/comparison.md) |
+| Heuristic signals and calibration | [Calibration](docs/calibration.md) |
+| Building, tests, release checks, library API | [Development](docs/guides/development.md), [API reference](docs/reference/api.md) |
+| Browser dependency | [Chrome dependency](docs/chrome-dependency.md) |
 
 ## Troubleshooting
 
@@ -844,28 +188,6 @@ It validates:
 
 ## Contributing
 
-## Library / Development
-
-For library development or local work from the repository:
-
-```bash
-cargo build
-cargo test
-```
-
-If you want the current local repository state as an installed binary while developing:
-
-```bash
-cargo install --path . --force
-```
-
-Contributions are welcome. At minimum before opening a PR:
-
-```bash
-cargo test
-./scripts/release-check.sh
-```
-
 ## License
 
 `auditmysite` is licensed under the MIT License. Use it freely, including
@@ -874,7 +196,7 @@ commercially.
 The shared rule engine, document model, accessible name computation, report
 model and HTML conformance checker live in
 [barrierlab](https://github.com/casoon/barrierlab) (see
-[Shared libraries from barrierlab](#shared-libraries-from-barrierlab)) and are
+[Shared libraries from barrierlab](docs/concepts/barrierlab.md)) and are
 shared with [astro-post-audit](https://github.com/casoon/astro-post-audit) and
 [liveaudit](https://github.com/casoon/liveaudit) — the same rule IDs across
 build time, CI and the live page.
