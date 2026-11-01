@@ -329,6 +329,15 @@ Some criteria (keyboard trap behavior, timed content, captions) cannot be reliab
 
 AAA is not fully implemented yet.
 
+### How the overall score is weighted
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/score-weights.dark.svg">
+  <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the overall score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
+</picture>
+
+Only the weighted modules enter the overall score. The heuristic indicators (UX, Journey, Best Practices, Dark Mode, …) are shown next to it with weight 0. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
+
 ### Additional modules
 
 Modules are classified by how their result is obtained: **compliance** (Accessibility), **measured** (based on real browser data), **composite** (the search-experience roll-up, which blends measured SEO with heuristic sub-scores), **heuristic** (structural-signal estimates, marked with `~` in reports), and **optional** (Dark Mode — reported as a design choice, not a compliance gap).
@@ -688,9 +697,10 @@ auditmysite https://example.com --no-sitemap-suggest
 
 ## Architecture
 
-```text
-CLI -> Browser Manager -> Chrome/CDP -> Accessibility Tree -> WCAG Engine -> Output
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/audit-pipeline.dark.svg">
+  <img src="docs/img/audit-pipeline.svg" alt="Flow chart: the CLI starts the browser manager, which drives Chrome over CDP; the accessibility tree feeds the WCAG engine and the analysis modules, and both write the report as table, JSON or PDF." width="560">
+</picture>
 
 Key layers:
 - `browser/`: browser detection, resolution, explicit install (`browser install` command only — no auto-download), lifecycle, pooling

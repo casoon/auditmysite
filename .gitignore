@@ -23,6 +23,7 @@ Cargo.lock
 /reports/
 !reports/README.md
 *.json
+!docs/img/*.json
 *.html
 !tests/fixtures/*.html
 !tests/wcag_fixtures/*.html

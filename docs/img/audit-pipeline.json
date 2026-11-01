@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "type": "flow",
+  "look": "editorial",
+  "title": "How an audit runs",
+  "source": "auditmysite architecture",
+  "width": 720,
+  "height": 640,
+  "flow": {
+    "nodes": [
+      { "id": "cli", "label": "CLI", "sublabel": "URL, sitemap or URL file", "kind": "start" },
+      { "id": "browser", "label": "Browser manager", "sublabel": "detects or installs Chrome, pools pages" },
+      { "id": "cdp", "label": "Chrome via CDP", "kind": "external" },
+      { "id": "tree", "label": "Accessibility tree", "sublabel": "plus DOM, styles and network data" },
+      { "id": "wcag", "label": "WCAG engine", "sublabel": "rules, outcomes, findings" },
+      { "id": "modules", "label": "Analysis modules", "sublabel": "SEO, security, performance, mobile, UX" },
+      { "id": "out", "label": "Report", "sublabel": "table, JSON or PDF", "kind": "end" }
+    ],
+    "edges": [
+      { "from": "cli", "to": "browser" },
+      { "from": "browser", "to": "cdp" },
+      { "from": "cdp", "to": "tree" },
+      { "from": "tree", "to": "wcag" },
+      { "from": "tree", "to": "modules" },
+      { "from": "wcag", "to": "out" },
+      { "from": "modules", "to": "out" }
+    ],
+    "mainPath": ["cli", "browser", "cdp", "tree", "wcag", "out"]
+  }
+}
