@@ -126,6 +126,13 @@ auditmysite https://example.com -f pdf -o report.pdf
 auditmysite https://example.com -l AAA
 ```
 
+Common options:
+
+- `--url-file <FILE>`: audit a list of URLs; `--sitemap <URL>`: audit a sitemap; `--crawl` discovers same-domain pages
+- `--browser-path <PATH>`: use a specific Chrome or Chromium binary
+- `-f json|table|pdf`, `-o <FILE>`: output format and target; `--lang de|en`: report language
+- `--full`: add performance, SEO, security and mobile; `--level A|AA|AAA`: WCAG level
+
 Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).
 
 ## How the overall score is weighted
