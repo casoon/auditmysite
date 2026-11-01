@@ -175,3 +175,91 @@ Rules with `starter: true`: fully covered, active, simple deterministic behaviou
 | `674b10` | Role attribute has valid value | `aria/role-invalid` |
 
 Deprecated ACT rules (for example `5b7ae0`) are not submission targets even when covered.
+
+## Test case harness (#837)
+
+`tests/act_testcases.rs` runs auditmysite against the official ACT test cases and compares the result per test case and rule with the expectation of the example. It is a local check (no CI minutes): the browser run is `#[ignore]`.
+
+```bash
+cargo test --test act_testcases -- --ignored --nocapture                 # starter set
+ACT_RULES=full cargo test --test act_testcases -- --ignored --nocapture  # all full + active rules
+ACT_RULES=97a4e1,b5c3f8 cargo test --test act_testcases -- --ignored --nocapture
+```
+
+| Variable | Meaning |
+| --- | --- |
+| `ACT_RULES` | `starter` (default), `full`, or comma-separated ACT ids. Only `full` + `active` rules of `act-mapping.json` are accepted. |
+| `ACT_OUT_DIR` | Output directory, default `<target>/act/`. |
+| `ACT_CACHE_DIR` | Cache of the ACT repository, default `<target>/act-cache/`. |
+| `ACT_FAIL_ON_DEVIATION` | Set it to fail the test on any deviation. Without it deviations are reported, not failed: they are findings about the tool. |
+
+**Source.** The test cases are not copied into this repository. `scripts/act-fetch.sh` downloads the commit pinned in `act-mapping.json` (`act_source.commit`) from GitHub, keeps `_rules/` and `test-assets/` (about 88 MB) in the cache, and verifies a SHA-256 over the contents of both trees (pinned in the script; a mismatch aborts). The published `testcases.json` is not used: it is a build artefact that lags the repository (it has no test cases for rules such as `kb1m8s`). Like the official generator, the harness takes the single code block of every `#### Passed|Failed|Inapplicable Example N` in a rule file as one document: HTML gets a `<!DOCTYPE html>` prefix, `svg`/`xml`/`xhtml`/`js` blocks are served unchanged with their content type. A local server serves the documents and `/test-assets/*` on one origin. Each test case is audited in its own isolated browser context at WCAG level AAA. The ACT material is under the W3C license (see `LICENSE.md` of the cache); the parser stops if an example does not have exactly one code block.
+
+**Outcome per test case.** Only findings and execution records of the rule's `internal_rules` count.
+
+| Outcome | Meaning |
+| --- | --- |
+| `failed` | A confirmed violation of a mapped rule. |
+| `cantTell` | No violation, but a review note of a mapped rule. |
+| `inapplicable` | Every mapped rule recorded `NotRun(NotApplicable)`. |
+| `passedOrInapplicable` | The mapped rules ran and reported nothing. A rule that ran does not say whether it found applicable content, so `passed` and `inapplicable` cannot be told apart. |
+| `notRun` | A mapped rule did not run for another reason (`Errored`, `CapabilityMissing`, `Disabled`). Never counted as a pass. |
+| `auditError` | The audit of the document failed. |
+
+**Verdict** (outcome against the expectation): `ok`, `false_positive` (failed on a passed/inapplicable example), `false_negative` (no failure on a failed example), `cant_tell`, `wrong_applicability` (inapplicable on a passed example), `not_run`, `audit_error`. **Consistency per rule:** `consistent` (all `ok`), `partially_consistent` (no false positive, but misses or undecided cases), `inconsistent` (at least one false positive).
+
+**Output** (`results.json`, `schema_version` 1; `report.md` is the readable form). The EARL writer (#838) reads this file:
+
+```json
+{
+  "schema_version": 1,
+  "act_source": { "repository": "...", "commit": "..." },
+  "selection": "starter", "wcag_level": "AAA",
+  "summary": { "rules": 9, "testcases": 118, "ok": 0, "false_positive": 0, "false_negative": 0,
+               "cant_tell": 0, "wrong_applicability": 0, "not_run": 0, "audit_error": 0 },
+  "rules": [{
+    "act_id": "97a4e1", "name": "...", "internal_rules": ["buttons/name-missing"],
+    "consistency": "consistent", "counts": { "testcases": 17, "ok": 17, "...": 0 },
+    "testcases": [{
+      "testcase_id": "97a4e1/passed-example-1", "title": "Passed Example 1",
+      "expected": "passed", "outcome": "passedOrInapplicable", "verdict": "ok",
+      "source_file": "_rules/....md", "language": "html",
+      "findings": [{ "rule_id": "...", "class": "fail|review", "selector": null }],
+      "runs": ["buttons/name-missing: Ran(0)"], "error": null
+    }]
+  }]
+}
+```
+
+`testcase_id` is `<act_id>/<slug>` of the example heading; the hash ids of the published `testcases.json` are not reproduced.
+
+### Result: starter set (commit `50d2bed`, 2026-11-02)
+
+118 test cases of 9 rules; 100 agree with the expectation. Of the 18 deviations, 2 are false positives, 7 false negatives, 4 cant_tell, 3 not run, 2 audit errors. Expectations come from the example headings, not from the run. These are findings about the tool, not adjusted away; the rules involved are shared rules and belong to barrierlab (`a11y-rules`), so they are documented here and not patched in `src/wcag/shared.rs`.
+
+| ACT | Rule | Consistency | Test cases | Deviations |
+| --- | --- | --- | ---: | --- |
+| `97a4e1` | Button has non-empty accessible name | consistent | 17 | - |
+| `c487ae` | Link has non-empty accessible name | consistent | 28 | - |
+| `674b10` | Role attribute has valid value | consistent | 10 | - |
+| `7d6734` | SVG element with explicit role has non-empty accessible name | partially consistent | 10 | 4 cantTell |
+| `ffd0e9` | Heading has non-empty accessible name | partially consistent | 15 | 3 false negatives |
+| `bf051a` | HTML page lang attribute has valid language tag | partially consistent | 7 | 2 false negatives, 1 not run |
+| `2779a5` | HTML page has non-empty title | partially consistent | 12 | 1 false negative, 1 not run, 2 audit errors |
+| `b5c3f8` | HTML page has lang attribute | inconsistent | 7 | 1 false positive, 1 not run |
+| `59796f` | Image button has non-empty accessible name | inconsistent | 12 | 1 false positive, 1 false negative |
+
+Deviations by cause:
+
+- **Shared rules, to report to barrierlab.**
+  - `bf051a` failed 1 and 3: `lang="em-US"` and `lang="eng"` (ISO 639-2 three-letter code) are accepted by `document/lang-invalid`.
+  - `ffd0e9` failed 3, 4, 8: `headings/empty` misses an empty name from `aria-labelledby` pointing to an empty hidden element, from an `img` with `role="presentation"` inside the heading, and from `aria-label=""` on a heading with `role="none"` (presentational-role conflict resolution).
+  - `59796f` passed 3: `<input type="image" title="Search">` is reported although `title` gives an accessible name (false positive). Failed 3: `aria-labelledby` to a missing id, where the default name "Submit Query" does not count for the ACT rule, is not reported.
+  - `7d6734` passed 2 (svg with a `https://` namespace typo), failed 3 (`circle role="graphics-symbol"` without name) and inapplicable 1 and 3 (svg without / with another role): the rule answers review instead of a verdict. Whether `svg/name-missing` should decide here is a coverage question (the mapping note says it fails explicit img/graphics roles).
+  - `2779a5` failed 6: a `title` inside an attached shadow root is accepted as the page title; the ACT rule requires a descendant of the document element in the light tree.
+  - `b5c3f8` inapplicable 2: `<math lang>` served as `application/xml` is audited as an HTML page and reported as missing `lang` (the browser wraps the XML document; relation to the ACT example not further analysed).
+  - `b5c3f8`, `bf051a`, `2779a5` inapplicable 1: for an `svg` document the rules record `NotRun(Errored)` instead of `NotApplicable`.
+- **auditmysite, not shared.** `2779a5` passed 2 and failed 3 (pages that embed an iframe) make the whole audit fail: `Audit contract violation: rule_findings_preserved at rule_outcomes[html-has-lang]: 1 reported occurrences, but only 0 retained/reviewed/excluded`. The audit refuses a valid page.
+- **Not a rule deviation, but worth a look.** A first run that reused the browser's default context for all test cases reported false positives (`document/title-missing` on pages that have a title) that disappeared with one isolated context per test case. The harness uses isolated contexts; the cause of the state leak between audits in a shared context was not investigated.
+
+Applicability is only partly visible: `inapplicable` examples count as `ok` when the rule ran without findings. #838 must therefore not emit `inapplicable` from `passedOrInapplicable`.
