@@ -2499,9 +2499,9 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52ab92506bca3f70ed4609fdbd49e179843b48637130562587a9170f30d3860"
+checksum = "979b9960a3828e191d483401a79a1f6ee346b480b642d8e27d82d4e354806afa"
 dependencies = [
  "csp-parse",
  "encoding_rs",
@@ -4730,9 +4730,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "relax-ng"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67788e3178d53c0cf7f453797c76309d441fbf42a01482613eaabd1732df4330"
+checksum = "8af2d0324bcb3eb335927bce74d489dbacbf59a77286b7446ae1cd8e42ea7ae1"
 dependencies = [
  "regex",
  "roxmltree 0.21.1",
@@ -5068,9 +5068,9 @@ dependencies = [
 
 [[package]]
 name = "schematron-engine"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07c05422a9c10ccc8ca8c5939e191af07a0542578d52f3bbd7558d5c02b0619c"
+checksum = "2d03d137c8f6fe46a110081ff99c95562c2dc22f1c9f10b06933cb457551857e"
 dependencies = [
  "roxmltree 0.21.1",
  "xpath-eval",
@@ -7555,9 +7555,9 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 
 [[package]]
 name = "xpath-eval"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83058fdeec995449ff47adb0bc5773092b56aa91423c4cb257ef4e4e11df542b"
+checksum = "05096d87ea0052f3820cc861b617d9af265574e18733064a8a011caa9e7f63bc"
 
 [[package]]
 name = "yaml-rust"
