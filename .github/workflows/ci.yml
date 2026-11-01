@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload visual regression debug artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pdf-visual-debug
           path: target/pdf-visual-debug/

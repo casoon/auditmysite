@@ -128,7 +128,7 @@ jobs:
           "$hash  ${{ env.ARCHIVE_NAME }}" | Out-File -Encoding ascii "${{ env.ARCHIVE_NAME }}.sha256"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.target }}
           path: |
