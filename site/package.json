@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@casoon/pages-theme": "file:./vendor/pages-theme",
-    "astro": "^7.3.2"
+    "astro": "^7.4.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
@@ -18,6 +18,9 @@
     "typescript": "^6.0.3"
   },
   "pnpm": {
+    "overrides": {
+      "fast-uri": ">=3.1.9"
+    },
     "onlyBuiltDependencies": [
       "esbuild"
     ]
