@@ -24,6 +24,7 @@ Cargo.lock
 !reports/README.md
 *.json
 !docs/img/*.json
+!docs/act-mapping.json
 *.html
 !tests/fixtures/*.html
 !tests/wcag_fixtures/*.html

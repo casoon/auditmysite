@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Docs:** `docs/act-mapping.json` maps internal rule ids to W3C ACT rule ids with a coverage level (full, partial, none, unclear), explained in `docs/ACT_COVERAGE.md` together with missing-rule candidates and a first submission set (#836). `tests/act_mapping.rs` checks that every mapped rule id exists.
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
 - **AI visibility:** the remaining "citable" detail texts of the quotable-structure signals now say "quotable structure (unvalidated)" (JSON field names unchanged, Refs #784).

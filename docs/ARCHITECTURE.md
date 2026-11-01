@@ -615,6 +615,7 @@ tests/
 ├── output_format_tests.rs        # Report generation
 ├── error_handling_tests.rs       # Error paths
 ├── parity_contract.rs            # Frozen-count guard vs. docs/PARITY_CONTRACT.jsonc
+├── act_mapping.rs                # Rule ids in docs/act-mapping.json (ACT mapping) exist
 ├── wcag_coverage.rs               # Level A/AA/AAA rule-set coverage checks
 ├── wcag_unit_tests.rs             # Per-rule unit tests (fixtures in wcag_fixtures/)
 ├── integration_test.rs / integration_mocked.rs # End-to-end pipeline tests
