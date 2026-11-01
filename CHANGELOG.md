@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Validation:** new contract code `viewport_score`: a dual-viewport report whose `score` exceeds the 70 % mobile / 30 % desktop accessibility value of its own `viewport_scores` is rejected (Refs #781).
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
 - **AI visibility:** the remaining "citable" detail texts of the quotable-structure signals now say "quotable structure (unvalidated)" (JSON field names unchanged, Refs #784).

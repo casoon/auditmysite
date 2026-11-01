@@ -97,6 +97,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "semantic_score_cap",
     "severity_counts",
     "total_urls",
+    "viewport_score",
     "weighted_measurement",
 ];
 
@@ -176,6 +177,15 @@ impl NormalizedReport {
             "grade".into(),
             "grade must describe the accessibility score".into(),
         );
+        if let Some(viewports) = &self.viewport_scores {
+            // Caps only lower the weighted viewport value, never raise it.
+            check(
+                self.score <= viewports.weighted_accessibility(),
+                "viewport_score",
+                "score".into(),
+                "score must not exceed the 70/30 mobile/desktop accessibility value".into(),
+            );
+        }
         let certificate = super::normalized::gate_certificate_by_risk(
             AccessibilityScorer::calculate_certificate(self.score as f32).to_string(),
             &self.risk.level,
