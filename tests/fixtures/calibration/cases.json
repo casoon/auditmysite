@@ -1,0 +1,546 @@
+{
+  "format": "auditmysite.calibration-cases/1",
+  "notes": "Proposed reference-set cases for #784, chosen from general knowledge of long-lived public pages before any auditmysite run on them. Nothing here is a label and no tool output was consulted. Review the list, strike or replace cases you do not want, then pass your name as --selected-by when finalizing. See docs/calibration.md.",
+  "selected_at": "2026-11-02",
+  "selected_by": null,
+  "stratum_meaning": "Selection intent, one per case, not a label: positive = a person would plausibly see structural problems, negative = plausibly none, borderline = known hard or mixed case (one-screen pages, applications, dense commercial or news pages). The labellers decide the actual judgement per signal.",
+  "split_rule": "Within each stratum the two cases with the lowest sha256(id) are dev, all others holdout (checked by scripts/calibration.py check).",
+  "reachability_checked": {
+    "date": "2026-11-02",
+    "method": "HTTP GET following redirects, status 200 for every case"
+  },
+  "cases": [
+    {
+      "id": "arngren",
+      "url": "https://www.arngren.net/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Dense, unstructured shop front with hundreds of competing items"
+    },
+    {
+      "id": "berkshire-hathaway",
+      "url": "https://www.berkshirehathaway.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Plain link list without a clear purpose statement or hierarchy"
+    },
+    {
+      "id": "spacejam-1996",
+      "url": "https://www.spacejam.com/1996/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Preserved 1996 promotional site: image-map navigation, hardly any text"
+    },
+    {
+      "id": "cern-first-site",
+      "url": "http://info.cern.ch/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Minimal page served over plain HTTP"
+    },
+    {
+      "id": "httpforever",
+      "url": "http://httpforever.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Test page that is deliberately HTTP only"
+    },
+    {
+      "id": "zombo",
+      "url": "https://zombo.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Animated page with no readable content"
+    },
+    {
+      "id": "worlds-worst-website",
+      "url": "https://theworldsworstwebsiteever.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Deliberately overloaded, contradictory page"
+    },
+    {
+      "id": "drudge-report",
+      "url": "https://www.drudgereport.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Headline link wall without hierarchy or imprint at first sight"
+    },
+    {
+      "id": "rediff",
+      "url": "https://www.rediff.com/",
+      "stratum": "positive",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Portal with dense, competing blocks"
+    },
+    {
+      "id": "camerons-world",
+      "url": "https://www.cameronsworld.net/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Collage of animated images, no structure"
+    },
+    {
+      "id": "hamsterdance",
+      "url": "https://www.hamsterdance.com/",
+      "stratum": "positive",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Animation page without informational content"
+    },
+    {
+      "id": "textfiles",
+      "url": "http://www.textfiles.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Plain HTTP directory-style page, no publisher information"
+    },
+    {
+      "id": "pointerpointer",
+      "url": "https://pointerpointer.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Single-interaction toy page, almost no text"
+    },
+    {
+      "id": "yourworldoftext",
+      "url": "https://www.yourworldoftext.com/",
+      "stratum": "positive",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Unconventional canvas-like page with little structure"
+    },
+    {
+      "id": "rust-lang",
+      "url": "https://rust-lang.org/",
+      "stratum": "negative",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Language home page with a clear primary action"
+    },
+    {
+      "id": "python-org",
+      "url": "https://www.python.org/",
+      "stratum": "negative",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Project home page with clear navigation and publisher"
+    },
+    {
+      "id": "mdn-details",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/details",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Reference article with strong structure"
+    },
+    {
+      "id": "wikipedia-web-accessibility",
+      "url": "https://en.wikipedia.org/wiki/Web_accessibility",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Encyclopaedia article, structured and referenced"
+    },
+    {
+      "id": "w3c-wai-intro",
+      "url": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Standards-body explainer page"
+    },
+    {
+      "id": "nhs-flu",
+      "url": "https://www.nhs.uk/conditions/flu/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Public-health content page, clear structure and publisher"
+    },
+    {
+      "id": "usa-gov",
+      "url": "https://www.usa.gov/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Government portal, clear tasks"
+    },
+    {
+      "id": "stripe-docs-payment",
+      "url": "https://docs.stripe.com/payments/accept-a-payment",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Technical documentation with self-contained sections"
+    },
+    {
+      "id": "web-dev-vitals",
+      "url": "https://web.dev/articles/vitals",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Developer article, structured data and clear authorship"
+    },
+    {
+      "id": "eff",
+      "url": "https://www.eff.org/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Organisation home page, clear purpose and imprint"
+    },
+    {
+      "id": "debian",
+      "url": "https://www.debian.org/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Project home page, clear navigation"
+    },
+    {
+      "id": "git-scm",
+      "url": "https://git-scm.com/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Project home page with one clear primary action"
+    },
+    {
+      "id": "who-int",
+      "url": "https://www.who.int/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "International organisation home page"
+    },
+    {
+      "id": "react-dev",
+      "url": "https://react.dev/",
+      "stratum": "negative",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Framework home page with documentation structure"
+    },
+    {
+      "id": "sqlite",
+      "url": "https://www.sqlite.org/index.html",
+      "stratum": "borderline",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Very plain but informative project page"
+    },
+    {
+      "id": "hacker-news",
+      "url": "https://news.ycombinator.com/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Link list, minimal structure and metadata, clear purpose"
+    },
+    {
+      "id": "duckduckgo",
+      "url": "https://duckduckgo.com/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "One-screen search landing page"
+    },
+    {
+      "id": "google",
+      "url": "https://www.google.com/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "One-screen search landing page"
+    },
+    {
+      "id": "github-pricing",
+      "url": "https://github.com/pricing",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Commercial pricing page with many competing calls to action"
+    },
+    {
+      "id": "saucedemo",
+      "url": "https://www.saucedemo.com/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Single login form of a demo shop, no content"
+    },
+    {
+      "id": "guardian-international",
+      "url": "https://www.theguardian.com/international",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "News front page, dense but structured, consent layer"
+    },
+    {
+      "id": "wikipedia-portal",
+      "url": "https://www.wikipedia.org/",
+      "stratum": "borderline",
+      "split": "dev",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Language portal, one screen, little text"
+    },
+    {
+      "id": "openstreetmap",
+      "url": "https://www.openstreetmap.org/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Map application, content rendered client side"
+    },
+    {
+      "id": "excalidraw",
+      "url": "https://excalidraw.com/",
+      "stratum": "borderline",
+      "split": "holdout",
+      "signals": [
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility"
+      ],
+      "note": "Single-page drawing app, almost no static content"
+    }
+  ]
+}

@@ -19,6 +19,8 @@ This document is the procedure. The files are:
 |---|---|
 | `tests/fixtures/calibration/preregistration.json` | Thresholds, cutoffs, coverage requirements, contract versions, labels hash |
 | `tests/fixtures/calibration/reference_set.json` | Cases and their human labels |
+| `tests/fixtures/calibration/cases.json` | Proposed case list (URL, stratum, split), no labels |
+| `scripts/calibration.py` | Blind labelling sheet, label import, freeze and calibration run |
 | `tests/calibration_test.rs` | Integrity checks (always run) and the calibration run (`--ignored`) |
 
 ## What is measured
@@ -95,6 +97,54 @@ judges what a person sees, using their own expertise.
    thresholds bumps its contract `version`, which invalidates the
    registration (checked) and requires a new run on fresh holdout labels.
 
+## Running the labelling (after 2.0)
+
+`cases.json` proposes 38 long-lived public pages: 14 clear positives, 14 clear
+negatives and 10 borderline cases, five signals each. The two cases with the
+lowest `sha256(id)` per stratum are `dev`, the other 32 are `holdout`, which
+meets the registered minimums (30 holdout cases, 10 positive, 10 negative, 5
+borderline per signal). The list was chosen from general knowledge of the
+pages and checked for reachability only; auditmysite was not run on them. The
+stratum is a selection intent, not a label.
+
+1. **Review the list.** Strike or replace cases in `cases.json` before any
+   label exists, then `python3 scripts/calibration.py check`. Replacing a case
+   after labelling invalidates that case's labels.
+2. **Make the sheet.** `python3 scripts/calibration.py sheet` writes
+   `reports/calibration/sheet.html` (and an equivalent `labels-template.csv`).
+   The sheet shows an opaque page number, the URL and the five preregistered
+   questions. It shows no stratum, split, note or tool output. Answer each
+   question with Yes (the problem is present), No or Unclear; the 1–5 rating
+   and the rationale are optional.
+3. **Each labeller works alone** and downloads a CSV (`labels-<name>.csv`).
+   At least two labellers are needed, and they must be different people. The
+   two files must not be compared before both are handed in.
+4. **One command** imports, freezes and runs:
+
+   ```bash
+   python3 scripts/calibration.py finalize \
+     --labels labels-a.csv labels-b.csv --selected-by "<your name>"
+   ```
+
+   It checks that every holdout case has the required labels, writes
+   `reference_set.json`, writes its SHA-256 as `labels_sha256` into
+   `preregistration.json`, runs the integrity tests and then the `--ignored`
+   calibration run, and copies the result to `docs/calibration/results/`.
+   Commit the three files and the result together. `--no-run` stops after
+   the freeze.
+
+Ratings feed the rank agreement (Kendall's tau-b). Leave them empty only with
+`--derive-ratings`, which fills a missing rating from the judgement (problem 2,
+unclear 3, no problem 4) and reports how many it derived; ratings given by a
+person are never overwritten. A derived rating carries less information, so
+prefer real ones.
+
+`finalize` refuses labels whose labeller name starts with `dummy` or
+`synthetic` unless `--allow-synthetic` is given together with `--out-set` and
+`--prereg` paths outside the repository (the test then reads the registration
+from `CALIBRATION_PREREGISTRATION`). That is the dry-run path; synthetic
+labels are never committed and never validate a signal.
+
 ## Against leakage and tuning to the score
 
 - Cases are chosen and assigned to a split before any tool run.
@@ -109,8 +159,9 @@ judges what a person sees, using their own expertise.
 
 ## Current state
 
-Registration: 2026-10-27, reference set v1, no cases yet. All signal
-contracts are `unvalidated`.
+Registration: 2026-10-27, reference set v1, no cases and no labels yet (a
+proposed case list and the labelling tooling exist). All signal contracts
+are `unvalidated`.
 
 ## Scope decision for 2.0 (2026-10-31)
 
