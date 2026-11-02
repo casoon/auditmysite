@@ -9,6 +9,7 @@
 //! - detection: System scanning for installed browsers
 //! - probe: Bounded version query and headless CDP probe
 //! - resolver: Priority-based browser selection
+//! - provenance: Which browser measured (report record, no paths)
 //! - installer: Explicit browser installation (no auto-download); facade over
 //!   install_plan (what is trusted) and install_txn (transactional install)
 //! - bootstrap: Consent policy for the one-time managed install
@@ -29,6 +30,7 @@ pub mod mock;
 pub mod platform;
 mod pool;
 pub mod probe;
+pub mod provenance;
 mod registry;
 pub mod resolver;
 pub mod state;
@@ -41,6 +43,9 @@ pub use detection::detect_all_browsers;
 pub use installer::BrowserInstaller;
 pub use platform::{Arch, Os, Platform};
 pub use probe::{probe_cdp, query_version, ProbeFailure, VersionOutcome};
+pub use provenance::{
+    BrowserOrigin, BrowserProduct, BrowserProvenance, HeadlessModeKind, PlatformArch, PlatformOs,
+};
 pub use resolver::{
     diagnose_browsers, diagnose_browsers_static, resolve_browser, BrowserDiagnosis,
     BrowserResolveOptions,

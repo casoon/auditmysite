@@ -44,6 +44,7 @@ src/
 │   ├── platform.rs      # Platform contract (macOS ARM64, Linux x64/ARM64, Windows Edge only)
 │   ├── detection.rs     # Candidate scan: dedup by canonical path, verdict per candidate
 │   ├── probe.rs         # Bounded `--version` and headless CDP probe (launch, connect, cleanup)
+│   ├── provenance.rs    # Browser provenance record of the measurement profile (categories, no paths)
 │   ├── installer.rs     # Facade: `browser install|remove`, managed binary paths
 │   ├── install_plan.rs  # Publisher-manifest selection, URL trust policy
 │   ├── install_txn.rs   # Transactional install: lock, bounded download, safe extraction, CDP smoke, atomic promote/rollback

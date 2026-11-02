@@ -1306,6 +1306,12 @@ pub async fn audit_page(
         headless: browser.is_headless(),
         source: "live".to_string(),
     };
+    report
+        .accessibility
+        .execution
+        .scope
+        .measurement_profile
+        .browser = Some(browser.provenance().clone());
     // The transport the security analysis judges is the one the browser's
     // document used, not the probe's (#775).
     let document_https = report.document_is_https();

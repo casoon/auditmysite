@@ -1185,6 +1185,7 @@ fn test_collection_errors_serialized_when_present() {
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
+            measurement_browsers: Vec::new(),
             violated_rule_count: 0,
             root_causes: vec![],
             en301549_rollup: vec![],

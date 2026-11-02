@@ -180,6 +180,25 @@ impl ResolvedBrowser {
     /// Browsers to try in order when launching: the viable candidates,
     /// selected one first. An explicit path without requested fallback is a
     /// chain of one, so a failing launch never switches silently.
+    /// Candidates ranked ahead of the launched one that were rejected on
+    /// their merits (not found, not runnable, CDP failed ...). Those the
+    /// platform contract or the options exclude never competed (#787).
+    pub fn discarded_before_launch(&self) -> u32 {
+        self.candidates
+            .iter()
+            .take_while(|c| !c.verdict.is_viable())
+            .filter(|c| {
+                !matches!(
+                    c.verdict,
+                    CandidateVerdict::Rejected {
+                        kind: RejectionKind::Excluded,
+                        ..
+                    }
+                )
+            })
+            .count() as u32
+    }
+
     pub fn launch_chain(&self) -> Vec<DetectedBrowser> {
         self.candidates
             .iter()

@@ -176,7 +176,7 @@ pub struct AuditScope {
 
 /// Version of the measurement profile's meaning. A report of another
 /// version is another contract, never the same measurement.
-pub const MEASUREMENT_PROFILE_VERSION: u32 = 2;
+pub const MEASUREMENT_PROFILE_VERSION: u32 = 3;
 
 /// How the pages of a run were measured beyond the viewport (#787).
 ///
@@ -207,6 +207,11 @@ pub struct MeasurementProfile {
     /// was measured; sorted, empty when none was requested (#788).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_checks: Vec<String>,
+    /// The browser that measured: product, version, source, platform,
+    /// headless mode and failover, never paths (#787). Required from
+    /// profile version 3 on; absent in reports from before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser: Option<crate::browser::BrowserProvenance>,
 }
 
 /// Identity of a declared browser state (`--storage-state`).
@@ -228,6 +233,7 @@ impl Default for MeasurementProfile {
             state_id: None,
             storage_state: None,
             extra_checks: Vec::new(),
+            browser: None,
         }
     }
 }
@@ -1326,6 +1332,45 @@ pub struct BatchSummary {
     /// (#791). Describes the selection; it does not make it representative.
     #[serde(default)]
     pub selection_profile: SelectionProfile,
+    /// The browsers the pages were measured with, one entry per distinct
+    /// provenance, with the pages it measured (#787). More than one entry
+    /// means the batch mixes browsers; `browser: null` counts pages whose
+    /// browser was not recorded. Never averaged away.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measurement_browsers: Vec<BrowserPages>,
+}
+
+/// One browser provenance of a batch and the number of pages it measured.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserPages {
+    pub browser: Option<crate::browser::BrowserProvenance>,
+    pub pages: usize,
+}
+
+impl BrowserPages {
+    /// Distinct provenances of `reports` in a stable order (unrecorded last).
+    pub fn from_reports(reports: &[AuditReport]) -> Vec<Self> {
+        let mut counts: BTreeMap<Option<crate::browser::BrowserProvenance>, usize> =
+            BTreeMap::new();
+        for report in reports {
+            let browser = report
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .browser
+                .clone();
+            *counts.entry(browser).or_default() += 1;
+        }
+        // `None` sorts first in `Option`'s order; the recorded ones lead.
+        let mut out: Vec<Self> = counts
+            .into_iter()
+            .map(|(browser, pages)| Self { browser, pages })
+            .collect();
+        let unrecorded = usize::from(out.first().is_some_and(|e| e.browser.is_none()));
+        out.rotate_left(unrecorded);
+        out
+    }
 }
 
 /// Distribution of the page scores behind `average_score`.
@@ -1565,6 +1610,7 @@ impl BatchReport {
                 .collect::<Vec<_>>(),
         );
         let selection_profile = SelectionProfile::from_reports(&reports);
+        let measurement_browsers = BrowserPages::from_reports(&reports);
 
         let total_violations = normalized_reports
             .iter()
@@ -1660,6 +1706,7 @@ impl BatchReport {
                 audit_quality,
                 score_spread,
                 selection_profile,
+                measurement_browsers,
             },
             crawl_diagnostics: None,
             sitemap_diagnostics: None,

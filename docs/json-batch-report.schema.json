@@ -458,6 +458,19 @@
           "minimum": 0,
           "description": "URLs the batch tried to audit. Scores and counts cover url_count of them; the rest could not be audited and are listed in errors."
         },
+        "measurement_browsers": {
+          "description": "The browsers the pages were measured with, one entry per distinct provenance (#787). Two or more entries mean the batch mixes browsers; browser null counts pages whose browser was not recorded.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["browser", "pages"],
+            "additionalProperties": false,
+            "properties": {
+              "browser": {"type": ["object", "null"]},
+              "pages": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
         "coverage": {
           "type": "object",
           "additionalProperties": false,

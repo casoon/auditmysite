@@ -225,6 +225,12 @@ pub struct UnifiedSummary {
     /// Batch only: audit exclusions (#645) aggregated over all pages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exclusions: Option<crate::audit::exclusion::BatchExclusionSummary>,
+    /// Batch only: the browsers the pages were measured with, one entry per
+    /// distinct provenance and its page count (#787). Two or more entries
+    /// mean the batch mixes browsers; the top-level `audit_scope` shows the
+    /// first page's only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measurement_browsers: Vec<crate::audit::BrowserPages>,
     /// Anzahl unterschiedlicher WCAG-Regeln, die irgendwo geprüfte URLs verletzt haben
     /// (über alle Pages dedupliziert).
     #[serde(default)]
@@ -1067,6 +1073,7 @@ impl UnifiedReport {
                     .iter()
                     .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
             ),
+            measurement_browsers: batch_report.summary.measurement_browsers.clone(),
             violated_rule_count: batch_report.summary.violated_rule_count,
             root_causes: batch_report.summary.root_causes.clone(),
             en301549_rollup: build_en301549_batch_rollup(&normalized_reports),
@@ -1257,6 +1264,7 @@ impl UnifiedReport {
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
+            measurement_browsers: Vec::new(),
             violated_rule_count,
             root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
@@ -1360,6 +1368,7 @@ impl UnifiedReport {
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
+            measurement_browsers: Vec::new(),
             violated_rule_count,
             root_causes: Vec::new(),
             en301549_rollup: Vec::new(),
