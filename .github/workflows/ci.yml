@@ -502,7 +502,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome chrome_for_testing" }
+          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome_for_testing" }
           - { name: Linux x64, runner: ubuntu-24.04, browser: chrome, os: linux, arch: x86_64, products: "chrome chrome_for_testing" }
           - { name: Linux arm64, runner: ubuntu-24.04-arm, browser: chrome, os: linux, arch: aarch64, products: "chrome chrome_for_testing chromium" }
           - { name: Windows x64, runner: windows-2025, browser: edge, os: windows, arch: x86_64, products: "edge" }
@@ -541,6 +541,7 @@ jobs:
           fi
           echo "path=$path" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)" >> "$GITHUB_OUTPUT"
           echo "Browser: $path ($version)"
 
       - name: DEBUG headless dump (macOS)
@@ -550,14 +551,18 @@ jobs:
         env:
           BROWSER_PATH: ${{ steps.browser.outputs.path }}
         run: |
-          for extra in "--disable-gpu" "" "--no-sandbox --disable-gpu"; do
-            echo "=== flags: $extra"
+          ls -d /Applications/*Chrom* /Applications/*Edge* 2>/dev/null || true
+          xattr "$BROWSER_PATH" || true
+          cp -R "$(dirname "$(dirname "$(dirname "$BROWSER_PATH")")")" "$RUNNER_TEMP/cft-copy.app" 2>/dev/null || true
+          for bin in "$BROWSER_PATH" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"; do
+            [ -x "$bin" ] || { echo "skip $bin"; continue; }
+            echo "=== $bin"
             start=$(date +%s)
-            "$BROWSER_PATH" --headless=new $extra --user-data-dir="$(mktemp -d)" --dump-dom about:blank > dump.out 2> dump.err &
+            "$bin" --headless=new --disable-gpu --user-data-dir="$(mktemp -d)" --dump-dom about:blank > dump.out 2> dump.err &
             pid=$!
-            for _ in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+            for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
             kill "$pid" 2>/dev/null || true
-            echo "elapsed $(( $(date +%s) - start ))s"; head -c 600 dump.out; tail -n 8 dump.err
+            echo "elapsed $(( $(date +%s) - start ))s"; head -c 300 dump.out; echo; tail -n 3 dump.err
           done
           true
 
@@ -602,6 +607,7 @@ jobs:
           EXPECT_OS: ${{ matrix.os }}
           EXPECT_ARCH: ${{ matrix.arch }}
           EXPECT_PRODUCTS: ${{ matrix.products }}
+          EXPECT_VERSION: ${{ steps.browser.outputs.number }}
         run: |
           py="$(command -v python3 || command -v python)"
           "$py" - <<'PY'
@@ -637,8 +643,8 @@ jobs:
               problems.append(f"arch {browser.get('arch')} != {os.environ['EXPECT_ARCH']}")
           if browser.get("product") not in os.environ["EXPECT_PRODUCTS"].split():
               problems.append(f"product {browser.get('product')} not in {os.environ['EXPECT_PRODUCTS']}")
-          if not browser.get("version"):
-              problems.append("browser version is empty")
+          if not browser.get("version") or browser.get("version") != os.environ["EXPECT_VERSION"]:
+              problems.append(f"version {browser.get('version')} != runner browser {os.environ['EXPECT_VERSION']}")
           if problems:
               sys.exit("; ".join(problems))
           PY
