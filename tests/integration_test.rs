@@ -268,11 +268,15 @@ async fn assert_critical_in_one_viewport_caps(label_expr: &str, desktop_critical
     );
     assert!(
         !matches!(
-            normalized.normalized.certificate.as_str(),
-            "STABIL" | "GUT" | "SEHR GUT"
+            normalized.normalized.decision.certificate,
+            Some(
+                auditmysite::audit::Certificate::Stable
+                    | auditmysite::audit::Certificate::Good
+                    | auditmysite::audit::Certificate::VeryGood
+            )
         ),
-        "certificate {} for a capped score",
-        normalized.normalized.certificate
+        "certificate {:?} for a capped score",
+        normalized.normalized.decision.certificate
     );
     assert_eq!(
         normalized.normalized.decision.verdict,
@@ -1570,7 +1574,8 @@ async fn test_design_quality_module_findings_and_score_isolation() {
         "accessibility grade must be identical whether design_quality is on or off"
     );
     assert_eq!(
-        report_off.accessibility.certificate, report_on.accessibility.certificate,
+        auditmysite::audit::Certificate::from_score(report_off.accessibility.score.round() as u32),
+        auditmysite::audit::Certificate::from_score(report_on.accessibility.score.round() as u32),
         "certificate must be identical whether design_quality is on or off"
     );
 }
@@ -1644,7 +1649,8 @@ async fn test_ai_transparency_module_ssrf_guard_and_score_isolation() {
         "accessibility grade must be identical whether ai_transparency is on or off"
     );
     assert_eq!(
-        report_off.accessibility.certificate, report_on.accessibility.certificate,
+        auditmysite::audit::Certificate::from_score(report_off.accessibility.score.round() as u32),
+        auditmysite::audit::Certificate::from_score(report_on.accessibility.score.round() as u32),
         "certificate must be identical whether ai_transparency is on or off"
     );
 }

@@ -129,7 +129,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
 
     let score = normalized.normalized.score;
     let grade = normalized.normalized.grade.clone();
-    let certificate = normalized.normalized.certificate.clone();
+    let certificate = normalized.normalized.decision.certificate_key().to_string();
     let audit_summary = analyze_with_locale(&normalized.normalized, &config.locale);
     let maturity_label = audit_summary.site_state.label_localized(&i18n);
     let problem_type = audit_summary.problem_type_label.clone();
