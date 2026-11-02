@@ -118,6 +118,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Accessibility:** A page without `lang` that embeds an iframe without `lang` no longer fails the whole audit with `rule_findings_preserved at rule_outcomes[html-has-lang]`: `document/lang-missing` and `html-has-lang` now both resolve to the language finding.
 - **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
 - **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
 - **Schema:** `navigation` and its `redirect_chain` are described in `docs/json-report.schema.json` (#775); `summary.grade` and `summary.certificate` may be `null`.
