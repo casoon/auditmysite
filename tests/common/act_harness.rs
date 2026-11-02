@@ -302,6 +302,12 @@ fn serve_one(
             Ok(n) => head.extend_from_slice(&buf[..n]),
         }
     }
+    // Chrome opens speculative (preconnect) sockets and sends nothing on
+    // them. Answering such a socket with a 404 lets Chrome reuse it for the
+    // next navigation and read that 404 as the page.
+    if head.is_empty() {
+        return;
+    }
     let text = String::from_utf8_lossy(&head);
     let mut first = text.lines().next().unwrap_or("").split_whitespace();
     let method = first.next().unwrap_or("");

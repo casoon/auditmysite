@@ -215,6 +215,27 @@ fn applicability_verdicts() {
     );
 }
 
+/// Chrome opens speculative sockets and sends nothing on them. The server
+/// must not answer such a socket: Chrome reuses it for the next navigation
+/// and would read a stray 404 as the page.
+#[test]
+fn server_does_not_answer_a_socket_that_sends_no_request() {
+    use std::io::Read;
+    let server = ActServer::start(std::path::Path::new("."), &[]);
+    let addr = server.base.trim_start_matches("http://").to_string();
+    let mut socket = std::net::TcpStream::connect(addr).expect("connect");
+    socket
+        .shutdown(std::net::Shutdown::Write)
+        .expect("half close");
+    let mut answer = Vec::new();
+    socket.read_to_end(&mut answer).expect("read");
+    assert!(
+        answer.is_empty(),
+        "answered an empty connection: {}",
+        String::from_utf8_lossy(&answer)
+    );
+}
+
 #[test]
 fn consistency_levels() {
     use Verdict::*;
