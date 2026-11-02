@@ -121,6 +121,18 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). These are approximations, not direct measurements, and must not be read as field metrics.
 - In rendered reports, estimated metrics carry a localized "(lab estimate)" / "(Lab-Schätzung)" suffix, and the performance section states that all values are lab data, not field data.
 
+### Measurement window (#770)
+
+LCP, CLS and TBT are read from `PerformanceObserver`s that are installed before the navigation, so they see the page from its first paint. One page load is one observation:
+
+- **Start**: navigation start (observers are registered before the document is created, buffered entries included).
+- **End**: the read happens after the page has been waited on, not at the `load` event. First the audit waits up to about 3 s for the first LCP candidate, then until no new long task has appeared for 1 s (Lighthouse's CPU-quiet threshold) or for at most 8 s. The values are whatever the observers have seen at that read; there is no fixed observation time.
+- **LCP**: the last candidate before the read. There is no `load` cut-off: a hero rendered after load is the LCP. A lab run never produces user input, so candidates are never closed by one.
+- **CLS**: the largest session window (shifts at most 1 s apart, at most 5 s long), shifts with recent input excluded. Shifts after the read are not seen.
+- **TBT**: the blocking part (beyond 50 ms) of every long task, clipped to the window FCP to TTI. Long tasks before FCP or after TTI do not count. TTI is an estimate (last long task before the first 5 s quiet window after FCP, at least `domInteractive`) and does not wait for network quiet. Without FCP or the long-task observer TBT is not measured, never 0.
+
+Not measured: user interaction (INP stays an estimate and is only set when interaction events fire), scrolling, work that starts after the read (late lazy-loading, delayed third-party scripts, client-side navigation), cache-warm repeat visits, and real-device or field behaviour. A page that keeps shifting or blocking after the window reads better here than it is. `--perf-runs N` repeats each throttled profile and reports the median run with min/median/max; it does not widen the window of a single load.
+
 ## Measurement Profile
 
 - `audit_scope.requested_rules` lists every rule the run must account for — shared, AX-tree and page rules (executor and concrete ids) and the inline rules (reflow, HTML content model; mobile only) — with the viewports it runs in, derived from the rule registrations, the `wcag_level` and the `[rules]` filter. Each listed `(rule_id, viewport)` needs exactly one `rule_outcomes` entry; a missing one fails validation as `requested_rule_outcome`, a second one as `rule_outcome_duplicate`, and a rule that ran above `audit_scope.wcag_level` as `rule_outcome_above_level`. Error and capability counters count a page-rule executor and its concrete rules once.
