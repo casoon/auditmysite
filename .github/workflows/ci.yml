@@ -579,6 +579,7 @@ jobs:
           # Git Bash step shell on Windows) and polled until it answers; its
           # log is kept and printed when it never comes up.
           if [ "$RUNNER_OS" = "Windows" ]; then
+            py="$(cygpath -w "$py")"
             powershell -NoProfile -Command "Start-Process -FilePath '$py' -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','tests/fixtures' -RedirectStandardOutput server.log -RedirectStandardError server.err.log -WindowStyle Hidden"
           else
             "$py" -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >server.log 2>server.err.log &
