@@ -10,6 +10,7 @@ and verification for each change is in the
 ### Added
 
 - **CI:** the full QA runs the real-Chrome browser detection, failover and pool tests (#854, #856) on the Ubuntu runner.
+- **CI:** the native smoke CLI audit starts its fixture server detached (PowerShell `Start-Process` on Windows), waits until it answers (30 s bound) and prints the server log on failure; the Windows leg had intermittently seen `ERR_CONNECTION_REFUSED` (Refs #856).
 - **CI:** new full-QA job `native-browser-smoke` (and thereby a release gate) runs the browser detection and pool tests plus a CLI audit of a local fixture natively on macOS arm64, Linux x64, Linux arm64 and Windows x64 (Edge), checks that `measurement_profile.browser` names that platform and browser, and writes OS/arch, browser version and commit to the job summary (Refs #854, #856). The process helpers of the two test files now also run on Windows.
 - **Browser:** on Windows the browser version is read from the version folder next to `chrome.exe`/`msedge.exe` instead of starting the binary with `--version`; Edge on a hosted runner never answered and was rejected as hanging; Windows (MSVC) binaries now reserve an 8 MB main-thread stack, the 1 MB default overflowed in a debug build (Refs #854).
 
