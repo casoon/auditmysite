@@ -13,6 +13,10 @@
 //! certificate are bands of the same score (certificate additionally capped
 //! by the risk veto). `overall_score` is the module-weighted technical value;
 //! it carries no grade and never decides the verdict.
+//!
+//! The certificate is part of the decision (`decision/2`): derived once, here,
+//! from the accessibility score and the risk veto, stored as a language-free
+//! [`Certificate`] kind. Every label a reader sees is rendered from it.
 
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +25,7 @@ use crate::audit::report::BatchSummary;
 
 /// Version of the decision contract. Bumped whenever a rule below changes
 /// what a profile decides.
-pub const DECISION_CONTRACT: &str = "auditmysite.decision/1";
+pub const DECISION_CONTRACT: &str = "auditmysite.decision/2";
 
 /// The thresholds a verdict is computed with. Stored with every report, so a
 /// stored decision stays reproducible from its declared inputs.
@@ -107,6 +111,76 @@ impl Verdict {
     }
 }
 
+/// The certificate band of a report: the accessibility score banded at
+/// 90/75/60/40, limited by the risk veto. Canonical and language-free; the
+/// German and English labels are rendered from it, never stored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Certificate {
+    VeryGood,
+    Good,
+    Stable,
+    NeedsImprovement,
+    Insufficient,
+    /// A positive band vetoed by high risk, a legal flag or a blocking issue.
+    Restricted,
+    /// Critical risk: never passes.
+    NotPassed,
+}
+
+impl Certificate {
+    /// Band of the accessibility score alone, before the veto.
+    pub fn from_score(score: u32) -> Self {
+        match crate::registry::CERTIFICATE.label(score as f32, false) {
+            "SEHR GUT" => Self::VeryGood,
+            "GUT" => Self::Good,
+            "STABIL" => Self::Stable,
+            "AUSBAUFÄHIG" => Self::NeedsImprovement,
+            _ => Self::Insufficient,
+        }
+    }
+
+    /// The certificate of a score under the risk veto. Critical risk never
+    /// passes; a positive band is restricted on high risk, a legal flag or a
+    /// blocking issue, independent of the verdict profile.
+    pub fn derive(
+        score: u32,
+        risk_level: &crate::audit::normalized::RiskLevel,
+        legal_flags: usize,
+        blocking_issues: usize,
+    ) -> Self {
+        use crate::audit::normalized::RiskLevel;
+        if matches!(risk_level, RiskLevel::Critical) {
+            return Self::NotPassed;
+        }
+        let band = Self::from_score(score);
+        let does_not_pass =
+            matches!(risk_level, RiskLevel::High) || legal_flags > 0 || blocking_issues > 0;
+        if band != Self::Insufficient && does_not_pass {
+            return Self::Restricted;
+        }
+        band
+    }
+
+    /// The German badge/colour key used by the PDF layer.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::VeryGood => "SEHR GUT",
+            Self::Good => "GUT",
+            Self::Stable => "STABIL",
+            Self::NeedsImprovement => "AUSBAUFÄHIG",
+            Self::Insufficient => "UNGENÜGEND",
+            Self::Restricted => "EINGESCHRÄNKT",
+            Self::NotPassed => "NICHT BESTANDEN",
+        }
+    }
+
+    /// Reader-facing label. The single source for this text.
+    pub fn label(self, en: bool) -> String {
+        crate::registry::certificate_label_localized(self.key(), if en { "en" } else { "de" })
+    }
+}
+
 /// Verdict plus the reasons that drove it, the contract version and the
 /// profile it was computed with.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -114,6 +188,11 @@ pub struct VerdictResult {
     pub contract: String,
     pub profile: DecisionProfile,
     pub verdict: Verdict,
+    /// Certificate band, derived with the verdict from the accessibility
+    /// score and the risk veto. Absent when nothing was measured (a batch
+    /// without an average score).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub certificate: Option<Certificate>,
     /// Canonical machine-readable reasons — the JSON contract and what the
     /// CLI prints. Never render these to a reader: they are tokens
     /// (`legal_flags: 5`), and in a German report they are also the wrong
@@ -127,6 +206,12 @@ pub struct VerdictResult {
 }
 
 impl VerdictResult {
+    /// The German badge/colour key of the certificate for the PDF layer;
+    /// empty when nothing was measured.
+    pub fn certificate_key(&self) -> &'static str {
+        self.certificate.map_or("", Certificate::key)
+    }
+
     /// Placeholder while the inputs of a decision are assembled; replaced
     /// before the containing struct leaves its constructor. Fails, so a
     /// forgotten replacement can never read as a pass.
@@ -135,6 +220,7 @@ impl VerdictResult {
             contract: DECISION_CONTRACT.to_string(),
             profile: DecisionProfile::default(),
             verdict: Verdict::Fail,
+            certificate: None,
             reasons: vec!["undecided".to_string()],
             reason_kinds: Vec::new(),
         }
@@ -238,6 +324,12 @@ pub fn technical_blockers(normalized: &NormalizedReport) -> usize {
 pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile) -> VerdictResult {
     let mut fail = Reasons::default();
     let risk = &normalized.risk;
+    let certificate = Some(Certificate::derive(
+        normalized.score,
+        &risk.level,
+        risk.legal_flags,
+        risk.blocking_issues,
+    ));
     if profile.fail_on_legal_flags && risk.legal_flags > 0 {
         fail.push(
             format!("legal_flags: {}", risk.legal_flags),
@@ -275,7 +367,7 @@ pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile)
         }
     }
     if !fail.is_empty() {
-        return fail.into_result(Verdict::Fail, profile);
+        return fail.into_result(Verdict::Fail, profile, certificate);
     }
 
     let mut warn = Reasons::default();
@@ -314,9 +406,9 @@ pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile)
         );
     }
     if warn.is_empty() {
-        Reasons::default().into_result(Verdict::Pass, profile)
+        Reasons::default().into_result(Verdict::Pass, profile, certificate)
     } else {
-        warn.into_result(Verdict::Warn, profile)
+        warn.into_result(Verdict::Warn, profile, certificate)
     }
 }
 
@@ -336,11 +428,17 @@ impl Reasons {
         self.tokens.is_empty()
     }
 
-    fn into_result(self, verdict: Verdict, profile: &DecisionProfile) -> VerdictResult {
+    fn into_result(
+        self,
+        verdict: Verdict,
+        profile: &DecisionProfile,
+        certificate: Option<Certificate>,
+    ) -> VerdictResult {
         VerdictResult {
             contract: DECISION_CONTRACT.to_string(),
             profile: profile.clone(),
             verdict,
+            certificate,
             reasons: self.tokens,
             reason_kinds: self.kinds,
         }
@@ -390,10 +488,19 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
     // `reason_kinds` stay empty on the batch path: the batch PDF does not
     // render the reasons, and the batch-specific ones need their own
     // variants. `reasons` is the source there.
+    let certificate = average_score.map(|average| {
+        Certificate::derive(
+            average,
+            &summary.risk,
+            summary.legal_flags,
+            summary.blocking_issues,
+        )
+    });
     let result = |verdict, reasons| VerdictResult {
         contract: DECISION_CONTRACT.to_string(),
         profile: profile.clone(),
         verdict,
+        certificate,
         reasons,
         reason_kinds: Vec::new(),
     };
@@ -687,8 +794,24 @@ mod tests {
             crate::studio::StudioAuditResponse::from_normalized(&ctx, report, String::new());
         assert_eq!(studio.decision.verdict, expected, "studio");
 
+        // The certificate is one field of the decision, canonical English
+        // in every projection; the German label is rendered, never stored.
+        let certificate = decision.certificate.expect("single page is always rated");
+        let token = serde_json::to_value(certificate).unwrap();
+        assert!(token.as_str().unwrap().is_ascii(), "{token}");
+        assert_eq!(json["decision"]["certificate"], token, "JSON decision");
+        assert_eq!(json["pages"][0]["decision"]["certificate"], token);
+        assert!(json["summary"].get("certificate").is_none());
+        assert!(json["pages"][0].get("certificate").is_none());
+        assert_eq!(studio.decision.certificate, Some(certificate), "studio");
+        assert!(
+            terminal.contains(&certificate.label(args.lang == "en")),
+            "{terminal}"
+        );
+
         let vm = crate::output::builder::build_view_model(&ctx, &Default::default());
         assert_eq!(vm.summary.ci_verdict, expected, "PDF input model");
+        assert_eq!(vm.summary.certificate, certificate.key(), "PDF input model");
 
         let batch = BatchReport::from_reports(vec![report.clone()], Vec::new(), 1);
         crate::audit::validation::validate_batch(&batch).unwrap();
@@ -924,5 +1047,151 @@ mod tests {
             summary["label"],
             crate::registry::MEDAL.label(n.score as f32, false)
         );
+    }
+
+    /// The certificate is part of the decision: a band of the accessibility
+    /// score, vetoed by the same legal/blocking inputs that fail the verdict.
+    /// A report cannot publish a positive certificate beside a FAIL.
+    #[test]
+    fn certificate_follows_the_decision_inputs() {
+        let n = normalize(&high_level_a_report()).normalized;
+        assert_eq!(n.decision.verdict, Verdict::Fail);
+        assert!(n.risk.legal_flags > 0);
+        // Score band alone would be positive; the veto must take it down.
+        assert!(n.score >= 60, "{}", n.score);
+        assert_eq!(n.decision.certificate, Some(Certificate::Restricted));
+
+        let mut tampered = n.clone();
+        tampered.decision.certificate = Some(Certificate::VeryGood);
+        let codes: Vec<_> = tampered
+            .validate()
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"certificate"), "{codes:?}");
+
+        let mut regraded = n.clone();
+        regraded.grade = "A".into();
+        let codes: Vec<_> = regraded
+            .validate()
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"grade"), "{codes:?}");
+    }
+
+    /// Canonical tokens are language-free; labels come from the kind.
+    #[test]
+    fn certificate_tokens_are_english_and_labels_render_from_the_kind() {
+        let all = [
+            Certificate::VeryGood,
+            Certificate::Good,
+            Certificate::Stable,
+            Certificate::NeedsImprovement,
+            Certificate::Insufficient,
+            Certificate::Restricted,
+            Certificate::NotPassed,
+        ];
+        for certificate in all {
+            let token = serde_json::to_string(&certificate).unwrap();
+            assert!(
+                token.is_ascii() && token.contains(char::is_lowercase),
+                "{token}"
+            );
+            let back: Certificate = serde_json::from_str(&token).unwrap();
+            assert_eq!(back, certificate);
+            assert!(
+                certificate.label(true).is_ascii(),
+                "{}",
+                certificate.label(true)
+            );
+            assert_eq!(certificate.label(false), certificate.key());
+        }
+        // The veto order: critical beats everything, a positive band is
+        // restricted, an insufficient band stays insufficient.
+        use crate::audit::normalized::RiskLevel;
+        assert_eq!(
+            Certificate::derive(95, &RiskLevel::Critical, 0, 0),
+            Certificate::NotPassed
+        );
+        assert_eq!(
+            Certificate::derive(95, &RiskLevel::Low, 1, 0),
+            Certificate::Restricted
+        );
+        assert_eq!(
+            Certificate::derive(30, &RiskLevel::High, 1, 1),
+            Certificate::Insufficient
+        );
+        assert_eq!(
+            Certificate::derive(75, &RiskLevel::Low, 0, 0),
+            Certificate::Good
+        );
+        assert_eq!(
+            Certificate::derive(74, &RiskLevel::Low, 0, 0),
+            Certificate::Stable
+        );
+    }
+
+    /// Different viewports: the accessibility score is 70 % mobile + 30 %
+    /// desktop. Grade, certificate and verdict follow that value, not the
+    /// better viewport, and a score that disagrees with its declared
+    /// viewport inputs is rejected.
+    #[test]
+    fn differing_viewports_decide_on_the_weighted_score() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 40,
+                performance: None,
+                overall: 40,
+            },
+            weighted_overall: 58,
+        });
+        // 0.7 * 40 + 0.3 * 100 = 58 -> grade F/D band, bronze, below warn 70.
+        let n = normalize(&report).normalized;
+        // The synthetic scores have no violations to explain the lost points,
+        // so only the score-derived checks are asserted.
+        let codes_of = |n: &crate::audit::normalized::NormalizedReport| -> Vec<&'static str> {
+            n.validate()
+                .err()
+                .map(|e| e.violations.iter().map(|v| v.code).collect())
+                .unwrap_or_default()
+        };
+        let codes = codes_of(&n);
+        for derived in ["grade", "certificate", "decision", "viewport_score"] {
+            assert!(!codes.contains(&derived), "{derived} in {codes:?}");
+        }
+        assert_eq!(n.score, 58);
+        assert_eq!(n.decision.certificate, Some(Certificate::NeedsImprovement));
+        assert_eq!(n.decision.verdict, Verdict::Warn);
+        assert!(n
+            .decision
+            .reasons
+            .iter()
+            .any(|r| r.starts_with("score 58 < warn_below_score 70")));
+
+        // Publishing the desktop value as the score, with grade/certificate
+        // re-banded to match, contradicts the declared viewport inputs.
+        let mut desktop_only = n.clone();
+        desktop_only.score = 100;
+        desktop_only.grade = crate::audit::AccessibilityScorer::calculate_grade(100.0).into();
+        desktop_only.decision.certificate = Some(Certificate::VeryGood);
+        let codes = codes_of(&desktop_only);
+        assert!(codes.contains(&"viewport_score"), "{codes:?}");
     }
 }

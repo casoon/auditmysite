@@ -4,52 +4,64 @@
 
 use colored::Colorize;
 
-use crate::browser::{detect_all_browsers, resolve_browser, BrowserResolveOptions};
+use crate::browser::{
+    diagnose_browsers, BrowserDiagnosis, BrowserResolveOptions, CandidateReport, CandidateVerdict,
+};
 
 /// Run all diagnostic checks and print results
-pub fn run_doctor() {
+pub async fn run_doctor(no_sandbox: bool) {
     println!("{}", "Running diagnostics...".cyan().bold());
     println!();
 
     let mut has_errors = false;
 
-    // 1. Browser detection
-    let browsers = detect_all_browsers();
-    if browsers.is_empty() {
-        print_check("Browser", CheckStatus::Error, "No compatible browser found");
-        println!("         Install one:");
-        println!("           brew install --cask google-chrome");
-        println!("           auditmysite browser install");
+    // 1. Browser detection: every candidate with the reason it is or is not usable
+    let diagnosis = diagnose_browsers(&BrowserResolveOptions::default(), no_sandbox).await;
+    if let Some(problem) = &diagnosis.problem {
+        print_check("Platform", CheckStatus::Error, problem);
         has_errors = true;
     } else {
-        for browser in &browsers {
+        print_check("Platform", CheckStatus::Ok, &diagnosis.platform.describe());
+        if diagnosis.platform.is_edge_only() {
             print_check(
-                &format!("{}", browser.kind),
+                "Browser policy",
                 CheckStatus::Ok,
-                &format!(
-                    "v{} at {}",
-                    browser.version.as_deref().unwrap_or("unknown"),
-                    browser.path.display()
-                ),
+                "Microsoft Edge only (Chrome and managed browsers are not supported on Windows)",
             );
         }
     }
+    if diagnosis.problem.is_none() && diagnosis.candidates.is_empty() {
+        print_check("Browser", CheckStatus::Error, "No compatible browser found");
+        println!("         Install one:");
+        println!("           brew install --cask google-chrome   (macOS)");
+        println!("           sudo apt install chromium           (Linux)");
+        println!("           Microsoft Edge                      (Windows)");
+        println!(
+            "           auditmysite browser install         (macOS ARM64, Linux x86_64/ARM64)"
+        );
+        has_errors = true;
+    }
+    let selected = diagnosis.selected().map(|c| c.browser.path.clone());
+    for candidate in &diagnosis.candidates {
+        let is_selected = selected.as_ref() == Some(&candidate.browser.path);
+        let (status, detail) = describe_candidate(candidate, is_selected);
+        print_check(&format!("{}", candidate.browser.kind), status, &detail);
+    }
 
     // 2. Active browser resolution
-    let opts = BrowserResolveOptions::default();
-    match resolve_browser(&opts) {
-        Ok(resolved) => {
+    match diagnosis.selected() {
+        Some(active) => {
             print_check(
                 "Active browser",
                 CheckStatus::Ok,
                 &format!(
                     "{} v{} ({})",
-                    resolved.browser.kind,
-                    resolved.browser.version.as_deref().unwrap_or("unknown"),
-                    resolved.browser.source,
+                    active.browser.kind,
+                    active.browser.version.as_deref().unwrap_or("unknown"),
+                    active.browser.source,
                 ),
             );
-            if crate::browser::resolver::stalls_on_keyboard_journeys(&resolved.browser) {
+            if crate::browser::resolver::stalls_on_keyboard_journeys(&active.browser) {
                 print_check(
                     "Batch concurrency",
                     CheckStatus::Warning,
@@ -58,7 +70,7 @@ pub fn run_doctor() {
                 );
             }
         }
-        Err(_) => {
+        None => {
             print_check(
                 "Active browser",
                 CheckStatus::Error,
@@ -68,31 +80,8 @@ pub fn run_doctor() {
         }
     }
 
-    // 3. Managed installs
+    // 3. Legacy install check
     let managed_dir = dirs::home_dir().map(|h| h.join(".auditmysite").join("browsers"));
-    if let Some(ref dir) = managed_dir {
-        if dir.exists() {
-            let cft = dir.join("chrome-for-testing");
-            let hs = dir.join("headless-shell");
-
-            if cft.exists() {
-                let version = std::fs::read_to_string(cft.join("version.txt"))
-                    .unwrap_or_else(|_| "unknown".to_string());
-                print_check(
-                    "Managed: Chrome for Testing",
-                    CheckStatus::Ok,
-                    version.trim(),
-                );
-            }
-            if hs.exists() {
-                let version = std::fs::read_to_string(hs.join("version.txt"))
-                    .unwrap_or_else(|_| "unknown".to_string());
-                print_check("Managed: Headless Shell", CheckStatus::Ok, version.trim());
-            }
-        }
-    }
-
-    // Legacy install check
     let legacy_dir = dirs::home_dir().map(|h| h.join(".auditmysite").join("chromium"));
     if let Some(ref dir) = legacy_dir {
         if dir.exists() {
@@ -132,6 +121,106 @@ pub fn run_doctor() {
         );
     } else {
         println!("{} All checks passed.", "OK:".green().bold());
+    }
+}
+
+/// Status and one-line explanation for a candidate: selected, alternative, or why not.
+fn describe_candidate(candidate: &CandidateReport, selected: bool) -> (CheckStatus, String) {
+    let browser = &candidate.browser;
+    let what = format!(
+        "{} at {} [{}]",
+        browser
+            .version
+            .as_deref()
+            .map_or("version unknown".to_string(), |v| format!("v{v}")),
+        browser.path.display(),
+        browser.source
+    );
+    match &candidate.verdict {
+        CandidateVerdict::Viable => {
+            let role = if selected {
+                "selected"
+            } else {
+                "usable alternative (lower priority, used if the selected one fails to start)"
+            };
+            let cdp = candidate
+                .cdp_product
+                .as_deref()
+                .map(|p| format!(", headless CDP ok ({p})"))
+                .unwrap_or_default();
+            (CheckStatus::Ok, format!("{what} - {role}{cdp}"))
+        }
+        CandidateVerdict::Rejected { kind, detail } => (
+            CheckStatus::Warning,
+            format!(
+                "{what} - not usable: {} ({})",
+                shorten(detail, 220),
+                kind.as_str()
+            ),
+        ),
+    }
+}
+
+/// First `max` characters of a (possibly multi-line) reason, on one line.
+fn shorten(text: &str, max: usize) -> String {
+    let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one_line.chars().count() <= max {
+        return one_line;
+    }
+    let cut: String = one_line.chars().take(max).collect();
+    format!("{cut}... (full text: run with RUST_LOG=debug)")
+}
+
+/// Print selection, alternatives and the reason for every candidate (`browser detect`).
+pub fn print_browser_diagnosis(diagnosis: &BrowserDiagnosis) {
+    println!("  Platform: {}", diagnosis.platform.describe());
+    if let Some(problem) = &diagnosis.problem {
+        println!("  {} {}", "✗".red(), problem);
+        return;
+    }
+    if diagnosis.platform.is_edge_only() {
+        println!("  Policy:   Microsoft Edge only; Chrome and managed browsers are not supported");
+    }
+    println!();
+
+    if diagnosis.candidates.is_empty() {
+        println!(
+            "  No browsers found ({} locations searched).",
+            diagnosis.searched
+        );
+        println!();
+        println!("  Installation:");
+        println!("    macOS:   brew install --cask google-chrome");
+        println!("    Linux:   sudo apt install chromium");
+        println!("    Windows: Microsoft Edge");
+        println!("    managed: auditmysite browser install   (macOS ARM64, Linux x86_64/ARM64)");
+        return;
+    }
+
+    let selected = diagnosis.selected().map(|c| c.browser.path.clone());
+    println!("  Candidates in priority order:");
+    for (i, candidate) in diagnosis.candidates.iter().enumerate() {
+        let is_selected = selected.as_ref() == Some(&candidate.browser.path);
+        let (status, detail) = describe_candidate(candidate, is_selected);
+        let icon = match status {
+            CheckStatus::Ok if is_selected => "→".cyan(),
+            CheckStatus::Ok => "✓".green(),
+            _ => "✗".red(),
+        };
+        println!(
+            "  {} {}. {:<22} {}",
+            icon,
+            i + 1,
+            candidate.browser.kind.display_name(),
+            detail
+        );
+    }
+    println!();
+    println!("  {} locations searched.", diagnosis.searched);
+    if diagnosis.probed {
+        println!(
+            "  Viability: headless launch and DevTools connection were tried for each candidate."
+        );
     }
 }
 

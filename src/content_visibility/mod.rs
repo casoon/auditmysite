@@ -2023,7 +2023,6 @@ mod tests {
                 wcag_results: WcagResults::new(),
                 score: 95.0,
                 grade: "A".into(),
-                certificate: "SEHR GUT".into(),
                 statistics: ViolationStatistics {
                     critical: 0,
                     high: 0,

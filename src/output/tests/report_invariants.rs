@@ -352,14 +352,15 @@ fn grade_and_certificate_follow_the_accessibility_score() {
     );
     // The certificate may be risk-gated downwards, never lifted by the other
     // modules: the score-based value is its ceiling.
-    let ceiling = AccessibilityScorer::calculate_certificate(normalized.score as f32);
-    let from_overall = AccessibilityScorer::calculate_certificate(normalized.overall_score as f32);
+    let ceiling = crate::audit::Certificate::from_score(normalized.score);
+    let from_overall = crate::audit::Certificate::from_score(normalized.overall_score);
     assert_ne!(
         ceiling, from_overall,
         "fixture must make the two bases disagree"
     );
     assert_ne!(
-        normalized.certificate, from_overall,
+        normalized.decision.certificate,
+        Some(from_overall),
         "certificate must not follow the weighted overall score"
     );
 }

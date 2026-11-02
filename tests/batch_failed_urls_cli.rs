@@ -1,6 +1,8 @@
 //! #768 / #788: exit codes and CLI rejection of the batch path, through the
 //! real binary.
 
+mod common;
+
 use std::process::Command;
 
 fn binary(dir: &std::path::Path) -> Command {
@@ -89,4 +91,80 @@ fn batch_with_only_failed_urls_exits_2_without_a_score() {
     assert_eq!(summary["coverage"]["succeeded"], 0);
     assert_eq!(summary["coverage"]["attempted"], 2);
     assert_eq!(summary["coverage"]["failed"], 2);
+}
+
+/// #768: one reachable and one failing URL. The batch is neither "complete"
+/// nor an unqualified PASS: the quality is qualified, the decision names the
+/// incomplete scope and the process does not exit 0. The average stays over
+/// the one real measurement, with its denominator.
+#[test]
+#[ignore = "needs Chrome"]
+fn partially_failed_batch_is_neither_complete_nor_pass() {
+    let page = common::fixture_server::serve_html(
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\
+         <title>Fixture page</title></head><body><main><h1>Fixture</h1>\
+         <p>Plain accessible content.</p></main></body></html>"
+            .to_string(),
+    );
+    // A port nothing listens on: bind, read the port, release it.
+    let closed = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("urls.txt"),
+        format!("{}/ok\nhttp://127.0.0.1:{closed}/gone\n", page.url),
+    )
+    .unwrap();
+    let out_file = dir.path().join("batch.json");
+    let mut command = binary(dir.path());
+    command
+        .args(["--url-file", "urls.txt", "--format", "json", "-o"])
+        .arg(&out_file)
+        .args([
+            "-q",
+            "--progress",
+            "never",
+            "--timeout",
+            "60",
+            "--concurrency",
+            "1",
+        ]);
+    if std::env::var("CI").is_ok() {
+        command.arg("--no-sandbox");
+    }
+    let out = command.output().expect("binary runs");
+    page.stop();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(page.served() >= 1, "{:?}", page.transport_errors());
+
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&out_file).expect("batch JSON written"))
+            .unwrap();
+    let summary = &json["summary"];
+    assert_eq!(summary["coverage"]["attempted"], 2, "{summary}");
+    assert_eq!(summary["coverage"]["succeeded"], 1, "{summary}");
+    assert_eq!(summary["coverage"]["failed"], 1, "{summary}");
+
+    // Not "complete": the quality is qualified and names the failed URL.
+    assert_ne!(json["audit_quality"]["status"], "complete", "{json}");
+    assert_eq!(json["audit_quality"]["qualified_results"], true);
+    assert!(
+        json["audit_quality"]["reasons"]
+            .to_string()
+            .contains("failed_urls"),
+        "{json}"
+    );
+
+    // Not an unqualified PASS: the decision says the scope is incomplete and
+    // the exit code matches the stored decision.
+    assert_ne!(json["decision"]["verdict"], "pass", "{json}");
+    assert!(
+        json["decision"]["reasons"]
+            .to_string()
+            .contains("incomplete_scope"),
+        "{json}"
+    );
+    assert_ne!(out.status.code(), Some(0), "stderr: {stderr}");
 }

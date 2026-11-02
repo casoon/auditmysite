@@ -704,7 +704,6 @@ mod tests {
             nodes_analyzed: 100,
             score,
             grade: "B".into(),
-            certificate: "None".into(),
             overall_score: score,
             findings,
             severity_counts: SeverityCounts {

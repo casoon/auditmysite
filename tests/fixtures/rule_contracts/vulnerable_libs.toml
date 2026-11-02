@@ -6,11 +6,11 @@
 id = "jQuery"
 automation = "automated"
 method = "analyze_vulnerable_libraries"
-source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2020-11022, CVE-2020-11023 (fixed in 3.5.0)"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 against NVD and GitHub advisories; CVE-2020-11022 (1.12.0 to < 3.5.0), CVE-2020-11023 (1.0.3 to < 3.5.0), CVE-2015-9251 (< 3.0.0)"
 capabilities = ["dom"]
 applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
 expectation = """
-Fails for every jQuery below 3.5.0; 3.5.0 and later pass. Detected through `jQuery.fn.jquery`, the `$` alias alone, or a script path naming the core build (jquery-3.6.0.min.js, /jquery/3.6.0/jquery.min.js, jquery@3.6.0). A plugin named after jQuery (jquery-ui, jquery.validate) is not jQuery and its version is not jQuery's; the host part of a URL (127.0.0.1) is never a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+Fails for every jQuery below 3.5.0 (from 1.0.3 by CVE-2020-11023, below 3.0.0 also by CVE-2015-9251); 3.5.0 and later pass. Detected through `jQuery.fn.jquery`, the `$` alias alone, or a script path naming the core build (jquery-3.6.0.min.js, /jquery/3.6.0/jquery.min.js, jquery@3.6.0). A plugin named after jQuery (jquery-ui, jquery.validate) is not jQuery and its version is not jQuery's; the host part of a URL (127.0.0.1) is never a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
 page_level = true
 positive = ["vulnerable_libs_boundaries_last_vulnerable", "vulnerable_libs_dollar_alias", "vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_lodash", "vulnerable_libs_url_detected"]
 negative = ["vulnerable_libs_bootstrap_eol", "vulnerable_libs_boundaries_first_safe", "vulnerable_libs_current_lodash", "vulnerable_libs_lookalikes", "vulnerable_libs_url_current"]
@@ -51,7 +51,7 @@ killed_by = "test:vulnerable_libs_detection_corpus_test"
 id = "Bootstrap"
 automation = "automated"
 method = "analyze_vulnerable_libraries"
-source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2019-8331 (4.x < 4.3.1), CVE-2018-14040/14042, CVE-2024-6485, CVE-2025-1647; Bootstrap 3 end of life"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 (tooltip XSS against GHSA-9v3m-8fp8-mj99); CVE-2019-8331 (3.x < 3.4.1, 4.x < 4.3.1), CVE-2018-14040/14042, CVE-2024-6485, CVE-2025-1647; Bootstrap 3 end of life"
 capabilities = ["dom"]
 applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
 expectation = """
@@ -234,7 +234,7 @@ killed_by = "test:vulnerable_libs_detection_corpus_test"
 id = "Prototype"
 automation = "automated"
 method = "analyze_vulnerable_libraries"
-source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2020-27511 (< 1.7.4; the last release is 1.7.3); OWASP Top 10 A06 (unsupported components)"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 against NVD and the project repository; CVE-2020-27511 (reported against 1.7.3, the last release, 2015; no commit since 2017); OWASP Top 10 A06 (unsupported components)"
 capabilities = ["dom"]
 applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
 expectation = """
@@ -259,19 +259,19 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/advisories.json"
 change = "stop flagging Prototype"
-find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://prototypejs.org/\""
-replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://prototypejs.org/\""
+find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://github.com/prototypejs/prototype\""
+replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://github.com/prototypejs/prototype\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 
 [[rule]]
 id = "MooTools"
 automation = "automated"
 method = "analyze_vulnerable_libraries"
-source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-32821, CVE-2021-23432 (< 1.5.3); unmaintained since 1.6.0 (2016); OWASP Top 10 A06 (unsupported components)"
+source = "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 against GHSA-v63q-hgqc-qvpg and NVD; CVE-2021-32821, CVE-2021-23432 (no patch); unmaintained since 1.6.0 (2016); OWASP Top 10 A06 (unsupported components)"
 capabilities = ["dom"]
 applicability = "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version."
 expectation = """
-Fails for every detected MooTools version: below 1.5.3 known advisories apply, and the last release 1.6.0 is unmaintained, so no fixed line exists (OWASP A06). There is no conforming version; the negative is a look-alike: an application namespace that only shares part of the name is not `MooTools.version`. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
+Fails for every detected MooTools version: known advisories (CVE-2021-32821, CVE-2021-23432) have no patch, and the last release 1.6.0 is unmaintained, so no fixed line exists (OWASP A06). There is no conforming version; the negative is a look-alike: an application namespace that only shares part of the name is not `MooTools.version`. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean."""
 page_level = true
 positive = ["vulnerable_libs_dynamic_injection", "vulnerable_libs_outdated_underscore_and_legacy"]
 negative = ["vulnerable_libs_lookalikes"]
@@ -292,8 +292,8 @@ status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/advisories.json"
 change = "stop flagging MooTools"
-find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://mootools.net/\""
-replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://mootools.net/\""
+find = "\"fixed\": null\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://github.com/advisories/GHSA-v63q-hgqc-qvpg\""
+replace = "\"fixed\": \"0.0.1\"\n        }\n      ],\n      \"safe_version\": \"Migrate to a maintained library\",\n      \"source_url\": \"https://github.com/advisories/GHSA-v63q-hgqc-qvpg\""
 killed_by = "test:vulnerable_libs_detection_corpus_test"
 [[rule.test_strength.mutations]]
 target = "src/best_practices/vulnerable_libs.rs"

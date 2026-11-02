@@ -30,7 +30,7 @@
 - Scores use a 0–100 scale; higher values are better. The top-level `metric_context` block describes the scale and the meaning of score and count fields for machine consumers.
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
-- `grade` and `certificate` describe `accessibility_score`, the subject of the report, and are the headline classification wherever one is shown (cover, batch cover, terminal). The optional risk gate may limit an otherwise positive certificate.
+- `grade` and `decision.certificate` describe `accessibility_score`, the subject of the report, and are the headline classification wherever one is shown (cover, batch cover, terminal). The risk veto may limit an otherwise positive certificate. There is no `certificate` field on `summary` or `pages[]` (removed in `auditmysite.decision/2`).
 - `overall_score` is a secondary, explicitly labelled figure: the weighted result across the active contributing modules, reported together with `overall_score_weight_basis`. It is not the headline and carries no classification of its own.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
 - `violated_rule_count` and `severity_counts` count distinct grouped WCAG findings.
@@ -70,7 +70,11 @@ Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `so
 
 ## Decision Contract
 
-`decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/1`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict` and `reasons`.
+`decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/2`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict`, `certificate` and `reasons`.
+
+`certificate` is derived once with the verdict, from the accessibility score (bands 90/75/60/40) and the risk veto, and is language-free: `very_good`, `good`, `stable`, `needs_improvement`, `insufficient`, `restricted` (a positive band vetoed by high risk, a legal flag or a blocking issue, independent of the verdict profile) or `not_passed` (critical risk). The German and English labels shown in the terminal and PDF are rendered from this kind. A batch rates the average accessibility score with its summed risk inputs; a batch in which no URL produced a report has no `certificate`.
+
+Migration from `auditmysite.decision/1`: read `decision.certificate` instead of `summary.certificate` / `pages[].certificate` (German label, e.g. `GUT` → `good`, `EINGESCHRÄNKT` → `restricted`, `NICHT BESTANDEN` → `not_passed`); the Studio response and history entry lost their `certificate` field the same way. Cached snapshots written under `decision/1` are cache misses.
 
 - **Fail** when the profile enables it and there are legal flags, blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
 - **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding.
@@ -86,7 +90,7 @@ Every path that publishes a decision reads the stored one and validates before w
 | Summary feed (`--format summary`) | `verdict`, `verdictReasons` | `validate` |
 | SARIF | findings only; refuses invalid reports | `validate` |
 | Terminal (single, batch) | stored decision | `validate` / `validate_batch` before rendering (CLI); `terminal_prints_the_stored_decision` checks the rendered verdict |
-| Studio response and history | `decision` | Studio validates in its own repository; this crate checks nothing on that path (projection only) |
+| Studio response and history | `decision` (verdict and certificate) | Studio validates in its own repository; this crate checks nothing on that path (projection only) |
 | PDF / Typst input | `ReportViewModel.summary.ci_verdict` from the stored decision | `validate` / `validate_batch` |
 | Cache replay | the cached report re-judged under the current profile, stored in `run_context` | `validate` |
 | Exit code | stored decision (`0` pass, `1` warn, `2` fail) | `exit_code_of_the_process_is_the_exported_verdict` (real binary, needs Chrome), `batch_with_only_failed_urls_exits_2_without_a_score` |
@@ -132,7 +136,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
 
-- Scores and decision: `score_range`, `grade`, `certificate`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
+- Scores and decision: `score_range`, `grade`, `certificate`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
 - Findings and counts: `finding_domain`, `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
 - Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`.
 - Quality and collections: `accessibility_module`, `audit_quality`, `execution_completeness`, `quality_qualification`, `failed_rule_checks`, `collector_unknown`, `collection_state_unexplained`, `collection_gap_completed`, `collection_gap_scored`.
@@ -214,10 +218,10 @@ audit, viewport module results are blended first and Security contributes
 overall scores across the audited URLs.
 
 <a id="grade-certificate"></a>
-### grade_certificate — `summary.grade` / `summary.certificate`
+### grade_certificate — `summary.grade` / `decision.certificate`
 
 Classification derived from `summary.accessibility_score` — the subject of the
-report; risk gates can restrict the certificate without changing the numeric
+report; the risk veto can restrict the certificate without changing the numeric
 score. Both read the same number, so they cannot contradict each other.
 
 <a id="module-score"></a>
