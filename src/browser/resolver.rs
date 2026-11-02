@@ -6,7 +6,7 @@
 //! 3. CHROME_PATH env var (deprecated, backwards compat; ignored when it
 //!    points nowhere, because other tools set it too)
 //! 4. System scan, per kind (Chrome → Edge → Ungoogled Chromium → Chromium)
-//!    system install, user-level install, PATH (see [`super::registry`])
+//!    system install, user-level install, PATH (see `registry`)
 //! 5. Managed install (~/.auditmysite/browsers/: Chrome for Testing, then
 //!    the headless shell)
 //! 6. Error with installation hints
