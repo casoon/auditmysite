@@ -7,12 +7,19 @@
 //! - registry: Platform-specific browser paths
 //! - detection: System scanning for installed browsers
 //! - resolver: Priority-based browser selection
-//! - installer: Explicit browser installation (no auto-download)
+//! - installer: Explicit browser installation (no auto-download); facade over
+//!   install_plan (what is trusted) and install_txn (transactional install)
+//! - bootstrap: Consent policy for the one-time managed install
 //! - manager: Browser launch and CDP connection
 //! - pool: Concurrent page management
 
+pub mod bootstrap;
 pub mod consent;
 mod detection;
+pub mod install_plan;
+#[cfg(test)]
+mod install_testkit;
+pub mod install_txn;
 pub mod installer;
 mod manager;
 #[doc(hidden)]

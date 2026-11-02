@@ -13,7 +13,7 @@ pub enum AuditError {
     #[error("Audit interrupted by {signal}; in-progress work was discarded")]
     Interrupted { signal: String },
     /// No compatible Chromium-based browser found on the system
-    #[error("No compatible browser found!\n\nSupported browsers: Chrome, Edge, Chromium\n\nInstallation options:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr install a managed browser:\n  auditmysite browser install\n\nOr specify manually:\n  auditmysite --browser-path /path/to/chrome <url>\n\nRun diagnostics:\n  auditmysite doctor")]
+    #[error("No compatible browser found!\n\nSupported browsers: Chrome, Edge, Chromium (Windows: Microsoft Edge only)\n\nInstallation options:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Install or repair Microsoft Edge from https://www.microsoft.com/edge\n\nOr install a managed Chrome for Testing (macOS ARM64, Linux x86_64/ARM64; never downloaded without your consent):\n  auditmysite browser install\n  auditmysite browser ensure --yes   (opt-in for scripts and CI)\n\nOr specify manually:\n  auditmysite --browser-path /path/to/chrome <url>\n\nRun diagnostics:\n  auditmysite doctor")]
     ChromeNotFound,
 
     /// Chrome binary exists but is not executable

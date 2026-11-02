@@ -42,7 +42,10 @@ src/
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
 │   ├── detection.rs     # Find Chrome installation
-│   ├── installer.rs     # Download browser via `browser install`
+│   ├── installer.rs     # Facade: `browser install|remove`, binary paths
+│   ├── install_plan.rs  # Platform contract, publisher-manifest selection, URL trust policy
+│   ├── install_txn.rs   # Transactional install: lock, bounded download, safe extraction, CDP smoke, atomic promote/rollback
+│   ├── bootstrap.rs     # Consent policy for the one-time managed install (`browser ensure`, interactive prompt)
 │   ├── resolver.rs      # Browser path resolution
 │   ├── manager.rs       # Browser lifecycle (launch, navigate, close)
 │   ├── pool.rs          # Page pool for concurrent audits
@@ -475,7 +478,7 @@ before 2.0 can promise that every external consumer uses the checked boundary.
 
 Handles Chrome lifecycle:
 - Auto-detects Chrome/Chromium installation
-- Explicit download via `auditmysite browser install`
+- Managed Chrome for Testing only on request: `auditmysite browser install`, `browser ensure --yes`, or after the consent prompt of an interactive audit on macOS ARM64 / Linux x86_64 / Linux ARM64 (never in non-interactive, CI or Windows runs; Windows uses Edge only). Transactional and unauthenticated-by-upstream: see [chrome-dependency.md](chrome-dependency.md#2-install-chrome-srcbrowserinstallerrs)
 - Configures headless mode with security flags
 - Manages page navigation with timeouts
 

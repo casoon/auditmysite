@@ -91,7 +91,7 @@ Prebuilt binaries, building from source and the optional Cargo features: [Build 
 
 ## Requirements
 
-- Chrome, Chromium, or a managed browser install (`auditmysite browser install`). auditmysite does **not** download a browser on its own; it reports an error and exits if none is found.
+- Chrome, Chromium, or a managed browser install (`auditmysite browser install`). auditmysite downloads nothing without your consent: an interactive terminal on macOS ARM64 or Linux is asked once whether to install a managed Chrome for Testing; non-interactive and CI runs exit with an error unless you opt in with `auditmysite browser ensure --yes`. Windows uses Microsoft Edge only.
 - macOS, Linux, or Windows for released binaries; Rust as pinned in `rust-toolchain.toml` for local builds.
 
 Details, managed browsers and the macOS note on keyboard journeys: [Requirements](docs/getting-started/requirements.md).
@@ -162,7 +162,7 @@ The full list with every module and option: [Feature scope](docs/reference/featu
 </picture>
 
 Key layers:
-- `browser/`: browser detection, resolution, explicit install (`browser install` command only — no auto-download), lifecycle, pooling
+- `browser/`: browser detection, resolution, consent-based transactional install (`browser install` / `browser ensure --yes` / interactive prompt — never silent), lifecycle, pooling
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format

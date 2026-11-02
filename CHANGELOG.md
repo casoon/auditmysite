@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Added
 
+- **Browser:** consent-based bootstrap of a managed Chrome for Testing. An interactive terminal on macOS ARM64 or Linux (x86_64, ARM64) that finds no browser is asked once (source, destination, approximate size); non-interactive, CI and `--quiet` runs never download or ask and keep the existing error. `auditmysite browser ensure --yes` is the explicit opt-in, `browser install --offline` uses only a previously validated managed browser. Windows is never offered a download (Edge only). Linux ARM64 uses the official `linux-arm64` asset (Chrome for Testing 153.0.8001.0 and later) read from the publisher manifest (Refs #855).
+- **Browser:** the installer is transactional: exclusive lock, bounded download (size, total and stall time, announced length), safe extraction (path traversal, links leaving the tree, overwrites, entry and size bounds), binary and `--version` check, headless CDP smoke test, atomic promotion with rollback; the previous installation survives any failure and leftovers of crashed runs are cleaned up or restored. `install.json` records what was verified. Upstream publishes no checksum or signature, so none is claimed (limits in `docs/chrome-dependency.md`) (Refs #855).
 - **Validation:** new contract code `viewport_score`: a dual-viewport report whose `score` exceeds the 70 % mobile / 30 % desktop accessibility value of its own `viewport_scores` is rejected (Refs #781).
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
@@ -50,6 +52,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Browser:** `browser install` is idempotent: with a valid installation of the requested version it returns without network access (`--force` reinstalls); a `--version` argument is validated before it is used in a URL; the not-found error names Edge for Windows and the opt-in commands (Refs #855).
 - **Docs:** The README is a landing page (about 210 lines instead of 890). The detail moved verbatim into docs pages: feature scope, CLI and output contract, typical workflows, report modes, comparison with other tools, batch audits, requirements, build from source, the barrierlab boundary and development. Nothing was removed; the README links to each page.
 - **Tests:** The reviewed score bands of `gov.uk` (85–100), `berlin.de` (40–75) and `basf.com` (15–50) and the upper bound of `dm.de` (68) in `tests/fixtures/reference_sites.json` follow the 2.0 changes (best-practice advice no longer a failure, content-model false positives fixed); reasons in each entry's `notes`.
 - **Dependencies:** `html-conform` 0.3.3 → 0.3.4 (pulls `relax-ng` 0.2.3, `xpath-eval` 0.2.3, `schematron-engine` 0.2.1). The HTML-conformance check is much faster per page (upstream measured 8–10 ms instead of 250–900 ms for the RELAX NG stage on typical pages); findings and scores are unchanged on the pages compared.
@@ -111,6 +114,7 @@ and verification for each change is in the
 
 ### Removed
 
+- **Browser:** the hard-coded fallback version `131.0.6778.108`, the unconditional `linux64` asset on Linux, the delete-then-write replacement of a working install, and the blanket removal of the macOS quarantine attribute (Refs #855).
 - **JSON:** The `tbt_zero_heavy_page` measurement warning. A static page on a slow network has a late LCP and no long tasks; TBT 0 is a valid measurement there.
 - **Library:** Breaking: the unfinished `audit::Baseline` API (`Baseline`, `BaselineDiff`, `BaselineViolation`, `WaivedViolation`). It was not wired into the CLI and identified findings by criterion and AX node id; a baseline comparison will build on the stable finding and pattern ids.
 - **JSON:** Breaking: `summary.template_clusters`, `summary.top_recurring_rules` and `internal_comparison.root_causes`. Recurring element patterns are `summary.root_causes` with their evidence grade; the former lists either duplicated it or called anything on two pages a "likely template or component".

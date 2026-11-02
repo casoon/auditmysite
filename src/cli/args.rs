@@ -581,6 +581,22 @@ pub enum BrowserAction {
         /// Force reinstall even if already present
         #[arg(long)]
         force: bool,
+        /// No network: use a previously validated managed browser or fail
+        #[arg(long)]
+        offline: bool,
+    },
+    /// Make sure a browser is available; downloads Chrome for Testing only with --yes
+    Ensure {
+        /// Consent to the one-time managed download if no browser is found
+        /// (required in non-interactive and CI runs)
+        #[arg(long)]
+        yes: bool,
+        /// Install headless-shell instead (smaller, faster)
+        #[arg(long)]
+        headless_shell: bool,
+        /// No network: only report an existing browser
+        #[arg(long)]
+        offline: bool,
     },
     /// Remove managed browser installation
     Remove {
