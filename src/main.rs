@@ -210,12 +210,44 @@ async fn run(
 
     let is_batch = args.sitemap.is_some() || args.url_file.is_some() || args.crawl;
 
+    let result = dispatch_audit(&args, config, is_batch).await;
+    match result {
+        // An interactive terminal on a supported platform may consent to the
+        // one-time managed install (#855); everything else keeps the error.
+        Err(AuditError::ChromeNotFound)
+            if auditmysite::browser::bootstrap::is_interactive(args.quiet) =>
+        {
+            use auditmysite::browser::bootstrap::{ensure_browser, EnsureOptions, EnsureOutcome};
+            let opts = EnsureOptions {
+                artifact: auditmysite::browser::install_plan::Artifact::Chrome,
+                assume_yes: false,
+                interactive: true,
+                offline: false,
+            };
+            match ensure_browser(&opts).await? {
+                EnsureOutcome::Installed(_) | EnsureOutcome::Present(_) => {
+                    dispatch_audit(&args, config, is_batch).await
+                }
+                EnsureOutcome::Declined | EnsureOutcome::Refused(_) => {
+                    Err(AuditError::ChromeNotFound)
+                }
+            }
+        }
+        other => other,
+    }
+}
+
+async fn dispatch_audit(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    is_batch: bool,
+) -> Result<auditmysite::Verdict> {
     if args.display == Some(auditmysite::cli::DisplaySelection::All) {
-        run_display_all(&args, config, is_batch).await
+        run_display_all(args, config, is_batch).await
     } else if is_batch {
-        run_batch_mode(&args, config).await
+        run_batch_mode(args, config).await
     } else {
-        run_single_mode(&args, config).await
+        run_single_mode(args, config).await
     }
 }
 
