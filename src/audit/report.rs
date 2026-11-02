@@ -582,8 +582,6 @@ pub struct AccessibilitySection {
     pub score: f32,
     /// Letter grade (A-F)
     pub grade: String,
-    /// Certificate level (SEHR GUT, GUT, STABIL, AUSBAUFÄHIG, UNGENÜGEND)
-    pub certificate: String,
     /// Detailed violation statistics
     pub statistics: ViolationStatistics,
     /// Number of AXTree nodes analyzed
@@ -788,7 +786,6 @@ impl AuditReport {
     ) -> Self {
         let score = AccessibilityScorer::calculate_score(&wcag_results.violations);
         let grade = AccessibilityScorer::calculate_grade(score).to_string();
-        let certificate = AccessibilityScorer::calculate_certificate(score).to_string();
         let statistics = AccessibilityScorer::calculate_statistics(&wcag_results.violations);
         let nodes_analyzed = wcag_results.nodes_checked;
 
@@ -800,7 +797,6 @@ impl AuditReport {
                 wcag_results,
                 score,
                 grade,
-                certificate,
                 statistics,
                 nodes_analyzed,
                 execution: AuditExecution::default(),
@@ -1432,22 +1428,14 @@ impl SelectionProfile {
 }
 
 impl BatchSummary {
-    /// Grade and certificate of the batch, by the single-report rule: both
-    /// describe the average accessibility score, not the weighted overall,
-    /// and the certificate is gated by the batch risk (plan 29, D1). The JSON
-    /// summary and the PDF read this one function (plan 111). `None` when no
-    /// URL was measured: a grade computed from a stand-in 0 would be an F for
-    /// a site nobody looked at (#768).
-    pub fn grade_and_certificate(&self) -> Option<(String, String)> {
+    /// Grade of the batch, by the single-report rule: it describes the
+    /// average accessibility score, not the weighted overall (plan 29, D1).
+    /// The certificate is part of `decision` (#781). `None` when no URL was
+    /// measured: a grade computed from a stand-in 0 would be an F for a site
+    /// nobody looked at (#768).
+    pub fn grade(&self) -> Option<String> {
         let accessibility = self.average_score?.round() as f32;
-        let grade = AccessibilityScorer::calculate_grade(accessibility).to_string();
-        let certificate = crate::audit::normalized::gate_certificate_by_risk(
-            AccessibilityScorer::calculate_certificate(accessibility).to_string(),
-            &self.risk,
-            self.legal_flags,
-            self.blocking_issues,
-        );
-        Some((grade, certificate))
+        Some(AccessibilityScorer::calculate_grade(accessibility).to_string())
     }
 }
 
@@ -2164,7 +2152,8 @@ mod tests {
         assert_eq!(batch.summary.average_score, None);
         assert_eq!(batch.summary.average_over, 0);
         // No stand-in 0: no grade, no certificate, no score band (#768).
-        assert_eq!(batch.summary.grade_and_certificate(), None);
+        assert_eq!(batch.summary.grade(), None);
+        assert_eq!(batch.summary.decision.certificate, None);
         assert!(batch.summary.score_band_key.is_empty());
         assert_eq!(
             batch.summary.audit_quality.status,

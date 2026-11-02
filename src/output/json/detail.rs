@@ -30,7 +30,6 @@ pub(super) fn build_page(
         accessibility_score: normalized.score,
         overall_score: normalized.overall_score,
         grade: normalized.grade.clone(),
-        certificate: normalized.certificate.clone(),
         violation_count: normalized.occurrence_counts.total,
         finding_count: normalized.findings.len(),
         finding_occurrence_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
