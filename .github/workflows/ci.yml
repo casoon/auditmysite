@@ -550,7 +550,12 @@ jobs:
           CI: "true"
         run: cargo test --no-default-features --test browser_detection_chrome --test browser_pool_test -- --ignored --nocapture --test-threads=1
 
+      # Runs even when the test step failed: the legs report independently.
+      # Exit code 1 is the WARN verdict of a finished audit (partial quality
+      # of an optional module on a runner), 2 is FAIL; only a missing report
+      # or a missing browser record fails this leg.
       - name: CLI audit of a local fixture
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
         shell: bash
         env:
           AUDITMYSITE_BROWSER: ${{ steps.browser.outputs.path }}
@@ -567,9 +572,11 @@ jobs:
           status=0
           "$exe" http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json $flags || status=$?
           kill "$server" || true
-          exit "$status"
+          echo "audit exit code: $status"
+          [ "$status" -le 1 ]
 
       - name: Check the measurement profile names this platform and browser
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
         shell: bash
         env:
           EXPECT_OS: ${{ matrix.os }}
