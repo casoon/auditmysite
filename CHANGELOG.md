@@ -59,6 +59,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Pages:** the project site uses the current shared theme (0.12.5).
 - **Wording:** the display texts of AI visibility, content visibility and the search experience score ("quotable"/"zitierfähig") now describe compact, self-contained sections and claim no quotability or citation; JSON field names and dimension ids are unchanged (Refs #784).
 - **AI visibility:** the texts of the structure signals (article schema, short paragraphs, lists, content depth, canonical URL, publisher markup) describe the structure that is present and no longer speak of quotable content, source references or authority (#784).
 
