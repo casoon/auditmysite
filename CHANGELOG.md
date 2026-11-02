@@ -56,6 +56,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Contributors:** PRs and main pushes use one browser-free Quick CI job with an always-reported check for prose changes. Full browser, PDF, corpus and security QA runs manually or on the exact release tag before packaging; production-feature tests include PDF and AI transparency, with PDF rendering smoke kept separate.
+
 - **Browser:** `browser install` is idempotent: with a valid installation of the requested version it returns without network access (`--force` reinstalls); a `--version` argument is validated before it is used in a URL; the not-found error names Edge for Windows and the opt-in commands (Refs #855).
 - **Browser:** Platform contract: macOS ARM64, Linux x86_64/ARM64, Windows x86_64 with Microsoft Edge only (Chrome is not discovered and an explicit Chrome path is refused with advice). Managed installs do not exist on Windows or Linux ARM64. An unusable `--browser-path` or `AUDITMYSITE_BROWSER` now fails with its reason instead of switching browsers (Refs #854).
 - **Breaking, JSON/Studio contract:** the certificate moves into the decision (`auditmysite.decision/2`): `decision.certificate` is a language-free kind (`very_good` … `not_passed`), derived once from the accessibility score and the risk veto. `summary.certificate`, `pages[].certificate` and the Studio `certificate` fields are removed; snapshots of `decision/1` are cache misses. Migration table: [Decision contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract) (Refs #781).

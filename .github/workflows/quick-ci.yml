@@ -1,0 +1,81 @@
+name: Quick CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quick-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_BACKTRACE: 1
+
+jobs:
+  quick:
+    name: Quick checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Keep an always-running required check. Only the prose/site paths
+      # previously excluded from CI skip Rust; docs root contracts still run.
+      - name: Determine Rust scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: bash scripts/quick-ci-scope.sh >> "$GITHUB_OUTPUT"
+
+      - name: Validate CI scope and release readiness logic
+        run: |
+          python3 scripts/test_quick_ci_scope.py
+          python3 scripts/test_check_v2_readiness.py
+
+      - name: Install Rust toolchain
+        if: steps.scope.outputs.rust == 'true'
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        if: steps.scope.outputs.rust == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-quick-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-quick-${{ hashFiles('rust-toolchain.toml') }}-
+
+      - name: Check formatting
+        if: steps.scope.outputs.rust == 'true'
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (without optional features)
+        if: steps.scope.outputs.rust == 'true'
+        run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
+
+      # Includes integration_mocked and security-sensitive unit tests once;
+      # real-browser tests remain #[ignore], PDF tests stay feature-gated.
+      # Keep serialization until parallel safety has been demonstrated.
+      - name: Unit and integration tests (without optional features)
+        if: steps.scope.outputs.rust == 'true'
+        run: cargo test --locked --no-default-features -- --nocapture --test-threads=1
+
+      - name: Prose-only result
+        if: steps.scope.outputs.rust != 'true'
+        run: echo 'Prose/site-only change; Rust checks remain mandatory in full QA.'

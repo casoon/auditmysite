@@ -76,7 +76,8 @@ cargo test                     # Run all tests
 cargo test --lib               # Unit tests only
 ```
 
-**Vor jedem Push `cargo check --all-features` ausführen.** CI prüft immer mit allen Features und Clippy.
+**Vor jedem Push `cargo check --all-features` ausführen.** Quick CI prüft ohne optionale Features;
+die volle QA prüft alle Features und Clippy vor Releases oder manuell.
 Die Hooks liegen versioniert unter `.githooks/` (`git config core.hooksPath .githooks`);
 `pre-push` blockiert u. a. einen aktiven barrierlab-`[patch]`.
 
@@ -86,7 +87,9 @@ Ebenso bricht jedes neue Feld in `PipelineConfig` (öffentlich, ohne `Default`) 
 Doku-Beispiel in `src/lib.rs` — beides mitziehen (Plan 96, Schritt 7).
 
 ## Workflows (`.github/workflows/`)
-- Repo ist öffentlich: CI läuft auf PR und Push nach `main`; vor Änderungen Skill `ci-budget` laden.
+- Repo ist öffentlich: Quick CI läuft auf PR und Push nach `main`; volle QA per `workflow_call`
+  vor Release-Builds auf dem Tag-SHA oder manuell per `workflow_dispatch`, ohne Veröffentlichung.
+  Vor Änderungen Skill `ci-budget` laden; Ablauf und Statuscheck in `docs/guides/development.md`.
 - Werkzeuge nie ungepinnt installieren (kein `cargo install … --git` ohne `--rev`, kein Tool ohne
   Version); Actions per Commit-SHA, Tag als Kommentar. `cross` in `release.yml` ist auf einen Commit gepinnt.
 - Jeder neue Job bekommt `timeout-minutes`.
