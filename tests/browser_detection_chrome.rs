@@ -32,13 +32,19 @@ fn processes_using_our_profiles() -> usize {
         .count()
 }
 
+/// CI runners (Ubuntu 23.10+) have no usable Chrome sandbox; the other browser
+/// suites run with `--no-sandbox` there too.
+fn in_ci() -> bool {
+    std::env::var_os("CI").is_some()
+}
+
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn probe_launches_connects_and_cleans_up() {
     let resolved = resolve_browser(&BrowserResolveOptions::default()).expect("a browser");
     let before = profile_dirs_of_this_process();
 
-    let product = probe_cdp(&resolved.browser.path, false, Duration::from_secs(30))
+    let product = probe_cdp(&resolved.browser.path, in_ci(), Duration::from_secs(30))
         .await
         .expect("a real browser must pass the probe");
 
@@ -53,7 +59,7 @@ async fn probe_launches_connects_and_cleans_up() {
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn diagnosis_selects_a_probed_browser_and_explains_the_rest() {
-    let diagnosis = diagnose_browsers(&BrowserResolveOptions::default(), false).await;
+    let diagnosis = diagnose_browsers(&BrowserResolveOptions::default(), in_ci()).await;
 
     assert!(diagnosis.problem.is_none());
     assert!(diagnosis.probed);

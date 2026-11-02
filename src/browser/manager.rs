@@ -1348,7 +1348,10 @@ mod failover_tests {
         let real = real_chrome();
         let manager = BrowserManager::launch_chain(
             vec![candidate(broken), real.clone()],
-            BrowserOptions::default(),
+            BrowserOptions {
+                no_sandbox: std::env::var_os("CI").is_some(),
+                ..BrowserOptions::default()
+            },
         )
         .await
         .expect("the second candidate must start");
@@ -1369,7 +1372,10 @@ mod failover_tests {
         let started = std::time::Instant::now();
         let manager = BrowserManager::launch_chain(
             vec![candidate(hang), real.clone()],
-            BrowserOptions::default(),
+            BrowserOptions {
+                no_sandbox: std::env::var_os("CI").is_some(),
+                ..BrowserOptions::default()
+            },
         )
         .await
         .expect("the second candidate must start");
