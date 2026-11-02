@@ -521,6 +521,22 @@ impl BrowserManager {
         }
     }
 
+    /// How many non-default browser contexts Chrome holds right now. Lets a
+    /// test see that an isolated page's context is gone once the page is
+    /// (#856).
+    #[doc(hidden)]
+    pub async fn browser_context_count(&self) -> Result<usize> {
+        use chromiumoxide::cdp::browser_protocol::target::GetBrowserContextsParams;
+        let response = self
+            .browser
+            .execute(GetBrowserContextsParams::default())
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to list browser contexts: {e}"),
+            })?;
+        Ok(response.result.browser_context_ids.len())
+    }
+
     async fn new_page_in(&self, context: Option<BrowserContextId>) -> Result<Page> {
         use chromiumoxide::cdp::browser_protocol::emulation::SetFocusEmulationEnabledParams;
         use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
