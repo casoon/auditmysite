@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Browser pool:** `tests/browser_pool_test.rs` (Chrome, local fixtures) covers context isolation and disposal, permit accounting, failed and hung pages, cancellation and shutdown; `scripts/bench-pool.py` measures wall time, peak RSS and missing pages of the CLI against a local server, results and a draft for native platform smoke jobs in `docs/browser-pool.md` (Refs #856).
 - **Validation:** new contract code `viewport_score`: a dual-viewport report whose `score` exceeds the 70 % mobile / 30 % desktop accessibility value of its own `viewport_scores` is rejected (Refs #781).
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
@@ -117,6 +118,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Browser pool:** an `acquire` abandoned while its page was being created (caller timeout, aborted task) no longer leaves the pool one slot smaller for the rest of the run; page creation runs in its own task and an unclaimed page goes back to the pool (Refs #856).
 - **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
 - **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
 - **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
