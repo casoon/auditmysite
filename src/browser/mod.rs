@@ -4,8 +4,10 @@
 //!
 //! Architecture:
 //! - types: Core type definitions (BrowserKind, DetectedBrowser, etc.)
+//! - platform: Platform contract (macOS ARM64, Linux x64/ARM64, Windows Edge only)
 //! - registry: Platform-specific browser paths
 //! - detection: System scanning for installed browsers
+//! - probe: Bounded version query and headless CDP probe
 //! - resolver: Priority-based browser selection
 //! - installer: Explicit browser installation (no auto-download); facade over
 //!   install_plan (what is trusted) and install_txn (transactional install)
@@ -24,7 +26,9 @@ pub mod installer;
 mod manager;
 #[doc(hidden)]
 pub mod mock;
+pub mod platform;
 mod pool;
+pub mod probe;
 mod registry;
 pub mod resolver;
 pub mod state;
@@ -35,9 +39,15 @@ pub mod types;
 pub use consent::{handle_post_navigation, inject_consent_cookies, ConsentResult};
 pub use detection::detect_all_browsers;
 pub use installer::BrowserInstaller;
-pub use resolver::{resolve_browser, BrowserResolveOptions};
+pub use platform::{Arch, Os, Platform};
+pub use probe::{probe_cdp, query_version, ProbeFailure, VersionOutcome};
+pub use resolver::{
+    diagnose_browsers, diagnose_browsers_static, resolve_browser, BrowserDiagnosis,
+    BrowserResolveOptions,
+};
 pub use types::{
-    BrowserKind, BrowserMode, BrowserSource, DetectedBrowser, InstallTarget, ResolvedBrowser,
+    BrowserKind, BrowserMode, BrowserSource, CandidateReport, CandidateVerdict, DetectedBrowser,
+    InstallTarget, RejectionKind, ResolvedBrowser,
 };
 
 // Legacy API (still used by main.rs and manager.rs)

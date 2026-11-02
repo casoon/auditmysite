@@ -81,6 +81,9 @@ impl Artifact {
 impl Platform {
     /// The platform this binary runs on, or why it has no managed browser.
     pub fn detect() -> Result<Self, InstallError> {
+        if let Some(reason) = super::platform::Platform::current().managed_unavailable_reason() {
+            return Err(InstallError::UnsupportedPlatform(reason));
+        }
         Self::from_target(std::env::consts::OS, std::env::consts::ARCH)
     }
 

@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 
 use tracing::warn;
 
-use super::install_plan::{Artifact, Platform};
+use super::install_plan::{Artifact, Platform as PlanPlatform};
 use super::install_txn::{InstallError, InstallOutcome, InstallPreview, InstallRequest, Installer};
+use super::platform::{Arch, Os, Platform};
 use super::types::InstallTarget;
 use crate::error::{AuditError, Result};
 
@@ -27,6 +28,9 @@ impl BrowserInstaller {
         version: Option<&str>,
         force: bool,
     ) -> Result<PathBuf> {
+        if let Some(reason) = Platform::current().managed_unavailable_reason() {
+            return Err(AuditError::UnsupportedBrowser { reason });
+        }
         let request = InstallRequest {
             artifact: target.into(),
             version: version.map(str::to_string),
@@ -129,17 +133,21 @@ impl BrowserInstaller {
         Ok(())
     }
 
-    /// Binary of a managed install below `target_dir`. On platforms without
-    /// a managed browser (Windows, macOS Intel) this is the path the old
-    /// layout would have had, which never exists.
-    pub(crate) fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
-        let artifact = Artifact::from(target);
-        match Platform::detect() {
-            Ok(platform) => target_dir.join(platform.binary_rel_path(artifact)),
-            Err(_) => target_dir
-                .join("unsupported-platform")
-                .join(artifact.dir_name()),
-        }
+    /// Binary of a managed install on `platform`; `None` where no managed
+    /// browser exists (see [`Platform::managed_platform_string`]). The layout
+    /// is the archive's own, so Linux ARM64 is `chrome-linux-arm64/`.
+    pub(crate) fn binary_path_for(
+        platform: Platform,
+        target_dir: &Path,
+        target: InstallTarget,
+    ) -> Option<PathBuf> {
+        let plan = match (platform.os, platform.arch) {
+            (Os::MacOs, Arch::Aarch64) => PlanPlatform::MacArm64,
+            (Os::Linux, Arch::X86_64) => PlanPlatform::LinuxX64,
+            (Os::Linux, Arch::Aarch64) => PlanPlatform::LinuxArm64,
+            _ => return None,
+        };
+        Some(target_dir.join(plan.binary_rel_path(Artifact::from(target))))
     }
 
     fn install_root() -> std::result::Result<PathBuf, InstallError> {

@@ -20,6 +20,10 @@ pub enum AuditError {
     #[error("Chrome binary at '{path}' is not executable. Try: chmod +x {path}")]
     ChromeNotExecutable { path: PathBuf },
 
+    /// The browser or platform is outside the platform contract (#854)
+    #[error("Unsupported browser or platform: {reason}")]
+    UnsupportedBrowser { reason: String },
+
     /// Browser failed to launch
     #[error("Failed to launch browser: {reason}")]
     BrowserLaunchFailed { reason: String },
