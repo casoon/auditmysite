@@ -575,15 +575,35 @@ jobs:
           exe="target/debug/auditmysite"
           [ "$RUNNER_OS" = "Windows" ] && exe="$exe.exe"
           py="$(command -v python3 || command -v python)"
-          "$py" -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >/dev/null 2>&1 &
-          server=$!
-          sleep 2
+          # The server is started detached (a plain `&` job can die with the
+          # Git Bash step shell on Windows) and polled until it answers; its
+          # log is kept and printed when it never comes up.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -Command "Start-Process -FilePath '$py' -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','tests/fixtures' -RedirectStandardOutput server.log -RedirectStandardError server.err.log -WindowStyle Hidden"
+          else
+            "$py" -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >server.log 2>server.err.log &
+            server=$!
+          fi
+          ready=0
+          for _ in $(seq 1 30); do
+            if "$py" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/perfect.html', timeout=2)" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::fixture server did not answer on 127.0.0.1:8765 within 30 s (python: $py)"
+            cat server.log server.err.log
+            exit 1
+          fi
           flags=""
           [ "$RUNNER_OS" = "Linux" ] && flags="--no-sandbox"
           status=0
           "$exe" http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json $flags || status=$?
-          kill "$server" || true
+          [ -n "${server:-}" ] && { kill "$server" || true; }
           echo "audit exit code: $status"
+          [ "$status" -le 1 ] || cat server.log server.err.log
           [ "$status" -le 1 ]
 
       - name: Check the measurement profile names this platform and browser
