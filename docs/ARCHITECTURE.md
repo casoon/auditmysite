@@ -41,14 +41,16 @@ src/
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
-│   ├── detection.rs     # Find Chrome installation
+│   ├── platform.rs      # Platform contract (macOS ARM64, Linux x64/ARM64, Windows Edge only)
+│   ├── detection.rs     # Candidate scan: dedup by canonical path, verdict per candidate
+│   ├── probe.rs         # Bounded `--version` and headless CDP probe (launch, connect, cleanup)
 │   ├── installer.rs     # Download browser via `browser install`
-│   ├── resolver.rs      # Browser path resolution
+│   ├── resolver.rs      # Selection, failover chain, browser diagnosis (detect/doctor)
 │   ├── manager.rs       # Browser lifecycle (launch, navigate, close)
 │   ├── pool.rs          # Page pool for concurrent audits
 │   ├── consent.rs       # CMP cookie injection + consent-banner dismissal
 │   ├── throttle.rs      # CPU/network throttling profiles
-│   ├── registry.rs      # Known-browser registry
+│   ├── registry.rs      # Known install locations and PATH names per platform
 │   └── mock.rs          # Test-only mock browser
 │
 ├── accessibility/       # Accessibility Tree handling
@@ -474,7 +476,18 @@ before 2.0 can promise that every external consumer uses the checked boundary.
 ### BrowserManager
 
 Handles Chrome lifecycle:
-- Auto-detects Chrome/Chromium installation
+- Auto-detects Chrome/Chromium/Edge installations in a fixed order: per kind (Chrome, Edge,
+  Ungoogled Chromium, Chromium) system install, user-level install, `PATH`; duplicates are
+  listed once (canonical path). Managed installs come after every existing browser, full
+  Chrome for Testing before the headless shell
+- Platform contract (`browser::platform`): macOS ARM64, Linux x86_64/ARM64, Windows x86_64 with
+  Microsoft Edge only (also for `--browser-path`/env vars); no managed browser on Windows or
+  Linux ARM64
+- An automatically selected browser that fails to start hands over to the next viable candidate
+  (`ResolvedBrowser::launch_chain`), keeping one diagnosis per attempt; an explicit path never
+  falls back unless `BrowserResolveOptions::fallback_to_auto` is set
+- `browser detect` and `doctor` run `diagnose_browsers`: version query and headless CDP launch are
+  time-bounded; every candidate shows its verdict (selected / alternative / reason)
 - Explicit download via `auditmysite browser install`
 - Configures headless mode with security flags
 - Manages page navigation with timeouts

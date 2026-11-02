@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use tracing::{info, warn};
 
+use super::platform::{Os, Platform};
 use super::types::InstallTarget;
 use crate::error::{AuditError, Result};
 
@@ -30,6 +31,9 @@ impl BrowserInstaller {
         version: Option<&str>,
         force: bool,
     ) -> Result<PathBuf> {
+        if let Some(reason) = Platform::current().managed_unavailable_reason() {
+            return Err(AuditError::UnsupportedBrowser { reason });
+        }
         let base_dir = Self::browsers_dir()?;
         let (target_name, channel) = match target {
             InstallTarget::ChromeForTesting => ("chrome-for-testing", "chrome"),
@@ -38,14 +42,15 @@ impl BrowserInstaller {
 
         let target_dir = base_dir.join(target_name);
 
-        // Check if already installed
+        // Check if already installed. A directory whose binary is gone is a
+        // stale install and is reinstalled instead of reported as present.
         if target_dir.exists() && !force {
             let existing_version = fs::read_to_string(target_dir.join("version.txt"))
                 .unwrap_or_default()
                 .trim()
                 .to_string();
 
-            if !existing_version.is_empty() {
+            if !existing_version.is_empty() && Self::binary_path(&target_dir, target).exists() {
                 println!("Already installed: {} v{}", target_name, existing_version);
                 println!("Use --force to reinstall.");
 
@@ -201,49 +206,45 @@ impl BrowserInstaller {
     }
 
     fn platform_string() -> &'static str {
-        if cfg!(target_os = "macos") {
-            if cfg!(target_arch = "aarch64") {
-                "mac-arm64"
-            } else {
-                "mac-x64"
-            }
-        } else if cfg!(target_os = "linux") {
-            "linux64"
-        } else {
-            "win64"
-        }
+        // Only reached after `install` checked the platform contract.
+        Platform::current()
+            .managed_platform_string()
+            .unwrap_or("linux64")
     }
 
     pub(crate) fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
-        let platform = Self::platform_string();
+        Self::binary_path_for(Platform::current(), target_dir, target)
+            .unwrap_or_else(|| target_dir.to_path_buf())
+    }
 
-        match target {
+    /// Binary of a managed install on `platform`; `None` where no managed
+    /// browser exists (see [`Platform::managed_platform_string`]).
+    pub(crate) fn binary_path_for(
+        platform: Platform,
+        target_dir: &Path,
+        target: InstallTarget,
+    ) -> Option<PathBuf> {
+        let platform_str = platform.managed_platform_string()?;
+
+        Some(match target {
             InstallTarget::ChromeForTesting => {
-                let inner_dir = format!("chrome-{}", platform);
-                if cfg!(target_os = "macos") {
+                let inner_dir = format!("chrome-{}", platform_str);
+                if platform.os == Os::MacOs {
                     target_dir
                         .join(&inner_dir)
                         .join("Google Chrome for Testing.app")
                         .join("Contents")
                         .join("MacOS")
                         .join("Google Chrome for Testing")
-                } else if cfg!(target_os = "windows") {
-                    target_dir.join(&inner_dir).join("chrome.exe")
                 } else {
                     target_dir.join(&inner_dir).join("chrome")
                 }
             }
             InstallTarget::HeadlessShell => {
-                let inner_dir = format!("chrome-headless-shell-{}", platform);
-                if cfg!(target_os = "windows") {
-                    target_dir
-                        .join(&inner_dir)
-                        .join("chrome-headless-shell.exe")
-                } else {
-                    target_dir.join(&inner_dir).join("chrome-headless-shell")
-                }
+                let inner_dir = format!("chrome-headless-shell-{}", platform_str);
+                target_dir.join(&inner_dir).join("chrome-headless-shell")
             }
-        }
+        })
     }
 
     fn browsers_dir() -> Result<PathBuf> {

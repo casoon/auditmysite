@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Browser:** `browser detect` and `doctor` show the selected browser, the usable alternatives and the reason for every unusable candidate; each candidate is started headless over CDP (time-bounded) before it counts as usable. Discovery has a fixed order (system install, user-level install, `PATH`), de-duplicates by canonical path and labels each source. An automatically selected browser that fails to start hands over to the next one, with every attempt kept in the error (Refs #854).
 - **Validation:** new contract code `viewport_score`: a dual-viewport report whose `score` exceeds the 70 % mobile / 30 % desktop accessibility value of its own `viewport_scores` is rejected (Refs #781).
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
@@ -50,6 +51,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Browser:** Platform contract: macOS ARM64, Linux x86_64/ARM64, Windows x86_64 with Microsoft Edge only (Chrome is not discovered and an explicit Chrome path is refused with advice). Managed installs do not exist on Windows or Linux ARM64. An unusable `--browser-path` or `AUDITMYSITE_BROWSER` now fails with its reason instead of switching browsers (Refs #854).
 - **Docs:** The README is a landing page (about 210 lines instead of 890). The detail moved verbatim into docs pages: feature scope, CLI and output contract, typical workflows, report modes, comparison with other tools, batch audits, requirements, build from source, the barrierlab boundary and development. Nothing was removed; the README links to each page.
 - **Tests:** The reviewed score bands of `gov.uk` (85–100), `berlin.de` (40–75) and `basf.com` (15–50) and the upper bound of `dm.de` (68) in `tests/fixtures/reference_sites.json` follow the 2.0 changes (best-practice advice no longer a failure, content-model false positives fixed); reasons in each entry's `notes`.
 - **Dependencies:** `html-conform` 0.3.3 → 0.3.4 (pulls `relax-ng` 0.2.3, `xpath-eval` 0.2.3, `schematron-engine` 0.2.1). The HTML-conformance check is much faster per page (upstream measured 8–10 ms instead of 250–900 ms for the RELAX NG stage on typical pages); findings and scores are unchanged on the pages compared.
