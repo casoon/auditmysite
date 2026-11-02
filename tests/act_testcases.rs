@@ -11,8 +11,8 @@
 //! `ACT_RULES` selects `starter` (default: the `starter` rules of
 //! `docs/act-mapping.json`), `full` (every `full` + `active` rule) or a comma
 //! separated list of ACT ids (which must still be `full` + `active`).
-//! Results go to `$ACT_OUT_DIR` (default `<target>/act/`) as `results.json` and
-//! `report.md`. Deviations are findings about the tool: the run reports them
+//! Results go to `$ACT_OUT_DIR` (default `<target>/act/`) as `results.json`,
+//! `earl.json` (EARL JSON-LD; never `earl:passed`, see `docs/ACT_COVERAGE.md`) and `report.md`. Deviations are findings about the tool: the run reports them
 //! and fails only with `ACT_FAIL_ON_DEVIATION=1`. Expectations come from the
 //! ACT example headings, never from a run. Details: `docs/ACT_COVERAGE.md`.
 //!
@@ -224,6 +224,59 @@ fn consistency_levels() {
     assert_eq!(consistency(&[FalseNegative, FalsePositive]), "inconsistent");
 }
 
+fn earl_for(outcome: &str) -> Value {
+    let results = serde_json::json!({
+        "act_source": { "repository": "https://example.org/r", "commit": "abc" },
+        "rules": [{
+            "act_id": "97a4e1", "internal_rules": ["buttons/name-missing"],
+            "testcases": [{ "testcase_id": "97a4e1/failed-example-1", "outcome": outcome,
+                            "source_file": "_rules/x-97a4e1.md" }],
+        }],
+    });
+    let map = serde_json::json!({ "rules": [{ "act_id": "97a4e1", "wcag_sc": ["4.1.2"] }] });
+    earl_json(&results, &map)
+}
+
+#[test]
+fn earl_has_the_documented_structure() {
+    let earl = earl_for("failed");
+    assert_eq!(
+        earl["@context"],
+        "https://act-rules.github.io/earl-context.json"
+    );
+    let subject = &earl["@graph"][0];
+    assert_eq!(subject["@type"], "TestSubject");
+    assert_eq!(
+        subject["source"],
+        "https://example.org/r/blob/abc/_rules/x-97a4e1.md#failed-example-1"
+    );
+    let a = &subject["assertions"][0];
+    assert_eq!(a["@type"], "Assertion");
+    assert_eq!(a["result"]["outcome"], "earl:failed");
+    assert_eq!(a["test"]["title"], "buttons/name-missing");
+    assert_eq!(a["test"]["isPartOf"][0]["title"], "WCAG 2: 4.1.2");
+}
+
+#[test]
+fn earl_never_claims_passed_or_inapplicable_from_an_ambiguous_run() {
+    let earl = earl_for("passedOrInapplicable");
+    assert!(earl["@graph"][0]["assertions"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    for (outcome, expected) in [
+        ("cantTell", "earl:cantTell"),
+        ("inapplicable", "earl:inapplicable"),
+        ("notRun", "earl:untested"),
+        ("auditError", "earl:untested"),
+    ] {
+        assert_eq!(
+            earl_for(outcome)["@graph"][0]["assertions"][0]["result"]["outcome"],
+            expected
+        );
+    }
+}
+
 #[test]
 fn mapping_selection_defaults_to_the_starter_set() {
     let rules = selected_rules("starter");
@@ -354,6 +407,11 @@ async fn act_testcases_against_real_audit_run() {
     std::fs::write(
         out.join("results.json"),
         serde_json::to_string_pretty(&results).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        out.join("earl.json"),
+        serde_json::to_string_pretty(&earl_json(&results, &mapping())).unwrap(),
     )
     .unwrap();
     let markdown = render_markdown(&results);

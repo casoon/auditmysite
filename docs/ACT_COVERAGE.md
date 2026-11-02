@@ -233,6 +233,18 @@ ACT_RULES=97a4e1,b5c3f8 cargo test --test act_testcases -- --ignored --nocapture
 
 `testcase_id` is `<act_id>/<slug>` of the example heading; the hash ids of the published `testcases.json` are not reproduced.
 
+**EARL** (`earl.json`, #838). The harness also writes an [EARL JSON-LD report](https://act-rules.github.io/pages/implementations/earl-reports/) (`@context` `https://act-rules.github.io/earl-context.json`, `@graph` of `TestSubject`s with `Assertion`s) built from `results.json` and the mapping by `earl_json` in `tests/common/act_harness.rs`. It is part of the ACT evidence, not a product output format (the product stays JSON + PDF). Rules of the mapping:
+
+| Derived outcome | EARL |
+| --- | --- |
+| `failed` | `earl:failed` |
+| `cantTell` | `earl:cantTell` |
+| `inapplicable` (every mapped rule `NotRun(NotApplicable)`) | `earl:inapplicable` |
+| `notRun`, `auditError` | `earl:untested` |
+| `passedOrInapplicable` | no assertion (empty `assertions`) |
+
+`earl:passed` is never emitted: passed and inapplicable cannot be told apart, and the expectation of the example must not leak into the result. `test.title` is the internal rule id(s) joined by `+`; `isPartOf` uses the permissive object form `{"title": "WCAG 2: <sc>"}` from the mapping, so no `sc-urls.json` table is copied. `source` is a link to the example in the pinned rule file (`.../blob/<commit>/_rules/<file>.md#<slug>`); the hash URLs of the published `testcases.json` are not reproduced, so matching them is a step of the submission (#839).
+
 ### Result: starter set (commit `50d2bed`, 2026-11-02)
 
 118 test cases of 9 rules; 100 agree with the expectation. Of the 18 deviations, 2 are false positives, 7 false negatives, 4 cant_tell, 3 not run, 2 audit errors. Expectations come from the example headings, not from the run. These are findings about the tool, not adjusted away; the rules involved are shared rules and belong to barrierlab (`a11y-rules`), so they are documented here and not patched in `src/wcag/shared.rs`.

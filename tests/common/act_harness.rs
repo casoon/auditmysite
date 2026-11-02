@@ -625,3 +625,78 @@ pub fn render_markdown(results: &Value) -> String {
     }
     out
 }
+
+// --- EARL ----------------------------------------------------------------
+
+/// EARL outcome for one derived outcome, or `None` when the run makes no
+/// statement. `passedOrInapplicable` never becomes `earl:passed` or
+/// `earl:inapplicable`: a rule that ran does not say whether it found
+/// applicable content, and the expectation of the example must not leak into
+/// the result.
+fn earl_outcome(outcome: &str) -> Option<&'static str> {
+    match outcome {
+        "failed" => Some("earl:failed"),
+        "cantTell" => Some("earl:cantTell"),
+        "inapplicable" => Some("earl:inapplicable"),
+        "notRun" | "auditError" => Some("earl:untested"),
+        _ => None,
+    }
+}
+
+/// EARL JSON-LD report (https://act-rules.github.io/pages/implementations/earl-reports/)
+/// from `results_json` and `docs/act-mapping.json`. One `TestSubject` per
+/// test case; `source` points at the example in the rule file at the pinned
+/// commit (the published hash URLs of `testcases.json` are not reproduced).
+/// `test.title` is the internal rule id(s) that produced the result, `isPartOf`
+/// the success criteria of the mapping (`WCAG 2: <number>` form).
+pub fn earl_json(results: &Value, mapping: &Value) -> Value {
+    let repo = results["act_source"]["repository"].as_str().unwrap_or("");
+    let commit = results["act_source"]["commit"].as_str().unwrap_or("");
+    let mut graph = Vec::new();
+    for rule in results["rules"].as_array().into_iter().flatten() {
+        let act_id = rule["act_id"].as_str().unwrap_or("");
+        let title = rule["internal_rules"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join("+");
+        let is_part_of: Vec<Value> = mapping["rules"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|m| m["act_id"] == act_id)
+            .and_then(|m| m["wcag_sc"].as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|sc| sc.as_str())
+            .map(|sc| json!({ "title": format!("WCAG 2: {sc}") }))
+            .collect();
+        for case in rule["testcases"].as_array().into_iter().flatten() {
+            let assertions: Vec<Value> = earl_outcome(case["outcome"].as_str().unwrap_or(""))
+                .map(|outcome| {
+                    json!({
+                        "@type": "Assertion",
+                        "result": { "outcome": outcome },
+                        "test": { "title": title, "isPartOf": is_part_of },
+                    })
+                })
+                .into_iter()
+                .collect();
+            graph.push(json!({
+                "@type": "TestSubject",
+                "source": format!(
+                    "{repo}/blob/{commit}/{}#{}",
+                    case["source_file"].as_str().unwrap_or(""),
+                    case["testcase_id"].as_str().unwrap_or("").rsplit('/').next().unwrap_or("")
+                ),
+                "assertions": assertions,
+            }));
+        }
+    }
+    json!({
+        "@context": "https://act-rules.github.io/earl-context.json",
+        "@graph": graph,
+    })
+}

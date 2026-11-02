@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Validation:** The ACT harness also writes `earl.json`, an EARL JSON-LD report (`failed`, `cantTell`, `inapplicable`, `untested`; never `passed`, because passed and inapplicable cannot be told apart), rules in `docs/ACT_COVERAGE.md` (#838).
 - **Validation:** `tests/act_testcases.rs` (`#[ignore]`, Chrome) runs auditmysite against the W3C ACT test cases of every `full` + `active` rule in `docs/act-mapping.json` and writes `results.json` / `report.md` with a verdict per test case and a consistency level per rule. `scripts/act-fetch.sh` downloads the pinned ACT commit into a cache and checks a content digest; nothing is copied into the repository. First run of the starter set: 100 of 118 test cases agree, deviations are listed in `docs/ACT_COVERAGE.md` (#837).
 - **Docs:** `docs/act-mapping.json` maps internal rule ids to W3C ACT rule ids with a coverage level (full, partial, none, unclear), explained in `docs/ACT_COVERAGE.md` together with missing-rule candidates and a first submission set (#836). `tests/act_mapping.rs` checks that every mapped rule id exists.
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
