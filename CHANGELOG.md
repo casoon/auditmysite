@@ -60,6 +60,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **AI visibility:** the texts of the structure signals (article schema, short paragraphs, lists, content depth, canonical URL, publisher markup) describe the structure that is present and no longer speak of quotable content, source references or authority (#784).
+
 - **Contributors:** PRs and main pushes use one browser-free Quick CI job with an always-reported check for prose changes. Full browser, PDF, corpus and security QA runs manually or on the exact release tag before packaging; production-feature tests include PDF and AI transparency, with PDF rendering smoke kept separate.
 
 - **Browser:** `browser install` is idempotent: with a valid installation of the requested version it returns without network access (`--force` reinstalls); a `--version` argument is validated before it is used in a URL; the not-found error names Edge for Windows and the opt-in commands (Refs #855).

@@ -1845,6 +1845,53 @@ pub(crate) fn counter_cases() {
     assert!(provenance.final_url.ends_with("/final"), "{provenance:?}");
     assert_eq!(provenance.method, "HEAD");
 
+    // The path the pipeline and `SecurityModule::collect` take: through
+    // `analyze_security` and the collection log. A failed fetch is no
+    // analysis (no headers, no score) and leaves a failed `security.headers`
+    // record that the module run keeps; a 405 `HEAD` is answered by `GET`.
+    let analyze = |url: &str| {
+        let log = crate::audit::collection::CollectionLog::new();
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(analyze_security(url, &log));
+        (result, log.into_records())
+    };
+    let (result, records) = analyze(&format!("{forbidden}/"));
+    assert!(result.is_err(), "a 403 must not become an analysis");
+    let headers_record = records
+        .iter()
+        .find(|r| r.collector == "security.headers")
+        .expect("the failed fetch is recorded");
+    assert_eq!(headers_record.state, CollectionState::Failed);
+    assert_eq!(
+        headers_record.reason_code.as_deref(),
+        Some("http_error_status")
+    );
+    let mut runs = vec![crate::audit::ModuleRun {
+        module: "security".to_string(),
+        status: crate::audit::ExecutionStatus::Failed,
+        reason_code: Some("security_analysis_failed".to_string()),
+        ..Default::default()
+    }];
+    crate::audit::collection::fold_records(&mut runs, records);
+    assert_eq!(runs[0].status, crate::audit::ExecutionStatus::Failed);
+    assert!(runs[0]
+        .subchecks
+        .iter()
+        .any(|s| s.subcheck == "security.headers" && s.state == Some(CollectionState::Failed)));
+
+    let (result, _) = analyze(&format!("{head_rejected}/"));
+    let analysis = result.expect("the GET fallback is analysed");
+    assert_eq!(analysis.fetch.method, "GET");
+    assert_eq!(analysis.fetch.head_status, Some(405));
+    assert_eq!(
+        analysis.headers.x_frame_options.as_deref(),
+        Some("DENY"),
+        "the score rests on the GET answer's headers"
+    );
+
     // The probe's document vs. the browser's.
     let probe = HeaderFetch {
         final_url: "http://example.com/".into(),

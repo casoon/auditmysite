@@ -75,23 +75,7 @@ impl AuditModule for NetworkDnsModule {
         };
         let host = host.to_string();
 
-        let cached = dns_cache().lock().await.get(&host).cloned();
-        let result = match cached {
-            Some(result) => *result,
-            None => {
-                let result = query_dns(&host).await;
-                let complete = [result.caa, result.dnssec, result.mx, result.spf]
-                    .iter()
-                    .all(|answer| !matches!(answer, DnsAnswer::Unknown(_)));
-                if complete {
-                    dns_cache()
-                        .lock()
-                        .await
-                        .insert(host.clone(), Arc::new(result));
-                }
-                result
-            }
-        };
+        let result = cached_result(dns_cache(), &host, || query_dns(&host)).await;
 
         // Every check records its answer; unknown ones as failed (#776).
         let log = ctx.collection;
@@ -103,5 +87,82 @@ impl AuditModule for NetworkDnsModule {
         Ok(ModuleData::NetworkDns(Box::new(build_analysis(
             &host, &result,
         ))))
+    }
+}
+
+/// The cached answer for `host`, or the result of `query`. Only a complete
+/// result is stored: a timeout or SERVFAIL must not stand in for the whole
+/// run (#776), so a later success is seen.
+async fn cached_result<F, Fut>(
+    cache: &Mutex<HashMap<String, Arc<DnsCheckResult>>>,
+    host: &str,
+    query: F,
+) -> DnsCheckResult
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = DnsCheckResult>,
+{
+    if let Some(result) = cache.lock().await.get(host).cloned() {
+        return *result;
+    }
+    let result = query().await;
+    let complete = [result.caa, result.dnssec, result.mx, result.spf]
+        .iter()
+        .all(|answer| !matches!(answer, DnsAnswer::Unknown(_)));
+    if complete {
+        cache
+            .lock()
+            .await
+            .insert(host.to_string(), Arc::new(result));
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use DnsAnswer::{Absent, Present, Unknown};
+
+    fn answers(caa: DnsAnswer, mx: DnsAnswer) -> DnsCheckResult {
+        DnsCheckResult {
+            caa,
+            dnssec: Present,
+            mx,
+            spf: Present,
+        }
+    }
+
+    /// #776: an incomplete answer (SERVFAIL, timeout) is not cached; the
+    /// next page of the run asks again and sees the success. A complete one
+    /// is asked for once.
+    #[tokio::test]
+    async fn incomplete_answers_are_not_cached_and_a_later_success_shows() {
+        let cache = Mutex::new(HashMap::new());
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let ask = |result: DnsCheckResult| {
+            calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            async move { result }
+        };
+
+        let first = cached_result(&cache, "example.com", || {
+            ask(answers(Unknown("dns_timeout"), Present))
+        })
+        .await;
+        assert_eq!(first.caa, Unknown("dns_timeout"));
+        assert!(cache.lock().await.is_empty(), "unknown must not be cached");
+
+        let second = cached_result(&cache, "example.com", || ask(answers(Absent, Present))).await;
+        assert_eq!(second.caa, Absent, "the later success is visible");
+        assert_eq!(cache.lock().await.len(), 1);
+
+        let third = cached_result(&cache, "example.com", || {
+            ask(answers(
+                Unknown("dns_lookup_failed"),
+                Unknown("dns_timeout"),
+            ))
+        })
+        .await;
+        assert_eq!(third.caa, Absent, "a complete answer is reused");
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
     }
 }
