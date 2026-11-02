@@ -525,6 +525,13 @@ mod tests {
         )
         .unwrap();
         assert!(mac.to_string_lossy().contains("chrome-mac-arm64"));
+        let arm = BrowserInstaller::binary_path_for(
+            Platform::new(Os::Linux, Arch::Aarch64),
+            &base,
+            InstallTarget::ChromeForTesting,
+        )
+        .unwrap();
+        assert!(arm.ends_with("chrome-linux-arm64/chrome"));
         assert!(BrowserInstaller::binary_path_for(
             Platform::new(Os::Windows, Arch::X86_64),
             &base,
@@ -985,20 +992,17 @@ mod resolution_tests {
     }
 
     #[test]
-    fn linux_arm64_never_offers_a_managed_install() {
+    fn linux_arm64_finds_its_managed_install_in_the_arm64_layout() {
         let m = Machine::new(LINUX_ARM);
-        let dir = m.home().join(".auditmysite/browsers/chrome-for-testing");
-        std::fs::create_dir_all(&dir).unwrap();
-        m.install("/usr/bin/chromium", "Chromium");
+        let binary = m.install_managed(InstallTarget::ChromeForTesting, "chrome-for-testing");
+        assert!(
+            binary.ends_with("chrome-linux-arm64/chrome"),
+            "{}",
+            binary.display()
+        );
         let r = m.resolve(&auto()).unwrap();
-        assert_eq!(r.browser.kind, BrowserKind::Chromium);
-        assert!(matches!(
-            r.candidates.last().unwrap().verdict,
-            CandidateVerdict::Rejected {
-                kind: RejectionKind::Excluded,
-                ..
-            }
-        ));
+        assert_eq!(r.browser.kind, BrowserKind::ChromeForTesting);
+        assert_eq!(r.browser.path, binary);
     }
 
     #[test]

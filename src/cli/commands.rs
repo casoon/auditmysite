@@ -457,14 +457,70 @@ async fn handle_browser_command(action: &BrowserAction, no_sandbox: bool) -> Res
             headless_shell,
             version,
             force,
+            offline,
         } => {
             let target = if *headless_shell {
                 InstallTarget::HeadlessShell
             } else {
                 InstallTarget::ChromeForTesting
             };
-            BrowserInstaller::install(target, version.as_deref(), *force).await?;
+            if *offline {
+                // `browser install` is the explicit request; offline only
+                // forbids the network.
+                let request = auditmysite::browser::install_txn::InstallRequest {
+                    artifact: target.into(),
+                    version: version.clone(),
+                    force: *force,
+                    offline: true,
+                };
+                let outcome = BrowserInstaller::run(&request).await?;
+                println!(
+                    "Using validated managed browser v{} at {}",
+                    outcome.version(),
+                    outcome.binary().display()
+                );
+            } else {
+                BrowserInstaller::install(target, version.as_deref(), *force).await?;
+            }
             Ok(0.0)
+        }
+
+        BrowserAction::Ensure {
+            yes,
+            headless_shell,
+            offline,
+        } => {
+            use auditmysite::browser::bootstrap::{
+                ensure_browser, is_interactive, EnsureOptions, EnsureOutcome,
+            };
+            let opts = EnsureOptions {
+                artifact: if *headless_shell {
+                    auditmysite::browser::install_plan::Artifact::HeadlessShell
+                } else {
+                    auditmysite::browser::install_plan::Artifact::Chrome
+                },
+                assume_yes: *yes,
+                interactive: is_interactive(false),
+                offline: *offline,
+            };
+            match ensure_browser(&opts).await? {
+                EnsureOutcome::Present(path) => {
+                    println!("Browser available: {}", path.display());
+                    Ok(0.0)
+                }
+                EnsureOutcome::Installed(path) => {
+                    println!("Installed browser: {}", path.display());
+                    Ok(0.0)
+                }
+                EnsureOutcome::Declined => {
+                    eprintln!("No browser installed (declined).");
+                    std::process::exit(1);
+                }
+                EnsureOutcome::Refused(reason) => {
+                    eprintln!("{} {}", "Error:".red().bold(), reason);
+                    std::process::exit(1);
+                }
+            }
         }
 
         BrowserAction::Remove { all } => {
