@@ -186,16 +186,16 @@ impl NormalizedReport {
                 "score must not exceed the 70/30 mobile/desktop accessibility value".into(),
             );
         }
-        let certificate = super::normalized::gate_certificate_by_risk(
-            AccessibilityScorer::calculate_certificate(self.score as f32).to_string(),
-            &self.risk.level,
-            self.risk.legal_flags,
-            self.risk.blocking_issues,
-        );
         check(
-            self.certificate == certificate,
+            self.decision.certificate
+                == Some(super::Certificate::derive(
+                    self.score,
+                    &self.risk.level,
+                    self.risk.legal_flags,
+                    self.risk.blocking_issues,
+                )),
             "certificate",
-            "certificate".into(),
+            "decision.certificate".into(),
             "certificate must apply the canonical score and risk policy".into(),
         );
 

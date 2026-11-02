@@ -185,7 +185,7 @@ fn snapshot_normalized_report_fields() {
         "overall_score": normalized.normalized.overall_score,
         "score": normalized.normalized.score,
         "grade": normalized.normalized.grade,
-        "certificate": normalized.normalized.certificate,
+        "certificate": normalized.normalized.decision.certificate,
         "severity_counts": {
             "critical": normalized.normalized.severity_counts.critical,
             "high": normalized.normalized.severity_counts.high,

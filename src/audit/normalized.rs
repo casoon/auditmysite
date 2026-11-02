@@ -53,8 +53,6 @@ pub struct NormalizedReport {
     /// Grade aus `score` (Barrierefreiheit) — dem Gegenstand des Berichts.
     /// Siehe plan 29, D1.
     pub grade: String,
-    /// Certificate aus `score`, gegebenenfalls durch das Risiko-Veto begrenzt
-    pub certificate: String,
 
     /// Every collected problem of every domain, grouped per rule or check,
     /// with the shared finding contract (#780).
@@ -720,34 +718,6 @@ impl RiskAssessment {
             }
         }
     }
-}
-
-/// Veto a misleadingly positive certificate when the audit does not pass.
-///
-/// Critical risk never passes. Beyond that, the certificate must follow the
-/// default verdict (see `verdict.rs`): a legal-relevant WCAG Level-A violation
-/// (`legal_flags`) or a blocking interactive issue (`blocking_issues`) fails the
-/// audit regardless of the risk band — so a positive tier (e.g. "GUT" on a
-/// medium-risk page) must be downgraded too, not just on High/Critical risk.
-pub(crate) fn gate_certificate_by_risk(
-    certificate: String,
-    risk_level: &RiskLevel,
-    legal_flags: usize,
-    blocking_issues: usize,
-) -> String {
-    if matches!(risk_level, RiskLevel::Critical) {
-        return "NICHT BESTANDEN".to_string();
-    }
-    let is_positive = matches!(
-        certificate.as_str(),
-        "AUSBAUFÄHIG" | "STABIL" | "GUT" | "SEHR GUT"
-    );
-    let does_not_pass =
-        matches!(risk_level, RiskLevel::High) || legal_flags > 0 || blocking_issues > 0;
-    if is_positive && does_not_pass {
-        return "EINGESCHRÄNKT".to_string();
-    }
-    certificate
 }
 
 /// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
@@ -1486,7 +1456,8 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let score_calculation_method = "module_weighted".to_string();
     let score_breakdown = None;
 
-    // Grade and certificate describe the subject of the report: accessibility.
+    // Grade (and the certificate in `decision`) describe the subject of the
+    // report: accessibility.
     //
     // They used to hang off `overall_score` (#233, to stop grade and
     // certificate contradicting each other). That fixed the internal
@@ -1499,7 +1470,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     // The weighted `overall_score` remains in the report as a labelled
     // secondary value, with the weight basis it was computed over.
     let grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
-    let certificate = AccessibilityScorer::calculate_certificate(score as f32).to_string();
 
     let mut audit_flags = Vec::new();
     if report.accessibility.execution.quality.qualified_results {
@@ -1618,12 +1588,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         score,
         overall_score,
     );
-    let certificate = gate_certificate_by_risk(
-        certificate,
-        &risk.level,
-        risk.legal_flags,
-        risk.blocking_issues,
-    );
 
     let accessibility_subcategory_scores = compute_accessibility_subcategory_scores(violations);
     let security_category_scores = report
@@ -1649,7 +1613,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         nodes_analyzed: report.accessibility.nodes_analyzed,
         score,
         grade,
-        certificate,
         findings,
         finding_inventory,
         decision: crate::audit::verdict::VerdictResult::undecided(),
@@ -1726,6 +1689,7 @@ pub(crate) fn wcag_criterion_of(rule: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::verdict::Certificate;
     use crate::wcag::{Violation, WcagResults};
 
     /// Two checks that resolve to one taxonomy rule (`links/name-missing`,
@@ -2007,7 +1971,10 @@ mod tests {
 
         assert_eq!(norm.normalized.score, 100);
         assert_eq!(norm.normalized.grade, "A");
-        assert_eq!(norm.normalized.certificate, "SEHR GUT");
+        assert_eq!(
+            norm.normalized.decision.certificate,
+            Some(Certificate::VeryGood)
+        );
         assert!(norm.normalized.findings.is_empty());
         assert_eq!(norm.normalized.severity_counts.total, 0);
     }
@@ -2429,36 +2396,36 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        // Grade and certificate are both derived from overall_score so they
-        // remain mutually consistent (see issue #233).
-        let expected_grade =
-            AccessibilityScorer::calculate_grade(norm.normalized.overall_score as f32);
-        let expected_cert =
-            AccessibilityScorer::calculate_certificate(norm.normalized.overall_score as f32);
+        // Grade and certificate both describe the accessibility score (#233,
+        // plan 29 D1); the certificate lives in the decision (#781).
+        let expected_grade = AccessibilityScorer::calculate_grade(norm.normalized.score as f32);
         assert_eq!(norm.normalized.grade, expected_grade);
-        assert_eq!(norm.normalized.certificate, expected_cert);
+        assert_eq!(
+            norm.normalized.decision.certificate,
+            Some(Certificate::from_score(norm.normalized.score))
+        );
     }
 
     #[test]
     fn high_risk_vetoes_positive_certificate() {
         assert_eq!(
-            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::High, 0, 0),
-            "EINGESCHRÄNKT"
+            Certificate::derive(65, &RiskLevel::High, 0, 0),
+            Certificate::Restricted
         );
         assert_eq!(
-            gate_certificate_by_risk("SEHR GUT".to_string(), &RiskLevel::Critical, 0, 0),
-            "NICHT BESTANDEN"
+            Certificate::derive(95, &RiskLevel::Critical, 0, 0),
+            Certificate::NotPassed
         );
         // High risk also vetoes the bronze "AUSBAUFÄHIG" band: a failing page
         // must not surface a label that reads milder than a Critical fail.
         assert_eq!(
-            gate_certificate_by_risk("AUSBAUFÄHIG".to_string(), &RiskLevel::High, 0, 0),
-            "EINGESCHRÄNKT"
+            Certificate::derive(50, &RiskLevel::High, 0, 0),
+            Certificate::Restricted
         );
         // "UNGENÜGEND" is already terminal and stays as-is under High risk.
         assert_eq!(
-            gate_certificate_by_risk("UNGENÜGEND".to_string(), &RiskLevel::High, 0, 0),
-            "UNGENÜGEND"
+            Certificate::derive(20, &RiskLevel::High, 0, 0),
+            Certificate::Insufficient
         );
     }
 
@@ -2468,22 +2435,22 @@ mod tests {
         // at medium risk — the certificate must not read "GUT" (regression: a
         // medium-risk page with legal_flags=1 showed a passing tier).
         assert_eq!(
-            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Medium, 1, 0),
-            "EINGESCHRÄNKT"
+            Certificate::derive(80, &RiskLevel::Medium, 1, 0),
+            Certificate::Restricted
         );
         assert_eq!(
-            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::Medium, 0, 3),
-            "EINGESCHRÄNKT"
+            Certificate::derive(65, &RiskLevel::Medium, 0, 3),
+            Certificate::Restricted
         );
         // A clean medium/low-risk page (no legal flags, no blockers) keeps its
         // positive tier — e.g. a "warn" verdict that still passes.
         assert_eq!(
-            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Low, 0, 0),
-            "GUT"
+            Certificate::derive(80, &RiskLevel::Low, 0, 0),
+            Certificate::Good
         );
         assert_eq!(
-            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Medium, 0, 0),
-            "GUT"
+            Certificate::derive(80, &RiskLevel::Medium, 0, 0),
+            Certificate::Good
         );
     }
 

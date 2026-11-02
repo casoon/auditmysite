@@ -4,10 +4,19 @@
   "summary": {
     "accessibility_score": 82,
     "overall_score": 82,
-    "grade": "A",
-    "certificate": "GUT"
+    "grade": "A"
   },
   "pages": [
-    { "accessibility_score": 82, "overall_score": 82, "grade": "A", "certificate": "GUT" }
-  ]
+    {
+      "accessibility_score": 82,
+      "overall_score": 82,
+      "grade": "A",
+      "decision": {
+        "certificate": "good"
+      }
+    }
+  ],
+  "decision": {
+    "certificate": "good"
+  }
 }
