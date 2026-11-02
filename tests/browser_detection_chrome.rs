@@ -20,14 +20,32 @@ fn profile_dirs_of_this_process() -> usize {
         .count()
 }
 
-fn processes_using_our_profiles() -> usize {
-    let prefix = profile_prefix();
+/// Command lines of all running processes: `ps` on Unix, CIM on Windows.
+fn process_command_lines() -> Vec<String> {
+    #[cfg(unix)]
     let out = std::process::Command::new("ps")
         .args(["-axo", "command"])
         .output()
         .unwrap();
+    #[cfg(windows)]
+    let out = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }",
+        ])
+        .output()
+        .unwrap();
     String::from_utf8_lossy(&out.stdout)
         .lines()
+        .map(str::to_owned)
+        .collect()
+}
+
+fn processes_using_our_profiles() -> usize {
+    let prefix = profile_prefix();
+    process_command_lines()
+        .iter()
         .filter(|l| l.contains(&prefix))
         .count()
 }

@@ -80,15 +80,24 @@ fn profile_dirs() -> Vec<std::path::PathBuf> {
 /// Running processes whose command line carries one of this process's profile
 /// directories (the browser and its helpers).
 fn chrome_processes() -> usize {
+    #[cfg(unix)]
     let out = std::process::Command::new("ps")
         .args(["-axo", "command"])
         .output()
         .expect("ps");
-    let needle = format!("--user-data-dir={}", std::env::temp_dir().display());
+    #[cfg(windows)]
+    let out = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }",
+        ])
+        .output()
+        .expect("powershell");
     let prefix = profile_prefix();
     String::from_utf8_lossy(&out.stdout)
         .lines()
-        .filter(|l| l.contains(&needle) && l.contains(&prefix))
+        .filter(|l| l.contains("--user-data-dir=") && l.contains(&prefix))
         .count()
 }
 

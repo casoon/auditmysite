@@ -484,3 +484,160 @@ jobs:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
         run: python3 scripts/mutation-check.py
+
+  # One real browser run per supported platform (#854, #856; design in
+  # docs/browser-pool.md). A cross-build is not a runtime test: each leg
+  # builds natively, runs the ignored browser suites against the runner's
+  # browser and audits a local fixture through the CLI, then checks that the
+  # report's measurement profile names this very platform and browser.
+  # Windows is Edge-only by the platform contract. Full QA only (this file has
+  # no push/pull_request trigger), so the macOS/Windows minutes are spent on
+  # release tags and manual dispatch; release.yml reaches it through
+  # `quality-gates`, which `build` needs.
+  native-browser-smoke:
+    name: Native browser smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome chrome_for_testing" }
+          - { name: Linux x64, runner: ubuntu-24.04, browser: chrome, os: linux, arch: x86_64, products: "chrome chrome_for_testing" }
+          - { name: Linux arm64, runner: ubuntu-24.04-arm, browser: chrome, os: linux, arch: aarch64, products: "chrome chrome_for_testing chromium" }
+          - { name: Windows x64, runner: windows-2025, browser: edge, os: windows, arch: x86_64, products: "edge" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.runner }}-cargo-native-smoke-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Chrome
+        if: matrix.browser == 'chrome'
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+
+      - name: Select browser
+        id: browser
+        shell: bash
+        env:
+          CHROME_PATH_FROM_SETUP: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          if [ "${{ matrix.browser }}" = "edge" ]; then
+            path="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+            version="$(powershell -NoProfile -Command "(Get-Item '$path').VersionInfo.ProductVersion" | tr -d '\r')"
+          else
+            path="$CHROME_PATH_FROM_SETUP"
+            version="$("$path" --version | tr -d '\r')"
+          fi
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Browser: $path ($version)"
+
+      - name: Browser detection, failover and pool tests
+        shell: bash
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.browser.outputs.path }}
+          CI: "true"
+        run: cargo test --no-default-features --test browser_detection_chrome --test browser_pool_test -- --ignored --nocapture --test-threads=1
+
+      - name: CLI audit of a local fixture
+        shell: bash
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.browser.outputs.path }}
+        run: |
+          cargo build --no-default-features
+          exe="target/debug/auditmysite"
+          [ "$RUNNER_OS" = "Windows" ] && exe="$exe.exe"
+          py="$(command -v python3 || command -v python)"
+          "$py" -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >/dev/null 2>&1 &
+          server=$!
+          sleep 2
+          flags=""
+          [ "$RUNNER_OS" = "Linux" ] && flags="--no-sandbox"
+          status=0
+          "$exe" http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json $flags || status=$?
+          kill "$server" || true
+          exit "$status"
+
+      - name: Check the measurement profile names this platform and browser
+        shell: bash
+        env:
+          EXPECT_OS: ${{ matrix.os }}
+          EXPECT_ARCH: ${{ matrix.arch }}
+          EXPECT_PRODUCTS: ${{ matrix.products }}
+        run: |
+          py="$(command -v python3 || command -v python)"
+          "$py" - <<'PY'
+          import json, os, sys
+
+          def find(node, key):
+              if isinstance(node, dict):
+                  if key in node:
+                      return node[key]
+                  for value in node.values():
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              elif isinstance(node, list):
+                  for value in node:
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              return None
+
+          report = json.load(open("smoke-report.json", encoding="utf-8"))
+          profile = find(report, "measurement_profile")
+          browser = (profile or {}).get("browser")
+          if not browser:
+              sys.exit("measurement_profile.browser is missing")
+          json.dump(browser, open("smoke-browser.json", "w"))
+          print(json.dumps(browser, indent=2))
+          problems = []
+          if browser.get("os") != os.environ["EXPECT_OS"]:
+              problems.append(f"os {browser.get('os')} != {os.environ['EXPECT_OS']}")
+          if browser.get("arch") != os.environ["EXPECT_ARCH"]:
+              problems.append(f"arch {browser.get('arch')} != {os.environ['EXPECT_ARCH']}")
+          if browser.get("product") not in os.environ["EXPECT_PRODUCTS"].split():
+              problems.append(f"product {browser.get('product')} not in {os.environ['EXPECT_PRODUCTS']}")
+          if not browser.get("version"):
+              problems.append("browser version is empty")
+          if problems:
+              sys.exit("; ".join(problems))
+          PY
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          BROWSER_VERSION: ${{ steps.browser.outputs.version }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Native browser smoke: ${{ matrix.name }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Runner | ${{ matrix.runner }} |"
+            echo "| OS / arch | $RUNNER_OS / $RUNNER_ARCH |"
+            echo "| Browser (runner) | $BROWSER_VERSION |"
+            echo "| Commit | $GITHUB_SHA |"
+            echo "| Job status so far | $JOB_STATUS |"
+            if [ -f smoke-browser.json ]; then
+              echo
+              echo "Browser as recorded in \`measurement_profile.browser\`:"
+              echo '```json'
+              cat smoke-browser.json
+              echo
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
