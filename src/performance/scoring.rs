@@ -428,6 +428,39 @@ mod tests {
         );
     }
 
+    /// #770: an estimated Speed Index (a proxy of FCP and LCP) is diagnostic.
+    /// The score is identical with and without it, however bad its value.
+    #[test]
+    fn estimated_speed_index_does_not_change_the_score() {
+        let core = WebVitals {
+            lcp: Some(VitalMetric::new(1800.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(900.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+        let without = calculate_performance_score(&core, None);
+        for si in [500.0, 9000.0, 60000.0] {
+            let with = WebVitals {
+                speed_index: Some(VitalMetric::new(si, 3400.0, 5800.0).estimated()),
+                ..core.clone()
+            };
+            let scored = calculate_performance_score(&with, None);
+            assert_eq!(scored.overall, without.overall, "estimated SI {si}");
+            assert_eq!(scored.metrics_available, without.metrics_available);
+            assert_eq!(scored.si_score, None, "estimated SI {si}");
+        }
+        // Control: a directly measured Speed Index does carry weight.
+        let measured = WebVitals {
+            speed_index: Some(VitalMetric::new(60000.0, 3400.0, 5800.0)),
+            ..core.clone()
+        };
+        assert_ne!(
+            calculate_performance_score(&measured, None).overall,
+            without.overall
+        );
+    }
+
     #[test]
     fn test_performance_grade_from_score() {
         assert_eq!(PerformanceGrade::from_score(95), PerformanceGrade::Platinum);

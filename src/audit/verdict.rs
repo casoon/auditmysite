@@ -925,4 +925,99 @@ mod tests {
             crate::registry::MEDAL.label(n.score as f32, false)
         );
     }
+
+    /// The certificate is part of the decision: a band of the accessibility
+    /// score, vetoed by the same legal/blocking inputs that fail the verdict.
+    /// A report cannot publish a positive certificate beside a FAIL.
+    #[test]
+    fn certificate_follows_the_decision_inputs() {
+        let n = normalize(&high_level_a_report()).normalized;
+        assert_eq!(n.decision.verdict, Verdict::Fail);
+        assert!(n.risk.legal_flags > 0);
+        // Score band alone would be positive; the veto must take it down.
+        assert!(n.score >= 60, "{}", n.score);
+        assert_eq!(n.certificate, "EINGESCHRÄNKT");
+
+        let mut tampered = n.clone();
+        tampered.certificate = "SEHR GUT".into();
+        let codes: Vec<_> = tampered
+            .validate()
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"certificate"), "{codes:?}");
+
+        let mut regraded = n.clone();
+        regraded.grade = "A".into();
+        let codes: Vec<_> = regraded
+            .validate()
+            .unwrap_err()
+            .violations
+            .iter()
+            .map(|v| v.code)
+            .collect();
+        assert!(codes.contains(&"grade"), "{codes:?}");
+    }
+
+    /// Different viewports: the accessibility score is 70 % mobile + 30 %
+    /// desktop. Grade, certificate and verdict follow that value, not the
+    /// better viewport, and a score that disagrees with its declared
+    /// viewport inputs is rejected.
+    #[test]
+    fn differing_viewports_decide_on_the_weighted_score() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 40,
+                performance: None,
+                overall: 40,
+            },
+            weighted_overall: 58,
+        });
+        // 0.7 * 40 + 0.3 * 100 = 58 -> grade F/D band, bronze, below warn 70.
+        let n = normalize(&report).normalized;
+        // The synthetic scores have no violations to explain the lost points,
+        // so only the score-derived checks are asserted.
+        let codes_of = |n: &crate::audit::normalized::NormalizedReport| -> Vec<&'static str> {
+            n.validate()
+                .err()
+                .map(|e| e.violations.iter().map(|v| v.code).collect())
+                .unwrap_or_default()
+        };
+        let codes = codes_of(&n);
+        for derived in ["grade", "certificate", "decision", "viewport_score"] {
+            assert!(!codes.contains(&derived), "{derived} in {codes:?}");
+        }
+        assert_eq!(n.score, 58);
+        assert_eq!(n.certificate, "AUSBAUFÄHIG");
+        assert_eq!(n.decision.verdict, Verdict::Warn);
+        assert!(n
+            .decision
+            .reasons
+            .iter()
+            .any(|r| r.starts_with("score 58 < warn_below_score 70")));
+
+        // Publishing the desktop value as the score, with grade/certificate
+        // re-banded to match, contradicts the declared viewport inputs.
+        let mut desktop_only = n.clone();
+        desktop_only.score = 100;
+        desktop_only.grade = crate::audit::AccessibilityScorer::calculate_grade(100.0).into();
+        desktop_only.certificate =
+            crate::audit::AccessibilityScorer::calculate_certificate(100.0).into();
+        let codes = codes_of(&desktop_only);
+        assert!(codes.contains(&"viewport_score"), "{codes:?}");
+    }
 }

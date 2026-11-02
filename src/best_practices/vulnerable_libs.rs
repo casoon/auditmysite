@@ -918,8 +918,38 @@ mod tests {
     #[test]
     fn jquery_reports_highest_severity_and_all_matching_advisories() {
         let old = check_vulnerability("jQuery", "1.11.3").unwrap();
-        assert_eq!(old.severity, "high");
+        assert_eq!(old.severity, "medium");
         assert_eq!(old.advisories.len(), 2);
+        // 3.0.0 fixes CVE-2015-9251 (GHSA-rmxg-73gg-4p98); 2.2.x was only an erroneous backport.
+        assert_eq!(
+            check_vulnerability("jQuery", "2.2.4")
+                .unwrap()
+                .advisories
+                .len(),
+            2
+        );
+        assert_eq!(
+            check_vulnerability("jQuery", "2.999.0")
+                .unwrap()
+                .advisories
+                .len(),
+            2
+        );
+        assert_eq!(
+            check_vulnerability("jQuery", "3.0.0")
+                .unwrap()
+                .advisories
+                .len(),
+            1
+        );
+        // CVE-2020-11023 starts at 1.0.3.
+        assert_eq!(
+            check_vulnerability("jQuery", "1.0.2")
+                .unwrap()
+                .advisories
+                .len(),
+            1
+        );
         let mid = check_vulnerability("jQuery", "3.4.1").unwrap();
         assert_eq!(mid.severity, "medium");
         assert_eq!(mid.advisories.len(), 1);
@@ -959,10 +989,10 @@ mod tests {
     fn loader_rejects_data_that_would_make_the_check_wrong() {
         let cases = [
             ("\"schema_version\": 1", "\"schema_version\": 2", "schema_version"),
-            ("\"updated\": \"2026-10-26\"", "\"updated\": \"26.10.2026\"", "ISO date"),
+            ("\"updated\": \"2026-11-02\"", "\"updated\": \"26.10.2026\"", "ISO date"),
             ("\"id\": \"local:jquery-legacy-xss\"", "\"id\": \"local:jquery-html-xss\"", "duplicated"),
             ("\"library\": \"Bootstrap\",\n      \"id\": \"local:bootstrap-tooltip-xss\"", "\"library\": \"React\",\n      \"id\": \"local:bootstrap-tooltip-xss\"", "checked library"),
-            ("\"severity\": \"high\",\n      \"description\": \"Multiple", "\"severity\": \"critical\",\n      \"description\": \"Multiple", "severity"),
+            ("\"severity\": \"medium\",\n      \"description\": \"Cross-site scripting (XSS) when a cross-domain", "\"severity\": \"critical\",\n      \"description\": \"Cross-site scripting (XSS) when a cross-domain", "severity"),
             ("\"source_url\": \"https://nvd.nist.gov/vuln/detail/CVE-2020-11022\"", "\"source_url\": \"http://nvd.nist.gov/\"", "https"),
             ("\"fixed\": \"3.5.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "\"fixed\": \"0.0.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "introduced < fixed"),
             ("\"fixed\": \"3.5.0\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "\"fixed\": \"3.5\"\n        }\n      ],\n      \"safe_version\": \"3.5.0+\",\n      \"source_url\": \"https://nvd", "major.minor.patch"),
@@ -1011,15 +1041,28 @@ mod tests {
     }
 
     #[test]
-    fn unreviewed_advisories_are_marked_unreviewed_in_the_finding() {
-        // jQuery < 3.5.0 matches only advisories carried over without review.
-        let f = check_vulnerability("jQuery", "3.4.1").unwrap();
-        assert_eq!(f.advisories[0].review_status, ReviewStatus::Unreviewed);
-        assert!(f.advisories[0].reviewed.is_none());
-        let json = serde_json::to_value(&f).unwrap();
-        assert_eq!(json["advisories"][0]["review_status"], "unreviewed");
+    fn review_status_is_carried_into_the_finding() {
+        // Every shipped advisory was checked against its source (#773).
+        for (lib, v) in [
+            ("jQuery", "3.4.1"),
+            ("jQuery", "1.8.0"),
+            ("Bootstrap", "3.3.7"),
+            ("Prototype", "1.7.3"),
+            ("MooTools", "1.6.0"),
+            ("Lodash", "4.17.21"),
+        ] {
+            let f = check_vulnerability(lib, v).unwrap();
+            for a in &f.advisories {
+                assert_eq!(a.review_status, ReviewStatus::Reviewed, "{lib} {}", a.id);
+                assert_eq!(
+                    a.reviewed.as_deref().map(str::len),
+                    Some(10),
+                    "{lib} {}",
+                    a.id
+                );
+            }
+        }
         let g = check_vulnerability("Lodash", "4.17.21").unwrap();
-        assert_eq!(g.advisories[0].review_status, ReviewStatus::Reviewed);
         assert_eq!(
             serde_json::to_value(&g).unwrap()["advisories"][0]["review_status"],
             "reviewed"
