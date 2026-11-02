@@ -1,6 +1,6 @@
-//! Quotable-structure signals
+//! Compact-section-structure signals
 //!
-//! Heuristic scoring of how quotable a page's content is structured: authority
+//! Heuristic scoring of how a page's content is split into compact sections: authority
 //! signals, statement clarity, snippet quality and source attribution. It
 //! measures page structure only; it is not validated against real LLM citation
 //! behaviour and predicts no citation likelihood (#784).
@@ -92,7 +92,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
         AiSignalValues::default(),
     ));
 
-    // 6. Snippet quality — short paragraphs and lists = quotable chunks
+    // 6. Snippet quality — short paragraphs and lists = compact chunks
     let good_snippet_structure = input.short_paragraph_ratio >= 0.4 || input.has_lists;
     signals.push(AiSignal::new(
         AiSignalKind::SnippetQuality,
@@ -105,7 +105,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
         },
     ));
 
-    // 7. FAQ patterns — directly quotable Q&A
+    // 7. FAQ patterns — question-and-answer pairs
     signals.push(AiSignal::new(
         AiSignalKind::QuestionAnswerPattern,
         input.has_faq_schema,
@@ -388,7 +388,10 @@ mod tests {
         let result = analyze_citation(&rich_input());
         assert!(result.dimension.score >= 80);
         // Struct carries canonical English.
-        assert_eq!(result.dimension.name, "Quotable structure (unvalidated)");
+        assert_eq!(
+            result.dimension.name,
+            "Compact section structure (unvalidated)"
+        );
         assert_eq!(result.dimension.kind, DimensionKind::Citability);
     }
 
