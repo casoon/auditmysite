@@ -2141,6 +2141,47 @@ fn domain_contract_detects_lost_findings_even_when_the_remaining_counts_agree() 
         .any(|v| v.code == "rule_findings_preserved"));
 }
 
+/// A page without `lang` that embeds an iframe without `lang` reports
+/// `document/lang-missing` (page) and `html-has-lang` (frame document) for
+/// the same criterion 3.1.1. Both outcomes must stay accounted for whichever
+/// violation comes first.
+#[test]
+fn domain_contract_accepts_page_and_frame_language_findings_in_either_order() {
+    use auditmysite::wcag::{RuleRun, Severity, Violation, WcagLevel};
+    let violation = |rule_id: &str, selector: &str| {
+        Violation::new(
+            "3.1.1",
+            "Language of Page",
+            WcagLevel::A,
+            Severity::High,
+            "Missing lang",
+            selector,
+        )
+        .with_selector(selector)
+        .with_rule_id(rule_id)
+    };
+    for order in [
+        ["document/lang-missing", "html-has-lang"],
+        ["html-has-lang", "document/lang-missing"],
+    ] {
+        let mut raw = make_full_report();
+        let results = &mut raw.accessibility.wcag_results;
+        for id in order {
+            let selector = if id == "html-has-lang" {
+                "iframe [frame] html"
+            } else {
+                "html"
+            };
+            results.violations.push(violation(id, selector));
+            results.rule_outcomes.push(RuleRun::ran(id.to_string(), 1));
+        }
+        let normalized = normalize(&raw).normalized;
+        normalized
+            .validate()
+            .unwrap_or_else(|e| panic!("{order:?}: {e}"));
+    }
+}
+
 #[cfg(feature = "pdf")]
 #[test]
 fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {

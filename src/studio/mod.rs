@@ -40,15 +40,10 @@ pub struct StudioAuditResponse {
     pub overall_score: u32,
     /// Grade (A–F) of `accessibility_score` — the one grade basis (#781).
     pub grade: String,
-    /// Certificate level. Base bands by accessibility score:
-    /// SEHR GUT / GUT / STABIL / AUSBAUFÄHIG / UNGENÜGEND.
-    /// Risk gating can override a positive band with EINGESCHRÄNKT
-    /// (high risk / legal / blocking) or NICHT BESTANDEN (critical risk).
-    /// The full set of 7 values is the contract — see docs/studio-contract.schema.json.
-    pub certificate: String,
-
-    /// The stored decision (#781): verdict, reasons, contract and profile —
-    /// the same PASS/WARN/FAIL as the terminal, the JSON and the exit code.
+    /// The stored decision (#781): verdict, certificate, reasons, contract and
+    /// profile — the same PASS/WARN/FAIL as the terminal, the JSON and the
+    /// exit code. The certificate (a canonical kind, see
+    /// docs/studio-contract.schema.json) is `decision.certificate`.
     pub decision: crate::audit::VerdictResult,
 
     // ── Risk (independent from score) ───────────────────────────────
@@ -176,7 +171,6 @@ impl StudioAuditResponse {
             accessibility_score: normalized.normalized.score,
             overall_score: normalized.normalized.overall_score,
             grade: normalized.normalized.grade.clone(),
-            certificate: normalized.normalized.certificate.clone(),
             decision: normalized.normalized.decision.clone(),
             risk_level: risk_level_string(normalized.normalized.risk.level),
             risk_summary: normalized.normalized.risk.summary.clone(),
@@ -231,8 +225,6 @@ pub struct StudioHistoryEntry {
     pub overall_score: u32,
     #[serde(default)]
     pub grade: String,
-    #[serde(default)]
-    pub certificate: String,
     /// The audit's stored decision (#781). Required: a history entry
     /// without it has no truthful verdict to show.
     pub decision: crate::audit::VerdictResult,
@@ -263,7 +255,6 @@ impl StudioHistoryEntry {
             accessibility_score: response.accessibility_score,
             overall_score: response.overall_score,
             grade: response.grade.clone(),
-            certificate: response.certificate.clone(),
             decision: response.decision.clone(),
             risk_level: response.risk_level.clone(),
             total_issues: response.total_issues,
@@ -282,7 +273,6 @@ impl StudioHistoryEntry {
             accessibility_score: self.accessibility_score,
             overall_score: self.overall_score,
             grade: self.grade,
-            certificate: self.certificate,
             decision: self.decision,
             risk_level: self.risk_level,
             risk_summary: String::new(),

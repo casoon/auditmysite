@@ -803,7 +803,8 @@ pub fn build_batch_presentation_with_normalized(
     // cutoff set (95/90/85/80/70/60 for the grade), so the same score could
     // be graded differently depending on which report a reader was holding.
     // Empty when nothing was measured; the PDF refuses such a batch.
-    let (grade, certificate) = batch.summary.grade_and_certificate().unwrap_or_default();
+    let grade = batch.summary.grade().unwrap_or_default();
+    let certificate = batch.summary.decision.certificate_key().to_string();
 
     let en = is_english(i18n);
     // From the root causes (finding patterns on two or more pages), most

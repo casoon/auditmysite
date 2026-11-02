@@ -1394,8 +1394,6 @@ pub async fn audit_page(
     ) as f32;
     report.accessibility.grade =
         AccessibilityScorer::calculate_grade(report.accessibility.score).to_string();
-    report.accessibility.certificate =
-        AccessibilityScorer::calculate_certificate(report.accessibility.score).to_string();
 
     if config.capture_screenshots {
         if let (Some(desktop), Some(mobile)) = (&desktop_screenshot, &mobile_screenshot) {
