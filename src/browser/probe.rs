@@ -51,8 +51,33 @@ pub(super) fn parse_version(stdout: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Run `<path> --version`, waiting at most `timeout`.
+/// Version of a Windows browser from the folder next to its executable
+/// (`Application/<version>/`, `chrome-win64/<version>/`). The executables
+/// are GUI-subsystem programs: `--version` prints nothing there and, on a
+/// hosted runner, Edge did not return within the time limit at all.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn version_from_install_dir(path: &Path) -> Option<String> {
+    let looks_like_version = |name: &str| {
+        let parts: Vec<&str> = name.split('.').collect();
+        parts.len() == 4 && parts.iter().all(|p| p.parse::<u32>().is_ok())
+    };
+    let key = |name: &str| -> Vec<u32> { name.split('.').filter_map(|p| p.parse().ok()).collect() };
+    std::fs::read_dir(path.parent()?)
+        .ok()?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|name| looks_like_version(name))
+        .max_by_key(|name| key(name))
+}
+
+/// Run `<path> --version`, waiting at most `timeout`. On Windows the version
+/// comes from the install directory instead; the binary is not started.
 pub fn query_version(path: &Path, timeout: Duration) -> VersionOutcome {
+    #[cfg(windows)]
+    if let Some(version) = version_from_install_dir(path) {
+        return VersionOutcome::Reported(version);
+    }
     let mut child = match Command::new(path)
         .arg("--version")
         .stdin(Stdio::null())
@@ -196,6 +221,19 @@ pub(super) mod test_support {
 mod tests {
     use super::test_support::script;
     use super::*;
+
+    #[test]
+    fn install_dir_version_is_the_highest_numbered_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["130.0.2849.5", "131.0.2903.48", "Installer", "9.9"] {
+            std::fs::create_dir(dir.path().join(name)).unwrap();
+        }
+        let exe = dir.path().join("msedge.exe");
+        assert_eq!(
+            version_from_install_dir(&exe),
+            Some("131.0.2903.48".to_string())
+        );
+    }
 
     #[test]
     fn version_is_parsed_from_typical_output() {

@@ -68,54 +68,25 @@ What was and was not observed:
   `timeout_secs = 12`.
 - Linux x64/ARM64 and Windows/Edge were not measured; this machine cannot.
 
-## Platform smoke gate: draft (not applied, `ci.yml` is being reworked in PR #858)
+## Platform smoke gate
 
-Goal: one native browser run per supported platform in the release or a scheduled full gate. A
-cross-build is not a runtime test. Each job names OS, architecture, browser version, commit and
-result in its log.
+The full QA (`ci.yml`, called by `release.yml` as `quality-gates`, which `build` needs) has the job
+`native-browser-smoke`: one native run per supported platform, because a cross-build is not a
+runtime test.
 
-```yaml
-  native-browser-smoke:
-    name: Native browser smoke (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: macOS arm64,   runner: macos-15,         browser: chrome }
-          - { name: Linux x64,     runner: ubuntu-24.04,     browser: chrome }
-          - { name: Linux arm64,   runner: ubuntu-24.04-arm, browser: chromium }
-          - { name: Windows x64,   runner: windows-2025,     browser: edge }
-    steps:
-      - uses: actions/checkout@<sha> # v7
-      - run: rustup toolchain install --no-self-update
-      - name: Chrome (macOS, Linux x64)
-        if: matrix.browser == 'chrome'
-        id: chrome
-        uses: browser-actions/setup-chrome@<sha> # v2
-      - name: Chromium (Linux arm64, distro package)
-        if: matrix.browser == 'chromium'
-        run: sudo apt-get update && sudo apt-get install -y chromium-browser
-      - name: Run pool and session tests
-        shell: bash
-        env:
-          CI: "true"
-        run: |
-          case "${{ matrix.browser }}" in
-            chrome)   export AUDITMYSITE_BROWSER="${{ steps.chrome.outputs.chrome-path }}" ;;
-            chromium) export AUDITMYSITE_BROWSER="$(command -v chromium-browser || command -v chromium)" ;;
-            edge)     export AUDITMYSITE_BROWSER="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" ;;
-          esac
-          "$AUDITMYSITE_BROWSER" --version | tee browser-version.txt
-          uname -sm || true
-          git rev-parse HEAD
-          cargo test --test browser_pool_test -- --ignored --nocapture --test-threads=1
-          cargo test --test session_policy_test -- --ignored --nocapture --test-threads=1
-```
+| Leg | Runner | Browser |
+|---|---|---|
+| macOS arm64 | `macos-15` | Google Chrome of the runner image |
+| Linux x64 | `ubuntu-24.04` | Chrome via `browser-actions/setup-chrome` |
+| Linux arm64 | `ubuntu-24.04-arm` | Chrome for Testing via `setup-chrome` |
+| Windows x64 | `windows-2025` | Microsoft Edge, explicit path (Edge only) |
 
-Open points for the real change: pin the actions by commit SHA; check that `ubuntu-24.04-arm` is
-available to the repository (public repos: yes) and that the chromium package is not a snap shim
-on that image; the `ps`-based shutdown check in `close_ends_the_browser_and_removes_its_profile`
-and the `Command::new("ps")` helper do not run on Windows and need a Windows variant (or a
-`cfg(unix)` gate) before that job can include the file; Windows must use Edge only.
+Each leg runs `browser_detection_chrome` and `browser_pool_test` (`--ignored`, one thread), audits
+`tests/fixtures/perfect.html` from a local server through the CLI, checks that
+`measurement_profile.browser` names the platform, a matching product and the runner's browser
+version, and writes OS/architecture, browser version and commit to the job summary.
+
+Findings from the first runs: Chrome for Testing unpacked by `setup-chrome` on macOS is a bare
+`Contents` folder outside an app bundle; its helper processes fail the Mach port rendezvous and no
+page can be created, so that leg uses the preinstalled Chrome. On Windows `--version` of Edge gives
+no answer, so the version comes from the version folder next to `msedge.exe`.

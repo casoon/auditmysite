@@ -33,7 +33,7 @@ use std::time::Duration;
 use tracing::{debug, info, warn};
 
 use super::detection::{assess_binary, discover, managed_candidates};
-use super::platform::{ExplicitPolicy, Platform};
+use super::platform::{classify_path, ExplicitPolicy, Platform};
 use super::probe::{probe_cdp, ProbeFailure, CDP_PROBE_TIMEOUT, VERSION_TIMEOUT};
 use super::registry::{self, EnvPaths};
 use super::types::*;
@@ -284,6 +284,12 @@ fn assess_explicit(
     kind: BrowserKind,
 ) -> CandidateReport {
     let path = registry::expand_home(raw, ctx.paths.home.as_deref());
+    // A path given by hand is still judged by its file name: the report names
+    // the product, and Windows accepts Edge only.
+    let kind = match kind {
+        BrowserKind::Custom => classify_path(&path.to_string_lossy()).unwrap_or(kind),
+        known => known,
+    };
     if let ExplicitPolicy::Rejected(reason) = ctx.platform.check_explicit(&path.to_string_lossy()) {
         return CandidateReport {
             browser: DetectedBrowser {
