@@ -185,18 +185,18 @@ pub(crate) fn detail_publisher_identity(v: &AiSignalValues, en: bool) -> String 
             "Organisation per Schema.org identifiziert".into()
         }
     } else if en {
-        "No publisher markup — authority not machine-verifiable".into()
+        "No publisher markup — no author or organization declared".into()
     } else {
-        "Kein Herausgeber-Markup — Autorität nicht maschinell prüfbar".into()
+        "Kein Herausgeber-Markup — weder Autor noch Organisation angegeben".into()
     }
 }
 
 pub(crate) fn detail_article_structure(present: bool, en: bool) -> String {
     if present {
         if en {
-            "Article/BlogPosting schema — marked as quotable structure (unvalidated)".into()
+            "Article/BlogPosting schema present — structure marker (unvalidated)".into()
         } else {
-            "Article/BlogPosting-Schema — als zitierfähige Struktur markiert (ungeprüft)".into()
+            "Article/BlogPosting-Schema vorhanden — Strukturmerkmal (ungeprüft)".into()
         }
     } else if en {
         "No article schema — content type not machine-readable".into()
@@ -222,9 +222,9 @@ pub(crate) fn detail_publication_date(present: bool, en: bool) -> String {
 pub(crate) fn detail_canonical_url(present: bool, en: bool) -> String {
     if present {
         if en {
-            "Canonical URL set — unambiguous source reference".into()
+            "Canonical URL set — preferred address declared".into()
         } else {
-            "Canonical URL gesetzt — eindeutige Quellenreferenz".into()
+            "Canonical URL gesetzt — bevorzugte Adresse angegeben".into()
         }
     } else if en {
         "No canonical URL — duplicates possible".into()
@@ -239,37 +239,37 @@ pub(crate) fn detail_snippet_quality(v: &AiSignalValues, en: bool) -> String {
     if ratio >= 0.4 && has_lists {
         if en {
             format!(
-                "{:.0}% short paragraphs + lists — many short, quotable text blocks (unvalidated)",
+                "{:.0}% short paragraphs + lists — many short text blocks (structure only)",
                 ratio * 100.0
             )
         } else {
             format!(
-                "{:.0}% kurze Absätze + Listen — viele kurze, zitierbare Textblöcke (ungeprüft)",
+                "{:.0}% kurze Absätze + Listen — viele kurze Textblöcke (nur Struktur)",
                 ratio * 100.0
             )
         }
     } else if ratio >= 0.4 {
         if en {
             format!(
-                "{:.0}% short, concise paragraphs — good snippet suitability",
+                "{:.0}% short paragraphs, no lists (structure only)",
                 ratio * 100.0
             )
         } else {
             format!(
-                "{:.0}% kurze, prägnante Absätze — gute Snippet-Eignung",
+                "{:.0}% kurze Absätze, keine Listen (nur Struktur)",
                 ratio * 100.0
             )
         }
     } else if has_lists {
         if en {
-            "Lists present — bullet points that can be quoted (unvalidated)".into()
+            "Lists present (structure only)".into()
         } else {
-            "Listen vorhanden — zitierbare Aufzählungen (ungeprüft)".into()
+            "Listen vorhanden (nur Struktur)".into()
         }
     } else if en {
-        "Few short paragraphs, no lists — low snippet suitability".into()
+        "Few short paragraphs, no lists (structure only)".into()
     } else {
-        "Wenig kurze Absätze, keine Listen — geringe Snippet-Eignung".into()
+        "Wenig kurze Absätze, keine Listen (nur Struktur)".into()
     }
 }
 
@@ -293,12 +293,12 @@ pub(crate) fn detail_content_depth(present: bool, v: &AiSignalValues, en: bool) 
     if present {
         if en {
             format!(
-                "{} words, {} sections — sufficient substance for quotes",
+                "{} words, {} sections — text volume and sections present",
                 word_count, section_count
             )
         } else {
             format!(
-                "{} Wörter, {} Abschnitte — ausreichend Substanz für Zitate",
+                "{} Wörter, {} Abschnitte — Textumfang und Gliederung vorhanden",
                 word_count, section_count
             )
         }
@@ -431,5 +431,79 @@ mod tests {
             .find(|s| s.kind == AiSignalKind::SnippetQuality)
             .expect("signal must exist");
         assert!(snippet_signal.present);
+    }
+
+    /// #784: the signal texts describe structure that is present; they claim
+    /// neither that a page is quoted or quotable, nor that a source is
+    /// authoritative or true. English stays free of German characters (#406).
+    #[test]
+    fn signal_details_describe_structure_without_claiming_citation_or_truth() {
+        let values = |author, org, ratio, lists| AiSignalValues {
+            has_author: Some(author),
+            has_org: Some(org),
+            short_paragraph_ratio: Some(ratio),
+            has_lists: Some(lists),
+            word_count: Some(900),
+            section_count: Some(6),
+            ..Default::default()
+        };
+        let mut texts = Vec::new();
+        for en in [true, false] {
+            let mut group = Vec::new();
+            for present in [true, false] {
+                group.push(detail_encryption(present, en));
+                group.push(detail_article_structure(present, en));
+                group.push(detail_publication_date(present, en));
+                group.push(detail_canonical_url(present, en));
+                group.push(detail_question_answer(present, en));
+                group.push(detail_sharing_metadata(present, en));
+                group.push(detail_thematic_context(present, en));
+                group.push(detail_content_depth(
+                    present,
+                    &values(true, true, 0.5, true),
+                    en,
+                ));
+            }
+            for (author, org) in [(true, true), (true, false), (false, true), (false, false)] {
+                group.push(detail_publisher_identity(
+                    &values(author, org, 0.0, false),
+                    en,
+                ));
+            }
+            for (ratio, lists) in [(0.5, true), (0.5, false), (0.1, true), (0.1, false)] {
+                group.push(detail_snippet_quality(
+                    &values(false, false, ratio, lists),
+                    en,
+                ));
+            }
+            if en {
+                for text in &group {
+                    assert!(
+                        text.chars().all(|c| !"äöüÄÖÜß".contains(c)),
+                        "German characters in EN text: {text}"
+                    );
+                }
+            }
+            texts.extend(group);
+        }
+        let banned = [
+            "quot",
+            "zitat",
+            "zitier",
+            "citab",
+            "cited",
+            "authorit",
+            "autorit",
+            "suitab",
+            "eignung",
+            "source reference",
+            "quellenreferenz",
+        ];
+        for text in &texts {
+            let lower = text.to_lowercase();
+            for word in banned {
+                assert!(!lower.contains(word), "'{word}' in: {text}");
+            }
+        }
     }
 }
