@@ -73,7 +73,7 @@ pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
     AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchCoverage, BatchError,
-    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState,
+    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, BrowserPages, ConsentAuditState,
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
     ExecutionStatus, ExperienceSection, MeasurementProfile, MetricSpread, ModuleRun,

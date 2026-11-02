@@ -684,6 +684,7 @@ mod tests {
             },
             score_spread: None,
             selection_profile: Default::default(),
+            measurement_browsers: Vec::new(),
         };
 
         let result = compute_batch_verdict(&summary, &DecisionProfile::default());

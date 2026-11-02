@@ -44,6 +44,17 @@ fn consistent() -> AuditReport {
     let mut report = contradictory();
     let profile = &mut report.accessibility.execution.scope.measurement_profile;
     profile.state_changing_journeys.clear();
+    profile.browser = Some(auditmysite::browser::BrowserProvenance {
+        product: auditmysite::browser::BrowserProduct::Chrome,
+        version: Some("131.0.6778.85".into()),
+        origin: auditmysite::browser::BrowserOrigin::System,
+        os: auditmysite::browser::PlatformOs::Macos,
+        arch: auditmysite::browser::PlatformArch::Aarch64,
+        headless_mode: auditmysite::browser::HeadlessModeKind::New,
+        failover: false,
+        discarded_candidates: 0,
+    });
+    report.accessibility.execution.environment.headless = true;
     report
 }
 
