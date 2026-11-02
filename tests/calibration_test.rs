@@ -130,7 +130,11 @@ fn root() -> PathBuf {
 }
 
 fn load_prereg() -> Preregistration {
-    let path = root().join("tests/fixtures/calibration/preregistration.json");
+    // `scripts/calibration.py finalize --allow-synthetic` points this at a
+    // throwaway registration so its dry run never touches the committed files.
+    let path = std::env::var_os("CALIBRATION_PREREGISTRATION")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root().join("tests/fixtures/calibration/preregistration.json"));
     serde_json::from_str(&std::fs::read_to_string(path).expect("preregistration readable"))
         .expect("preregistration parses")
 }
