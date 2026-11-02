@@ -145,6 +145,58 @@ impl BrowserPoolInner {
         }
     }
 
+    /// A free page, or a new one while the pool is under `max_pages`. The
+    /// caller's permit is already forgotten: on failure the permit and the
+    /// `pages_created` slot are given back here (#651).
+    async fn take_or_create_page(&self) -> Result<Page> {
+        // Try to get an existing page from the pool
+        if let Some(page) = self.pages.lock().await.pop() {
+            debug!("Reusing existing page from pool");
+            return Ok(page);
+        }
+
+        // Create a new page if we haven't hit the limit
+        let current = self.pages_created.fetch_add(1, Ordering::SeqCst);
+        if current >= self.max_pages {
+            // This shouldn't happen due to semaphore, but handle it anyway
+            self.pages_created.fetch_sub(1, Ordering::SeqCst);
+            self.semaphore.add_permits(1);
+            return Err(AuditError::PoolExhausted);
+        }
+
+        debug!("Creating new page ({}/{})", current + 1, self.max_pages);
+        // Bounded, because a Chrome saturated by heavy pages can leave the
+        // page creation unanswered for good.
+        let isolated = self.browser.session_policy() == super::SessionPolicy::Isolated;
+        let creation = async {
+            if isolated {
+                let (page, context) = self.browser.new_isolated_page().await?;
+                self.contexts
+                    .lock()
+                    .await
+                    .insert(AsRef::<str>::as_ref(page.target_id()).to_string(), context);
+                Ok(page)
+            } else {
+                self.browser.new_page().await
+            }
+        };
+        let created = tokio::time::timeout(self.page_create_timeout, creation)
+            .await
+            .unwrap_or_else(|_| {
+                Err(AuditError::BrowserLaunchFailed {
+                    reason: format!(
+                        "Failed to create new page: no answer after {} seconds",
+                        self.page_create_timeout.as_secs()
+                    ),
+                })
+            });
+        if created.is_err() {
+            self.pages_created.fetch_sub(1, Ordering::SeqCst);
+            self.semaphore.add_permits(1);
+        }
+        created
+    }
+
     /// Discard a page that couldn't be reset for reuse: close its Chrome tab
     /// and give back its slot in `pages_created`, not just its semaphore
     /// permit (#QA-040). Without the `pages_created` decrement, every page
@@ -241,70 +293,32 @@ impl BrowserPool {
                 })?
                 .map_err(|_| AuditError::PoolClosed)?;
 
-        // Forget the permit since we manage page count manually
+        // Forget the permit since we manage page count manually. Nothing
+        // awaits between the wait above and the spawn below, so a caller that
+        // gives up (its own timeout, an aborted task) either never got the
+        // permit or leaves the rest to the task: the slot is never lost in
+        // between.
         permit.forget();
 
-        // Try to get an existing page from the pool
-        let mut pages = self.inner.pages.lock().await;
-        if let Some(page) = pages.pop() {
-            debug!("Reusing existing page from pool");
-            return Ok(PooledPage {
-                page: Some(page),
-                pool: Arc::clone(&self.inner),
-            });
-        }
-        drop(pages); // Release the lock before creating a new page
-
-        // Create a new page if we haven't hit the limit
-        let current = self.inner.pages_created.fetch_add(1, Ordering::SeqCst);
-        if current >= self.inner.max_pages {
-            // This shouldn't happen due to semaphore, but handle it anyway
-            self.inner.pages_created.fetch_sub(1, Ordering::SeqCst);
-            return Err(AuditError::PoolExhausted);
-        }
-
-        debug!(
-            "Creating new page ({}/{})",
-            current + 1,
-            self.inner.max_pages
-        );
-        // The permit was forgotten and the slot counted above; a failed page
-        // creation has to give both back, or the pool shrinks by one slot for
-        // the rest of the run and later pages wait for a slot that never
-        // frees up (#651). Bounded, because a Chrome saturated by heavy pages
-        // can leave the page creation unanswered for good.
-        let isolated = self.inner.browser.session_policy() == super::SessionPolicy::Isolated;
-        let creation = async {
-            if isolated {
-                let (page, context) = self.inner.browser.new_isolated_page().await?;
-                self.inner
-                    .contexts
-                    .lock()
-                    .await
-                    .insert(AsRef::<str>::as_ref(page.target_id()).to_string(), context);
-                Ok(page)
-            } else {
-                self.inner.browser.new_page().await
+        // Taking or creating the page runs in its own task. If the caller is
+        // gone when it finishes, the page goes straight back instead of
+        // keeping its permit and `pages_created` slot forever.
+        let inner = Arc::clone(&self.inner);
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            match inner.take_or_create_page().await {
+                Ok(page) => {
+                    if let Err(Ok(page)) = tx.send(Ok(page)) {
+                        debug!("Acquire was cancelled; returning its page");
+                        inner.return_page(page).await;
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(Err(e));
+                }
             }
-        };
-        let created = tokio::time::timeout(self.inner.page_create_timeout, creation)
-            .await
-            .unwrap_or_else(|_| {
-                Err(AuditError::BrowserLaunchFailed {
-                    reason: format!(
-                        "Failed to create new page: no answer after {} seconds",
-                        self.inner.page_create_timeout.as_secs()
-                    ),
-                })
-            });
-        let page = match created {
-            Ok(page) => page,
-            Err(e) => {
-                self.inner.pages_created.fetch_sub(1, Ordering::SeqCst);
-                self.inner.semaphore.add_permits(1);
-                return Err(e);
-            }
-        };
+        });
+        let page = rx.await.map_err(|_| AuditError::PoolClosed)??;
 
         Ok(PooledPage {
             page: Some(page),
