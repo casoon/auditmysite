@@ -6,7 +6,7 @@
   "type": "object",
   "required": [
     "url", "timestamp", "accessibility_score", "overall_score", "grade",
-    "certificate", "decision", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
+    "decision", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
     "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
     "module_scores", "findings", "nodes_analyzed", "execution_time_ms",
     "executive_summary", "artifacts", "json_report", "cli_version"
@@ -18,15 +18,15 @@
     "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
-    "certificate": { "type": "string", "enum": ["SEHR GUT", "GUT", "STABIL", "AUSBAUFÄHIG", "EINGESCHRÄNKT", "UNGENÜGEND", "NICHT BESTANDEN"] },
     "decision": {
       "description": "The audit's stored decision: the same verdict as the terminal, the JSON report and the exit code.",
       "type": "object",
       "required": ["contract", "profile", "verdict", "reasons"],
       "properties": {
-        "contract": { "type": "string", "const": "auditmysite.decision/1" },
+        "contract": { "type": "string", "const": "auditmysite.decision/2" },
         "profile": { "type": "object" },
         "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
+        "certificate": { "type": "string", "enum": ["very_good", "good", "stable", "needs_improvement", "insufficient", "restricted", "not_passed"] },
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -139,7 +139,7 @@
       "type": "object",
       "required": [
         "id", "url", "timestamp", "accessibility_score", "overall_score",
-        "grade", "certificate", "risk_level", "total_issues", "critical_issues",
+        "grade", "risk_level", "total_issues", "critical_issues",
         "high_issues", "execution_time_ms", "module_scores", "artifacts"
       ],
       "additionalProperties": false,
@@ -150,7 +150,6 @@
         "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
-        "certificate": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "total_issues": { "type": "integer", "minimum": 0 },
         "critical_issues": { "type": "integer", "minimum": 0 },

@@ -5,7 +5,6 @@
     "accessibility_score": 42,
     "overall_score": 82,
     "grade": "B",
-    "certificate": "GUT",
     "severity_counts": {
       "critical": 1,
       "high": 2,
@@ -28,7 +27,6 @@
       "accessibility_score": 42,
       "overall_score": 82,
       "grade": "B",
-      "certificate": "GUT",
       "severity_counts": {
         "critical": 1,
         "high": 2,
@@ -45,7 +43,13 @@
         "total": 4
       },
       "violation_count": 4,
-      "score": 82
+      "score": 82,
+      "decision": {
+        "certificate": "good"
+      }
     }
-  ]
+  ],
+  "decision": {
+    "certificate": "good"
+  }
 }

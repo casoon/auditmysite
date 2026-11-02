@@ -50,6 +50,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Breaking, JSON/Studio contract:** the certificate moves into the decision (`auditmysite.decision/2`): `decision.certificate` is a language-free kind (`very_good` … `not_passed`), derived once from the accessibility score and the risk veto. `summary.certificate`, `pages[].certificate` and the Studio `certificate` fields are removed; snapshots of `decision/1` are cache misses. Migration table: [Decision contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract) (Refs #781).
 - **Docs:** The README is a landing page (about 210 lines instead of 890). The detail moved verbatim into docs pages: feature scope, CLI and output contract, typical workflows, report modes, comparison with other tools, batch audits, requirements, build from source, the barrierlab boundary and development. Nothing was removed; the README links to each page.
 - **Tests:** The reviewed score bands of `gov.uk` (85–100), `berlin.de` (40–75) and `basf.com` (15–50) in `tests/fixtures/reference_sites.json` follow the 2.0 changes (best-practice advice no longer a failure, content-model false positives fixed); reasons in each entry's `notes`.
 - **Dependencies:** `html-conform` 0.3.3 → 0.3.4 (pulls `relax-ng` 0.2.3, `xpath-eval` 0.2.3, `schematron-engine` 0.2.1). The HTML-conformance check is much faster per page (upstream measured 8–10 ms instead of 250–900 ms for the RELAX NG stage on typical pages); findings and scores are unchanged on the pages compared.

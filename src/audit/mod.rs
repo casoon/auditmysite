@@ -90,6 +90,6 @@ pub use validation::{
     normalize_checked, validate_batch, ContractViolation, ReportContractError, CONTRACT_CODES,
 };
 pub use verdict::{
-    compute_batch_verdict, compute_verdict, DecisionProfile, Verdict, VerdictResult,
+    compute_batch_verdict, compute_verdict, Certificate, DecisionProfile, Verdict, VerdictResult,
     DECISION_CONTRACT,
 };
