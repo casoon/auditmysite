@@ -76,6 +76,71 @@ The `.typ` file is plain text and diff-friendly — useful for checking which au
 land in the report and reviewing the exact wording of every section. The flag is
 intentionally hidden from `--help` (developer/debug use only).
 
+## Repository CI
+
+`quick-ci.yml` runs on pull requests targeting `main` and pushes to `main`.
+Its single Ubuntu job, **Quick checks**, checks formatting, Clippy for all targets
+without optional features, and the normal tests without optional features.
+That test run includes mocked integration and security unit tests once; ignored
+browser tests and feature-gated PDF tests stay in full QA. Test threads remain
+serialized until parallel safety is demonstrated. The cache is shared between
+Clippy and tests and keyed by OS, pinned toolchain and lockfile.
+
+Prose and site changes still produce a successful check. Only `README.md`,
+`CHANGELOG.md`, `LICENSE`, `docs/index.md`, `docs/{getting-started,guides,concepts,reference,img}/`
+and `site/` skip Rust compilation. Root-level documentation contracts, schemas,
+calibration data, Rust sources, fixtures and workflow changes run Rust checks.
+The scope tests cover PR merge bases, multi-commit pushes and renames; unavailable
+base history runs the checks. Superseded quick runs are cancelled.
+
+`ci.yml` is the full QA workflow: production-feature tests (PDF and AI transparency) and all-feature rustdoc, PDF smoke,
+browser integration, three WCAG corpus shards, dependency audit, unused-dependency
+checks, and mocked tests. Coverage runs on non-tag refs; detector mutations and
+docs.rs sandbox parity retain their tag-only conditions. The latter remains
+advisory (`continue-on-error`), as before. All jobs have time limits and the QA
+token has read-only contents access. Full runs use distinct concurrency groups
+per run and attempt, so dispatches and release calls cannot cancel or replace
+one another.
+
+To validate a release candidate without publishing, select **CI → Run workflow**
+and the candidate ref, or, once `workflow_dispatch` is present on `main`:
+
+```bash
+gh workflow run ci.yml --ref <candidate-branch-or-tag>
+```
+
+The selected ref must contain this workflow. A branch dispatch skips tag-only
+jobs; dispatching an existing tag exercises those jobs too, without publishing.
+Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
+commit and requires both version/milestone validation and full QA before any
+binary packaging. `scripts/v2-readiness.json` retains exactly U01–U26; additional
+open milestone issues and #792 also block 2.x, including prereleases. API errors
+fail closed. No prerelease publishing policy is added by this CI split.
+
+### Required checks and runtime evidence
+
+At the 2026-11-02 migration, `main` has no branch protection or rulesets, so there
+are no required checks to migrate. If an administrator enables protection, require
+**Quick checks**, rather than the old full-QA job names on PRs. Full QA is mandatory
+through the release dependency graph. Existing open PRs use their current workflow
+until updated with this change.
+
+Ordinary Rust changes run one Ubuntu job instead of 12 active full-QA jobs
+(including the three WCAG shards); prose changes run only checkout and the cheap
+scope/readiness regressions. Runner-minute savings require comparable completed
+runs and depend on cache warmth; job-count reduction is not a measured speedup.
+The 2026-11-02 baseline run
+[41402930877](https://github.com/casoon/auditmysite/actions/runs/41402930877)
+used 8,355 aggregate job-seconds (about 139.3 runner-minutes, or 145 after
+rounding each job up to a minute). This is an observed baseline, not a forecast
+for the new job.
+
+Full browser QA currently runs on Linux x86_64. Native macOS ARM64, Linux ARM64
+and Windows x86_64/Edge runtime gates remain required 2.0 work in #856; the Linux
+ARM64 release cross-build does not satisfy them. Browser selection, bootstrap,
+UA and isolation work remains in #854, #855 and #787. This split changes CI
+execution, not browser behavior.
+
 ## Release checks
 
 Run the local release gate with:
