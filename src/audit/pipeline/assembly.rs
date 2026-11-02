@@ -495,6 +495,9 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             .collect(),
             state_id: config.state_id.clone(),
             extra_checks: extra_checks.requested_flags(),
+            // Known only once the browser has launched; the pipeline
+            // fills it in next to the execution environment.
+            browser: None,
             storage_state: config.storage_state.as_ref().map(|state| {
                 crate::audit::StorageStateRef {
                     sha256: state.digest.clone(),
@@ -1018,6 +1021,14 @@ mod tests {
         );
         let mut report = report_with_run("accessibility");
         report.accessibility.execution.scope = audit_scope_from_config(&config);
+        // A run records its browser once it has launched one.
+        report
+            .accessibility
+            .execution
+            .scope
+            .measurement_profile
+            .browser = Some(crate::browser::BrowserProvenance::for_tests());
+        report.accessibility.execution.environment.headless = true;
         report
             .accessibility
             .execution

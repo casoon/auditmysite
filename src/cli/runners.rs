@@ -281,6 +281,8 @@ pub(crate) fn run_replay_mode(
             .map(|state| state.digest),
         // Replay refuses extra-check flags (support matrix), so nothing to assert.
         extra_checks: None,
+        // A replay measures nothing, so it asserts no browser.
+        browser: None,
     };
     let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
     snapshot.check_measurement(&expected).map_err(refuse)?;

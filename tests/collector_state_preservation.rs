@@ -108,6 +108,17 @@ fn report_with(record: CollectionRecord) -> Box<AuditReport> {
     let profile = &mut report.accessibility.execution.scope.measurement_profile;
     profile.version = MEASUREMENT_PROFILE_VERSION;
     profile.read_only = true;
+    profile.browser = Some(auditmysite::browser::BrowserProvenance {
+        product: auditmysite::browser::BrowserProduct::Chrome,
+        version: Some("131.0.6778.85".into()),
+        origin: auditmysite::browser::BrowserOrigin::System,
+        os: auditmysite::browser::PlatformOs::Macos,
+        arch: auditmysite::browser::PlatformArch::Aarch64,
+        headless_mode: auditmysite::browser::HeadlessModeKind::New,
+        failover: false,
+        discarded_candidates: 0,
+    });
+    report.accessibility.execution.environment.headless = true;
     let is_gap = record.state.is_gap();
     if is_gap {
         // As `update_audit_quality` leaves a run with a lost collection.

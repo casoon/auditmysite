@@ -19,6 +19,8 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use super::detection::{verify_executable, ChromeInfo};
+use super::platform::Platform;
+use super::provenance::{BrowserProvenance, HeadlessModeKind};
 use super::resolver::{self, BrowserResolveOptions};
 use super::types::DetectedBrowser;
 use crate::error::{AuditError, Result};
@@ -123,6 +125,7 @@ impl Default for BrowserOptions {
 pub struct BrowserManager {
     browser: Browser,
     chrome_info: ChromeInfo,
+    provenance: BrowserProvenance,
     options: BrowserOptions,
     user_data_dir: PathBuf,
     _handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
@@ -173,7 +176,11 @@ impl BrowserManager {
         };
 
         let resolved = resolver::resolve_browser(&resolve_opts)?;
-        Self::launch_chain(resolved.launch_chain(), options).await
+        let mut manager = Self::launch_chain(resolved.launch_chain(), options).await?;
+        manager
+            .provenance
+            .record_discarded(resolved.discarded_before_launch());
+        Ok(manager)
     }
 
     /// Launch the first browser of `chain` that starts, in order.
@@ -184,6 +191,7 @@ impl BrowserManager {
         let mut attempts: Vec<String> = Vec::new();
 
         for browser in chain {
+            let launched_before = attempts.len() as u32;
             let chrome_info = ChromeInfo::from(&browser);
             info!(
                 "Trying {}: {} v{}",
@@ -220,9 +228,33 @@ impl BrowserManager {
                         plan.label
                     );
 
+                    // Detection may not have a version (`--version` is
+                    // optional); the browser's own answer fills the gap.
+                    let version = match chrome_info.version.clone() {
+                        Some(version) => Some(version),
+                        None => chromium
+                            .version()
+                            .await
+                            .ok()
+                            .and_then(|v| v.product.split('/').nth(1).map(str::to_string)),
+                    };
+                    let mut provenance = BrowserProvenance::new(
+                        browser.kind,
+                        browser.source,
+                        version,
+                        Platform::current(),
+                        match plan.headless_mode {
+                            HeadlessMode::False => HeadlessModeKind::Headful,
+                            HeadlessMode::True => HeadlessModeKind::Legacy,
+                            HeadlessMode::New => HeadlessModeKind::New,
+                        },
+                    );
+                    provenance.record_discarded(launched_before);
+
                     return Ok(Self {
                         browser: chromium,
                         chrome_info,
+                        provenance,
                         options,
                         user_data_dir,
                         _handler: Arc::new(Mutex::new(Some(handler_task))),
@@ -688,6 +720,12 @@ impl BrowserManager {
     /// Get Chrome version
     pub fn chrome_version(&self) -> Option<&str> {
         self.chrome_info.version.as_deref()
+    }
+
+    /// Which browser measures: product, version, source, platform, headless
+    /// mode and failover, without paths (#787).
+    pub fn provenance(&self) -> &BrowserProvenance {
+        &self.provenance
     }
 
     /// Whether this browser session runs headless. Exposed for report
