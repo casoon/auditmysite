@@ -9,6 +9,9 @@ and verification for each change is in the
 
 ### Added
 
+- **Validation:** The ACT harness also writes `earl.json`, an EARL JSON-LD report (`failed`, `cantTell`, `inapplicable`, `untested`; never `passed`, because passed and inapplicable cannot be told apart), rules in `docs/ACT_COVERAGE.md` (#838).
+- **Validation:** `tests/act_testcases.rs` (`#[ignore]`, Chrome) runs auditmysite against the W3C ACT test cases of every `full` + `active` rule in `docs/act-mapping.json` and writes `results.json` / `report.md` with a verdict per test case and a consistency level per rule. `scripts/act-fetch.sh` downloads the pinned ACT commit into a cache and checks a content digest; nothing is copied into the repository. First run of the starter set: 100 of 118 test cases agree, deviations are listed in `docs/ACT_COVERAGE.md` (#837).
+- **Docs:** `docs/act-mapping.json` maps internal rule ids to W3C ACT rule ids with a coverage level (full, partial, none, unclear), explained in `docs/ACT_COVERAGE.md` together with missing-rule candidates and a first submission set (#836). `tests/act_mapping.rs` checks that every mapped rule id exists.
 - **Validation:** new contract code `viewport_score`: a dual-viewport report whose `score` exceeds the 70 % mobile / 30 % desktop accessibility value of its own `viewport_scores` is rejected (Refs #781).
 - **Docs:** The README shows the audit flow and the module weights of the overall score as charts generated with chartlet (`docs/img/*.json` → `*.svg`, light and dark).
 - **Validation:** `output::format_ai_json`, `terminal::render_single_report[_for]`, `terminal::render_batch_report` and `technician::finding_rows` now validate before they output and return `Result<_, ReportContractError>` (API change); a contradictory report is refused with codes and data paths, covered by `tests/validation_path_matrix.rs` (Refs #790). Evidence references and automatic rule-logic-change detection are deferred to 2.1; `EVALUATION_VERSION` stays the documented manual guard.
@@ -117,6 +120,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Accessibility:** A page without `lang` that embeds an iframe without `lang` no longer fails the whole audit with `rule_findings_preserved at rule_outcomes[html-has-lang]`: `document/lang-missing` and `html-has-lang` now both resolve to the language finding.
 - **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
 - **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
 - **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
