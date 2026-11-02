@@ -545,9 +545,11 @@ jobs:
             [ "$RUNNER_OS" = "macOS" ] && path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
             version="$("$path" --version | tr -d '\r')"
           fi
-          echo "path=$path" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)" >> "$GITHUB_OUTPUT"
+          {
+            echo "path=$path"
+            echo "version=$version"
+            echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)"
+          } >> "$GITHUB_OUTPUT"
           echo "Browser: $path ($version)"
 
       - name: Browser detection, failover and pool tests
@@ -627,7 +629,12 @@ jobs:
               problems.append(f"arch {browser.get('arch')} != {os.environ['EXPECT_ARCH']}")
           if browser.get("product") not in os.environ["EXPECT_PRODUCTS"].split():
               problems.append(f"product {browser.get('product')} not in {os.environ['EXPECT_PRODUCTS']}")
-          if not browser.get("version") or browser.get("version") != os.environ["EXPECT_VERSION"]:
+          # Compared down to the build number: a Chrome that updated itself on
+          # disk reports a newer patch level over CDP than `--version` of its
+          # launcher binary (seen on macOS: 156.0.8078.76 vs 156.0.8078.74).
+          reported = ".".join((browser.get("version") or "").split(".")[:3])
+          expected = ".".join(os.environ["EXPECT_VERSION"].split(".")[:3])
+          if not reported or reported != expected:
               problems.append(f"version {browser.get('version')} != runner browser {os.environ['EXPECT_VERSION']}")
           if problems:
               sys.exit("; ".join(problems))
