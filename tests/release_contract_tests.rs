@@ -257,3 +257,81 @@ fn release_requires_completed_v2_milestone_before_build() {
         String::from_utf8_lossy(&result.stderr)
     );
 }
+
+#[test]
+fn quick_ci_always_reports_and_runs_the_browser_free_test_set_once() {
+    let quick = read_repo_file(".github/workflows/quick-ci.yml");
+    let triggers = quick.split("permissions:").next().unwrap();
+    assert!(triggers.contains("pull_request:") && triggers.contains("push:"));
+    assert!(!triggers.contains("paths-ignore:") && !triggers.contains("paths:"));
+    assert!(quick.contains("name: Quick checks"));
+    assert!(quick.contains("cancel-in-progress: true"));
+    assert!(quick.contains("contents: read"));
+    let job = workflow_job_body(&quick, "quick");
+    assert_eq!(job_condition(job), None);
+    assert!(job.contains("timeout-minutes:"));
+    assert!(job.contains("cargo fmt --all -- --check"));
+    assert!(job.contains("cargo clippy --locked --all-targets --no-default-features"));
+    assert_eq!(job.matches("cargo test ").count(), 1);
+    assert!(job.contains("cargo test --locked --no-default-features --"));
+    for expensive in [
+        "cargo install",
+        "setup-chrome@",
+        "--features pdf",
+        "--ignored",
+    ] {
+        assert!(!job.contains(expensive), "quick CI contains {expensive}");
+    }
+    assert!(job.contains("bash scripts/quick-ci-scope.sh"));
+    assert!(job.contains("python3 scripts/test_quick_ci_scope.py"));
+}
+
+#[test]
+fn full_qa_only_runs_on_call_or_dispatch_and_cannot_publish() {
+    let full = read_repo_file(".github/workflows/ci.yml");
+    let triggers = full.split("permissions:").next().unwrap();
+    assert!(triggers.contains("workflow_call:") && triggers.contains("workflow_dispatch:"));
+    assert!(!triggers.contains("  push:") && !triggers.contains("  pull_request:"));
+    assert!(full.contains("contents: read"));
+    assert!(full.contains("group: full-qa-${{ github.run_id }}-${{ github.run_attempt }}"));
+    assert!(full.contains("cancel-in-progress: false"));
+    let executable = full
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for publishing in ["contents: write", "action-gh-release@", "cargo publish"] {
+        assert!(
+            !executable.contains(publishing),
+            "manual QA can publish: {publishing}"
+        );
+    }
+    let all_features = workflow_job_body(&full, "check-all-features");
+    assert!(all_features.contains("cargo test --features pdf,ai-transparency --"));
+    assert!(workflow_job_body(&full, "dependency-audit").contains("cargo audit"));
+    assert!(workflow_job_body(&full, "pdf-smoke").contains("--features pdf_test"));
+    for job in [
+        "check",
+        "check-all-features",
+        "pdf-smoke",
+        "docs-rs",
+        "format",
+        "unused-deps",
+        "dependency-audit",
+        "integration-mocked",
+        "coverage",
+        "browser-smoke",
+        "detection-corpus",
+        "mutation-check",
+    ] {
+        assert!(
+            workflow_job_body(&full, job).contains("timeout-minutes:"),
+            "{job}"
+        );
+    }
+    // Dispatch does not trigger release.yml, even when its selected ref is a tag.
+    let release = read_repo_file(".github/workflows/release.yml");
+    let release_triggers = release.split("permissions:").next().unwrap();
+    assert!(release_triggers.contains("tags: [\"v*\"]"));
+    assert!(!release_triggers.contains("workflow_dispatch:"));
+}

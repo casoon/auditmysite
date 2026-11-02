@@ -49,6 +49,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Contributors:** PRs and main pushes use one browser-free Quick CI job with an always-reported check for prose changes. Full browser, PDF, corpus and security QA runs manually or on the exact release tag before packaging; production-feature tests include PDF and AI transparency, with PDF rendering smoke kept separate.
+
 - **Docs:** The README is a landing page (about 210 lines instead of 890). The detail moved verbatim into docs pages: feature scope, CLI and output contract, typical workflows, report modes, comparison with other tools, batch audits, requirements, build from source, the barrierlab boundary and development. Nothing was removed; the README links to each page.
 - **Tests:** The reviewed score bands of `gov.uk` (85–100), `berlin.de` (40–75) and `basf.com` (15–50) in `tests/fixtures/reference_sites.json` follow the 2.0 changes (best-practice advice no longer a failure, content-model false positives fixed); reasons in each entry's `notes`.
 - **Dependencies:** `html-conform` 0.3.3 → 0.3.4 (pulls `relax-ng` 0.2.3, `xpath-eval` 0.2.3, `schematron-engine` 0.2.1). The HTML-conformance check is much faster per page (upstream measured 8–10 ms instead of 250–900 ms for the RELAX NG stage on typical pages); findings and scores are unchanged on the pages compared.
