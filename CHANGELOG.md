@@ -116,6 +116,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
 - **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
 - **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
 - **Schema:** `navigation` and its `redirect_chain` are described in `docs/json-report.schema.json` (#775); `summary.grade` and `summary.certificate` may be `null`.
