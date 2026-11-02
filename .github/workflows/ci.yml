@@ -502,7 +502,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome_for_testing" }
+          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome" }
           - { name: Linux x64, runner: ubuntu-24.04, browser: chrome, os: linux, arch: x86_64, products: "chrome chrome_for_testing" }
           - { name: Linux arm64, runner: ubuntu-24.04-arm, browser: chrome, os: linux, arch: aarch64, products: "chrome chrome_for_testing chromium" }
           - { name: Windows x64, runner: windows-2025, browser: edge, os: windows, arch: x86_64, products: "edge" }
@@ -521,8 +521,13 @@ jobs:
             target
           key: ${{ matrix.runner }}-cargo-native-smoke-${{ hashFiles('**/Cargo.lock') }}
 
+      # macOS uses the Google Chrome the runner image ships: the Chrome for
+      # Testing that setup-chrome unpacks there is a bare `Contents` folder
+      # outside an app bundle, and its helper processes fail the Mach port
+      # rendezvous with the parent ("Failed to initialize sandbox"), so no page
+      # can be created.
       - name: Install Chrome
-        if: matrix.browser == 'chrome'
+        if: matrix.browser == 'chrome' && runner.os != 'macOS'
         id: setup-chrome
         uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
 
@@ -537,34 +542,13 @@ jobs:
             version="$(powershell -NoProfile -Command "(Get-Item '$path').VersionInfo.ProductVersion" | tr -d '\r')"
           else
             path="$CHROME_PATH_FROM_SETUP"
+            [ "$RUNNER_OS" = "macOS" ] && path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
             version="$("$path" --version | tr -d '\r')"
           fi
           echo "path=$path" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)" >> "$GITHUB_OUTPUT"
           echo "Browser: $path ($version)"
-
-      - name: DEBUG headless dump (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        timeout-minutes: 5
-        env:
-          BROWSER_PATH: ${{ steps.browser.outputs.path }}
-        run: |
-          ls -d /Applications/*Chrom* /Applications/*Edge* 2>/dev/null || true
-          xattr "$BROWSER_PATH" || true
-          cp -R "$(dirname "$(dirname "$(dirname "$BROWSER_PATH")")")" "$RUNNER_TEMP/cft-copy.app" 2>/dev/null || true
-          for bin in "$BROWSER_PATH" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"; do
-            [ -x "$bin" ] || { echo "skip $bin"; continue; }
-            echo "=== $bin"
-            start=$(date +%s)
-            "$bin" --headless=new --disable-gpu --user-data-dir="$(mktemp -d)" --dump-dom about:blank > dump.out 2> dump.err &
-            pid=$!
-            for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
-            kill "$pid" 2>/dev/null || true
-            echo "elapsed $(( $(date +%s) - start ))s"; head -c 300 dump.out; echo; tail -n 3 dump.err
-          done
-          true
 
       - name: Browser detection, failover and pool tests
         timeout-minutes: 15
