@@ -14,6 +14,14 @@ use std::fs;
 use std::process::Command;
 
 fn main() {
+    // Windows reserves 1 MB for the main thread, unix 8 MB. The audit future
+    // lives on that stack and overflowed it in a debug build on a CI runner.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+        && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+    {
+        println!("cargo:rustc-link-arg-bins=/STACK:8388608");
+    }
+
     let sha = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
