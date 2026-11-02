@@ -36,7 +36,9 @@ pub async fn run_doctor(no_sandbox: bool) {
         println!("           brew install --cask google-chrome   (macOS)");
         println!("           sudo apt install chromium           (Linux)");
         println!("           Microsoft Edge                      (Windows)");
-        println!("           auditmysite browser install         (macOS ARM64, Linux x86_64)");
+        println!(
+            "           auditmysite browser install         (macOS ARM64, Linux x86_64/ARM64)"
+        );
         has_errors = true;
     }
     let selected = diagnosis.selected().map(|c| c.browser.path.clone());
@@ -191,7 +193,7 @@ pub fn print_browser_diagnosis(diagnosis: &BrowserDiagnosis) {
         println!("    macOS:   brew install --cask google-chrome");
         println!("    Linux:   sudo apt install chromium");
         println!("    Windows: Microsoft Edge");
-        println!("    managed: auditmysite browser install   (macOS ARM64, Linux x86_64)");
+        println!("    managed: auditmysite browser install   (macOS ARM64, Linux x86_64/ARM64)");
         return;
     }
 

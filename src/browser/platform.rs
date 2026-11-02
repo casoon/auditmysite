@@ -112,12 +112,13 @@ impl Platform {
     }
 
     /// Platform string of the Chrome for Testing downloads, `None` where no
-    /// managed install exists: Windows (Edge only) and Linux ARM64 (Google
-    /// publishes no Linux ARM64 build).
+    /// managed install exists: Windows (Edge only). Linux ARM64 has an
+    /// official build from Chrome for Testing 153.0.8001.0 on.
     pub fn managed_platform_string(&self) -> Option<&'static str> {
         match (self.os, self.arch) {
             (Os::MacOs, Arch::Aarch64) => Some("mac-arm64"),
             (Os::Linux, Arch::X86_64) => Some("linux64"),
+            (Os::Linux, Arch::Aarch64) => Some("linux-arm64"),
             _ => None,
         }
     }
@@ -229,14 +230,12 @@ mod tests {
     }
 
     #[test]
-    fn managed_installs_exist_on_mac_arm_and_linux_x64_only() {
+    fn managed_installs_exist_on_mac_arm_and_linux_but_not_windows() {
         assert_eq!(MAC_ARM.managed_platform_string(), Some("mac-arm64"));
         assert_eq!(LINUX_X64.managed_platform_string(), Some("linux64"));
+        assert_eq!(LINUX_ARM.managed_platform_string(), Some("linux-arm64"));
         assert!(MAC_ARM.managed_unavailable_reason().is_none());
-        assert!(LINUX_ARM
-            .managed_unavailable_reason()
-            .unwrap()
-            .contains("Chrome for Testing"));
+        assert!(LINUX_ARM.managed_unavailable_reason().is_none());
         assert!(WIN_X64
             .managed_unavailable_reason()
             .unwrap()

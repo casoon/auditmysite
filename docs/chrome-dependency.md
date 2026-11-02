@@ -54,20 +54,23 @@ Suchreihenfolge:
 
 `CHROME_PATH` wird weiterhin als Kompatibilitätsquelle unterstützt, die Benutzeroberfläche des Projekts dokumentiert aber primär `--browser-path` und `AUDITMYSITE_BROWSER`.
 
-### 2. Chrome installieren (`src/browser/installer.rs`)
+### 2. Install Chrome (`src/browser/installer.rs`)
 
-Falls kein Chrome gefunden wird, muss der Benutzer explizit installieren:
-```bash
-auditmysite browser install
-```
+Nothing is downloaded without consent:
 
-- Download von "Chrome for Testing" (stabile Builds von Google)
-- Download-URL: `storage.googleapis.com/chrome-for-testing-public/...`
-- Zielverzeichnis: `~/.auditmysite/browsers/`
-- Plattformspezifisch (macOS arm64/x64, Linux x64, Windows x64)
-- Einmaliger Download (~150-200MB), danach aus Cache
+- `auditmysite browser install [--version V] [--force] [--offline] [--headless-shell]` is the explicit request.
+- `auditmysite browser ensure --yes` installs only if no browser is found (idempotent); without `--yes` it asks in an interactive terminal and otherwise fails with a deterministic error. This is the opt-in for scripts and CI.
+- An interactive audit that finds no browser asks once (source, destination, approximate size, decline path). Non-interactive runs (no TTY, `CI` set, `--quiet`) never ask and never download.
 
-**Hinweis:** Es gibt keinen automatischen Download mehr. Der Benutzer entscheidet selbst, wann ein Browser installiert wird.
+Platforms: macOS ARM64, Linux x86_64 and Linux ARM64 (Chrome for Testing `linux-arm64` exists from 153.0.8001.0; older versions fail with "not published"). Windows x86_64 uses an existing Microsoft Edge only and is never offered a download. macOS Intel and Windows ARM64 are not supported. No browser is bundled in the binary or release archive.
+
+Source: the version and the exact per-platform URL come from the publisher's manifest (`googlechromelabs.github.io/chrome-for-testing/*.json`); only HTTPS to `googlechromelabs.github.io` (manifest) and `storage.googleapis.com/chrome-for-testing-public/` (archive) is accepted, including redirects. There is no hard-coded fallback version: offline, a previously validated managed browser is used, otherwise setup reports that it needs network access.
+
+Transaction (`install_txn.rs`): exclusive file lock (a second install fails fast, the lock dies with the process) → recovery of leftovers → bounded download (600 MB, 20 min total, 30 s stall, announced length must match) into `~/.auditmysite/browsers/.staging-*` → safe extraction (no path escape, no link leaving the tree, no overwrite, entry and size bounds) → binary present, `--version` matches, headless start and one CDP command → rename into place, previous installation kept aside and renamed back if that fails. A failed install leaves the previous one in place. `install.json` records what was verified.
+
+**Integrity limits (researched 2026-11-02).** The Chrome for Testing manifests list only `platform` and `url`: no checksum, no signature, no `.sha256`/`.sig` next to the archives. The bucket sends `x-goog-hash` (MD5/CRC32C) and an ETag, but from the same origin as the bytes, so they cannot authenticate the publisher; a hash computed from the download proves nothing either. auditmysite therefore does **not** claim publisher verification: trust rests on TLS to the two fixed hosts, the exact manifest entry, and the checks above. A compromise of those hosts is not detected. If upstream publishes a digest or signature, verification belongs in `install_plan.rs`. There is no downgrade path: a missing platform, version or asset is an error, never another platform or an older build.
+
+**macOS.** The installer writes files itself, so they carry no `com.apple.quarantine` attribute and nothing is stripped (the old blanket `xattr -rd` is gone). If Gatekeeper still blocks the app the startup check fails, nothing is bypassed, and the install is rolled back.
 
 ### 3. Chrome starten (`src/browser/manager.rs`)
 

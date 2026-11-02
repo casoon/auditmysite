@@ -44,7 +44,10 @@ src/
 │   ├── platform.rs      # Platform contract (macOS ARM64, Linux x64/ARM64, Windows Edge only)
 │   ├── detection.rs     # Candidate scan: dedup by canonical path, verdict per candidate
 │   ├── probe.rs         # Bounded `--version` and headless CDP probe (launch, connect, cleanup)
-│   ├── installer.rs     # Download browser via `browser install`
+│   ├── installer.rs     # Facade: `browser install|remove`, managed binary paths
+│   ├── install_plan.rs  # Publisher-manifest selection, URL trust policy
+│   ├── install_txn.rs   # Transactional install: lock, bounded download, safe extraction, CDP smoke, atomic promote/rollback
+│   ├── bootstrap.rs     # Consent policy for the one-time managed install (`browser ensure`, interactive prompt)
 │   ├── resolver.rs      # Selection, failover chain, browser diagnosis (detect/doctor)
 │   ├── manager.rs       # Browser lifecycle (launch, navigate, close)
 │   ├── pool.rs          # Page pool for concurrent audits
@@ -481,14 +484,13 @@ Handles Chrome lifecycle:
   listed once (canonical path). Managed installs come after every existing browser, full
   Chrome for Testing before the headless shell
 - Platform contract (`browser::platform`): macOS ARM64, Linux x86_64/ARM64, Windows x86_64 with
-  Microsoft Edge only (also for `--browser-path`/env vars); no managed browser on Windows or
-  Linux ARM64
+  Microsoft Edge only (also for `--browser-path`/env vars); no managed browser on Windows
 - An automatically selected browser that fails to start hands over to the next viable candidate
   (`ResolvedBrowser::launch_chain`), keeping one diagnosis per attempt; an explicit path never
   falls back unless `BrowserResolveOptions::fallback_to_auto` is set
 - `browser detect` and `doctor` run `diagnose_browsers`: version query and headless CDP launch are
   time-bounded; every candidate shows its verdict (selected / alternative / reason)
-- Explicit download via `auditmysite browser install`
+- Managed Chrome for Testing only on request: `auditmysite browser install`, `browser ensure --yes`, or after the consent prompt of an interactive audit on macOS ARM64 / Linux x86_64 / Linux ARM64 (never in non-interactive, CI or Windows runs; Windows uses Edge only). Transactional and unauthenticated-by-upstream: see [chrome-dependency.md](chrome-dependency.md#2-install-chrome-srcbrowserinstallerrs)
 - Configures headless mode with security flags
 - Manages page navigation with timeouts
 

@@ -529,10 +529,11 @@ mod tests {
     }
 
     #[test]
-    fn managed_installs_are_excluded_on_windows_and_linux_arm64() {
+    fn managed_installs_are_excluded_on_windows() {
         let home = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(home.path().join(".auditmysite/browsers/headless-shell")).unwrap();
-        for platform in [WIN_X64, Platform::new(Os::Linux, Arch::Aarch64)] {
+        {
+            let platform = WIN_X64;
             let reports = managed_candidates(platform, Some(home.path()), T);
             assert!(
                 matches!(
