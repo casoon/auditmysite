@@ -740,6 +740,10 @@ mod tests {
                 "ai_transparency.image_fetches",
                 crate::ai_transparency::counter_cases,
             ),
+            (
+                "privacy.first_visit",
+                crate::privacy::first_visit::tests::counter_cases,
+            ),
             ("security.headers", crate::security::counter_cases),
             ("security.source_maps", crate::security::counter_cases),
             ("security.certificate", crate::security::counter_cases),

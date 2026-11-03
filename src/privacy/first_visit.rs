@@ -570,7 +570,7 @@ async fn read_storage(page: &chromiumoxide::Page) -> (Option<Vec<CapturedStorage
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::json;
 
@@ -603,6 +603,32 @@ mod tests {
             "sourceScheme": "Secure", "sourcePort": 443
         }))
         .expect("valid CDP cookie")
+    }
+
+    /// Counter-cases of `privacy.first_visit` (#777): lost events, a lost
+    /// final URL, an unreadable cookie jar or storage and a network that
+    /// never went quiet leave no regular value; valid empty cookies and
+    /// storage are a measurement.
+    pub(crate) fn counter_cases() {
+        use crate::audit::collection::CollectionState;
+        let state = |edit: fn(&mut RawVisit)| {
+            let mut r = raw();
+            edit(&mut r);
+            assemble(r).state()
+        };
+        assert_eq!(state(|_| {}), CollectionState::Measured);
+        assert_eq!(
+            state(|r| {
+                r.cookies = Some(vec![]);
+                r.storage = Some(vec![]);
+            }),
+            CollectionState::Measured
+        );
+        assert_eq!(state(|r| r.events.clear()), CollectionState::Failed);
+        assert_eq!(state(|r| r.final_url = None), CollectionState::Failed);
+        assert_eq!(state(|r| r.cookies = None), CollectionState::Partial);
+        assert_eq!(state(|r| r.storage = None), CollectionState::Partial);
+        assert_eq!(state(|r| r.network_idle = false), CollectionState::Partial);
     }
 
     fn raw() -> RawVisit {
