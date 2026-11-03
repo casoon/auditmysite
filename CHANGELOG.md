@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **SEO:** the broken-internal-link check (`seo.broken_links`) has a 20-second wall-clock budget; before, up to 50 targets in waves of 8 with 5 s each for `HEAD` and `GET` could hold an audit for over a minute when the host accepts no connection, and targets still open at the deadline count as unanswered, so a check that answered nothing is `failed` instead of "no broken links" (Refs #792)
 - **CI:** every third-party GitHub Action in `ci.yml`, `release.yml` and `pages.yml` is pinned to the commit SHA of its current tag (tag as comment), the same way the already-pinned ones are; Dependabot keeps watching them (Refs #812).
 - **Performance:** the HTML-conformance check (`html_conform::check`) runs on a blocking thread instead of an async worker, so a slow page no longer stalls the runtime; findings and scores are unchanged (Refs #827).
 
