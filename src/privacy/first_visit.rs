@@ -22,7 +22,7 @@
 //! cookie inventory: the host differs from the host of the loaded page.
 //! Grouping by registrable domain is part of the classification.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -379,7 +379,8 @@ pub(crate) fn frame_origins(tree: &FrameTree) -> Vec<String> {
 #[derive(Default)]
 struct Traffic {
     events: Vec<Arc<EventRequestWillBeSent>>,
-    in_flight: HashSet<String>,
+    /// Request id → URL.
+    in_flight: HashMap<String, String>,
     last_activity: Option<Instant>,
 }
 
@@ -416,6 +417,44 @@ async fn wait_for_idle(traffic: &Mutex<Traffic>, quiet: Duration, max: Duration)
     }
 }
 
+/// Feed the three CDP streams into `traffic` until all of them end.
+///
+/// `biased`: `select!` otherwise picks a ready branch at random. On a loaded
+/// runner several events are queued at once, and a `loadingFinished` handled
+/// before the `requestWillBeSent` of the same request would remove nothing
+/// and leave that request in flight for good, so the network never reads as
+/// idle. Chrome sends the start of a request before its end, so draining the
+/// start stream first keeps the order.
+async fn pump_traffic(
+    mut sent: impl futures::Stream<Item = Arc<EventRequestWillBeSent>> + Unpin,
+    mut finished: impl futures::Stream<Item = Arc<EventLoadingFinished>> + Unpin,
+    mut failed: impl futures::Stream<Item = Arc<EventLoadingFailed>> + Unpin,
+    traffic: Arc<Mutex<Traffic>>,
+) {
+    loop {
+        tokio::select! {
+            biased;
+            Some(event) = sent.next() => {
+                let mut t = lock(&traffic);
+                t.in_flight.insert(event.request_id.inner().clone(), event.request.url.clone());
+                t.touch();
+                t.events.push(event);
+            }
+            Some(event) = finished.next() => {
+                let mut t = lock(&traffic);
+                t.in_flight.remove(event.request_id.inner());
+                t.touch();
+            }
+            Some(event) = failed.next() => {
+                let mut t = lock(&traffic);
+                t.in_flight.remove(event.request_id.inner());
+                t.touch();
+            }
+            else => break,
+        }
+    }
+}
+
 /// Visit `url` in a clean browser context and capture what the first visit
 /// leaves behind. The context is disposed again, whatever the outcome.
 pub async fn collect_first_visit(
@@ -447,7 +486,7 @@ async fn visit(
 
     // The listeners exist before Network is enabled and before the
     // navigation: the first request is the document itself.
-    let (Ok(mut sent), Ok(mut finished), Ok(mut failed)) = (
+    let (Ok(sent), Ok(finished), Ok(failed)) = (
         page.event_listener::<EventRequestWillBeSent>().await,
         page.event_listener::<EventLoadingFinished>().await,
         page.event_listener::<EventLoadingFailed>().await,
@@ -457,32 +496,7 @@ async fn visit(
     if page.execute(NetworkEnableParams::default()).await.is_err() {
         return Collected::Failed(reason::CDP_COMMAND_FAILED);
     }
-    let pump = {
-        let traffic = Arc::clone(&traffic);
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    Some(event) = sent.next() => {
-                        let mut t = lock(&traffic);
-                        t.in_flight.insert(event.request_id.inner().clone());
-                        t.touch();
-                        t.events.push(event);
-                    }
-                    Some(event) = finished.next() => {
-                        let mut t = lock(&traffic);
-                        t.in_flight.remove(event.request_id.inner());
-                        t.touch();
-                    }
-                    Some(event) = failed.next() => {
-                        let mut t = lock(&traffic);
-                        t.in_flight.remove(event.request_id.inner());
-                        t.touch();
-                    }
-                    else => break,
-                }
-            }
-        })
-    };
+    let pump = tokio::spawn(pump_traffic(sent, finished, failed, Arc::clone(&traffic)));
 
     let collected = async {
         if let Err(e) = manager.navigate(page, url).await {
@@ -493,6 +507,13 @@ async fn visit(
         tokio::time::sleep(options.settle).await;
         let idle_after = lock(&traffic).in_flight.is_empty();
         debug!("first visit of {url}: idle before settle {settled_before}, after {idle_after}");
+        if !(settled_before && idle_after) {
+            let t = lock(&traffic);
+            warn!(
+                "first visit of {url}: network not idle, still in flight: {:?}",
+                t.in_flight.values().collect::<Vec<_>>()
+            );
+        }
 
         let final_url = page.url().await.ok().flatten();
         let cookies = read_cookies(manager, context).await;
@@ -592,6 +613,35 @@ pub(crate) mod tests {
             }))
             .expect("valid CDP event"),
         )
+    }
+
+    fn started(id: &str) -> Arc<EventRequestWillBeSent> {
+        let mut e = (*event("https://example.com/a", "Image", json!({"type": "parser"}))).clone();
+        e.request_id = id.to_string().into();
+        Arc::new(e)
+    }
+
+    /// A finish that is ready together with its start must not be handled
+    /// first (random `select!` order left the request in flight forever).
+    #[tokio::test]
+    async fn a_request_that_finished_is_not_left_in_flight_whatever_the_poll_order() {
+        for round in 0..200 {
+            let traffic = Arc::new(Mutex::new(Traffic::default()));
+            let done: EventLoadingFinished = serde_json::from_value(
+                json!({"requestId": "r1", "timestamp": 1.0, "encodedDataLength": 0.0}),
+            )
+            .unwrap();
+            pump_traffic(
+                futures::stream::iter(vec![started("r1")]),
+                futures::stream::iter(vec![Arc::new(done)]),
+                futures::stream::empty(),
+                Arc::clone(&traffic),
+            )
+            .await;
+            let t = lock(&traffic);
+            assert!(t.in_flight.is_empty(), "round {round}: {:?}", t.in_flight);
+            assert_eq!(t.events.len(), 1);
+        }
     }
 
     fn cookie(name: &str, domain: &str, session: bool) -> Cookie {
