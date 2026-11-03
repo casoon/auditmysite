@@ -238,6 +238,14 @@ pub(crate) fn captured_request(
     })
 }
 
+fn is_document(event: &EventRequestWillBeSent) -> bool {
+    event
+        .r#type
+        .as_ref()
+        .map(|t| t.as_ref().eq_ignore_ascii_case("document"))
+        == Some(true)
+}
+
 /// A cookie without its value.
 pub(crate) fn captured_cookie(cookie: &Cookie, page_host: &str) -> CapturedCookie {
     let domain = cookie.domain.trim_start_matches('.').to_ascii_lowercase();
@@ -301,10 +309,25 @@ pub(crate) fn assemble(raw: RawVisit) -> Collected<FirstVisitCapture> {
         return Collected::Failed(why::FINAL_URL_UNAVAILABLE);
     };
 
+    // The document's own navigation chain (the entry URL and every redirect
+    // hop of the main frame) is the visit itself, not something the page
+    // requested: a hop on a provider's host (`hotjar.com` → `contentsquare.com`)
+    // is not a third-party request of the page.
+    let main_frame = raw
+        .events
+        .iter()
+        .find(|e| is_document(e))
+        .map(|e| e.frame_id.clone());
     let mut requests: Vec<CapturedRequest> = raw
         .events
         .iter()
-        .filter_map(|event| captured_request(event, &page_host))
+        .filter_map(|event| {
+            let mut request = captured_request(event, &page_host)?;
+            if is_document(event) && main_frame.as_ref() == Some(&event.frame_id) {
+                request.third_party = false;
+            }
+            Some(request)
+        })
         .collect();
     // The page itself is always requested; no request at all means the
     // listener lost the events, not that the page sent nothing.
@@ -681,6 +704,15 @@ pub(crate) mod tests {
     use serde_json::json;
 
     fn event(url: &str, ty: &str, initiator: serde_json::Value) -> Arc<EventRequestWillBeSent> {
+        frame_event(url, ty, initiator, "MAIN")
+    }
+
+    fn frame_event(
+        url: &str,
+        ty: &str,
+        initiator: serde_json::Value,
+        frame: &str,
+    ) -> Arc<EventRequestWillBeSent> {
         Arc::new(
             serde_json::from_value(json!({
                 "requestId": "1",
@@ -693,6 +725,7 @@ pub(crate) mod tests {
                 "timestamp": 1.0,
                 "wallTime": 1.0,
                 "initiator": initiator,
+                "frameId": frame,
                 "redirectHasExtraInfo": false,
                 "type": ty
             }))
@@ -812,6 +845,48 @@ pub(crate) mod tests {
         assert_eq!(c.cookies[0].expires, None, "session cookie has no expiry");
         assert!(!serde_json::to_string(&c).unwrap().contains("secret-value"));
         assert!(!c.profile.privacy_signals_sent && !c.profile.interaction);
+    }
+
+    #[test]
+    fn the_main_frames_navigation_chain_is_not_third_party() {
+        // hotjar.com redirects to contentsquare.com: both hops are the visit.
+        let mut r = raw();
+        r.requested_url = "https://www.hotjar.com/".into();
+        r.final_url = Some("https://www.contentsquare.com/".into());
+        r.events = vec![
+            event(
+                "https://www.hotjar.com/",
+                "Document",
+                json!({"type": "other"}),
+            ),
+            event(
+                "https://www.contentsquare.com/",
+                "Document",
+                json!({"type": "other"}),
+            ),
+            event(
+                "https://www.contentsquare.com/a.js",
+                "Script",
+                json!({"type": "parser"}),
+            ),
+            // A document in a child frame is a subresource of the page.
+            frame_event(
+                "https://stats.example.net/frame",
+                "Document",
+                json!({"type": "parser"}),
+                "CHILD",
+            ),
+        ];
+        let Collected::Measured(c) = assemble(r) else {
+            panic!("expected measured");
+        };
+        let third: Vec<&str> = c
+            .requests
+            .iter()
+            .filter(|r| r.third_party)
+            .map(|r| r.host.as_str())
+            .collect();
+        assert_eq!(third, ["stats.example.net"]);
     }
 
     #[test]

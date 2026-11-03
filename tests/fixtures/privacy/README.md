@@ -28,8 +28,8 @@ Each of the six checks has a positive (`F`), negative (`N`), not-applicable
 
 - `browser_cases.json`: pages served by a local HTTPS fixture and loaded by real Chrome; the host
   names of well-known providers resolve to the fixture
-  (`tests/privacy_quality_browser.rs`, `--ignored`). Per case: `body`, optional `footer` and
-  `set_cookie`, `requested` hosts that must show up in the capture, `unclassified` hosts that must
+  (`tests/privacy_quality_browser.rs`, `--ignored`). Per case: `body`, optional `footer`,
+  `set_cookie` and `entry_host` (the audited URL is a redirect from that host to the page), `requested` hosts that must show up in the capture, `unclassified` hosts that must
   be reported as unknown, `truth` (provider ids really loaded, for the recall figure), the rule in
   `why`, and `expect` in the same format as above.
 - `reference_pages.json`, `reference_captures.json`, `reference_pages.json.sha256`: hand-written
