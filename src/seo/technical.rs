@@ -1673,6 +1673,20 @@ async fn check_broken_internal_links(
     source_url: &str,
     targets: &[String],
 ) -> crate::audit::collection::Collected<Vec<String>> {
+    check_broken_internal_links_within(source_url, targets, LINK_CHECK_BUDGET).await
+}
+
+/// Wall-clock budget of the whole broken-link check. Per request the
+/// timeout is 5 s for `HEAD` and again for `GET`; with up to 50 targets, 8 at
+/// a time, a host that accepts nothing held the audit for over a minute
+/// (7 waves x 10 s). Targets still open at the deadline count as unanswered.
+const LINK_CHECK_BUDGET: std::time::Duration = std::time::Duration::from_secs(20);
+
+async fn check_broken_internal_links_within(
+    source_url: &str,
+    targets: &[String],
+    budget: std::time::Duration,
+) -> crate::audit::collection::Collected<Vec<String>> {
     use crate::audit::collection::{reason, Collected};
     let Some(source_origin) = url_origin(source_url) else {
         return Collected::NotApplicable("no_http_origin");
@@ -1695,7 +1709,9 @@ async fn check_broken_internal_links(
         return Collected::Empty(Vec::new());
     }
 
-    let statuses: Vec<(String, LinkStatus)> = stream::iter(unique.into_iter().take(50))
+    let selected: Vec<String> = unique.into_iter().take(50).collect();
+    let selected_count = selected.len();
+    let mut pending = stream::iter(selected)
         .map(|target| {
             let client = client.clone();
             async move {
@@ -1703,14 +1719,20 @@ async fn check_broken_internal_links(
                 (target, status)
             }
         })
-        .buffer_unordered(8)
-        .collect()
-        .await;
-    let checked = statuses.len();
-    let unanswered = statuses
-        .iter()
-        .filter(|(_, status)| matches!(status, LinkStatus::Unanswered))
-        .count();
+        .buffer_unordered(8);
+    let deadline = tokio::time::Instant::now() + budget;
+    let mut statuses: Vec<(String, LinkStatus)> = Vec::new();
+    while let Ok(Some(result)) = tokio::time::timeout_at(deadline, pending.next()).await {
+        statuses.push(result);
+    }
+    // Requests cut off by the deadline never answered.
+    let cut_off = selected_count - statuses.len();
+    let checked = selected_count;
+    let unanswered = cut_off
+        + statuses
+            .iter()
+            .filter(|(_, status)| matches!(status, LinkStatus::Unanswered))
+            .count();
     let broken: Vec<String> = statuses
         .into_iter()
         .filter_map(|(target, status)| match status {
@@ -2458,6 +2480,40 @@ pub(crate) mod counter_cases {
             &["https://other.example/x".to_string()],
         ));
         assert_eq!(empty.state(), CollectionState::Empty);
+        broken_links_budget();
+    }
+
+    /// A host that accepts connections and never answers ends the check at
+    /// its budget, not after every wave of per-request timeouts (7 waves x
+    /// 10 s for 50 targets). Nothing answered: failed, not "no broken links".
+    fn broken_links_budget() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        let held = std::thread::spawn(move || {
+            let mut streams = Vec::new();
+            while let Ok((stream, _)) = listener.accept() {
+                streams.push(stream);
+                if streams.len() >= 64 {
+                    break;
+                }
+            }
+        });
+        let source = format!("http://127.0.0.1:{port}/");
+        let targets: Vec<String> = (0..24).map(|i| format!("{source}page-{i}")).collect();
+        let started = std::time::Instant::now();
+        let checked = block_on(check_broken_internal_links_within(
+            &source,
+            &targets,
+            std::time::Duration::from_millis(800),
+        ));
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(4),
+            "the check outlived its budget: {:?}",
+            started.elapsed()
+        );
+        assert_eq!(checked.state(), CollectionState::Failed);
+        assert!(checked.value().is_none());
+        drop(held);
     }
 
     /// Local hosts have no www variant to compare.
