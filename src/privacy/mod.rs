@@ -12,8 +12,10 @@ pub mod findings;
 pub mod first_visit;
 #[cfg(test)]
 pub(crate) mod fixtures;
+pub mod module;
 
 pub use aggregate::{aggregate_privacy, PrivacyBatchAggregate};
+pub use module::PrivacyModule;
 
 pub use first_visit::{
     collect_first_visit, CaptureProfile, CapturedCookie, CapturedLink, CapturedRequest,

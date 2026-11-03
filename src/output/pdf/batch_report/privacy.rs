@@ -119,7 +119,7 @@ pub(super) fn matrix_rows(agg: &PrivacyBatchAggregate, i18n: &I18n) -> Vec<Vec<S
 
 /// Batch section (#872): cross-page aggregate only. One compact matrix row
 /// per page, no per-page detail. Rendered only when a page carries privacy
-/// data (`--privacy`).
+/// data (`--privacy-check`).
 pub(super) fn render_batch_privacy(
     mut builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,

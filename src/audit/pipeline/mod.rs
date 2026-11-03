@@ -361,8 +361,8 @@ pub struct PipelineConfig {
     /// (see `network::dns::module`'s per-host memoization).
     pub check_dns: bool,
     /// Run the pre-consent privacy check (#871): one extra visit in a clean
-    /// browser context, classified into technical findings. Part of
-    /// `--full`, or alone with `--privacy`. Runs once per URL
+    /// browser context, classified into technical findings. Opt-in via
+    /// `--privacy-check`, not part of `--full`. Runs once per URL
     /// (`run_extra_page_checks`), in single and batch mode alike.
     pub check_privacy: bool,
     /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
@@ -535,9 +535,10 @@ impl From<&Args> for PipelineConfig {
 impl PipelineConfig {
     /// Return a viewport-specific copy with the correct module on/off pattern.
     ///
-    /// Desktop: SEO, security, mobile, DNS and stack detection are off (run on mobile pass).
+    /// Desktop: SEO, security, mobile, DNS, privacy and stack detection are off (run on mobile pass).
     ///          Dark-mode analysis keeps the configured value.
-    /// Mobile:  Security and dark-mode are off.  All other user flags are respected.
+    /// Mobile:  Security, dark-mode and privacy are off.  All other user flags are respected.
+    ///          The privacy capture runs once per page in the extra checks.
     pub fn for_viewport(&self, viewport: Viewport) -> Self {
         match viewport {
             Viewport::Desktop => Self {
@@ -548,6 +549,7 @@ impl PipelineConfig {
                 check_html_conform: false,
                 check_ai_transparency: false,
                 check_dns: false,
+                check_privacy: false,
                 perf_runs: 1,
                 check_stack: false,
                 ..self.clone()
@@ -555,6 +557,7 @@ impl PipelineConfig {
             Viewport::Mobile => Self {
                 check_security: false,
                 check_dark_mode: false,
+                check_privacy: false,
                 ..self.clone()
             },
         }
@@ -606,7 +609,7 @@ impl PipelineConfig {
             // detail is only ever `fix_guidance`/`en301549_annex`).
             check_ai_transparency: args.ai_transparency && args.url.is_some(),
             check_dns: args.dns_check,
-            check_privacy: full_audit || args.privacy,
+            check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
@@ -828,6 +831,9 @@ async fn run_privacy_check(url: &str, browser: &BrowserManager, report: &mut Aud
     let analysis = analyze_privacy(&collected);
     log.record(&FIRST_VISIT, collected);
     let runs = &mut report.accessibility.execution.module_runs;
+    // The catalog never collects this module, so `audit_page` left a "no run
+    // record" placeholder for it; this is its run.
+    runs.retain(|run| run.module != "privacy");
     runs.push(crate::audit::ModuleRun {
         module: FIRST_VISIT.module.to_string(),
         status: crate::audit::ExecutionStatus::Completed,
@@ -2377,7 +2383,7 @@ mod tests {
             design_quality: false,
             ai_transparency: false,
             dns_check: false,
-            privacy: false,
+            privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
@@ -2492,6 +2498,33 @@ mod tests {
         assert!(!labels.contains(&"Tech Stack"));
     }
 
+    /// The privacy first visit is opt-in (#871): `--full` alone neither runs it
+    /// nor lists the module in the requested scope; `--privacy-check` does,
+    /// and only the single capture pass (not a viewport pass) carries it.
+    #[test]
+    fn privacy_check_is_opt_in_and_not_part_of_full() {
+        use super::assembly::audit_scope_from_config;
+        let config =
+            |argv: &[&str]| PipelineConfig::from_args_and_config(&Args::parse_from(argv), None);
+        let full = config(&["auditmysite", "https://example.com", "--full"]);
+        assert!(!full.check_privacy);
+        assert!(!audit_scope_from_config(&full)
+            .requested_modules
+            .contains(&"privacy".to_string()));
+        assert!(!full.active_module_labels().contains(&"Privacy"));
+
+        let opted_in = config(&["auditmysite", "https://example.com", "--privacy-check"]);
+        assert!(opted_in.check_privacy);
+        assert!(audit_scope_from_config(&opted_in)
+            .requested_modules
+            .contains(&"privacy".to_string()));
+        assert!(opted_in.active_module_labels().contains(&"Privacy"));
+        assert!(!opted_in.for_viewport(Viewport::Desktop).check_privacy);
+        assert!(!opted_in.for_viewport(Viewport::Mobile).check_privacy);
+        // The removed pre-release spelling is not accepted.
+        assert!(Args::try_parse_from(["auditmysite", "https://example.com", "--privacy"]).is_err());
+    }
+
     /// #788: the extra-reload checks are part of the requested scope in single
     /// and batch invocations alike, and absent when not requested or when
     /// their prerequisite module is off (the flag is then a no-op by contract).
@@ -2507,11 +2540,12 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--privacy-check",
         ];
         let expected = vec![
             "performance.third_party_isolation".to_string(),
             "content_visibility.ssr_gap".to_string(),
-            // `--full` includes the privacy first visit (#871).
+            // Opt-in `--privacy-check` (#871); `--full` alone does not request it.
             "privacy.first_visit".to_string(),
         ];
         for target in [
@@ -2527,8 +2561,10 @@ mod tests {
                 .collect();
             assert_eq!(scope(&argv), expected, "{target:?}");
         }
+        // `--full` does not include the privacy first visit; the flag does.
+        assert!(scope(&["auditmysite", "--url-file", "urls.txt", "--full"]).is_empty());
         assert_eq!(
-            scope(&["auditmysite", "--url-file", "urls.txt", "--full"]),
+            scope(&["auditmysite", "--url-file", "urls.txt", "--privacy-check"]),
             ["privacy.first_visit"]
         );
         // The module-level checks owe their collections too (#778).
@@ -2537,7 +2573,6 @@ mod tests {
             ["caa", "dnskey", "mx", "spf"]
                 .map(|id| format!("network_dns.{id}"))
                 .into_iter()
-                .chain(["privacy.first_visit".to_string()])
                 .collect::<Vec<_>>()
         );
         // SEO off: the SSR check has no module to attach to and is not requested.
@@ -2677,6 +2712,7 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--privacy-check",
         ];
         let scope = |target: &[&str]| {
             let argv: Vec<&str> = ["auditmysite"]
@@ -2697,7 +2733,7 @@ mod tests {
             [
                 "--isolate-third-party-impact",
                 "--check-ssr-content",
-                "--privacy"
+                "--privacy-check"
             ]
         );
         assert_eq!(

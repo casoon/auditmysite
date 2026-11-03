@@ -20,7 +20,7 @@ pub enum ExtraCheck {
     AiTransparency,
     /// `--dns-check` (#545): once per unique host.
     Dns,
-    /// `--privacy` (#871): one clean-context visit per URL.
+    /// `--privacy-check` (#871): one clean-context visit per URL.
     Privacy,
 }
 
@@ -171,7 +171,7 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
     },
     ExtraCheckSpec {
         check: ExtraCheck::Privacy,
-        flag: "--privacy",
+        flag: "--privacy-check",
         subchecks: &["privacy.first_visit"],
         prerequisite: Prerequisite::None,
         single: Support::Runs,
@@ -188,7 +188,7 @@ pub struct ExtraCheckRequest {
     pub check_ssr_content: bool,
     pub ai_transparency: bool,
     pub dns_check: bool,
-    pub privacy: bool,
+    pub privacy_check: bool,
     pub performance_active: bool,
     pub seo_active: bool,
     pub batch: bool,
@@ -205,7 +205,7 @@ impl ExtraCheckRequest {
             ExtraCheck::SsrContent => self.check_ssr_content,
             ExtraCheck::AiTransparency => self.ai_transparency,
             ExtraCheck::Dns => self.dns_check,
-            ExtraCheck::Privacy => self.privacy,
+            ExtraCheck::Privacy => self.privacy_check,
         }
     }
 
@@ -317,7 +317,7 @@ mod tests {
                     1 => r.check_ssr_content = true,
                     2 => r.ai_transparency = true,
                     3 => r.dns_check = true,
-                    _ => r.privacy = true,
+                    _ => r.privacy_check = true,
                 }
             })
             .validate()

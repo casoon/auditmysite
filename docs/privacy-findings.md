@@ -1,8 +1,9 @@
 # Privacy findings
 
-`--privacy` (part of `--full`) reports what a **first visit** technically leaves behind. It is a
-report of observations, not a legal opinion: there is no GDPR / ePrivacy compliance score, no
-pass/fail verdict and no statement about whether a consent is needed or valid.
+The opt-in `--privacy-check` reports what a **first visit** technically leaves behind. It is not
+part of `--full` and costs one extra page load per audited page. It is a report of observations,
+not a legal opinion: there is no GDPR / ePrivacy compliance score, no pass/fail verdict and no
+statement about whether a consent is needed or valid.
 
 ## What is measured (phase A)
 

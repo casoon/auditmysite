@@ -63,6 +63,7 @@ Measured:
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 - HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
 - DNS configuration (opt-in `--dns-check`): CAA, best-effort DNSSEC, and SPF when an MX record exists; score-neutral
+- Privacy indicators (opt-in `--privacy-check`, not part of `--full`): one extra clean-context page load per audited page, classified into technical first-visit findings; score-neutral, no legal verdict, see [privacy findings](../privacy-findings.md)
 
 Heuristic (indicator scores — tendency, not measurements). In 2.0 none of these signals is validated against an independent, human-labelled reference set (`signal_contract.validation.status = "unvalidated"` in the JSON, procedure in `docs/calibration.md`); their scores order pages by the stated method and are not evidence of visibility, AI citation, user quality or source truth:
 - UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring

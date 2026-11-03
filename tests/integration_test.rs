@@ -3299,7 +3299,7 @@ async fn batch_runs_requested_privacy_check_body() {
         "--url-file",
         "unused.txt",
         "--seo",
-        "--privacy",
+        "--privacy-check",
     ]);
     let mut config = BatchConfig::from(&args);
     config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
