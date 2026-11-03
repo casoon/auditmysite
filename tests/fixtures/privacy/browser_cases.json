@@ -1,0 +1,198 @@
+[
+  {"name": "clean page", "why": "No third-party request, nothing stored: checks 1-5 have nothing to look at; both policy links are present.",
+   "body": "",
+   "expect": {"outcomes": "AAAAAN", "findings": []}},
+
+  {"name": "own script, own image, own cookie", "why": "Own-host requests are never third-party; an unlisted cookie name is no finding (nothing stored that a provider documents).",
+   "body": "<img src='/own.gif' alt=''><script src='/own.js'></script><script>document.cookie='lang=en; path=/'</script>",
+   "set_cookie": ["session_id=1; Path=/; HttpOnly"],
+   "expect": {"outcomes": "ANAAAN", "findings": []}},
+
+  {"name": "google analytics script before consent", "why": "A request to a documented analytics host is evidence; the provider is seated in the US; no consent trace of any kind.",
+   "body": "<script src='https://www.google-analytics.com/analytics.js'></script>",
+   "requested": ["www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "tag manager only", "why": "A tag manager may fire tags: indication, not evidence.",
+   "body": "<script async src='https://www.googletagmanager.com/gtm.js?id=GTM-CORPUS'></script>",
+   "requested": ["www.googletagmanager.com"], "truth": ["google-tag-manager"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "indication", "tag_manager", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "pixel fired by a tag manager script", "why": "The tag manager request and the pixel it triggers are two providers; both count, the pixel as evidence.",
+   "body": "<script src='https://www.googletagmanager.com/gtm.js?id=GTM-CORPUS'></script><script>new Image().src='https://www.google-analytics.com/g/collect?v=2&tid=G-CORPUS';</script>",
+   "requested": ["www.googletagmanager.com", "www.google-analytics.com"], "truth": ["google-tag-manager", "google-analytics"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "indication", "tag_manager", ""],
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "late tag injected by script", "why": "A tracker added 700 ms after load is still a first-visit request.",
+   "body": "<script>setTimeout(function(){var s=document.createElement('script');s.src='https://www.google-analytics.com/analytics.js';document.head.appendChild(s);},700);</script>",
+   "requested": ["www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "meta pixel image with the pixel path", "why": "facebook.com is a social host; only the /tr path rule makes the request an advertising pixel.",
+   "body": "<img src='https://www.facebook.com/tr?id=1&ev=PageView' alt=''>",
+   "requested": ["www.facebook.com"], "truth": ["meta"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "advertising", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "meta pixel library script", "why": "fbevents.js on facebook.net is the pixel library: advertising.",
+   "body": "<script src='https://connect.facebook.net/en_US/fbevents.js'></script>",
+   "requested": ["connect.facebook.net"], "truth": ["meta"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "advertising", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "facebook like plugin is not a pixel", "why": "A social plugin (no pixel path) transfers the IP (indication) but is no tracking request; no tracker means no consent finding.",
+   "body": "<iframe src='https://www.facebook.com/plugins/like.php?href=x' title='Like' width='10' height='10'></iframe>",
+   "requested": ["www.facebook.com"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "indication", "social", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "google fonts stylesheet hotlink", "why": "A fonts host receives the visitor IP: evidence; US seat.",
+   "body": "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter'>",
+   "requested": ["fonts.googleapis.com"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "evidence", "fonts", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "public cdn script", "why": "A CDN host receives the visitor IP: evidence; cdnjs states a US seat.",
+   "body": "<script src='https://cdnjs.cloudflare.com/ajax/libs/x/1/x.min.js'></script>",
+   "requested": ["cdnjs.cloudflare.com"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "evidence", "cdn", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "cdn with an unknown seat", "why": "jsDelivr states no seat: IP transfer is evidence, but no third-country hint.",
+   "body": "<script src='https://cdn.jsdelivr.net/npm/x@1/x.js'></script>",
+   "requested": ["cdn.jsdelivr.net"],
+   "expect": {"outcomes": "NAFNAN", "findings": [
+     ["visitor_ip_transfer", "evidence", "cdn", ""]]}},
+
+  {"name": "youtube embed", "why": "A video embed may be the content the visitor asked for: indication.",
+   "body": "<iframe src='https://www.youtube-nocookie.com/embed/CORPUS' title='Video' width='10' height='10'></iframe>",
+   "requested": ["www.youtube-nocookie.com"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "indication", "video_embed", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "eu analytics provider", "why": "Hotjar states an EU seat: tracking is found, but no third-country hint.",
+   "body": "<script src='https://static.hotjar.com/c/hotjar-1.js'></script>",
+   "requested": ["static.hotjar.com"], "truth": ["hotjar"],
+   "expect": {"outcomes": "FANNFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "analytics beside a banner element", "why": "A first-party cookie banner element is a consent trace: the tracker is still reported, the missing-platform hint is not.",
+   "body": "<div id='cookie-banner' role='dialog' aria-label='Cookies'>We use cookies</div><script src='https://www.google-analytics.com/analytics.js'></script>",
+   "requested": ["www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "analytics beside a consent platform request", "why": "A request to a consent-platform host is a consent trace; consent platforms are never third-country or tracking findings themselves.",
+   "body": "<script src='https://cdn.cookielaw.org/scripttemplates/otSDKStub.js'></script><script src='https://www.google-analytics.com/analytics.js'></script>",
+   "requested": ["cdn.cookielaw.org", "www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "analytics beside a consent global", "why": "A consent-platform global object in the document is a consent trace.",
+   "body": "<script>window.OneTrust = {};</script><script src='https://www.google-analytics.com/analytics.js'></script>",
+   "requested": ["www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "analytics beside a consent cookie", "why": "A documented consent-platform cookie is a consent trace and is itself no storage finding.",
+   "body": "<script src='https://www.google-analytics.com/analytics.js'></script>",
+   "set_cookie": ["CookieConsent=stamp; Path=/"],
+   "requested": ["www.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FNNFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+
+  {"name": "analytics cookie set by header", "why": "A documented analytics cookie name in the jar is evidence of storage before consent; no request, so checks 1, 3, 4 and 5 have nothing to look at.",
+   "body": "",
+   "set_cookie": ["_ga=GA1.2.1.1; Path=/; Max-Age=86400", "sid=1; Path=/"],
+   "expect": {"outcomes": "AFAAAN", "findings": [
+     ["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+
+  {"name": "tracker cookie and storage keys set by script", "why": "Cookie names and storage keys are classified alike; one finding per provider (meta is a social provider, hotjar analytics).",
+   "body": "<script>document.cookie='_fbp=fb.1; path=/'; localStorage.setItem('_hjSession_1','x'); sessionStorage.setItem('neutral','y');</script>",
+   "expect": {"outcomes": "AFAAAN", "findings": [
+     ["non_essential_storage_before_consent", "evidence", "social", ""],
+     ["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+
+  {"name": "consent storage only", "why": "A consent-platform storage key is not non-essential storage.",
+   "body": "<script>localStorage.setItem('OptanonConsent','x'); localStorage.setItem('theme','dark');</script>",
+   "expect": {"outcomes": "ANAAAN", "findings": []}},
+
+  {"name": "look-alike hosts", "why": "A listed domain as a label of another registrable domain, or glued to a prefix, is not that provider; unknown hosts are never findings.",
+   "body": "<script src='https://google-analytics.com.evil.example/x.js'></script><script src='https://notgoogle-analytics.com/y.js'></script><link rel='stylesheet' href='https://fonts.googleapis.com.corpus-evil.test/c.css'>",
+   "requested": ["google-analytics.com.evil.example", "notgoogle-analytics.com", "fonts.googleapis.com.corpus-evil.test"],
+   "unclassified": ["fonts.googleapis.com.corpus-evil.test", "google-analytics.com.evil.example", "notgoogle-analytics.com"],
+   "expect": {"outcomes": "NANAAN", "findings": []}},
+
+  {"name": "subdomain of a listed domain", "why": "A subdomain of a listed analytics domain is that provider.",
+   "body": "<script src='https://region1.google-analytics.com/g/collect'></script>",
+   "requested": ["region1.google-analytics.com"], "truth": ["google-analytics"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "first-party subdomain tracker (known blind spot)", "why": "A tracker on a subdomain of the page is contacted but not classified: no finding. The tracker is present, so this case is a documented false negative.",
+   "body": "<script src='https://metrics.corpus-site.test/collect.js'></script>",
+   "requested": ["metrics.corpus-site.test"], "truth": ["first-party-subdomain-tracker"],
+   "unclassified": ["metrics.corpus-site.test"],
+   "expect": {"outcomes": "NANAAN", "findings": []}},
+
+  {"name": "first-party proxy path (known blind spot)", "why": "A tracker proxied through the page's own host and path leaves no third-party request: nothing to look at. Documented false negative.",
+   "body": "<script src='/stats/gtag.js'></script><img src='/stats/collect?v=2' alt=''>",
+   "truth": ["first-party-proxy-tracker"],
+   "expect": {"outcomes": "AAAAAN", "findings": []}},
+
+  {"name": "privacy link without a target, imprint absent", "why": "A privacy link that is only '#' is observed unusable (evidence); no imprint link at all is an indication.",
+   "footer": "<a href='#'>Datenschutz</a>",
+   "body": "",
+   "expect": {"outcomes": "AAAAAF", "findings": [
+     ["policy_link_unusable", "evidence", "", "privacy"],
+     ["policy_link_missing", "indication", "", "imprint"]]}},
+
+  {"name": "imprint link is a script target", "why": "A javascript: target is not usable.",
+   "footer": "<a href='/datenschutz'>Datenschutz</a> <a href='javascript:void(0)'>Impressum</a>",
+   "body": "",
+   "expect": {"outcomes": "AAAAAF", "findings": [
+     ["policy_link_unusable", "evidence", "", "imprint"]]}},
+
+  {"name": "english policy links", "why": "English words are recognised in text and in target.",
+   "footer": "<a href='/legal/privacy-policy'>Policy</a> <a href='/legal-notice'>Legal notice</a>",
+   "body": "",
+   "expect": {"outcomes": "AAAAAN", "findings": []}},
+
+  {"name": "no anchors at all", "why": "A page without any anchor has nothing to look at for check 6.",
+   "footer": "",
+   "body": "",
+   "expect": {"outcomes": "AAAAAA", "findings": []}},
+
+  {"name": "network never goes quiet (error case)", "why": "A page that keeps requesting cannot be called clean: every request check is not measured, the rest keeps its answer.",
+   "body": "<script>var n=0;setInterval(function(){new Image().src='https://pulse.corpus-evil.test/p.gif?'+(n++);},100);</script>",
+   "unclassified": ["pulse.corpus-evil.test"],
+   "expect": {"outcomes": "MAMMMN", "findings": []}}
+]

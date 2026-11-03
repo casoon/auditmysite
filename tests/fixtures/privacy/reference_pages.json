@@ -1,0 +1,670 @@
+{
+  "_comment": "Hand-labelled live reference pages for the privacy findings (#873). Labels were written on 2026-11-03 from the raw first-visit capture of each page (frozen in reference_captures.json) and checked independently against the served HTML, the page JavaScript, the provider documentation and, where a policy label depends on it, a reading of the linked page. The labels are closed-world within checks_labelled: every finding of a labelled check that is not listed in expected is a false positive, every expected entry the tool misses is a false negative. Keys in unlabelled are not scored (reason given). outside_ruleset lists trackers a person identified that no provider list entry covers - reported as list/blind-spot coverage, never as a miss of the rules. Frozen captures keep every request, cookie and storage key as observed, except: anchors that cannot match the policy-link words keep only host and first path segment and the first 24 characters of their text (the rules read only the matching ones; the rest carried article and playlist identifiers), and three storage-key names that tripped the secret scanner of the repository were shortened or lower-cased (heise.de: a public client key dropped from `ta_bot_protection_config*`; w3schools.com: `fastCMP-*` -> `fastcmp-*`); none of them is classified or decides a label. Labels are never changed to follow the tool: a page that changed is re-labelled from a fresh raw capture (scripts/privacy-reference.py).",
+  "sites": [
+    {
+      "id": "example-com",
+      "url": "https://example.com/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "policy_link_missing|privacy",
+          "evidence": "The page has one anchor (\"More information...\" to iana.org); neither the HTML (577 bytes) nor the DOM mentions privacy.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "Clean page: no third-party request, no cookie, no storage. A document without any privacy link.",
+      "capture_sha256": "e330cad754db0fe84ecee2324f32df4d80abed85c22de7026c94a6da42d89335"
+    },
+    {
+      "id": "gov-uk",
+      "url": "https://www.gov.uk/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [],
+      "outside_ruleset": [],
+      "notes": "No third-party request. One first-party cookie (cookies_policy). Footer link \"Privacy\" -> /help/privacy-notice (HTML and DOM).",
+      "capture_sha256": "672eeb1df016be16460bbfc00e384b92e9f3a4eed7871a6c7f94494719c4d3ab"
+    },
+    {
+      "id": "wikipedia-org",
+      "url": "https://www.wikipedia.org/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [],
+      "outside_ruleset": [],
+      "notes": "No third-party request on the portal page; five first-party cookies (GeoIP, WMF-*) and portal storage keys, none documented by a listed provider. Footer link \"Privacy Policy\" (foundation.wikimedia.org).",
+      "capture_sha256": "4e12407df9b8540dfe12163b635d034f87a783285583f0e986e8b51f601ebbfe"
+    },
+    {
+      "id": "mozilla-org",
+      "url": "https://www.mozilla.org/en-US/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [],
+      "outside_ruleset": [],
+      "notes": "No third-party request, no cookie, no storage; a cookie-banner element is present (consent trace). \"Website Privacy Notice\" link in the footer. The \"Legal\" footer link (/en-US/about/legal/) is not scored as an imprint.",
+      "capture_sha256": "c7265995241d1dcf0f10775a0a2d4c9dd335fc1871003f9e026541972a551b37"
+    },
+    {
+      "id": "golem-de",
+      "url": "https://www.golem.de/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [],
+      "expected": [],
+      "outside_ruleset": [],
+      "notes": "The visit ends on the publisher's consent page (redirect to /sonstiges/zustimmung/auswahl.html), served first-party; the CMP requests go to cmp-cdn.golem.de (the publisher's own CMP host, not a listed provider). Datenschutz and Impressum links present in HTML and DOM. No tracker contacted on this page before a choice.",
+      "capture_sha256": "6cd224aef0ff0709a6eb91e47dcfc0313ee606e2ebb4206da68cf11b23b7f1ef"
+    },
+    {
+      "id": "heise-de",
+      "url": "https://www.heise.de/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [],
+      "expected": [],
+      "outside_ruleset": [
+        {
+          "what": "Web analytics by Mapp/Webtrekk before a consent choice (pixel request to prophet.heise.de/<id>/wt, cookies wt_nv, wteid_*, wtsid_*)",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (names webtrekk twice)"
+          ],
+          "note": "Not in the provider list; the tool is silent about it by design. Cookie/endpoint naming follows the Mapp Intelligence (Webtrekk) scheme; whether the page runs it in a consent-free mode was not examined."
+        }
+      ],
+      "notes": "Heavy third-party page (CMP at cmp.heise.de, ad/recommendation infrastructure on first-party-owned hosts) with no host or cookie name of the provider list. Datenschutzerklaerung and Impressum links present.",
+      "capture_sha256": "d3979658646b0eeb855adcc7ebf97d268087372b34ffcae5b3d2b88f87e08fa8"
+    },
+    {
+      "id": "tailwindcss-com",
+      "url": "https://tailwindcss.com/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|google-analytics",
+          "evidence": "GET region1.google-analytics.com/g/collect (fetch) in the capture.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (gtag script tag)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "Script www.googletagmanager.com/gtag/js, referenced by a <link>/<script> in the served HTML.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "non_essential_storage_before_consent|google-analytics",
+          "evidence": "Cookies _ga and _ga_TMR96VNVMT on .tailwindcss.com after the visit.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation (developers.google.com cookie usage)"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Analytics and Google Tag Manager state a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "no_consent_platform_detected",
+          "evidence": "No consent-platform request, cookie, storage key, global or banner element in the capture; the HTML names none.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "evidence": "No privacy link in the DOM anchors; the HTML does not contain the word \"privacy\" at all.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "Analytics and tag manager with cookies and no consent platform.",
+      "capture_sha256": "afb712ff0a497f8aace941029228d41b2184774d5190193bf9be43fa3cc3ce27"
+    },
+    {
+      "id": "react-dev",
+      "url": "https://react.dev/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|google-analytics",
+          "evidence": "GET region1.google-analytics.com/g/collect (fetch).",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (inline gtag config)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "Script www.googletagmanager.com/gtag/js, <script> in the served HTML.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "non_essential_storage_before_consent|google-analytics",
+          "evidence": "Cookies _ga and _ga_B1E83PJ3RT on .react.dev.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Analytics and Google Tag Manager state a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "no_consent_platform_detected",
+          "evidence": "No consent trace in the capture; the HTML names no consent platform.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "Footer link \"Privacy\" -> opensource.facebook.com/legal/privacy present, so no policy finding.",
+      "capture_sha256": "f97df33eb3b3ee390eea0caebc5cbbc6f00242e07d480a54bf01fc06590212eb"
+    },
+    {
+      "id": "angular-dev",
+      "url": "https://angular.dev/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|google-analytics",
+          "evidence": "GET region1.google-analytics.com/g/collect (fetch).",
+          "provenance": [
+            "raw capture (tool dump)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "Script www.googletagmanager.com/gtag/js.",
+          "provenance": [
+            "raw capture (tool dump)"
+          ]
+        },
+        {
+          "key": "visitor_ip_transfer|google-fonts",
+          "evidence": "<link> to fonts.googleapis.com in the served HTML; fonts.gstatic.com woff2 requests.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Fonts, Analytics and Tag Manager state a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "no_consent_platform_detected",
+          "evidence": "Only an informational notice (\"This site uses cookies from Google ...\", a \"Learn more\" link and a dismiss button, read in the page bundle main-*.js) - no consent platform and no choice.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the page JavaScript bundle"
+          ]
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "evidence": "The only policy-like link is \"Learn more\" -> policies.google.com/technologies/cookies; the HTML does not contain the word \"privacy\".",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "No cookie was set on the first visit (GA cookies absent), so no storage finding.",
+      "capture_sha256": "3fc1aa566a260629b3fbc070a652065d805b2c5a95e6f0cdc54589ed91860c81"
+    },
+    {
+      "id": "videolan-org",
+      "url": "https://www.videolan.org/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|google-analytics",
+          "evidence": "GET region1.google-analytics.com/g/collect (fetch).",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (inline gtag config)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "Script www.googletagmanager.com/gtag/js, <script> in the served HTML.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "non_essential_storage_before_consent|google-analytics",
+          "evidence": "Cookies _ga and _ga_GZPMWXW7NJ on .videolan.org.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Analytics and Google Tag Manager state a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "no_consent_platform_detected",
+          "evidence": "No consent trace; no banner, no CMP request.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "evidence": "No privacy link; the footer \"Legal\" page (/legal.html) is about usage restrictions and French law and contains no privacy policy (read it); the HTML never contains the word \"privacy\".",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML",
+            "curl of /legal.html"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "images.videolan.org is a first-party-owned sibling host (unclassified, no finding).",
+      "capture_sha256": "5d3e7800ee30c720b6cdb3a9ccd18bf3fd940585bffa6fb2cad6aa31ade03059"
+    },
+    {
+      "id": "w3schools-com",
+      "url": "https://www.w3schools.com/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|google-analytics",
+          "evidence": "GET region1.google-analytics.com/g/collect (fetch) before any choice.",
+          "provenance": [
+            "raw capture (tool dump)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "gtm.js and gtag/js scripts; the HTML carries the GTM <iframe> and script.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Analytics and Google Tag Manager state a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "A TCF consent platform (fastCMP: __tcfapi / __gpp globals, static.fastcmp.com stub in the HTML) is present, so no missing-platform finding. Policy link \"privacy policy\" present. The ajax.googleapis.com string in the HTML is code-sample text, not a request (confirmed: not in the capture).",
+      "capture_sha256": "3be39fd96da6ff9f6904fc30accfde6c4f7d72979cea5c0920faa60f65c9fd34"
+    },
+    {
+      "id": "docs-docker-com",
+      "url": "https://docs.docker.com/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "reason": "The footer offers \"Terms of Use\" and \"Legal\" (docker.com/legal, a hub that includes the privacy policy); whether that counts as a privacy link is not decided here."
+        }
+      ],
+      "expected": [
+        {
+          "key": "tracking_request_before_consent|hotjar",
+          "evidence": "Scripts static.hotjar.com/c/hotjar-3169877.js and script.hotjar.com/*.js.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (names hotjar)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|google-tag-manager",
+          "evidence": "Script www.googletagmanager.com/gtm.js, referenced in the served HTML.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "non_essential_storage_before_consent|hotjar",
+          "evidence": "Cookies _hjSessionUser_3169877 and _hjSession_3169877 on .docker.com.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation (help.hotjar.com cookie information)"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Tag Manager states a US seat (Hotjar states an EU seat).",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        }
+      ],
+      "outside_ruleset": [],
+      "notes": "OneTrust is present (CMP requests, OptanonConsent cookie, banner element) so no missing-platform finding; the OneTrust cookie is not storage by a tracker. _marlin_* cookies are first-party telemetry of unknown purpose and not scored.",
+      "capture_sha256": "eb7bce9c336db9923aaac5c00bccafba05a12eb5807ef3507167dd8ae1be9542"
+    },
+    {
+      "id": "getbootstrap-com",
+      "url": "https://getbootstrap.com/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "visitor_ip_transfer|google-fonts",
+          "evidence": "<link> to fonts.googleapis.com in the served HTML; fonts.gstatic.com woff2 requests.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Fonts states a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "evidence": "No privacy link: not in the DOM anchors, and the HTML does not contain the word \"privacy\".",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        }
+      ],
+      "outside_ruleset": [
+        {
+          "what": "Fathom Analytics (cdn.usefathom.com/script.js plus tracking pixel) and Carbon Ads (cdn.carbonads.com/carbon.js, srv.carbonads.net) before any choice",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (carbon.js script tag; usefathom named in the HTML)"
+          ],
+          "note": "Neither is in the provider list: the tool contacts them silently (hosts reported as unclassified)."
+        }
+      ],
+      "notes": "No consent platform and no listed tracker, so check 5 has nothing to flag.",
+      "capture_sha256": "8f375b9fdea00c585a7f5d391935186c97a5db3c4a17d21cdf3d7a2217a74fd7"
+    },
+    {
+      "id": "python-org",
+      "url": "https://www.python.org/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [
+        {
+          "key": "policy_link_missing|imprint",
+          "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        }
+      ],
+      "expected": [
+        {
+          "key": "visitor_ip_transfer|google-hosted-libraries",
+          "evidence": "jquery and jquery-ui from ajax.googleapis.com, <script> tags in the served HTML.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
+        },
+        {
+          "key": "third_country_provider",
+          "evidence": "Google Hosted Libraries states a US seat.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation"
+          ]
+        }
+      ],
+      "outside_ruleset": [
+        {
+          "what": "Self-hosted web analytics on a subdomain (analytics.python.org/js/script.file-downloads.outbound-links.js, POST /api/event) - a first-party-subdomain tracker",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (script tag)"
+          ],
+          "note": "The script name follows the Plausible Analytics extension scheme. Not classified: a first-party subdomain tracker is a documented blind spot."
+        }
+      ],
+      "notes": "\"Privacy Notice\" link (policies.python.org) present. No cookies, no storage.",
+      "capture_sha256": "9f4fce8f346cec95a555c24deb717979089d781164749a46c69c492909d9d1ea"
+    },
+    {
+      "id": "casoon-de",
+      "url": "https://www.casoon.de/",
+      "labelled": "2026-11-03",
+      "checks_labelled": [
+        "tracking_requests",
+        "non_essential_storage",
+        "visitor_ip_transfer",
+        "third_country_provider",
+        "consent_platform",
+        "policy_links"
+      ],
+      "unlabelled": [],
+      "expected": [],
+      "outside_ruleset": [
+        {
+          "what": "Google Analytics 4 through Cloudflare Zaraz (server-side tagging): httpOnly cookies cf_zaraz_client and cfz_google-analytics_v4 set on the first response, no google-analytics request from the browser",
+          "provenance": [
+            "raw capture (tool dump)",
+            "provider documentation (Cloudflare Zaraz cookie scheme cfz_<tool>)"
+          ],
+          "note": "Not reproducible with curl (the cookies are only set for the browser visit), so provenance is the raw capture plus the documented naming scheme only. The page owner is the tool's author. A documented blind spot: server-side tagging leaves no tracker request."
+        }
+      ],
+      "notes": "Datenschutz and Impressum links present in HTML and DOM. Insights beacon requests go to insights.casoon.de (own host, unlisted).",
+      "capture_sha256": "d2c782fa14878e020848321a1b3e0c00a663bd859c11a2a2dbd67aa94137b66c"
+    }
+  ]
+}

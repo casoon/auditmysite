@@ -361,7 +361,7 @@ jobs:
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: cargo test --test privacy_first_visit_browser -- --ignored --nocapture --test-threads=1
+        run: cargo test --test privacy_first_visit_browser --test privacy_quality_browser -- --ignored --nocapture --test-threads=1
 
       # Browser selection, failover and pool reliability on the runner's real Chrome
       # (#854, #856). The detection test counts processes and profile directories of

@@ -23,3 +23,15 @@ Per case:
 Each of the six checks has a positive (`F`), negative (`N`), not-applicable
 (`A`) and error (`M`) case here; `cases_cover_every_check_and_outcome` in
 `tests/privacy_findings_corpus.rs` enforces that.
+
+## Browser corpus and reference pages (#873)
+
+- `browser_cases.json`: pages served by a local HTTPS fixture and loaded by real Chrome; the host
+  names of well-known providers resolve to the fixture
+  (`tests/privacy_quality_browser.rs`, `--ignored`). Per case: `body`, optional `footer` and
+  `set_cookie`, `requested` hosts that must show up in the capture, `unclassified` hosts that must
+  be reported as unknown, `truth` (provider ids really loaded, for the recall figure), the rule in
+  `why`, and `expect` in the same format as above.
+- `reference_pages.json`, `reference_captures.json`, `reference_pages.json.sha256`: hand-written
+  labels for real pages, the frozen raw captures they were written from, and the seal. Process and
+  numbers in `docs/privacy-findings.md`; maintenance with `scripts/privacy-reference.py`.
