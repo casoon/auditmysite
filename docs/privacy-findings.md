@@ -73,7 +73,7 @@ is a legal assessment, and the expectations are never copied from a run.
 | Layer | What it is | Runs |
 |---|---|---|
 | Pure corpus | 32 hand-built captures fed to `analyze_privacy` (`tests/fixtures/privacy/cases.json`, `tests/privacy_findings_corpus.rs`) | every `cargo test` |
-| Browser corpus | 30 local pages loaded by real Chrome through `collect_first_visit` and `analyze_privacy` (`tests/fixtures/privacy/browser_cases.json`, `tests/privacy_quality_browser.rs`) | `--ignored`, in the CI browser step |
+| Browser corpus | 31 local pages loaded by real Chrome through `collect_first_visit` and `analyze_privacy` (`tests/fixtures/privacy/browser_cases.json`, `tests/privacy_quality_browser.rs`) | `--ignored`, in the CI browser step |
 | Reference pages | 15 real public pages with hand-written labels (`tests/fixtures/privacy/reference_pages.json`, `tests/privacy_reference_pages.rs`, `scripts/privacy-reference.py`) | offline replay in every `cargo test`; the live measurement is `--ignored` and run by hand before a tag |
 
 ### Browser corpus
@@ -89,7 +89,7 @@ product code is relaxed. Every `requested` host must really appear in the captur
 result is never an artefact of a request that did not happen. Cases marked as known blind spots
 carry a `truth` the tool misses by design; the printed recall includes them.
 
-Result of the run on 2026-11-03: all 30 cases yield the expected outcomes and findings;
+Result of the run on 2026-11-03: all 31 cases yield the expected outcomes and findings;
 **unexpected findings: 0**; trackers the cases really load before consent: 15, reported: 13
 (87 %, the two missing ones being the two deliberate blind-spot cases; 13 of 13 otherwise).
 
@@ -153,11 +153,11 @@ provider-level findings); counted against *all* hand-identified provider-level i
 **79 %, below the target**. The gap is the coverage of the provider list and the first-party blind
 spots below, not the findings logic.
 
-**A defect found while labelling.** When the audited URL itself redirects from a provider's own
-host (`https://www.hotjar.com/` → `contentsquare.com`), the entry hop is third-party relative to
-the final page and is classified: the tool reports "Hotjar contacted" with the entry URL as
-evidence, although no page requested it. This is a false positive of the redirect case; it is
-not in the reference set because the page *is* the provider, and it is not fixed here.
+**The redirect case.** When the audited URL itself redirects from a provider's own host
+(`https://www.hotjar.com/` → `contentsquare.com`), the entry hop is part of the visit's own
+navigation, not a request of the page: the document requests of the main frame (entry URL and
+every redirect hop) are never third-party. Documents of child frames still are. The browser
+corpus carries the case (`audited URL redirects from a provider host`).
 
 ### Known blind spots of the measurement itself
 
