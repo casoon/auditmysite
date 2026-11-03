@@ -75,18 +75,31 @@ fn case_path(index: usize) -> String {
     format!("/case/{index}")
 }
 
+/// Entry URL of a case: the page itself, or - with `entry_host` - a redirect
+/// from that host to the page (the audited URL is then a hop of its own).
+fn entry_url(index: usize, case: &Value) -> String {
+    match case["entry_host"].as_str() {
+        Some(host) => format!("https://{host}/entry/{index}"),
+        None => format!("https://{SITE}{}", case_path(index)),
+    }
+}
+
 fn routes() -> Vec<Route> {
-    cases()
-        .iter()
-        .enumerate()
-        .map(|(i, case)| {
-            let mut route = Route::new(&case_path(i), 200, page(case));
-            for cookie in strings(case, "set_cookie") {
-                route = route.header("Set-Cookie", &cookie);
-            }
-            route
-        })
-        .collect()
+    let mut routes = Vec::new();
+    for (i, case) in cases().iter().enumerate() {
+        let mut route = Route::new(&case_path(i), 200, page(case));
+        for cookie in strings(case, "set_cookie") {
+            route = route.header("Set-Cookie", &cookie);
+        }
+        routes.push(route);
+        if case["entry_host"].is_string() {
+            routes.push(
+                Route::new(&format!("/entry/{i}"), 302, "")
+                    .header("Location", &format!("https://{SITE}{}", case_path(i))),
+            );
+        }
+    }
+    routes
 }
 
 /// A script that starts the detected Chrome with every host name mapped to
@@ -239,7 +252,7 @@ async fn every_browser_case_yields_what_the_rules_say() {
     let (mut truth_total, mut truth_found, mut false_positives) = (0usize, 0usize, 0usize);
     for (index, case) in cases().iter().enumerate() {
         let name = case["name"].as_str().unwrap();
-        let url = format!("https://{SITE}{}", case_path(index));
+        let url = entry_url(index, case);
         let before = fixture.served();
         let collected = collect_first_visit(&manager, &url, options()).await;
         let never_quiet = name.contains("never goes quiet");

@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Privacy:** when the audited URL redirects from a provider's host (e.g. `hotjar.com` → `contentsquare.com`), the entry hop is no longer reported as a tracking request of the page; the main frame's navigation chain (entry URL and redirect hops) is never third-party, child-frame documents still are (Refs #873).
+
 ### Changed
 
 - **Privacy:** quality measurement for `--privacy-check` (Refs #873): a 30-page browser corpus in real Chrome (CI browser step), 15 hand-labelled reference pages replayed offline from sealed captures, and a manual live run (`scripts/privacy-reference.py live`); figures, method and blind spots in `docs/privacy-findings.md`. No change to findings.

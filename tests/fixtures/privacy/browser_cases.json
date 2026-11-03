@@ -3,6 +3,11 @@
    "body": "",
    "expect": {"outcomes": "AAAAAN", "findings": []}},
 
+  {"name": "audited URL redirects from a provider host", "why": "The entry URL and its redirect hop belong to the document's own navigation, not to what the page requested: a hop on a provider's host (hotjar.com to the page) is no third-party request, so nothing is tracked and nothing is classified.",
+   "entry_host": "www.hotjar.com", "body": "",
+   "requested": ["www.hotjar.com"],
+   "expect": {"outcomes": "AAAAAN", "findings": []}},
+
   {"name": "own script, own image, own cookie", "why": "Own-host requests are never third-party; an unlisted cookie name is no finding (nothing stored that a provider documents).",
    "body": "<img src='/own.gif' alt=''><script src='/own.js'></script><script>document.cookie='lang=en; path=/'</script>",
    "set_cookie": ["session_id=1; Path=/; HttpOnly"],
