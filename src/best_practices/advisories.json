@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated": "2026-10-26",
+  "updated": "2026-11-02",
   "advisories": [
     {
       "library": "jQuery",
@@ -11,37 +11,35 @@
       ],
       "kind": "vulnerability",
       "severity": "medium",
-      "description": "Cross-site scripting (XSS) via HTML string processing (CVE-2020-11022, CVE-2020-11023).",
+      "description": "Cross-site scripting (XSS) when HTML from untrusted sources, even after sanitizing, is passed to DOM manipulation methods such as .html() or .append() (CVE-2020-11022 from 1.12.0, CVE-2020-11023 from 1.0.3; both fixed in 3.5.0). Detection of the version does not establish exploitability.",
       "affected": [
         {
-          "introduced": "0.0.0",
+          "introduced": "1.0.3",
           "fixed": "3.5.0"
         }
       ],
       "safe_version": "3.5.0+",
       "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-11022",
-      "reviewed": null
+      "reviewed": "2026-11-02"
     },
     {
       "library": "jQuery",
       "id": "local:jquery-legacy-xss",
-      "aliases": [],
+      "aliases": [
+        "CVE-2015-9251"
+      ],
       "kind": "vulnerability",
-      "severity": "high",
-      "description": "Multiple XSS issues in jQuery before 1.12.0 and 2.x before 2.2.0.",
+      "severity": "medium",
+      "description": "Cross-site scripting (XSS) when a cross-domain Ajax request is made without the dataType option: text/javascript responses of third-party origins are executed (CVE-2015-9251). Patched in 3.0.0; the 1.12 and 2.2 lines only received an erroneous backport that was reverted in 1.12.3 and 2.2.3. Exploitable only if the page issues such requests to an attacker-influenced origin; detection of the version does not establish exploitability.",
       "affected": [
         {
           "introduced": "0.0.0",
-          "fixed": "1.12.0"
-        },
-        {
-          "introduced": "2.0.0",
-          "fixed": "2.2.0"
+          "fixed": "3.0.0"
         }
       ],
       "safe_version": "3.5.0+",
-      "source_url": "https://blog.jquery.com/2016/01/08/jquery-2-2-and-1-12-released/",
-      "reviewed": null
+      "source_url": "https://github.com/jquery/jquery/issues/2432",
+      "reviewed": "2026-11-02"
     },
     {
       "library": "Bootstrap",
@@ -51,7 +49,7 @@
       ],
       "kind": "vulnerability",
       "severity": "medium",
-      "description": "Cross-site scripting (XSS) via tooltip/popover data attributes (CVE-2019-8331).",
+      "description": "Cross-site scripting (XSS) via the tooltip/popover data-template attribute (CVE-2019-8331). Exploitable only if attacker-controlled markup reaches that attribute. Detection of the version does not establish exploitability.",
       "affected": [
         {
           "introduced": "3.0.0",
@@ -63,8 +61,8 @@
         }
       ],
       "safe_version": "4.3.1+",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2019-8331",
-      "reviewed": null
+      "source_url": "https://github.com/advisories/GHSA-9v3m-8fp8-mj99",
+      "reviewed": "2026-11-02"
     },
     {
       "library": "Bootstrap",
@@ -211,10 +209,12 @@
     {
       "library": "Prototype",
       "id": "local:prototype-unmaintained",
-      "aliases": [],
+      "aliases": [
+        "CVE-2020-27511"
+      ],
       "kind": "unmaintained",
       "severity": "medium",
-      "description": "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+      "description": "No release since 1.7.3 (2015) and no commit since 2017; the regular-expression denial of service in stripTags/unescapeHTML (CVE-2020-27511, reported against 1.7.3) has no fix. Exploitable only if attacker-controlled HTML is passed to those methods.",
       "affected": [
         {
           "introduced": "0.0.0",
@@ -222,16 +222,19 @@
         }
       ],
       "safe_version": "Migrate to a maintained library",
-      "source_url": "https://prototypejs.org/",
-      "reviewed": null
+      "source_url": "https://github.com/prototypejs/prototype",
+      "reviewed": "2026-11-02"
     },
     {
       "library": "MooTools",
       "id": "local:mootools-unmaintained",
-      "aliases": [],
+      "aliases": [
+        "CVE-2021-32821",
+        "CVE-2021-23432"
+      ],
       "kind": "unmaintained",
       "severity": "medium",
-      "description": "This library is no longer maintained and may contain unpatched security vulnerabilities.",
+      "description": "Last release 1.6.0 (2016). The CSS selector parser is open to regular-expression denial of service (CVE-2021-32821, needs an attacker-injected selector string) and Object.merge() accepts untrusted input (CVE-2021-23432); no patch exists.",
       "affected": [
         {
           "introduced": "0.0.0",
@@ -239,8 +242,8 @@
         }
       ],
       "safe_version": "Migrate to a maintained library",
-      "source_url": "https://mootools.net/",
-      "reviewed": null
+      "source_url": "https://github.com/advisories/GHSA-v63q-hgqc-qvpg",
+      "reviewed": "2026-11-02"
     }
   ]
 }

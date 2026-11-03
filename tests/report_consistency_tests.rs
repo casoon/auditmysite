@@ -2141,6 +2141,47 @@ fn domain_contract_detects_lost_findings_even_when_the_remaining_counts_agree() 
         .any(|v| v.code == "rule_findings_preserved"));
 }
 
+/// A page without `lang` that embeds an iframe without `lang` reports
+/// `document/lang-missing` (page) and `html-has-lang` (frame document) for
+/// the same criterion 3.1.1. Both outcomes must stay accounted for whichever
+/// violation comes first.
+#[test]
+fn domain_contract_accepts_page_and_frame_language_findings_in_either_order() {
+    use auditmysite::wcag::{RuleRun, Severity, Violation, WcagLevel};
+    let violation = |rule_id: &str, selector: &str| {
+        Violation::new(
+            "3.1.1",
+            "Language of Page",
+            WcagLevel::A,
+            Severity::High,
+            "Missing lang",
+            selector,
+        )
+        .with_selector(selector)
+        .with_rule_id(rule_id)
+    };
+    for order in [
+        ["document/lang-missing", "html-has-lang"],
+        ["html-has-lang", "document/lang-missing"],
+    ] {
+        let mut raw = make_full_report();
+        let results = &mut raw.accessibility.wcag_results;
+        for id in order {
+            let selector = if id == "html-has-lang" {
+                "iframe [frame] html"
+            } else {
+                "html"
+            };
+            results.violations.push(violation(id, selector));
+            results.rule_outcomes.push(RuleRun::ran(id.to_string(), 1));
+        }
+        let normalized = normalize(&raw).normalized;
+        normalized
+            .validate()
+            .unwrap_or_else(|e| panic!("{order:?}: {e}"));
+    }
+}
+
 #[cfg(feature = "pdf")]
 #[test]
 fn domain_contract_rejects_invalid_pdf_inputs_before_rendering() {
@@ -2178,6 +2219,17 @@ mod replay {
         let profile = &mut report.accessibility.execution.scope.measurement_profile;
         profile.version = auditmysite::audit::MEASUREMENT_PROFILE_VERSION;
         profile.read_only = true;
+        profile.browser = Some(auditmysite::browser::BrowserProvenance {
+            product: auditmysite::browser::BrowserProduct::Chrome,
+            version: Some("131.0.6778.85".into()),
+            origin: auditmysite::browser::BrowserOrigin::System,
+            os: auditmysite::browser::PlatformOs::Macos,
+            arch: auditmysite::browser::PlatformArch::Aarch64,
+            headless_mode: auditmysite::browser::HeadlessModeKind::New,
+            failover: false,
+            discarded_candidates: 0,
+        });
+        report.accessibility.execution.environment.headless = true;
         report.screen_reader_audit = Some(auditmysite::screen_reader::build_sr_audit_report(
             &report.url,
             report.timestamp,

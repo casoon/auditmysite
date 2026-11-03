@@ -54,6 +54,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "audit_quality",
     "average_score",
     "batch_aggregation",
+    "browser_provenance",
     "cause_charged_twice",
     "certificate",
     "collection_gap_completed",
@@ -97,6 +98,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "semantic_score_cap",
     "severity_counts",
     "total_urls",
+    "viewport_score",
     "weighted_measurement",
 ];
 
@@ -176,16 +178,25 @@ impl NormalizedReport {
             "grade".into(),
             "grade must describe the accessibility score".into(),
         );
-        let certificate = super::normalized::gate_certificate_by_risk(
-            AccessibilityScorer::calculate_certificate(self.score as f32).to_string(),
-            &self.risk.level,
-            self.risk.legal_flags,
-            self.risk.blocking_issues,
-        );
+        if let Some(viewports) = &self.viewport_scores {
+            // Caps only lower the weighted viewport value, never raise it.
+            check(
+                self.score <= viewports.weighted_accessibility(),
+                "viewport_score",
+                "score".into(),
+                "score must not exceed the 70/30 mobile/desktop accessibility value".into(),
+            );
+        }
         check(
-            self.certificate == certificate,
+            self.decision.certificate
+                == Some(super::Certificate::derive(
+                    self.score,
+                    &self.risk.level,
+                    self.risk.legal_flags,
+                    self.risk.blocking_issues,
+                )),
             "certificate",
-            "certificate".into(),
+            "decision.certificate".into(),
             "certificate must apply the canonical score and risk policy".into(),
         );
 
@@ -368,6 +379,45 @@ impl NormalizedReport {
                         self.execution.scope.interactive_mode
                     ),
                 );
+            }
+        }
+        // From profile version 3 on a live measurement names the browser
+        // that took it, and the record agrees with itself, the platform
+        // contract and the execution environment (#787).
+        if profile.version >= 3 {
+            match &profile.browser {
+                None => check(
+                    false,
+                    "browser_provenance",
+                    "execution.scope.measurement_profile.browser".into(),
+                    "a measurement names the browser that took it".into(),
+                ),
+                Some(browser) => {
+                    for problem in browser.inconsistencies() {
+                        check(
+                            false,
+                            "browser_provenance",
+                            "execution.scope.measurement_profile.browser".into(),
+                            problem,
+                        );
+                    }
+                    let environment = &self.execution.environment;
+                    check(
+                        environment.headless == browser.headless_mode.is_headless(),
+                        "browser_provenance",
+                        "execution.environment.headless".into(),
+                        "the execution environment and the browser provenance disagree on headless mode"
+                            .into(),
+                    );
+                    check(
+                        environment.browser_version.is_none()
+                            || environment.browser_version == browser.version,
+                        "browser_provenance",
+                        "execution.environment.browser_version".into(),
+                        "the execution environment and the browser provenance disagree on the version"
+                            .into(),
+                    );
+                }
             }
         }
         // Every requested rule has exactly one outcome per viewport it was
@@ -877,6 +927,14 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
                 message: message.into(),
             });
         }
+    }
+    if summary.measurement_browsers != super::BrowserPages::from_reports(&batch.reports) {
+        violations.push(ContractViolation {
+            code: "batch_aggregation",
+            path: "summary.measurement_browsers".into(),
+            message: "the batch lists every distinct browser provenance of its pages with the page counts"
+                .into(),
+        });
     }
     if let Some(sample) = batch.sample.as_ref().filter(|s| !s.strata.is_empty()) {
         let selected: usize = sample.strata.iter().map(|stratum| stratum.selected).sum();

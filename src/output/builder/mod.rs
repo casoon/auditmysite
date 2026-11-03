@@ -82,7 +82,10 @@ mod tests {
 
         assert_eq!(vm.summary.score, normalized.normalized.score);
         assert_eq!(vm.summary.grade, normalized.normalized.grade);
-        assert_eq!(vm.summary.certificate, normalized.normalized.certificate);
+        assert_eq!(
+            vm.summary.certificate,
+            normalized.normalized.decision.certificate_key()
+        );
         assert!(vm
             .summary
             .metrics
@@ -236,7 +239,13 @@ mod tests {
         );
         assert_eq!(
             pres.portfolio_summary.certificate,
-            crate::audit::AccessibilityScorer::calculate_certificate(average_a11y).to_string(),
+            crate::audit::Certificate::derive(
+                average_a11y.round() as u32,
+                &batch.summary.risk,
+                batch.summary.legal_flags,
+                batch.summary.blocking_issues,
+            )
+            .key(),
             "batch PDF classification must follow the accessibility average"
         );
         assert_eq!(

@@ -1,136 +1,107 @@
 //! Browser installer - explicit Chrome for Testing download
 //!
-//! Downloads to ~/.auditmysite/browsers/ — only when explicitly requested
-//! via `auditmysite browser install`. No auto-download.
+//! Downloads to ~/.auditmysite/browsers/ — only on explicit request
+//! (`auditmysite browser install`, `browser ensure --yes`) or after the user
+//! consented to the prompt of an interactive audit (see `bootstrap`).
+//!
+//! The work is transactional and lives in `install_txn`; which archive is
+//! trusted is decided in `install_plan`. This file is the stable entry point.
 
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
-use tracing::{info, warn};
+use tracing::warn;
 
+use super::install_plan::{Artifact, Platform as PlanPlatform};
+use super::install_txn::{InstallError, InstallOutcome, InstallPreview, InstallRequest, Installer};
+use super::platform::{Arch, Os, Platform};
 use super::types::InstallTarget;
 use crate::error::{AuditError, Result};
-
-/// Chrome for Testing API endpoint
-const CFT_API_URL: &str =
-    "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
-
-/// Fallback version if API is unavailable
-const FALLBACK_VERSION: &str = "131.0.6778.108";
 
 /// Browser installer
 pub struct BrowserInstaller;
 
 impl BrowserInstaller {
-    /// Install a browser to ~/.auditmysite/browsers/
+    /// Install a browser to ~/.auditmysite/browsers/ and print the result.
     pub async fn install(
         target: InstallTarget,
         version: Option<&str>,
         force: bool,
     ) -> Result<PathBuf> {
-        let base_dir = Self::browsers_dir()?;
-        let (target_name, channel) = match target {
-            InstallTarget::ChromeForTesting => ("chrome-for-testing", "chrome"),
-            InstallTarget::HeadlessShell => ("headless-shell", "chrome-headless-shell"),
+        if let Some(reason) = Platform::current().managed_unavailable_reason() {
+            return Err(AuditError::UnsupportedBrowser { reason });
+        }
+        let request = InstallRequest {
+            artifact: target.into(),
+            version: version.map(str::to_string),
+            force,
+            offline: false,
         };
-
-        let target_dir = base_dir.join(target_name);
-
-        // Check if already installed
-        if target_dir.exists() && !force {
-            let existing_version = fs::read_to_string(target_dir.join("version.txt"))
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-
-            if !existing_version.is_empty() {
-                println!("Already installed: {} v{}", target_name, existing_version);
+        let outcome = Self::run(&request).await?;
+        match &outcome {
+            InstallOutcome::AlreadyInstalled { version, .. } => {
+                println!(
+                    "Already installed: {} v{}",
+                    request.artifact.dir_name(),
+                    version
+                );
                 println!("Use --force to reinstall.");
-
-                let binary_path = Self::binary_path(&target_dir, target);
-                return Ok(binary_path);
             }
+            InstallOutcome::Installed {
+                binary, version, ..
+            } => println!(
+                "Installed {} v{} at {}",
+                request.artifact.dir_name(),
+                version,
+                binary.display()
+            ),
         }
+        Ok(outcome.binary().to_path_buf())
+    }
 
-        // Resolve version
-        let resolved_version = if let Some(v) = version {
-            v.to_string()
-        } else {
-            Self::fetch_latest_version().await.unwrap_or_else(|e| {
-                warn!("Could not fetch latest version from API: {}", e);
-                info!("Using fallback version: {}", FALLBACK_VERSION);
-                FALLBACK_VERSION.to_string()
-            })
-        };
+    /// Run one install transaction; prints nothing but download progress.
+    pub async fn run(
+        request: &InstallRequest,
+    ) -> std::result::Result<InstallOutcome, InstallError> {
+        Installer::official(Self::install_root()?, request.artifact)?
+            .install(request)
+            .await
+    }
 
-        println!("Installing {} v{}...", target_name, resolved_version);
-
-        // Build download URL
-        let download_url = Self::build_download_url(&resolved_version, channel);
-        let archive_name = format!("{}.zip", target_name);
-
-        // Prepare directory
-        if target_dir.exists() {
-            fs::remove_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to clean existing install: {}", e),
-            })?;
-        }
-        fs::create_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
-            reason: format!("Failed to create install directory: {}", e),
-        })?;
-
-        let archive_path = target_dir.join(&archive_name);
-
-        // Download
-        println!("Downloading from: {}", download_url);
-        Self::download_file(&download_url, &archive_path).await?;
-
-        // Extract
-        println!("Extracting...");
-        Self::extract_archive(&archive_path, &target_dir)?;
-
-        // Clean up archive
-        if let Err(e) = fs::remove_file(&archive_path) {
-            warn!(
-                "Failed to remove browser archive {}: {}",
-                archive_path.display(),
-                e
-            );
-        }
-
-        // Write version file
-        if let Err(e) = fs::write(target_dir.join("version.txt"), &resolved_version) {
-            warn!("Failed to write version.txt for {}: {}", target_name, e);
-        }
-
-        // Make executable
-        let binary_path = Self::binary_path(&target_dir, target);
-        Self::set_executable(&binary_path)?;
-
-        // macOS: remove quarantine attribute
-        #[cfg(target_os = "macos")]
-        Self::remove_quarantine(&target_dir);
-
-        println!(
-            "Installed {} v{} at {}",
-            target_name,
-            resolved_version,
-            binary_path.display()
-        );
-
-        Ok(binary_path)
+    /// What an install would download (version, source, size, destination).
+    pub async fn preview(
+        request: &InstallRequest,
+    ) -> std::result::Result<InstallPreview, InstallError> {
+        Installer::official(Self::install_root()?, request.artifact)?
+            .preview(request)
+            .await
     }
 
     /// Remove a managed browser installation
     pub fn remove(target: InstallTarget) -> Result<()> {
         let base_dir = Self::browsers_dir()?;
-        let target_name = match target {
-            InstallTarget::ChromeForTesting => "chrome-for-testing",
-            InstallTarget::HeadlessShell => "headless-shell",
-        };
+        let artifact = Artifact::from(target);
+        let target_name = artifact.dir_name();
         let target_dir = base_dir.join(target_name);
+
+        // Not while an install runs.
+        let _lock = if base_dir.exists() {
+            let file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(false)
+                .write(true)
+                .open(base_dir.join(".install.lock"))
+                .map_err(|e| AuditError::BrowserLaunchFailed {
+                    reason: format!("Failed to open install lock: {}", e),
+                })?;
+            file.try_lock()
+                .map_err(|_| AuditError::BrowserLaunchFailed {
+                    reason: InstallError::LockHeld(base_dir.join(".install.lock")).to_string(),
+                })?;
+            Some(file)
+        } else {
+            None
+        };
 
         if target_dir.exists() {
             fs::remove_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
@@ -162,91 +133,31 @@ impl BrowserInstaller {
         Ok(())
     }
 
-    /// Fetch latest stable version from Chrome for Testing API
-    async fn fetch_latest_version() -> Result<String> {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("HTTP client error: {}", e),
-            })?;
-
-        let resp: serde_json::Value = client
-            .get(CFT_API_URL)
-            .send()
-            .await
-            .map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to fetch versions: {}", e),
-            })?
-            .json()
-            .await
-            .map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to parse versions: {}", e),
-            })?;
-
-        resp["channels"]["Stable"]["version"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| AuditError::BrowserLaunchFailed {
-                reason: "Could not find stable version in API response".to_string(),
-            })
+    /// Binary of a managed install on `platform`; `None` where no managed
+    /// browser exists (see [`Platform::managed_platform_string`]). The layout
+    /// is the archive's own, so Linux ARM64 is `chrome-linux-arm64/`.
+    pub(crate) fn binary_path_for(
+        platform: Platform,
+        target_dir: &Path,
+        target: InstallTarget,
+    ) -> Option<PathBuf> {
+        let plan = match (platform.os, platform.arch) {
+            (Os::MacOs, Arch::Aarch64) => PlanPlatform::MacArm64,
+            (Os::Linux, Arch::X86_64) => PlanPlatform::LinuxX64,
+            (Os::Linux, Arch::Aarch64) => PlanPlatform::LinuxArm64,
+            _ => return None,
+        };
+        Some(target_dir.join(plan.binary_rel_path(Artifact::from(target))))
     }
 
-    fn build_download_url(version: &str, channel: &str) -> String {
-        let platform = Self::platform_string();
-        format!(
-            "https://storage.googleapis.com/chrome-for-testing-public/{}/{}/{}-{}.zip",
-            version, platform, channel, platform
-        )
+    fn install_root() -> std::result::Result<PathBuf, InstallError> {
+        Self::browsers_dir().map_err(|e| InstallError::Io {
+            context: "home directory".to_string(),
+            reason: e.to_string(),
+        })
     }
 
-    fn platform_string() -> &'static str {
-        if cfg!(target_os = "macos") {
-            if cfg!(target_arch = "aarch64") {
-                "mac-arm64"
-            } else {
-                "mac-x64"
-            }
-        } else if cfg!(target_os = "linux") {
-            "linux64"
-        } else {
-            "win64"
-        }
-    }
-
-    pub(crate) fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
-        let platform = Self::platform_string();
-
-        match target {
-            InstallTarget::ChromeForTesting => {
-                let inner_dir = format!("chrome-{}", platform);
-                if cfg!(target_os = "macos") {
-                    target_dir
-                        .join(&inner_dir)
-                        .join("Google Chrome for Testing.app")
-                        .join("Contents")
-                        .join("MacOS")
-                        .join("Google Chrome for Testing")
-                } else if cfg!(target_os = "windows") {
-                    target_dir.join(&inner_dir).join("chrome.exe")
-                } else {
-                    target_dir.join(&inner_dir).join("chrome")
-                }
-            }
-            InstallTarget::HeadlessShell => {
-                let inner_dir = format!("chrome-headless-shell-{}", platform);
-                if cfg!(target_os = "windows") {
-                    target_dir
-                        .join(&inner_dir)
-                        .join("chrome-headless-shell.exe")
-                } else {
-                    target_dir.join(&inner_dir).join("chrome-headless-shell")
-                }
-            }
-        }
-    }
-
-    fn browsers_dir() -> Result<PathBuf> {
+    pub(crate) fn browsers_dir() -> std::result::Result<PathBuf, AuditError> {
         let dir = dirs::home_dir()
             .ok_or_else(|| AuditError::ConfigError("Could not find home directory".to_string()))?
             .join(".auditmysite")
@@ -260,204 +171,5 @@ impl BrowserInstaller {
             .join(".auditmysite")
             .join("chromium");
         Ok(dir)
-    }
-
-    async fn download_file(url: &str, dest: &Path) -> Result<()> {
-        use futures::StreamExt;
-
-        let max_retries = 2;
-        let mut last_error = None;
-        let mut response = None;
-
-        for attempt in 0..=max_retries {
-            if attempt > 0 {
-                let delay = Duration::from_secs(2u64.pow(attempt as u32));
-                warn!(
-                    "Retrying download (attempt {}/{}, backoff {:?})",
-                    attempt + 1,
-                    max_retries + 1,
-                    delay
-                );
-                tokio::time::sleep(delay).await;
-            }
-
-            match reqwest::get(url).await {
-                Ok(resp) if resp.status().is_success() => {
-                    response = Some(resp);
-                    break;
-                }
-                Ok(resp) => {
-                    last_error = Some(format!("HTTP {}", resp.status()));
-                }
-                Err(e) => {
-                    last_error = Some(format!("Download failed: {}", e));
-                }
-            }
-        }
-
-        let response = response.ok_or_else(|| AuditError::BrowserLaunchFailed {
-            reason: last_error.unwrap_or_else(|| "Download failed after retries".to_string()),
-        })?;
-
-        let total_size = response.content_length().unwrap_or(0);
-        let mut downloaded = 0u64;
-
-        let mut file = fs::File::create(dest).map_err(|e| AuditError::BrowserLaunchFailed {
-            reason: format!("Failed to create file: {}", e),
-        })?;
-
-        let mut stream = response.bytes_stream();
-
-        while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result.map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Download chunk failed: {}", e),
-            })?;
-
-            file.write_all(&chunk)
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Write failed: {}", e),
-                })?;
-
-            downloaded += chunk.len() as u64;
-
-            if total_size > 0 {
-                let percent = (downloaded * 100).checked_div(total_size).unwrap_or(0);
-                if downloaded % (total_size / 10).max(1) < chunk.len() as u64 {
-                    println!(
-                        "  {}% ({}/{} MB)",
-                        percent,
-                        downloaded / 1_000_000,
-                        total_size / 1_000_000
-                    );
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<()> {
-        let file = fs::File::open(archive_path).map_err(|e| AuditError::BrowserLaunchFailed {
-            reason: format!("Failed to open archive: {}", e),
-        })?;
-
-        let mut archive =
-            zip::ZipArchive::new(file).map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to read zip: {}", e),
-            })?;
-
-        let total_files = archive.len();
-
-        for i in 0..total_files {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to read file from archive: {}", e),
-                })?;
-
-            let outpath = match file.enclosed_name() {
-                Some(path) => dest_dir.join(path),
-                None => continue,
-            };
-
-            if file.is_dir() {
-                fs::create_dir_all(&outpath).map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to create directory during extraction: {}", e),
-                })?;
-            } else {
-                if let Some(p) = outpath.parent() {
-                    fs::create_dir_all(p).map_err(|e| AuditError::BrowserLaunchFailed {
-                        reason: format!("Failed to create directory during extraction: {}", e),
-                    })?;
-                }
-                let mut outfile =
-                    fs::File::create(&outpath).map_err(|e| AuditError::BrowserLaunchFailed {
-                        reason: format!("Failed to create extracted file: {}", e),
-                    })?;
-                std::io::copy(&mut file, &mut outfile).map_err(|e| {
-                    AuditError::BrowserLaunchFailed {
-                        reason: format!("Failed to extract file: {}", e),
-                    }
-                })?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn set_executable(path: &Path) -> Result<()> {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if path.exists() {
-                let mut perms = fs::metadata(path)
-                    .map_err(|e| AuditError::BrowserLaunchFailed {
-                        reason: format!("Failed to get permissions: {}", e),
-                    })?
-                    .permissions();
-                perms.set_mode(0o755);
-                fs::set_permissions(path, perms).map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to set permissions: {}", e),
-                })?;
-            }
-        }
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    fn remove_quarantine(dir: &Path) {
-        use std::process::Command;
-        // Remove macOS quarantine attribute recursively
-        match Command::new("xattr")
-            .args(["-rd", "com.apple.quarantine"])
-            .arg(dir)
-            .output()
-        {
-            Ok(output) if !output.status.success() => {
-                warn!(
-                    "xattr failed to remove quarantine attribute from {}: {}",
-                    dir.display(),
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to run xattr to remove quarantine attribute from {}: {}",
-                    dir.display(),
-                    e
-                );
-            }
-            Ok(_) => {}
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-
-    /// Verzeichniseinträge werden angelegt, Dateien geschrieben, und ein
-    /// Eintrag, der aus dem Ziel herausführt, wird übergangen.
-    #[test]
-    fn extract_archive_writes_dirs_and_files_and_skips_escaping_paths() {
-        let tmp = tempfile::tempdir().unwrap();
-        let archive = tmp.path().join("chrome.zip");
-        let mut zip = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
-        let options = zip::write::SimpleFileOptions::default();
-        zip.add_directory("chrome-mac/", options).unwrap();
-        zip.start_file("chrome-mac/chrome", options).unwrap();
-        zip.write_all(b"binary").unwrap();
-        zip.start_file("../escape", options).unwrap();
-        zip.write_all(b"x").unwrap();
-        zip.finish().unwrap();
-
-        let dest = tmp.path().join("out");
-        fs::create_dir_all(&dest).unwrap();
-        BrowserInstaller::extract_archive(&archive, &dest).unwrap();
-
-        assert!(dest.join("chrome-mac").is_dir());
-        assert_eq!(fs::read(dest.join("chrome-mac/chrome")).unwrap(), b"binary");
-        assert!(!tmp.path().join("escape").exists());
     }
 }

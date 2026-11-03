@@ -357,6 +357,11 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     // weiter auf und werden von aelteren Berichten und Tests gelesen.
     ("zoom/viewport-locked", "a11y.resize_text.weak"),
     ("zoom/viewport-missing", "a11y.viewport_meta.missing"),
+    // Seite und Dokument im iframe teilen 3.1.1 und damit einen Befund; beide
+    // Kennungen muessen aufloesen, sonst findet die Vertragspruefung
+    // `rule_findings_preserved` den Lauf der jeweils anderen nicht wieder.
+    ("document/lang-missing", "a11y.language.missing"),
+    ("html-has-lang", "a11y.language.missing"),
     ("document/title-missing", "a11y.page_title.missing"),
     ("document/title-empty", "a11y.page_title.missing"),
     ("aria/reference-missing", "a11y.aria_relationships.invalid"),

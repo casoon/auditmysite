@@ -19,8 +19,14 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use super::detection::{verify_executable, ChromeInfo};
+use super::platform::Platform;
+use super::provenance::{BrowserProvenance, HeadlessModeKind};
 use super::resolver::{self, BrowserResolveOptions};
+use super::types::DetectedBrowser;
 use crate::error::{AuditError, Result};
+
+/// Upper bound for a browser to start and accept a DevTools connection.
+const LAUNCH_TIMEOUT: Duration = Duration::from_secs(15);
 
 static BROWSER_PROFILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -119,16 +125,24 @@ impl Default for BrowserOptions {
 pub struct BrowserManager {
     browser: Browser,
     chrome_info: ChromeInfo,
+    provenance: BrowserProvenance,
     options: BrowserOptions,
     user_data_dir: PathBuf,
     _handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
+/// Why no launch strategy started the browser.
+pub(super) struct LaunchFailure {
+    pub reason: String,
+    /// The browser started but never offered a DevTools endpoint in time
+    pub timed_out: bool,
+}
+
 #[derive(Debug, Clone, Copy)]
-struct LaunchPlan {
+pub(super) struct LaunchPlan {
     headless_mode: HeadlessMode,
     disable_gpu: bool,
-    label: &'static str,
+    pub(super) label: &'static str,
 }
 
 impl BrowserManager {
@@ -138,6 +152,11 @@ impl BrowserManager {
     }
 
     /// Create a new BrowserManager with custom options
+    ///
+    /// The browser is chosen by [`resolver::resolve_browser`]. An automatically
+    /// selected browser that fails to start hands over to the next viable
+    /// candidate; every failed attempt is kept in the final error. An explicit
+    /// path is never replaced silently.
     pub async fn with_options(options: BrowserOptions) -> Result<Self> {
         REAP_ORPHANS.call_once(|| {
             let reaped = reap_orphaned_profiles(&std::env::temp_dir());
@@ -148,45 +167,143 @@ impl BrowserManager {
                 );
             }
         });
-        let user_data_dir = Self::create_user_data_dir()?;
 
-        // Resolve browser first so we can use the real version in the UA string
         let resolve_opts = BrowserResolveOptions {
             browser_path: options.chrome_path.clone(),
             browser_preference: None,
             strict: false,
+            fallback_to_auto: false,
         };
 
         let resolved = resolver::resolve_browser(&resolve_opts)?;
-        info!(
-            "Using {}: {} v{}",
-            resolved.browser.kind.display_name(),
-            resolved.browser.path.display(),
-            resolved.browser.version.as_deref().unwrap_or("unknown")
-        );
+        let mut manager = Self::launch_chain(resolved.launch_chain(), options).await?;
+        manager
+            .provenance
+            .record_discarded(resolved.discarded_before_launch());
+        Ok(manager)
+    }
 
-        verify_executable(&resolved.browser.path)?;
+    /// Launch the first browser of `chain` that starts, in order.
+    pub(crate) async fn launch_chain(
+        chain: Vec<DetectedBrowser>,
+        options: BrowserOptions,
+    ) -> Result<Self> {
+        let mut attempts: Vec<String> = Vec::new();
 
-        let chrome_info = ChromeInfo::from(&resolved.browser);
+        for browser in chain {
+            let launched_before = attempts.len() as u32;
+            let chrome_info = ChromeInfo::from(&browser);
+            info!(
+                "Trying {}: {} v{}",
+                browser.kind.display_name(),
+                browser.path.display(),
+                browser.version.as_deref().unwrap_or("unknown")
+            );
 
-        let args = Self::build_launch_args(
-            &options,
-            options.disable_gpu,
-            chrome_info.version.as_deref(),
-        );
-        debug!("Chrome launch args: {:?}", args);
+            if let Err(e) = verify_executable(&browser.path) {
+                warn!("{} skipped: {}", browser.path.display(), e);
+                attempts.push(format!("{}: {}", browser.path.display(), e));
+                continue;
+            }
 
-        let mut launch_errors = Vec::new();
-        let mut launched = None;
-
-        for plan in Self::launch_plans(&options) {
-            let config = Self::build_browser_config(
-                &resolved.browser.path,
+            let user_data_dir = Self::create_user_data_dir()?;
+            match Self::launch_one(
+                &browser.path,
+                chrome_info.version.as_deref(),
                 &user_data_dir,
                 &options,
+                LAUNCH_TIMEOUT,
+            )
+            .await
+            {
+                Ok((chromium, mut handler, plan)) => {
+                    let handler_task = tokio::spawn(async move {
+                        while let Some(event) = handler.next().await {
+                            debug!("Browser event: {:?}", event);
+                        }
+                    });
+
+                    info!(
+                        "Browser launched successfully with strategy '{}'",
+                        plan.label
+                    );
+
+                    // Detection may not have a version (`--version` is
+                    // optional); the browser's own answer fills the gap.
+                    let version = match chrome_info.version.clone() {
+                        Some(version) => Some(version),
+                        None => chromium
+                            .version()
+                            .await
+                            .ok()
+                            .and_then(|v| v.product.split('/').nth(1).map(str::to_string)),
+                    };
+                    let mut provenance = BrowserProvenance::new(
+                        browser.kind,
+                        browser.source,
+                        version,
+                        Platform::current(),
+                        match plan.headless_mode {
+                            HeadlessMode::False => HeadlessModeKind::Headful,
+                            HeadlessMode::True => HeadlessModeKind::Legacy,
+                            HeadlessMode::New => HeadlessModeKind::New,
+                        },
+                    );
+                    provenance.record_discarded(launched_before);
+
+                    return Ok(Self {
+                        browser: chromium,
+                        chrome_info,
+                        provenance,
+                        options,
+                        user_data_dir,
+                        _handler: Arc::new(Mutex::new(Some(handler_task))),
+                    });
+                }
+                Err(failure) => {
+                    let _ = std::fs::remove_dir_all(&user_data_dir);
+                    warn!(
+                        "{} failed to launch: {}",
+                        browser.path.display(),
+                        failure.reason
+                    );
+                    attempts.push(format!("{}: {}", browser.path.display(), failure.reason));
+                }
+            }
+        }
+
+        Err(AuditError::BrowserLaunchFailed {
+            reason: attempts.join(" || "),
+        })
+    }
+
+    /// Start `browser_path` headless and connect over CDP, trying the launch
+    /// strategies in order. The `Err` carries one entry per strategy. A launch
+    /// that times out ends the attempt: another flag set will not cure a
+    /// browser that never answers.
+    pub(super) async fn launch_one(
+        browser_path: &Path,
+        version: Option<&str>,
+        user_data_dir: &Path,
+        options: &BrowserOptions,
+        launch_timeout: Duration,
+    ) -> std::result::Result<(Browser, chromiumoxide::Handler, LaunchPlan), LaunchFailure> {
+        let mut launch_errors = Vec::new();
+        let mut timed_out = false;
+
+        for plan in Self::launch_plans(options) {
+            let config = Self::build_browser_config(
+                browser_path,
+                user_data_dir,
+                options,
                 plan,
-                chrome_info.version.as_deref(),
-            )?;
+                version,
+                launch_timeout,
+            )
+            .map_err(|e| LaunchFailure {
+                reason: e.to_string(),
+                timed_out: false,
+            })?;
 
             info!(
                 "Launching browser with strategy '{}' (headless={:?}, disable_gpu={})",
@@ -194,39 +311,21 @@ impl BrowserManager {
             );
 
             match Browser::launch(config).await {
-                Ok((browser, handler)) => {
-                    launched = Some((browser, handler, plan));
-                    break;
-                }
+                Ok((browser, handler)) => return Ok((browser, handler, plan)),
                 Err(e) => {
-                    warn!("Browser launch strategy '{}' failed: {}", plan.label, e);
+                    debug!("Browser launch strategy '{}' failed: {}", plan.label, e);
                     launch_errors.push(format!("{}: {}", plan.label, e));
+                    if matches!(e, chromiumoxide::error::CdpError::LaunchTimeout(_)) {
+                        timed_out = true;
+                        break;
+                    }
                 }
             }
         }
 
-        let (browser, mut handler, plan) =
-            launched.ok_or_else(|| AuditError::BrowserLaunchFailed {
-                reason: launch_errors.join(" | "),
-            })?;
-
-        let handler_task = tokio::spawn(async move {
-            while let Some(event) = handler.next().await {
-                debug!("Browser event: {:?}", event);
-            }
-        });
-
-        info!(
-            "Browser launched successfully with strategy '{}'",
-            plan.label
-        );
-
-        Ok(Self {
-            browser,
-            chrome_info,
-            options,
-            user_data_dir,
-            _handler: Arc::new(Mutex::new(Some(handler_task))),
+        Err(LaunchFailure {
+            reason: launch_errors.join(" | "),
+            timed_out,
         })
     }
 
@@ -270,12 +369,14 @@ impl BrowserManager {
         options: &BrowserOptions,
         plan: LaunchPlan,
         chrome_version: Option<&str>,
+        launch_timeout: Duration,
     ) -> Result<BrowserConfig> {
         let mut builder = BrowserConfig::builder()
             .chrome_executable(browser_path)
             .user_data_dir(user_data_dir)
             .window_size(options.window_size.0, options.window_size.1)
             .headless_mode(plan.headless_mode)
+            .launch_timeout(launch_timeout)
             .args(Self::build_launch_args(
                 options,
                 plan.disable_gpu,
@@ -360,7 +461,7 @@ impl BrowserManager {
         args
     }
 
-    fn create_user_data_dir() -> Result<PathBuf> {
+    pub(super) fn create_user_data_dir() -> Result<PathBuf> {
         let pid = std::process::id();
         let nonce = BROWSER_PROFILE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let unique = std::time::SystemTime::now()
@@ -418,6 +519,22 @@ impl BrowserManager {
         if let Err(e) = self.browser.dispose_browser_context(context).await {
             warn!("Failed to dispose browser context: {e}");
         }
+    }
+
+    /// How many non-default browser contexts Chrome holds right now. Lets a
+    /// test see that an isolated page's context is gone once the page is
+    /// (#856).
+    #[doc(hidden)]
+    pub async fn browser_context_count(&self) -> Result<usize> {
+        use chromiumoxide::cdp::browser_protocol::target::GetBrowserContextsParams;
+        let response = self
+            .browser
+            .execute(GetBrowserContextsParams::default())
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to list browser contexts: {e}"),
+            })?;
+        Ok(response.result.browser_context_ids.len())
     }
 
     async fn new_page_in(&self, context: Option<BrowserContextId>) -> Result<Page> {
@@ -619,6 +736,12 @@ impl BrowserManager {
     /// Get Chrome version
     pub fn chrome_version(&self) -> Option<&str> {
         self.chrome_info.version.as_deref()
+    }
+
+    /// Which browser measures: product, version, source, platform, headless
+    /// mode and failover, without paths (#787).
+    pub fn provenance(&self) -> &BrowserProvenance {
+        &self.provenance
     }
 
     /// Whether this browser session runs headless. Exposed for report
@@ -1144,5 +1267,120 @@ mod tests {
         assert_eq!(plans[0].label, "headless-new");
         assert_eq!(plans[1].label, "headless-legacy");
         assert_eq!(plans[2].label, "headless-legacy-gpu-enabled");
+    }
+}
+
+#[cfg(all(test, unix))]
+mod failover_tests {
+    use super::super::probe::test_support::script;
+    use super::super::types::{BrowserKind, BrowserSource};
+    use super::*;
+
+    fn candidate(path: PathBuf) -> DetectedBrowser {
+        DetectedBrowser {
+            kind: BrowserKind::Chrome,
+            path,
+            version: None,
+            source: BrowserSource::SystemPath,
+        }
+    }
+
+    /// Passes the `--version` check but exits before offering DevTools.
+    fn failing_browser(dir: &Path, name: &str) -> PathBuf {
+        script(
+            dir,
+            name,
+            "case \"$1\" in --version) echo 'Google Chrome 131.0.1.2';; *) echo 'cannot open display' >&2; exit 1;; esac",
+        )
+    }
+
+    fn real_chrome() -> DetectedBrowser {
+        let info = super::super::detection::find_chrome(None).expect("Chrome required");
+        DetectedBrowser {
+            kind: BrowserKind::Chrome,
+            path: info.path,
+            version: info.version,
+            source: BrowserSource::SystemPath,
+        }
+    }
+
+    #[tokio::test]
+    async fn every_failed_attempt_is_kept_in_the_final_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = failing_browser(dir.path(), "browser-a");
+        let b = failing_browser(dir.path(), "browser-b");
+        let err = BrowserManager::launch_chain(
+            vec![candidate(a.clone()), candidate(b.clone())],
+            BrowserOptions::default(),
+        )
+        .await
+        .unwrap_err();
+        let AuditError::BrowserLaunchFailed { reason } = err else {
+            panic!("expected BrowserLaunchFailed");
+        };
+        assert!(reason.contains(&a.display().to_string()), "{reason}");
+        assert!(reason.contains(&b.display().to_string()), "{reason}");
+    }
+
+    #[tokio::test]
+    async fn an_explicit_path_that_fails_to_launch_does_not_switch_browsers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = failing_browser(dir.path(), "explicit");
+        let err = BrowserManager::with_options(BrowserOptions {
+            chrome_path: Some(path.to_string_lossy().into_owned()),
+            ..BrowserOptions::default()
+        })
+        .await
+        .unwrap_err();
+        let AuditError::BrowserLaunchFailed { reason } = err else {
+            panic!("expected BrowserLaunchFailed, got {err}");
+        };
+        // Only the explicit browser was tried.
+        assert_eq!(reason.matches(" || ").count(), 0, "{reason}");
+        assert!(reason.contains(&path.display().to_string()), "{reason}");
+    }
+
+    #[tokio::test]
+    #[ignore = "needs Chrome"]
+    async fn first_candidate_fails_second_launches() {
+        let dir = tempfile::tempdir().unwrap();
+        let broken = failing_browser(dir.path(), "broken");
+        let real = real_chrome();
+        let manager = BrowserManager::launch_chain(
+            vec![candidate(broken), real.clone()],
+            BrowserOptions {
+                no_sandbox: std::env::var_os("CI").is_some(),
+                ..BrowserOptions::default()
+            },
+        )
+        .await
+        .expect("the second candidate must start");
+        assert_eq!(manager.chrome_path(), &real.path);
+        manager.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "needs Chrome; waits for the launch time limit"]
+    async fn a_candidate_that_hangs_is_cut_off_and_the_next_one_launches() {
+        let dir = tempfile::tempdir().unwrap();
+        let hang = script(
+            dir.path(),
+            "hang",
+            "case \"$1\" in --version) echo 'Google Chrome 131.0.1.2';; *) exec sleep 60;; esac",
+        );
+        let real = real_chrome();
+        let started = std::time::Instant::now();
+        let manager = BrowserManager::launch_chain(
+            vec![candidate(hang), real.clone()],
+            BrowserOptions {
+                no_sandbox: std::env::var_os("CI").is_some(),
+                ..BrowserOptions::default()
+            },
+        )
+        .await
+        .expect("the second candidate must start");
+        assert_eq!(manager.chrome_path(), &real.path);
+        assert!(started.elapsed() < LAUNCH_TIMEOUT + Duration::from_secs(20));
+        manager.close().await.unwrap();
     }
 }

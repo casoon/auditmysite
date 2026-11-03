@@ -52,8 +52,10 @@ pub enum BrowserSource {
     CliFlag,
     /// Via AUDITMYSITE_BROWSER or CHROME_PATH env var
     EnvVar,
-    /// Found in known system paths
+    /// Found in known system-wide install locations
     SystemPath,
+    /// Found in a user-level install location (home directory, `%LOCALAPPDATA%`)
+    UserInstall,
     /// Found via `which`/`where` in PATH
     PathSearch,
     /// Self-installed under ~/.auditmysite/browsers/
@@ -66,6 +68,7 @@ impl fmt::Display for BrowserSource {
             Self::CliFlag => write!(f, "CLI flag"),
             Self::EnvVar => write!(f, "environment variable"),
             Self::SystemPath => write!(f, "system path"),
+            Self::UserInstall => write!(f, "user-level install"),
             Self::PathSearch => write!(f, "PATH search"),
             Self::ManagedInstall => write!(f, "managed install"),
         }
@@ -92,6 +95,72 @@ pub struct DetectedBrowser {
     pub source: BrowserSource,
 }
 
+/// Why a candidate cannot be used (#854).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RejectionKind {
+    /// No file at the path (or not a regular file)
+    NotFound,
+    /// The file exists but has no execute permission
+    NotExecutable,
+    /// The file cannot be started (wrong architecture, broken binary, ...)
+    NotRunnable,
+    /// `--version` did not answer within the time bound
+    Hangs,
+    /// Started headless, but the DevTools connection could not be made
+    CdpFailed,
+    /// Started headless, but did not become reachable within the time bound
+    CdpTimedOut,
+    /// Excluded by the platform contract, strict mode or `--browser`
+    Excluded,
+    /// A managed install whose files are incomplete or outdated
+    StaleInstall,
+}
+
+impl RejectionKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotFound => "not_found",
+            Self::NotExecutable => "not_executable",
+            Self::NotRunnable => "not_runnable",
+            Self::Hangs => "hangs",
+            Self::CdpFailed => "cdp_failed",
+            Self::CdpTimedOut => "cdp_timed_out",
+            Self::Excluded => "excluded",
+            Self::StaleInstall => "stale_install",
+        }
+    }
+}
+
+/// Whether a candidate can be used, and if not, why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CandidateVerdict {
+    Viable,
+    Rejected { kind: RejectionKind, detail: String },
+}
+
+impl CandidateVerdict {
+    pub fn is_viable(&self) -> bool {
+        matches!(self, Self::Viable)
+    }
+
+    pub fn rejected(kind: RejectionKind, detail: impl Into<String>) -> Self {
+        Self::Rejected {
+            kind,
+            detail: detail.into(),
+        }
+    }
+}
+
+/// One candidate in priority order with the reason it is or is not viable.
+#[derive(Debug, Clone)]
+pub struct CandidateReport {
+    pub browser: DetectedBrowser,
+    pub verdict: CandidateVerdict,
+    /// Product string reported over CDP (`Chrome/131...`) when a headless
+    /// launch was probed and succeeded; `None` when no probe ran.
+    pub cdp_product: Option<String>,
+}
+
 /// Result of browser resolution
 #[derive(Debug, Clone)]
 pub struct ResolvedBrowser {
@@ -99,6 +168,44 @@ pub struct ResolvedBrowser {
     pub mode: BrowserMode,
     /// All found candidates (for `browser detect`)
     pub all_candidates: Vec<DetectedBrowser>,
+    /// Every candidate in priority order with its verdict. For an explicit
+    /// path this is that one path (plus the automatic candidates only when
+    /// fallback was requested).
+    pub candidates: Vec<CandidateReport>,
+    /// The selected browser came from an explicit path (flag or env var)
+    pub explicit: bool,
+}
+
+impl ResolvedBrowser {
+    /// Browsers to try in order when launching: the viable candidates,
+    /// selected one first. An explicit path without requested fallback is a
+    /// chain of one, so a failing launch never switches silently.
+    /// Candidates ranked ahead of the launched one that were rejected on
+    /// their merits (not found, not runnable, CDP failed ...). Those the
+    /// platform contract or the options exclude never competed (#787).
+    pub fn discarded_before_launch(&self) -> u32 {
+        self.candidates
+            .iter()
+            .take_while(|c| !c.verdict.is_viable())
+            .filter(|c| {
+                !matches!(
+                    c.verdict,
+                    CandidateVerdict::Rejected {
+                        kind: RejectionKind::Excluded,
+                        ..
+                    }
+                )
+            })
+            .count() as u32
+    }
+
+    pub fn launch_chain(&self) -> Vec<DetectedBrowser> {
+        self.candidates
+            .iter()
+            .filter(|c| c.verdict.is_viable())
+            .map(|c| c.browser.clone())
+            .collect()
+    }
 }
 
 /// What to install via `auditmysite browser install`

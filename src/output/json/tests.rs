@@ -327,7 +327,10 @@ fn test_single_score_matches_normalized() {
 
     assert_eq!(page.accessibility_score, normalized.normalized.score);
     assert_eq!(page.grade, normalized.normalized.grade);
-    assert_eq!(page.certificate, normalized.normalized.certificate);
+    assert_eq!(
+        page.decision.certificate,
+        normalized.normalized.decision.certificate
+    );
 }
 
 #[test]
@@ -1163,7 +1166,6 @@ fn test_collection_errors_serialized_when_present() {
             accessibility_score: Some(0),
             overall_score: Some(0),
             grade: Some("F".to_string()),
-            certificate: Some("UNGENÜGEND".to_string()),
             risk_level: crate::audit::normalized::RiskLevel::Low,
             violation_count: 0,
             finding_count: 0,
@@ -1183,6 +1185,7 @@ fn test_collection_errors_serialized_when_present() {
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
+            measurement_browsers: Vec::new(),
             violated_rule_count: 0,
             root_causes: vec![],
             en301549_rollup: vec![],
@@ -1297,7 +1300,9 @@ fn test_batch_grade_and_certificate_follow_accessibility_not_overall() {
         "fixture must separate the two scores: {summary}"
     );
     assert_eq!(summary["grade"], "F");
-    assert_ne!(summary["certificate"], "STABIL");
+    assert!(summary.get("certificate").is_none(), "{summary}");
+    assert_ne!(json["decision"]["certificate"], "stable");
+    assert_eq!(json["decision"]["contract"], "auditmysite.decision/2");
 
     let lint = crate::lint::lint(&json, None);
     assert!(
@@ -1325,12 +1330,19 @@ fn test_batch_certificate_is_risk_gated() {
     );
     batch.summary.average_score = Some(80.0);
     batch.summary.blocking_issues = 3;
-    let (grade, certificate) = batch.summary.grade_and_certificate().unwrap();
+    // The decision is derived at construction; recompute it from the edited summary.
+    batch.summary.decision = crate::audit::compute_batch_verdict(
+        &batch.summary,
+        &batch.summary.decision.profile.clone(),
+    );
     assert_eq!(
-        grade,
+        batch.summary.grade().unwrap(),
         crate::audit::AccessibilityScorer::calculate_grade(80.0)
     );
-    assert_eq!(certificate, "EINGESCHRÄNKT");
+    assert_eq!(
+        batch.summary.decision.certificate,
+        Some(crate::audit::Certificate::Restricted)
+    );
 }
 
 #[test]

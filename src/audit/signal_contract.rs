@@ -120,11 +120,13 @@ pub const SIGNAL_CONTRACTS: &[SignalContract] = &[
         version: 1,
         target_statement: "How far the page carries structural signals that make machine \
             extraction easier, and whether AI crawlers may fetch it.",
-        method: "Five dimensions (readability, citability, chunks, knowledge graph, crawler \
+        method:
+            "Five dimensions (readability, section structure, chunks, knowledge graph, crawler \
             policy) scored from present/absent signals with fixed weights and combined 25/25/20/\
             15/15. Lists, tables, headings and text volume count regardless of whether they suit \
             the content.",
-        applicability: "Pages meant to be found and quoted. On pages that are not (log-in, \
+        applicability:
+            "Pages meant to be found and read by machines. On pages that are not (log-in, \
             checkout, legal notices) a low score is no defect.",
         evidence: "Rendered DOM structure, structured data, meta data, robots.txt and meta \
             robots. The crawler-policy dimension reads robots rules; all other dimensions are \

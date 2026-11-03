@@ -5,7 +5,7 @@
 //!
 //! Five dimensions are scored:
 //! - **LLM-Lesbarkeit** — How well can LLMs extract and understand the content?
-//! - **Zitatfähigkeit** — Structural signals that make passages quotable (no
+//! - **Compact section structure** — Structural signals of short, self-contained passages (no
 //!   measured or predicted citation likelihood, #784).
 //! - **Chunk-Qualität** — How well is content structured for RAG/embedding pipelines?
 //! - **Wissensgraph** — How rich is the entity/relationship model?
@@ -347,8 +347,8 @@ pub fn ai_dimension_name(kind: DimensionKind, en: bool) -> &'static str {
     match (kind, en) {
         (DimensionKind::Readability, true) => "AI readability",
         (DimensionKind::Readability, false) => "KI-Lesbarkeit",
-        (DimensionKind::Citability, true) => "Quotable structure (unvalidated)",
-        (DimensionKind::Citability, false) => "Zitierfähige Struktur (ungeprüft)",
+        (DimensionKind::Citability, true) => "Compact section structure (unvalidated)",
+        (DimensionKind::Citability, false) => "Kompakte Abschnittsstruktur (ungeprüft)",
         (DimensionKind::Chunks, true) => "Technical AI readability",
         (DimensionKind::Chunks, false) => "Technische KI-Lesbarkeit",
         (DimensionKind::KnowledgeGraph, true) => "Structured data",
@@ -1395,7 +1395,6 @@ mod tests {
                 wcag_results: WcagResults::new(),
                 score: 95.0,
                 grade: "A".into(),
-                certificate: "SEHR GUT".into(),
                 statistics: ViolationStatistics {
                     critical: 0,
                     high: 0,
@@ -1755,5 +1754,29 @@ mod tests {
         );
         assert_eq!(name, "KI-Suche erreichbar");
         assert!(detail.contains("KI-Suchbots"));
+    }
+
+    /// #784: dimension names describe structure; they claim no quotability or
+    /// citation. English stays free of German characters (#406).
+    #[test]
+    fn dimension_names_make_no_citation_claim() {
+        for kind in [
+            DimensionKind::Readability,
+            DimensionKind::Citability,
+            DimensionKind::Chunks,
+            DimensionKind::KnowledgeGraph,
+            DimensionKind::Policy,
+        ] {
+            for en in [true, false] {
+                let name = ai_dimension_name(kind, en);
+                let lower = name.to_lowercase();
+                for word in ["quot", "zitat", "zitier", "citab", "cited"] {
+                    assert!(!lower.contains(word), "'{word}' in: {name}");
+                }
+                if en {
+                    assert!(name.chars().all(|c| !"äöüÄÖÜß".contains(c)), "{name}");
+                }
+            }
+        }
     }
 }

@@ -376,7 +376,6 @@
         "accessibility_score",
         "overall_score",
         "grade",
-        "certificate",
         "risk_level",
         "violation_count",
         "finding_count",
@@ -409,9 +408,6 @@
           "maximum": 100
         },
         "grade": {
-          "type": "string"
-        },
-        "certificate": {
           "type": "string"
         },
         "risk_level": {
@@ -461,6 +457,19 @@
           "type": "integer",
           "minimum": 0,
           "description": "URLs the batch tried to audit. Scores and counts cover url_count of them; the rest could not be audited and are listed in errors."
+        },
+        "measurement_browsers": {
+          "description": "The browsers the pages were measured with, one entry per distinct provenance (#787). Two or more entries mean the batch mixes browsers; browser null counts pages whose browser was not recorded.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["browser", "pages"],
+            "additionalProperties": false,
+            "properties": {
+              "browser": {"type": ["object", "null"]},
+              "pages": {"type": "integer", "minimum": 0}
+            }
+          }
         },
         "coverage": {
           "type": "object",
@@ -609,7 +618,6 @@
         "accessibility_score",
         "overall_score",
         "grade",
-        "certificate",
         "violation_count",
         "finding_count",
         "finding_occurrence_count",
@@ -641,9 +649,6 @@
           "maximum": 100
         },
         "grade": {
-          "type": "string"
-        },
-        "certificate": {
           "type": "string"
         },
         "violation_count": {
@@ -1683,7 +1688,7 @@
       "properties": {
         "contract": {
           "type": "string",
-          "const": "auditmysite.decision/1"
+          "const": "auditmysite.decision/2"
         },
         "profile": {
           "$ref": "#/$defs/decisionProfile"
@@ -1695,6 +1700,11 @@
             "warn",
             "fail"
           ]
+        },
+        "certificate": {
+          "description": "Certificate band of the accessibility score, limited by the risk veto (legal flags, blocking issues, high or critical risk). Absent when nothing was measured.",
+          "type": "string",
+          "enum": ["very_good", "good", "stable", "needs_improvement", "insufficient", "restricted", "not_passed"]
         },
         "reasons": {
           "type": "array",

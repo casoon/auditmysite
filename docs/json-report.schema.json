@@ -260,6 +260,22 @@
               "description": "Name of the declared state the run started from (--state-id).",
               "type": "string"
             },
+            "browser": {
+              "description": "The browser that measured (#787): categories only, never paths or launch flags. Required from profile version 3; absent in older reports.",
+              "type": "object",
+              "required": ["product", "origin", "os", "arch", "headless_mode", "failover", "discarded_candidates"],
+              "additionalProperties": false,
+              "properties": {
+                "product": {"type": "string", "enum": ["chrome", "chrome_for_testing", "headless_shell", "edge", "chromium", "ungoogled_chromium", "unidentified"]},
+                "version": {"type": "string", "description": "Full browser version; required for a live run."},
+                "origin": {"type": "string", "enum": ["system", "user", "path", "managed", "explicit"]},
+                "os": {"type": "string", "enum": ["macos", "linux", "windows", "other"]},
+                "arch": {"type": "string", "enum": ["x86_64", "aarch64", "other"]},
+                "headless_mode": {"type": "string", "enum": ["new", "legacy", "headful"]},
+                "failover": {"type": "boolean", "description": "A candidate was discarded before this browser measured."},
+                "discarded_candidates": {"type": "integer", "minimum": 0, "description": "Candidates rejected or failed ahead of the measuring browser; failover is true iff above 0."}
+              }
+            },
             "storage_state": {
               "description": "Identity of the declared browser state: digest and counts, never values.",
               "type": "object",
@@ -452,7 +468,6 @@
         "accessibility_score",
         "overall_score",
         "grade",
-        "certificate",
         "risk_level",
         "violation_count",
         "finding_count",
@@ -486,6 +501,19 @@
           "minimum": 0,
           "description": "Batch only: URLs an audit was started for (coverage.attempted)."
         },
+        "measurement_browsers": {
+          "description": "Batch only: the browsers the pages were measured with, one entry per distinct provenance (#787). Two or more entries mean the batch mixes browsers; browser null counts pages whose browser was not recorded.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["browser", "pages"],
+            "additionalProperties": false,
+            "properties": {
+              "browser": {"type": ["object", "null"]},
+              "pages": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
         "coverage": {
           "type": "object",
           "description": "Batch only: URL lifecycle counters. The averages are over `succeeded` only.",
@@ -501,10 +529,6 @@
           }
         },
         "grade": {
-          "type": ["string", "null"],
-          "description": "null together with the scores for a batch in which no URL produced a report."
-        },
-        "certificate": {
           "type": ["string", "null"],
           "description": "null together with the scores for a batch in which no URL produced a report."
         },
@@ -781,7 +805,6 @@
         "accessibility_score",
         "overall_score",
         "grade",
-        "certificate",
         "violation_count",
         "finding_count",
         "finding_occurrence_count",
@@ -813,9 +836,6 @@
           "maximum": 100
         },
         "grade": {
-          "type": "string"
-        },
-        "certificate": {
           "type": "string"
         },
         "violation_count": {
@@ -2139,7 +2159,7 @@
       "properties": {
         "contract": {
           "type": "string",
-          "const": "auditmysite.decision/1"
+          "const": "auditmysite.decision/2"
         },
         "profile": {
           "$ref": "#/$defs/decisionProfile"
@@ -2151,6 +2171,11 @@
             "warn",
             "fail"
           ]
+        },
+        "certificate": {
+          "description": "Certificate band of the accessibility score, limited by the risk veto (legal flags, blocking issues, high or critical risk). Absent when nothing was measured.",
+          "type": "string",
+          "enum": ["very_good", "good", "stable", "needs_improvement", "insufficient", "restricted", "not_passed"]
         },
         "reasons": {
           "type": "array",

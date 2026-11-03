@@ -591,13 +591,13 @@ pub fn content_visibility_signal_text(
         (LlmChunkQuality, true) => (
             "Good LLM chunk quality".into(),
             format!(
-                "AI chunk score: {score}/100 — content structured in quotable chunks."
+                "AI chunk score: {score}/100 — content split into compact, self-contained sections."
             ),
         ),
         (LlmChunkQuality, false) => (
             "Gute LLM-Chunk-Qualität".into(),
             format!(
-                "AI-Chunk-Score: {score}/100 — Inhalt in zitierfähige Abschnitte gegliedert."
+                "AI-Chunk-Score: {score}/100 — Inhalt in kompakte, in sich abgeschlossene Abschnitte gegliedert."
             ),
         ),
         (LinkMesh, true) => (
@@ -2023,7 +2023,6 @@ mod tests {
                 wcag_results: WcagResults::new(),
                 score: 95.0,
                 grade: "A".into(),
-                certificate: "SEHR GUT".into(),
                 statistics: ViolationStatistics {
                     critical: 0,
                     high: 0,
@@ -2179,5 +2178,29 @@ mod tests {
             sig.cv_kind,
             Some(ContentVisibilitySignalKind::SsrContentComplete)
         );
+    }
+
+    /// #784: the chunk-quality text describes section structure and claims no
+    /// quotability. English stays free of German characters (#406).
+    #[test]
+    fn chunk_quality_text_makes_no_citation_claim() {
+        let values = ContentSignalValues {
+            score: Some(80),
+            ..Default::default()
+        };
+        for en in [true, false] {
+            let (title, detail) = content_visibility_signal_text(
+                ContentVisibilitySignalKind::LlmChunkQuality,
+                &values,
+                en,
+            );
+            let lower = format!("{title} {detail}").to_lowercase();
+            for word in ["quot", "zitat", "zitier", "citab", "cited"] {
+                assert!(!lower.contains(word), "'{word}' in: {lower}");
+            }
+            if en {
+                assert!(lower.chars().all(|c| !"äöüß".contains(c)), "{lower}");
+            }
+        }
     }
 }

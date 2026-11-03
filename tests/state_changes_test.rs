@@ -122,6 +122,30 @@ fn a_full_run_without_the_opt_in_sends_nothing() {
 
 #[test]
 #[ignore = "needs Chrome"]
+fn the_profile_names_the_browser_that_measured_without_paths() {
+    let (_, report) = audit_and_requests(false);
+    let profile = &report.accessibility.execution.scope.measurement_profile;
+    let browser = profile.browser.as_ref().expect("browser provenance");
+    assert!(
+        browser.version.as_deref().is_some_and(|v| !v.is_empty()),
+        "{browser:?}"
+    );
+    assert!(browser.inconsistencies().is_empty(), "{browser:?}");
+    assert_eq!(
+        Some(browser.headless_mode.is_headless()),
+        Some(report.accessibility.execution.environment.headless)
+    );
+    // A single local browser: no failover on a healthy machine.
+    assert!(!browser.failover, "{browser:?}");
+    let json = serde_json::to_string(profile).unwrap();
+    for needle in ["/Users", "/home", "/usr", "/opt", "C:\\", "Applications"] {
+        assert!(!json.contains(needle), "{needle} in {json}");
+    }
+    auditmysite::audit::normalize_checked(&report).expect("a live report is valid");
+}
+
+#[test]
+#[ignore = "needs Chrome"]
 fn the_opt_in_allows_the_submit_and_the_profile_says_so() {
     let (requests, report) = audit_and_requests(true);
     let profile = &report.accessibility.execution.scope.measurement_profile;

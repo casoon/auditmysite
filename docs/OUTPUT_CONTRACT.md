@@ -30,7 +30,7 @@
 - Scores use a 0–100 scale; higher values are better. The top-level `metric_context` block describes the scale and the meaning of score and count fields for machine consumers.
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
-- `grade` and `certificate` describe `accessibility_score`, the subject of the report, and are the headline classification wherever one is shown (cover, batch cover, terminal). The optional risk gate may limit an otherwise positive certificate.
+- `grade` and `decision.certificate` describe `accessibility_score`, the subject of the report, and are the headline classification wherever one is shown (cover, batch cover, terminal). The risk veto may limit an otherwise positive certificate. There is no `certificate` field on `summary` or `pages[]` (removed in `auditmysite.decision/2`).
 - `overall_score` is a secondary, explicitly labelled figure: the weighted result across the active contributing modules, reported together with `overall_score_weight_basis`. It is not the headline and carries no classification of its own.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
 - `violated_rule_count` and `severity_counts` count distinct grouped WCAG findings.
@@ -70,7 +70,11 @@ Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `so
 
 ## Decision Contract
 
-`decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/1`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict` and `reasons`.
+`decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/2`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict`, `certificate` and `reasons`.
+
+`certificate` is derived once with the verdict, from the accessibility score (bands 90/75/60/40) and the risk veto, and is language-free: `very_good`, `good`, `stable`, `needs_improvement`, `insufficient`, `restricted` (a positive band vetoed by high risk, a legal flag or a blocking issue, independent of the verdict profile) or `not_passed` (critical risk). The German and English labels shown in the terminal and PDF are rendered from this kind. A batch rates the average accessibility score with its summed risk inputs; a batch in which no URL produced a report has no `certificate`.
+
+Migration from `auditmysite.decision/1`: read `decision.certificate` instead of `summary.certificate` / `pages[].certificate` (German label, e.g. `GUT` → `good`, `EINGESCHRÄNKT` → `restricted`, `NICHT BESTANDEN` → `not_passed`); the Studio response and history entry lost their `certificate` field the same way. Cached snapshots written under `decision/1` are cache misses.
 
 - **Fail** when the profile enables it and there are legal flags, blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
 - **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding.
@@ -86,7 +90,7 @@ Every path that publishes a decision reads the stored one and validates before w
 | Summary feed (`--format summary`) | `verdict`, `verdictReasons` | `validate` |
 | SARIF | findings only; refuses invalid reports | `validate` |
 | Terminal (single, batch) | stored decision | `validate` / `validate_batch` before rendering (CLI); `terminal_prints_the_stored_decision` checks the rendered verdict |
-| Studio response and history | `decision` | Studio validates in its own repository; this crate checks nothing on that path (projection only) |
+| Studio response and history | `decision` (verdict and certificate) | Studio validates in its own repository; this crate checks nothing on that path (projection only) |
 | PDF / Typst input | `ReportViewModel.summary.ci_verdict` from the stored decision | `validate` / `validate_batch` |
 | Cache replay | the cached report re-judged under the current profile, stored in `run_context` | `validate` |
 | Exit code | stored decision (`0` pass, `1` warn, `2` fail) | `exit_code_of_the_process_is_the_exported_verdict` (real binary, needs Chrome), `batch_with_only_failed_urls_exits_2_without_a_score` |
@@ -117,6 +121,18 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
   - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). These are approximations, not direct measurements, and must not be read as field metrics.
 - In rendered reports, estimated metrics carry a localized "(lab estimate)" / "(Lab-Schätzung)" suffix, and the performance section states that all values are lab data, not field data.
 
+### Measurement window (#770)
+
+LCP, CLS and TBT are read from `PerformanceObserver`s that are installed before the navigation, so they see the page from its first paint. One page load is one observation:
+
+- **Start**: navigation start (observers are registered before the document is created, buffered entries included).
+- **End**: the read happens after the page has been waited on, not at the `load` event. First the audit waits up to about 3 s for the first LCP candidate, then until no new long task has appeared for 1 s (Lighthouse's CPU-quiet threshold) or for at most 8 s. The values are whatever the observers have seen at that read; there is no fixed observation time.
+- **LCP**: the last candidate before the read. There is no `load` cut-off: a hero rendered after load is the LCP. A lab run never produces user input, so candidates are never closed by one.
+- **CLS**: the largest session window (shifts at most 1 s apart, at most 5 s long), shifts with recent input excluded. Shifts after the read are not seen.
+- **TBT**: the blocking part (beyond 50 ms) of every long task, clipped to the window FCP to TTI. Long tasks before FCP or after TTI do not count. TTI is an estimate (last long task before the first 5 s quiet window after FCP, at least `domInteractive`) and does not wait for network quiet. Without FCP or the long-task observer TBT is not measured, never 0.
+
+Not measured: user interaction (INP stays an estimate and is only set when interaction events fire), scrolling, work that starts after the read (late lazy-loading, delayed third-party scripts, client-side navigation), cache-warm repeat visits, and real-device or field behaviour. A page that keeps shifting or blocking after the window reads better here than it is. `--perf-runs N` repeats each throttled profile and reports the median run with min/median/max; it does not widen the window of a single load.
+
 ## Measurement Profile
 
 - `audit_scope.requested_rules` lists every rule the run must account for — shared, AX-tree and page rules (executor and concrete ids) and the inline rules (reflow, HTML content model; mobile only) — with the viewports it runs in, derived from the rule registrations, the `wcag_level` and the `[rules]` filter. Each listed `(rule_id, viewport)` needs exactly one `rule_outcomes` entry; a missing one fails validation as `requested_rule_outcome`, a second one as `rule_outcome_duplicate`, and a rule that ran above `audit_scope.wcag_level` as `rule_outcome_above_level`. Error and capability counters count a page-rule executor and its concrete rules once.
@@ -126,15 +142,18 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 - **State axis.** The state a result was measured in is the measurement profile: the session policy, `state_id` and the `storage_state` digest. There is no separate per-state axis in the execution record; a different profile is another measurement (see below), and one report is one profile.
 - `audit_scope.measurement_profile` states how the pages were measured: `version` (meaning of the profile), `session_policy` (`isolated` or `shared`; `unknown` for reports from before the field), `read_only`, `extra_checks` (flag names of the opt-in checks the run requested, e.g. `--check-ssr-content`, `--dns-check`; sorted, absent when none) and `state_changing_journeys` (`form_error_submit`, `add_to_cart`, `quantity_stepper`; listed only with `--interactive full` and `--allow-state-changes`).
 - `state_id` and `storage_state` (`sha256`, `cookies`, `origins`) name a declared browser state (`--storage-state`, `--state-id`). Values never enter the report. A different state file is a different `sha256` and so another measurement.
+- `measurement_profile.browser` names the browser that measured (profile version 3): `product` (`chrome`, `chrome_for_testing`, `headless_shell`, `edge`, `chromium`, `ungoogled_chromium`, `unidentified`), `version`, `origin` (`system`, `user`, `path`, `managed`, `explicit`), `os` and `arch` (`macos`/`linux`/`windows`, `x86_64`/`aarch64`), `headless_mode` (`new`, `legacy`, `headful`), and `failover` with `discarded_candidates` (candidates rejected or failed ahead of the one that measured; `failover` is true iff the count is above 0). It holds categories only: no executable path, user name or launch flag, which are personal and not reproducible. A profile of version 3 or later without it, with an empty version, with a managed product from a non-managed origin (or the reverse), with `failover` contradicting the count, outside the platform contract (macOS ARM64, Linux x86_64/ARM64, Windows x86_64 with Edge only), or disagreeing with `execution_environment` on headless mode or version fails as `browser_provenance`. Reports of profile version 2 and older carry none and stay readable.
+- A replay compares the browser by identity (product, version, platform, headless mode); how it was found and a failover are provenance, not a different measurement (`profile_differences` field `browser`).
+- A batch lists every distinct browser provenance of its pages in `summary.measurement_browsers` (`browser`, `pages`; `browser: null` counts pages whose browser was not recorded). Two or more entries mean the batch mixes browsers (cache replays of another run, merged files); it is never averaged away, and a stored list that differs from the pages fails as `batch_aggregation`. The top-level `audit_scope` of a batch shows the first page's profile only.
 - A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
 
 ## Validation codes
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
 
-- Scores and decision: `score_range`, `grade`, `certificate`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
+- Scores and decision: `score_range`, `grade`, `certificate`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
 - Findings and counts: `finding_domain`, `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
-- Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`.
+- Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`, `browser_provenance`.
 - Quality and collections: `accessibility_module`, `audit_quality`, `execution_completeness`, `quality_qualification`, `failed_rule_checks`, `collector_unknown`, `collection_state_unexplained`, `collection_gap_completed`, `collection_gap_scored`.
 - Batch: `batch_aggregation`, `total_urls`, `sample_strata`.
 
@@ -214,10 +233,10 @@ audit, viewport module results are blended first and Security contributes
 overall scores across the audited URLs.
 
 <a id="grade-certificate"></a>
-### grade_certificate — `summary.grade` / `summary.certificate`
+### grade_certificate — `summary.grade` / `decision.certificate`
 
 Classification derived from `summary.accessibility_score` — the subject of the
-report; risk gates can restrict the certificate without changing the numeric
+report; the risk veto can restrict the certificate without changing the numeric
 score. Both read the same number, so they cannot contradict each other.
 
 <a id="module-score"></a>

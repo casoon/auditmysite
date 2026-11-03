@@ -9,7 +9,7 @@
     "type-check": "astro check"
   },
   "dependencies": {
-    "@casoon/pages-theme": "file:./vendor/pages-theme",
+    "@casoon/pages-theme": "^0.12.6",
     "astro": "^7.4.4"
   },
   "devDependencies": {
@@ -19,7 +19,9 @@
   },
   "pnpm": {
     "overrides": {
-      "fast-uri": ">=3.1.9"
+      "fast-uri": ">=3.1.9",
+      "source-map-js": ">=1.2.2",
+      "undici": ">=8.12.2"
     },
     "onlyBuiltDependencies": [
       "esbuild"

@@ -1,52 +1,19 @@
 name: CI
 
+# Full QA is opt-in between releases; release.yml calls this file from the
+# exact tagged commit. Dispatch validates the selected ref and cannot publish.
 on:
-  push:
-    branches: [main]
-    # Prose and site content nothing in the build reads. Not ignored on
-    # purpose: docs/*.md and docs/*.json at the top level (OUTPUT_CONTRACT.md
-    # is `include_str!`-ed, the schemas and calibration.md are read by tests).
-    # A README edit that breaks `release_contract_tests` or `release-check.sh`
-    # is caught by the tag run, which calls this workflow through
-    # `workflow_call` (path filters do not apply there).
-    paths-ignore:
-      - "README.md"
-      - "CHANGELOG.md"
-      - "LICENSE"
-      - "docs/index.md"
-      - "docs/getting-started/**"
-      - "docs/guides/**"
-      - "docs/concepts/**"
-      - "docs/reference/**"
-      - "docs/img/**"
-      - "site/**"
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "CHANGELOG.md"
-      - "LICENSE"
-      - "docs/index.md"
-      - "docs/getting-started/**"
-      - "docs/guides/**"
-      - "docs/concepts/**"
-      - "docs/reference/**"
-      - "docs/img/**"
-      - "site/**"
-  # Lets release.yml gate a release build on this exact workflow passing for
-  # the tagged commit's own SHA (plan/25-release-workflow-quality-gate.md) —
-  # a `uses: ./.github/workflows/ci.yml` call runs against the calling
-  # workflow's checkout, not a separate lookup by branch name. In a called
-  # workflow the `github` context belongs to the caller, so `event_name` is
-  # the tag's `push` and `ref` is `refs/tags/v*` — never `workflow_call`.
-  # Every job runs for the release call, including `browser-smoke` and
-  # `detection-corpus`: the
-  # real-Chrome and detection-corpus tests must pass for the tagged SHA
-  # itself, not only for some earlier push
-  # (plan/30-release-browser-gate-for-tag-sha.md). The one exception is
-  # `coverage`, which is a measurement rather than a release gate and is
-  # skipped on tag refs.
   workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Unique per invocation: manual QA, release calls and repeated dispatches
+# never cancel or replace one another (including pending runs).
+concurrency:
+  group: full-qa-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
 
 # Every `Install Rust toolchain` step runs `rustup toolchain install` without
 # a toolchain argument, which installs the version, profile and components
@@ -63,14 +30,15 @@ jobs:
   check:
     name: Check & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -90,14 +58,15 @@ jobs:
   check-all-features:
     name: Check & Test (all features)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -118,20 +87,21 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
-      - name: Run tests (all features, PDF smoke excluded)
-        run: cargo test --features pdf -- --nocapture --test-threads=1
+      - name: Run tests (production features, PDF smoke excluded)
+        run: cargo test --features pdf,ai-transparency -- --nocapture --test-threads=1
 
   pdf-smoke:
     name: PDF Smoke Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -153,7 +123,7 @@ jobs:
 
       - name: Upload visual regression debug artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pdf-visual-debug
           path: target/pdf-visual-debug/
@@ -178,6 +148,7 @@ jobs:
   docs-rs:
     name: docs.rs Build (sandbox parity)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: startsWith(github.ref, 'refs/tags/v')
     continue-on-error: true
     # A composite action runs its steps in this job, with this job's token.
@@ -186,7 +157,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build the docs the way docs.rs will
         uses: rust-lang/docs.rs/github-actions/build@6b0955898af88db642c5ce7420d9dbef2c65d5d9
@@ -196,8 +167,9 @@ jobs:
   format:
     name: Formatting
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -208,8 +180,9 @@ jobs:
   unused-deps:
     name: Unused Dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -223,8 +196,9 @@ jobs:
   dependency-audit:
     name: Dependency Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
@@ -241,14 +215,15 @@ jobs:
   integration-mocked:
     name: Mocked Integration Tests (no Chrome)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -262,15 +237,16 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -301,13 +277,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -380,6 +356,18 @@ jobs:
           CI: "true"
         run: cargo test --test capture_collectors_browser -- --ignored --nocapture --test-threads=1
 
+      # Browser selection, failover and pool reliability on the runner's real Chrome
+      # (#854, #856). The detection test counts processes and profile directories of
+      # its own process, so it must not share a process with other tests.
+      - name: Browser detection, failover and pool (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: |
+          cargo test --test browser_detection_chrome --test browser_pool_test -- --ignored --nocapture --test-threads=1
+          cargo test --lib browser::manager::failover_tests -- --ignored --nocapture --test-threads=1
+
       - name: Missing h1 and redirect transport (browser)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:
@@ -438,13 +426,13 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -473,13 +461,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup toolchain install --no-self-update
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/.cargo/registry
@@ -496,3 +484,334 @@ jobs:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
         run: python3 scripts/mutation-check.py
+
+  # One real browser run per supported platform (#854, #856; design in
+  # docs/browser-pool.md). A cross-build is not a runtime test: each leg
+  # builds natively, runs the ignored browser suites against the runner's
+  # browser and audits a local fixture through the CLI, then checks that the
+  # report's measurement profile names this very platform and browser.
+  # Windows is Edge-only by the platform contract. Full QA only (this file has
+  # no push/pull_request trigger), so the macOS/Windows minutes are spent on
+  # release tags and manual dispatch; release.yml reaches it through
+  # `quality-gates`, which `build` needs.
+  # Chrome for Testing on macOS arm64 through our own transactional installer.
+  # The native smoke below uses the runner's Google Chrome there (the
+  # setup-chrome unpack is a bare `Contents` folder that cannot start), so this
+  # is the only leg that runs the managed install on macOS. The system browsers
+  # are moved away first: `browser ensure` installs only when none is found, and
+  # a system Chrome would also outrank the managed one in resolution. HOME is a
+  # temp dir for ensure and the audit, so the managed dir is empty and
+  # throwaway. Upstream publishes no checksum: only TLS to the two fixed hosts
+  # and the archive structure are verified (docs/chrome-dependency.md).
+  macos-managed-browser-smoke:
+    name: Managed Chrome for Testing (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-15-cargo-native-smoke-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --no-default-features
+
+      - name: Remove system browsers
+        run: |
+          for app in "Google Chrome" "Microsoft Edge" "Chromium" "Brave Browser"; do
+            if [ -d "/Applications/$app.app" ]; then
+              sudo mv "/Applications/$app.app" "$RUNNER_TEMP/$app.app"
+            fi
+          done
+          ls /Applications
+
+      - name: Install Chrome for Testing with browser ensure
+        id: ensure
+        timeout-minutes: 15
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          mkdir -p "$HOME"
+          out="$(target/debug/auditmysite browser ensure --yes | tee /dev/stderr)"
+          path="$(printf '%s\n' "$out" | sed -n 's/^Installed browser: //p')"
+          if [ -z "$path" ]; then
+            echo "::error::ensure did not report an installation (a browser was found, or nothing was installed)"
+            exit 1
+          fi
+          echo "Managed binary: $path"
+          version="$("$path" --version)"
+          echo "$version"
+          {
+            echo "path=$path"
+            echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: CLI audit of a local fixture with the managed browser
+        timeout-minutes: 15
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >server.log 2>server.err.log &
+          server=$!
+          ready=0
+          for _ in $(seq 1 30); do
+            if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/perfect.html', timeout=2)" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::fixture server did not answer on 127.0.0.1:8765 within 30 s"
+            cat server.log server.err.log
+            exit 1
+          fi
+          status=0
+          target/debug/auditmysite http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json || status=$?
+          kill "$server" || true
+          echo "audit exit code: $status"
+          [ "$status" -le 1 ] || cat server.log server.err.log
+          [ "$status" -le 1 ]
+
+      - name: Check the measurement profile names the managed browser
+        env:
+          EXPECT_VERSION: ${{ steps.ensure.outputs.number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          def find(node, key):
+              if isinstance(node, dict):
+                  if key in node:
+                      return node[key]
+                  for value in node.values():
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              elif isinstance(node, list):
+                  for value in node:
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              return None
+
+          report = json.load(open("smoke-report.json", encoding="utf-8"))
+          browser = (find(report, "measurement_profile") or {}).get("browser")
+          print(json.dumps(browser, indent=2))
+          if not browser:
+              sys.exit("measurement_profile.browser is missing")
+          problems = []
+          for key, want in (("product", "chrome_for_testing"), ("origin", "managed"),
+                            ("os", "macos"), ("arch", "aarch64")):
+              if browser.get(key) != want:
+                  problems.append(f"{key} {browser.get(key)} != {want}")
+          if browser.get("failover"):
+              problems.append("failover happened")
+          reported = ".".join((browser.get("version") or "").split(".")[:3])
+          expected = ".".join(os.environ["EXPECT_VERSION"].split(".")[:3])
+          if not reported or reported != expected:
+              problems.append(f"version {browser.get('version')} != installed {os.environ['EXPECT_VERSION']}")
+          if problems:
+              sys.exit("; ".join(problems))
+          PY
+
+  native-browser-smoke:
+    name: Native browser smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS arm64, runner: macos-15, browser: chrome, os: macos, arch: aarch64, products: "chrome" }
+          - { name: Linux x64, runner: ubuntu-24.04, browser: chrome, os: linux, arch: x86_64, products: "chrome chrome_for_testing" }
+          - { name: Linux arm64, runner: ubuntu-24.04-arm, browser: chrome, os: linux, arch: aarch64, products: "chrome chrome_for_testing chromium" }
+          - { name: Windows x64, runner: windows-2025, browser: edge, os: windows, arch: x86_64, products: "edge" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.runner }}-cargo-native-smoke-${{ hashFiles('**/Cargo.lock') }}
+
+      # macOS uses the Google Chrome the runner image ships: the Chrome for
+      # Testing that setup-chrome unpacks there is a bare `Contents` folder
+      # outside an app bundle, and its helper processes fail the Mach port
+      # rendezvous with the parent ("Failed to initialize sandbox"), so no page
+      # can be created.
+      - name: Install Chrome
+        if: matrix.browser == 'chrome' && runner.os != 'macOS'
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+
+      - name: Select browser
+        id: browser
+        shell: bash
+        env:
+          CHROME_PATH_FROM_SETUP: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          if [ "${{ matrix.browser }}" = "edge" ]; then
+            path="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+            version="$(powershell -NoProfile -Command "(Get-Item '$path').VersionInfo.ProductVersion" | tr -d '\r')"
+          else
+            path="$CHROME_PATH_FROM_SETUP"
+            [ "$RUNNER_OS" = "macOS" ] && path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+            version="$("$path" --version | tr -d '\r')"
+          fi
+          {
+            echo "path=$path"
+            echo "version=$version"
+            echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Browser: $path ($version)"
+
+      - name: Browser detection, failover and pool tests
+        timeout-minutes: 15
+        shell: bash
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.browser.outputs.path }}
+          CI: "true"
+        run: cargo test --no-default-features --test browser_detection_chrome --test browser_pool_test -- --ignored --nocapture --test-threads=1
+
+      # Runs even when the test step failed: the legs report independently.
+      # Exit code 1 is the WARN verdict of a finished audit (partial quality
+      # of an optional module on a runner), 2 is FAIL; only a missing report
+      # or a missing browser record fails this leg.
+      - name: CLI audit of a local fixture
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        timeout-minutes: 15
+        shell: bash
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.browser.outputs.path }}
+        run: |
+          cargo build --no-default-features
+          exe="target/debug/auditmysite"
+          [ "$RUNNER_OS" = "Windows" ] && exe="$exe.exe"
+          py="$(command -v python3 || command -v python)"
+          # The server is started detached (a plain `&` job can die with the
+          # Git Bash step shell on Windows) and polled until it answers; its
+          # log is kept and printed when it never comes up.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            py="$(cygpath -w "$py")"
+            powershell -NoProfile -Command "Start-Process -FilePath '$py' -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','tests/fixtures' -RedirectStandardOutput server.log -RedirectStandardError server.err.log -WindowStyle Hidden"
+          else
+            "$py" -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >server.log 2>server.err.log &
+            server=$!
+          fi
+          ready=0
+          for _ in $(seq 1 30); do
+            if "$py" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/perfect.html', timeout=2)" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::fixture server did not answer on 127.0.0.1:8765 within 30 s (python: $py)"
+            cat server.log server.err.log
+            exit 1
+          fi
+          flags=""
+          [ "$RUNNER_OS" = "Linux" ] && flags="--no-sandbox"
+          status=0
+          "$exe" http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json $flags || status=$?
+          [ -n "${server:-}" ] && { kill "$server" || true; }
+          echo "audit exit code: $status"
+          [ "$status" -le 1 ] || cat server.log server.err.log
+          [ "$status" -le 1 ]
+
+      - name: Check the measurement profile names this platform and browser
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        shell: bash
+        env:
+          EXPECT_OS: ${{ matrix.os }}
+          EXPECT_ARCH: ${{ matrix.arch }}
+          EXPECT_PRODUCTS: ${{ matrix.products }}
+          EXPECT_VERSION: ${{ steps.browser.outputs.number }}
+        run: |
+          py="$(command -v python3 || command -v python)"
+          "$py" - <<'PY'
+          import json, os, sys
+
+          def find(node, key):
+              if isinstance(node, dict):
+                  if key in node:
+                      return node[key]
+                  for value in node.values():
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              elif isinstance(node, list):
+                  for value in node:
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              return None
+
+          report = json.load(open("smoke-report.json", encoding="utf-8"))
+          profile = find(report, "measurement_profile")
+          browser = (profile or {}).get("browser")
+          print("measurement_profile:", json.dumps(profile))
+          if not browser:
+              sys.exit("measurement_profile.browser is missing")
+          json.dump(browser, open("smoke-browser.json", "w"))
+          print(json.dumps(browser, indent=2))
+          problems = []
+          if browser.get("os") != os.environ["EXPECT_OS"]:
+              problems.append(f"os {browser.get('os')} != {os.environ['EXPECT_OS']}")
+          if browser.get("arch") != os.environ["EXPECT_ARCH"]:
+              problems.append(f"arch {browser.get('arch')} != {os.environ['EXPECT_ARCH']}")
+          if browser.get("product") not in os.environ["EXPECT_PRODUCTS"].split():
+              problems.append(f"product {browser.get('product')} not in {os.environ['EXPECT_PRODUCTS']}")
+          # Compared down to the build number: a Chrome that updated itself on
+          # disk reports a newer patch level over CDP than `--version` of its
+          # launcher binary (seen on macOS: 156.0.8078.76 vs 156.0.8078.74).
+          reported = ".".join((browser.get("version") or "").split(".")[:3])
+          expected = ".".join(os.environ["EXPECT_VERSION"].split(".")[:3])
+          if not reported or reported != expected:
+              problems.append(f"version {browser.get('version')} != runner browser {os.environ['EXPECT_VERSION']}")
+          if problems:
+              sys.exit("; ".join(problems))
+          PY
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          BROWSER_VERSION: ${{ steps.browser.outputs.version }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Native browser smoke: ${{ matrix.name }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Runner | ${{ matrix.runner }} |"
+            echo "| OS / arch | $RUNNER_OS / $RUNNER_ARCH |"
+            echo "| Browser (runner) | $BROWSER_VERSION |"
+            echo "| Commit | $GITHUB_SHA |"
+            echo "| Job status so far | $JOB_STATUS |"
+            if [ -f smoke-browser.json ]; then
+              echo
+              echo "Browser as recorded in \`measurement_profile.browser\`:"
+              echo '```json'
+              cat smoke-browser.json
+              echo
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -48,7 +48,7 @@ pub const REGISTRY: &[MetricSpec] = &[
     },
     MetricSpec {
         id: "grade_certificate",
-        json_path: "summary.grade / summary.certificate",
+        json_path: "summary.grade / decision.certificate",
         kind: MetricKind::Classification,
         unit: "classification",
         band_set: None,

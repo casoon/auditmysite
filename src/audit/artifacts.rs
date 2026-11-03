@@ -137,7 +137,7 @@ pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 /// Version of the evaluation applied to collected data: normalization,
 /// scoring weights, taxonomy and decision derivation. Bump it with any change
 /// that moves a score, finding or verdict for unchanged input.
-pub const EVALUATION_VERSION: u32 = 1;
+pub const EVALUATION_VERSION: u32 = 2;
 
 /// The versions under which a snapshot was written. A snapshot is replayed
 /// only when every one equals the current value: another version is another
@@ -412,6 +412,10 @@ pub struct ExpectedProfile {
     /// names, any order). A snapshot measured without them is another
     /// measurement.
     pub extra_checks: Option<Vec<String>>,
+    /// The browser the stored run must have measured with, compared by
+    /// identity (product, version, platform, headless mode); how it was
+    /// found and whether a failover happened are not compared (#787).
+    pub browser: Option<crate::browser::BrowserProvenance>,
 }
 
 /// How two measurement profiles differ, as `(field, a, b)` in the
@@ -453,6 +457,12 @@ pub fn profile_differences(
         a.extra_checks.join(","),
         b.extra_checks.join(","),
     );
+    let browser = |p: &crate::audit::MeasurementProfile| {
+        p.browser
+            .as_ref()
+            .map_or("none".to_string(), |b| b.identity())
+    };
+    check("browser", browser(a), browser(b));
     out
 }
 
@@ -487,6 +497,9 @@ impl SnapshotArtifact {
             let mut checks = checks.clone();
             checks.sort();
             wanted.extra_checks = checks;
+        }
+        if let Some(browser) = &expected.browser {
+            wanted.browser = Some(browser.clone());
         }
         let differences = profile_differences(&stored, &wanted);
         if differences.is_empty() {
@@ -912,7 +925,6 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
             wcag_results,
             score: artifacts.audit.score as f32,
             grade: artifacts.audit.grade.clone(),
-            certificate: artifacts.audit.certificate.clone(),
             statistics: stats,
             nodes_analyzed: artifacts.audit.nodes_analyzed,
             execution: artifacts.audit.execution.clone(),
@@ -1310,6 +1322,8 @@ mod tests {
         let profile = &mut report.accessibility.execution.scope.measurement_profile;
         profile.version = crate::audit::report::MEASUREMENT_PROFILE_VERSION;
         profile.read_only = true;
+        profile.browser = Some(crate::browser::BrowserProvenance::for_tests());
+        report.accessibility.execution.environment.headless = true;
         snapshot_with_unlabelled_field(&[]).with_collected("https://example.com", "en", &report)
     }
 
@@ -1435,6 +1449,17 @@ mod tests {
                 .scope
                 .measurement_profile;
             profile.state_id = Some("logged-in".to_string());
+            let measured_with = crate::browser::BrowserProvenance::new(
+                crate::browser::types::BrowserKind::Chrome,
+                crate::browser::types::BrowserSource::SystemPath,
+                Some("131.0.6778.85".into()),
+                crate::browser::Platform::new(
+                    crate::browser::Os::MacOs,
+                    crate::browser::Arch::Aarch64,
+                ),
+                crate::browser::HeadlessModeKind::New,
+            );
+            profile.browser = Some(measured_with.clone());
             profile.storage_state = Some(crate::audit::StorageStateRef {
                 sha256: "aa".repeat(32),
                 cookies: 1,
@@ -1448,6 +1473,16 @@ mod tests {
                 state_id: Some("logged-in".into()),
                 storage_state_sha256: Some("aa".repeat(32)),
                 extra_checks: Some(vec![]),
+                browser: Some(measured_with.clone()),
+            })
+            .is_ok());
+            // How the browser was found and a failover are not the measurement.
+            let mut found_elsewhere = measured_with.clone();
+            found_elsewhere.origin = crate::browser::BrowserOrigin::Path;
+            found_elsewhere.record_discarded(1);
+            assert!(ok(ExpectedProfile {
+                browser: Some(found_elsewhere),
+                ..Default::default()
             })
             .is_ok());
             // Any asserted field that differs refuses, naming the field.
@@ -1479,6 +1514,17 @@ mod tests {
                         ..Default::default()
                     },
                     "extra_checks",
+                ),
+                (
+                    ExpectedProfile {
+                        browser: Some({
+                            let mut other = measured_with.clone();
+                            other.version = Some("132.0.1.1".into());
+                            other
+                        }),
+                        ..Default::default()
+                    },
+                    "browser",
                 ),
             ] {
                 match ok(expected) {
