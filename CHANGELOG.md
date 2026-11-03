@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Performance:** the HTML-conformance check (`html_conform::check`) runs on a blocking thread instead of an async worker, so a slow page no longer stalls the runtime; findings and scores are unchanged (Refs #827).
+
 ### Added
 
 - **Privacy:** `privacy::collect_first_visit` captures what a first visit leaves behind in a clean browser context (no stored consent, no interaction, no Do-Not-Track / Global Privacy Control): every request (URL, host, resource type, initiator), all cookies of the context (attributes, never values) and the `localStorage` / `sessionStorage` keys of every frame origin, as raw canonical English data under the new collector `privacy.first_visit`. A page that cannot be loaded or a part that cannot be read is a failed or partial collection, never an empty capture. Library API only; findings and report follow (Refs #870, #875).
