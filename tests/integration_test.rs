@@ -472,6 +472,7 @@ fn default_config() -> PipelineConfig {
         check_html_conform: false,
         check_ai_transparency: false,
         check_dns: false,
+        check_privacy: false,
         perf_runs: 1,
         check_isolate_third_party_impact: false,
         check_ssr_content: false,

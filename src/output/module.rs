@@ -27,6 +27,7 @@ use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::network::dns::NetworkDnsAnalysis;
 use crate::patterns::PatternAnalysis;
+use crate::privacy::PrivacyAnalysis;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::source_quality::SourceQualityAnalysis;
@@ -210,6 +211,19 @@ impl ReportModule for NetworkDnsAnalysis {
     }
 }
 
+impl ReportModule for PrivacyAnalysis {
+    fn module_key(&self) -> &'static str {
+        "privacy"
+    }
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+    #[cfg(feature = "pdf")]
+    fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
+        pdf_marker(self.module_key(), i18n)
+    }
+}
+
 impl ReportModule for SourceQualityAnalysis {
     fn module_key(&self) -> &'static str {
         "source_quality"
@@ -345,6 +359,9 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.experience.network_dns {
         push(m);
     }
+    if let Some(ref m) = report.experience.privacy {
+        push(m);
+    }
     if let Some(ref m) = report.discoverability.source_quality {
         push(m);
     }
@@ -395,6 +412,7 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     push_module!(report.experience.design_quality);
     push_module!(report.experience.ai_transparency);
     push_module!(report.experience.network_dns);
+    push_module!(report.experience.privacy);
     push_module!(report.discoverability.source_quality);
     push_module!(report.discoverability.ai_visibility);
     push_module!(report.discoverability.content_visibility);

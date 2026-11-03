@@ -56,6 +56,20 @@ pub enum PrivacyFindingKind {
     TrackingWithoutConsentPlatform,
 }
 
+impl PrivacyFindingKind {
+    /// Stable snake_case code (the serialized form), for finding ids.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::TrackingRequestBeforeConsent => "tracking_request_before_consent",
+            Self::TrackingStorageBeforeConsent => "tracking_storage_before_consent",
+            Self::ThirdPartyEmbedContacted => "third_party_embed_contacted",
+            Self::TagManagerLoaded => "tag_manager_loaded",
+            Self::ProviderOutsideEu => "provider_outside_eu",
+            Self::TrackingWithoutConsentPlatform => "tracking_without_consent_platform",
+        }
+    }
+}
+
 /// A third-party provider the page contacted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderContact {
@@ -137,11 +151,6 @@ pub fn analyze_first_visit(capture: &FirstVisitCapture, partial: bool) -> Privac
         let entry = by_provider
             .entry(m.provider.id)
             .or_insert_with(|| (m, Vec::new(), 0));
-        // The strongest category seen wins: a pixel path turns a social host
-        // into advertising.
-        if is_tracking(m.category.as_str()) {
-            entry.0.category = m.category;
-        }
         if !entry.1.contains(&request.host) {
             entry.1.push(request.host.clone());
         }

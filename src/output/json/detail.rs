@@ -299,6 +299,9 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         network_dns: ctx
             .raw_network_dns
             .map(|m| with_measurement_type(m.to_json(), "dns_query")),
+        privacy: ctx
+            .raw_privacy
+            .map(|m| with_measurement_type(m.to_json(), "first_visit_capture")),
         source_quality: ctx
             .raw_source_quality
             .map(|m| with_measurement_type(m.to_json(), "heuristic"))

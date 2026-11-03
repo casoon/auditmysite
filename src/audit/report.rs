@@ -572,6 +572,9 @@ pub struct ExperienceSection {
     /// affects accessibility/overall score, grade, or certificate.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
+    /// First-visit privacy indicators (opt-in `--privacy-check`, #871).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     /// Budget violations detected for this page
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
@@ -916,6 +919,11 @@ impl AuditReport {
     }
 
     /// Set DNS-configuration check results (#545)
+    pub fn with_privacy(mut self, privacy: crate::privacy::PrivacyAnalysis) -> Self {
+        self.experience.privacy = Some(privacy);
+        self
+    }
+
     pub fn with_network_dns(
         mut self,
         network_dns: crate::network::dns::NetworkDnsAnalysis,

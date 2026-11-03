@@ -63,6 +63,7 @@ pub enum FindingDomain {
     Commerce,
     AiTransparency,
     NetworkDns,
+    Privacy,
 }
 
 impl FindingDomain {
@@ -85,6 +86,7 @@ impl FindingDomain {
             Self::Commerce => "commerce",
             Self::AiTransparency => "ai_transparency",
             Self::NetworkDns => "network_dns",
+            Self::Privacy => "privacy",
         }
     }
 
@@ -112,6 +114,11 @@ impl FindingDomain {
                 Dimension::Security,
                 Subcategory::ServerConfiguration,
                 "Security",
+            ),
+            Self::Privacy => (
+                Dimension::Security,
+                Subcategory::ServerConfiguration,
+                "Privacy",
             ),
             Self::Mobile => (Dimension::Mobile, Subcategory::ResponsiveLayout, "Mobile"),
             Self::Performance | Self::BestPractices => (
@@ -425,6 +432,7 @@ pub const DOMAIN_POLICIES: &[(&str, DomainPolicy)] = &[
         "network_dns",
         DomainPolicy::Findings(FindingDomain::NetworkDns),
     ),
+    ("privacy", DomainPolicy::Findings(FindingDomain::Privacy)),
     (
         "tech_stack",
         DomainPolicy::Findings(FindingDomain::TechStack),
@@ -974,6 +982,26 @@ fn collect(
                 FindingScoring::none(),
                 L::Site,
             ));
+        }
+    }
+
+    // Privacy indicators are technical observations: score-neutral, and an
+    // indication (rests on an assumption) is a review item, not a defect.
+    if let Some(privacy) = &report.experience.privacy {
+        for finding in &privacy.findings {
+            let mut c = Collected::new(
+                D::Privacy,
+                "privacy",
+                finding.kind.code().to_string(),
+                Severity::Low,
+                finding.message.clone(),
+                FindingScoring::none(),
+                L::Site,
+            );
+            if finding.confidence == crate::privacy::Confidence::Indication {
+                c = c.review();
+            }
+            out.push(c);
         }
     }
 

@@ -20,6 +20,7 @@ pub enum ExtraCheck {
     AiTransparency,
     /// `--dns-check` (#545): once per unique host.
     Dns,
+    Privacy,
 }
 
 /// How a run reaches the report.
@@ -167,6 +168,16 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
         cache: Support::Runs,
         replay: REPLAY_DOES_NOT_MEASURE,
     },
+    ExtraCheckSpec {
+        check: ExtraCheck::Privacy,
+        flag: "--privacy-check",
+        subchecks: &["privacy.first_visit"],
+        prerequisite: Prerequisite::None,
+        single: Support::Runs,
+        batch: Support::Runs,
+        cache: Support::Runs,
+        replay: REPLAY_DOES_NOT_MEASURE,
+    },
 ];
 
 /// The extra checks a run asks for, and the context that decides support.
@@ -176,6 +187,7 @@ pub struct ExtraCheckRequest {
     pub check_ssr_content: bool,
     pub ai_transparency: bool,
     pub dns_check: bool,
+    pub privacy_check: bool,
     pub performance_active: bool,
     pub seo_active: bool,
     pub batch: bool,
@@ -192,6 +204,7 @@ impl ExtraCheckRequest {
             ExtraCheck::SsrContent => self.check_ssr_content,
             ExtraCheck::AiTransparency => self.ai_transparency,
             ExtraCheck::Dns => self.dns_check,
+            ExtraCheck::Privacy => self.privacy_check,
         }
     }
 
@@ -274,6 +287,7 @@ mod tests {
             ExtraCheck::SsrContent,
             ExtraCheck::AiTransparency,
             ExtraCheck::Dns,
+            ExtraCheck::Privacy,
         ] {
             let rows: Vec<_> = MATRIX.iter().filter(|s| s.check == check).collect();
             assert_eq!(rows.len(), 1, "{check:?}");
@@ -294,14 +308,15 @@ mod tests {
         assert!(MATRIX
             .iter()
             .all(|s| matches!(s.replay, Support::Rejected(_))));
-        for flag in 0..4 {
+        for flag in 0..5 {
             let e = request(|r| {
                 r.replay = true;
                 match flag {
                     0 => r.isolate_third_party_impact = true,
                     1 => r.check_ssr_content = true,
                     2 => r.ai_transparency = true,
-                    _ => r.dns_check = true,
+                    3 => r.dns_check = true,
+                    _ => r.privacy_check = true,
                 }
             })
             .validate()

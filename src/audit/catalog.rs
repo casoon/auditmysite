@@ -45,6 +45,7 @@ impl AuditCatalog {
         use crate::mobile::MobileModule;
         use crate::network::NetworkDnsModule;
         use crate::performance::PerformanceModule;
+        use crate::privacy::PrivacyModule;
         use crate::security::SecurityModule;
         use crate::seo::SeoModule;
         use crate::source_quality::SourceQualityModule;
@@ -61,6 +62,7 @@ impl AuditCatalog {
             .with_module(Box::new(HtmlConformModule))
             .with_module(Box::new(AiTransparencyModule))
             .with_module(Box::new(NetworkDnsModule))
+            .with_module(Box::new(PrivacyModule))
             .with_module(Box::new(TechStackModule))
             .with_module(Box::new(UxModule))
             .with_module(Box::new(BestPracticesModule))
@@ -399,6 +401,7 @@ mod tests {
             "html_conform",
             "ai_transparency",
             "network_dns",
+            "privacy",
             "tech_stack",
             "ux",
             "best_practices",

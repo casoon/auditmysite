@@ -243,7 +243,7 @@ fn facebook_plugin_is_social_pixel_is_advertising() {
         false,
     );
     assert!(kinds(&pixel).contains(&PrivacyFindingKind::TrackingRequestBeforeConsent));
-    // Both in one visit: the stronger category wins, regardless of request order.
+    // Both in one visit: plugin and pixel are two providers with their own purpose.
     let both = analyze_first_visit(
         &capture(
             "example.com",
@@ -256,7 +256,14 @@ fn facebook_plugin_is_social_pixel_is_advertising() {
         ),
         false,
     );
-    assert_eq!(both.contacts[0].category, "advertising");
+    let category = |id: &str| {
+        both.contacts
+            .iter()
+            .find(|c| c.provider_id == id)
+            .map(|c| c.category.clone())
+    };
+    assert_eq!(category("meta-pixel").as_deref(), Some("advertising"));
+    assert_eq!(category("meta").as_deref(), Some("social"));
 }
 
 #[test]

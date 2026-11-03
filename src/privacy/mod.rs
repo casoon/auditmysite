@@ -8,11 +8,14 @@
 
 pub mod analysis;
 pub mod first_visit;
+pub mod module;
 
 pub use analysis::{
     analyze_first_visit, privacy_finding_text, Confidence, PrivacyAnalysis, PrivacyFinding,
     PrivacyFindingKind, ProviderContact, ProviderStorage,
 };
+
+pub use module::PrivacyModule;
 
 pub use first_visit::{
     collect_first_visit, CaptureProfile, CapturedCookie, CapturedRequest, CapturedStorageKey,

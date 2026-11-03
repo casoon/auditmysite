@@ -25,7 +25,7 @@ use super::detail_modules::{
     mobile_category_label, render_a11y_journey_findings, render_ai_transparency,
     render_ai_visibility, render_best_practices, render_budget_violations, render_commerce,
     render_content_visibility, render_dark_mode, render_design_quality, render_html_conform,
-    render_journey, render_mobile, render_network_dns, render_performance,
+    render_journey, render_mobile, render_network_dns, render_performance, render_privacy,
     render_screen_reader_section, render_search_experience, render_security, render_seo,
     render_source_quality, render_tech_stack, render_ux,
 };
@@ -2086,6 +2086,11 @@ fn render_active_module_section(
         "network_dns" => {
             if let Some(ref dns) = vm.module_details.network_dns {
                 return (render_network_dns(builder, dns, is_first, i18n), true);
+            }
+        }
+        "privacy" => {
+            if let Some(ref privacy) = vm.module_details.privacy {
+                return (render_privacy(builder, privacy, is_first, i18n), true);
             }
         }
         "source_quality" => {

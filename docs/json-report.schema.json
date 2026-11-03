@@ -1223,6 +1223,12 @@
             "null"
           ]
         },
+        "privacy": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "dual_viewport": {
           "type": [
             "object",
@@ -2219,7 +2225,8 @@
             "journey",
             "commerce",
             "ai_transparency",
-            "network_dns"
+            "network_dns",
+            "privacy"
           ]
         },
         "source": {

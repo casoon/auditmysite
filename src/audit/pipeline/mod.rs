@@ -360,6 +360,10 @@ pub struct PipelineConfig {
     /// unique host per process run regardless of how many pages are audited
     /// (see `network::dns::module`'s per-host memoization).
     pub check_dns: bool,
+    /// Run the opt-in first-visit privacy capture (#871): one extra load in a
+    /// clean browser context per audited page, classified into technical
+    /// privacy indicators. Not part of `--full`.
+    pub check_privacy: bool,
     /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
     /// reported run is the median; the spread is stored beside it.
     pub perf_runs: u32,
@@ -478,13 +482,14 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 27;
+        // 28 for the privacy module field and its flag (#871).
+        const CACHE_FMT: u8 = 28;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -497,6 +502,7 @@ impl PipelineConfig {
             self.check_html_conform as u8,
             self.check_ai_transparency as u8,
             self.check_dns as u8,
+            self.check_privacy as u8,
             self.check_isolate_third_party_impact as u8,
             self.perf_runs,
             self.check_ssr_content as u8,
@@ -528,9 +534,10 @@ impl From<&Args> for PipelineConfig {
 impl PipelineConfig {
     /// Return a viewport-specific copy with the correct module on/off pattern.
     ///
-    /// Desktop: SEO, security, mobile, DNS and stack detection are off (run on mobile pass).
+    /// Desktop: SEO, security, mobile, DNS, privacy and stack detection are off (run on mobile pass).
     ///          Dark-mode analysis keeps the configured value.
-    /// Mobile:  Security and dark-mode are off.  All other user flags are respected.
+    /// Mobile:  Security, dark-mode and the privacy capture are off.  All other user flags
+    ///          are respected. The privacy capture runs once per page in the extra checks.
     pub fn for_viewport(&self, viewport: Viewport) -> Self {
         match viewport {
             Viewport::Desktop => Self {
@@ -541,6 +548,7 @@ impl PipelineConfig {
                 check_html_conform: false,
                 check_ai_transparency: false,
                 check_dns: false,
+                check_privacy: false,
                 perf_runs: 1,
                 check_stack: false,
                 ..self.clone()
@@ -548,6 +556,7 @@ impl PipelineConfig {
             Viewport::Mobile => Self {
                 check_security: false,
                 check_dark_mode: false,
+                check_privacy: false,
                 ..self.clone()
             },
         }
@@ -599,6 +608,7 @@ impl PipelineConfig {
             // detail is only ever `fix_guidance`/`en301549_annex`).
             check_ai_transparency: args.ai_transparency && args.url.is_some(),
             check_dns: args.dns_check,
+            check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
@@ -801,6 +811,37 @@ pub(crate) async fn run_extra_page_checks(
         if let Err(e) = settle(page).await {
             warn!("Browser settle failed after SSR content-gap check: {}", e);
         }
+    }
+
+    // First-visit privacy capture (#871). Needs no state of `page`: it opens a
+    // clean browser context of its own, so it can run last.
+    if config.check_privacy {
+        let log = crate::audit::collection::CollectionLog::new();
+        let collected = log.record(
+            &crate::privacy::FIRST_VISIT,
+            crate::privacy::collect_first_visit(
+                browser,
+                url,
+                crate::privacy::FirstVisitOptions::default(),
+            )
+            .await,
+        );
+        let partial = collected.state() == crate::audit::collection::CollectionState::Partial;
+        if let Some(capture) = collected.into_value() {
+            report.experience.privacy =
+                Some(crate::privacy::analyze_first_visit(&capture, partial));
+        }
+        // The catalog never collects this module (it is off in both viewport
+        // passes), so `audit_page` left a "no run record" placeholder for it.
+        // This is its run: replace the placeholder, then fold the outcome in.
+        let runs = &mut report.accessibility.execution.module_runs;
+        runs.retain(|run| run.module != "privacy");
+        runs.push(crate::audit::ModuleRun {
+            module: "privacy".to_string(),
+            status: crate::audit::ExecutionStatus::Completed,
+            ..Default::default()
+        });
+        crate::audit::collection::fold_records(runs, log.into_records());
     }
 }
 
@@ -2344,6 +2385,7 @@ mod tests {
             design_quality: false,
             ai_transparency: false,
             dns_check: false,
+            privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
@@ -2767,6 +2809,7 @@ mod tests {
             check_html_conform: false,
             check_ai_transparency: false,
             check_dns: false,
+            check_privacy: false,
             perf_runs: 1,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,

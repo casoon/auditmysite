@@ -978,6 +978,21 @@ mod tests {
                 spf: crate::network::dns::DnsAnswer::Absent,
             },
         ));
+        report.experience.privacy = Some(crate::privacy::PrivacyAnalysis {
+            ruleset_version: "test".to_string(),
+            profile: crate::privacy::CaptureProfile {
+                fresh_context: true,
+                interaction: false,
+                privacy_signals_sent: false,
+                idle_quiet_ms: 500,
+                settle_ms: 2000,
+            },
+            partial: false,
+            contacts: Vec::new(),
+            stored: Vec::new(),
+            consent_platforms: Vec::new(),
+            findings: Vec::new(),
+        });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.discoverability.source_quality = Some(sq);
