@@ -210,6 +210,12 @@ pub struct Args {
     #[arg(long)]
     pub dns_check: bool,
 
+    /// Report what a first visit sets and contacts before any consent
+    /// (requests, cookies, storage, classified by provider; technical
+    /// findings, no legal verdict, #871). Part of `--full`.
+    #[arg(long)]
+    pub privacy: bool,
+
     /// Measure the isolated main-thread impact of individual third-party
     /// scripts (tag managers, chat widgets, tracking pixels) via CDP
     /// request-blocking (#531).
@@ -884,6 +890,7 @@ impl Args {
                 check_ssr_content: self.check_ssr_content,
                 ai_transparency: self.ai_transparency,
                 dns_check: self.dns_check,
+                privacy: self.privacy,
                 replay: true,
                 ..Default::default()
             }
@@ -982,6 +989,7 @@ impl Args {
             check_ssr_content: self.check_ssr_content,
             ai_transparency: self.ai_transparency,
             dns_check: self.dns_check,
+            privacy: self.privacy,
             performance_active: (full || self.performance) && !self.skip_performance,
             seo_active: full || self.seo,
             batch: is_batch,
@@ -1174,6 +1182,7 @@ mod tests {
             design_quality: false,
             ai_transparency: false,
             dns_check: false,
+            privacy: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,

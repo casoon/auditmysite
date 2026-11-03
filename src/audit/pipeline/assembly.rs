@@ -447,6 +447,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         check_ssr_content: config.check_ssr_content,
         ai_transparency: config.check_ai_transparency,
         dns_check: config.check_dns,
+        privacy: config.check_privacy,
         ..Default::default()
     };
     let requested_subchecks = extra_checks.requested_subchecks();
@@ -1021,6 +1022,14 @@ mod tests {
         );
         let mut report = report_with_run("accessibility");
         report.accessibility.execution.scope = audit_scope_from_config(&config);
+        // The privacy visit records after `audit_page`, like the other extra
+        // checks; these reports stand for the state before that.
+        report
+            .accessibility
+            .execution
+            .scope
+            .requested_subchecks
+            .retain(|id| id != "privacy.first_visit");
         // A run records its browser once it has launched one.
         report
             .accessibility

@@ -256,8 +256,9 @@ src/
 │   ├── image_provenance.rs # cfg(feature = "ai-transparency") — fetch + c2pa parsing
 │   └── extract.js
 │
-├── privacy/             # Privacy indicators (tracking #875); collection only so far (#870)
-│   └── first_visit.rs   # First-visit capture in a clean browser context: requests, cookies, storage keys (raw, EN, no values); collector `privacy.first_visit`
+├── privacy/             # Privacy indicators (tracking #875): technical findings, no score, no legal verdict
+│   ├── first_visit.rs   # First-visit capture in a clean browser context: requests, cookies, storage keys, consent/legal-link traces of the document (raw, EN, no values); collector `privacy.first_visit`
+│   └── findings.rs      # `analyze_privacy` (#871): six checks, confidence classes, `not_measured`; classification via web-checks `third_party`; `finding_text(kind, .., en)` is the only text source. Runs from `run_extra_page_checks` (needs the BrowserManager), result in `experience.privacy`, JSON `detail.modules.privacy`
 │
 ├── network/             # Opt-in, score-neutral, host-scoped network checks (#545)
 │   └── dns/             # DNS configuration: CAA, DNSSEC (best-effort), SPF/MX

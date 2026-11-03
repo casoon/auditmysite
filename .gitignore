@@ -36,6 +36,7 @@ Cargo.lock
 !tests/fixtures/detection_corpus_nonwcag/*/*.json
 !tests/fixtures/astro_structured_data_components.json
 !tests/fixtures/reference_sites.json
+!tests/fixtures/privacy/*.json
 !tests/fixtures/axe_divergence_baseline.json
 !tests/fixtures/calibration/*.json
 !scripts/package-lock.json

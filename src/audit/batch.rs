@@ -870,7 +870,10 @@ async fn audit_url_with_pool(
             let (mut report, snapshot) = audit_page(page, url, config, pool.browser()).await?;
             // Requested extra-reload checks run here as they do for a single
             // URL; the report is re-qualified once they have recorded (#788).
-            if config.check_isolate_third_party_impact || config.check_ssr_content {
+            if config.check_isolate_third_party_impact
+                || config.check_ssr_content
+                || config.check_privacy
+            {
                 crate::audit::pipeline::run_extra_page_checks(
                     page,
                     url,

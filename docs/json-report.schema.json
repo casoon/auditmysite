@@ -1128,6 +1128,13 @@
             "null"
           ]
         },
+        "privacy": {
+          "description": "Pre-consent privacy findings of one first visit (phase A, no interaction; technical observations, no legal verdict or score). `checks` has one entry per check with `found`, `not_found`, `not_applicable` or `not_measured`; `findings[].confidence` is `evidence`, `indication` or `manual-check`. A failed or partial capture reads `not_measured` in `measurement` and `checks`, never as a clean result.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "source_quality": {
           "description": "Shown as 'Technical preparation for machine processing'. `score` combines `consistency` and `authority`; `substance` holds structural indicators and its `score` is deprecated (not part of `score`, removed in 2.0).",
           "type": [

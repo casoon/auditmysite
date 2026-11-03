@@ -1,15 +1,23 @@
 //! Privacy indicators (tracking issue #875).
 //!
-//! Collection only so far (#870): what a first visit to a page leaves behind
-//! in a clean browser profile — requests, cookies, storage keys. Findings
-//! (#871) and the report (#872) build on [`FirstVisitCapture`]; the
-//! classification of hosts and cookie names (provider, category,
-//! jurisdiction) belongs to `web-checks` in barrierlab (casoon/barrierlab#91)
-//! and is not done here.
+//! Collection (#870): what a first visit to a page leaves behind in a clean
+//! browser profile - requests, cookies, storage keys, consent and legal-page
+//! traces of the document. Findings (#871): [`analyze_privacy`] classifies
+//! that capture with `web-checks` (barrierlab#91) and reports technical
+//! observations with a confidence class - never a compliance score or a
+//! legal verdict. The report (#872) builds on [`PrivacyAnalysis`].
 
+pub mod findings;
 pub mod first_visit;
 
 pub use first_visit::{
-    collect_first_visit, CaptureProfile, CapturedCookie, CapturedRequest, CapturedStorageKey,
-    FirstVisitCapture, FirstVisitOptions, StorageArea, FIRST_VISIT,
+    collect_first_visit, CaptureProfile, CapturedCookie, CapturedLink, CapturedRequest,
+    CapturedStorageKey, FirstVisitCapture, FirstVisitOptions, PageSignals, StorageArea,
+    FIRST_VISIT,
+};
+
+pub use findings::{
+    analyze_privacy, finding_text, CheckOutcome, ConfidenceClass, Evidence, EvidenceSource,
+    MeasurementState, PolicyDocument, PrivacyAnalysis, PrivacyCheck, PrivacyCheckResult,
+    PrivacyFinding, PrivacyFindingKind, PrivacyScope, ProviderRef, ThirdPartyContact,
 };

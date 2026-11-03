@@ -472,6 +472,7 @@ fn default_config() -> PipelineConfig {
         check_html_conform: false,
         check_ai_transparency: false,
         check_dns: false,
+        check_privacy: false,
         perf_runs: 1,
         check_isolate_third_party_impact: false,
         check_ssr_content: false,
@@ -3266,4 +3267,74 @@ async fn page_stability_waits_for_first_content_behind_a_quiet_splash() {
         h1,
         "settled before the first content rendered: {stability:?}"
     );
+}
+
+/// #871: a requested privacy check runs through the pipeline: the report
+/// carries the analysis, the scope lists `privacy.first_visit` and the
+/// `privacy` module run holds its recorded collection.
+#[test]
+#[ignore]
+fn batch_runs_requested_privacy_check() {
+    std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(batch_runs_requested_privacy_check_body())
+        })
+        .expect("test thread")
+        .join()
+        .expect("test body panicked");
+}
+
+async fn batch_runs_requested_privacy_check_body() {
+    use auditmysite::{run_concurrent_batch, Args, BatchConfig};
+    use clap::Parser;
+
+    let (url, shutdown) = serve_fixture("perfect.html");
+    let args = Args::parse_from([
+        "auditmysite",
+        "--url-file",
+        "unused.txt",
+        "--seo",
+        "--privacy",
+    ]);
+    let mut config = BatchConfig::from(&args);
+    config.pool_config.browser_options.no_sandbox = std::env::var("CI").is_ok();
+    config.pipeline.persist_artifacts = false;
+
+    let batch = run_concurrent_batch(vec![format!("{url}/a")], &config, None)
+        .await
+        .expect("batch runs");
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(batch.errors.is_empty(), "errors: {:?}", batch.errors);
+    let report = &batch.reports[0];
+    let execution = &report.accessibility.execution;
+    assert!(execution
+        .scope
+        .requested_subchecks
+        .contains(&"privacy.first_visit".to_string()));
+    let run = execution
+        .module_runs
+        .iter()
+        .find(|run| run.module == "privacy")
+        .expect("privacy run");
+    assert!(
+        run.subchecks
+            .iter()
+            .any(|s| s.subcheck == "privacy.first_visit"),
+        "subchecks: {:?}",
+        run.subchecks
+    );
+    let privacy = report
+        .experience
+        .privacy
+        .as_ref()
+        .expect("privacy analysis");
+    assert_eq!(privacy.scope.phase, "A");
+    assert_eq!(privacy.checks.len(), 6);
+    assert!(privacy.findings.iter().all(|f| !f.message.is_empty()));
 }
