@@ -73,7 +73,7 @@ is a legal assessment, and the expectations are never copied from a run.
 | Layer | What it is | Runs |
 |---|---|---|
 | Pure corpus | 32 hand-built captures fed to `analyze_privacy` (`tests/fixtures/privacy/cases.json`, `tests/privacy_findings_corpus.rs`) | every `cargo test` |
-| Browser corpus | 31 local pages loaded by real Chrome through `collect_first_visit` and `analyze_privacy` (`tests/fixtures/privacy/browser_cases.json`, `tests/privacy_quality_browser.rs`) | `--ignored`, in the CI browser step |
+| Browser corpus | 34 local pages loaded by real Chrome through `collect_first_visit` and `analyze_privacy` (`tests/fixtures/privacy/browser_cases.json`, `tests/privacy_quality_browser.rs`) | `--ignored`, in the CI browser step |
 | Reference pages | 15 real public pages with hand-written labels (`tests/fixtures/privacy/reference_pages.json`, `tests/privacy_reference_pages.rs`, `scripts/privacy-reference.py`) | offline replay in every `cargo test`; the live measurement is `--ignored` and run by hand before a tag |
 
 ### Browser corpus
@@ -89,9 +89,10 @@ product code is relaxed. Every `requested` host must really appear in the captur
 result is never an artefact of a request that did not happen. Cases marked as known blind spots
 carry a `truth` the tool misses by design; the printed recall includes them.
 
-Result of the run on 2026-11-03: all 31 cases yield the expected outcomes and findings;
-**unexpected findings: 0**; trackers the cases really load before consent: 15, reported: 13
-(87 %, the two missing ones being the two deliberate blind-spot cases; 13 of 13 otherwise).
+Result of the run on 2026-11-03 (34 cases: 31 before, plus a Fathom, a Carbon Ads and a Mapp cookie case since `web-checks` 0.7.0 added a Fathom, a Carbon Ads
+and a Mapp cookie case): all cases yield the expected outcomes and findings;
+**unexpected findings: 0**; trackers the cases really load before consent: 17, reported: 15
+(88 %, the two missing ones being the two deliberate blind-spot cases; 15 of 15 otherwise).
 
 ### Reference pages
 
@@ -123,20 +124,20 @@ Process, so the labels stay independent of the tool:
 The offline replay runs the rules over the frozen captures; it guards the rules and the labels
 against typos and regressions but is not a measurement of the live pages.
 
-**Numbers (live run on 2026-11-03, 15 pages, measured from one network location):**
+**Numbers (live run on 2026-11-03, 15 pages, measured from one network location, with `web-checks` 0.7.0):**
 
 | Finding kind | TP | FP | FN | Precision | Recall |
 |---|---|---|---|---|---|
-| `tracking_request_before_consent` | 12 | 0 | 0 | 100 % | 100 % |
-| `non_essential_storage_before_consent` | 4 | 0 | 0 | 100 % | 100 % |
+| `tracking_request_before_consent` | 14 | 0 | 0 | 100 % | 100 % |
+| `non_essential_storage_before_consent` | 5 | 0 | 0 | 100 % | 100 % |
 | `visitor_ip_transfer` | 3 | 0 | 0 | 100 % | 100 % |
 | `third_country_provider` | 8 | 0 | 0 | 100 % | 100 % |
-| `no_consent_platform_detected` | 4 | 0 | 0 | 100 % | 100 % |
+| `no_consent_platform_detected` | 5 | 0 | 0 | 100 % | 100 % |
 | `policy_link_missing` | 5 | 0 | 0 | 100 % | 100 % |
-| all scored findings | 36 | 0 | 0 | 100 % | 100 % |
+| all scored findings | 40 | 0 | 0 | 100 % | 100 % |
 
-Read these with their limits. 36 scored findings with no false positive bound the false-positive
-rate only to roughly 8 % at 95 % confidence ("rule of three"); 15 pages are a hand-checked sample,
+Read these with their limits. 40 scored findings with no false positive bound the false-positive
+rate only to roughly 7 % at 95 % confidence ("rule of three"); 15 pages are a hand-checked sample,
 not a survey. The labels were written from the same kind of capture the tool uses (independent
 checks cover the HTML, the page script and the provider documentation, not a second browser), and
 the third-country labels follow the provider's own stated seat in the ruleset. The set was chosen
@@ -144,14 +145,26 @@ so that every check has pages for and against it; pages whose capture never went
 (stackoverflow.com, tagesschau.de, svelte.dev) are *not measured* and therefore not in the set,
 which favours calm pages.
 
-**Trackers outside the provider list.** Five trackers on four of the pages were identified by a
-person and are not covered by the ruleset: Fathom Analytics and Carbon Ads (getbootstrap.com), a
-self-hosted analytics script on a subdomain (python.org), Mapp/Webtrekk (heise.de) and Google
-Analytics through Cloudflare Zaraz (casoon.de). The tool reports none of them (the hosts appear as
-`unclassified_hosts`). The 90 % recall target is met for what the ruleset covers (19 of 19
-provider-level findings); counted against *all* hand-identified provider-level items (19 + 5) it is
-**79 %, below the target**. The gap is the coverage of the provider list and the first-party blind
-spots below, not the findings logic.
+**Trackers outside the provider list.** The first run (`web-checks` 0.6.1, same day) had five
+trackers on four of the pages that a person had identified and the ruleset did not cover: Fathom
+Analytics and Carbon Ads (getbootstrap.com), Mapp/Webtrekk (heise.de), a self-hosted analytics
+script on a subdomain (python.org) and Google Analytics through Cloudflare Zaraz (casoon.de). The
+tool reported none of them, and counted against all hand-identified provider-level items (19 + 5)
+the recall was **79 %, below the 90 % target**. `web-checks` 0.7.0 adds Fathom, Carbon Ads and Mapp
+Intelligence from the providers' own documentation. Re-run live with 0.7.0 (same day, same
+pages): the tool reports Fathom and Carbon Ads as tracking requests on getbootstrap.com and the
+Mapp cookies on heise.de as non-essential storage; 22 of 22 provider-level findings, and against
+all hand-identified items (22 + 2) **92 %**, above the target. Two remain uncovered by design:
+the first-party-subdomain tracker (python.org) and Zaraz (casoon.de). The Mapp *request* on heise.de
+goes to a first-party subdomain, so only its cookies are found.
+
+The labels moved with that: the three trackers went from `outside_ruleset` to `expected` in
+`reference_pages.json` (re-sealed), together with the `no_consent_platform_detected` finding that
+getbootstrap.com now triggers (trackers contacted, no consent platform). The facts they rest on
+(requests, cookies, the absent banner) were recorded in the original labels and checked against the
+served HTML at that time; only their classification changed. This edit was made after the
+replay reported the new findings as false positives, so it is a reviewed relabelling, not an
+independent re-labelling -- a maintainer should confirm it against a fresh raw capture.
 
 **The redirect case.** When the audited URL itself redirects from a provider's own host
 (`https://www.hotjar.com/` → `contentsquare.com`), the entry hop is part of the visit's own

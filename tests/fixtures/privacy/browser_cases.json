@@ -196,6 +196,23 @@
    "body": "",
    "expect": {"outcomes": "AAAAAA", "findings": []}},
 
+  {"name": "cookieless analytics provider (fathom)", "why": "web-checks 0.7.0 lists Fathom by host (usefathom.com, cookieless by the provider's statement); a request is evidence of an analytics contact, and the provider states a seat that is neither EU nor US, which the third-country hint covers.",
+   "body": "<script src='https://cdn.usefathom.com/script.js'></script>",
+   "requested": ["cdn.usefathom.com"],
+   "truth": ["fathom"],
+   "expect": {"outcomes": "FANFFN", "findings": [["tracking_request_before_consent", "evidence", "analytics", ""], ["third_country_provider", "indication", "", ""], ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "ad network script (carbon ads)", "why": "web-checks 0.7.0 lists Carbon Ads by host (carbonads.net, per its privacy statement); an advertising request before any choice is evidence, and the provider is seated in the US.",
+   "body": "<script src='https://cdn.carbonads.net/carbon.js'></script>",
+   "requested": ["cdn.carbonads.net"],
+   "truth": ["carbon-ads"],
+   "expect": {"outcomes": "FANFFN", "findings": [["tracking_request_before_consent", "evidence", "advertising", ""], ["third_country_provider", "indication", "", ""], ["no_consent_platform_detected", "indication", "", ""]]}},
+
+  {"name": "mapp intelligence cookies set by header", "why": "The cookies wt3_eid and wteid_<id> are documented by Mapp (docs.mapp.com, which cookies Mapp Intelligence sets); in the jar they are evidence of analytics storage before consent. No request, so checks 1, 3, 4 and 5 have nothing to look at.",
+   "body": "",
+   "set_cookie": ["wt3_eid=1; Path=/; Max-Age=86400", "wteid_123456789=1; Path=/; Max-Age=86400"],
+   "expect": {"outcomes": "AFAAAN", "findings": [["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+
   {"name": "network never goes quiet (error case)", "why": "A page that keeps requesting cannot be called clean: every request check is not measured, the rest keeps its answer.",
    "body": "<script>var n=0;setInterval(function(){new Image().src='https://pulse.corpus-evil.test/p.gif?'+(n++);},100);</script>",
    "unclassified": ["pulse.corpus-evil.test"],

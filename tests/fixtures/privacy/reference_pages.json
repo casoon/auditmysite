@@ -133,18 +133,27 @@
         "policy_links"
       ],
       "unlabelled": [],
-      "expected": [],
+      "expected": [
+        {
+          "key": "non_essential_storage_before_consent|mapp-intelligence",
+          "evidence": "Cookies wt_nv, wteid_688012155290337 and wtsid_688012155290337 (Mapp Intelligence / Webtrekk naming scheme) set on the first visit, before any choice.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (names webtrekk twice)"
+          ]
+        }
+      ],
       "outside_ruleset": [
         {
-          "what": "Web analytics by Mapp/Webtrekk before a consent choice (pixel request to prophet.heise.de/<id>/wt, cookies wt_nv, wteid_*, wtsid_*)",
+          "what": "The Mapp/Webtrekk pixel request to prophet.heise.de/<id>/wt itself: a first-party subdomain, so no tracking-request finding exists for it (documented blind spot). Only its cookies are covered by the provider list (web-checks 0.7.0).",
           "provenance": [
             "raw capture (tool dump)",
             "curl of the served HTML (names webtrekk twice)"
           ],
-          "note": "Not in the provider list; the tool is silent about it by design. Cookie/endpoint naming follows the Mapp Intelligence (Webtrekk) scheme; whether the page runs it in a consent-free mode was not examined."
+          "note": "Whether the page runs Mapp in a consent-free mode was not examined; the storage label states what the capture shows (cookies present on first visit), not a legal verdict."
         }
       ],
-      "notes": "Heavy third-party page (CMP at cmp.heise.de, ad/recommendation infrastructure on first-party-owned hosts) with no host or cookie name of the provider list. Datenschutzerklaerung and Impressum links present.",
+      "notes": "Heavy third-party page (CMP at cmp.heise.de, ad/recommendation infrastructure on first-party-owned hosts) with no host or cookie name of the provider list. Datenschutzerklaerung and Impressum links present. Mapp Intelligence became a provider in web-checks 0.7.0; its cookies are now an expected storage finding (moved from outside_ruleset).",
       "capture_sha256": "d3979658646b0eeb855adcc7ebf97d268087372b34ffcae5b3d2b88f87e08fa8"
     },
     {
@@ -575,19 +584,34 @@
             "raw capture (tool dump)",
             "curl of the served HTML"
           ]
-        }
-      ],
-      "outside_ruleset": [
+        },
         {
-          "what": "Fathom Analytics (cdn.usefathom.com/script.js plus tracking pixel) and Carbon Ads (cdn.carbonads.com/carbon.js, srv.carbonads.net) before any choice",
+          "key": "tracking_request_before_consent|fathom",
+          "evidence": "Script cdn.usefathom.com/script.js and the tracking pixel cdn.usefathom.com/?h=... requested on load, before any choice.",
           "provenance": [
             "raw capture (tool dump)",
-            "curl of the served HTML (carbon.js script tag; usefathom named in the HTML)"
-          ],
-          "note": "Neither is in the provider list: the tool contacts them silently (hosts reported as unclassified)."
+            "curl of the served HTML (usefathom named in the HTML)"
+          ]
+        },
+        {
+          "key": "tracking_request_before_consent|carbon-ads",
+          "evidence": "Script cdn.carbonads.com/carbon.js and ad requests to srv.carbonads.net on load, before any choice.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML (carbon.js script tag)"
+          ]
+        },
+        {
+          "key": "no_consent_platform_detected",
+          "evidence": "Trackers are contacted before any choice and the page has no consent platform or banner element (no trace in the capture, none in the served HTML); the check fires on exactly this combination.",
+          "provenance": [
+            "raw capture (tool dump)",
+            "curl of the served HTML"
+          ]
         }
       ],
-      "notes": "No consent platform and no listed tracker, so check 5 has nothing to flag.",
+      "outside_ruleset": [],
+      "notes": "No consent platform. Fathom and Carbon Ads were outside the provider list when this page was labelled (2026-11-03); web-checks 0.7.0 lists them, so the labels now name them as expected findings. The facts (requests, no banner) are those the original label recorded; only their classification moved from outside_ruleset to expected.",
       "capture_sha256": "8f375b9fdea00c585a7f5d391935186c97a5db3c4a17d21cdf3d7a2217a74fd7"
     },
     {
