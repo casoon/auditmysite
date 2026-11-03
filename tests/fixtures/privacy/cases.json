@@ -1,0 +1,92 @@
+[
+  {"name": "clean page", "expect": {"outcomes": "AAAAAN", "findings": []}},
+  {"name": "only own requests", "requests": ["https://example.com/app.js"], "expect": {"outcomes": "AAAAAN", "findings": []}},
+  {"name": "google analytics before consent", "requests": ["https://www.google-analytics.com/g/collect?v=2&tid=G-1"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+  {"name": "analytics with a consent platform request", "requests": ["https://www.google-analytics.com/g/collect", "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js"],
+   "expect": {"outcomes": "FANFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "analytics with a banner element", "requests": ["https://www.google-analytics.com/g/collect"], "consent_signals": ["element:onetrust-banner-sdk"],
+   "expect": {"outcomes": "FANFNN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "tag manager only is an indication", "requests": ["https://www.googletagmanager.com/gtm.js?id=GTM-1"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "indication", "tag_manager", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+  {"name": "meta pixel through its script", "requests": ["https://connect.facebook.net/en_US/fbevents.js"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "advertising", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+  {"name": "tiktok pixel is seated in a third country other than the US", "requests": ["https://analytics.tiktok.com/i18n/pixel/events.js"],
+   "expect": {"outcomes": "FANFFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "advertising", ""],
+     ["third_country_provider", "indication", "", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+  {"name": "eu tracker has no third-country hint", "requests": ["https://static.hotjar.com/c/hotjar-1.js"],
+   "expect": {"outcomes": "FANNFN", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["no_consent_platform_detected", "indication", "", ""]]}},
+  {"name": "google fonts hotlink", "requests": ["https://fonts.googleapis.com/css2?family=Inter"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "evidence", "fonts", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "public cdn", "requests": ["https://cdnjs.cloudflare.com/ajax/libs/x/1/x.min.js"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "evidence", "cdn", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "video embed", "requests": ["https://www.youtube.com/embed/abc"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "indication", "video_embed", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "social plugin without the pixel path", "requests": ["https://www.facebook.com/plugins/like.php"],
+   "expect": {"outcomes": "NAFFAN", "findings": [
+     ["visitor_ip_transfer", "indication", "social", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "look-alike hosts are not providers", "requests": ["https://google-analytics.com.evil.example/x.js", "https://notgoogle-analytics.com/y.js"],
+   "expect": {"outcomes": "NANAAN", "findings": []}},
+  {"name": "first-party subdomain tracker is not classified", "requests": ["https://stats.example.com/collect"],
+   "expect": {"outcomes": "NANAAN", "findings": []}},
+  {"name": "analytics cookie", "cookies": ["_ga", "sid"],
+   "expect": {"outcomes": "AFAAAN", "findings": [["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+  {"name": "matomo cookie prefix", "cookies": ["_pk_id.1.abc"],
+   "expect": {"outcomes": "AFAAAN", "findings": [["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+  {"name": "pixel storage key", "storage": ["_fbp"],
+   "expect": {"outcomes": "AFAAAN", "findings": [["non_essential_storage_before_consent", "evidence", "social", ""]]}},
+  {"name": "only a consent cookie", "cookies": ["CookieConsent"], "expect": {"outcomes": "ANAAAN", "findings": []}},
+  {"name": "only unknown cookie names", "cookies": ["sid"], "expect": {"outcomes": "ANAAAN", "findings": []}},
+  {"name": "cookie jar unreadable and nothing found in storage", "collection": "partial", "gaps": ["cookies"], "storage": ["theme"],
+   "expect": {"outcomes": "AMAAAN", "findings": []}},
+  {"name": "cookie jar unreadable but storage shows a tracker key", "collection": "partial", "gaps": ["cookies"], "storage": ["_ga_ABC123"],
+   "expect": {"outcomes": "AFAAAN", "findings": [["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
+  {"name": "network never idle: a negative cannot be claimed", "collection": "partial", "gaps": ["network_not_idle"], "requests": ["https://fonts.googleapis.com/css2?family=Inter"],
+   "expect": {"outcomes": "MAFFMN", "findings": [
+     ["visitor_ip_transfer", "evidence", "fonts", ""],
+     ["third_country_provider", "indication", "", ""]]}},
+  {"name": "network never idle with an unknown host", "collection": "partial", "gaps": ["network_not_idle"], "requests": ["https://widgets.example.net/w.js"],
+   "expect": {"outcomes": "MAMMMN", "findings": []}},
+  {"name": "failed collection is not a clean page", "collection": "failed", "expect": {"outcomes": "MMMMMM", "findings": []}},
+  {"name": "no privacy and no imprint link", "links": [["/about", "About"]],
+   "expect": {"outcomes": "AAAAAF", "findings": [
+     ["policy_link_missing", "indication", "", "privacy"],
+     ["policy_link_missing", "indication", "", "imprint"]]}},
+  {"name": "imprint link missing", "links": [["/datenschutz", "Datenschutz"], ["/about", "About"]],
+   "expect": {"outcomes": "AAAAAF", "findings": [["policy_link_missing", "indication", "", "imprint"]]}},
+  {"name": "privacy link without a target", "links": [["#", "Datenschutz"], ["/impressum", "Impressum"]],
+   "expect": {"outcomes": "AAAAAF", "findings": [["policy_link_unusable", "evidence", "", "privacy"]]}},
+  {"name": "english policy links are recognised", "links": [["/legal/privacy-policy", "Privacy"], ["/legal-notice", "Legal notice"]],
+   "expect": {"outcomes": "AAAAAN", "findings": []}},
+  {"name": "page without anchors", "links": [], "expect": {"outcomes": "AAAAAA", "findings": []}},
+  {"name": "document probe unreadable", "collection": "partial", "gaps": ["page_signals"], "signals": false,
+   "expect": {"outcomes": "AAAAAM", "findings": []}},
+  {"name": "tracker and unreadable probe: no claim about the consent platform", "collection": "partial", "gaps": ["page_signals"], "signals": false, "requests": ["https://www.google-analytics.com/g/collect"],
+   "expect": {"outcomes": "FANFMM", "findings": [
+     ["tracking_request_before_consent", "evidence", "analytics", ""],
+     ["third_country_provider", "indication", "", ""]]}}
+]
