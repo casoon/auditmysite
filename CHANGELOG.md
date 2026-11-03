@@ -140,6 +140,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Site:** project page dependencies updated to Astro 7.4.5 with `pnpm.overrides` for `undici`, `source-map-js` and `fast-uri`; `pnpm audit` and `osv-scanner` report no known vulnerabilities (Refs #812).
 - **Browser pool:** an `acquire` abandoned while its page was being created (caller timeout, aborted task) no longer leaves the pool one slot smaller for the rest of the run; page creation runs in its own task and an unclaimed page goes back to the pool (Refs #856).
 - **Accessibility:** A page without `lang` that embeds an iframe without `lang` no longer fails the whole audit with `rule_findings_preserved at rule_outcomes[html-has-lang]`: `document/lang-missing` and `html-has-lang` now both resolve to the language finding.
 - **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
