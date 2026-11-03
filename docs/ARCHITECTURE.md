@@ -258,7 +258,8 @@ src/
 │
 ├── privacy/             # Privacy indicators (tracking #875): technical findings, no score, no legal verdict
 │   ├── first_visit.rs   # First-visit capture in a clean browser context: requests, cookies, storage keys, consent/legal-link traces of the document (raw, EN, no values); collector `privacy.first_visit`
-│   └── findings.rs      # `analyze_privacy` (#871): six checks, confidence classes, `not_measured`; classification via web-checks `third_party`; `finding_text(kind, .., en)` is the only text source. Runs from `run_extra_page_checks` (needs the BrowserManager), result in `experience.privacy`, JSON `detail.modules.privacy`
+│   ├── findings.rs      # `analyze_privacy` (#871): six checks, confidence classes, `not_measured`; classification via web-checks `third_party`; `finding_text(kind, .., en)` is the only text source. Runs from `run_extra_page_checks` (needs the BrowserManager), result in `experience.privacy`, JSON `detail.modules.privacy`
+│   └── aggregate.rs     # `aggregate_privacy` (#872): batch roll-up (indicators/providers by affected pages, check distribution, per-page matrix); pure data, no text. PDF: single chapter `output/pdf/detail_modules/privacy.rs`, batch section `output/pdf/batch_report/privacy.rs`
 │
 ├── network/             # Opt-in, score-neutral, host-scoped network checks (#545)
 │   └── dns/             # DNS configuration: CAA, DNSSEC (best-effort), SPF/MX

@@ -571,6 +571,7 @@ pub struct ModuleDetailsBlock {
     pub design_quality: Option<DesignQualityPresentation>,
     pub ai_transparency: Option<AiTransparencyPresentation>,
     pub network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
+    pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
