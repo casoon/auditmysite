@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Privacy:** quality measurement for `--privacy-check` (Refs #873): a 30-page browser corpus in real Chrome (CI browser step), 15 hand-labelled reference pages replayed offline from sealed captures, and a manual live run (`scripts/privacy-reference.py live`); figures, method and blind spots in `docs/privacy-findings.md`. No change to findings.
 - **Dependencies:** `web-checks` 0.6.1: the Meta cookies `_fbp` / `_fbc` are classified as advertising (provider `meta-pixel`), no longer as social; the privacy corpus pins both (Refs #873).
 - **SEO:** the broken-internal-link check (`seo.broken_links`) has a 20-second wall-clock budget; before, up to 50 targets in waves of 8 with 5 s each for `HEAD` and `GET` could hold an audit for over a minute when the host accepts no connection, and targets still open at the deadline count as unanswered, so a check that answered nothing is `failed` instead of "no broken links" (Refs #792)
 - **CI:** every third-party GitHub Action in `ci.yml`, `release.yml` and `pages.yml` is pinned to the commit SHA of its current tag (tag as comment), the same way the already-pinned ones are; Dependabot keeps watching them (Refs #812).

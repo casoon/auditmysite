@@ -43,7 +43,7 @@
 
   {"name": "meta pixel image with the pixel path", "why": "facebook.com is a social host; only the /tr path rule makes the request an advertising pixel.",
    "body": "<img src='https://www.facebook.com/tr?id=1&ev=PageView' alt=''>",
-   "requested": ["www.facebook.com"], "truth": ["meta"],
+   "requested": ["www.facebook.com"], "truth": ["meta-pixel"],
    "expect": {"outcomes": "FANFFN", "findings": [
      ["tracking_request_before_consent", "evidence", "advertising", ""],
      ["third_country_provider", "indication", "", ""],
@@ -51,7 +51,7 @@
 
   {"name": "meta pixel library script", "why": "fbevents.js on facebook.net is the pixel library: advertising.",
    "body": "<script src='https://connect.facebook.net/en_US/fbevents.js'></script>",
-   "requested": ["connect.facebook.net"], "truth": ["meta"],
+   "requested": ["connect.facebook.net"], "truth": ["meta-pixel"],
    "expect": {"outcomes": "FANFFN", "findings": [
      ["tracking_request_before_consent", "evidence", "advertising", ""],
      ["third_country_provider", "indication", "", ""],
@@ -133,10 +133,10 @@
    "expect": {"outcomes": "AFAAAN", "findings": [
      ["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
 
-  {"name": "tracker cookie and storage keys set by script", "why": "Cookie names and storage keys are classified alike; one finding per provider (meta is a social provider, hotjar analytics).",
+  {"name": "tracker cookie and storage keys set by script", "why": "Cookie names and storage keys are classified alike; one finding per provider (the Meta Pixel cookie `_fbp` is advertising by Meta's own cookie documentation, hotjar analytics).",
    "body": "<script>document.cookie='_fbp=fb.1; path=/'; localStorage.setItem('_hjSession_1','x'); sessionStorage.setItem('neutral','y');</script>",
    "expect": {"outcomes": "AFAAAN", "findings": [
-     ["non_essential_storage_before_consent", "evidence", "social", ""],
+     ["non_essential_storage_before_consent", "evidence", "advertising", ""],
      ["non_essential_storage_before_consent", "evidence", "analytics", ""]]}},
 
   {"name": "consent storage only", "why": "A consent-platform storage key is not non-essential storage.",
