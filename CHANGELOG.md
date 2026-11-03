@@ -10,6 +10,62 @@ and verification for each change is in the
 ### Fixed
 
 - **Privacy:** when the audited URL redirects from a provider's host (e.g. `hotjar.com` → `contentsquare.com`), the entry hop is no longer reported as a tracking request of the page; the main frame's navigation chain (entry URL and redirect hops) is never third-party, child-frame documents still are (Refs #873).
+- **Site:** project page dependencies updated to Astro 7.4.5 with `pnpm.overrides` for `undici`, `source-map-js` and `fast-uri`; `pnpm audit` and `osv-scanner` report no known vulnerabilities (Refs #812).
+- **Browser pool:** an `acquire` abandoned while its page was being created (caller timeout, aborted task) no longer leaves the pool one slot smaller for the rest of the run; page creation runs in its own task and an unclaimed page goes back to the pool (Refs #856).
+- **Accessibility:** A page without `lang` that embeds an iframe without `lang` no longer fails the whole audit with `rule_findings_preserved at rule_outcomes[html-has-lang]`: `document/lang-missing` and `html-has-lang` now both resolve to the language finding.
+- **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
+- **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
+- **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
+- **Schema:** `navigation` and its `redirect_chain` are described in `docs/json-report.schema.json` (#775); `summary.grade` and `summary.certificate` may be `null`.
+- **Docs:** `viewport_scores.weighted_overall` is labelled as the 70/30 viewport blend, not a published module weight and not `overall_score` (#771); the AI-visibility module text no longer claims content is "cited" (#784).
+- **Tests:** negative and infinite Web Vitals are not measurements (#769); the Hickory error mapping and the image-fetch page counters are tested (#776, #789); the terminal renders the stored decision (#781); `batch_failed_urls_cli` and `session_policy_test` run in the browser CI job and in `release-check.sh` (#768, #787).
+- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3.
+- **Findings:** an HTML-conformance result marked as not checked no longer produces findings; "not measured" stays distinct from "measured" (#780).
+- **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
+- **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
+- **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
+- **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
+- **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
+- **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
+- **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.
+- **Browser:** A run that was killed from outside (SIGKILL, a supervisor or test timeout) no longer leaves its headless Chrome and profile directory behind for good: the next run ends a Chrome still holding an orphaned `auditmysite-chrome-*` profile and removes the profile.
+- **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).
+- **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
+- **Accessibility:** The 1.3.4 orientation check could never fire, because the computed `transform` is a matrix; it now reads the rotation and names `html` or `body`.
+- **Accessibility:** Overflow at 320 px caused only by content 1.4.10 exempts (data tables, images, media, frames) no longer fails reflow.
+- **Accessibility:** The 3.3.8 paste-blocking check, `html-has-lang` and the cross-origin frame note also find their elements in open shadow roots and same-origin frames; `html-has-lang` always records whether it ran.
+- **Accessibility:** A select named like a navigation control inside a form with its own submit control is no longer flagged under 3.2.2; unrendered videos are not checked for captions.
+- **Accessibility:** An overlay painted below a focused control no longer counts as obscuring it (2.4.12), and attribute errors inside tables or lists are no longer reported as content-model violations.
+- **Accessibility:** A finding without selector that both viewports report counts once instead of once per pass.
+- **Accessibility:** `role="list"` that one viewport needs (its markers hidden only there) is no longer reported as redundant; the finding stands only when both viewports report it.
+- **Accessibility:** The stylesheet rules (justified text, line height, focus outline, motion) also see declarations inside `@media` queries that apply at the audited width.
+- **Accessibility:** Content behind an open modal dialog is no longer reported as outside every landmark, while content in plain containers still is.
+- **Accessibility:** A document too deeply nested for the HTML conformance check marks the content-model rule as not run instead of passing it.
+- **Security:** HSTS preload eligibility is judged over HTTPS only; directives are read case-insensitively and with quoted values. A missing `object-src` respects the `default-src` fallback.
+- **Security:** A source-map page that answers with an error status, or a map probe without answer, is reported as not measured instead of "no leak".
+- **Security:** A very deeply nested page no longer aborts the whole audit with a stack overflow while the source-map check reads its asset links.
+- **Security:** Library versions are read from the URL path only, and plugins named after a library (jQuery UI, jquery.validate, Bootstrap Datepicker) are no longer taken for it.
+- **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
+- **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.
+- **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.
+- **Collection:** A request or script that did not answer no longer becomes a finding (e.g. "HTTP/1.1 only", "www not consolidated", "invalid manifest", "broken link") or a clean result (e.g. "no cookies", "no console errors", 100 image-efficiency points).
+- **Content visibility:** The SSR content-gap check loads the page itself instead of measuring the blank tab left after interactive journeys.
+- **Accessibility:** Text spacing, reflow, page title, on-input and orientation report a technical rule failure instead of passing when the page gives no answer.
+- **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.
+- **Reports:** Different rules sharing a criterion and selector survive viewport merging. Critical accessibility limits survive viewport averaging; raw, terminal and JSON pass decisions use the canonical verdict. Failed batch URLs qualify audit completeness, and compact-export grades describe their exported score.
+- **Collection:** Invalid collector responses and failed HTTP/DNS probes no longer become successful empty measurements. Missing performance observers and invalid numeric metrics remain unmeasured; SEO and security transport checks use the final response/page scheme.
+- **AI transparency:** Image provenance fetches reject redirects and enforce the body-size limit while reading the response.
+- **Batch:** `summary.grade` and `summary.certificate` describe the average accessibility score and are gated by the batch risk, as in the single report and the batch PDF; they followed the weighted overall score, so 49/100 accessibility read "D" / "STABIL".
+- **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".
+- **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".
+- **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
+- **PDF:** The contents page no longer lists its own heading or the cover title, and table rows no longer split across a page break.
+- **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
+- **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
+- **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
+- **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
+- **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks), and a missing viewport no longer costs SEO points; it counts under mobile and accessibility.
+- **WCAG:** A zoom limit between 200 % and 500 % (`zoom/viewport-scale-limited`) is a best practice: 1.4.4 requires 200 % and is met, so it raises no legal flag and only low BFSG relevance.
 
 ### Changed
 
@@ -151,65 +207,6 @@ and verification for each change is in the
 - **JSON:** The `tbt_zero_heavy_page` measurement warning. A static page on a slow network has a late LCP and no long tasks; TBT 0 is a valid measurement there.
 - **Library:** Breaking: the unfinished `audit::Baseline` API (`Baseline`, `BaselineDiff`, `BaselineViolation`, `WaivedViolation`). It was not wired into the CLI and identified findings by criterion and AX node id; a baseline comparison will build on the stable finding and pattern ids.
 - **JSON:** Breaking: `summary.template_clusters`, `summary.top_recurring_rules` and `internal_comparison.root_causes`. Recurring element patterns are `summary.root_causes` with their evidence grade; the former lists either duplicated it or called anything on two pages a "likely template or component".
-
-### Fixed
-
-- **Site:** project page dependencies updated to Astro 7.4.5 with `pnpm.overrides` for `undici`, `source-map-js` and `fast-uri`; `pnpm audit` and `osv-scanner` report no known vulnerabilities (Refs #812).
-- **Browser pool:** an `acquire` abandoned while its page was being created (caller timeout, aborted task) no longer leaves the pool one slot smaller for the rest of the run; page creation runs in its own task and an unclaimed page goes back to the pool (Refs #856).
-- **Accessibility:** A page without `lang` that embeds an iframe without `lang` no longer fails the whole audit with `rule_findings_preserved at rule_outcomes[html-has-lang]`: `document/lang-missing` and `html-has-lang` now both resolve to the language finding.
-- **Libraries:** The five unreviewed advisories (jQuery ×2, Bootstrap tooltip, Prototype, MooTools) are checked against NVD, GitHub advisories and project sources (#773). Legacy jQuery XSS is now CVE-2015-9251, fixed in 3.0.0 (not 1.12.0/2.2.0: that backport was reverted), severity medium; CVE-2020-11023 starts at 1.0.3.
-- **Accessibility:** `principle_coverage` no longer counts shared rules above the audited WCAG level (`above_wcag_level`, e.g. AAA criteria in an AA run) as not passed; they leave the denominator. Rules switched off by a rule filter still count as unchecked (#778).
-- **Batch:** a batch in which no URL was measured has no grade, certificate or score band (JSON `summary.grade` and `summary.certificate` are `null`, the verdict text is empty, the terminal shows `–`) and produces no PDF, instead of an F computed from a stand-in 0 (#768).
-- **Schema:** `navigation` and its `redirect_chain` are described in `docs/json-report.schema.json` (#775); `summary.grade` and `summary.certificate` may be `null`.
-- **Docs:** `viewport_scores.weighted_overall` is labelled as the 70/30 viewport blend, not a published module weight and not `overall_score` (#771); the AI-visibility module text no longer claims content is "cited" (#784).
-- **Tests:** negative and infinite Web Vitals are not measurements (#769); the Hickory error mapping and the image-fetch page counters are tested (#776, #789); the terminal renders the stored decision (#781); `batch_failed_urls_cli` and `session_policy_test` run in the browser CI job and in `release-check.sh` (#768, #787).
-- **Cache:** The content fingerprint ignores browser-assigned ids (DOM backend node ids), so two measurements of an unchanged page hash equal; fingerprint version 3.
-- **Findings:** an HTML-conformance result marked as not checked no longer produces findings; "not measured" stays distinct from "measured" (#780).
-- **Exclusion:** a selector count that the browser did not answer was read as "nothing matched"; it is now a failed `accessibility.exclusion_scope` collection. A live-region observation that could not be read no longer counts as "nothing was announced" in the form-error and add-to-cart journeys (#777).
-- **Navigation:** a missing navigation timing entry is no longer recorded as zero redirects; the collection records `main_document_status` and `redirect_count` as gaps (#777).
-- **Score:** HTML Conformance is shown as `partial` and leaves the overall score when its document collection was lost in one viewport (#777).
-- **Security:** `security.document_match` compares the port as well as scheme and host, so a probe that ended on another port than the audited page no longer counts as the same document.
-- **Cache:** The content fingerprint covers every AX node (role, name, value, properties) and the page-describing SEO parts instead of the node count and 100 ids, so a changed label on an unchanged tree shape is detected; measured timings no longer enter it. Entries record the fingerprint version and older ones are not compared.
-- **Audit quality:** Each requested shared rule needs an execution outcome (`audit_scope.requested_rules`); a missing one fails validation. An errored rule check is counted once (`failed_rule_checks`), no longer again as a partial accessibility module, and the counter must match the outcomes.
-- **Coverage:** The PDF principle coverage is derived from the rules that ran, like the JSON, instead of from the static catalog: an empty run is no longer 100 %, rules that errored, were disabled or lacked a capability count as not passed, and rules without anything to check on the page leave the denominator.
-- **Browser:** A run that was killed from outside (SIGKILL, a supervisor or test timeout) no longer leaves its headless Chrome and profile directory behind for good: the next run ends a Chrome still holding an orphaned `auditmysite-chrome-*` profile and removes the profile.
-- **AI visibility:** The batch result aggregates overall score, dimension scores and signals over the same page set instead of taking the first page's details; signals are majority outcomes with an `example_url` for their values, and the result no longer depends on page order (#785).
-- **AI transparency:** An image fetch that redirects is counted as failed instead of being dropped silently, and a page whose image fetches all failed reports the check as failed rather than "no AI-generated images".
-- **Accessibility:** The 1.3.4 orientation check could never fire, because the computed `transform` is a matrix; it now reads the rotation and names `html` or `body`.
-- **Accessibility:** Overflow at 320 px caused only by content 1.4.10 exempts (data tables, images, media, frames) no longer fails reflow.
-- **Accessibility:** The 3.3.8 paste-blocking check, `html-has-lang` and the cross-origin frame note also find their elements in open shadow roots and same-origin frames; `html-has-lang` always records whether it ran.
-- **Accessibility:** A select named like a navigation control inside a form with its own submit control is no longer flagged under 3.2.2; unrendered videos are not checked for captions.
-- **Accessibility:** An overlay painted below a focused control no longer counts as obscuring it (2.4.12), and attribute errors inside tables or lists are no longer reported as content-model violations.
-- **Accessibility:** A finding without selector that both viewports report counts once instead of once per pass.
-- **Accessibility:** `role="list"` that one viewport needs (its markers hidden only there) is no longer reported as redundant; the finding stands only when both viewports report it.
-- **Accessibility:** The stylesheet rules (justified text, line height, focus outline, motion) also see declarations inside `@media` queries that apply at the audited width.
-- **Accessibility:** Content behind an open modal dialog is no longer reported as outside every landmark, while content in plain containers still is.
-- **Accessibility:** A document too deeply nested for the HTML conformance check marks the content-model rule as not run instead of passing it.
-- **Security:** HSTS preload eligibility is judged over HTTPS only; directives are read case-insensitively and with quoted values. A missing `object-src` respects the `default-src` fallback.
-- **Security:** A source-map page that answers with an error status, or a map probe without answer, is reported as not measured instead of "no leak".
-- **Security:** A very deeply nested page no longer aborts the whole audit with a stack overflow while the source-map check reads its asset links.
-- **Security:** Library versions are read from the URL path only, and plugins named after a library (jQuery UI, jquery.validate, Bootstrap Datepicker) are no longer taken for it.
-- **DNS:** A lookup timeout or SERVFAIL no longer reads as a missing CAA, DNSKEY or SPF record, and an unknown MX answer leaves SPF unknown instead of "no mail".
-- **Security:** A probe that times out, cannot connect or ends in an error status (e.g. a WAF 403) leaves security unmeasured instead of analysing an error page; a rejected `HEAD` falls back to `GET`, and source maps of assets that did not answer make that check partial.
-- **Performance:** A failed resource or coverage read no longer counts as 0 bytes, no blocking resources or 100 % JS used (`unused_js.used_pct` is `null` without measured bytes); a throttled pass whose CPU throttling or cache disabling failed is not stored as that profile.
-- **Collection:** A request or script that did not answer no longer becomes a finding (e.g. "HTTP/1.1 only", "www not consolidated", "invalid manifest", "broken link") or a clean result (e.g. "no cookies", "no console errors", 100 image-efficiency points).
-- **Content visibility:** The SSR content-gap check loads the page itself instead of measuring the blank tab left after interactive journeys.
-- **Accessibility:** Text spacing, reflow, page title, on-input and orientation report a technical rule failure instead of passing when the page gives no answer.
-- **Audit completeness:** Stability fallbacks and visible frames that could not be inspected qualify the audit. Hidden and explicitly excluded frames remain outside the requested scope. Final single-page post-processing refreshes completeness before persistence.
-- **Reports:** Different rules sharing a criterion and selector survive viewport merging. Critical accessibility limits survive viewport averaging; raw, terminal and JSON pass decisions use the canonical verdict. Failed batch URLs qualify audit completeness, and compact-export grades describe their exported score.
-- **Collection:** Invalid collector responses and failed HTTP/DNS probes no longer become successful empty measurements. Missing performance observers and invalid numeric metrics remain unmeasured; SEO and security transport checks use the final response/page scheme.
-- **AI transparency:** Image provenance fetches reject redirects and enforce the body-size limit while reading the response.
-- **Batch:** `summary.grade` and `summary.certificate` describe the average accessibility score and are gated by the batch risk, as in the single report and the batch PDF; they followed the weighted overall score, so 49/100 accessibility read "D" / "STABIL".
-- **PDF:** The batch report's scope note no longer spills onto an otherwise empty page 3; it opens the contents page, which is titled "Contents"/"Inhalt" instead of "Table of Contents".
-- **PDF:** The batch action table shows the scope of change from the data (the JSON `top_actions[].complexity`) instead of a per-rule effort that could read "low" for the same row; a finding repeated on one page is no longer labelled "on 1 pages, cause open".
-- **PDF:** Batch problem blocks use correct plurals ("1 affected URL"), name the reach as all audited pages, N of M pages or one page, and label the effort as a per-instance estimate.
-- **PDF:** The contents page no longer lists its own heading or the cover title, and table rows no longer split across a page break.
-- **Performance:** Stylesheets a page removes again while loading no longer mark the CSS coverage as partial or log a `CSS.getStyleSheetText` warning.
-- **Reports:** Accessibility findings no longer lower the source-quality indicator: consistency counted unnamed controls and critical violations (the same occurrences twice), and the batch view counted accessibility score spread and pages with critical errors.
-- **Reports:** Content Visibility no longer turns the Source Quality authority and substance scores into E-E-A-T and content-depth signals; it reads publisher markup, word count and headings directly.
-- **Reports:** AI visibility judges structure for chunking by the main content region the page has, not by the absence of landmark findings from the accessibility result.
-- **SEO:** A missing `lang` attribute or canonical URL costs points once instead of twice (meta list and technical checks), and a missing viewport no longer costs SEO points; it counts under mobile and accessibility.
-- **WCAG:** A zoom limit between 200 % and 500 % (`zoom/viewport-scale-limited`) is a best practice: 1.4.4 requires 200 % and is met, so it raises no legal flag and only low BFSG relevance.
 
 ## [1.8.0] - 2026-10-24
 
