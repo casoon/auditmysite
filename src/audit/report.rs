@@ -572,6 +572,11 @@ pub struct ExperienceSection {
     /// affects accessibility/overall score, grade, or certificate.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
+    /// Pre-consent privacy findings of a first visit (#871, optional). Phase
+    /// A only, technical observations with a confidence class; never affects
+    /// accessibility/overall score, grade, or certificate.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     /// Budget violations detected for this page
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,

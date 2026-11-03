@@ -208,3 +208,80 @@ async fn an_unreachable_page_is_a_failed_collection_not_an_empty_capture() {
     assert!(collected.value().is_none());
     let _ = manager.close().await;
 }
+
+const FINDINGS_PAGE: &str = "<!doctype html><html lang=\"en\"><head><title>t</title>\
+    <link rel=\"icon\" href=\"data:,\"></head><body>\
+    <div id=\"cookie-banner\" role=\"dialog\" aria-label=\"Cookies\">We use cookies</div>\
+    <main><h1>Hello</h1></main>\
+    <footer><a href=\"#\">Datenschutz</a> <a href=\"/impressum\">Impressum</a></footer>\
+    <script>\
+    document.cookie = '_ga=GA1.1.1; path=/; max-age=86400';\
+    localStorage.setItem('_fbp', 'fb.1');\
+    </script></body></html>";
+
+const CLEAN_PAGE: &str = "<!doctype html><html lang=\"en\"><head><title>t</title>\
+    <link rel=\"icon\" href=\"data:,\"></head><body><main><h1>Hello</h1>\
+    <a href=\"/privacy\">Privacy</a> <a href=\"/imprint\">Imprint</a></main></body></html>";
+
+/// #871: the findings of a real first visit. Cookie and storage names are
+/// classified, the dead policy link is observed, the banner element counts as
+/// a consent trace, and a clean page reads clean.
+#[tokio::test]
+#[ignore = "needs real Chrome; run with `cargo test --test privacy_first_visit_browser -- --ignored`"]
+async fn findings_follow_what_the_first_visit_shows() {
+    use auditmysite::privacy::{analyze_privacy, CheckOutcome, PrivacyCheck, PrivacyFindingKind};
+
+    let manager = browser().await;
+
+    let fixture = common::fixture_server::serve_html(FINDINGS_PAGE.to_string());
+    let collected = collect_first_visit(&manager, &fixture.url, options()).await;
+    let capture = collected.value().expect("capture");
+    assert!(
+        capture
+            .signals
+            .consent_signals
+            .contains(&"element:generic-banner".to_string()),
+        "{:?}",
+        capture.signals
+    );
+    let analysis = analyze_privacy(&collected);
+    let outcome = |check| {
+        analysis
+            .checks
+            .iter()
+            .find(|c| c.check == check)
+            .unwrap()
+            .outcome
+    };
+    assert_eq!(
+        outcome(PrivacyCheck::NonEssentialStorage),
+        CheckOutcome::Found
+    );
+    assert_eq!(outcome(PrivacyCheck::PolicyLinks), CheckOutcome::Found);
+    let kinds: Vec<_> = analysis.findings.iter().map(|f| f.kind).collect();
+    assert!(kinds.contains(&PrivacyFindingKind::NonEssentialStorageBeforeConsent));
+    assert!(kinds.contains(&PrivacyFindingKind::PolicyLinkUnusable));
+    assert!(!kinds.contains(&PrivacyFindingKind::PolicyLinkMissing));
+    let storage: Vec<_> = analysis
+        .findings
+        .iter()
+        .filter(|f| f.kind == PrivacyFindingKind::NonEssentialStorageBeforeConsent)
+        .flat_map(|f| f.evidence.iter().map(|e| e.value.as_str()))
+        .collect();
+    assert!(
+        storage.contains(&"_ga") && storage.contains(&"_fbp"),
+        "{storage:?}"
+    );
+    fixture.stop();
+
+    let fixture = common::fixture_server::serve_html(CLEAN_PAGE.to_string());
+    let analysis = analyze_privacy(&collect_first_visit(&manager, &fixture.url, options()).await);
+    assert!(analysis.findings.is_empty(), "{:?}", analysis.findings);
+    assert!(analysis
+        .checks
+        .iter()
+        .all(|c| c.outcome != CheckOutcome::NotMeasured));
+    fixture.stop();
+
+    let _ = manager.close().await;
+}

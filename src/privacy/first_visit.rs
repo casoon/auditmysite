@@ -50,7 +50,7 @@ pub static FIRST_VISIT: CollectorSpec = CollectorSpec {
     id: "privacy.first_visit",
     module: "privacy",
     method: CollectionMethod::Cdp,
-    method_version: 1,
+    method_version: 2,
     scoring: false,
 };
 
@@ -66,6 +66,7 @@ mod gap {
     pub(super) const COOKIES: &str = "cookies";
     pub(super) const STORAGE: &str = "storage";
     pub(super) const NETWORK_NOT_IDLE: &str = "network_not_idle";
+    pub(super) const PAGE_SIGNALS: &str = "page_signals";
 }
 
 /// Waiting times of the capture.
@@ -156,6 +157,29 @@ pub struct CapturedStorageKey {
     pub key: String,
 }
 
+/// One anchor of the first-visit document, as the page wrote it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapturedLink {
+    /// The `href` attribute, verbatim (may be empty, `#`, `javascript:` ...).
+    pub href: String,
+    /// The resolved absolute URL; empty when the browser could not resolve it.
+    pub resolved: String,
+    /// Visible text or `aria-label`, trimmed and shortened.
+    pub text: String,
+}
+
+/// What the document itself shows about consent and legal pages, read after
+/// the settle time without touching anything.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageSignals {
+    /// Canonical ids of consent-platform traces in the document: a known
+    /// global (`global:Cookiebot`) or a known banner element
+    /// (`element:onetrust-banner-sdk`). Sorted, once each.
+    pub consent_signals: Vec<String>,
+    /// Anchors of the document (capped), in document order.
+    pub links: Vec<CapturedLink>,
+}
+
 /// What a first visit left behind. Lists are in canonical order (not event
 /// order), so repeated captures of the same page compare equal.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -171,6 +195,7 @@ pub struct FirstVisitCapture {
     pub requests: Vec<CapturedRequest>,
     pub cookies: Vec<CapturedCookie>,
     pub storage: Vec<CapturedStorageKey>,
+    pub signals: PageSignals,
 }
 
 // ── Pure parsing ──────────────────────────────────────────────────────────
@@ -260,6 +285,8 @@ pub(crate) struct RawVisit {
     pub storage: Option<Vec<CapturedStorageKey>>,
     /// Some area of a known frame origin could not be read.
     pub storage_incomplete: bool,
+    /// `None`: the document could not be probed.
+    pub signals: Option<PageSignals>,
     pub network_idle: bool,
     pub options: FirstVisitOptions,
 }
@@ -321,6 +348,18 @@ pub(crate) fn assemble(raw: RawVisit) -> Collected<FirstVisitCapture> {
     storage.sort();
     storage.dedup();
 
+    let signals = match raw.signals {
+        Some(mut signals) => {
+            signals.consent_signals.sort();
+            signals.consent_signals.dedup();
+            signals
+        }
+        None => {
+            gaps.push(gap::PAGE_SIGNALS);
+            PageSignals::default()
+        }
+    };
+
     if !raw.network_idle {
         gaps.push(gap::NETWORK_NOT_IDLE);
     }
@@ -341,6 +380,7 @@ pub(crate) fn assemble(raw: RawVisit) -> Collected<FirstVisitCapture> {
         requests,
         cookies,
         storage,
+        signals,
     };
     if gaps.is_empty() {
         Collected::Measured(capture)
@@ -518,6 +558,7 @@ async fn visit(
         let final_url = page.url().await.ok().flatten();
         let cookies = read_cookies(manager, context).await;
         let (storage, storage_incomplete) = read_storage(page).await;
+        let signals = read_signals(page).await;
         let events = lock(&traffic).events.clone();
         assemble(RawVisit {
             requested_url: url.to_string(),
@@ -526,6 +567,7 @@ async fn visit(
             cookies,
             storage,
             storage_incomplete,
+            signals,
             network_idle: settled_before && idle_after,
             options,
         })
@@ -547,6 +589,49 @@ async fn read_cookies(
         Ok(cookies) => Some(cookies),
         Err(e) => {
             warn!("first-visit cookies could not be read: {e}");
+            None
+        }
+    }
+}
+
+/// Read-only probe of the document: consent-platform globals and banner
+/// elements, and the anchors (the classification into privacy / imprint
+/// links is done on the Rust side). Returns a JSON string.
+const SIGNALS_SCRIPT: &str = r#"(() => {
+  const globals = ['__tcfapi', '__cmp', '__gpp', 'Cookiebot', 'OneTrust', 'Optanon', 'UC_UI',
+    'Didomi', 'klaro', 'BorlabsCookie', 'cookieconsent', 'CookieConsent', 'cmplz_cookiebanner',
+    'Cookiefirst', 'CookieScript', 'axeptio', '_axcb'];
+  const elements = {
+    'cookiebot': '#CybotCookiebotDialog',
+    'onetrust-banner-sdk': '#onetrust-banner-sdk',
+    'usercentrics': '#usercentrics-root, #usercentrics-cmp-ui',
+    'didomi': '#didomi-host',
+    'borlabs': '#BorlabsCookieBox, [data-borlabs-cookie-wrap]',
+    'klaro': '.klaro',
+    'complianz': '.cmplz-cookiebanner, #cmplz-cookiebanner-container',
+    'cookie-law-info': '#cookie-law-info-bar',
+    'cookie-notice': '#cookie-notice',
+    'cookieconsent': '.cc-window, .cc-banner',
+    'generic-banner': '#cookiebanner, #cookie-banner, .cookie-banner, #cookie-consent, .cookie-consent, [class*="cookie-consent" i], [class*="consent-banner" i], [id*="consent-banner" i]',
+    'consent-dialog': '[role="dialog"][aria-label*="cookie" i], [role="dialog"][aria-label*="consent" i], [role="dialog"][aria-label*="datenschutz" i], dialog[id*="cookie" i], dialog[id*="consent" i]'
+  };
+  const out = { consent_signals: [], links: [] };
+  for (const g of globals) { try { if (typeof window[g] !== 'undefined') out.consent_signals.push('global:' + g); } catch (e) {} }
+  for (const [id, sel] of Object.entries(elements)) {
+    try { if (document.querySelector(sel)) out.consent_signals.push('element:' + id); } catch (e) {}
+  }
+  for (const a of Array.from(document.querySelectorAll('a[href]')).slice(0, 2000)) {
+    const text = ((a.textContent || '').replace(/\s+/g, ' ').trim() || a.getAttribute('aria-label') || a.getAttribute('title') || '').slice(0, 120);
+    out.links.push({ href: a.getAttribute('href') || '', resolved: a.href || '', text });
+  }
+  return JSON.stringify(out);
+})()"#;
+
+async fn read_signals(page: &chromiumoxide::Page) -> Option<PageSignals> {
+    match crate::audit::collection::evaluate_js::<PageSignals>(page, SIGNALS_SCRIPT).await {
+        Collected::Measured(signals) => Some(signals),
+        other => {
+            warn!("first-visit page signals not readable: {:?}", other.state());
             None
         }
     }
@@ -679,6 +764,7 @@ pub(crate) mod tests {
         assert_eq!(state(|r| r.cookies = None), CollectionState::Partial);
         assert_eq!(state(|r| r.storage = None), CollectionState::Partial);
         assert_eq!(state(|r| r.network_idle = false), CollectionState::Partial);
+        assert_eq!(state(|r| r.signals = None), CollectionState::Partial);
     }
 
     fn raw() -> RawVisit {
@@ -696,6 +782,7 @@ pub(crate) mod tests {
             cookies: Some(vec![cookie("sid", "example.com", true)]),
             storage: Some(vec![]),
             storage_incomplete: false,
+            signals: Some(PageSignals::default()),
             network_idle: true,
             options: FirstVisitOptions::default(),
         }

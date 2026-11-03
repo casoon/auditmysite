@@ -360,6 +360,11 @@ pub struct PipelineConfig {
     /// unique host per process run regardless of how many pages are audited
     /// (see `network::dns::module`'s per-host memoization).
     pub check_dns: bool,
+    /// Run the pre-consent privacy check (#871): one extra visit in a clean
+    /// browser context, classified into technical findings. Part of
+    /// `--full`, or alone with `--privacy`. Runs once per URL
+    /// (`run_extra_page_checks`), in single and batch mode alike.
+    pub check_privacy: bool,
     /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
     /// reported run is the median; the spread is stored beside it.
     pub perf_runs: u32,
@@ -478,13 +483,14 @@ impl PipelineConfig {
         // 20 for the display-mode scope and detection fields (#653).
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
-        const CACHE_FMT: u8 = 27;
+        // 28 for the privacy module field (#871).
+        const CACHE_FMT: u8 = 28;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -497,6 +503,7 @@ impl PipelineConfig {
             self.check_html_conform as u8,
             self.check_ai_transparency as u8,
             self.check_dns as u8,
+            self.check_privacy as u8,
             self.check_isolate_third_party_impact as u8,
             self.perf_runs,
             self.check_ssr_content as u8,
@@ -599,6 +606,7 @@ impl PipelineConfig {
             // detail is only ever `fix_guidance`/`en301549_annex`).
             check_ai_transparency: args.ai_transparency && args.url.is_some(),
             check_dns: args.dns_check,
+            check_privacy: full_audit || args.privacy,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
@@ -774,6 +782,13 @@ pub(crate) async fn run_extra_page_checks(
         }
     }
 
+    // Pre-consent privacy findings (#871): a visit in a clean browser
+    // context of its own, independent of `page`. The module run is created
+    // here because the check does not go through the catalog.
+    if config.check_privacy {
+        run_privacy_check(url, browser, report).await;
+    }
+
     // SSR/hydration content-gap check (#534). Runs after the third-party
     // isolation pass (if any) and before the throttled-performance passes,
     // same reasoning as #531: it needs one more full reload of the same
@@ -802,6 +817,24 @@ pub(crate) async fn run_extra_page_checks(
             warn!("Browser settle failed after SSR content-gap check: {}", e);
         }
     }
+}
+
+/// The privacy first visit and its findings (#871). A capture without a
+/// value still yields an analysis whose checks read `not_measured`.
+async fn run_privacy_check(url: &str, browser: &BrowserManager, report: &mut AuditReport) {
+    use crate::privacy::{analyze_privacy, collect_first_visit, FirstVisitOptions, FIRST_VISIT};
+    let log = crate::audit::collection::CollectionLog::new();
+    let collected = collect_first_visit(browser, url, FirstVisitOptions::default()).await;
+    let analysis = analyze_privacy(&collected);
+    log.record(&FIRST_VISIT, collected);
+    let runs = &mut report.accessibility.execution.module_runs;
+    runs.push(crate::audit::ModuleRun {
+        module: FIRST_VISIT.module.to_string(),
+        status: crate::audit::ExecutionStatus::Completed,
+        ..Default::default()
+    });
+    crate::audit::collection::fold_records(runs, log.into_records());
+    report.experience.privacy = Some(analysis);
 }
 
 async fn audit_on_page(
@@ -2344,6 +2377,7 @@ mod tests {
             design_quality: false,
             ai_transparency: false,
             dns_check: false,
+            privacy: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
@@ -2477,6 +2511,8 @@ mod tests {
         let expected = vec![
             "performance.third_party_isolation".to_string(),
             "content_visibility.ssr_gap".to_string(),
+            // `--full` includes the privacy first visit (#871).
+            "privacy.first_visit".to_string(),
         ];
         for target in [
             ["https://example.com"].as_slice(),
@@ -2491,11 +2527,18 @@ mod tests {
                 .collect();
             assert_eq!(scope(&argv), expected, "{target:?}");
         }
-        assert!(scope(&["auditmysite", "--url-file", "urls.txt", "--full"]).is_empty());
+        assert_eq!(
+            scope(&["auditmysite", "--url-file", "urls.txt", "--full"]),
+            ["privacy.first_visit"]
+        );
         // The module-level checks owe their collections too (#778).
         assert_eq!(
             scope(&["auditmysite", "--url-file", "urls.txt", "--dns-check"]),
-            ["caa", "dnskey", "mx", "spf"].map(|id| format!("network_dns.{id}"))
+            ["caa", "dnskey", "mx", "spf"]
+                .map(|id| format!("network_dns.{id}"))
+                .into_iter()
+                .chain(["privacy.first_visit".to_string()])
+                .collect::<Vec<_>>()
         );
         // SEO off: the SSR check has no module to attach to and is not requested.
         // (`Args::validate` rejects this combination before it gets here; the
@@ -2648,10 +2691,14 @@ mod tests {
         let single = scope(&["https://example.com"]);
         let batch = scope(&["--url-file", "Cargo.toml"]);
         assert_eq!(single.requested_subchecks, batch.requested_subchecks);
-        assert_eq!(single.requested_subchecks.len(), 2);
+        assert_eq!(single.requested_subchecks.len(), 3);
         assert_eq!(
             single.measurement_profile.extra_checks,
-            ["--isolate-third-party-impact", "--check-ssr-content"]
+            [
+                "--isolate-third-party-impact",
+                "--check-ssr-content",
+                "--privacy"
+            ]
         );
         assert_eq!(
             serde_json::to_value(&single.measurement_profile).unwrap(),
@@ -2767,6 +2814,7 @@ mod tests {
             check_html_conform: false,
             check_ai_transparency: false,
             check_dns: false,
+            check_privacy: false,
             perf_runs: 1,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
