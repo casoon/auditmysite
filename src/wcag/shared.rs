@@ -1941,49 +1941,6 @@ fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom:
         .and_then(|idx| doc.node_at(NodeId(idx)))
 }
 
-/// Schlagwort, mit dem `a11y-rules` eine Empfehlung kennzeichnet, die kein
-/// Erfolgskriterium belegt (`Normative Zuordnung`, a11y-rules 0.26). Ohne die
-/// Ausnahme [`CONVENTION_PREFIXES`] trägt kein Befund mit diesem Schlagwort
-/// ein Kriterium.
-const BEST_PRACTICE_TAG: &str = "best-practice";
-
-/// Die Darstellungskonvention (`viz/*`, `display/*`) trägt `best-practice`
-/// **und** das nächste Kriterium -- beabsichtigt, sie melden nur auf Seiten,
-/// die die Konvention benutzen. Für sie gilt die Herabstufung nicht.
-const CONVENTION_PREFIXES: [&str; 2] = ["viz/", "display/"];
-
-/// Stuft die Empfehlungen aus dem geteilten Bestand vom Verstoß zum Hinweis
-/// (`REVIEW`) herab.
-///
-/// [`SHARED_RULES`] trägt zu jeder Kennung ein Kriterium, weil die Ausgabe
-/// eines braucht. Bei einer Empfehlung wäre `FAIL` darunter eine Behauptung,
-/// die die Bibliothek bewusst nicht macht: eine h2 ohne h1 ist unter 1.3.1
-/// als Überschrift bestimmbar (#779). Als bestätigter WCAG-Verstoß würde sie
-/// außerdem gewertet und neben `seo.headings.missing_h1` doppelt gezählt. Sie
-/// bleibt als Hinweis mit dem Schlagwort `best-practice` sichtbar, ohne
-/// Verstoß und ohne Punktabzug.
-///
-/// Eigener Schritt statt Teil von `to_violation`: Die Paarung der beiden
-/// Viewport-Durchgänge (`drop_single_viewport_redundant_roles`) liest die
-/// Verstöße und muss `lists/role-redundant` noch dort finden. Die Pipeline
-/// ruft das hier danach auf, vor Wertung und Zusammenführung.
-pub fn demote_best_practice(results: &mut WcagResults) {
-    let (demoted, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut results.violations)
-        .into_iter()
-        .partition(|v| {
-            v.kind == Outcome::Fail
-                && v.tags.iter().any(|t| t == BEST_PRACTICE_TAG)
-                && v.rule_id.as_deref().is_some_and(|id| {
-                    shared_rule(id).is_some()
-                        && !CONVENTION_PREFIXES.iter().any(|p| id.starts_with(p))
-                })
-        });
-    results.violations = kept;
-    for v in demoted {
-        results.add_violation(v.with_kind(Outcome::Review));
-    }
-}
-
 /// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
 fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
     let node = finding_node(doc, finding);
@@ -2405,12 +2362,10 @@ mod tests {
         .expect("CDP-Knoten")
     }
 
-    /// Wie die Pipeline: geteilte Regeln, dann die Empfehlungen herabstufen.
+    /// Wie die Pipeline: geteilte Regeln über den Beispiel-DOM.
     fn lauf_ueber(kinder: Vec<serde_json::Value>) -> WcagResults {
         let doc = build_document(&seite_mit_koerper(kinder), &AXTree::new()).unwrap();
-        let mut r = run_shared_rules(&doc, "en");
-        demote_best_practice(&mut r);
-        r
+        run_shared_rules(&doc, "en")
     }
 
     fn unter<'a>(liste: &'a [Violation], id: &str) -> Vec<&'a Violation> {
@@ -2443,70 +2398,37 @@ mod tests {
         assert!(hinweis[0].tags.iter().any(|t| t == "best-practice"));
     }
 
-    /// Die Darstellungskonvention behaelt ihr Kriterium: `viz/*` traegt
-    /// `best-practice` und 1.1.1 zugleich und bleibt ein Verstoss.
+    /// #779: Die Einordnung als Empfehlung liefert `a11y-rules` (0.27) am
+    /// Befund (`Basis::BestPractice`, `Outcome::Review`); `to_violation` gibt
+    /// sie unverändert weiter, `add_violation` legt sie unter die Hinweise.
+    /// Jede Kennung der Bibliothek, die auditmysite führt, ist so ein Hinweis
+    /// mit dem Schlagwort `best-practice` und nie ein Verstoß.
     #[test]
-    fn darstellungskonvention_wird_nicht_herabgestuft() {
+    fn empfehlung_bleibt_hinweis_mit_schlagwort() {
+        let rule = shared_rule("headings/h1-missing").expect("geteilte Kennung");
+        let finding = Finding::best_practice("headings/h1-missing", "keine h1");
+        assert!(finding.is_best_practice());
+        let doc = build_document(&seite_mit_koerper(vec![]), &AXTree::new()).unwrap();
         let mut r = WcagResults::new();
-        for id in ["viz/text-missing", "headings/h1-missing"] {
-            r.add_violation(
-                Violation::new("1.1.1", "x", WcagLevel::A, Severity::Medium, "m", "n")
-                    .with_rule_id(id)
-                    .with_tags(vec!["best-practice".to_string()]),
-            );
-        }
-        demote_best_practice(&mut r);
-        assert_eq!(unter(&r.violations, "viz/text-missing").len(), 1);
-        assert_eq!(unter(&r.warnings, "headings/h1-missing").len(), 1);
+        r.add_violation(to_violation(&doc, &finding, rule));
+        assert!(r.violations.is_empty());
+        let hinweis = unter(&r.warnings, "headings/h1-missing");
+        assert_eq!(hinweis.len(), 1);
+        assert_eq!(hinweis[0].kind, Outcome::Review);
+        assert!(hinweis[0].tags.iter().any(|t| t == "best-practice"));
     }
 
-    /// #779: Jede geteilte Kennung außer der Darstellungskonvention wird von
-    /// `FAIL` zum Hinweis herabgestuft, wenn sie `best-practice` trägt. Ein
-    /// Filter, der nur `headings/h1-missing` kennte, fiele hier durch.
+    /// Die Kennungen, die die Bibliothek als Empfehlung führt, kennt auch
+    /// `SHARED_RULES` -- sonst fiele ein Befund still aus dem Bericht.
     #[test]
-    fn jede_geteilte_kennung_mit_best_practice_wird_herabgestuft() {
-        for rule in SHARED_RULES {
-            let mut r = WcagResults::new();
-            r.add_violation(
-                Violation::new(
-                    rule.criterion,
-                    rule.name,
-                    rule.level,
-                    Severity::Medium,
-                    "m",
-                    "n",
-                )
-                .with_rule_id(rule.id)
-                .with_tags(vec!["best-practice".to_string()]),
+    fn empfehlungen_der_bibliothek_sind_geteilte_kennungen() {
+        for rule in a11y_rules::BEST_PRACTICE_RULES {
+            assert!(
+                shared_rule(rule.id).is_some(),
+                "{} fehlt in SHARED_RULES",
+                rule.id
             );
-            demote_best_practice(&mut r);
-            let convention = CONVENTION_PREFIXES.iter().any(|p| rule.id.starts_with(p));
-            let (violations, warnings) = (
-                unter(&r.violations, rule.id).len(),
-                unter(&r.warnings, rule.id),
-            );
-            if convention {
-                assert_eq!(violations, 1, "{} bleibt Verstoß", rule.id);
-                assert!(warnings.is_empty(), "{}", rule.id);
-            } else {
-                assert_eq!(violations, 0, "{} als Verstoß geführt", rule.id);
-                assert_eq!(warnings.len(), 1, "{}", rule.id);
-                assert_eq!(warnings[0].kind, Outcome::Review, "{}", rule.id);
-            }
         }
-    }
-
-    /// Ohne Schlagwort bleibt ein Verstoß ein Verstoß, auch bei den Kennungen
-    /// der Empfehlungen: die Herabstufung folgt dem Schlagwort, nicht der Kennung.
-    #[test]
-    fn ohne_best_practice_schlagwort_bleibt_der_verstoss() {
-        let mut r = WcagResults::new();
-        r.add_violation(
-            Violation::new("1.3.1", "x", WcagLevel::A, Severity::Medium, "m", "n")
-                .with_rule_id("headings/skip-level"),
-        );
-        demote_best_practice(&mut r);
-        assert_eq!(unter(&r.violations, "headings/skip-level").len(), 1);
     }
 
     /// #779 am echten Lauf: jede Empfehlung der Bibliothek, die auf dieser
@@ -2542,10 +2464,9 @@ mod tests {
         }
         for v in r.violations.iter() {
             assert!(
-                !(v.tags.iter().any(|t| t == "best-practice")
-                    && !v.rule_id.as_deref().is_some_and(|id| {
-                        CONVENTION_PREFIXES.iter().any(|p| id.starts_with(p))
-                    })),
+                !v.rule_id
+                    .as_deref()
+                    .is_some_and(|id| a11y_rules::best_practice_rule(id).is_some()),
                 "Empfehlung als Verstoß: {:?}",
                 v.rule_id
             );
