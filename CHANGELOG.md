@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **CI:** every third-party GitHub Action in `ci.yml`, `release.yml` and `pages.yml` is pinned to the commit SHA of its current tag (tag as comment), the same way the already-pinned ones are; Dependabot keeps watching them (Refs #812).
 - **Performance:** the HTML-conformance check (`html_conform::check`) runs on a blocking thread instead of an async worker, so a slow page no longer stalls the runtime; findings and scores are unchanged (Refs #827).
 
 ### Added
