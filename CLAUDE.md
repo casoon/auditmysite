@@ -104,7 +104,11 @@ in dieser Reihenfolge:
    die manuell bewerteten Live-Seiten aus `tests/fixtures/reference_sites.json` und meldet jede,
    die ihr Band verlässt (Plan 47). Blockiert nicht automatisch: Live-Seiten ändern sich, also
    erst die Seite neu bewerten, dann das Werkzeug verdächtigen — aber jede Abweichung vor dem Tag
-   klären. **Bänder wandern mit:** Ein PR, der den Wert einer Referenzseite bewusst verschiebt
+   klären.
+   Dazu der Datenschutz-Referenzlauf (#873): `python3 scripts/privacy-reference.py live` misst
+   Precision/Recall der Befunde gegen die handgelabelten Seiten in
+   `tests/fixtures/privacy/reference_pages.json` (Labels nie ans Werkzeug anpassen; Methode in
+   `docs/privacy-findings.md`). **Bänder wandern mit:** Ein PR, der den Wert einer Referenzseite bewusst verschiebt
    (Fehlalarm behoben, Regel umgezogen, Gewichtung geändert), zieht deren Band in
    `reference_sites.json` im selben PR nach, mit Begründung in `notes`. Sonst meldet erst der
    Lauf vor dem Tag den längst behobenen Fall als Abweichung (1.8.0: bundesregierung.de und
