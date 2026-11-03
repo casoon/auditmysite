@@ -88,6 +88,22 @@ pub(crate) static DOCUMENT: crate::audit::collection::CollectorSpec =
         scoring: true,
     };
 
+/// Runs the CPU-bound `html_conform::check` off the async workers (it can take
+/// seconds on large pages) and hands the HTML back for `raw_html`.
+async fn check_blocking(
+    html: String,
+) -> (
+    String,
+    std::result::Result<html_conform::CheckReport, html_conform::CheckError>,
+) {
+    tokio::task::spawn_blocking(move || {
+        let checked = html_conform::check(&html);
+        (html, checked)
+    })
+    .await
+    .expect("html_conform::check task panicked")
+}
+
 pub async fn analyze_html_conform(
     page: &Page,
     log: &crate::audit::collection::CollectionLog,
@@ -96,7 +112,8 @@ pub async fn analyze_html_conform(
         .record(&DOCUMENT, extract_document_html(page).await)
         .into_result(&DOCUMENT)?;
 
-    let report = match html_conform::check(&html) {
+    let (html, checked) = check_blocking(html).await;
+    let report = match checked {
         Ok(report) => report,
         Err(e) => {
             warn!("HTML conformance not checked: {}", e);
@@ -315,6 +332,22 @@ pub(crate) fn counter_cases() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn check_blocking_matches_direct_check_and_returns_html() {
+        let html = "<!doctype html><html><head><title>t</title></head><body><p>x<div>y</div><img></body></html>"
+            .to_string();
+        let direct = html_conform::check(&html).expect("check runs");
+        let (back, via_task) = check_blocking(html.clone()).await;
+        let via_task = via_task.expect("check runs");
+        assert_eq!(back, html);
+        assert_eq!(via_task.findings.len(), direct.findings.len());
+        assert!(!direct.findings.is_empty());
+        for (a, b) in via_task.findings.iter().zip(direct.findings.iter()) {
+            assert_eq!(a.rule_id, b.rule_id);
+            assert_eq!(a.message, b.message);
+        }
+    }
 
     fn finding(rule: &str, severity: &str, message: &str) -> HtmlConformFinding {
         HtmlConformFinding {

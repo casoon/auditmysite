@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Performance:** the HTML-conformance check (`html_conform::check`) runs on a blocking thread instead of an async worker, so a slow page no longer stalls the runtime; findings and scores are unchanged (Refs #827).
+
 ### Added
 
 - **CI:** new job `macos-managed-browser-smoke` installs Chrome for Testing on macOS arm64 with `auditmysite browser ensure --yes` (system browsers moved away, temp `HOME`), audits a local fixture with it and checks `measurement_profile.browser` (`chrome_for_testing`, origin `managed`, installed version). Upstream publishes no checksums, so only TLS and archive structure are verified (Refs #855, #856).
