@@ -133,6 +133,7 @@ pub mod network;
 pub mod output;
 pub mod patterns;
 pub mod performance;
+pub mod privacy;
 pub mod registry;
 pub mod screen_reader;
 pub mod security;

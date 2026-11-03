@@ -455,6 +455,7 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::dark_mode::FORCED_COLORS_LAYOUT,
     &crate::dark_mode::CONTRAST,
     &crate::dark_mode::LINK_INDISTINCT,
+    &crate::privacy::FIRST_VISIT,
     &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
     &crate::audit::capture_collectors::AX_TREE,
     &crate::audit::capture_collectors::CONSENT_BANNER,
@@ -738,6 +739,10 @@ mod tests {
             (
                 "ai_transparency.image_fetches",
                 crate::ai_transparency::counter_cases,
+            ),
+            (
+                "privacy.first_visit",
+                crate::privacy::first_visit::tests::counter_cases,
             ),
             ("security.headers", crate::security::counter_cases),
             ("security.source_maps", crate::security::counter_cases),

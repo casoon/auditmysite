@@ -26,6 +26,7 @@ const ANALYSIS_MODULES: &[&str] = &[
     "network",
     "patterns",
     "performance",
+    "privacy",
     "screen_reader",
     "security",
     "seo",

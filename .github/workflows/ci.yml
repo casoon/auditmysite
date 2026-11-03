@@ -356,6 +356,13 @@ jobs:
           CI: "true"
         run: cargo test --test capture_collectors_browser -- --ignored --nocapture --test-threads=1
 
+      - name: Privacy first-visit capture (browser)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test privacy_first_visit_browser -- --ignored --nocapture --test-threads=1
+
       # Browser selection, failover and pool reliability on the runner's real Chrome
       # (#854, #856). The detection test counts processes and profile directories of
       # its own process, so it must not share a process with other tests.
