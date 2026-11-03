@@ -7029,9 +7029,9 @@ dependencies = [
 
 [[package]]
 name = "web-checks"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad11a0a719075915a8542e14919dd1c3a8f68335496294be4329b06a239a1e28"
+checksum = "1f14482b21fd70cfe7b0a811cd008e879a254ec39af7c84a079b4ee3aa06efd5"
 dependencies = [
  "serde",
  "serde_json",

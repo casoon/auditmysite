@@ -57,6 +57,7 @@ fn expected() -> Vec<Expected> {
         exp(D::Commerce, "commerce.missing_price", 1),
         exp(D::AiTransparency, "ai_transparency.unlabeled_ai_image", 1),
         exp(D::NetworkDns, "network_dns.no_dmarc", 1),
+        exp(D::Privacy, "privacy.tracking_request_before_consent", 1),
         exp(
             D::AccessibilityJourney,
             "a11y_journey.skip_link_focus_not_moved",
@@ -90,7 +91,8 @@ fn injected(domain: FindingDomain) -> bool {
         | D::Journey
         | D::Commerce
         | D::AiTransparency
-        | D::NetworkDns => true,
+        | D::NetworkDns
+        | D::Privacy => true,
     }
 }
 
@@ -114,6 +116,7 @@ const ALL_DOMAINS: &[FindingDomain] = &[
     FindingDomain::Commerce,
     FindingDomain::AiTransparency,
     FindingDomain::NetworkDns,
+    FindingDomain::Privacy,
 ];
 
 fn report_with_every_domain() -> AuditReport {
@@ -384,6 +387,9 @@ fn report_with_every_domain() -> AuditReport {
         }],
         ..Default::default()
     });
+
+    // ── Privacy ───────────────────────────────────────────────────────────
+    report.experience.privacy = Some(crate::privacy::fixtures::tracked());
 
     // ── Accessibility journey (interactive) ───────────────────────────────
     report.interactive_findings.push(InteractiveFinding {

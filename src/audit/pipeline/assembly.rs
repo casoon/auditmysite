@@ -447,7 +447,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         check_ssr_content: config.check_ssr_content,
         ai_transparency: config.check_ai_transparency,
         dns_check: config.check_dns,
-        privacy: config.check_privacy,
+        privacy_check: config.check_privacy,
         ..Default::default()
     };
     let requested_subchecks = extra_checks.requested_subchecks();
