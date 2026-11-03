@@ -494,6 +494,134 @@ jobs:
   # no push/pull_request trigger), so the macOS/Windows minutes are spent on
   # release tags and manual dispatch; release.yml reaches it through
   # `quality-gates`, which `build` needs.
+  # Chrome for Testing on macOS arm64 through our own transactional installer.
+  # The native smoke below uses the runner's Google Chrome there (the
+  # setup-chrome unpack is a bare `Contents` folder that cannot start), so this
+  # is the only leg that runs the managed install on macOS. The system browsers
+  # are moved away first: `browser ensure` installs only when none is found, and
+  # a system Chrome would also outrank the managed one in resolution. HOME is a
+  # temp dir for ensure and the audit, so the managed dir is empty and
+  # throwaway. Upstream publishes no checksum: only TLS to the two fixed hosts
+  # and the archive structure are verified (docs/chrome-dependency.md).
+  macos-managed-browser-smoke:
+    name: Managed Chrome for Testing (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-15-cargo-native-smoke-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --no-default-features
+
+      - name: Remove system browsers
+        run: |
+          for app in "Google Chrome" "Microsoft Edge" "Chromium" "Brave Browser"; do
+            if [ -d "/Applications/$app.app" ]; then
+              sudo mv "/Applications/$app.app" "$RUNNER_TEMP/$app.app"
+            fi
+          done
+          ls /Applications
+
+      - name: Install Chrome for Testing with browser ensure
+        id: ensure
+        timeout-minutes: 15
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          mkdir -p "$HOME"
+          out="$(target/debug/auditmysite browser ensure --yes | tee /dev/stderr)"
+          path="$(printf '%s\n' "$out" | sed -n 's/^Installed browser: //p')"
+          if [ -z "$path" ]; then
+            echo "::error::ensure did not report an installation (a browser was found, or nothing was installed)"
+            exit 1
+          fi
+          echo "Managed binary: $path"
+          version="$("$path" --version)"
+          echo "$version"
+          {
+            echo "path=$path"
+            echo "number=$(echo "$version" | grep -Eo '[0-9]+(\.[0-9]+){3}' | head -n 1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: CLI audit of a local fixture with the managed browser
+        timeout-minutes: 15
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory tests/fixtures >server.log 2>server.err.log &
+          server=$!
+          ready=0
+          for _ in $(seq 1 30); do
+            if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/perfect.html', timeout=2)" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::fixture server did not answer on 127.0.0.1:8765 within 30 s"
+            cat server.log server.err.log
+            exit 1
+          fi
+          status=0
+          target/debug/auditmysite http://127.0.0.1:8765/perfect.html --format json --output smoke-report.json || status=$?
+          kill "$server" || true
+          echo "audit exit code: $status"
+          [ "$status" -le 1 ] || cat server.log server.err.log
+          [ "$status" -le 1 ]
+
+      - name: Check the measurement profile names the managed browser
+        env:
+          EXPECT_VERSION: ${{ steps.ensure.outputs.number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          def find(node, key):
+              if isinstance(node, dict):
+                  if key in node:
+                      return node[key]
+                  for value in node.values():
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              elif isinstance(node, list):
+                  for value in node:
+                      found = find(value, key)
+                      if found is not None:
+                          return found
+              return None
+
+          report = json.load(open("smoke-report.json", encoding="utf-8"))
+          browser = (find(report, "measurement_profile") or {}).get("browser")
+          print(json.dumps(browser, indent=2))
+          if not browser:
+              sys.exit("measurement_profile.browser is missing")
+          problems = []
+          for key, want in (("product", "chrome_for_testing"), ("origin", "managed"),
+                            ("os", "macos"), ("arch", "aarch64")):
+              if browser.get(key) != want:
+                  problems.append(f"{key} {browser.get(key)} != {want}")
+          if browser.get("failover"):
+              problems.append("failover happened")
+          reported = ".".join((browser.get("version") or "").split(".")[:3])
+          expected = ".".join(os.environ["EXPECT_VERSION"].split(".")[:3])
+          if not reported or reported != expected:
+              problems.append(f"version {browser.get('version')} != installed {os.environ['EXPECT_VERSION']}")
+          if problems:
+              sys.exit("; ".join(problems))
+          PY
+
   native-browser-smoke:
     name: Native browser smoke (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}

@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **CI:** new job `macos-managed-browser-smoke` installs Chrome for Testing on macOS arm64 with `auditmysite browser ensure --yes` (system browsers moved away, temp `HOME`), audits a local fixture with it and checks `measurement_profile.browser` (`chrome_for_testing`, origin `managed`, installed version). Upstream publishes no checksums, so only TLS and archive structure are verified (Refs #855, #856).
 - **CI:** the full QA runs the real-Chrome browser detection, failover and pool tests (#854, #856) on the Ubuntu runner.
 - **CI:** the native smoke CLI audit starts its fixture server detached (PowerShell `Start-Process` on Windows), waits until it answers (30 s bound) and prints the server log on failure; the Windows leg had intermittently seen `ERR_CONNECTION_REFUSED` (Refs #856).
 - **CI:** new full-QA job `native-browser-smoke` (and thereby a release gate) runs the browser detection and pool tests plus a CLI audit of a local fixture natively on macOS arm64, Linux x64, Linux arm64 and Windows x64 (Edge), checks that `measurement_profile.browser` names that platform and browser, and writes OS/arch, browser version and commit to the job summary (Refs #854, #856). The process helpers of the two test files now also run on Windows.
