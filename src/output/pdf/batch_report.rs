@@ -14,6 +14,7 @@ mod interactive;
 mod management;
 mod overview;
 mod portfolio;
+mod privacy;
 mod seo;
 
 use actions::*;
@@ -23,6 +24,7 @@ use interactive::*;
 use management::*;
 use overview::*;
 use portfolio::*;
+use privacy::render_batch_privacy;
 use seo::*;
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
@@ -115,6 +117,7 @@ fn build_batch_report(
 
     builder = render_batch_top_issues(builder, &pres, &i18n);
     builder = render_batch_commerce(builder, batch, &i18n);
+    builder = render_batch_privacy(builder, batch, &i18n);
     builder = render_batch_action_plan_section(builder, &pres, &i18n);
     builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
     builder = render_batch_seo_section(builder, &pres, &i18n);

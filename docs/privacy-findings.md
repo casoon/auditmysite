@@ -52,3 +52,13 @@ request leaves the browser context for this check.
 Server-side tagging and first-party proxies (the tracker sits on the page's own host), fingerprinting
 without a request, consent platforms that leave no trace before interaction and are not in the list,
 and anything behind a click. A first-party subdomain tracker is contacted but not classified.
+
+## In the report (PDF)
+
+Single page: a chapter lists every check with its result (including `not_measured` and the reason),
+the providers contacted on the first visit (category, stated seat, request count), and the
+indicators with confidence class and evidence (request URLs without query, cookie / storage key
+names). Batch: counts over the pages whose first visit was measured (indicators and recurring
+providers by affected pages, distribution of check results, one compact row per page). A page
+whose capture failed is listed as not measured and sits outside every denominator. The text is
+localized in the PDF layer only; the JSON stays canonical English and unchanged.

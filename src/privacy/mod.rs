@@ -7,8 +7,13 @@
 //! observations with a confidence class - never a compliance score or a
 //! legal verdict. The report (#872) builds on [`PrivacyAnalysis`].
 
+pub mod aggregate;
 pub mod findings;
 pub mod first_visit;
+#[cfg(test)]
+pub(crate) mod fixtures;
+
+pub use aggregate::{aggregate_privacy, PrivacyBatchAggregate};
 
 pub use first_visit::{
     collect_first_visit, CaptureProfile, CapturedCookie, CapturedLink, CapturedRequest,

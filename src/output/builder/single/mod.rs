@@ -980,6 +980,7 @@ mod tests {
         ));
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
+        report.experience.privacy = Some(crate::privacy::fixtures::tracked());
         report.discoverability.source_quality = Some(sq);
         report.discoverability.ai_visibility = Some(av);
         report.discoverability.content_visibility = Some(
