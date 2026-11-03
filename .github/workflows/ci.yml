@@ -123,7 +123,7 @@ jobs:
 
       - name: Upload visual regression debug artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pdf-visual-debug
           path: target/pdf-visual-debug/
@@ -267,7 +267,7 @@ jobs:
           --output-dir coverage/
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage/cobertura.xml
           fail_ci_if_error: false
@@ -293,7 +293,7 @@ jobs:
 
       - name: Install Chrome
         id: setup-chrome
-        uses: browser-actions/setup-chrome@v2
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
 
       - name: Run browser integration tests
         env:
@@ -449,7 +449,7 @@ jobs:
 
       - name: Install Chrome
         id: setup-chrome
-        uses: browser-actions/setup-chrome@v2
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
 
       - name: Detection corpus (WCAG)
         env:
@@ -484,7 +484,7 @@ jobs:
 
       - name: Install Chrome
         id: setup-chrome
-        uses: browser-actions/setup-chrome@v2
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
 
       - name: Targeted detector mutations
         env:
