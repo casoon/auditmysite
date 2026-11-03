@@ -489,7 +489,7 @@ impl BrowserManager {
 
     /// Create a new page (tab) in the browser's default context.
     pub async fn new_page(&self) -> Result<Page> {
-        self.new_page_in(None).await
+        self.new_page_in(None, true).await
     }
 
     /// Create a page in a browser context of its own: no cookies, storage or
@@ -497,6 +497,19 @@ impl BrowserManager {
     /// Dispose the context with [`Self::dispose_context`] when the page is
     /// done.
     pub async fn new_isolated_page(&self) -> Result<(Page, BrowserContextId)> {
+        self.isolated_page(true).await
+    }
+
+    /// Like [`Self::new_isolated_page`], but the visitor sends no
+    /// Do-Not-Track / Global Privacy Control signal: the page behaves as for
+    /// an ordinary first visit. The privacy first-visit capture needs this,
+    /// because a site that honours the signal would hide the trackers a
+    /// regular visitor receives.
+    pub async fn new_first_visit_page(&self) -> Result<(Page, BrowserContextId)> {
+        self.isolated_page(false).await
+    }
+
+    async fn isolated_page(&self, privacy_signals: bool) -> Result<(Page, BrowserContextId)> {
         let context = self
             .browser
             .create_browser_context(CreateBrowserContextParams::default())
@@ -504,13 +517,35 @@ impl BrowserManager {
             .map_err(|e| AuditError::BrowserLaunchFailed {
                 reason: format!("Failed to create isolated browser context: {e}"),
             })?;
-        match self.new_page_in(Some(context.clone())).await {
+        match self
+            .new_page_in(Some(context.clone()), privacy_signals)
+            .await
+        {
             Ok(page) => Ok((page, context)),
             Err(e) => {
                 self.dispose_context(context).await;
                 Err(e)
             }
         }
+    }
+
+    /// Every cookie a browser context holds, whatever host set it. Unlike
+    /// `Network.getCookies` of a page, this is not limited to the cookies that
+    /// would be sent to the page's own URL.
+    pub async fn context_cookies(
+        &self,
+        context: &BrowserContextId,
+    ) -> Result<Vec<chromiumoxide::cdp::browser_protocol::network::Cookie>> {
+        use chromiumoxide::cdp::browser_protocol::storage::GetCookiesParams;
+        let params = GetCookiesParams {
+            browser_context_id: Some(context.clone()),
+        };
+        let response = self
+            .browser
+            .execute(params)
+            .await
+            .map_err(|e| AuditError::CdpError(format!("Storage.getCookies: {e}")))?;
+        Ok(response.result.cookies.clone())
     }
 
     /// Drop a context created by [`Self::new_isolated_page`] with everything
@@ -537,7 +572,11 @@ impl BrowserManager {
         Ok(response.result.browser_context_ids.len())
     }
 
-    async fn new_page_in(&self, context: Option<BrowserContextId>) -> Result<Page> {
+    async fn new_page_in(
+        &self,
+        context: Option<BrowserContextId>,
+        privacy_signals: bool,
+    ) -> Result<Page> {
         use chromiumoxide::cdp::browser_protocol::emulation::SetFocusEmulationEnabledParams;
         use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
@@ -582,33 +621,35 @@ impl BrowserManager {
             ))
             .await;
 
-        // Send Do-Not-Track / Global Privacy Control on every request, and
-        // expose the matching JS-visible navigator properties (headers alone
-        // aren't visible to page scripts that check `navigator.doNotTrack`/
-        // `navigator.globalPrivacyControl` instead of the request headers).
-        // This is a real, non-blocking privacy signal sent by actual
-        // browsers (Firefox, Brave) -- it identifies the visit as
-        // opted-out-of-tracking, not as a bot, so it carries none of the
-        // detection/blocking risk a custom "bot" User-Agent would. Best
-        // effort by design: GA4/Hotjar-style tools mostly ignore it, but
-        // GPC is increasingly honored by CMPs under US state privacy law
-        // (CPRA/Colorado/Connecticut) and by consent-mode-aware setups. An
-        // audit visit shouldn't pollute the site owner's real analytics
-        // regardless, so this is unconditional rather than opt-in.
-        let _ = page
-            .execute(SetExtraHttpHeadersParams::new(Headers::new(
-                serde_json::json!({
-                    "DNT": "1",
-                    "Sec-GPC": "1",
-                }),
-            )))
-            .await;
-        let _ = page
-            .execute(AddScriptToEvaluateOnNewDocumentParams::new(
-                "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});\
-                 Object.defineProperty(navigator,'globalPrivacyControl',{get:()=>true});",
-            ))
-            .await;
+        if privacy_signals {
+            // Send Do-Not-Track / Global Privacy Control on every request, and
+            // expose the matching JS-visible navigator properties (headers alone
+            // aren't visible to page scripts that check `navigator.doNotTrack`/
+            // `navigator.globalPrivacyControl` instead of the request headers).
+            // This is a real, non-blocking privacy signal sent by actual
+            // browsers (Firefox, Brave) -- it identifies the visit as
+            // opted-out-of-tracking, not as a bot, so it carries none of the
+            // detection/blocking risk a custom "bot" User-Agent would. Best
+            // effort by design: GA4/Hotjar-style tools mostly ignore it, but
+            // GPC is increasingly honored by CMPs under US state privacy law
+            // (CPRA/Colorado/Connecticut) and by consent-mode-aware setups. An
+            // audit visit shouldn't pollute the site owner's real analytics
+            // regardless, so this is unconditional rather than opt-in.
+            let _ = page
+                .execute(SetExtraHttpHeadersParams::new(Headers::new(
+                    serde_json::json!({
+                        "DNT": "1",
+                        "Sec-GPC": "1",
+                    }),
+                )))
+                .await;
+            let _ = page
+                .execute(AddScriptToEvaluateOnNewDocumentParams::new(
+                    "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});\
+                     Object.defineProperty(navigator,'globalPrivacyControl',{get:()=>true});",
+                ))
+                .await;
+        }
 
         Ok(page)
     }

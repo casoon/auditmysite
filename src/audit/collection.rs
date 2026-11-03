@@ -455,6 +455,7 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::dark_mode::FORCED_COLORS_LAYOUT,
     &crate::dark_mode::CONTRAST,
     &crate::dark_mode::LINK_INDISTINCT,
+    &crate::privacy::FIRST_VISIT,
     &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
     &crate::audit::capture_collectors::AX_TREE,
     &crate::audit::capture_collectors::CONSENT_BANNER,

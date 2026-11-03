@@ -256,6 +256,9 @@ src/
 │   ├── image_provenance.rs # cfg(feature = "ai-transparency") — fetch + c2pa parsing
 │   └── extract.js
 │
+├── privacy/             # Privacy indicators (tracking #875); collection only so far (#870)
+│   └── first_visit.rs   # First-visit capture in a clean browser context: requests, cookies, storage keys (raw, EN, no values); collector `privacy.first_visit`
+│
 ├── network/             # Opt-in, score-neutral, host-scoped network checks (#545)
 │   └── dns/             # DNS configuration: CAA, DNSSEC (best-effort), SPF/MX
 │       └── mod.rs, module.rs # hickory-resolver queries, once per unique host per run
