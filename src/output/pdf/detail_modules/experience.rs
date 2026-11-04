@@ -145,7 +145,12 @@ pub(in crate::output::pdf) fn render_journey(
         });
         let (problem, impact, recommendation) =
             crate::journey::journey_friction_text(fp.kind, &fp.values, en);
-        let desc = format!("[{}] {} — {}", fp.step, impact, recommendation);
+        let desc = format!(
+            "[{}] {} — {}",
+            crate::journey::journey_step_name(&fp.step, en),
+            impact,
+            recommendation
+        );
         builder = builder.add_component(Finding::new(&problem, sev, &desc));
     }
     if journey.friction_points.len() > 3 {

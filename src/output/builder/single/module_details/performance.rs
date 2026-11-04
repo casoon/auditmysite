@@ -28,14 +28,7 @@ fn rate_threshold(value: f64, good_max: f64, poor_min: f64) -> &'static str {
     }
 }
 
-fn localized_decimal(value: f64, decimals: usize, en: bool) -> String {
-    let formatted = format!("{value:.decimals$}");
-    if en {
-        formatted
-    } else {
-        formatted.replace('.', ",")
-    }
-}
+use crate::i18n::number::decimal as localized_decimal;
 
 fn localized_integer(value: i64, en: bool) -> String {
     let separator = if en { ',' } else { '.' };
@@ -82,7 +75,7 @@ pub(super) fn build_performance_details(
         if let Some(heap) = p.vitals.js_heap_size {
             additional.push((
                 "JS Heap".to_string(),
-                format!("{:.1} MB", heap as f64 / 1_048_576.0),
+                format!("{} MB", localized_decimal(heap as f64 / 1_048_576.0, 1, en)),
             ));
         }
         if let Some(ref cw) = p.content_weight {
@@ -157,33 +150,59 @@ pub(super) fn build_performance_details(
             if rb.has_blocking() || rb.third_party_bytes > 100_000 {
                 has_render_blocking = true;
                 render_blocking_metrics.push((
-                    "Blocking Scripts".to_string(),
+                    if en {
+                        "Blocking Scripts"
+                    } else {
+                        "Blockierende Skripte"
+                    }
+                    .to_string(),
                     rb.blocking_scripts.len().to_string(),
                 ));
                 render_blocking_metrics.push((
-                    "Blocking CSS".to_string(),
+                    if en {
+                        "Blocking CSS"
+                    } else {
+                        "Blockierendes CSS"
+                    }
+                    .to_string(),
                     rb.blocking_css.len().to_string(),
                 ));
                 if rb.blocking_transfer_bytes > 0 {
                     render_blocking_metrics.push((
-                        "Blocking Transfer".to_string(),
-                        format!("{:.1} KB", rb.blocking_transfer_bytes as f64 / 1024.0),
+                        if en {
+                            "Blocking Transfer"
+                        } else {
+                            "Blockierender Transfer"
+                        }
+                        .to_string(),
+                        format!(
+                            "{} KB",
+                            localized_decimal(rb.blocking_transfer_bytes as f64 / 1024.0, 1, en)
+                        ),
                     ));
                 }
                 if rb.third_party_bytes > 0 {
                     render_blocking_metrics.push((
-                        "Third-Party".to_string(),
+                        if en { "Third-Party" } else { "Drittanbieter" }.to_string(),
                         format!(
-                            "{:.1} KB ({} Domains)",
-                            rb.third_party_bytes as f64 / 1024.0,
+                            "{} KB ({} Domains)",
+                            localized_decimal(rb.third_party_bytes as f64 / 1024.0, 1, en),
                             rb.third_party_origin_count
                         ),
                     ));
                 }
                 if rb.first_party_bytes > 0 {
                     render_blocking_metrics.push((
-                        "First-Party".to_string(),
-                        format!("{:.1} KB", rb.first_party_bytes as f64 / 1024.0),
+                        if en {
+                            "First-Party"
+                        } else {
+                            "Eigene Ressourcen"
+                        }
+                        .to_string(),
+                        format!(
+                            "{} KB",
+                            localized_decimal(rb.first_party_bytes as f64 / 1024.0, 1, en)
+                        ),
                     ));
                 }
                 // Re-derive localized suggestions from the structured counts
@@ -276,15 +295,18 @@ pub(super) fn build_performance_details(
 
             if let Some(ref cw) = p.content_weight {
                 if size_cap == min_computed && size_cap < 100 {
-                    let mb_str = format!("{:.1}", cw.total_bytes as f64 / 1_000_000.0);
+                    let mb_str = localized_decimal(cw.total_bytes as f64 / 1_000_000.0, 1, en);
                     capping_warnings.push(i18n.t_args(
                         "perf-capped-size",
                         &[("size", mb_str), ("cap", cap.to_string())],
                     ));
                 }
                 if js_cap == min_computed && js_cap < 100 {
-                    let mb_str =
-                        format!("{:.1}", cw.breakdown.javascript.bytes as f64 / 1_000_000.0);
+                    let mb_str = localized_decimal(
+                        cw.breakdown.javascript.bytes as f64 / 1_000_000.0,
+                        1,
+                        en,
+                    );
                     capping_warnings.push(i18n.t_args(
                         "perf-capped-js",
                         &[("size", mb_str), ("cap", cap.to_string())],
@@ -332,7 +354,7 @@ pub(super) fn build_performance_details(
                     .unwrap_or_else(|| "\u{2014}".to_string()),
                 cls: t
                     .cls
-                    .map(|v| format!("{:.3}", v))
+                    .map(|v| localized_decimal(v, 3, en))
                     .unwrap_or_else(|| "\u{2014}".to_string()),
                 score: t.score,
             })
@@ -345,7 +367,7 @@ pub(super) fn build_performance_details(
             .take(5)
             .map(|s| {
                 (
-                    format!("{:.4}", s.value),
+                    localized_decimal(s.value, 4, en),
                     format!("{:.0}ms", s.start_time_ms),
                     s.sources
                         .first()
@@ -398,7 +420,10 @@ pub(super) fn build_performance_details(
             .map(|cc| CriticalChainPresentation {
                 max_depth: cc.max_depth,
                 critical_path_ms: format!("{:.0}ms", cc.critical_path_ms),
-                critical_path_kb: format!("{:.1} KB", cc.critical_path_bytes as f64 / 1024.0),
+                critical_path_kb: format!(
+                    "{} KB",
+                    localized_decimal(cc.critical_path_bytes as f64 / 1024.0, 1, en)
+                ),
                 total_requests: cc.total_requests as usize,
             });
 

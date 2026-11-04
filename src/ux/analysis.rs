@@ -280,13 +280,18 @@ fn ux_issue_severity(kind: UxIssueKind, values: &UxIssueValues) -> &'static str 
 }
 
 /// Localized dimension name for a [`UxDimensionKind`].
-pub fn ux_dimension_name(kind: UxDimensionKind, _en: bool) -> &'static str {
-    match kind {
-        UxDimensionKind::CtaClarity => "CTA Clarity",
-        UxDimensionKind::VisualHierarchy => "Visual Hierarchy",
-        UxDimensionKind::ContentClarity => "Content Clarity",
-        UxDimensionKind::TrustSignals => "Trust Signals",
-        UxDimensionKind::CognitiveLoad => "Cognitive Load",
+pub fn ux_dimension_name(kind: UxDimensionKind, en: bool) -> &'static str {
+    match (kind, en) {
+        (UxDimensionKind::CtaClarity, true) => "CTA Clarity",
+        (UxDimensionKind::VisualHierarchy, true) => "Visual Hierarchy",
+        (UxDimensionKind::ContentClarity, true) => "Content Clarity",
+        (UxDimensionKind::TrustSignals, true) => "Trust Signals",
+        (UxDimensionKind::CognitiveLoad, true) => "Cognitive Load",
+        (UxDimensionKind::CtaClarity, false) => "Klarheit der Handlungsaufforderungen",
+        (UxDimensionKind::VisualHierarchy, false) => "Visuelle Hierarchie",
+        (UxDimensionKind::ContentClarity, false) => "Inhaltsklarheit",
+        (UxDimensionKind::TrustSignals, false) => "Vertrauenssignale",
+        (UxDimensionKind::CognitiveLoad, false) => "Kognitive Last",
     }
 }
 
@@ -1398,5 +1403,29 @@ mod tests {
         let with_exception = ux_dimension_summary(UxDimensionKind::CtaClarity, 91, false, true);
         assert_ne!(plain, with_exception);
         assert!(with_exception.starts_with(&plain));
+    }
+}
+
+#[cfg(test)]
+mod dimension_name_tests {
+    use super::*;
+
+    /// The JSON keeps the English names; the German report shows German ones (#902).
+    #[test]
+    fn dimension_names_are_german_in_a_german_run_and_english_in_json() {
+        use UxDimensionKind::*;
+        for kind in [
+            CtaClarity,
+            VisualHierarchy,
+            ContentClarity,
+            TrustSignals,
+            CognitiveLoad,
+        ] {
+            let en = ux_dimension_name(kind, true);
+            let de = ux_dimension_name(kind, false);
+            assert_ne!(en, de);
+            assert!(!en.chars().any(|c| "äöüÄÖÜß".contains(c)), "{en}");
+        }
+        assert_eq!(ux_dimension_name(CtaClarity, true), "CTA Clarity");
     }
 }

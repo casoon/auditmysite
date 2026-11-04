@@ -1470,7 +1470,7 @@ fn test_i18n_de_returns_german_labels() {
     assert_eq!(i18n.t("finding-elements"), "Elemente");
     assert_eq!(i18n.t("finding-occurrences"), "Vorkommen");
     assert_eq!(i18n.t("finding-recommendation"), "Empfehlung");
-    assert_eq!(i18n.t("mobile-touch-targets"), "Touch Targets");
+    assert_eq!(i18n.t("mobile-touch-targets"), "Touch-Targets");
     assert_eq!(i18n.t("security-score-card"), "Security Score");
     assert_eq!(i18n.t("seo-serp-readiness"), "SERP-Bereitschaft");
 }

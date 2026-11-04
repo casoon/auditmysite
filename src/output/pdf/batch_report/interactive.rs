@@ -31,6 +31,14 @@ pub(super) fn translate_interactive_category(category: &str, en: bool) -> String
         ("MenuJourney", false) => "Menü / Navigation",
         ("TabsJourney", true) => "Tab Widget",
         ("TabsJourney", false) => "Tab-Widget",
+        ("LinkText", true) => "Link Text",
+        ("LinkText", false) => "Linktext",
+        ("Landmark", true) => "Landmark",
+        ("Landmark", false) => "Landmarke",
+        ("MediaControls", true) => "Media Controls",
+        ("MediaControls", false) => "Medienbedienung",
+        ("HeadingOutline", true) => "Heading Outline",
+        ("HeadingOutline", false) => "Überschriftengliederung",
         _ => category,
     }
     .to_string()

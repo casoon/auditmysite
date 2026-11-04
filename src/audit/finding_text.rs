@@ -83,6 +83,14 @@ mod tests {
         "not served",
         "without",
         "images",
+        // html-conform (#902)
+        "unexpected",
+        "Unexpected",
+        "xhtml",
+        "is unnecessary",
+        "lacks heading",
+        "invalid value",
+        "must have",
     ];
 
     fn report() -> AuditReport {
@@ -111,6 +119,48 @@ mod tests {
         seo.technical.issues =
             crate::seo::technical::collect_technical_issues(&seo.technical, true);
         report.discoverability.seo = Some(seo);
+        report.html_conform = Some(crate::html_conform::HtmlConformAnalysis {
+            score: 80,
+            checked: true,
+            error_count: 3,
+            warning_count: 1,
+            info_count: 0,
+            distinct_defect_count: 4,
+            findings: [
+                (
+                    "schema.html5",
+                    "error",
+                    "unexpected element `{http://www.w3.org/1999/xhtml}span` at 190:12271",
+                ),
+                (
+                    "schema.html5",
+                    "error",
+                    "invalid value `search` for attribute `type` at 281:508",
+                ),
+                (
+                    "assertion.roles.unnecessary-list",
+                    "warning",
+                    "The \"list\" role is unnecessary for this element.",
+                ),
+                (
+                    "assertion.elements.img-missing-alt",
+                    "error",
+                    "An img element must have an alt attribute, except under certain conditions.",
+                ),
+            ]
+            .into_iter()
+            .map(
+                |(rule_id, severity, message)| crate::html_conform::HtmlConformFinding {
+                    rule_id: rule_id.to_string(),
+                    severity: severity.to_string(),
+                    message: message.to_string(),
+                    location: Some("190:12271".to_string()),
+                    byte_offset: None,
+                },
+            )
+            .collect(),
+            raw_html: None,
+        });
         report
     }
 
@@ -168,6 +218,39 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The validator's parser noise stays in the JSON text and is gone from
+    /// the German one (#902).
+    #[test]
+    fn html_conform_messages_are_readable_german_without_parser_noise() {
+        let mut findings = domain_findings();
+        let stored: Vec<String> = findings
+            .iter()
+            .filter(|f| f.rule_id.starts_with("html_conform."))
+            .flat_map(|f| f.occurrences.iter().map(|o| o.message.clone()))
+            .collect();
+        assert!(stored
+            .iter()
+            .any(|m| m.contains("{http://www.w3.org/1999/xhtml}")));
+        localize_domain_texts(&mut findings, false);
+        for finding in findings
+            .iter()
+            .filter(|f| f.rule_id.starts_with("html_conform."))
+        {
+            for o in &finding.occurrences {
+                assert!(!o.message.contains("xhtml"), "{}", o.message);
+                assert!(!o.message.contains("12271"), "{}", o.message);
+            }
+        }
+        let schema = findings
+            .iter()
+            .find(|f| f.rule_id == "html_conform.schema.html5")
+            .unwrap();
+        assert!(schema
+            .occurrences
+            .iter()
+            .any(|o| o.message == "Unerwartetes Element <span> an dieser Stelle."));
     }
 
     #[test]

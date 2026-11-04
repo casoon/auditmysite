@@ -28,7 +28,7 @@ pub(super) fn build_batch_quick_actions(pres: &BatchPresentation, _i18n: &I18n) 
         } else {
             ""
         };
-        actions.push(format!("{}{}", item.action, scope));
+        actions.push(format!("{}{}", item.full_text(), scope));
     }
 
     // Fallback from top issues
@@ -93,7 +93,7 @@ pub(super) fn render_batch_action_plan_enhanced(
                 scope_component
             };
             table = table.add_row(vec![
-                item.action.clone(),
+                item.full_text(),
                 effort_label_i18n(item.effort, i18n),
                 scope.to_string(),
                 role_label_i18n(item.role, i18n),
@@ -164,7 +164,7 @@ pub(super) fn render_next_steps_batch(
         } else {
             scope_component
         };
-        steps.push((item.action.clone(), scope));
+        steps.push((item.full_text(), scope));
     }
 
     // Fallback from medium_term
@@ -173,7 +173,7 @@ pub(super) fn render_next_steps_batch(
             if steps.len() >= 3 {
                 break;
             }
-            steps.push((item.action.clone(), scope_component));
+            steps.push((item.full_text(), scope_component));
         }
     }
 

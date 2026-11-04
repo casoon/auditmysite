@@ -401,40 +401,53 @@ pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
         )
     });
 
-    if audit.has_wildcard_disallow_all {
-        if en {
-            "Everything blocked (Disallow: *)".to_string()
-        } else {
-            "Alles gesperrt (Disallow: *)".to_string()
-        }
+    let index = if audit.has_wildcard_disallow_all {
+        0
     } else if audit.blocks_ai_citation {
-        if en {
-            "AI fully blocked".to_string()
-        } else {
-            "KI vollständig blockiert".to_string()
-        }
+        1
     } else if blocks_ai_mixed && audit.blocks_ai_training {
-        if en {
-            "AI training blocked (conservative)".to_string()
-        } else {
-            "KI-Training blockiert (konservativ)".to_string()
-        }
+        2
     } else if audit.blocks_ai_training {
-        if en {
-            "AI training blocked, AI search allowed".to_string()
-        } else {
-            "KI-Training blockiert, KI-Suche erlaubt".to_string()
-        }
+        3
     } else if has_any_ai_rule {
-        if en {
-            "AI access open".to_string()
-        } else {
-            "KI-Zugang offen".to_string()
-        }
-    } else if en {
-        "No explicit AI rule".to_string()
+        4
     } else {
-        "Keine explizite KI-Regel".to_string()
+        5
+    };
+    let (english, german) = POLICY_LABELS[index];
+    if en { english } else { german }.to_string()
+}
+
+/// `(canonical English, German)` of every policy label, in the order
+/// [`infer_robots_policy`] tests them.
+const POLICY_LABELS: [(&str, &str); 6] = [
+    (
+        "Everything blocked (Disallow: *)",
+        "Alles gesperrt (Disallow: *)",
+    ),
+    ("AI fully blocked", "KI vollständig blockiert"),
+    (
+        "AI training blocked (conservative)",
+        "KI-Training blockiert (konservativ)",
+    ),
+    (
+        "AI training blocked, AI search allowed",
+        "KI-Training blockiert, KI-Suche erlaubt",
+    ),
+    ("AI access open", "KI-Zugang offen"),
+    ("No explicit AI rule", "Keine explizite KI-Regel"),
+];
+
+/// The policy label stored in canonical English (AI visibility copies it from
+/// the robots audit) in the requested language; any other text is returned
+/// unchanged.
+pub fn localize_policy_label(canonical: &str, en: bool) -> String {
+    match POLICY_LABELS
+        .iter()
+        .find(|(english, _)| *english == canonical)
+    {
+        Some((_, german)) if !en => (*german).to_string(),
+        _ => canonical.to_string(),
     }
 }
 
@@ -541,6 +554,24 @@ Crawl-delay: 10
         assert_eq!(
             extract_base("http://sub.example.com/"),
             "http://sub.example.com"
+        );
+    }
+}
+
+#[cfg(test)]
+mod policy_label_tests {
+    use super::*;
+
+    #[test]
+    fn every_canonical_label_has_a_german_form_without_english() {
+        for (english, german) in POLICY_LABELS {
+            assert_eq!(localize_policy_label(english, true), english);
+            assert_eq!(localize_policy_label(english, false), german);
+            assert_ne!(english, german);
+        }
+        assert_eq!(
+            localize_policy_label("something else", false),
+            "something else"
         );
     }
 }

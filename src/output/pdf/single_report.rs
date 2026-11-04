@@ -455,6 +455,16 @@ pub(super) struct TopMeasure {
     detail: String,
 }
 
+/// `rule — name`, with no dangling separator when the rule id is empty (a
+/// finding outside the WCAG engine has no criterion; #902).
+fn join_label(rule: &str, name: &str) -> String {
+    match (rule.trim().is_empty(), name.trim().is_empty()) {
+        (true, _) => name.to_string(),
+        (false, true) => rule.to_string(),
+        (false, false) => format!("{rule} — {name}"),
+    }
+}
+
 impl TopMeasure {
     fn render(&self, index: usize, extra: usize, en: bool) -> String {
         let more = match (extra, en) {
@@ -783,8 +793,10 @@ pub(super) fn render_management_page(
                 )
             } else {
                 format!(
-                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Hinzu kommen {} heuristische Barrierefreiheits-Warnung(en) und {} Stelle(n) auf dieser Seite, die von Hand zu bestätigen sind — dokumentiert, aber nicht in den Score eingerechnet. Weitere {} WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).",
-                    evidence.warnings, evidence.manual_checks, manual_only
+                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Zusätzlich dokumentiert, aber nicht in den Score eingerechnet: {} und {} auf dieser Seite zur manuellen Bestätigung. Weitere {} WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).",
+                    crate::i18n::count_text("count-heuristic-warnings", evidence.warnings as usize, false),
+                    crate::i18n::count_text("count-manual-points", evidence.manual_checks as usize, false),
+                    manual_only
                 )
             })
             .with_size("8.5pt")
@@ -1510,7 +1522,8 @@ fn render_findings_section(
                     format!("{remaining} further findings are listed in the detail cards below.")
                 } else {
                     format!(
-                        "{remaining} weitere Befunde sind in den Detailkarten unten aufgeführt."
+                        "In den Detailkarten unten aufgeführt: {}.",
+                        i18n.count("count-more-findings", remaining)
                     )
                 };
                 builder = builder.add_component(
@@ -1744,7 +1757,7 @@ fn render_appendix_section(
                     desc.push_str(&format!("\nSelektoren: {}", useful_selectors.join(", ")));
                 }
                 builder = builder.add_component(Finding::new(
-                    format!("{} — {}", v.rule, v.rule_name),
+                    join_label(&v.rule, &v.rule_name),
                     map_severity(&v.severity),
                     &desc,
                 ));
@@ -1760,7 +1773,7 @@ fn render_appendix_section(
                         crate::wcag::Severity::High => "warn",
                         _ => "neutral",
                     };
-                    ChecklistRow::new(format!("{} — {}", v.rule, v.rule_name), v.message.clone())
+                    ChecklistRow::new(join_label(&v.rule, &v.rule_name), v.message.clone())
                         .with_status(status)
                 })
                 .collect();
@@ -1846,7 +1859,11 @@ fn render_dual_viewport_summary_section(
                 super::PAGE_DESKTOP_SCREENSHOT_ASSET,
                 super::PAGE_MOBILE_SCREENSHOT_ASSET,
             )
-            .with_height(210.0),
+            .with_height(210.0)
+            .with_alt_text(
+                i18n.t("pdf-screenshot-alt-desktop"),
+                i18n.t("pdf-screenshot-alt-mobile"),
+            ),
         );
     }
 

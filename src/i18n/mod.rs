@@ -1,3 +1,5 @@
+pub mod number;
+
 use std::sync::Arc;
 
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
@@ -67,9 +69,36 @@ impl I18n {
             .to_string()
     }
 
+    /// A message whose wording depends on a count: the entry gets `$count`
+    /// and selects singular or plural with a Fluent plural selector, so
+    /// agreement ("1 Hinweis" / "2 Hinweise", "Es wurde 1" / "Es wurden 2")
+    /// lives in the locale file and never in Rust (#902).
+    pub fn count(&self, key: &str, n: usize) -> String {
+        self.t_args(key, &[("count", n as i64)])
+    }
+
     pub fn locale(&self) -> &str {
         &self.locale
     }
+}
+
+thread_local! {
+    static SHARED: [I18n; 2] = [
+        I18n::new("de").expect("German bundle parses"),
+        I18n::new("en").expect("English bundle parses"),
+    ];
+}
+
+/// [`I18n::count`] for pure text functions that take `en: bool` instead of an
+/// [`I18n`] (the `*_text(kind, values, en)` pattern of #406).
+pub fn count_text(key: &str, n: usize, en: bool) -> String {
+    SHARED.with(|bundles| bundles[usize::from(en)].count(key, n))
+}
+
+/// A plain message of the shared bundles by key, for the same pure text
+/// functions as [`count_text`].
+pub fn text(key: &str, en: bool) -> String {
+    SHARED.with(|bundles| bundles[usize::from(en)].t(key))
 }
 
 #[cfg(test)]
@@ -109,6 +138,120 @@ mod tests {
             en_only.is_empty(),
             "keys only in en/report.ftl: {en_only:?}"
         );
+    }
+
+    /// `(key, de one, de many, en one, en many)` of the shared count messages.
+    const PLURAL_CASES: &[(&str, &str, &str, &str, &str)] = &[
+        (
+            "count-occurrences-found",
+            "Es wurde 1 Vorkommen erkannt",
+            "Es wurden 3 Vorkommen erkannt",
+            "1 occurrence was found",
+            "3 occurrences were found",
+        ),
+        (
+            "count-problem-groups",
+            "1 Problemgruppe",
+            "3 Problemgruppen",
+            "1 problem group",
+            "3 problem groups",
+        ),
+        (
+            "count-more-findings",
+            "1 weiterer Befund",
+            "3 weitere Befunde",
+            "1 more finding",
+            "3 more findings",
+        ),
+        (
+            "count-notes",
+            "1 Hinweis",
+            "3 Hinweise",
+            "1 note",
+            "3 notes",
+        ),
+        (
+            "count-warnings",
+            "1 Warnung",
+            "3 Warnungen",
+            "1 warning",
+            "3 warnings",
+        ),
+        (
+            "count-h1-headings",
+            "1 H1-Überschrift",
+            "3 H1-Überschriften",
+            "1 H1 heading",
+            "3 H1 headings",
+        ),
+        (
+            "count-link-texts-repeated",
+            "1 Linktext kommt",
+            "3 Linktexte kommen",
+            "1 link text appears",
+            "3 link texts appear",
+        ),
+        (
+            "count-links-generic",
+            "1 Link trägt",
+            "3 Links tragen",
+            "1 link carries",
+            "3 links carry",
+        ),
+        (
+            "count-heuristic-warnings",
+            "1 heuristische Barrierefreiheits-Warnung",
+            "3 heuristische Barrierefreiheits-Warnungen",
+            "1 heuristic accessibility warning",
+            "3 heuristic accessibility warnings",
+        ),
+        (
+            "count-manual-points",
+            "1 Stelle",
+            "3 Stellen",
+            "1 point",
+            "3 points",
+        ),
+        (
+            "count-a11y-warnings",
+            "1 Barrierefreiheits-Warnung",
+            "3 Barrierefreiheits-Warnungen",
+            "1 accessibility warning",
+            "3 accessibility warnings",
+        ),
+        (
+            "count-manual-hints",
+            "1 manueller Prüfhinweis",
+            "3 manuelle Prüfhinweise",
+            "1 manual check",
+            "3 manual checks",
+        ),
+        (
+            "count-recommendations",
+            "1 Empfehlung",
+            "3 Empfehlungen",
+            "1 recommendation",
+            "3 recommendations",
+        ),
+        (
+            "count-images-scaled-down",
+            "1 Bild wird",
+            "3 Bilder werden",
+            "1 image is",
+            "3 images are",
+        ),
+    ];
+
+    #[test]
+    fn count_selects_singular_and_plural_in_both_locales() {
+        let de = I18n::new("de").unwrap();
+        let en = I18n::new("en").unwrap();
+        for (key, de_one, de_many, en_one, en_many) in PLURAL_CASES {
+            assert_eq!(de.count(key, 1), *de_one, "{key} de 1");
+            assert_eq!(de.count(key, 3), *de_many, "{key} de 3");
+            assert_eq!(en.count(key, 1), *en_one, "{key} en 1");
+            assert_eq!(en.count(key, 3), *en_many, "{key} en 3");
+        }
     }
 
     #[test]

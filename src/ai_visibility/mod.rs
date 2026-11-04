@@ -942,7 +942,8 @@ fn detail_explicit_ai_policy(present: bool, values: &AiSignalValues, en: bool) -
         } else {
             format!(
                 "Policy definiert: {} — {} AI-Bots adressiert",
-                inferred_policy, blocked_count
+                crate::seo::robots::localize_policy_label(inferred_policy, false),
+                blocked_count
             )
         }
     } else if has_robots {

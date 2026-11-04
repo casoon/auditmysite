@@ -290,8 +290,8 @@ pub(super) fn build_methodology(
         (
             key("Laufzeit", "Runtime"),
             format!(
-                "{:.1} {}",
-                normalized.duration_ms as f64 / 1000.0,
+                "{} {}",
+                crate::i18n::number::decimal(normalized.duration_ms as f64 / 1000.0, 1, en),
                 runtime_unit
             ),
         ),

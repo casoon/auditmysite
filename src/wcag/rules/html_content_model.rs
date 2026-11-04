@@ -62,10 +62,7 @@ pub fn check_html_content_model(html: &str, findings: &[HtmlConformFinding]) -> 
             continue;
         };
 
-        let message = format!(
-            "Invalid HTML content model inside a <{family}> element: {}",
-            finding.message
-        );
+        let message = format!("{MESSAGE_PREFIX}{family}> element: {}", finding.message);
 
         violations.push(
             Violation::new(
@@ -77,19 +74,53 @@ pub fn check_html_content_model(html: &str, findings: &[HtmlConformFinding]) -> 
                 "document",
             )
             .with_selector(family)
-            .with_fix(
-                "Fix the markup so it matches the HTML5 content model for this element \
-                 (e.g. a <dl> may only directly contain <dt>/<dd> groups, <div>, <script> or \
-                 <template>). Invalid children can be silently 'healed' by the browser when \
-                 building the accessibility tree, hiding the defect from role-based checks \
-                 while still confusing assistive technology.",
-            )
+            .with_fix(FIX_EN)
             .with_rule_id(RULE_META.axe_id)
             .with_help_url(RULE_META.help_url),
         );
     }
 
     violations
+}
+
+const MESSAGE_PREFIX: &str = "Invalid HTML content model inside a <";
+const FIX_EN: &str = "Fix the markup so it matches the HTML5 content model for this element \
+                 (e.g. a <dl> may only directly contain <dt>/<dd> groups, <div>, <script> or \
+                 <template>). Invalid children can be silently 'healed' by the browser when \
+                 building the accessibility tree, hiding the defect from role-based checks \
+                 while still confusing assistive technology.";
+const FIX_DE: &str = "Das Markup an das HTML5-Content-Model des Elements anpassen (z. B. darf ein \
+                 <dl> nur direkt <dt>/<dd>-Gruppen, <div>, <script> oder <template> enthalten). \
+                 Der Browser kann ungültige Kindelemente beim Aufbau des Accessibility-Trees still \
+                 „heilen“ — der Defekt bleibt für rollenbasierte Prüfungen unsichtbar und \
+                 verwirrt Hilfstechnologien trotzdem.";
+
+/// German texts of this rule's violations, keyed by their English message and
+/// fix, in the form the PDF looks them up (`WcagResults::localized_texts`).
+/// The message embeds the checker's message after the family; it is mapped
+/// with the same function the HTML-conformance findings use.
+pub fn german_texts(violations: &[Violation]) -> std::collections::HashMap<String, String> {
+    let mut texts = std::collections::HashMap::new();
+    for violation in violations {
+        let Some((family, finding_message)) = violation
+            .message
+            .strip_prefix(MESSAGE_PREFIX)
+            .and_then(|rest| rest.split_once("> element: "))
+        else {
+            continue;
+        };
+        texts.insert(
+            violation.message.clone(),
+            format!(
+                "Ungültiges HTML-Content-Model innerhalb eines <{family}>-Elements: {}",
+                crate::html_conform::message::message_text("schema.html5", finding_message, false)
+            ),
+        );
+    }
+    if !violations.is_empty() {
+        texts.insert(FIX_EN.to_string(), FIX_DE.to_string());
+    }
+    texts
 }
 
 /// `schema.html5` also reports attribute errors (an attribute the element
