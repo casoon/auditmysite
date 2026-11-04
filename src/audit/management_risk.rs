@@ -446,13 +446,17 @@ impl ManagementRiskKind {
                 None => {
                     if en {
                         format!(
-                            "{count} finding{} affect 10 or more elements on this page or need a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.",
-                            if *count == 1 { "" } else { "s" }
+                            "{count} finding{} {} 10 or more elements on this page or {} a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.",
+                            if *count == 1 { "" } else { "s" },
+                            if *count == 1 { "affects" } else { "affect" },
+                            if *count == 1 { "needs" } else { "need" }
                         )
                     } else {
                         format!(
-                            "{count} Befund{} betreffen 10 oder mehr Elemente dieser Seite oder erfordern eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.",
-                            if *count == 1 { "" } else { "e" }
+                            "{count} Befund{} {} 10 oder mehr Elemente dieser Seite oder {} eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.",
+                            if *count == 1 { "" } else { "e" },
+                            if *count == 1 { "betrifft" } else { "betreffen" },
+                            if *count == 1 { "erfordert" } else { "erfordern" }
                         )
                     }
                 }
