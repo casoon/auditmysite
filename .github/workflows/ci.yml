@@ -468,11 +468,18 @@ jobs:
   # rule contracts must turn its named test red. Rebuilds once per mutation,
   # so it runs for release tags only; the contract gate itself
   # (tests/rule_contract_gate.rs) runs in every `cargo test` above.
+  # One mutation takes about two minutes on a runner (v2.0.0: 60 of 127 in the
+  # old 120-minute single job), so `--shard K/N` splits the sorted list
+  # round-robin into four jobs that together cover every mutation once.
   mutation-check:
-    name: Detector mutation check
+    name: Detector mutation check ${{ matrix.shard }}/4
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -496,7 +503,7 @@ jobs:
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: python3 scripts/mutation-check.py
+        run: python3 scripts/mutation-check.py --shard ${{ matrix.shard }}/4
 
   # One real browser run per supported platform (#854, #856; design in
   # docs/browser-pool.md). A cross-build is not a runtime test: each leg
