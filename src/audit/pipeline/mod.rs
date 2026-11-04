@@ -133,10 +133,21 @@ async fn drain_redirect_chain(
 async fn collect_certificate_details(
     events: &mut Option<EventStream<EventVisibleSecurityStateChanged>>,
 ) -> Option<BrowserCertificateDetails> {
-    let event = tokio::time::timeout(
-        std::time::Duration::from_millis(750),
-        events.as_mut()?.next(),
-    )
+    // The first state change of a navigation often carries no certificate yet
+    // (state still "unknown"); wait for the one that does, within the bound.
+    let stream = events.as_mut()?;
+    let event = tokio::time::timeout(std::time::Duration::from_millis(750), async {
+        while let Some(event) = stream.next().await {
+            if event
+                .visible_security_state
+                .certificate_security_state
+                .is_some()
+            {
+                return Some(event);
+            }
+        }
+        None
+    })
     .await
     .ok()??;
     let cert = event

@@ -104,8 +104,9 @@ narrative-findings-intro-solid = Tragfähige Basis — die folgenden Punkte sind
 narrative-findings-intro-default = Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt.
 
 # Verdict (single audit)
-verdict-tier-excellent = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang — kein strukturelles Problem. Verbleibende Befunde sind Feinschliff; eine manuelle Prüfung ersetzt dieser Wert nicht.
-verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil — klarer Verbesserungshebel mit überschaubarem Aufwand.
+verdict-tier-excellent = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang — kein strukturelles Problem. Verbleibende Befunde sind Feinschliff; dieser Wert ersetzt keine manuelle Prüfung.
+verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist gut — die verbleibenden Befunde sind gezielte Verbesserungshebel mit überschaubarem Aufwand.
+verdict-tier-stable = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil, aber nicht frei von Barrieren — mehrere Verbesserungshebel sollten eingeplant werden.
 verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im automatisierten Accessibility-Prüfumfang. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen.
@@ -113,7 +114,8 @@ score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden kei
 
 # Verdict (batch audit)
 verdict-batch-excellent = Über { $total_urls } geprüfte URLs erreicht die Barrierefreiheit im Schnitt { $score }/100 — ein sehr gutes Ergebnis im automatisch geprüften Umfang.
-verdict-batch-solid = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist stabil, es bestehen aber wiederkehrende Probleme.
+verdict-batch-solid = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist gut, es bestehen aber wiederkehrende Probleme.
+verdict-batch-stable = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist stabil, aber wiederkehrende Barrieren sollten eingeplant werden.
 verdict-batch-deficient = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Es bestehen erhebliche wiederkehrende Probleme.
 verdict-batch-critical = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt nur { $score }/100. Die wiederkehrenden Barrieren sollten vorrangig behoben werden.
 

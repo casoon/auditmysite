@@ -100,9 +100,10 @@ pub(super) fn build_security_details(
             sec.ssl.certificate_error.as_deref(),
         );
 
-        let band_score =
-            crate::audit::interpretation::security_text_band(security_score as f32, &sec.issues)
-                .representative_score();
+        let text_band =
+            crate::audit::interpretation::security_text_band(security_score as f32, &sec.issues);
+        let band_score = text_band.representative_score();
+        let band_note = security_band_note(locale, security_score, text_band, &sec.issues);
         SecurityPresentation {
             score: security_score,
             grade: normalized_module_grade(&normalized.normalized, "Security")
@@ -112,6 +113,7 @@ pub(super) fn build_security_details(
                 .label(band_score, locale == "en")
                 .to_string(),
             band_score: band_score.round() as u32,
+            band_note,
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {
@@ -154,6 +156,49 @@ pub(super) fn build_security_details(
             has_waf: sec.protection.has_waf,
             has_cdn: sec.protection.has_cdn,
         }
+    })
+}
+
+/// Why the card's wording band is below the band of its number. The wording
+/// band is corrected by open findings while the score stays (plan 33); without
+/// this sentence "95 — Verbesserungswürdig" reads as a contradiction (#896).
+/// `None` when the wording band is the score's own band.
+fn security_band_note(
+    locale: &str,
+    score: u32,
+    text_band: crate::audit::interpretation::ScoreBand,
+    issues: &[crate::security::SecurityIssue],
+) -> Option<String> {
+    use crate::audit::interpretation::ScoreBand;
+    if text_band == ScoreBand::from_score(score as f32) {
+        return None;
+    }
+    let en = locale == "en";
+    let numeric = crate::registry::FIVE_BAND.label(score as f32, en);
+    let severe = issues
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.severity,
+                crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High
+            )
+        })
+        .count();
+    Some(match (en, severe) {
+        (true, 0) => format!(
+            "The wording rating sits below the band of the number ({score} alone would read \"{numeric}\"): {} open finding(s) are listed below. The score itself is unchanged.",
+            issues.len()
+        ),
+        (true, n) => format!(
+            "The wording rating sits below the band of the number ({score} alone would read \"{numeric}\"): {n} open finding(s) of high severity are listed below. The score itself is unchanged."
+        ),
+        (false, 0) => format!(
+            "Die Einordnung im Text liegt unter dem Band der Zahl ({score} allein hieße „{numeric}“): {} offene Befunde stehen weiter unten. Der Wert selbst bleibt unverändert.",
+            issues.len()
+        ),
+        (false, n) => format!(
+            "Die Einordnung im Text liegt unter dem Band der Zahl ({score} allein hieße „{numeric}“): {n} offene(r) Befund(e) hoher Schwere stehen weiter unten. Der Wert selbst bleibt unverändert."
+        ),
     })
 }
 
@@ -379,4 +424,51 @@ pub(super) fn build_mobile_details(
                 .collect(),
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::interpretation::{security_text_band, ScoreBand};
+    use crate::security::{HeaderTier, SecurityIssue};
+    use crate::taxonomy::Severity;
+
+    fn issue(severity: Severity) -> SecurityIssue {
+        SecurityIssue {
+            header: "Content-Security-Policy".to_string(),
+            issue_type: "unsafe_inline_script".to_string(),
+            message: "CSP allows unsafe-inline scripts".to_string(),
+            severity,
+            tier: HeaderTier::Baseline,
+            values: Default::default(),
+            score_deduction: 0,
+        }
+    }
+
+    /// #896: score 95 next to the wording "Verbesserungswürdig" is explained
+    /// in the language of the report; no note when both bands agree.
+    #[test]
+    fn band_note_explains_a_wording_band_below_the_number() {
+        let issues = vec![issue(Severity::High)];
+        let band = security_text_band(95.0, &issues);
+        assert_eq!(band, ScoreBand::NeedsImprovement);
+        let de = security_band_note("de", 95, band, &issues).expect("explained");
+        assert!(de.contains("95") && de.contains("Sehr gut") && de.contains("hoher Schwere"));
+        let en = security_band_note("en", 95, band, &issues).expect("explained");
+        assert!(
+            en.contains("Excellent") && en.contains("high severity"),
+            "{en}"
+        );
+        assert!(!en.contains(['ä', 'ö', 'ü', 'ß', '„']), "{en}");
+
+        assert_eq!(
+            security_band_note("de", 95, ScoreBand::Excellent, &[]),
+            None
+        );
+        let minor = vec![issue(Severity::Low)];
+        let band = security_text_band(95.0, &minor);
+        assert!(security_band_note("en", 95, band, &minor)
+            .expect("explained")
+            .contains("1 open finding"));
+    }
 }

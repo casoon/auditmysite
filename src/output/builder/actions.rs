@@ -60,8 +60,16 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
     let mut structural = Vec::new();
 
     for group in finding_groups {
+        let action = humanize_action_text(i18n, &group.recommendation);
+        // A group without a written recommendation (HTML conformance, some
+        // page-health findings) has no action to plan: it stays in its module
+        // section. An empty action printed as a recommendation card with an
+        // empty title.
+        if action.trim().is_empty() {
+            continue;
+        }
         let item = ActionItem {
-            action: humanize_action_text(i18n, &group.recommendation),
+            action,
             benefit: group.business_impact.clone(),
             role: group.responsible_role,
             priority: group.priority,

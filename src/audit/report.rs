@@ -1676,17 +1676,8 @@ impl BatchReport {
         };
         // Empty when nothing was measured: no band for a batch without a score.
         let score_band_key = average_score.map_or(String::new(), |average| {
-            let s = average.round() as u32;
-            if s >= 90 {
-                "verdict-batch-excellent"
-            } else if s >= 70 {
-                "verdict-batch-solid"
-            } else if s >= 50 {
-                "verdict-batch-deficient"
-            } else {
-                "verdict-batch-critical"
-            }
-            .to_string()
+            super::interpretation::verdict_tier_key("verdict-batch", average.round() as u32)
+                .to_string()
         });
 
         let mut result = Self {

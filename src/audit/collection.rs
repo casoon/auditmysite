@@ -210,6 +210,28 @@ pub mod reason {
     pub const CDP_COMMAND_FAILED: &str = "cdp_command_failed";
     pub const HTTP_REQUEST_FAILED: &str = "http_request_failed";
     pub const DNS_LOOKUP_FAILED: &str = "dns_lookup_failed";
+    /// The other host variant (www / apex) did not answer: the page itself
+    /// was measured, the side check has nothing to compare.
+    pub const ALTERNATE_HOST_UNREACHABLE: &str = "alternate_host_unreachable";
+}
+
+/// Side checks: optional probes about the *site* around the audited page,
+/// not about the page's own content — the other host variant (apex / www)
+/// and the TLS certificate details of the connection. Their loss is a gap of
+/// that single check, recorded as a failed subcheck with its reason and
+/// listed as an audit caveat. It does not make the module `Partial` and does
+/// not qualify the audit (`audit_quality`, decision, batch counts): the page
+/// was measured in full. A lost *page* measurement (headers, links, scripts)
+/// is no side check. See `docs/OUTPUT_CONTRACT.md`.
+pub const SIDE_CHECKS: &[&str] = &[
+    "seo.www_redirect",
+    "seo.page_health.www_consolidation",
+    "security.certificate",
+];
+
+/// Whether `collector` is a side check (see [`SIDE_CHECKS`]).
+pub fn is_side_check(collector: &str) -> bool {
+    SIDE_CHECKS.contains(&collector)
 }
 
 /// Decode a collection script's result: the script returns a JSON string.
@@ -358,7 +380,10 @@ pub(crate) fn fold_records(runs: &mut [super::ModuleRun], records: Vec<Collectio
         else {
             continue;
         };
-        if record.state.is_gap() && run.status == ExecutionStatus::Completed {
+        if record.state.is_gap()
+            && !is_side_check(&record.collector)
+            && run.status == ExecutionStatus::Completed
+        {
             run.status = ExecutionStatus::Partial;
             run.reason_code = Some(if record.scoring {
                 "scoring_collection_failed".to_string()

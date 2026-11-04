@@ -261,10 +261,9 @@ impl Interpretation {
             build_benchmark_context_localized(ctx.normalized.overall_score as f32);
         let business_consequence_key = pick_business_consequence_key(ctx, &accessibility_claim);
         let consequence_key = pick_consequence_key(ctx);
-        let verdict_key = pick_verdict_key(
-            ctx.normalized.overall_score as f32,
-            ctx.normalized.risk.legal_flags,
-        );
+        // The sentence names the accessibility score, so that score picks the
+        // tier — not the weighted technical value (#896).
+        let verdict_key = pick_verdict_key(ctx.normalized.score, ctx.normalized.risk.legal_flags);
         let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
@@ -990,27 +989,35 @@ fn pick_consequence_key(normalized: &AuditContext<'_>) -> String {
     .to_string()
 }
 
-fn pick_verdict_key(score: f32, legal_flags: usize) -> String {
+/// The verdict tier of an accessibility score, banded exactly like the
+/// certificate (90/75/60/40), so the cover sentence and the certificate badge
+/// beside it can never name different tiers (#896). `prefix` is
+/// `verdict-tier` (single audit) or `verdict-batch`.
+pub fn verdict_tier_key(prefix: &str, score: u32) -> String {
+    use crate::audit::verdict::Certificate;
+    let tier = match Certificate::from_score(score) {
+        Certificate::VeryGood => "excellent",
+        Certificate::Good => "solid",
+        Certificate::Stable => "stable",
+        Certificate::NeedsImprovement => "deficient",
+        _ => "critical",
+    };
+    format!("{prefix}-{tier}")
+}
+
+fn pick_verdict_key(score: u32, legal_flags: usize) -> String {
     // A page with legal-relevant Level-A findings must never receive the
     // reassuring "solid" verdict, regardless of an otherwise passable score (#356).
-    if legal_flags > 0 {
-        return if score < 50.0 {
-            "verdict-tier-critical"
-        } else {
-            "verdict-tier-deficient"
-        }
-        .to_string();
+    let key = verdict_tier_key("verdict-tier", score);
+    if legal_flags > 0
+        && !matches!(
+            key.as_str(),
+            "verdict-tier-deficient" | "verdict-tier-critical"
+        )
+    {
+        return "verdict-tier-deficient".to_string();
     }
-    if score >= 90.0 {
-        "verdict-tier-excellent"
-    } else if score >= 70.0 {
-        "verdict-tier-solid"
-    } else if score >= 50.0 {
-        "verdict-tier-deficient"
-    } else {
-        "verdict-tier-critical"
-    }
-    .to_string()
+    key
 }
 
 fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {
@@ -1045,6 +1052,76 @@ mod tests {
         assert_eq!(ScoreBand::from_score(40.0), ScoreBand::Weak);
         assert_eq!(ScoreBand::from_score(39.0), ScoreBand::Critical);
         assert_eq!(ScoreBand::from_score(0.0), ScoreBand::Critical);
+    }
+
+    /// #896: the cover sentence and the certificate badge name the same tier,
+    /// at every band edge, for single and batch.
+    #[test]
+    fn verdict_tier_follows_the_certificate_bands() {
+        use crate::audit::verdict::Certificate;
+        for score in 0..=100u32 {
+            let expected = match Certificate::from_score(score) {
+                Certificate::VeryGood => "excellent",
+                Certificate::Good => "solid",
+                Certificate::Stable => "stable",
+                Certificate::NeedsImprovement => "deficient",
+                _ => "critical",
+            };
+            assert_eq!(
+                verdict_tier_key("verdict-tier", score),
+                format!("verdict-tier-{expected}"),
+                "score {score}"
+            );
+            assert_eq!(
+                verdict_tier_key("verdict-batch", score),
+                format!("verdict-batch-{expected}")
+            );
+        }
+        // Edges of the certificate (90/75/60/40) are the edges of the tiers.
+        assert_eq!(
+            verdict_tier_key("verdict-tier", 93),
+            "verdict-tier-excellent"
+        );
+        assert_eq!(verdict_tier_key("verdict-tier", 74), "verdict-tier-stable");
+        // A legal finding never keeps a reassuring tier.
+        assert_eq!(pick_verdict_key(93, 1), "verdict-tier-deficient");
+        assert_eq!(pick_verdict_key(30, 1), "verdict-tier-critical");
+        assert_eq!(pick_verdict_key(93, 0), "verdict-tier-excellent");
+    }
+
+    /// #896: every tier exists in both locales and the English text carries no
+    /// German, the German none of the English tier words.
+    #[test]
+    fn verdict_tier_texts_exist_in_both_locales_and_say_the_tier() {
+        for locale in ["de", "en"] {
+            let i18n = crate::i18n::I18n::new(locale).unwrap();
+            for prefix in ["verdict-tier", "verdict-batch"] {
+                for tier in ["excellent", "solid", "stable", "deficient", "critical"] {
+                    let key = format!("{prefix}-{tier}");
+                    let text = i18n.t_args(
+                        &key,
+                        &[
+                            ("url", "https://example.com".to_string()),
+                            ("score", "80".to_string()),
+                            ("total_urls", "3".to_string()),
+                        ],
+                    );
+                    assert_ne!(text, key, "{locale}: {key} is missing");
+                    if locale == "en" {
+                        assert!(!text.contains(['ä', 'ö', 'ü', 'ß']), "{text}");
+                    }
+                }
+            }
+            // "stable" is the lower tier: only it may call the foundation stable.
+            let solid = i18n.t_args(
+                "verdict-tier-solid",
+                &[("url", "u".to_string()), ("score", "80".to_string())],
+            );
+            assert!(
+                !solid.contains("stabil") && !solid.contains("stable"),
+                "{solid}"
+            );
+        }
     }
 
     #[test]

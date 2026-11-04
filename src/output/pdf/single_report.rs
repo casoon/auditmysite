@@ -615,6 +615,12 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
     collapsed
 }
 
+/// Whether a finding group belongs to the accessibility module (`a11y.*`,
+/// `a11y_journey.*`), as opposed to html_conform, security, seo, …
+fn is_accessibility_rule(rule_id: &str) -> bool {
+    rule_id.starts_with("a11y.") || rule_id.starts_with("a11y_journey.")
+}
+
 pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
     let en = is_english(i18n);
     let list_title = if en {
@@ -629,6 +635,12 @@ pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List
         .findings
         .top_findings
         .iter()
+        // Only accessibility groups carry the "Accessibility" label and a
+        // written recommendation; HTML conformance, security and SEO
+        // findings enter through `cross_module_measures` under their own
+        // module name. Labelling them "Barrierefreiheit — Unsafe inline
+        // script: " (empty text) was a mislabel.
+        .filter(|group| is_accessibility_rule(&group.rule_id))
         .take(5)
         .map(|group| {
             (
@@ -2146,6 +2158,29 @@ mod top_measure_tests {
             module: module.to_string(),
             title: title.to_string(),
             detail: detail.to_string(),
+        }
+    }
+
+    /// Only accessibility groups may carry the accessibility label in the
+    /// key-measures list; security, SEO and HTML conformance enter under
+    /// their own module name.
+    #[test]
+    fn only_accessibility_rules_are_labelled_accessibility() {
+        for id in [
+            "a11y.contrast.weak",
+            "a11y.html_content_model.invalid",
+            "a11y_journey.link_text_duplicate",
+        ] {
+            assert!(is_accessibility_rule(id), "{id}");
+        }
+        for id in [
+            "html_conform.schema.html5",
+            "security.headers.unsafe_inline_script",
+            "seo.page_health.excessive_dom",
+            "dark_mode.print_layout_risk",
+            "ux.heading_skips",
+        ] {
+            assert!(!is_accessibility_rule(id), "{id}");
         }
     }
 

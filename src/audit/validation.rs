@@ -806,7 +806,7 @@ impl NormalizedReport {
                 matches!(
                     subcheck.status,
                     ExecutionStatus::Partial | ExecutionStatus::Failed
-                )
+                ) && !super::collection::is_side_check(&subcheck.subcheck)
             })
         }) || self.rule_outcomes.iter().any(|run| {
             matches!(
