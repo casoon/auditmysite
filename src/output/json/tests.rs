@@ -1508,7 +1508,7 @@ fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
     assert!(
         legal
             .rationale
-            .starts_with("1 findings with possible legal relevance"),
+            .starts_with("1 finding with possible legal relevance"),
         "{}",
         legal.rationale
     );

@@ -2352,6 +2352,7 @@ pub(super) mod risk_and_strength_tests {
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(95),
                 mobile: Some(95),
+                high_findings: 0,
             },
         ];
         let dimensions = rows(&kinds, false);
@@ -2405,6 +2406,7 @@ pub(super) mod risk_and_strength_tests {
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(95),
                 mobile: Some(95),
+                high_findings: 0,
             },
             ManagementRiskKind::Trust {
                 accessibility: 95,
@@ -2449,6 +2451,7 @@ pub(super) mod risk_and_strength_tests {
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(70),
                 mobile: Some(95),
+                high_findings: 0,
             },
         ];
         let (mut risks, _strengths): (Vec<DimensionRow>, Vec<DimensionRow>) = rows(&kinds, true)

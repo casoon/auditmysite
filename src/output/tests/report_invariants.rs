@@ -279,6 +279,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
         is_question: false,
         in_faq_context: false,
         word_count_after: 120,
+        hidden: false,
     };
     let with_main = |results: WcagResults| {
         let mut report = make_report(results);

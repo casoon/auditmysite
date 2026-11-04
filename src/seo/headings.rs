@@ -47,6 +47,21 @@ pub struct HeadingInfo {
     /// (or end of the content area if it's the last one)
     #[serde(default)]
     pub word_count_after: u32,
+    /// Not exposed to users or assistive technology (`hidden`, `inert`,
+    /// `aria-hidden`, or not rendered). Still counted for the SEO rules, but
+    /// no reader meets it: it never decides which heading comes first (#952-1).
+    #[serde(default)]
+    pub hidden: bool,
+}
+
+impl HeadingStructure {
+    /// Level of the first heading a reader encounters: the first one that is
+    /// exposed. One definition for the SEO heading signals, the structure
+    /// signal and the screen-reader heading audit (which reads the
+    /// accessibility tree and never sees hidden headings).
+    pub fn first_exposed_level(&self) -> Option<u8> {
+        self.headings.iter().find(|h| !h.hidden).map(|h| h.level)
+    }
 }
 
 /// Heading-related SEO issue
@@ -105,7 +120,7 @@ pub(crate) static HEADINGS: crate::audit::collection::CollectorSpec =
         id: "seo.headings",
         module: "seo",
         method: crate::audit::collection::CollectionMethod::JavaScript,
-        method_version: 1,
+        method_version: 2,
         scoring: true,
     };
 
@@ -197,7 +212,18 @@ pub async fn analyze_heading_structure(
                 word_count_after = 0;
             }
 
-            return { level, text, length: text.length, is_question, in_faq_context, word_count_after };
+            // Hidden from everyone: `hidden`/`inert`/`aria-hidden` ancestors or
+            // not rendered (display:none, visibility:hidden).
+            let hidden = false;
+            try {
+                hidden = !!h.closest('[hidden],[inert],[aria-hidden="true"]')
+                    || (typeof h.checkVisibility === 'function'
+                        && !h.checkVisibility({ visibilityProperty: true }));
+            } catch (e) {
+                hidden = false;
+            }
+
+            return { level, text, length: text.length, is_question, in_faq_context, word_count_after, hidden };
         });
         return JSON.stringify(headings);
     })()
@@ -371,6 +397,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
             HeadingInfo {
                 level: 4,
@@ -379,6 +406,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
         ]);
         // Before the shared findings arrive only the SEO rule has fired.
@@ -408,6 +436,7 @@ mod tests {
             is_question: false,
             in_faq_context: false,
             word_count_after: 0,
+            hidden: false,
         };
 
         assert_eq!(heading.level, 1);
@@ -424,6 +453,7 @@ mod tests {
                 is_question: true,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
             HeadingInfo {
                 level: 2,
@@ -432,6 +462,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             }
         ];
         let res = check_headings_structure(headings);

@@ -163,6 +163,9 @@ pub struct SignalValues {
     /// NamedControls, NoCriticalErrors, SecurityHeaders)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
+    /// The total `count` is measured against (SecurityHeaders)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<u32>,
     /// Whether `<main>` is missing in the AX tree (SemanticStructure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub missing_main: Option<bool>,
@@ -505,10 +508,12 @@ pub fn source_quality_signal_text(
             }
         }
         SecurityHeaders => {
+            // Same "n of m" as the security module's header tile (#952-4).
+            let total = values.total.unwrap_or(4);
             if en {
-                format!("{}/4 relevant security headers set", count)
+                format!("{count}/{total} security headers set")
             } else {
-                format!("{}/4 relevante Security-Header gesetzt", count)
+                format!("{count}/{total} Security-Header gesetzt")
             }
         }
         PublisherIdentity => {
@@ -811,12 +816,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
         // a broken outline as having none or several — `h1_count > 0` alone
         // used to call that "structured", contradicting the separately
         // reported `multiple_h1`/reading-order findings for the same page.
-        let starts_with_h1 = seo
-            .headings
-            .headings
-            .first()
-            .map(|h| h.level == 1)
-            .unwrap_or(false);
+        let starts_with_h1 = seo.headings.first_exposed_level() == Some(1);
         let well_formed_h1 = h1_count == 1 && starts_with_h1;
         let depth = seo
             .headings
@@ -960,12 +960,18 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
         .filter(|&&b| b)
         .count();
 
+        // The pass/fail rule keeps its four key headers; the number shown is
+        // the security module's own core-header count, so the trust section
+        // and the "Header n/m" tile never print two different counts.
+        let (core_present, core_total) = sec.headers.core_presence();
+
         signals.push(QualitySignal::new(
             SecurityHeaders,
             header_count >= 3,
             0.15,
             SignalValues {
-                count: Some(header_count as u32),
+                count: Some(core_present as u32),
+                total: Some(core_total as u32),
                 ..Default::default()
             },
         ));
@@ -1674,6 +1680,7 @@ mod tests {
                         is_question: false,
                         in_faq_context: false,
                         word_count_after: 10,
+                        hidden: false,
                     },
                     HeadingInfo {
                         level: 1,
@@ -1682,6 +1689,7 @@ mod tests {
                         is_question: false,
                         in_faq_context: false,
                         word_count_after: 10,
+                        hidden: false,
                     },
                     HeadingInfo {
                         level: 3,
@@ -1690,6 +1698,7 @@ mod tests {
                         is_question: false,
                         in_faq_context: false,
                         word_count_after: 5,
+                        hidden: false,
                     },
                     HeadingInfo {
                         level: 1,
@@ -1698,6 +1707,7 @@ mod tests {
                         is_question: false,
                         in_faq_context: false,
                         word_count_after: 5,
+                        hidden: false,
                     },
                 ],
                 issues: vec![],
@@ -1960,6 +1970,7 @@ mod tests {
                             is_question: false,
                             in_faq_context: false,
                             word_count_after: 10,
+                            hidden: false,
                         }]
                     })
                     .unwrap_or_default(),

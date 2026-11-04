@@ -7,6 +7,20 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Report:** the "legally relevant finding" has one definition for the management card, the screen-reader BFSG callout and each finding's "BFSG-/EAA-Relevanz" row: an open, confirmed finding whose relevance is high or medium (Refs #952-2). The Legal card counts those findings (never fewer than `risk.legal_flags`) and is at least "medium" while one is open; the callout says "violations found" only for such a finding or a high-severity screen-reader blocker, low reading-order notes alone read "needs review". `risk.legal_flags`, the risk score, the verdict and all JSON field names are unchanged: `legal_flags` stays the narrower Level-A count, but `management_risks[].rationale` and `.level` of the Legal card follow the wider set.
+- **Report:** `principle_coverage` (JSON and PDF) is scoped to the A/AA criteria the "N of ~55 checked automatically" statement counts; criteria that only emit review hints ran but are neither checked nor passed, so the totals (were 40) no longer exceed that statement (30) (Refs #952-5).
+- **Library users:** `seo::headings::HeadingInfo` gained `hidden`; code that builds it with a struct literal must add the field.
+
+### Fixed
+
+- **Report:** the SEO heading check "Logical hierarchy" fails when the first heading a reader meets is not the H1 ("1 issues, first heading is H2"), like the structure signal and the screen-reader audit; headings hidden from everyone (`hidden`, `inert`, `aria-hidden`, not rendered) no longer count as first, so casoon.de's closed mega menu no longer makes its H1 "not the first heading" (Refs #952-1).
+- **Report:** the 79 touch targets of one finding count as 79 occurrences (scope "Lokal · 79", complexity, project risk "findings affecting 10 or more elements"), not as 1 (Refs #952-3).
+- **Report:** the "Performance & mobile" card lists high-severity findings of those modules and is at least "medium" while one is open, so a good score no longer puts it under strengths next to a high touch-target finding (Refs #952-3).
+- **PDF:** the score-driver row of a module whose wording band was lowered by open severe findings says "Open severe findings limit the rating" instead of "Stabilizes the combined technical score"; the trust section prints the security module's own "n/8 security headers" count; a poor DOM size alone reads "high browser load from DOM size" instead of "page becomes usable late"; the performance section names the viewport the performance score belongs to, next to the Desktop/Mobile gauges (Refs #952-4).
+- **Performance:** total blocking time without long tasks is `0` instead of `-0` (the empty float sum is negative zero), so reports print "0ms" (Refs #952-4).
+
 ## [2.0.1] - 2026-11-04
 
 ### Changed

@@ -1216,7 +1216,15 @@ fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
         .issues
         .iter()
         .any(|i| i.issue_type == "skipped_level");
-    let no_issues = seo.headings.issues.is_empty();
+    // The first heading in document order must be the H1: the same fact the
+    // structure signal ("not the first heading") and the screen-reader
+    // heading audit report. The skip-level rule alone cannot see it (H2 first
+    // is no skipped level) and used to leave "Logical hierarchy: no issues"
+    // next to it (#952-1).
+    let first_level = seo.headings.first_exposed_level();
+    let first_not_h1 = matches!(first_level, Some(level) if level != 1);
+    let order_problems = seo.headings.issues.len() + usize::from(first_not_h1);
+    let no_issues = order_problems == 0;
 
     let checks = vec![
         check(
@@ -1273,10 +1281,17 @@ fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             no_issues,
             Some(if no_issues {
                 if en { "no issues" } else { "keine Probleme" }.to_string()
-            } else if en {
-                format!("{} issues", seo.headings.issues.len())
             } else {
-                format!("{} Probleme", seo.headings.issues.len())
+                let first = match (first_not_h1, first_level) {
+                    (true, Some(level)) if en => format!(", first heading is H{level}"),
+                    (true, Some(level)) => format!(", erste Überschrift ist H{level}"),
+                    _ => String::new(),
+                };
+                if en {
+                    format!("{order_problems} issues{first}")
+                } else {
+                    format!("{order_problems} Probleme{first}")
+                }
             }),
         ),
     ];
@@ -1968,6 +1983,58 @@ mod tests {
         }
     }
 
+    /// #952-1: a lone H1 that is not the first heading is no "logical
+    /// hierarchy", whatever the skip-level rule says.
+    #[test]
+    fn heading_signals_flag_a_first_heading_that_is_not_the_h1() {
+        let heading = |level: u8| HeadingInfo {
+            level,
+            text: format!("H{level}"),
+            length: 2,
+            is_question: false,
+            in_faq_context: false,
+            word_count_after: 0,
+            hidden: false,
+        };
+        let mut seo = minimal_seo();
+        seo.headings.h1_count = 1;
+        seo.headings.h1_text = Some("H1".into());
+        seo.headings.headings = vec![heading(2), heading(1), heading(2)];
+        let category = build_heading_signals(&seo, true);
+        let hierarchy = category
+            .checks
+            .iter()
+            .find(|c| c.label == "Logical hierarchy")
+            .expect("hierarchy check");
+        assert!(!hierarchy.passed, "{hierarchy:?}");
+        assert!(
+            hierarchy
+                .detail
+                .as_deref()
+                .is_some_and(|d| d.contains("first heading is H2")),
+            "{hierarchy:?}"
+        );
+
+        // A hidden heading in front (a closed mega menu) is met by nobody: the
+        // first heading a reader gets is the H1 (casoon.de, #952-1).
+        let mut hidden_first = heading(2);
+        hidden_first.hidden = true;
+        seo.headings.headings = vec![hidden_first, heading(1), heading(2)];
+        assert_eq!(seo.headings.first_exposed_level(), Some(1));
+        let ok = build_heading_signals(&seo, true);
+        assert!(ok
+            .checks
+            .iter()
+            .all(|c| c.label != "Logical hierarchy" || c.passed));
+
+        seo.headings.headings = vec![heading(1), heading(2)];
+        let ok = build_heading_signals(&seo, true);
+        assert!(ok
+            .checks
+            .iter()
+            .all(|c| c.label != "Logical hierarchy" || c.passed));
+    }
+
     #[test]
     fn test_maturity_basic_with_no_data() {
         let seo = minimal_seo();
@@ -2199,6 +2266,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
             HeadingInfo {
                 level: 2,
@@ -2207,6 +2275,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
             HeadingInfo {
                 level: 2,
@@ -2215,6 +2284,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
             HeadingInfo {
                 level: 3,
@@ -2223,6 +2293,7 @@ mod tests {
                 is_question: false,
                 in_faq_context: false,
                 word_count_after: 0,
+                hidden: false,
             },
         ];
         seo.headings.total_count = seo.headings.headings.len();
