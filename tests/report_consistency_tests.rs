@@ -749,11 +749,13 @@ fn make_report_with_seo_finding() -> AuditReport {
                 issue_type: "long_heading".to_string(),
                 message: "Heading too long".to_string(),
                 severity: Severity::Medium,
+                long_heading: None,
             },
             HeadingIssue {
                 issue_type: "long_heading".to_string(),
                 message: "Another long heading".to_string(),
                 severity: Severity::Medium,
+                long_heading: None,
             },
         ],
         ..Default::default()

@@ -48,6 +48,7 @@ pub(super) fn build_seo_details(
                 // A missing lang or page title is also an accessibility
                 // finding (WCAG 3.1.1 / 2.4.2) and costs points there too —
                 // two perspectives, stated so the overlap is visible (plan 105).
+                let base = i.localized_message(locale == "en");
                 let criterion = match (i.field.as_str(), i.severity) {
                     ("lang", _) => Some("3.1.1"),
                     ("title", crate::wcag::Severity::High) => Some("2.4.2"),
@@ -55,25 +56,19 @@ pub(super) fn build_seo_details(
                 };
                 let message = match criterion {
                     Some(c) if locale == "en" => {
-                        format!(
-                            "{} — also counted under accessibility (WCAG {c})",
-                            i.message
-                        )
+                        format!("{} — also counted under accessibility (WCAG {c})", base)
                     }
-                    Some(c) => format!(
-                        "{} — zählt auch in der Barrierefreiheit (WCAG {c})",
-                        i.message
-                    ),
+                    Some(c) => format!("{} — zählt auch in der Barrierefreiheit (WCAG {c})", base),
                     // Charged by Mobile and Accessibility, listed here only.
                     None if i.field == "viewport" && locale == "en" => format!(
                         "{} — counted under mobile and accessibility, not in the SEO score",
-                        i.message
+                        base
                     ),
                     None if i.field == "viewport" => format!(
                         "{} — zählt bei Mobile und Barrierefreiheit, nicht im SEO-Wert",
-                        i.message
+                        base
                     ),
-                    None => i.message.clone(),
+                    None => base.clone(),
                 };
                 (i.field.clone(), i.severity, message)
             })

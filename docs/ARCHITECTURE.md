@@ -126,6 +126,8 @@ src/
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
 │   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
 │   ├── finding_contract.rs # One finding contract for every domain: domain adapters, cause/scoring responsibility, finding inventory, indexability expectation
+│   ├── finding_text.rs  # MessageText: a finding message as a function of the language (module `*_text(kind, values, en)` bound to kind + raw values); localize_domain_texts re-derives non-WCAG finding texts in the run language for the PDF (#898, #406)
+│   ├── finding_titles.rs # German titles of non-WCAG findings by rule_id (JSON keeps the English check title)
 │   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)

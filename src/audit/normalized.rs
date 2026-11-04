@@ -493,6 +493,11 @@ pub struct OccurrenceDetail {
     /// Which viewport pass produced `evidence_screenshot`. In-memory only.
     #[serde(skip)]
     pub evidence_viewport: Option<&'static str>,
+    /// The message as a function of the language, for findings outside the
+    /// WCAG engine: the PDF re-derives `message` in the run language from it
+    /// (#898, #406). In-memory only.
+    #[serde(skip)]
+    pub text: Option<crate::audit::finding_text::MessageText>,
 }
 
 /// Score-Eintrag pro Modul
@@ -882,6 +887,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     evidence: v.evidence.clone(),
                     evidence_screenshot: v.evidence_screenshot.clone(),
                     evidence_viewport: v.evidence_viewport,
+                    text: None,
                 })
                 .collect();
             // Deduplicate fix_suggestion: if all stored occurrences share the same

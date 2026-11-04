@@ -22,6 +22,12 @@ pub struct SrAuditReport {
     /// drops the same nodes.
     #[serde(skip)]
     pub excluded_node_ids: std::collections::BTreeSet<String>,
+    /// German wording of each stored (canonical English) issue message, from
+    /// the same analysis run with `message_en = false`. The finding list in the
+    /// PDF swaps messages through it (#898); like `WcagResults::localized_texts`
+    /// it is memory-only and never part of the JSON.
+    #[serde(skip)]
+    pub localized_texts: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -103,6 +109,9 @@ pub struct ScreenReaderSummary {
     pub summary: SrAuditSummary,
     pub issues: Vec<SrAuditIssue>,
     pub bfsg_compliance: BfsgCompliance,
+    /// See [`SrAuditReport::localized_texts`]. Memory-only.
+    #[serde(skip)]
+    pub localized_texts: std::collections::BTreeMap<String, String>,
 }
 
 impl ScreenReaderSummary {
@@ -111,6 +120,7 @@ impl ScreenReaderSummary {
             summary: report.summary.clone(),
             issues: report.issues.clone(),
             bfsg_compliance: report.bfsg_compliance.clone(),
+            localized_texts: report.localized_texts.clone(),
         }
     }
 
@@ -208,6 +218,7 @@ mod tests {
                 needs_review: Vec::new(),
                 limits: ClaimLimits::with_manual_review(vec![]),
             },
+            localized_texts: Default::default(),
         };
         assert_eq!(summary.count_severity("high"), 2);
         assert_eq!(summary.count_severity("medium"), 1);

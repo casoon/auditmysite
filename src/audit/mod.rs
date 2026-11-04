@@ -15,6 +15,8 @@ pub mod duplicate;
 pub mod exclusion;
 pub mod finding_contract;
 mod finding_derive;
+pub mod finding_text;
+pub mod finding_titles;
 pub mod frames;
 mod interactive_finding;
 pub mod interpretation;

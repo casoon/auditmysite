@@ -58,6 +58,45 @@ pub struct HeadingIssue {
     pub message: String,
     /// Severity: "error", "warning"
     pub severity: Severity,
+    /// Raw values of an own `long_heading` issue, to re-derive `message` in the
+    /// run language (#898). In-memory only; shared-rule issues carry none.
+    #[serde(skip)]
+    pub long_heading: Option<LongHeading>,
+}
+
+/// Raw values of a `long_heading` issue.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LongHeading {
+    pub level: u8,
+    pub length: usize,
+    /// First characters of the heading text (page content, not translated).
+    pub excerpt: String,
+}
+
+impl HeadingIssue {
+    /// The message in the requested language; issues from the shared rules or
+    /// read back from JSON keep their stored text.
+    pub fn localized_message(&self, en: bool) -> String {
+        match &self.long_heading {
+            Some(values) => long_heading_text(values, en),
+            None => self.message.clone(),
+        }
+    }
+}
+
+/// The only source of the own heading-issue wording (#406, #898).
+pub fn long_heading_text(values: &LongHeading, en: bool) -> String {
+    if en {
+        format!(
+            "H{} is too long ({} chars): \"{}...\"",
+            values.level, values.length, values.excerpt
+        )
+    } else {
+        format!(
+            "H{} ist zu lang ({} Zeichen): \"{}...\"",
+            values.level, values.length, values.excerpt
+        )
+    }
 }
 
 /// Heading outline script; the SEO score reads it.
@@ -175,15 +214,16 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
         };
 
         if heading.length > max_len {
+            let values = LongHeading {
+                level: heading.level,
+                length: heading.length,
+                excerpt: truncate_url(&heading.text, 30),
+            };
             issues.push(HeadingIssue {
                 issue_type: "long_heading".to_string(),
-                message: format!(
-                    "H{} is too long ({} chars): \"{}...\"",
-                    heading.level,
-                    heading.length,
-                    truncate_url(&heading.text, 30)
-                ),
+                message: long_heading_text(&values, true),
                 severity: Severity::Medium,
+                long_heading: Some(values),
             });
         }
     }
@@ -237,6 +277,7 @@ pub(crate) fn apply_shared_findings(
                 issue_type: issue_type.to_string(),
                 message: finding.message.clone(),
                 severity,
+                long_heading: None,
             });
         }
     }

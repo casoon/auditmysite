@@ -136,6 +136,7 @@ fn report_with_every_domain() -> AuditReport {
                 issue_type: "multiple_h1".to_string(),
                 message: "The page has more than one H1.".to_string(),
                 severity: Severity::Medium,
+                long_heading: None,
             });
     }
     seo.meta_issues.push(crate::seo::meta::MetaValidation {
@@ -143,6 +144,8 @@ fn report_with_every_domain() -> AuditReport {
         message: "Meta description is missing.".to_string(),
         severity: Severity::Medium,
         suggestion: None,
+        kind: None,
+        values: Default::default(),
     });
     seo.technical
         .issues

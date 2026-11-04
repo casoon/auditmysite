@@ -482,6 +482,9 @@ struct Collected {
     cause: Option<&'static str>,
     scoring: FindingScoring,
     scope: LocationScope,
+    /// The message as a function of the language (#898); `message` is its
+    /// `en = true` rendering.
+    text: Option<crate::audit::finding_text::MessageText>,
 }
 
 impl Collected {
@@ -508,7 +511,15 @@ impl Collected {
             cause: None,
             scoring,
             scope,
+            text: None,
         }
+    }
+
+    /// Bind the module's text function: the PDF re-derives the message in the
+    /// run language from it.
+    fn text(mut self, text: impl Fn(bool) -> String + Send + Sync + 'static) -> Self {
+        self.text = Some(crate::audit::finding_text::MessageText::new(text));
+        self
     }
 
     fn selector(mut self, selector: Option<String>) -> Self {
@@ -593,6 +604,8 @@ fn collect(
                 L::Element,
             )
             .title(title);
+            let heading = issue.clone();
+            c = c.text(move |en| heading.localized_message(en));
             if issue.issue_type == "missing_h1" {
                 c.cause = Some(H1_MISSING);
             }
@@ -622,11 +635,14 @@ fn collect(
                 scoring,
                 L::Page,
             );
+            let meta = issue.clone();
+            c = c.text(move |en| meta.localized_message(en));
             c.cause = cause;
             out.push(c);
         }
         // Technical: `calculate_seo_score` charges https, canonical and lang;
         // noindex is a gate when the page is meant to be indexed.
+        let technical = std::sync::Arc::new(seo.technical.clone());
         for issue in &seo.technical.issues {
             let mut c = Collected::new(
                 D::Seo,
@@ -637,6 +653,25 @@ fn collect(
                 FindingScoring::none(),
                 L::Page,
             );
+            {
+                let technical = technical.clone();
+                let issue_type = issue.issue_type.clone();
+                let fallback = issue.message.clone();
+                let nth = seo
+                    .technical
+                    .issues
+                    .iter()
+                    .take_while(|other| !std::ptr::eq(*other, issue))
+                    .filter(|other| other.issue_type == issue.issue_type)
+                    .count();
+                c = c.text(move |en| {
+                    crate::seo::technical::collect_technical_issues(&technical, en)
+                        .into_iter()
+                        .filter(|other| other.issue_type == issue_type)
+                        .nth(nth)
+                        .map_or_else(|| fallback.clone(), |other| other.message)
+                });
+            }
             match issue.issue_type.as_str() {
                 "no_https" => {
                     c.scoring = FindingScoring::new("SEO", E::Deduction);
@@ -692,27 +727,50 @@ fn collect(
                 crate::seo::schema::SchemaIssueSeverity::Required => Severity::Medium,
                 crate::seo::schema::SchemaIssueSeverity::Recommended => Severity::Low,
             };
-            out.push(Collected::new(
-                D::Seo,
-                "seo.schema",
-                issue.issue_type.clone(),
-                severity,
-                issue.message.clone(),
-                FindingScoring::none(),
-                L::Page,
-            ));
-        }
-        if let Some(health) = &seo.page_health {
-            for issue in &health.issues {
-                out.push(Collected::new(
+            let schema = issue.clone();
+            out.push(
+                Collected::new(
                     D::Seo,
-                    "seo.page_health",
+                    "seo.schema",
                     issue.issue_type.clone(),
-                    severity_from(&issue.severity),
+                    severity,
                     issue.message.clone(),
                     FindingScoring::none(),
-                    L::Resource,
-                ));
+                    L::Page,
+                )
+                .text(move |en| crate::seo::schema::schema_issue_text(&schema, en)),
+            );
+        }
+        if let Some(health) = &seo.page_health {
+            let analysis = std::sync::Arc::new(health.clone());
+            for issue in &health.issues {
+                let nth = health
+                    .issues
+                    .iter()
+                    .take_while(|other| !std::ptr::eq(*other, issue))
+                    .filter(|other| other.issue_type == issue.issue_type)
+                    .count();
+                let analysis = analysis.clone();
+                let issue_type = issue.issue_type.clone();
+                let fallback = issue.message.clone();
+                out.push(
+                    Collected::new(
+                        D::Seo,
+                        "seo.page_health",
+                        issue.issue_type.clone(),
+                        severity_from(&issue.severity),
+                        issue.message.clone(),
+                        FindingScoring::none(),
+                        L::Resource,
+                    )
+                    .text(move |en| {
+                        crate::seo::page_health::collect_issues(&analysis, en)
+                            .into_iter()
+                            .filter(|other| other.issue_type == issue_type)
+                            .nth(nth)
+                            .map_or_else(|| fallback.clone(), |other| other.message)
+                    }),
+                );
             }
         }
     }
@@ -736,6 +794,8 @@ fn collect(
             if issue.kind() == Some(crate::security::SecurityIssueKind::MissingHttps) {
                 c.cause = Some(NOT_HTTPS);
             }
+            let security_issue = issue.clone();
+            c = c.text(move |en| security_issue.localized_message(en));
             out.push(c);
         }
     }
@@ -755,6 +815,8 @@ fn collect(
             if issue.kind() == Some(crate::mobile::MobileIssueKind::MissingViewport) {
                 c.cause = Some(VIEWPORT_MISSING);
             }
+            let mobile_issue = issue.clone();
+            c = c.text(move |en| mobile_issue.localized_message(en));
             out.push(c);
         }
     }
@@ -838,6 +900,10 @@ fn collect(
                     FindingScoring::new("Dark Mode", E::Indicator),
                     L::Page,
                 )
+                .text({
+                    let (kind, selectors) = (issue.kind.clone(), issue.selectors.clone());
+                    move |en| crate::dark_mode::dark_mode_issue_text(&kind, &selectors, en)
+                })
                 .selector(issue.selectors.first().cloned()),
             );
         }
@@ -862,6 +928,10 @@ fn collect(
                     FindingScoring::none(),
                     L::Element,
                 )
+                .text({
+                    let (rule_id, level) = (finding.rule_id.clone(), finding.level);
+                    move |en| crate::design_quality::finding_message_text(&rule_id, level, en)
+                })
                 .selector(Some(finding.selector.clone()))
                 .review(),
             );
@@ -903,6 +973,10 @@ fn collect(
                 FindingScoring::new("UX", E::Indicator),
                 L::Page,
             )
+            .text({
+                let (kind, values) = (issue.kind, issue.values.clone());
+                move |en| crate::ux::ux_issue_text(kind, &values, en).0
+            })
             .review();
             if issue.kind == crate::ux::UxIssueKind::NoH1 {
                 c.cause = Some(H1_MISSING);
@@ -923,6 +997,10 @@ fn collect(
                 FindingScoring::new("Journey", E::Indicator),
                 L::Interaction,
             )
+            .text({
+                let (kind, values) = (point.kind, point.values.clone());
+                move |en| crate::journey::journey_friction_text(kind, &values, en).0
+            })
             .review();
             if point.kind == crate::journey::FrictionKind::NoH1 {
                 c.cause = Some(H1_MISSING);
@@ -933,15 +1011,19 @@ fn collect(
 
     if let Some(commerce) = &report.commerce {
         for finding in &commerce.findings {
-            out.push(Collected::new(
-                D::Commerce,
-                "commerce",
-                kind_code(&finding.kind),
-                finding.severity,
-                finding.message.clone(),
-                FindingScoring::none(),
-                L::Page,
-            ));
+            let kind = finding.kind;
+            out.push(
+                Collected::new(
+                    D::Commerce,
+                    "commerce",
+                    kind_code(&finding.kind),
+                    finding.severity,
+                    finding.message.clone(),
+                    FindingScoring::none(),
+                    L::Page,
+                )
+                .text(move |en| crate::commerce::commerce_finding_text(kind, en)),
+            );
         }
     }
 
@@ -961,6 +1043,10 @@ fn collect(
                     FindingScoring::none(),
                     L::Resource,
                 )
+                .text({
+                    let rule_id = finding.rule_id.clone();
+                    move |en| crate::ai_transparency::finding_message_text(&rule_id, en)
+                })
                 .selector(Some(finding.image_url.clone()))
                 .review(),
             );
@@ -969,19 +1055,23 @@ fn collect(
 
     if let Some(dns) = &report.experience.network_dns {
         for finding in &dns.findings {
-            out.push(Collected::new(
-                D::NetworkDns,
-                "network_dns",
-                finding
-                    .rule_id
-                    .strip_prefix("dns.")
-                    .unwrap_or(&finding.rule_id)
-                    .to_string(),
-                Severity::Low,
-                finding.message.clone(),
-                FindingScoring::none(),
-                L::Site,
-            ));
+            let rule_id = finding.rule_id.clone();
+            out.push(
+                Collected::new(
+                    D::NetworkDns,
+                    "network_dns",
+                    finding
+                        .rule_id
+                        .strip_prefix("dns.")
+                        .unwrap_or(&finding.rule_id)
+                        .to_string(),
+                    Severity::Low,
+                    finding.message.clone(),
+                    FindingScoring::none(),
+                    L::Site,
+                )
+                .text(move |en| crate::network::dns::finding_message_text(&rule_id, en)),
+            );
         }
     }
 
@@ -1002,6 +1092,17 @@ fn collect(
                 FindingScoring::none(),
                 L::Site,
             );
+            {
+                let provider = finding
+                    .provider
+                    .as_ref()
+                    .map(|p| p.name.clone())
+                    .unwrap_or_default();
+                let (kind, document) = (finding.kind, finding.document);
+                c = c.text(move |en| {
+                    crate::privacy::findings::finding_text(kind, &provider, document, en)
+                });
+            }
             if finding.confidence == crate::privacy::ConfidenceClass::Indication {
                 c = c.review();
             }
@@ -1021,6 +1122,12 @@ fn collect(
             FindingScoring::new("risk", E::Risk),
             L::Interaction,
         );
+        {
+            let (kind, values) = (finding.kind, finding.values.clone());
+            c = c.text(move |en| {
+                crate::audit::interactive_finding::interactive_finding_text(kind, &values, en).0
+            });
+        }
         if finding.uncertainty.is_some() {
             c.outcome = FindingOutcome::Review;
         }
@@ -1047,6 +1154,7 @@ fn collect(
     }
 
     if let Some(sr) = screen_reader {
+        let localized = std::sync::Arc::new(sr.localized_texts.clone());
         for issue in &sr.issues {
             let check = issue
                 .wcag_criterion
@@ -1062,6 +1170,13 @@ fn collect(
                 FindingScoring::new("risk", E::Risk),
                 L::Element,
             )
+            .text({
+                let (english, texts) = (issue.message.clone(), localized.clone());
+                move |en| match texts.get(&english) {
+                    Some(german) if !en => german.clone(),
+                    _ => english.clone(),
+                }
+            })
             .selector(issue.affected_node_ids.first().cloned());
             if issue.review {
                 c = c.review();
@@ -1288,6 +1403,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
                 message: c.message.clone(),
                 selector: c.selector.clone(),
                 tags: vec![c.domain.as_str().to_string()],
+                text: c.text.clone(),
                 ..Default::default()
             })
             .collect(),
@@ -1640,6 +1756,8 @@ mod tests {
             message: "Missing lang attribute".into(),
             severity: Severity::Medium,
             suggestion: None,
+            kind: None,
+            values: Default::default(),
         });
         crate::seo::rescore(&mut seo, Default::default());
         report.discoverability.seo = Some(seo);
@@ -1717,6 +1835,7 @@ mod tests {
                 issue_type: "missing_h1".into(),
                 message: "No h1".into(),
                 severity: Severity::High,
+                long_heading: None,
             });
         crate::seo::rescore(&mut seo, Default::default());
         report.discoverability.seo = Some(seo);
