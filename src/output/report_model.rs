@@ -1176,6 +1176,10 @@ pub struct HtmlConformPresentation {
     /// recommendation lists (plan/31-html-conform-missing-fix-guidance.md).
     /// Empty when there are no findings.
     pub recommendations: Vec<String>,
+    /// One written measure per rule family with an open finding:
+    /// (localized family title, highest severity, localized fix hint),
+    /// most severe first. Feeds the key-measures list (#899).
+    pub measures: Vec<(String, Severity, String)>,
 }
 
 pub struct MobilePresentation {

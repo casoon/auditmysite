@@ -74,10 +74,17 @@ pub(super) fn finding_group_from_normalized(
                 f.occurrence_count,
             ),
             String::new(),
-            f.occurrences
-                .first()
-                .and_then(|o| o.fix_suggestion.clone())
-                .unwrap_or_default(),
+            // HTML conformance findings carry the checker's English prose and
+            // no fix of their own; the written recommendation of their rule
+            // family keeps them in the action plan (#899).
+            if f.rule_id.starts_with("html_conform.") {
+                crate::html_conform::recommendation::recommendation(&f.rule_id, i18n).1
+            } else {
+                f.occurrences
+                    .first()
+                    .and_then(|o| o.fix_suggestion.clone())
+                    .unwrap_or_default()
+            },
             String::new(),
             Role::Development,
             Effort::Medium,

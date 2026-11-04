@@ -91,6 +91,31 @@ pub(super) fn build_html_conform_details(
         });
         let recommendations = ranked.into_iter().take(4).map(|r| r.2.clone()).collect();
 
+        // One measure per rule family, at the family's highest severity.
+        let mut measures: Vec<(String, crate::wcag::Severity, String)> = Vec::new();
+        let mut seen: Vec<String> = Vec::new();
+        for finding in &hc.findings {
+            let severity = match finding.severity.as_str() {
+                "error" => crate::wcag::Severity::High,
+                "warning" => crate::wcag::Severity::Medium,
+                _ => crate::wcag::Severity::Low,
+            };
+            let (title, fix) =
+                crate::html_conform::recommendation::recommendation(&finding.rule_id, i18n);
+            match seen.iter().position(|t| *t == title) {
+                Some(idx) => {
+                    if severity_order(severity) < severity_order(measures[idx].1) {
+                        measures[idx].1 = severity;
+                    }
+                }
+                None => {
+                    seen.push(title.clone());
+                    measures.push((title, severity, fix));
+                }
+            }
+        }
+        measures.sort_by_key(|m| severity_order(m.1));
+
         HtmlConformPresentation {
             score,
             checked: hc.checked,
@@ -101,8 +126,19 @@ pub(super) fn build_html_conform_details(
             distinct_defect_count: hc.distinct_defect_count,
             findings: rows,
             recommendations,
+            measures,
         }
     })
+}
+
+fn severity_order(severity: crate::wcag::Severity) -> u8 {
+    use crate::wcag::Severity;
+    match severity {
+        Severity::Critical => 0,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +227,68 @@ mod html_conform_recommendations_tests {
             warning_pos > 0,
             "the warning must rank after the errors, got position {warning_pos}"
         );
+    }
+
+    /// #899: HTML conformance findings carry a written recommendation per rule
+    /// family, so they enter the action plan and the key measures with a title
+    /// and a concrete fix hint instead of being dropped.
+    #[test]
+    fn findings_enter_action_plan_and_measures_with_a_written_fix() {
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.html_conform = Some(HtmlConformAnalysis {
+            score: 70,
+            checked: true,
+            error_count: 3,
+            warning_count: 0,
+            info_count: 0,
+            distinct_defect_count: 3,
+            findings: vec![
+                finding("assertion.elements.script-module-defer", "error", "m1"),
+                finding("assertion.elements.script-module-nomodule", "error", "m2"),
+                finding("assertion.ids.duplicate", "error", "m3"),
+            ],
+            raw_html: None,
+        });
+        let ctx = crate::audit::normalized::normalize(&report);
+        for locale in ["de", "en"] {
+            let i18n = crate::i18n::I18n::new(locale).unwrap();
+
+            let groups: Vec<_> = ctx
+                .normalized
+                .findings
+                .iter()
+                .filter(|f| f.rule_id.starts_with("html_conform."))
+                .map(|f| {
+                    crate::output::builder::single::findings::finding_group_from_normalized(
+                        &i18n, f,
+                    )
+                })
+                .collect();
+            assert_eq!(groups.len(), 3);
+            assert!(groups.iter().all(|g| !g.recommendation.trim().is_empty()));
+            let plan = crate::output::builder::actions::derive_action_plan(&i18n, &groups);
+            let actions: Vec<_> = plan
+                .quick_wins
+                .iter()
+                .chain(&plan.medium_term)
+                .chain(&plan.structural)
+                .collect();
+            // Two script rules share one family and one action.
+            assert_eq!(actions.len(), 2, "{locale}");
+            assert!(actions.iter().all(|a| a.action.contains(": ")));
+
+            let presentation = build_html_conform_details(&ctx, &i18n).unwrap();
+            assert_eq!(presentation.measures.len(), 2);
+            assert!(presentation
+                .measures
+                .iter()
+                .all(|(title, _, fix)| !title.is_empty() && !fix.is_empty()));
+        }
     }
 
     #[test]

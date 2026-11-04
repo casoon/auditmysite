@@ -15,6 +15,9 @@ and verification for each change is in the
 - **PDF:** the "5 key measures" list no longer labels HTML-conformance, security and SEO findings "Accessibility" with an empty text; the action plan skips findings without a written recommendation instead of printing a card with an empty title.
 - **PDF:** German cover sentence for the top tier no longer reads "eine manuelle Prüfung ersetzt dieser Wert nicht" (now "dieser Wert ersetzt keine manuelle Prüfung").
 - **PDF:** the Security card explains a wording band below the band of its number (for example 95 with an open high-severity finding reads "Verbesserungswürdig") in one sentence under the card; the score is unchanged (Refs #896).
+- **PDF:** the cover sentence of the top tier no longer says "no structural problem, the rest is polish" while a medium, high or critical finding is open; the wording follows the highest open severity, DE and EN (Refs #899). `interpretation.verdict_key` gains the values `verdict-tier-excellent-medium`, `-high` and `-critical`.
+- **PDF:** HTML-conformance findings now enter the action plan and the "5 key measures" list: every checker rule id belongs to a written recommendation family (title and concrete fix hint, DE and EN), findings of one family collapse into one action, and a contract test enumerates all rule ids of the pinned `html-conform` version (Refs #899).
+- **PDF:** the state label next to the certificate ("Strong / Stable foundation / Unstable / Critical") uses the certificate bands 90/75/60/40 as its score part, so the two can no longer name contradicting tiers (it used 88/70/50 before); open critical/high findings can only lower the label. `warn_below_score` (default 70) stays a documented verdict policy value and does not name a tier (Refs #899).
 
 ## [2.0.0] - 2026-11-04
 
