@@ -56,6 +56,20 @@ pub fn build_sr_audit_report(
         true,
         has_disclosure_menu_pattern,
     );
+    // The same analysis in German: detection does not depend on the message
+    // language, so the issues line up one to one with the English ones.
+    let issues_de = analyze_reading_sequence(
+        &reading_items,
+        &navigation_views,
+        detect_locale,
+        false,
+        has_disclosure_menu_pattern,
+    );
+    let localized_texts = issues
+        .iter()
+        .zip(&issues_de)
+        .map(|(en, de)| (en.message.clone(), de.message.clone()))
+        .collect();
     let audit_quality = detect_audit_quality(reading_items.len(), &navigation_views);
     let bfsg_compliance = bfsg_compliance(&issues, reading_items.len(), audit_quality);
     let reading_sequence = reading_items
@@ -88,6 +102,7 @@ pub fn build_sr_audit_report(
         issues,
         bfsg_compliance,
         excluded_node_ids: Default::default(),
+        localized_texts,
     }
 }
 

@@ -21,9 +21,14 @@ pub mod topics;
 
 pub use module::SeoModule;
 
-pub use headings::{analyze_heading_structure, HeadingInfo, HeadingIssue, HeadingStructure};
+pub use headings::{
+    analyze_heading_structure, long_heading_text, HeadingInfo, HeadingIssue, HeadingStructure,
+    LongHeading,
+};
 pub use image_efficiency::{analyze_image_efficiency, ImageEfficiencyAnalysis, OversizedImage};
-pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
+pub use meta::{
+    extract_meta_tags, meta_issue_text, MetaIssueKind, MetaIssueValues, MetaTags, MetaValidation,
+};
 pub use page_health::{
     analyze_page_health, collect_issues, HtmlValidationIssue, HtmlValidationKind,
     PageHealthAnalysis, PageHealthIssue, UrlCanonicalizationCheck, WwwConsolidation,
@@ -323,6 +328,8 @@ mod score_tests {
             message: String::new(),
             severity,
             suggestion: None,
+            kind: None,
+            values: Default::default(),
         }
     }
 

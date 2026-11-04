@@ -91,7 +91,7 @@ fn exhausted_stability_measurements(
 /// (`audit::hydrate_cached_report`) and then rendered through this function.
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let localized;
-    let normalized = if config.locale != "en" && !normalized.raw_wcag.localized_texts.is_empty() {
+    let normalized = if config.locale != "en" {
         localized = with_localized_shared_texts(normalized);
         &localized
     } else {
@@ -479,6 +479,8 @@ fn with_localized_shared_texts<'a>(ctx: &AuditContext<'a>) -> AuditContext<'a> {
         &mut ctx.normalized.findings,
         &ctx.raw_wcag.localized_texts,
     );
+    // Findings outside the WCAG engine, in the run language (#898).
+    crate::audit::finding_text::localize_domain_texts(&mut ctx.normalized.findings, false);
     ctx
 }
 
@@ -549,6 +551,7 @@ mod tests {
                     issue_type: "multiple_h1".to_string(),
                     message: "Multiple H1 headings".to_string(),
                     severity: Severity::Medium,
+                    long_heading: None,
                 }],
                 ..Default::default()
             },
@@ -757,6 +760,7 @@ mod tests {
                     issue_type: "empty_heading".to_string(),
                     message: "Leere Überschrift".to_string(),
                     severity: Severity::High,
+                    long_heading: None,
                 }],
                 ..Default::default()
             },

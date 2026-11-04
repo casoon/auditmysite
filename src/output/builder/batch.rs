@@ -105,6 +105,7 @@ pub fn build_batch_presentation_with_normalized(
             .cloned()
             .map(|mut report| {
                 super::helpers::localize_shared_texts(&mut report.findings, &texts);
+                crate::audit::finding_text::localize_domain_texts(&mut report.findings, false);
                 report
             })
             .collect();

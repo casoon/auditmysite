@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::Result;
-use crate::seo::meta::MetaValidation;
+use crate::seo::meta::{MetaIssueKind, MetaIssueValues, MetaValidation};
 use crate::taxonomy::Severity;
 use web_checks::social;
 
@@ -100,29 +100,31 @@ impl SocialTags {
         let mut issues = Vec::new();
         if let Some(card) = self.twitter_card.as_ref().and_then(|t| t.card.as_deref()) {
             if !social::is_valid_twitter_card(card) {
-                issues.push(MetaValidation {
-                    field: "twitter:card".to_string(),
-                    message: format!(
-                        "Invalid twitter:card value \"{}\" (allowed: {})",
-                        card.trim(),
-                        social::TWITTER_CARD_TYPES.join(", ")
-                    ),
-                    severity: Severity::Medium,
-                    suggestion: Some("Use summary_large_image".to_string()),
-                });
+                issues.push(MetaValidation::new(
+                    "twitter:card",
+                    MetaIssueKind::InvalidTwitterCard,
+                    MetaIssueValues {
+                        value: Some(card.trim().to_string()),
+                        allowed: Some(social::TWITTER_CARD_TYPES.join(", ")),
+                        ..Default::default()
+                    },
+                    Severity::Medium,
+                    "Use summary_large_image",
+                ));
             }
         }
         if let Some(image) = self.open_graph.as_ref().and_then(|o| o.image.as_deref()) {
             if !social::is_absolute_url(image) {
-                issues.push(MetaValidation {
-                    field: "og:image".to_string(),
-                    message: format!("og:image is not an absolute URL: \"{}\"", image.trim()),
-                    severity: Severity::Medium,
-                    suggestion: Some(
-                        "Use an absolute URL (https://...) so social platforms can fetch the image"
-                            .to_string(),
-                    ),
-                });
+                issues.push(MetaValidation::new(
+                    "og:image",
+                    MetaIssueKind::RelativeOgImage,
+                    MetaIssueValues {
+                        value: Some(image.trim().to_string()),
+                        ..Default::default()
+                    },
+                    Severity::Medium,
+                    "Use an absolute URL (https://...) so social platforms can fetch the image",
+                ));
             }
         }
         issues

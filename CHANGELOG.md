@@ -15,6 +15,7 @@ and verification for each change is in the
 - **PDF:** the "5 key measures" list no longer labels HTML-conformance, security and SEO findings "Accessibility" with an empty text; the action plan skips findings without a written recommendation instead of printing a card with an empty title.
 - **PDF:** German cover sentence for the top tier no longer reads "eine manuelle Prüfung ersetzt dieser Wert nicht" (now "dieser Wert ersetzt keine manuelle Prüfung").
 - **PDF:** the Security card explains a wording band below the band of its number (for example 95 with an open high-severity finding reads "Verbesserungswürdig") in one sentence under the card; the score is unchanged (Refs #896).
+- **Report:** the German PDF no longer shows English sentences and titles for findings outside the WCAG engine (SEO meta, page health, technical SEO, mobile, security, UX, journey, dark mode, screen reader and more; Refs #898). Wording comes from each module's text function in the run language; JSON stays canonical English.
 
 ## [2.0.0] - 2026-11-04
 
