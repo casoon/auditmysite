@@ -154,13 +154,33 @@ def run_one(domain, rule_id, m):
     return None
 
 
+def parse_shard(text):
+    try:
+        k, n = (int(part) for part in text.split("/"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected K/N, got {text!r}")
+    if not 1 <= k <= n:
+        raise argparse.ArgumentTypeError(f"shard {text!r}: K must be in 1..N")
+    return k, n
+
+
+def shard(todo, part):
+    """The K-th of N parts of `todo`: every item lands in exactly one part."""
+    if part is None:
+        return todo
+    k, n = part
+    return todo[k - 1::n]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--rule", action="append", default=[])
     parser.add_argument("--list", action="store_true")
+    parser.add_argument("--shard", type=parse_shard, default=None, metavar="K/N",
+                        help="run only the K-th of N disjoint, complete parts (K in 1..N)")
     args = parser.parse_args()
 
-    todo = list(mutations(set(args.rule)))
+    todo = shard(list(mutations(set(args.rule))), args.shard)
     if args.list:
         for domain, rule_id, m in todo:
             print(f"{domain}/{rule_id}: {m['change']} -> {m['killed_by']}")
