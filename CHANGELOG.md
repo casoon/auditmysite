@@ -7,6 +7,13 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-04
+
+### Changed
+
+- **Library users:** some public structs gained fields (`MetaValidation.kind`/`values`, `HeadingIssue.long_heading`, `OccurrenceDetail.text`, `ScreenReaderSummary`/`SrAuditReport` `localized_texts`, `ActionItem.hint`, `RoadmapItemData.hint`). Code that builds them with struct literals must add the fields.
+- **Security:** the `module_scores` band in JSON now follows the finding-corrected wording band instead of the bare score band (see Fixed).
+
 ### Fixed
 
 - **PDF:** HTML-conformance findings read in the run language: the validator's English prose and parser noise (`{http://www.w3.org/1999/xhtml}span at 190:12271`) is mapped by rule id and shape to a German sentence (`Unerwartetes Element <span> an dieser Stelle.`), anything unmapped falls back to the localized rule-family title. The position shows as "Zeile 190, Spalte 12271", "Element-Typen" lists the named elements instead of line numbers, and the rule key no longer appears as "Node". JSON keeps the checker's text (Refs #902).
