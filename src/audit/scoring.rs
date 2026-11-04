@@ -142,10 +142,13 @@ pub(super) fn semantic_cap(
 }
 
 impl AccessibilityScorer {
-    /// Execution-backed coverage of the automated checks in this run.
-    /// Missing, failed and review-only checks must never become passes merely
-    /// because no violation was retained. This is not WCAG conformance.
-    pub fn calculate_execution_coverage(results: &crate::wcag::WcagResults) -> PrincipleCoverage {
+    /// Per-criterion execution state of this run: `Some(true)` ran and found
+    /// nothing, `Some(false)` did not pass, `None` not applicable. Single source
+    /// for the principle coverage ratios and the criterion tags in the PDF, so a
+    /// violated criterion can never be listed as passed.
+    pub fn criterion_execution_states(
+        results: &crate::wcag::WcagResults,
+    ) -> BTreeMap<String, Option<bool>> {
         // Per criterion: `Some(true)` ran and found nothing, `Some(false)` did
         // not pass (finding, error, disabled, capability missing), `None` has
         // nothing to check on this page and leaves the denominator (#778).
@@ -186,6 +189,14 @@ impl AccessibilityScorer {
                 criteria.insert(id, Some(false));
             }
         }
+        criteria
+    }
+
+    /// Execution-backed coverage of the automated checks in this run.
+    /// Missing, failed and review-only checks must never become passes merely
+    /// because no violation was retained. This is not WCAG conformance.
+    pub fn calculate_execution_coverage(results: &crate::wcag::WcagResults) -> PrincipleCoverage {
+        let criteria = Self::criterion_execution_states(results);
         let criteria: BTreeMap<String, bool> = criteria
             .into_iter()
             .filter_map(|(id, state)| state.map(|passed| (id, passed)))
@@ -677,6 +688,39 @@ mod tests {
         // 1.2.1 has nothing to check and leaves the denominator.
         assert_eq!(coverage.perceivable.total, 4);
         assert_eq!(coverage.perceivable.passed, 1);
+    }
+
+    #[test]
+    fn criterion_states_never_list_a_violated_criterion_as_passed() {
+        use crate::wcag::RuleRun;
+        // The rule ran and its outcome carries no count, but a violation of the
+        // criterion is retained: the criterion must not read as passed (#902-1).
+        let mut results = run_results(vec![
+            RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("b", 0).with_wcag(["1.4.3"]),
+        ]);
+        results.violations.push(Violation::new(
+            "1.4.3",
+            "Contrast",
+            crate::cli::WcagLevel::AA,
+            Severity::High,
+            "Low contrast",
+            "n1",
+        ));
+        let states = AccessibilityScorer::criterion_execution_states(&results);
+        assert_eq!(states.get("1.1.1"), Some(&Some(true)));
+        assert_eq!(states.get("1.4.3"), Some(&Some(false)));
+        // Same source as the ratios: the passed count equals the criteria
+        // marked as passed here.
+        let coverage = AccessibilityScorer::calculate_execution_coverage(&results);
+        let passed_in_states = states
+            .iter()
+            .filter(|(id, state)| {
+                **state == Some(true)
+                    && principle_for_criterion(id) == Some(WcagPrinciple::Perceivable)
+            })
+            .count() as u32;
+        assert_eq!(coverage.perceivable.passed, passed_in_states);
     }
 
     #[test]

@@ -329,6 +329,7 @@ section-device-preview-no-screenshots = No screenshots available — screenshots
 
 # Diagnosis section tables
 diagnosis-table-categories = Category breakdown
+diagnosis-clusters-note = A cluster needs at least two findings in the same category; categories with a single finding appear in the category breakdown but not here.
 diagnosis-table-clusters = Problem clusters
 diagnosis-col-category = Category
 diagnosis-col-findings = Findings
@@ -465,6 +466,7 @@ impact-base-performance = Worsens load time and user experience, increases bounc
 impact-base-mobile = Impairs mobile usability for the majority of users.
 impact-base-accessibility-readability = Impairs readability for users with visual impairment.
 impact-base-accessibility-exclude = Can exclude users and may be legally relevant where the BFSG/EAA applies.
+impact-base-accessibility-exclude-plain = Can exclude users.
 impact-base-accessibility-voice = Can raise usage barriers and prevent interactions with key elements.
 impact-base-accessibility-default = Impairs site quality and user experience.
 

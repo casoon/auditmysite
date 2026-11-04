@@ -71,6 +71,8 @@ pub use normalized::{AuditContext, NormalizedReport};
 pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
     normalized::normalize(report)
 }
+#[cfg(feature = "pdf")]
+pub(crate) use pipeline::with_shared_page_rule_violations;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,

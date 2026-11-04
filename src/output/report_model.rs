@@ -1119,6 +1119,10 @@ pub struct SecurityPresentation {
     pub band_label: String,
     /// The representative score of that corrected band; colours the card.
     pub band_score: u32,
+    /// Core security headers present, and the number counted against
+    /// (`SecurityHeaders::core_presence`), for the "Header n/m" tile.
+    pub core_headers_present: usize,
+    pub core_headers_total: usize,
     /// Explains a wording band below the number's own band; `None` when both
     /// agree (#896).
     pub band_note: Option<String>,

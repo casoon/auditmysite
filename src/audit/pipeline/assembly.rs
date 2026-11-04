@@ -54,7 +54,7 @@ const SHARED_PAGE_RULE_IDS: [&str; 2] = [
 
 /// Desktop violations plus the mobile pass's violations of the shared page
 /// rules, so both viewport scores are computed over the same rule set.
-pub(super) fn with_shared_page_rule_violations(
+pub(crate) fn with_shared_page_rule_violations(
     desktop: &[Violation],
     mobile: &[Violation],
 ) -> Vec<Violation> {

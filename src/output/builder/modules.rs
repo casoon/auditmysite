@@ -320,19 +320,7 @@ pub(super) fn derive_security_context(
     i18n: &I18n,
     sec: &crate::security::SecurityAnalysis,
 ) -> String {
-    let present_headers = [
-        sec.headers.content_security_policy.is_some(),
-        sec.headers.strict_transport_security.is_some(),
-        sec.headers.x_content_type_options.is_some(),
-        sec.headers.x_frame_options.is_some(),
-        sec.headers.referrer_policy.is_some(),
-        sec.headers.permissions_policy.is_some(),
-        sec.headers.cross_origin_opener_policy.is_some(),
-        sec.headers.cross_origin_resource_policy.is_some(),
-    ]
-    .into_iter()
-    .filter(|p| *p)
-    .count();
+    let (present_headers, _) = sec.headers.core_presence();
     if sec.ssl.https {
         i18n.t_args(
             "context-security-summary-https",
@@ -350,19 +338,7 @@ pub(super) fn derive_security_card_context(
     i18n: &I18n,
     sec: &crate::security::SecurityAnalysis,
 ) -> String {
-    let present_headers = [
-        sec.headers.content_security_policy.is_some(),
-        sec.headers.strict_transport_security.is_some(),
-        sec.headers.x_content_type_options.is_some(),
-        sec.headers.x_frame_options.is_some(),
-        sec.headers.referrer_policy.is_some(),
-        sec.headers.permissions_policy.is_some(),
-        sec.headers.cross_origin_opener_policy.is_some(),
-        sec.headers.cross_origin_resource_policy.is_some(),
-    ]
-    .into_iter()
-    .filter(|p| *p)
-    .count();
+    let (present_headers, _) = sec.headers.core_presence();
     i18n.t_args(
         "card-security-summary",
         &[("present_headers", present_headers.to_string())],

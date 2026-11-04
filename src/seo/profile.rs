@@ -148,13 +148,10 @@ impl PageType {
                     "Transaktional / Utility"
                 }
             }
-            Self::NavigationHub => {
-                if en {
-                    "Navigation / Hub page"
-                } else {
-                    "Navigations- / Hub-Seite"
-                }
-            }
+            // Same wording as the journey layer's hub intent, so one page is
+            // not "Hub / Portal" in one section and "Navigations-/Hub-Seite"
+            // in the next (#902-7).
+            Self::NavigationHub => crate::journey::PageIntent::Hub.label(en),
             Self::ThinContent => "Thin / Minimal Content",
         }
     }

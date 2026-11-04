@@ -801,6 +801,47 @@ mod tests {
         );
     }
 
+    /// #902-5: a BFSG-relevant WCAG violation must lift the screen-reader
+    /// verdict, so no "no violations" callout sits next to it; findings with
+    /// low relevance or still awaiting a manual check do not.
+    #[test]
+    fn bfsg_callout_never_clears_a_page_with_a_relevant_violation() {
+        use crate::output::pdf::detail_modules::{
+            bfsg_relevant_wcag_findings, effective_bfsg_verdict,
+        };
+        use crate::screen_reader::BfsgVerdict;
+
+        let mut contrast = group("a11y.contrast.weak", "Contrast", "Accessibility");
+        contrast.bfsg_relevance = "medium".to_string();
+        let mut html = group("html_conform.schema.html5", "Schema", "HTML Conformance");
+        html.bfsg_relevance = "low".to_string();
+        let mut manual = group("a11y.x", "Manual", "Accessibility");
+        manual.bfsg_relevance = "high".to_string();
+        manual.verification = "manual_review_recommended".to_string();
+
+        assert_eq!(bfsg_relevant_wcag_findings(&[html.clone(), manual]), 0);
+        let relevant = bfsg_relevant_wcag_findings(&[contrast, html]);
+        assert_eq!(relevant, 1);
+
+        for sr in [
+            BfsgVerdict::NoViolationsFound,
+            BfsgVerdict::Incomplete,
+            BfsgVerdict::NeedsReview,
+            BfsgVerdict::NotEvaluated,
+            BfsgVerdict::ViolationsFound,
+        ] {
+            assert_eq!(
+                effective_bfsg_verdict(sr, relevant),
+                BfsgVerdict::ViolationsFound
+            );
+        }
+        // Nothing relevant elsewhere: the screen-reader verdict stands.
+        assert_eq!(
+            effective_bfsg_verdict(BfsgVerdict::NoViolationsFound, 0),
+            BfsgVerdict::NoViolationsFound
+        );
+    }
+
     fn group(rule_id: &str, title: &str, dimension: &str) -> FindingGroup {
         FindingGroup {
             title: title.to_string(),
