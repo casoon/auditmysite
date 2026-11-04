@@ -263,7 +263,11 @@ impl Interpretation {
         let consequence_key = pick_consequence_key(ctx);
         // The sentence names the accessibility score, so that score picks the
         // tier — not the weighted technical value (#896).
-        let verdict_key = pick_verdict_key(ctx.normalized.score, ctx.normalized.risk.legal_flags);
+        let verdict_key = pick_verdict_key(
+            ctx.normalized.score,
+            ctx.normalized.risk.legal_flags,
+            &ctx.normalized.severity_counts,
+        );
         let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
@@ -1005,7 +1009,30 @@ pub fn verdict_tier_key(prefix: &str, score: u32) -> String {
     format!("{prefix}-{tier}")
 }
 
-fn pick_verdict_key(score: u32, legal_flags: usize) -> String {
+/// The cover sentence of the top tier says "no structural problem, the rest is
+/// polish". That is only true while nothing above medium is open, so the
+/// wording follows the highest open severity (#899).
+fn top_tier_key(key: String, counts: &crate::audit::normalized::SeverityCounts) -> String {
+    if key != "verdict-tier-excellent" {
+        return key;
+    }
+    let suffix = if counts.critical > 0 {
+        "critical"
+    } else if counts.high > 0 {
+        "high"
+    } else if counts.medium > 0 {
+        "medium"
+    } else {
+        return key;
+    };
+    format!("{key}-{suffix}")
+}
+
+fn pick_verdict_key(
+    score: u32,
+    legal_flags: usize,
+    counts: &crate::audit::normalized::SeverityCounts,
+) -> String {
     // A page with legal-relevant Level-A findings must never receive the
     // reassuring "solid" verdict, regardless of an otherwise passable score (#356).
     let key = verdict_tier_key("verdict-tier", score);
@@ -1017,7 +1044,7 @@ fn pick_verdict_key(score: u32, legal_flags: usize) -> String {
     {
         return "verdict-tier-deficient".to_string();
     }
-    key
+    top_tier_key(key, counts)
 }
 
 fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {
@@ -1084,9 +1111,51 @@ mod tests {
         );
         assert_eq!(verdict_tier_key("verdict-tier", 74), "verdict-tier-stable");
         // A legal finding never keeps a reassuring tier.
-        assert_eq!(pick_verdict_key(93, 1), "verdict-tier-deficient");
-        assert_eq!(pick_verdict_key(30, 1), "verdict-tier-critical");
-        assert_eq!(pick_verdict_key(93, 0), "verdict-tier-excellent");
+        let none = crate::audit::normalized::SeverityCounts::default();
+        assert_eq!(pick_verdict_key(93, 1, &none), "verdict-tier-deficient");
+        assert_eq!(pick_verdict_key(30, 1, &none), "verdict-tier-critical");
+        assert_eq!(pick_verdict_key(93, 0, &none), "verdict-tier-excellent");
+    }
+
+    /// #899: the top tier never says "no structural problem" while a high or
+    /// critical finding is open; the wording follows the highest open severity.
+    #[test]
+    fn top_tier_wording_follows_highest_open_severity() {
+        use crate::audit::normalized::SeverityCounts;
+        let c = |critical, high, medium, low| SeverityCounts {
+            critical,
+            high,
+            medium,
+            low,
+            total: critical + high + medium + low,
+        };
+        let key = |counts| pick_verdict_key(93, 0, &counts);
+        assert_eq!(key(c(0, 0, 0, 4)), "verdict-tier-excellent");
+        assert_eq!(key(c(0, 0, 2, 4)), "verdict-tier-excellent-medium");
+        assert_eq!(key(c(0, 1, 2, 4)), "verdict-tier-excellent-high");
+        assert_eq!(key(c(1, 1, 2, 4)), "verdict-tier-excellent-critical");
+        // Lower tiers keep their own wording.
+        assert_eq!(
+            pick_verdict_key(80, 0, &c(1, 1, 0, 0)),
+            "verdict-tier-solid"
+        );
+
+        for locale in ["de", "en"] {
+            let i18n = crate::i18n::I18n::new(locale).unwrap();
+            let args = [("url", "u".to_string()), ("score", "93".to_string())];
+            for suffix in ["", "-medium", "-high", "-critical"] {
+                let key = format!("verdict-tier-excellent{suffix}");
+                let text = i18n.t_args(&key, &args);
+                assert_ne!(text, key, "{locale}: {key} missing");
+                if locale == "en" {
+                    assert!(!text.contains(['ä', 'ö', 'ü', 'ß']), "{text}");
+                }
+                let claims_none = text.contains("kein strukturelles Problem")
+                    || text.contains("no structural problem");
+                let polish = text.contains("Feinschliff") || text.contains("polish");
+                assert_eq!(claims_none && polish, suffix.is_empty(), "{locale}: {text}");
+            }
+        }
     }
 
     /// #896: every tier exists in both locales and the English text carries no
