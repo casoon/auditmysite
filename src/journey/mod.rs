@@ -11,8 +11,9 @@ mod scoring;
 
 pub use analysis::{
     analyze_journey, analyze_journey_with_dom_check, analyze_journey_with_page_context,
-    journey_dimension_name, journey_dimension_summary, journey_friction_text, FrictionKind,
-    FrictionPoint, FrictionValues, JourneyAnalysis, JourneyDimension, JourneyDimensionKind,
+    journey_dimension_name, journey_dimension_summary, journey_friction_text, journey_step_name,
+    FrictionKind, FrictionPoint, FrictionValues, JourneyAnalysis, JourneyDimension,
+    JourneyDimensionKind,
 };
 pub use module::JourneyModule;
 pub use page_intent::{detect_page_intent, PageIntent};

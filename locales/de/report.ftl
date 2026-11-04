@@ -412,6 +412,7 @@ finding-recommendation = Empfehlung
 finding-wrong = ✗ Falsch
 finding-right = ✓ Richtig
 finding-location = Fundstelle
+finding-line-column = Zeile { $line }, Spalte { $column }
 finding-note = Hinweis
 finding-representative-occurrences = Repräsentative Vorkommen
 finding-occurrence = Fundstelle
@@ -437,7 +438,7 @@ security-score-card = Security Score
 # Mobile section
 mobile-score-card = Mobile Score
 mobile-configured = Konfiguriert
-mobile-touch-targets = Touch Targets
+mobile-touch-targets = Touch-Targets
 mobile-viewport-config = Viewport-Konfiguration
 mobile-font-analysis = Schriftanalyse
 mobile-content-sizing = Inhaltsanpassung
@@ -528,9 +529,15 @@ narrative-implementation-empty = { $effort } — { $owner }
 lever-accessibility-biggest = Größter Hebel: { $finding }
 lever-accessibility-default = Größter Hebel: Ergebnisse stabil halten und manuell nachprüfen
 context-accessibility-none = Keine automatisch erkannten Barrieren im aktuellen Lauf.
-context-accessibility-summary = { $total } erkannte Problemgruppe(n), davon { $high } mit hoher Auswirkung.
+context-accessibility-summary = { $total ->
+        [one] { $total } erkannte Problemgruppe
+       *[other] { $total } erkannte Problemgruppen
+    }, davon { $high } mit hoher Auswirkung.
 card-accessibility-none = Keine High-Priority-Funde
-card-accessibility-summary = { $high } Problemgruppe(n) mit hoher Auswirkung
+card-accessibility-summary = { $high ->
+        [one] { $high } Problemgruppe
+       *[other] { $high } Problemgruppen
+    } mit hoher Auswirkung
 lever-performance-dom = Größter Hebel: DOM-Größe reduzieren ({ $dom_nodes } Knoten)
 lever-performance-load = Größter Hebel: Ladezeit senken ({ $load } ms)
 lever-performance-default = Größter Hebel: Render-Pfad und Asset-Größe weiter optimieren
@@ -570,12 +577,12 @@ recommendation-security-permissions-permissive = Permissions-Policy enger fassen
 recommendation-security-sourcemap = Source Maps nicht öffentlich ausliefern oder den Zugriff darauf einschränken.
 recommendation-security-hsts-preload = Die HSTS-Direktive so ergänzen, dass sie die Preload-Anforderungen erfüllt (max-age >= 1 Jahr, includeSubDomains, preload).
 recommendation-security-default = Die grundlegenden Security-Header sind sauber gesetzt. Nächster Schritt: Richtlinien regelmäßig prüfen und an neue Skript- oder Integrationsquellen anpassen.
-lever-mobile-small = Größter Hebel: Touch Targets vergrößern ({ $small_targets } zu klein)
+lever-mobile-small = Größter Hebel: Touch-Targets vergrößern ({ $small_targets } zu klein)
 lever-mobile-crowded = Größter Hebel: Abstände mobiler Bedienelemente erhöhen ({ $crowded_targets })
 lever-mobile-default = Größter Hebel: mobile Lesbarkeit und Touch-Flows weiter optimieren
-context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } zu kleine Touch Targets, { $crowded_targets } zu enge Abstände.
-context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } zu kleine Touch Targets, { $crowded_targets } zu enge Abstände.
-card-mobile-small = { $small_targets } zu kleine Touch Targets
+context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } zu kleine Touch-Targets, { $crowded_targets } zu enge Abstände.
+context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } zu kleine Touch-Targets, { $crowded_targets } zu enge Abstände.
+card-mobile-small = { $small_targets } zu kleine Touch-Targets
 card-mobile-crowded = { $crowded_targets } zu enge Abstände
 card-mobile-proper = Viewport korrekt gesetzt
 card-mobile-improper = Viewport prüfen
@@ -691,7 +698,7 @@ pdf-robots-block-all-body = Alle Crawler vollständig gesperrt (User-agent: * / 
 pdf-robots-block-all-title = Alle Crawler gesperrt
 pdf-robots-limit-ai-body = KI-Suchbots (z. B. PerplexityBot, Amazonbot) sind blockiert. Das ist eine bewusste Entscheidung — Inhalte erscheinen nicht in KI-generierten Antworten. Das Sperren von KI-Trainingsbots (GPTBot etc.) ist dagegen übliche Praxis und kein Problem.
 pdf-robots-limit-ai-title = Eingeschränkte KI-Sichtbarkeit
-pdf-robots-training-blocked-body = Policy: { $policy } — KI-Trainingsbots ({ $bots }) sind gesperrt, KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.
+pdf-robots-training-blocked-body = Richtlinie: { $policy } — KI-Trainingsbots ({ $bots }) sind gesperrt, KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.
 pdf-robots-training-blocked-title = KI-Training blockiert (Standard)
 pdf-robots-crawler-rules = Crawler-Regeln
 pdf-robots-allowed = Erlaubt
@@ -887,7 +894,13 @@ pdf-ai-policy-training-body = KI-Trainingsbots blockiert, KI-Suchbots haben Zuga
 pdf-cv-section-title = Content Visibility & Trust (Indikator)
 pdf-cv-overview-title = Content-Sichtbarkeit — Überblick
 pdf-cv-overview-body = Aggregierter Indikator aus SEO-, Quellenqualitäts- und KI-Sichtbarkeitssignalen. Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, Inhaltstiefe und topische Relevanz-Heuristiken. Heuristischer Schätzwert — kein direkt gemessener Wert.
-pdf-cv-signals-analyzed = { $signals } Signale analysiert, { $problems } Hinweise auf Optimierungsbedarf.
+pdf-cv-signals-analyzed = { $signals ->
+        [one] { $signals } Signal analysiert
+       *[other] { $signals } Signale analysiert
+    }, { $problems ->
+        [one] { $problems } Hinweis
+       *[other] { $problems } Hinweise
+    } auf Optimierungsbedarf.
 pdf-cv-manual-review-title = Manuell prüfen
 pdf-cv-success = Alle Content-Visibility-Signale sind in Ordnung. Kein Optimierungsbedarf.
 pdf-bp-score-title = Best Practices Score
@@ -1317,3 +1330,77 @@ html-conform-media-text-title = Medien- und Textelemente korrekt einsetzen
 html-conform-media-text-fix = Medien- und Spezialelemente vollständig angeben: track mit label und höchstens einem default, ruby und rtc in der vorgesehenen Struktur, bdo mit dir und custom elements ohne is-Attribut. Nicht standardkonforme Varianten durch die vorgesehene Auszeichnung ersetzen.
 html-conform-generic-title = HTML-Konformitätsverstoß beheben
 html-conform-generic-fix = Das in der Meldung genannte Element oder Attribut gemäß HTML-Standard korrigieren und den gerenderten HTML-Code erneut prüfen. Tritt der Befund in jeder Seite auf, die Ursache im gemeinsamen Template beheben.
+
+# Count messages with singular/plural agreement (#902). Used through `I18n::count`.
+count-occurrences-found = { $count ->
+        [one] Es wurde { $count } Vorkommen erkannt
+       *[other] Es wurden { $count } Vorkommen erkannt
+    }
+count-problem-groups = { $count ->
+        [one] { $count } Problemgruppe
+       *[other] { $count } Problemgruppen
+    }
+count-more-findings = { $count ->
+        [one] { $count } weiterer Befund
+       *[other] { $count } weitere Befunde
+    }
+count-notes = { $count ->
+        [one] { $count } Hinweis
+       *[other] { $count } Hinweise
+    }
+count-warnings = { $count ->
+        [one] { $count } Warnung
+       *[other] { $count } Warnungen
+    }
+count-h1-headings = { $count ->
+        [one] { $count } H1-Überschrift
+       *[other] { $count } H1-Überschriften
+    }
+count-link-texts-repeated = { $count ->
+        [one] { $count } Linktext kommt
+       *[other] { $count } Linktexte kommen
+    }
+count-links-generic = { $count ->
+        [one] { $count } Link trägt
+       *[other] { $count } Links tragen
+    }
+count-heuristic-warnings = { $count ->
+        [one] { $count } heuristische Barrierefreiheits-Warnung
+       *[other] { $count } heuristische Barrierefreiheits-Warnungen
+    }
+count-manual-points = { $count ->
+        [one] { $count } Stelle
+       *[other] { $count } Stellen
+    }
+count-a11y-warnings = { $count ->
+        [one] { $count } Barrierefreiheits-Warnung
+       *[other] { $count } Barrierefreiheits-Warnungen
+    }
+count-manual-hints = { $count ->
+        [one] { $count } manueller Prüfhinweis
+       *[other] { $count } manuelle Prüfhinweise
+    }
+count-recommendations = { $count ->
+        [one] { $count } Empfehlung
+       *[other] { $count } Empfehlungen
+    }
+count-images-scaled-down = { $count ->
+        [one] { $count } Bild wird
+       *[other] { $count } Bilder werden
+    }
+
+pdf-ai-policy-label = Richtlinie
+pdf-ai-policy-status-label = Status
+
+module-design-quality = Gestaltungsqualität
+module-commerce = Shop-Prüfung
+module-ai-transparency = KI-Transparenz
+module-privacy = Datenschutz
+count-findings = { $count ->
+        [one] { $count } Befund
+       *[other] { $count } Befunde
+    }
+pdf-metric-issues = Probleme
+pdf-sec-headers-title = Sicherheits-Header
+pdf-screenshot-alt-desktop = Desktop-Screenshot der geprüften Seite
+pdf-screenshot-alt-mobile = Mobile-Screenshot der geprüften Seite

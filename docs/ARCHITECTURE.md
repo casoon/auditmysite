@@ -248,6 +248,7 @@ src/
 │
 ├── html_conform/        # HTML5 spec-conformance checking via the html-conform crate (scored, part of --full)
 │   ├── recommendation.rs # written fix hint per checker rule family (action plan, key measures)
+│   ├── message.rs        # run-language text of checker messages (mapped by rule id, family title as fallback)
 │   └── mod.rs, module.rs
 │
 ├── design_quality/      # Opt-in, score-neutral UX/readability heuristics (#528)
@@ -317,7 +318,7 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, default language: German
+└── i18n/                # Project Fluent (.ftl) loader, default language: German; `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
     └── mod.rs
 ```
 

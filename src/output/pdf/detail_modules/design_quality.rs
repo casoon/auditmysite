@@ -28,8 +28,9 @@ pub(in crate::output::pdf) fn render_design_quality(
         )
     } else {
         format!(
-            "{} Warnung(en), {} Hinweis(e) zu UX/Lesbarkeit gefunden.",
-            dq.warning_count, dq.advisory_count
+            "Zu UX/Lesbarkeit gefunden: {}, {}.",
+            crate::i18n::count_text("count-warnings", dq.warning_count, false),
+            crate::i18n::count_text("count-notes", dq.advisory_count, false)
         )
     };
     builder = super::module_chapter_opener(builder, title, &takeaway, is_first);

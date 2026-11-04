@@ -216,8 +216,13 @@ fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
     // `a11y-rules` liefert die Zahl allein (`2.56`), die fruehere lokale
     // Regel mit `:1`.
     let as_ratio = |v: &str| {
-        if v.ends_with(":1") {
+        let v = if en {
             v.to_string()
+        } else {
+            v.replace('.', ",")
+        };
+        if v.ends_with(":1") {
+            v
         } else {
             format!("{v}:1")
         }
@@ -310,7 +315,10 @@ pub(super) fn render_finding_technical(
     if !group.customer_description.is_empty() {
         lead_in.push_str(&group.customer_description);
     }
-    if !group.user_impact.is_empty() {
+    // A finding outside the WCAG engine carries one message in the description,
+    // the user impact and the technical impact; printing both fields said the
+    // sentence twice (#902).
+    if !group.user_impact.is_empty() && group.user_impact.trim() != lead_in.trim() {
         if !lead_in.is_empty() {
             lead_in.push(' ');
         }
@@ -419,7 +427,14 @@ pub(super) fn render_finding_technical(
     let expected_impact =
         crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en);
     let complexity_reason = crate::audit::normalized::complexity_text(group.complexity_kind, en);
-    let recheck_instruction = manual_recheck_instruction(&group.wcag_criterion, en);
+    // The 1.3.1 self-test is about headings and landmarks; the content-model
+    // finding is about invalid children of lists and tables, so it does not
+    // apply there (#902).
+    let recheck_instruction = if group.rule_id.contains("html_content_model") {
+        None
+    } else {
+        manual_recheck_instruction(&group.wcag_criterion, en)
+    };
     if !expected_impact.is_empty() || !complexity_reason.is_empty() || recheck_instruction.is_some()
     {
         builder = builder.add_component(section_caption(if is_english(i18n) {
@@ -469,7 +484,11 @@ pub(super) fn render_finding_technical(
                 } else {
                     "Selbsttest"
                 },
-                instruction,
+                // The row key already says "self-test".
+                instruction
+                    .strip_prefix("Selbsttest: ")
+                    .or_else(|| instruction.strip_prefix("Self-check: "))
+                    .unwrap_or(instruction),
             );
         }
         builder = builder.add_component(assessment);
@@ -489,12 +508,33 @@ pub(super) fn render_finding_technical(
         .any(|occ| occ.selector != occ.node_id);
 
     // AffectedElements: element-type summary + deduplicated selector list
+    // The validator's "selector" is a source position (`190:12271`) and its
+    // node id the rule key, not an element: the element type comes from the
+    // message when it names one, the position is shown as line and column.
+    let is_html_conform = group.rule_id.starts_with("html_conform.");
+    let location_label = |selector: &str| -> String {
+        match is_html_conform
+            .then(|| crate::html_conform::message::parse_location(selector))
+            .flatten()
+        {
+            Some((line, column)) => i18n.t_args(
+                "finding-line-column",
+                &[("line", line as i64), ("column", column as i64)],
+            ),
+            None => compact_html(selector, 48),
+        }
+    };
+
     if has_real_location {
         // Count occurrences per element type
-        let mut type_counts: std::collections::BTreeMap<&str, usize> =
+        let mut type_counts: std::collections::BTreeMap<String, usize> =
             std::collections::BTreeMap::new();
         for occ in &group.representative_occurrences {
-            let tag = extract_element_type(&occ.selector);
+            let tag = if is_html_conform {
+                crate::html_conform::message::element_name(&occ.message).unwrap_or_default()
+            } else {
+                extract_element_type(&occ.selector).to_string()
+            };
             if !tag.is_empty() {
                 *type_counts.entry(tag).or_insert(0) += 1;
             }
@@ -546,7 +586,7 @@ pub(super) fn render_finding_technical(
 
         for occ in &group.representative_occurrences {
             table = table.add_row(vec![
-                compact_html(&occ.selector, 48),
+                location_label(&occ.selector),
                 first_sentence(&occ.message).to_string(),
             ]);
         }
@@ -558,10 +598,23 @@ pub(super) fn render_finding_technical(
             let mut snapshot = SummaryBox::new(format!(
                 "{}: {}",
                 i18n.t("finding-occurrence"),
-                compact_html(&occ.selector, 60)
-            ))
-            .add_item("Node", truncate_url(&occ.node_id, 75))
-            .add_item(i18n.t("finding-note"), first_sentence(&occ.message));
+                if is_html_conform {
+                    location_label(&occ.selector)
+                } else {
+                    compact_html(&occ.selector, 60)
+                }
+            ));
+            // The node id is an internal handle (accessibility-tree number,
+            // the rule key of a validator finding, "document"): only a real
+            // identifier is worth a row (#902).
+            let node_id = occ.node_id.trim();
+            let internal_handle = node_id.is_empty()
+                || node_id == "document"
+                || node_id.chars().all(|c| c.is_ascii_digit());
+            if !is_html_conform && !internal_handle {
+                snapshot = snapshot.add_item("Node", truncate_url(&occ.node_id, 75));
+            }
+            snapshot = snapshot.add_item(i18n.t("finding-note"), first_sentence(&occ.message));
 
             if let Some(html) = occ
                 .html_snippet
@@ -741,6 +794,11 @@ mod tests {
         let expected = Some("Contrast 2.56:1 (required 4.5:1)".to_string());
         assert_eq!(contrast_measured_text(&shared, true), expected);
         assert_eq!(contrast_measured_text(&legacy, true), expected);
+        // German writes the decimal comma (#902).
+        assert_eq!(
+            contrast_measured_text(&shared, false),
+            Some("Kontrast 2,56:1 (erforderlich 4,5:1)".to_string())
+        );
     }
 
     /// #902-5: a BFSG-relevant WCAG violation must lift the screen-reader

@@ -41,7 +41,7 @@ const FAMILIES: &[&str] = &[
 
 /// The checker's rule id as the report carries it (`html_conform.` prefix of
 /// the finding contract and `assertion.` prefix of the checker stripped).
-fn bare_id(rule_id: &str) -> &str {
+pub(crate) fn bare_id(rule_id: &str) -> &str {
     let id = rule_id.strip_prefix("html_conform.").unwrap_or(rule_id);
     id.strip_prefix("assertion.").unwrap_or(id)
 }

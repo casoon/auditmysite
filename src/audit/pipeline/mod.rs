@@ -1997,6 +1997,10 @@ async fn run_rules(
                 )
                 .await;
                 excluded.extend(dropped);
+                // German texts for the PDF; the findings stay English (#902).
+                wcag_results
+                    .localized_texts
+                    .extend(wcag::rules::html_content_model_german_texts(&raw_findings));
                 let (outcome, findings) = page_rule_outcome(
                     wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
                     Some(wcag::rules::HTML_CONTENT_MODEL_RULE.id),

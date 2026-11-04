@@ -116,6 +116,29 @@ pub async fn extract_visible_schema_facts(
             r#"
             (() => {
                 const clean = value => (value || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+                const headingText = (h) => {
+                    // Lines of a split headline are block-level boxes or <br>: textContent
+                    // drops the boundary and glued the words together ("Webseiten &Webanwendungen").
+                    // Inline-block children (per-letter spans) stay glued.
+                    const blockish = new Set(['block', 'flex', 'grid', 'list-item', 'flow-root', 'table', 'table-row', 'table-cell']);
+                    let out = '';
+                    const walk = (node) => {
+                        for (const child of node.childNodes) {
+                            if (child.nodeType === 3) {
+                                out += child.nodeValue;
+                            } else if (child.nodeType === 1) {
+                                const tag = child.tagName;
+                                if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+                                const brk = tag === 'BR' || blockish.has(getComputedStyle(child).display);
+                                if (brk) out += ' ';
+                                walk(child);
+                                if (brk) out += ' ';
+                            }
+                        }
+                    };
+                    walk(h);
+                    return out.replace(/\s+/g, ' ').trim();
+                };
                 const unique = values => [...new Set(values.map(clean).filter(Boolean))].slice(0, 20);
                 const values = selectors => unique(selectors.flatMap(selector =>
                     [...document.querySelectorAll(selector)].map(element =>
@@ -163,7 +186,7 @@ pub async fn extract_visible_schema_facts(
                 ) : [];
                 return JSON.stringify({
                     document_title: clean(document.title) || null,
-                    h1: clean(document.querySelector('h1')?.textContent) || null,
+                    h1: clean(document.querySelector('h1') ? headingText(document.querySelector('h1')) : null) || null,
                     prices: priceValues,
                     currencies: currencyValues,
                     availability: availabilityValues,

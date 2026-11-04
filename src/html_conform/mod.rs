@@ -12,6 +12,7 @@
 //! `best_practices::console_errors`/`vulnerable_libs`, so this module
 //! deliberately does not use the #406 kind-enum localization pattern.
 
+pub mod message;
 pub mod module;
 pub mod recommendation;
 pub use module::HtmlConformModule;

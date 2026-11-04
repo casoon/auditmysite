@@ -74,12 +74,7 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
 }
 
 fn localized_decimal(value: f64, en: bool) -> String {
-    let value = format!("{value:.1}");
-    if en {
-        value
-    } else {
-        value.replace('.', ",")
-    }
+    crate::i18n::number::decimal(value, 1, en)
 }
 
 fn resource_focus_callout(perf: &PerformancePresentation, i18n: &I18n) -> Option<Callout> {
@@ -190,7 +185,11 @@ fn render_minification(
     if min.legacy_count > 0 {
         kv = kv.add(
             "Legacy-/Polyfill-Skripte",
-            format!("{} (~{:.1} KB)", min.legacy_count, min.legacy_wasted_kb),
+            format!(
+                "{} (~{} KB)",
+                min.legacy_count,
+                localized_decimal(min.legacy_wasted_kb, is_english(i18n))
+            ),
         );
     }
     builder = builder.add_component(kv);
@@ -534,8 +533,8 @@ pub(in crate::output::pdf) fn render_performance(
             kv = kv.add(
                 i18n.t("pdf-perf-tp-total-transfer"),
                 format!(
-                    "{:.1} KB / {} {}",
-                    tp.total_kb,
+                    "{} KB / {} {}",
+                    localized_decimal(tp.total_kb, is_english(i18n)),
                     tp.total_requests,
                     i18n.t("pdf-perf-tp-requests")
                 ),
@@ -565,7 +564,7 @@ pub(in crate::output::pdf) fn render_performance(
                 table = table.add_row(vec![
                     origin.as_str(),
                     &row.request_count.to_string(),
-                    &format!("{:.1}", row.transfer_kb),
+                    &localized_decimal(row.transfer_kb, is_english(i18n)),
                     row.resource_kinds.as_str(),
                 ]);
             }

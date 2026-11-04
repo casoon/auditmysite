@@ -7,6 +7,21 @@ use super::{PageHealthAnalysis, PageHealthIssue};
 /// Pure function of the analysis struct — called with English at analysis time
 /// (canonical, for JSON) and re-called with the report locale by the PDF
 /// presentation builder (#406).
+/// The reason a resource's cache policy is inefficient, in the requested
+/// language. The probe stores canonical English; unknown text is returned as is.
+pub(crate) fn cache_reason_text(reason: &str, en: bool) -> String {
+    if en {
+        return reason.to_string();
+    }
+    match reason {
+        "missing Cache-Control" => "Cache-Control fehlt",
+        "explicitly disables caching" => "Caching ist ausdrücklich abgeschaltet",
+        "short or missing max-age/s-maxage" => "max-age/s-maxage fehlt oder ist zu kurz",
+        other => other,
+    }
+    .to_string()
+}
+
 pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> {
     let mut issues = Vec::new();
 
@@ -249,8 +264,12 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
                 )
             } else {
                 format!(
-                    "{} Bilder werden deutlich kleiner dargestellt als ihre natürliche Auflösung",
-                    a.oversized_images
+                    "{} deutlich kleiner dargestellt als ihre natürliche Auflösung",
+                    crate::i18n::count_text(
+                        "count-images-scaled-down",
+                        a.oversized_images as usize,
+                        false
+                    )
                 )
             },
             severity: "medium".to_string(),
@@ -469,7 +488,11 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
                 if en {
                     format!(" (e.g. {}: {})", finding.url, finding.reason)
                 } else {
-                    format!(" (z.B. {}: {})", finding.url, finding.reason)
+                    format!(
+                        " (z.B. {}: {})",
+                        finding.url,
+                        cache_reason_text(&finding.reason, false)
+                    )
                 }
             })
             .unwrap_or_default();
@@ -942,4 +965,23 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     }
 
     issues
+}
+
+#[cfg(test)]
+mod cache_reason_tests {
+    use super::cache_reason_text;
+
+    #[test]
+    fn german_reasons_are_german_and_english_is_unchanged() {
+        for reason in [
+            "missing Cache-Control",
+            "explicitly disables caching",
+            "short or missing max-age/s-maxage",
+        ] {
+            assert_eq!(cache_reason_text(reason, true), reason);
+            let de = cache_reason_text(reason, false);
+            assert_ne!(de, reason);
+            assert!(!de.contains("missing") && !de.contains("short"));
+        }
+    }
 }

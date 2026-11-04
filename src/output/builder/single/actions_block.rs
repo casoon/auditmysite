@@ -127,6 +127,7 @@ pub(super) fn build_actions_block(
                 };
                 RoadmapItemData {
                     action: i.action.clone(),
+                    hint: i.hint.clone(),
                     role: i.role.label(en).to_string(),
                     priority: i.priority.label(en).to_string(),
                     execution_priority: i.execution_priority.label(en).to_string(),

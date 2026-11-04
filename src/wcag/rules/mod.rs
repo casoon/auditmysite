@@ -34,7 +34,10 @@ pub use display_modes::{
 pub use focus_not_obscured_enhanced::check_focus_not_obscured_enhanced_with_page;
 pub use focus_not_obscured_minimum::check_focus_not_obscured_minimum_with_page;
 pub use focus_visible::check_focus_visible;
-pub use html_content_model::{check_html_content_model, RULE_META as HTML_CONTENT_MODEL_RULE};
+pub use html_content_model::{
+    check_html_content_model, german_texts as html_content_model_german_texts,
+    RULE_META as HTML_CONTENT_MODEL_RULE,
+};
 pub use iframe_rules::check_same_origin_iframes_with_page;
 pub use keyboard::check_keyboard;
 pub use media_alternative::check_media_alternative_with_page;
