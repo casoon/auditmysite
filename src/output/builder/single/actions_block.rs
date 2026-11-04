@@ -310,6 +310,7 @@ mod tests {
     fn item(rule_id: &str, occurrences: usize) -> ActionItem {
         ActionItem {
             action: format!("fix {rule_id}"),
+            hint: String::new(),
             benefit: String::new(),
             role: Role::Development,
             priority: Priority::Low,
