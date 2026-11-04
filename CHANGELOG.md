@@ -7,6 +7,15 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Audit quality:** an unanswered side check (other host variant, certificate details) no longer turns a fully measured page into a `partial` audit with a provisional rating (Refs #895). It stays a failed subcheck plus an `audit_flags` entry `side_check_unanswered` naming the check; lost page measurements still qualify the audit. See `docs/OUTPUT_CONTRACT.md`.
+- **PDF:** the cover sentence now names the tier of the accessibility score it quotes and uses the certificate bands (90/75/60/40) for single and batch audits, so it can no longer read "stable" next to the certificate SEHR GUT. It used to pick the tier from the weighted technical value (Refs #896). New tier "stabil" for the certificate band STABIL; the band GUT now reads "gut".
+- **Security:** the certificate details (protocol, cipher, subject, issuer, expiry, chain) were missing on nearly every run: the collector took only the first security-state event of the navigation, which carries no certificate yet. It now waits, within the same 750 ms bound, for the event that does.
+- **PDF:** the "5 key measures" list no longer labels HTML-conformance, security and SEO findings "Accessibility" with an empty text; the action plan skips findings without a written recommendation instead of printing a card with an empty title.
+- **PDF:** German cover sentence for the top tier no longer reads "eine manuelle Prüfung ersetzt dieser Wert nicht" (now "dieser Wert ersetzt keine manuelle Prüfung").
+- **PDF:** the Security card explains a wording band below the band of its number (for example 95 with an open high-severity finding reads "Verbesserungswürdig") in one sentence under the card; the score is unchanged (Refs #896).
+
 ## [2.0.0] - 2026-11-04
 
 ### Added

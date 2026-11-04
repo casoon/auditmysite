@@ -39,6 +39,14 @@ pub(in crate::output::pdf) fn render_security(
             &sec.interpretation,
         ));
 
+    if let Some(note) = &sec.band_note {
+        builder = builder.add_component(
+            Label::new(note.as_str())
+                .with_size("9pt")
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        );
+    }
+
     // Only when it says more than the chapter opener already did (plan 36 §3).
     if let Some(rest) = super::interpretation_beyond_takeaway(&sec.interpretation, &sec_takeaway) {
         builder = builder.add_component(

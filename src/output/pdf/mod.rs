@@ -395,10 +395,43 @@ fn audit_flag_title(kind: &str, en: bool) -> &'static str {
         // normal stability-budget limitation (feedback 2026-09-07).
         ("incomplete_audit", true) => "Limited test coverage",
         ("incomplete_audit", false) => "Eingeschränkte Prüfabdeckung",
+        ("side_check_unanswered", true) => "Side check without answer",
+        ("side_check_unanswered", false) => "Zusatzprüfung ohne Antwort",
         ("consent_wall_artifact", true) => "Consent wall artifact",
         ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
         (_, true) => "Audit note",
         (_, false) => "Audit-Hinweis",
+    }
+}
+
+/// Names the side checks that got no answer. The page itself was measured in
+/// full, so the sentence says which check is missing and that nothing else is.
+fn side_check_unanswered_text(source: &str, en: bool) -> String {
+    let names: Vec<&str> = source
+        .split(',')
+        .map(|id| match (id, en) {
+            ("seo.www_redirect" | "seo.page_health.www_consolidation", true) => {
+                "www/non-www consolidation (the other host variant did not answer)"
+            }
+            ("seo.www_redirect" | "seo.page_health.www_consolidation", false) => {
+                "www-/non-www-Konsolidierung (die andere Host-Variante antwortete nicht)"
+            }
+            ("security.certificate", true) => "certificate details (not reported by the browser)",
+            ("security.certificate", false) => "Zertifikatsdetails (vom Browser nicht gemeldet)",
+            (_, true) => "an additional check",
+            (_, false) => "eine Zusatzprüfung",
+        })
+        .fold(Vec::new(), |mut unique, name| {
+            if !unique.contains(&name) {
+                unique.push(name);
+            }
+            unique
+        });
+    let list = names.join("; ");
+    if en {
+        format!("No result for: {list}. The audited page was measured in full; the rating is not provisional because of this.")
+    } else {
+        format!("Kein Ergebnis für: {list}. Die geprüfte Seite wurde vollständig gemessen; die Einstufung ist deshalb nicht vorläufig.")
     }
 }
 
@@ -417,6 +450,7 @@ fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool
         // same underlying limitation, not two that could drift apart.
         ("incomplete_audit", true) => "Individual measurements hit a stability/retry budget and are excluded from the reported scores, which describe only the successfully measured scope.".to_string(),
         ("incomplete_audit", false) => "Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben den erfolgreich gemessenen Umfang.".to_string(),
+        ("side_check_unanswered", en) => side_check_unanswered_text(&flag.source, en),
         _ => flag.message.clone(),
     }
 }

@@ -1159,7 +1159,7 @@ async fn check_www_redirect(
         Err(e) => {
             // The alternative host not answering is no measured status.
             tracing::debug!("www-redirect check failed for {}: {}", alternative, e);
-            return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+            return Collected::Failed(reason::ALTERNATE_HOST_UNREACHABLE);
         }
     };
 

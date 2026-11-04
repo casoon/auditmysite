@@ -1486,6 +1486,44 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
             ),
         });
     }
+    // Side checks that got no answer qualify neither the audit nor its
+    // module; they are named here so the report says exactly which check is
+    // missing and why (#895).
+    let mut unanswered_side_checks: Vec<(&str, &str)> = Vec::new();
+    for run in &report.accessibility.execution.module_runs {
+        for sub in &run.subchecks {
+            if crate::audit::collection::is_side_check(&sub.subcheck)
+                && sub.state.is_some_and(|state| state.is_gap())
+                && !unanswered_side_checks
+                    .iter()
+                    .any(|(id, _)| *id == sub.subcheck)
+            {
+                unanswered_side_checks.push((
+                    sub.subcheck.as_str(),
+                    sub.reason_code.as_deref().unwrap_or("no_reason"),
+                ));
+            }
+        }
+    }
+    if !unanswered_side_checks.is_empty() {
+        audit_flags.push(AuditFlag {
+            kind: "side_check_unanswered".to_string(),
+            related_rule: None,
+            source: unanswered_side_checks
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>()
+                .join(","),
+            message: format!(
+                "Side checks without an answer: {}. The audited page itself was measured in full; only these checks have no result.",
+                unanswered_side_checks
+                    .iter()
+                    .map(|(id, reason)| format!("{id} ({reason})"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        });
+    }
     if seo_reports_lang && had_311 {
         audit_flags.push(AuditFlag {
             kind: "conflicting_signal".to_string(),

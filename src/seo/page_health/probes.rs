@@ -551,7 +551,7 @@ async fn check_www_consolidation(url: &str) -> Collected<WwwConsolidation> {
     // Consolidation compares both variants: without both answers there is
     // nothing to compare, and "not consolidated" would be invented.
     let (Ok(www_resp), Ok(non_www_resp)) = (www_resp, non_www_resp) else {
-        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+        return Collected::Failed(reason::ALTERNATE_HOST_UNREACHABLE);
     };
 
     let www_status = Some(www_resp.status().as_u16());

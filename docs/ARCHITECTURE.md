@@ -448,40 +448,35 @@ Missing/moved issues, invalid responses and network errors fail closed. The
 release workflow runs this in `verify-version`, which is a prerequisite of every
 artifact build. Offline regression tests exercise each blocker independently.
 
-### Remaining foundation work before 2.0
+### Foundation contracts (state as of 2.0)
 
-The domain validation boundary is a consistency gate, not the completion of the
-foundation audit. The following contracts still require implementation and
-acceptance in the [2.0 tracker](https://github.com/casoon/auditmysite/issues/792):
+The validation boundary is the consistency gate; the contracts behind it are in
+place. One directed processing chain inside the application, no service split and
+no additional score model. Details per contract live in `docs/OUTPUT_CONTRACT.md`.
 
-- **Collection contract:** every metric/check must preserve measured, failed,
-  unsupported and not-applicable states with evidence and scope. Extend the
-  strict collector boundary through every subcheck; missing data must never
-  become an ordinary empty success (U04, U09–U13, U24).
-- **Canonical finding and decision model:** technical findings from every domain
-  need stable identity, applicability, evidence and explicit scoring ownership.
-  Indicators and output formats must consume that model; they must not invent
-  findings, duplicate penalties or claim unmeasured conformance (U08, U14–U17,
-  U19–U20).
-- **Explicit measurement profile:** record the actual document/redirect, sample,
-  viewport, session, consent and interaction state. Unsupported mode/flag
-  combinations must fail explicitly. A batch needs an accountable denominator
-  and a documented selection method (U03, U05, U10, U22–U23, U26).
-- **Replay and reproducibility:** persist the complete evidence snapshot and
-  rule/scoring versions, then reproduce the same domain model without a live
-  browser. Fresh, replay, cached and Studio paths need parity checks, excluding
-  declared volatile metadata. Presentation must not repair or reinterpret
-  evidence (U21, U25).
-- **Executable check specifications:** the registry must link each active check
-  to its method, source and positive/negative/N/A/error fixtures. Adding a check
-  without those contracts must fail verification. Compare heuristics against
-  independent labelled examples and track errors; passing consistency checks
-  cannot establish that their method or thresholds are sound (U14, U18–U19).
-
-Keep this as one directed processing chain within the existing application.
-Neither a service split nor an additional score model is required for these
-contracts. Public infallible compatibility APIs need an explicit migration path
-before 2.0 can promise that every external consumer uses the checked boundary.
+- **Collection contract** (`audit/collection.rs`): every collector is declared once
+  in `COLLECTORS` and reports `measured`, `empty`, `partial`, `failed`,
+  `unsupported` or `not_applicable` in `module_runs[].subchecks[]`. Missing data
+  never becomes an empty success. *Side checks* (`SIDE_CHECKS`: the other host
+  variant and the TLS certificate details) are the one deliberate exception to
+  "a lost collection makes its module partial": their loss is a gap of that single
+  subcheck and an audit caveat, not a qualification of the audited page.
+- **Finding and decision model** (`audit/finding_contract.rs`,
+  `audit/verdict.rs`): findings carry stable identity, applicability, evidence and
+  scoring effect; verdict, certificate and batch counts are computed once during
+  normalization and read by every output.
+- **Measurement profile** (`audit_scope`): document/redirect, sample, viewport,
+  session, consent and interaction state are recorded; unsupported flag
+  combinations fail explicitly; a batch records its denominator and selection.
+- **Replay** (`versions` in the JSON): evidence snapshot plus rule/scoring versions
+  reproduce the same domain model without a live browser; fresh, replay, cached
+  and Studio paths are parity-tested.
+- **Executable rule contracts** (`tests/fixtures/rule_contracts/`,
+  `rule_contract_gate`): every active rule id needs positive, negative, N/A and
+  error fixtures; a rule without a contract fails verification.
+- **Checked boundary:** `normalize_checked` is the supported entry;
+  `audit::normalize` is a deprecated compatibility API for callers outside the
+  crate.
 
 ### BrowserManager
 

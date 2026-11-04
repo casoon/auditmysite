@@ -879,6 +879,121 @@ mod tests {
         }
     }
 
+    fn record_of(
+        collector: &str,
+        module: &str,
+        state: crate::audit::collection::CollectionState,
+        reason: &str,
+    ) -> crate::audit::collection::CollectionRecord {
+        crate::audit::collection::CollectionRecord {
+            collector: collector.to_string(),
+            module: module.to_string(),
+            state,
+            method: crate::audit::collection::CollectionMethod::Http,
+            method_version: 1,
+            scoring: false,
+            reason_code: Some(reason.to_string()),
+            gaps: Vec::new(),
+        }
+    }
+
+    /// #895: the apex not answering and a certificate the browser did not
+    /// report are gaps of those single checks. The page was measured in full,
+    /// so the audit stays complete, the verdict is not qualified and the URL
+    /// counts as passed in a batch. A lost page measurement still qualifies.
+    #[test]
+    fn unanswered_side_checks_do_not_qualify_the_audit() {
+        use crate::audit::collection::{fold_records, CollectionState};
+        let side_checks = |report: &mut AuditReport| {
+            let runs = &mut report.accessibility.execution.module_runs;
+            runs.push(ModuleRun {
+                module: "seo".into(),
+                status: ExecutionStatus::Completed,
+                ..Default::default()
+            });
+            runs.push(ModuleRun {
+                module: "security".into(),
+                status: ExecutionStatus::Completed,
+                ..Default::default()
+            });
+            fold_records(
+                runs,
+                vec![
+                    record_of(
+                        "seo.www_redirect",
+                        "seo",
+                        CollectionState::Failed,
+                        "alternate_host_unreachable",
+                    ),
+                    record_of(
+                        "seo.page_health.www_consolidation",
+                        "seo",
+                        CollectionState::Failed,
+                        "alternate_host_unreachable",
+                    ),
+                    record_of(
+                        "security.certificate",
+                        "security",
+                        CollectionState::Failed,
+                        "certificate_state_unavailable",
+                    ),
+                ],
+            );
+        };
+
+        let mut report = report_with_run("accessibility");
+        side_checks(&mut report);
+        for run in &report.accessibility.execution.module_runs {
+            assert_eq!(run.status, ExecutionStatus::Completed, "{}", run.module);
+        }
+        assert_eq!(
+            quality_of(&mut report),
+            crate::audit::AuditQualityStatus::Complete
+        );
+        let context = crate::audit::normalize_checked(&report).expect("valid data");
+        assert_eq!(
+            context.normalized.decision.verdict,
+            crate::audit::Verdict::Pass,
+            "{:?}",
+            context.normalized.decision.reasons
+        );
+        let flag = context
+            .normalized
+            .audit_flags
+            .iter()
+            .find(|flag| flag.kind == "side_check_unanswered")
+            .expect("the unanswered checks are named");
+        assert!(flag
+            .message
+            .contains("seo.www_redirect (alternate_host_unreachable)"));
+        assert!(flag.message.contains("security.certificate"));
+        let batch = crate::audit::BatchReport::from_reports(vec![report.clone()], Vec::new(), 1);
+        crate::audit::validation::validate_batch(&batch).unwrap();
+        assert_eq!((batch.summary.passed, batch.summary.failed), (1, 0));
+        assert_eq!(batch.summary.decision.verdict, crate::audit::Verdict::Pass);
+
+        // A lost measurement of the page itself is no side check.
+        let mut report = report_with_run("accessibility");
+        report.accessibility.execution.module_runs.push(ModuleRun {
+            module: "seo".into(),
+            status: ExecutionStatus::Completed,
+            ..Default::default()
+        });
+        fold_records(
+            &mut report.accessibility.execution.module_runs,
+            vec![record_of(
+                "seo.page_health.headers",
+                "seo",
+                CollectionState::Failed,
+                "http_request_failed",
+            )],
+        );
+        assert_eq!(
+            quality_of(&mut report),
+            crate::audit::AuditQualityStatus::Partial
+        );
+    }
+
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
         use clap::Parser;
