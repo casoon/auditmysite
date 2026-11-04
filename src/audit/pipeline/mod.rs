@@ -27,10 +27,11 @@ use chrono::Utc;
 use futures::StreamExt;
 use tracing::{debug, info, warn};
 
+pub(crate) use self::assembly::with_shared_page_rule_violations;
 use self::assembly::{
     aggregate_report, compute_viewport_overall, consolidate_module_runs,
     drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
-    update_audit_quality, viewport_weighted_overall, with_shared_page_rule_violations,
+    update_audit_quality, viewport_weighted_overall,
 };
 use self::throttled::{
     apply_canonical_perf, attach_throttled_profile_subchecks, collect_throttled_performance,

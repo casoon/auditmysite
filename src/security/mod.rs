@@ -225,6 +225,24 @@ impl SecurityHeaders {
         .filter(|&&x| x)
         .count()
     }
+
+    /// Number of core security headers the report counts as "present" and the
+    /// total it counts against. The two CORS response headers are no hardening
+    /// headers, so their absence is no gap. Single source for every "N of M
+    /// headers" statement in the report (#902-3).
+    pub fn core_presence(&self) -> (usize, usize) {
+        let present = [
+            self.content_security_policy.is_some(),
+            self.strict_transport_security.is_some(),
+            self.x_content_type_options.is_some(),
+            self.x_frame_options.is_some(),
+            self.referrer_policy.is_some(),
+            self.permissions_policy.is_some(),
+            self.cross_origin_opener_policy.is_some(),
+            self.cross_origin_resource_policy.is_some(),
+        ];
+        (present.iter().filter(|&&x| x).count(), present.len())
+    }
 }
 
 /// SSL/TLS information
@@ -2090,6 +2108,31 @@ mod tests {
         };
         assert_eq!(issue.kind(), None);
         assert_eq!(issue.localized_message(false), "stored message");
+    }
+
+    /// #902-3: one count for "N of M core headers"; the two CORS response
+    /// headers are no hardening headers, so their absence is no gap.
+    #[test]
+    fn core_presence_ignores_cors_response_headers() {
+        let all_core = SecurityHeaders {
+            content_security_policy: Some(strong_csp()),
+            strict_transport_security: Some("max-age=1".to_string()),
+            x_content_type_options: Some("nosniff".to_string()),
+            x_frame_options: Some("DENY".to_string()),
+            referrer_policy: Some("no-referrer".to_string()),
+            permissions_policy: Some("camera=()".to_string()),
+            cross_origin_opener_policy: Some("same-origin".to_string()),
+            cross_origin_resource_policy: Some("same-site".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(all_core.core_presence(), (8, 8));
+        assert_eq!(all_core.count(), 8);
+
+        let partial = SecurityHeaders {
+            cross_origin_opener_policy: None,
+            ..all_core
+        };
+        assert_eq!(partial.core_presence(), (7, 8));
     }
 
     #[test]

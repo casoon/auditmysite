@@ -32,7 +32,11 @@ mod platform;
 mod privacy;
 mod seo;
 
-pub(super) use accessibility::{render_a11y_journey_findings, render_screen_reader_section};
+#[cfg(test)]
+pub(super) use accessibility::effective_bfsg_verdict;
+pub(super) use accessibility::{
+    bfsg_relevant_wcag_findings, render_a11y_journey_findings, render_screen_reader_section,
+};
 pub(super) use ai_transparency::render_ai_transparency;
 pub(super) use commerce::render_commerce;
 pub(super) use dark_mode::render_dark_mode;

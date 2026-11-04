@@ -94,6 +94,16 @@ pub(super) fn render_diagnosis_section(
             ]);
         }
         builder = builder.add_component(table);
+        // A cluster needs at least two findings in one category; say so when
+        // the category overview above lists categories that are not a cluster,
+        // instead of leaving two tables of different length unexplained.
+        if diagnosis.clusters.len() < diagnosis.category_breakdown.len() {
+            builder = builder.add_component(
+                Label::new(i18n.t("diagnosis-clusters-note"))
+                    .with_size("8.8pt")
+                    .with_color(super::design::tokens::NEUTRAL),
+            );
+        }
     }
 
     builder

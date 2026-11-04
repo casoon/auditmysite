@@ -30,6 +30,46 @@ pub enum HeadingQuality {
     Empty,
 }
 
+/// A document-level heading order problem and the heading it is anchored to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeadingOrderProblem<'a> {
+    /// The first non-empty heading is not an H1.
+    FirstNotH1(&'a HeadingNavItem),
+    /// The first H1 comes after an H2/H3 heading.
+    H1AfterSubheading(&'a HeadingNavItem),
+}
+
+impl<'a> HeadingOrderProblem<'a> {
+    pub fn heading(self) -> &'a HeadingNavItem {
+        match self {
+            Self::FirstNotH1(h) | Self::H1AfterSubheading(h) => h,
+        }
+    }
+}
+
+/// Single source for heading order problems: the reading-order issues and the
+/// heading quality score both read it, so a score of 100 can never sit next to
+/// a heading order finding (#902-4).
+pub fn heading_order_problems(headings: &[HeadingNavItem]) -> Vec<HeadingOrderProblem<'_>> {
+    let mut problems = Vec::new();
+    if let Some(first) = headings.iter().find(|h| h.quality != HeadingQuality::Empty) {
+        if first.level != Some(1) {
+            problems.push(HeadingOrderProblem::FirstNotH1(first));
+        }
+    }
+    let first_sub_seq = headings
+        .iter()
+        .find(|h| h.level.map(|l| l >= 2).unwrap_or(false))
+        .map(|h| h.seq);
+    let first_h1 = headings.iter().find(|h| h.level == Some(1));
+    if let (Some(sub_seq), Some(h1)) = (first_sub_seq, first_h1) {
+        if sub_seq < h1.seq {
+            problems.push(HeadingOrderProblem::H1AfterSubheading(h1));
+        }
+    }
+    problems
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LandmarkNavItem {
     pub role: String,

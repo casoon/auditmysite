@@ -56,25 +56,18 @@ pub(in crate::output::pdf) fn render_security(
         );
     }
 
-    let header_count = sec
-        .headers
-        .iter()
-        .filter(|(_, status, _, _)| status.to_lowercase().contains("vorhanden") || status == "✓")
-        .count();
+    let (header_count, header_total) = (sec.core_headers_present, sec.core_headers_total);
     builder = builder.add_component(
         MetricStrip::new(vec![
             // Accent from the ratio, not a fixed teal: inros-lackner.de has
             // 0 of 10 security headers set and the tile rendered in the
             // success colour (plan 36 §4). Same 75/40 cutoffs as every other
             // score colour in the report.
-            MetricStripItem::new("Header", format!("{}/{}", header_count, sec.headers.len()))
-                .with_accent(crate::output::pdf::design::score_color(
-                    if sec.headers.is_empty() {
-                        0
-                    } else {
-                        (header_count * 100 / sec.headers.len()) as u8
-                    },
-                )),
+            MetricStripItem::new("Header", format!("{header_count}/{header_total}")).with_accent(
+                crate::output::pdf::design::score_color(
+                    (header_count * 100).checked_div(header_total).unwrap_or(0) as u8,
+                ),
+            ),
             MetricStripItem::new(
                 "HTTPS",
                 if sec

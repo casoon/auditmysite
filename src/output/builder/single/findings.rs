@@ -44,6 +44,7 @@ pub(super) fn finding_group_from_normalized(
                 f.severity,
                 Some(f.subcategory_kind.label(false)),
                 f.occurrence_count,
+                f.bfsg_relevance.as_str(),
             ),
             expl.typical_cause_for(locale).to_string(),
             expl.recommendation_for(locale).to_string(),
@@ -72,6 +73,7 @@ pub(super) fn finding_group_from_normalized(
                 f.severity,
                 Some(f.subcategory_kind.label(false)),
                 f.occurrence_count,
+                f.bfsg_relevance.as_str(),
             ),
             String::new(),
             // HTML conformance findings carry the checker's English prose and

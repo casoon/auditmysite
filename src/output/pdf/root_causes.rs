@@ -13,7 +13,7 @@ use renderreport::prelude::*;
 
 use super::design;
 use super::problem_profile::build_overall_leverage_note;
-use super::single_report::cross_module_measures;
+use super::single_report::{cross_module_measures, top_measures};
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
@@ -181,6 +181,40 @@ pub(super) fn render_root_cause_analysis(
     builder
 }
 
+/// One card per key measure that is not a finding group of its own: module
+/// recommendations (security, mobile, performance, SEO). The key-measures list
+/// names them, so the plan must carry them too (#902-8).
+fn render_module_measure_cards(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
+    let measures: Vec<_> = top_measures(vm, i18n)
+        .into_iter()
+        .filter(|(measure, _)| !measure.from_findings)
+        .collect();
+    if measures.is_empty() {
+        return builder;
+    }
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            if en { "Other modules" } else { "Weitere Module" },
+            if en {
+                "Recommendations from the security, mobile, performance and SEO modules that the key measures name."
+            } else {
+                "Empfehlungen aus den Modulen Sicherheit, Mobile, Performance und SEO, die in den wichtigsten Maßnahmen genannt sind."
+            },
+        )
+        .with_level(3),
+    );
+    for (measure, extra) in &measures {
+        let (title, body) = measure.card_parts(*extra, en);
+        builder = builder.add_component(RecommendationCard::new(title, body));
+    }
+    builder
+}
+
 pub(super) fn render_timeframe_roadmap(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -235,7 +269,7 @@ pub(super) fn render_timeframe_roadmap(
             "Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.".to_string()
         };
         builder = builder.add_component(Label::new(empty_msg).with_color(design::tokens::NEUTRAL));
-        return builder;
+        return render_module_measure_cards(builder, vm, i18n);
     }
 
     // Same letter assignment as `render_root_cause_analysis`, so an action
@@ -289,5 +323,5 @@ pub(super) fn render_timeframe_roadmap(
         }
     }
 
-    builder
+    render_module_measure_cards(builder, vm, i18n)
 }

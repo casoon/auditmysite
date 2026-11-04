@@ -629,16 +629,32 @@ fn build_technical_overview_localized(
 
     // 3. Security level
     let sec = if let Some(s) = normalized.raw_security {
+        let (present, total) = s.headers.core_presence();
         if s.score >= 80 {
-            LocalizedText {
-                de: format!(
-                    "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
-                    s.score
-                ),
-                en: format!(
-                    "Security level: {} pts — HTTP security headers fully set",
-                    s.score
-                ),
+            // "Fully set" is a claim about the headers, so it comes from the
+            // headers and open findings, not from the score alone (#902-3).
+            if present == total && s.issues.is_empty() {
+                LocalizedText {
+                    de: format!(
+                        "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
+                        s.score
+                    ),
+                    en: format!(
+                        "Security level: {} pts — HTTP security headers fully set",
+                        s.score
+                    ),
+                }
+            } else {
+                LocalizedText {
+                    de: format!(
+                        "Security-Level: {} Pkt — {present} von {total} Kern-Headern gesetzt, offene Sicherheitsbefunde bleiben",
+                        s.score
+                    ),
+                    en: format!(
+                        "Security level: {} pts — {present} of {total} core headers set, open security findings remain",
+                        s.score
+                    ),
+                }
             }
         } else if s.score >= 55 {
             LocalizedText {
@@ -673,11 +689,7 @@ fn build_technical_overview_localized(
     // 4. Tech complexity (DOM + performance)
     let dom = normalized.normalized.nodes_analyzed;
     let perf_score = normalized.raw_performance.map(|p| p.score.overall);
-    // The branch thresholds below are calibrated against `nodes_analyzed`
-    // (the WCAG engine's own checked-node count), not the page's real DOM
-    // element count — those are different metrics at very different scales
-    // (e.g. ~4,000 checked nodes vs. ~20,000 real DOM nodes on the same
-    // page). `dom_display` prefers the real DOM count from the Performance
+    // `dom_display` prefers the real DOM count from the Performance
     // module's own vitals when available, so this sentence doesn't state a
     // "DOM-Knoten"/"DOM nodes" figure that contradicts the Performance
     // section's own DOM node count a few paragraphs later in the same
@@ -688,7 +700,10 @@ fn build_technical_overview_localized(
         .and_then(|p| p.vitals.dom_nodes)
         .map(|n| n as usize)
         .unwrap_or(dom);
-    let tech = match (dom, perf_score) {
+    // The class follows the figure the sentence prints (#902-6): classifying
+    // on `nodes_analyzed` printed "Gering — 7347 DOM-Knoten" for a page the
+    // Performance module itself rates as far above its DOM guideline.
+    let tech = match (dom_display, perf_score) {
         (d, Some(p)) if d > 2000 && p < 60 => LocalizedText {
             de: format!("Tech-Komplexität: Hoch — {dom_display} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
             en: format!("Tech complexity: High — {dom_display} DOM nodes, performance {p} pts — refactoring recommended"),
@@ -1324,6 +1339,85 @@ mod tests {
             !tech_bullet.de.contains("3974"),
             "tech-complexity bullet must not state the WCAG checked-node count as if it were the DOM count, got: {}",
             tech_bullet.de
+        );
+    }
+
+    /// #902-6 and #902-3: the tech-complexity class follows the DOM figure the
+    /// sentence prints, and "headers fully set" needs the headers and the
+    /// absence of open findings, not just a high score.
+    #[test]
+    fn technical_overview_claims_follow_the_printed_facts() {
+        use crate::audit::PerformanceResults;
+        use crate::performance::{calculate_performance_score, WebVitals};
+        use crate::security::{SecurityAnalysis, SecurityHeaders, SslInfo};
+        use crate::wcag::WcagResults;
+        use crate::WcagLevel;
+
+        let mut results = WcagResults::new();
+        results.nodes_checked = 500; // far below the real DOM count
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1_000,
+        );
+        let vitals = WebVitals {
+            dom_nodes: Some(7347),
+            ..Default::default()
+        };
+        let score = calculate_performance_score(&vitals, None);
+        report.performance = Some(PerformanceResults {
+            vitals,
+            score,
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+            measurement_warnings: Vec::new(),
+        });
+        report.security = Some(SecurityAnalysis {
+            score: 95,
+            grade: "A".to_string(),
+            headers: SecurityHeaders::default(),
+            ssl: SslInfo::default(),
+            issues: vec![severe_csp_issue()],
+            protection: Default::default(),
+            sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
+            recommendations: vec![],
+        });
+
+        let ctx = crate::audit::normalized::normalize(&report);
+        let bullets =
+            build_technical_overview_localized(&ctx, &AccessibilityClaim::from_context(&ctx));
+        let find = |prefix: &str| {
+            bullets
+                .iter()
+                .find(|b| b.de.starts_with(prefix))
+                .unwrap_or_else(|| panic!("missing bullet {prefix}"))
+        };
+
+        let tech = find("Tech-Komplexität");
+        assert!(tech.de.contains("7347"), "{}", tech.de);
+        assert!(
+            !tech.de.contains("Gering") && !tech.en.contains("Low"),
+            "7347 DOM nodes must not be classed as low complexity: {}",
+            tech.de
+        );
+
+        let security = find("Security-Level");
+        assert!(
+            !security.de.contains("vollständig gesetzt"),
+            "no all-clear next to an open CSP finding and missing headers: {}",
+            security.de
+        );
+        assert!(
+            !security.en.contains("fully set"),
+            "no all-clear next to an open CSP finding and missing headers: {}",
+            security.en
         );
     }
 

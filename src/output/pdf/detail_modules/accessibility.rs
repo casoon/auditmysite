@@ -166,6 +166,37 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
     builder
 }
 
+/// Number of confirmed WCAG findings that carry BFSG/EAA relevance, read from
+/// the finding's own `bfsg_relevance` -- the value its card prints. Findings
+/// still awaiting a manual check are no confirmed violation.
+pub(in crate::output::pdf) fn bfsg_relevant_wcag_findings(
+    groups: &[crate::output::report_model::FindingGroup],
+) -> usize {
+    groups
+        .iter()
+        .filter(|g| {
+            g.occurrence_count > 0
+                && matches!(g.bfsg_relevance.as_str(), "high" | "medium")
+                && g.verification != "manual_review_recommended"
+        })
+        .count()
+}
+
+/// The reading-order audit alone only covers its structural criteria. A
+/// BFSG-relevant WCAG violation elsewhere in the report must never sit next to
+/// a "no violations" statement (#902-5): it lifts the verdict to
+/// `ViolationsFound`; the stricter state of the two wins.
+pub(in crate::output::pdf) fn effective_bfsg_verdict(
+    sr_verdict: crate::screen_reader::BfsgVerdict,
+    bfsg_relevant_wcag_findings: usize,
+) -> crate::screen_reader::BfsgVerdict {
+    if bfsg_relevant_wcag_findings > 0 {
+        crate::screen_reader::BfsgVerdict::ViolationsFound
+    } else {
+        sr_verdict
+    }
+}
+
 /// Screen-reader reading-order audit section (#411). Renders the quality scores,
 /// the BFSG verdict and the detected issues. The full reading sequence stays in
 /// the sidecar JSON; this section surfaces the actionable summary in the report.
@@ -173,9 +204,9 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     mut builder: renderreport::engine::ReportBuilder,
     sr: &crate::screen_reader::SrAuditReport,
     patterns: Option<&crate::patterns::PatternAnalysis>,
+    bfsg_relevant_wcag_findings: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    use crate::screen_reader::BfsgVerdict;
     let en = is_english(i18n);
 
     builder = builder.add_component(PageBreak::new()).add_component(
@@ -259,37 +290,10 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
         .with_color(crate::output::pdf::design::tokens::NEUTRAL),
     );
 
-    // Deliberately never phrased as a conformance verdict: this check compares
-    // technical criteria, it cannot establish whether a service falls under
-    // the BFSG at all or whether every legal requirement is met. "No
-    // violations" would read as a legal clearance the audit cannot give.
-    let bfsg_note = match sr.bfsg_compliance.verdict {
-        BfsgVerdict::NoViolationsFound => Callout::info(if en {
-            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is neither a conformance statement nor a legal assessment; a test with a real screen reader is still open."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Das ist weder eine Konformitätsaussage noch eine rechtliche Prüfung; ein Test mit einem echten Screenreader steht noch aus."
-        }),
-        BfsgVerdict::Incomplete => Callout::warning(if en {
-            "BFSG-relevant technical criteria: the accessibility tree looks incomplete (consent wall suspected), so the absence of violations says nothing. Repeat the audit on the full page."
-        } else {
-            "BFSG-relevante technische Kriterien: Der Accessibility Tree wirkt unvollständig (vermutlich Consent-Banner), das Ausbleiben von Verstößen sagt daher nichts aus. Die Prüfung auf der vollständigen Seite wiederholen."
-        }),
-        BfsgVerdict::ViolationsFound => Callout::warning(if en {
-            "BFSG-relevant technical criteria: violations detected within the automated scope (see issues below). This is not a legal conformance assessment."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
-        }),
-        BfsgVerdict::NeedsReview => Callout::info(if en {
-            "BFSG-relevant technical criteria: no confirmed violation within the automated scope, but findings that need a manual check (see issues below). This is not a legal conformance assessment."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang kein bestätigter Verstoß, aber Hinweise, die von Hand zu prüfen sind (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
-        }),
-        BfsgVerdict::NotEvaluated => Callout::info(if en {
-            "BFSG-relevant technical criteria were not evaluated for this page."
-        } else {
-            "BFSG-relevante technische Kriterien wurden für diese Seite nicht geprüft."
-        }),
-    };
+    let bfsg_note = bfsg_callout(
+        effective_bfsg_verdict(sr.bfsg_compliance.verdict, bfsg_relevant_wcag_findings),
+        en,
+    );
     builder = builder.add_component(bfsg_note);
 
     // Re-derive issues in the run language. The stored `sr.issues` are baked in
@@ -414,5 +418,44 @@ pub(super) fn journey_label(journey: &str, en: bool) -> String {
         (Some(label), Some(index)) => format!("{label} {index}"),
         (Some(label), None) => label.to_string(),
         (None, _) => journey.to_string(),
+    }
+}
+
+/// Reader-facing BFSG callout. The single place that words the verdict.
+pub(in crate::output::pdf) fn bfsg_callout(
+    verdict: crate::screen_reader::BfsgVerdict,
+    en: bool,
+) -> Callout {
+    use crate::screen_reader::BfsgVerdict;
+    // Deliberately never phrased as a conformance verdict: this check compares
+    // technical criteria, it cannot establish whether a service falls under
+    // the BFSG at all or whether every legal requirement is met. "No
+    // violations" would read as a legal clearance the audit cannot give.
+    match verdict {
+        BfsgVerdict::NoViolationsFound => Callout::info(if en {
+            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is neither a conformance statement nor a legal assessment; a test with a real screen reader is still open."
+        } else {
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Das ist weder eine Konformitätsaussage noch eine rechtliche Prüfung; ein Test mit einem echten Screenreader steht noch aus."
+        }),
+        BfsgVerdict::Incomplete => Callout::warning(if en {
+            "BFSG-relevant technical criteria: the accessibility tree looks incomplete (consent wall suspected), so the absence of violations says nothing. Repeat the audit on the full page."
+        } else {
+            "BFSG-relevante technische Kriterien: Der Accessibility Tree wirkt unvollständig (vermutlich Consent-Banner), das Ausbleiben von Verstößen sagt daher nichts aus. Die Prüfung auf der vollständigen Seite wiederholen."
+        }),
+        BfsgVerdict::ViolationsFound => Callout::warning(if en {
+            "BFSG-relevant technical criteria: violations detected within the automated scope (see issues below). This is not a legal conformance assessment."
+        } else {
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
+        }),
+        BfsgVerdict::NeedsReview => Callout::info(if en {
+            "BFSG-relevant technical criteria: no confirmed violation within the automated scope, but findings that need a manual check (see issues below). This is not a legal conformance assessment."
+        } else {
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang kein bestätigter Verstoß, aber Hinweise, die von Hand zu prüfen sind (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
+        }),
+        BfsgVerdict::NotEvaluated => Callout::info(if en {
+            "BFSG-relevant technical criteria were not evaluated for this page."
+        } else {
+            "BFSG-relevante technische Kriterien wurden für diese Seite nicht geprüft."
+        }),
     }
 }

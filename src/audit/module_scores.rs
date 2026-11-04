@@ -68,7 +68,18 @@ pub(super) fn build_module_scores(
     }
     if let Some(ref sec) = report.security {
         let adjusted = sec.score.saturating_sub(vuln_security_penalty);
-        module_scores.push(measured_entry("Security", "security", adjusted));
+        let mut entry = measured_entry("Security", "security", adjusted);
+        // Security's wording band is corrected by open severe findings
+        // (plan 33). The band printed next to the number in the PDF, the
+        // module overview and the JSON must be that one band (#902-2).
+        entry.band = crate::registry::FIVE_BAND
+            .label(
+                crate::audit::interpretation::security_text_band(adjusted as f32, &sec.issues)
+                    .representative_score(),
+                true,
+            )
+            .to_string();
+        module_scores.push(entry);
     }
     if let Some(ref mob) = report.experience.mobile {
         module_scores.push(measured_entry("Mobile", "mobile", mob.score));

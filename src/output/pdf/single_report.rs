@@ -450,12 +450,32 @@ pub(super) fn render_risks_and_strengths(
 /// several findings that resolve into the same action — three CSP
 /// misconfigurations are one "fix the CSP" — can be collapsed into one entry.
 pub(super) struct TopMeasure {
-    module: String,
-    title: String,
-    detail: String,
+    pub(super) module: String,
+    pub(super) title: String,
+    pub(super) detail: String,
+    /// True for a WCAG/HTML finding group, which the action plan already
+    /// carries as its own card; false for a module recommendation.
+    pub(super) from_findings: bool,
 }
 
 impl TopMeasure {
+    /// Title and body of this measure as an action-plan card.
+    pub(super) fn card_parts(&self, extra: usize, en: bool) -> (String, String) {
+        let more = match (extra, en) {
+            (0, _) => String::new(),
+            (n, true) => format!(" (+{n} more of the same kind)"),
+            (n, false) => format!(" (+{n} weitere gleicher Art)"),
+        };
+        if self.title.is_empty() {
+            (self.module.clone(), format!("{}{more}", self.detail))
+        } else {
+            (
+                format!("{} — {}", self.module, self.title),
+                format!("{}{more}", self.detail),
+            )
+        }
+    }
+
     fn render(&self, index: usize, extra: usize, en: bool) -> String {
         let more = match (extra, en) {
             (0, _) => String::new(),
@@ -526,6 +546,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     module: module_label("security"),
                     title: title.clone(),
                     detail: message.clone(),
+                    from_findings: false,
                 },
             ));
         }
@@ -542,6 +563,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     // raw snake_case category must not reach the report.
                     title: mobile_category_label(category, i18n),
                     detail: message.clone(),
+                    from_findings: false,
                 },
             ));
         }
@@ -556,6 +578,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     module: module_label("seo"),
                     title: title.clone(),
                     detail: message.clone(),
+                    from_findings: false,
                 },
             ));
         }
@@ -569,6 +592,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     module: module_label("seo"),
                     title: String::new(),
                     detail: message.clone(),
+                    from_findings: false,
                 },
             ));
         }
@@ -584,6 +608,9 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     module: module_label("html-conformance"),
                     title: title.clone(),
                     detail: fix.clone(),
+                    // The same family is a finding group of its own, so the
+                    // action plan already carries it as a card.
+                    from_findings: true,
                 },
             ));
         }
@@ -600,6 +627,7 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
                     module: module_label("performance"),
                     title: String::new(),
                     detail: recommendation.clone(),
+                    from_findings: false,
                 },
             ));
         }
@@ -636,15 +664,10 @@ fn is_accessibility_rule(rule_id: &str) -> bool {
     rule_id.starts_with("a11y.") || rule_id.starts_with("a11y_journey.")
 }
 
-pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
-    let en = is_english(i18n);
-    let list_title = if en {
-        "5 Key Measures"
-    } else {
-        "Die 5 wichtigsten Maßnahmen"
-    };
-    let mut list = List::new().with_title(list_title);
-
+/// The measures the key-measures list names, in order, with the number of
+/// further findings collapsed into each. The single source for that list and
+/// for the action plan, which carries a card for every entry (#902-8).
+pub(super) fn top_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure, usize)> {
     let accessibility = module_label_accessibility(i18n);
     let mut measures: Vec<(TopMeasure, usize)> = vm
         .findings
@@ -663,6 +686,7 @@ pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List
                     module: accessibility.clone(),
                     title: group.title.clone(),
                     detail: group.recommendation.clone(),
+                    from_findings: true,
                 },
                 0,
             )
@@ -673,6 +697,19 @@ pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List
         let missing = 5 - measures.len();
         measures.extend(cross_module_measures(vm, i18n).into_iter().take(missing));
     }
+    measures
+}
+
+pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
+    let en = is_english(i18n);
+    let list_title = if en {
+        "5 Key Measures"
+    } else {
+        "Die 5 wichtigsten Maßnahmen"
+    };
+    let mut list = List::new().with_title(list_title);
+
+    let measures = top_measures(vm, i18n);
 
     if measures.is_empty() {
         let no_measures = if en {
@@ -973,9 +1010,21 @@ pub(super) fn render_tech_details(
             .dashboard
             .iter()
             .map(|module| {
-                let status = if module.score >= 80 {
+                // Security's colour follows the same finding-corrected band as
+                // its label (#902-2), not the bare score.
+                let status_score = match vm.module_details.security.as_ref() {
+                    Some(sec)
+                        if module.score == sec.score
+                            && (module.name == i18n.t("module-security")
+                                || module.name == "Security") =>
+                    {
+                        sec.band_score
+                    }
+                    _ => module.score,
+                };
+                let status = if status_score >= 80 {
                     "good"
-                } else if module.score >= 50 {
+                } else if status_score >= 50 {
                     "warn"
                 } else {
                     "bad"
@@ -1025,7 +1074,13 @@ pub(super) fn render_tech_details(
 
     // Screen-reader reading-order audit (#411)
     if let Some(sr) = report.screen_reader_audit.as_ref() {
-        builder = render_screen_reader_section(builder, sr, report.patterns.as_ref(), i18n);
+        builder = render_screen_reader_section(
+            builder,
+            sr,
+            report.patterns.as_ref(),
+            super::detail_modules::bfsg_relevant_wcag_findings(&vm.findings.all_findings),
+            i18n,
+        );
     }
 
     builder
@@ -1938,7 +1993,15 @@ fn render_dual_viewport_summary_section(
         .dual_viewport
         .as_ref()
         .map(|dual| {
-            let desktop = dual.desktop.wcag_results.violations.len();
+            // Counted over the same violations the viewport score is computed
+            // from, which include the shared page rules that run once, on the
+            // mobile pass: otherwise two equal scores sit next to "1 on
+            // desktop and 2 on mobile" (#902-11).
+            let desktop = crate::audit::with_shared_page_rule_violations(
+                &dual.desktop.wcag_results.violations,
+                &dual.mobile.wcag_results.violations,
+            )
+            .len();
             let mobile = dual.mobile.wcag_results.violations.len();
             let combined = vm.severity.total;
             if en {
@@ -2173,6 +2236,7 @@ mod top_measure_tests {
             module: module.to_string(),
             title: title.to_string(),
             detail: detail.to_string(),
+            from_findings: false,
         }
     }
 

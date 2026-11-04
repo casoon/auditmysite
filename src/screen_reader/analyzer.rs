@@ -520,61 +520,46 @@ fn contains_pua(text: &str) -> bool {
     text.chars().any(|c| ('\u{E000}'..='\u{F8FF}').contains(&c))
 }
 
+#[cfg(test)]
+pub(super) fn detect_heading_order_issues_for_test(
+    views: &NavigationViews,
+    en: bool,
+    issues: &mut Vec<SrAuditIssue>,
+) {
+    detect_heading_order_issues(views, en, issues);
+}
+
 fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut Vec<SrAuditIssue>) {
-    let headings = &views.headings;
-
-    // First non-empty heading must be H1.
-    if let Some(first) = headings.iter().find(|h| h.quality != HeadingQuality::Empty) {
-        if first.level != Some(1) {
-            issues.push(SrAuditIssue {
-                review: true,
-                wcag_criterion: Some("1.3.1".into()),
-                severity: "medium".into(),
-                affected_node_ids: vec![first.node_id.clone()],
-                message: if en {
-                    format!(
-                        "First heading in the document is H{} instead of H1 (sequence position {}).",
-                        first.level.unwrap_or(0),
-                        first.seq
-                    )
-                } else {
-                    format!(
-                        "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
-                        first.level.unwrap_or(0),
-                        first.seq
-                    )
-                },
-            });
-        }
-    }
-
-    // H1 must not appear after H2/H3 in document order.
-    let first_sub_seq = headings
-        .iter()
-        .find(|h| h.level.map(|l| l >= 2).unwrap_or(false))
-        .map(|h| h.seq);
-    let first_h1 = headings.iter().find(|h| h.level == Some(1));
-
-    if let (Some(sub_seq), Some(h1)) = (first_sub_seq, first_h1) {
-        if sub_seq < h1.seq {
-            issues.push(SrAuditIssue {
-                review: true,
-                wcag_criterion: Some("1.3.1".into()),
-                severity: "medium".into(),
-                affected_node_ids: vec![h1.node_id.clone()],
-                message: if en {
-                    format!(
-                        "H1 first appears at sequence position {} — after an H2/H3 heading.",
-                        h1.seq
-                    )
-                } else {
-                    format!(
-                        "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
-                        h1.seq
-                    )
-                },
-            });
-        }
+    use super::navigator::{heading_order_problems, HeadingOrderProblem};
+    for problem in heading_order_problems(&views.headings) {
+        let heading = problem.heading();
+        let message = match (problem, en) {
+            (HeadingOrderProblem::FirstNotH1(_), true) => format!(
+                "First heading in the document is H{} instead of H1 (sequence position {}).",
+                heading.level.unwrap_or(0),
+                heading.seq
+            ),
+            (HeadingOrderProblem::FirstNotH1(_), false) => format!(
+                "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
+                heading.level.unwrap_or(0),
+                heading.seq
+            ),
+            (HeadingOrderProblem::H1AfterSubheading(_), true) => format!(
+                "H1 first appears at sequence position {} — after an H2/H3 heading.",
+                heading.seq
+            ),
+            (HeadingOrderProblem::H1AfterSubheading(_), false) => format!(
+                "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
+                heading.seq
+            ),
+        };
+        issues.push(SrAuditIssue {
+            review: true,
+            wcag_criterion: Some("1.3.1".into()),
+            severity: "medium".into(),
+            affected_node_ids: vec![heading.node_id.clone()],
+            message,
+        });
     }
 }
 

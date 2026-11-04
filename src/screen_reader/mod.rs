@@ -198,11 +198,18 @@ fn landmark_quality_score(views: &NavigationViews) -> u32 {
 }
 
 fn heading_quality_score(views: &NavigationViews) -> u32 {
+    // A heading anchoring a document-level order problem is not good, however
+    // sound it is on its own.
+    let flagged: Vec<&str> = navigator::heading_order_problems(&views.headings)
+        .into_iter()
+        .map(|problem| problem.heading().node_id.as_str())
+        .collect();
     percentage(
         views
             .headings
             .iter()
             .filter(|item| item.quality == navigator::HeadingQuality::Good)
+            .filter(|item| !flagged.contains(&item.node_id.as_str()))
             .count(),
         views.headings.len(),
     )
@@ -601,5 +608,30 @@ mod tests {
         assert_eq!(drop_excluded_nodes(&mut issues, &excluded), 1);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].wcag_criterion.as_deref(), Some("2.4.1"));
+    }
+
+    /// #902-4: the heading quality score reads the same order problems the
+    /// reading-order issues report, so "100 / 100" never sits next to
+    /// "first heading is H2".
+    #[test]
+    fn heading_quality_score_drops_when_the_heading_order_is_reported() {
+        let heading = |seq: usize, level: u8| {
+            let mut it = item(seq, "heading");
+            it.states = vec![format!("level={level}")];
+            it
+        };
+        let sound = navigation_views(&[heading(0, 1), heading(1, 2), heading(2, 3)]);
+        assert_eq!(heading_quality_score(&sound), 100);
+        assert!(navigator::heading_order_problems(&sound.headings).is_empty());
+
+        // Starts at H2, H1 only later (the gov.uk shape).
+        let late_h1 = navigation_views(&[heading(0, 2), heading(1, 3), heading(2, 1)]);
+        let problems = navigator::heading_order_problems(&late_h1.headings);
+        assert_eq!(problems.len(), 2);
+        assert!(heading_quality_score(&late_h1) < 100);
+
+        let mut issues = Vec::new();
+        analyzer::detect_heading_order_issues_for_test(&late_h1, true, &mut issues);
+        assert_eq!(issues.len(), problems.len());
     }
 }

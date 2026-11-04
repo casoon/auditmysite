@@ -329,6 +329,7 @@ section-device-preview-no-screenshots = Keine Screenshots verfügbar — die Auf
 
 # Diagnosis section tables
 diagnosis-table-categories = Kategorie-Übersicht
+diagnosis-clusters-note = Ein Cluster entsteht ab zwei Befunden in derselben Kategorie; Kategorien mit nur einem Befund stehen in der Kategorie-Übersicht, aber nicht hier.
 diagnosis-table-clusters = Problemcluster
 diagnosis-col-category = Kategorie
 diagnosis-col-findings = Befunde
@@ -464,6 +465,7 @@ impact-base-performance = Verschlechtert Ladezeit und Nutzererlebnis, erhöht Ab
 impact-base-mobile = Beeinträchtigt mobile Nutzbarkeit für die Mehrheit der Nutzer.
 impact-base-accessibility-readability = Beeinträchtigt Lesbarkeit für Nutzer mit Sehschwäche.
 impact-base-accessibility-exclude = Kann Nutzende ausschließen und im Anwendungsbereich von BFSG/EAA rechtlich relevant sein.
+impact-base-accessibility-exclude-plain = Kann Nutzende ausschließen.
 impact-base-accessibility-voice = Kann Nutzungshürden erhöhen und Interaktionen mit zentralen Elementen verhindern.
 impact-base-accessibility-default = Beeinträchtigt Qualität und Nutzererlebnis der Website.
 

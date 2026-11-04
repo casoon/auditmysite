@@ -113,6 +113,8 @@ pub(super) fn build_security_details(
                 .label(band_score, locale == "en")
                 .to_string(),
             band_score: band_score.round() as u32,
+            core_headers_present: sec.headers.core_presence().0,
+            core_headers_total: sec.headers.core_presence().1,
             band_note,
             headers: header_checks
                 .iter()

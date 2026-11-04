@@ -225,7 +225,25 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         manual_checks: not_testable_count,
     };
 
-    let actions = build_actions_block(&i18n, &action_plan, score as f32, &audit_summary.site_state);
+    // The key-measures list names the top findings and, through the module
+    // measures, every HTML-conformance family: none of them may be cut from
+    // the plan (#902-8).
+    let listed_rule_ids: Vec<String> = top_findings
+        .iter()
+        .chain(
+            sorted_groups
+                .iter()
+                .filter(|f| f.rule_id.starts_with("html_conform.")),
+        )
+        .map(|f| f.rule_id.clone())
+        .collect();
+    let actions = build_actions_block(
+        &i18n,
+        &action_plan,
+        score as f32,
+        &audit_summary.site_state,
+        &listed_rule_ids,
+    );
 
     let module_details = build_module_details_from_normalized(&i18n, normalized);
     let executive = build_executive_narrative(

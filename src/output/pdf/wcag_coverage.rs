@@ -10,6 +10,43 @@ use renderreport::components::TagCloud;
 use crate::audit::{AccessibilityScorer, AuditReport, CoverageRatio};
 use crate::i18n::I18n;
 
+/// Criteria with at least one violation in this run.
+pub(super) fn violated_criteria(
+    results: &crate::wcag::WcagResults,
+) -> std::collections::BTreeSet<String> {
+    results
+        .violations
+        .iter()
+        .filter_map(|v| crate::taxonomy::criterion_for_rule(&v.rule))
+        .collect()
+}
+
+/// Tag colour of an automatically checked criterion, derived from the same
+/// execution states as the principle coverage ratios: only a criterion that
+/// ran and found nothing is shown as passed (#902-1).
+pub(super) fn criterion_tag_status(
+    criterion: &str,
+    states: &std::collections::BTreeMap<String, Option<bool>>,
+    violated: &std::collections::BTreeSet<String>,
+) -> &'static str {
+    if violated.contains(criterion) {
+        return "bad";
+    }
+    match states.get(criterion) {
+        Some(Some(true)) => "good",
+        Some(Some(false)) => "warn",
+        _ => "neutral",
+    }
+}
+
+fn criterion_legend(en: bool) -> &'static str {
+    if en {
+        "Green: checked and passed on this page. Red: violation found. Amber: not passed or needs review. Grey: nothing to check on this page."
+    } else {
+        "Grün: auf dieser Seite geprüft und bestanden. Rot: Verstoß gefunden. Gelb: nicht bestanden oder prüfbedürftig. Grau: auf dieser Seite nichts zu prüfen."
+    }
+}
+
 /// Render a WCAG coverage section (issue #37).
 ///
 /// Lists the criteria this tool automatically checks, plus the criteria
@@ -121,15 +158,19 @@ pub(super) fn render_wcag_coverage_section(
         )
     };
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
+    let states =
+        AccessibilityScorer::criterion_execution_states(&report.accessibility.wcag_results);
+    let violated = violated_criteria(&report.accessibility.wcag_results);
     for (c, l) in automated_criteria().iter() {
         let tag = if crate::wcag::coverage::is_wcag22_only(c) {
             format!("WCAG {} ({}, WCAG 2.2)", c, l)
         } else {
             format!("WCAG {} ({})", c, l)
         };
-        tag_cloud = tag_cloud.add(tag, "good");
+        tag_cloud = tag_cloud.add(tag, criterion_tag_status(c, &states, &violated));
     }
     builder = builder.add_component(tag_cloud);
+    let listed_note = format!("{listed_note} {}", criterion_legend(en));
     builder = builder.add_component(
         Label::new(listed_note)
             .with_size("8.8pt")
@@ -224,4 +265,35 @@ pub(super) fn render_wcag_coverage_section(
         .map(|(t, d)| ChecklistRow::new(*t, *d).with_status("info"))
         .collect();
     builder.add_component(ChecklistPanel::new(rows).with_title(how_title))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    #[test]
+    fn tag_status_marks_only_passed_criteria_as_good() {
+        let mut states = BTreeMap::new();
+        states.insert("1.1.1".to_string(), Some(true));
+        states.insert("1.4.3".to_string(), Some(false));
+        states.insert("2.5.3".to_string(), Some(false));
+        states.insert("1.2.1".to_string(), None);
+        let violated: BTreeSet<String> = ["2.5.3".to_string()].into_iter().collect();
+
+        assert_eq!(criterion_tag_status("1.1.1", &states, &violated), "good");
+        // Not passed without a confirmed violation: needs review, not green.
+        assert_eq!(criterion_tag_status("1.4.3", &states, &violated), "warn");
+        // A violated criterion is never green, whatever its state says.
+        assert_eq!(criterion_tag_status("2.5.3", &states, &violated), "bad");
+        assert_eq!(criterion_tag_status("1.2.1", &states, &violated), "neutral");
+        assert_eq!(criterion_tag_status("9.9.9", &states, &violated), "neutral");
+
+        let mut contradicting = states.clone();
+        contradicting.insert("2.5.3".to_string(), Some(true));
+        assert_eq!(
+            criterion_tag_status("2.5.3", &contradicting, &violated),
+            "bad"
+        );
+    }
 }

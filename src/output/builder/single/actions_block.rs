@@ -44,6 +44,7 @@ pub(super) fn build_actions_block(
     plan: &ActionPlan,
     score: f32,
     _site_state: &crate::audit::summary::SiteState,
+    listed_rule_ids: &[String],
 ) -> ActionsBlock {
     let locale = i18n.locale();
     let is_good_site = score >= 85.0
@@ -97,10 +98,14 @@ pub(super) fn build_actions_block(
     let low_prio = sort_bucket(low_prio);
 
     let map_items = |items: &[ActionItem]| -> Vec<RoadmapItemData> {
+        // A good site shows only a short list, but never drops an action the
+        // key-measures list names: that list and this plan must agree
+        // (#902-8).
         items
             .iter()
-            .take(item_cap)
-            .map(|i| {
+            .enumerate()
+            .filter(|(idx, i)| *idx < item_cap || listed_rule_ids.contains(&i.rule_id))
+            .map(|(_, i)| {
                 let user_effect = derive_user_effect_from_action(i18n, &i.action, i.effort);
                 let risk_effect = match (i.priority, en) {
                     (Priority::Critical, true) => {
@@ -292,5 +297,53 @@ pub(super) fn build_actions_block(
         phase_preview,
         block_title,
         task_summary,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::summary::SiteState;
+    use crate::output::report_model::{ExecutionPriority, Role};
+
+    fn item(rule_id: &str, occurrences: usize) -> ActionItem {
+        ActionItem {
+            action: format!("fix {rule_id}"),
+            benefit: String::new(),
+            role: Role::Development,
+            priority: Priority::Low,
+            execution_priority: ExecutionPriority::Important,
+            effort: Effort::Medium,
+            is_systemic: false,
+            occurrence_count: occurrences,
+            rule_id: rule_id.to_string(),
+        }
+    }
+
+    fn planned_rules(block: &ActionsBlock) -> Vec<String> {
+        block
+            .roadmap_columns
+            .iter()
+            .flat_map(|c| c.items.iter().map(|i| i.rule_id.clone()))
+            .collect()
+    }
+
+    /// #902-8: a good site shows a short plan, but every action the
+    /// key-measures list names is in it.
+    #[test]
+    fn plan_carries_every_action_the_key_measures_name() {
+        let i18n = I18n::new("de").expect("locale loads");
+        let plan = ActionPlan {
+            quick_wins: vec![],
+            medium_term: vec![item("a", 5), item("b", 4), item("c", 3), item("d", 2)],
+            structural: vec![],
+            role_assignments: vec![],
+        };
+        let listed = vec!["c".to_string(), "d".to_string()];
+        let block = build_actions_block(&i18n, &plan, 93.0, &SiteState::Polished, &listed);
+        let rules = planned_rules(&block);
+        for rule in &listed {
+            assert!(rules.contains(rule), "{rule} missing from {rules:?}");
+        }
     }
 }

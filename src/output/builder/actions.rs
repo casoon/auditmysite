@@ -164,8 +164,16 @@ pub(super) fn derive_business_impact(
     severity: Severity,
     subcategory: Option<&str>,
     occurrence_count: usize,
+    bfsg_relevance: &str,
 ) -> String {
-    let base = derive_business_impact_base(i18n, user_impact, dimension, severity, subcategory);
+    let base = derive_business_impact_base(
+        i18n,
+        user_impact,
+        dimension,
+        severity,
+        subcategory,
+        bfsg_relevance,
+    );
     let prefix = match occurrence_count {
         n if n >= 20 => i18n.t("impact-prefix-widespread"),
         n if n >= 5 => i18n.t("impact-prefix-frequent"),
@@ -184,7 +192,15 @@ fn derive_business_impact_base(
     dimension: &str,
     severity: Severity,
     subcategory: Option<&str>,
+    bfsg_relevance: &str,
 ) -> String {
+    // The legal sentence follows the finding's own BFSG/EAA relevance, the
+    // value the finding card prints; severity alone must not claim it (#902-5).
+    let exclude = if matches!(bfsg_relevance, "high" | "medium") {
+        "impact-base-accessibility-exclude"
+    } else {
+        "impact-base-accessibility-exclude-plain"
+    };
     match dimension {
         "SEO" => i18n.t("impact-base-seo"),
         "Security" => i18n.t("impact-base-security"),
@@ -200,9 +216,7 @@ fn derive_business_impact_base(
                 i18n.t("impact-base-accessibility-readability")
             } else {
                 match severity {
-                    Severity::Critical | Severity::High => {
-                        i18n.t("impact-base-accessibility-exclude")
-                    }
+                    Severity::Critical | Severity::High => i18n.t(exclude),
                     _ if user_impact.contains("Sprachsteuerung")
                         || user_impact.contains("voice control") =>
                     {
@@ -213,7 +227,7 @@ fn derive_business_impact_base(
             }
         }
         _ => match severity {
-            Severity::Critical | Severity::High => i18n.t("impact-base-accessibility-exclude"),
+            Severity::Critical | Severity::High => i18n.t(exclude),
             _ if user_impact.contains("Sprachsteuerung")
                 || user_impact.contains("voice control") =>
             {
@@ -467,5 +481,29 @@ fn narrative_impact_fallback(i18n: &I18n, severity: Severity) -> String {
         Severity::High => i18n.t("narrative-impact-high"),
         Severity::Medium => i18n.t("narrative-impact-medium"),
         Severity::Low => i18n.t("narrative-impact-low"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #902-5: the recommendation card may call a finding legally relevant
+    /// only when the finding's own BFSG/EAA relevance says so; severity alone
+    /// must not (an HTML-conformance finding is "Niedrig" on its own card).
+    #[test]
+    fn legal_sentence_follows_the_findings_own_bfsg_relevance() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).expect("locale loads");
+            let impact = |dimension: &str, relevance: &str| {
+                derive_business_impact(&i18n, "", dimension, Severity::High, None, 1, relevance)
+            };
+            let legal = i18n.t("impact-base-accessibility-exclude");
+            assert_ne!(impact("HTML Conformance", "low"), legal, "{locale}");
+            assert_ne!(impact("Accessibility", "low"), legal, "{locale}");
+            assert_eq!(impact("Accessibility", "medium"), legal, "{locale}");
+            assert_eq!(impact("Accessibility", "high"), legal, "{locale}");
+            assert_eq!(impact("HTML Conformance", "medium"), legal, "{locale}");
+        }
     }
 }

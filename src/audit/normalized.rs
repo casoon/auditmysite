@@ -2614,6 +2614,55 @@ mod tests {
         assert!(bp.console_errors.collected && bp.vulnerable_libraries.checked);
     }
 
+    /// #902-2: the band stored next to the Security score is the same
+    /// finding-corrected band the PDF prints next to the number, not the bare
+    /// score band ("95 (Verbesserungswürdig)" next to JSON "Excellent").
+    #[test]
+    fn security_module_band_follows_the_finding_corrected_band() {
+        use crate::security::{
+            HeaderTier, SecurityAnalysis, SecurityHeaders, SecurityIssue, SslInfo,
+        };
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let analysis = |issues: Vec<SecurityIssue>| SecurityAnalysis {
+            score: 95,
+            grade: "A".to_string(),
+            headers: SecurityHeaders::default(),
+            ssl: SslInfo::default(),
+            issues,
+            protection: Default::default(),
+            sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
+            recommendations: vec![],
+        };
+        let band_of = |report: &AuditReport| {
+            let norm = normalize(report).normalized;
+            norm.module_scores
+                .iter()
+                .find(|m| m.name == "Security")
+                .map(|m| m.band.clone())
+                .expect("security entry")
+        };
+
+        report.security = Some(analysis(vec![]));
+        assert_eq!(band_of(&report), "Excellent");
+
+        report.security = Some(analysis(vec![SecurityIssue {
+            header: "Content-Security-Policy".to_string(),
+            issue_type: "unsafe_inline_script".to_string(),
+            message: "unsafe-inline".to_string(),
+            severity: Severity::High,
+            tier: HeaderTier::Baseline,
+            values: Default::default(),
+            score_deduction: 0,
+        }]));
+        assert_eq!(band_of(&report), "Needs improvement");
+    }
+
     #[test]
     fn test_vulnerable_libraries_reduce_security_score() {
         use crate::best_practices::{

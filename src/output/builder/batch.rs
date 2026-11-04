@@ -1721,6 +1721,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
                 acc.severity,
                 Some(finding.subcategory_kind.label(false)),
                 acc.count,
+                finding.bfsg_relevance.as_str(),
             ),
             expl.typical_cause_for(locale).to_string(),
             expl.recommendation_for(locale).to_string(),
@@ -1744,6 +1745,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
                 acc.severity,
                 Some(finding.subcategory_kind.label(false)),
                 acc.count,
+                finding.bfsg_relevance.as_str(),
             ),
             String::new(),
             finding
