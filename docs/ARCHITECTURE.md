@@ -247,6 +247,7 @@ src/
 │   └── mod.rs, module.rs
 │
 ├── html_conform/        # HTML5 spec-conformance checking via the html-conform crate (scored, part of --full)
+│   ├── recommendation.rs # written fix hint per checker rule family (action plan, key measures)
 │   └── mod.rs, module.rs
 │
 ├── design_quality/      # Opt-in, score-neutral UX/readability heuristics (#528)

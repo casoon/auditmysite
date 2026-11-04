@@ -13,6 +13,7 @@
 //! deliberately does not use the #406 kind-enum localization pattern.
 
 pub mod module;
+pub mod recommendation;
 pub use module::HtmlConformModule;
 
 use chromiumoxide::Page;

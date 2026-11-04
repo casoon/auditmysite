@@ -573,6 +573,21 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
             ));
         }
     }
+    // HTML conformance: one written measure per rule family (#899).
+    if let Some(hc) = details.html_conform.as_ref() {
+        let cost = cost_of("HTML Conformance");
+        for (title, severity, fix) in &hc.measures {
+            ranked.push((
+                severity_rank(*severity),
+                cost,
+                TopMeasure {
+                    module: module_label("html-conformance"),
+                    title: title.clone(),
+                    detail: fix.clone(),
+                },
+            ));
+        }
+    }
     // Performance recommendations are already prioritized by their own module
     // and carry no per-item severity; they rank as Medium.
     if let Some(perf) = details.performance.as_ref() {

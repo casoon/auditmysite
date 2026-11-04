@@ -77,7 +77,7 @@ Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `so
 Migration from `auditmysite.decision/1`: read `decision.certificate` instead of `summary.certificate` / `pages[].certificate` (German label, e.g. `GUT` → `good`, `EINGESCHRÄNKT` → `restricted`, `NICHT BESTANDEN` → `not_passed`); the Studio response and history entry lost their `certificate` field the same way. Cached snapshots written under `decision/1` are cache misses.
 
 - **Fail** when the profile enables it and there are legal flags, blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
-- **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding.
+- **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding. `warn_below_score` is a policy threshold of the verdict, independent of the certificate bands (90/75/60/40) that name the tiers; no report text derives a tier name from it.
 - Thresholds compare `accessibility_score`. `overall_score` never decides.
 - A stored decision that its own profile does not reproduce is a contract violation (`decision`), reported with every other violation found.
 

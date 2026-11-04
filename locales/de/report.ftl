@@ -105,6 +105,9 @@ narrative-findings-intro-default = Die folgenden Probleme haben den größten Ei
 
 # Verdict (single audit)
 verdict-tier-excellent = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang — kein strukturelles Problem. Verbleibende Befunde sind Feinschliff; dieser Wert ersetzt keine manuelle Prüfung.
+verdict-tier-excellent-medium = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Basis ist sehr gut; die offenen Befunde mittlerer Schwere sind gezielte Verbesserungen. Dieser Wert ersetzt keine manuelle Prüfung.
+verdict-tier-excellent-high = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Basis ist sehr gut, doch mindestens ein Befund hoher Schwere ist noch offen — diesen zuerst beheben. Dieser Wert ersetzt keine manuelle Prüfung.
+verdict-tier-excellent-critical = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Trotz des hohen Werts ist mindestens ein kritischer Befund offen und sollte zuerst behoben werden. Dieser Wert ersetzt keine manuelle Prüfung.
 verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist gut — die verbleibenden Befunde sind gezielte Verbesserungshebel mit überschaubarem Aufwand.
 verdict-tier-stable = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil, aber nicht frei von Barrieren — mehrere Verbesserungshebel sollten eingeplant werden.
 verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
@@ -1260,3 +1263,55 @@ privacy-batch-providers-single = { $count } weitere Anbieter nur auf einer einze
 privacy-batch-matrix-legend = Zahl: gefundene Indikatoren. 0: nichts gefunden. –: nicht zutreffend. n. g.: nicht gemessen.
 privacy-batch-matrix-more = Gezeigt: { $shown } von { $total } Seiten; der Rest steht im JSON-Bericht.
 privacy-batch-matrix-nm = n. g.
+
+# HTML conformance: written recommendation per rule family (#899)
+html-conform-parser-title = HTML-Syntaxfehler beheben
+html-conform-parser-fix = Die Syntaxfehler beheben, die der Browser beim Einlesen stillschweigend korrigiert (nicht geschlossene oder falsch verschachtelte Tags, überzählige End-Tags, doppelte Attribute). Den gerenderten HTML-Code gegen den Prüfer laufen lassen und die Ursache im Template oder Redaktionssystem korrigieren, nicht nur das Ergebnis.
+html-conform-schema-title = Unzulässige Elemente und Attribute entfernen
+html-conform-schema-fix = Elemente und Attribute so einsetzen, wie es der HTML-Standard an dieser Stelle erlaubt: unbekannte oder veraltete Attribute entfernen, Elemente nur in erlaubte Eltern-Elemente setzen und ungültige Attributwerte korrigieren. Die Meldung nennt jeweils das betroffene Element.
+html-conform-ids-title = Doppelte IDs eindeutig machen
+html-conform-ids-fix = Jede id im Dokument nur einmal vergeben, auch bei wiederholten Komponenten oder Karten. Label-Bezüge (for), ARIA-Verweise und Anker zeigen sonst auf das falsche Element. Wiederholte Komponenten brauchen eine pro Instanz erzeugte id.
+html-conform-headings-title = Überschriftenstruktur korrigieren
+html-conform-headings-fix = Überschriftenebenen lückenlos und ohne leere Überschriften einsetzen: keine Ebene überspringen (h1 direkt zu h3), jedes section- und article-Element mit einer Überschrift versehen und genau eine Hauptüberschrift setzen. Die Ebene folgt der Gliederung, nicht der gewünschten Schriftgröße.
+html-conform-language-title = Seitensprache am html-Element angeben
+html-conform-language-fix = Das lang-Attribut am html-Element mit dem passenden Sprachcode setzen (zum Beispiel lang=de) und, falls xml:lang vorhanden ist, denselben Wert verwenden. Screenreader wählen die Aussprache danach.
+html-conform-image-alt-title = Bildern eine Textalternative geben
+html-conform-image-alt-fix = Jedem img-Element ein alt-Attribut geben: einen kurzen beschreibenden Text für inhaltliche Bilder, ein leeres alt für rein dekorative. Bilder mit role oder aria-Attributen brauchen einen zugänglichen Namen oder ein leeres alt ohne widersprüchliche Rolle.
+html-conform-responsive-images-title = srcset, sizes und source-Angaben korrigieren
+html-conform-responsive-images-fix = Bei srcset mit Breitenangaben (w) das sizes-Attribut ergänzen, sizes nur zusammen mit srcset verwenden und source-Elemente in picture mit media oder type versehen. Widersprüchliche Kombinationen führen dazu, dass Browser das Bild falsch oder gar nicht auswählen.
+html-conform-image-maps-title = Bildkarten (Image Maps) korrigieren
+html-conform-image-maps-fix = Bildkarten vollständig definieren: usemap muss auf eine vorhandene map mit passendem name und id zeigen, area-Elemente gehören in die map, und ismap benötigt einen umschließenden Link mit href. Wo möglich, Bildkarten durch echte Links ersetzen.
+html-conform-nested-interactive-title = Verschachtelte interaktive Elemente auflösen
+html-conform-nested-interactive-fix = Keine Links, Buttons, Formularfelder oder fokussierbaren Elemente innerhalb von Links oder Buttons verschachteln. Den Klickbereich stattdessen über einen einzigen Link mit Block-Darstellung lösen oder die Elemente nebeneinander statt ineinander setzen.
+html-conform-forms-title = Formularelemente korrekt auszeichnen
+html-conform-forms-fix = Formularfelder gemäß Standard auszeichnen: label mit for auf ein vorhandenes Feld beziehen, nur je Feld ein Label, passende Attribute je type (pattern, maxlength, required, readonly nur, wo der Typ sie zulässt), Auswahllisten mit gültigem Platzhalter-Eintrag und gültiger Struktur aus select, optgroup und option, und bei accept-charset nur utf-8.
+html-conform-document-meta-title = Metadaten im Dokumentkopf korrigieren
+html-conform-document-meta-fix = Den Dokumentkopf bereinigen: einen nicht leeren title, genau ein meta charset mit UTF-8 am Anfang, ein viewport-Meta ohne user-scalable=no, höchstens eine description und base vor allen Links und Skripten. Nicht mehr benötigte Altlasten wie X-UA-Compatible entfernen.
+html-conform-link-rel-title = link-Elemente im Kopf korrigieren
+html-conform-link-rel-fix = link-Elemente vollständig angeben: href vorhanden, rel passend zu den weiteren Attributen (as bei preload und modulepreload mit gültigem Wert, imagesizes nur mit imagesrcset, integrity nur bei erlaubten rel-Werten, alternate stylesheet mit title).
+html-conform-scripts-title = Skript-Attribute und Skriptarten korrigieren
+html-conform-scripts-fix = Skript-Attribute nur in zulässigen Kombinationen setzen: kein defer an Modulen, kein async oder defer an Inline-Skripten, keine Attribute wie nomodule, integrity oder fetchpriority an Import-Maps und Speculation-Rules, und den unnötigen Typ text/javascript sowie das veraltete language-Attribut entfernen. Inhalte von importmap und speculationrules müssen gültiges JSON sein.
+html-conform-csp-title = Content-Security-Policy im meta-Element einhalten
+html-conform-csp-fix = Inline-Skripte und Inline-Styles entweder in Dateien auslagern, per Nonce oder Hash in der Richtlinie freigeben oder die Richtlinie anpassen. Die per meta gesetzte Richtlinie blockiert sie sonst im Browser. Bevorzugt die Richtlinie als HTTP-Header ausliefern.
+html-conform-tables-title = Tabellenstruktur korrigieren
+html-conform-tables-fix = Tabellen als regelmäßiges Raster aufbauen: jede Zeile hat gleich viele Zellen, colspan und rowspan überschreiten Tabellenrand und Gruppen nicht, Zeilen sind nicht leer, th erhält ein gültiges scope und headers verweist auf vorhandene th-Zellen. Tabellen nicht für Layout verwenden.
+html-conform-aria-redundant-role-title = Überflüssige ARIA-Rollen entfernen
+html-conform-aria-redundant-role-fix = Rollen entfernen, die das HTML-Element bereits von Haus aus mitbringt (zum Beispiel role=button an button, role=navigation an nav, role=list an ul). Redundante Rollen erzeugen Wartungsaufwand und können native Eigenschaften überschreiben.
+html-conform-aria-naming-title = ARIA-Namen nur dort vergeben, wo sie erlaubt sind
+html-conform-aria-naming-fix = aria-label, aria-labelledby und aria-braillelabel nur an Elementen und Rollen setzen, die einen Namen tragen dürfen; bei Rollen ohne Namensunterstützung (zum Beispiel generic) den Text sichtbar machen oder eine passende Rolle wählen. Bei label-Elementen mit for kein zusätzliches aria-label verwenden.
+html-conform-aria-state-title = Unzulässige ARIA-Attribute und -Zustände entfernen
+html-conform-aria-state-fix = ARIA-Zustände nur dort setzen, wo Rolle und Element sie erlauben: keine aria-valuemin, aria-valuemax oder aria-checked an Elementen, die min, max oder checked nativ ausdrücken, kein aria-hidden an fokussierbaren Elementen, aria-activedescendant und aria-controls nur mit vorhandenem Ziel. Native Attribute haben Vorrang vor ARIA.
+html-conform-aria-structure-title = ARIA-Rollen im richtigen Zusammenhang einsetzen
+html-conform-aria-structure-fix = Rollen nur im passenden Umfeld einsetzen: option in listbox, row in table, grid oder treegrid, listitem in list, tab in tablist, cell in row. Keine Buttons oder Überschriften in Elementen platzieren, deren Kinder als rein darstellend gelten (role=img, button), und keine Rollen innerhalb von Überschriften oder summary verwenden, die dort verboten sind. Wo möglich, das native Element nehmen.
+html-conform-obsolete-title = Veraltete HTML-Elemente ersetzen
+html-conform-obsolete-fix = Veraltete Elemente wie font, center, marquee oder big durch semantisches HTML und CSS ersetzen. Sie werden nicht mehr weiterentwickelt, und Hilfstechnologien behandeln sie uneinheitlich.
+html-conform-microdata-title = Microdata-Attribute vervollständigen
+html-conform-microdata-fix = Microdata-Attribute nur gemeinsam setzen: itemtype, itemid und itemref benötigen ein umschließendes itemscope, itemprop gehört in ein Element mit itemscope, und itemref muss auf eine vorhandene id zeigen. Alternativ strukturierte Daten als JSON-LD ausliefern.
+html-conform-meter-progress-title = Wertebereiche von meter und progress korrigieren
+html-conform-meter-progress-fix = Die Werte von meter und progress in eine schlüssige Reihenfolge bringen: min kleiner als max, value innerhalb dieses Bereichs, bei meter low kleiner als high und optimum innerhalb von min und max. Bei progress ohne max gilt der Bereich 0 bis 1.
+html-conform-sectioning-title = Gliederungselemente korrekt verschachteln
+html-conform-sectioning-fix = Gliederungselemente nach Standard einsetzen: nur ein sichtbares main, nicht innerhalb von article, aside, footer, header oder nav; kein header oder footer in header oder footer; keine adresse in address; dt ohne Überschriften, header, footer oder Gliederungselemente und ohne doppelte Namen; figure mit figcaption statt caption.
+html-conform-media-text-title = Medien- und Textelemente korrekt einsetzen
+html-conform-media-text-fix = Medien- und Spezialelemente vollständig angeben: track mit label und höchstens einem default, ruby und rtc in der vorgesehenen Struktur, bdo mit dir und custom elements ohne is-Attribut. Nicht standardkonforme Varianten durch die vorgesehene Auszeichnung ersetzen.
+html-conform-generic-title = HTML-Konformitätsverstoß beheben
+html-conform-generic-fix = Das in der Meldung genannte Element oder Attribut gemäß HTML-Standard korrigieren und den gerenderten HTML-Code erneut prüfen. Tritt der Befund in jeder Seite auf, die Ursache im gemeinsamen Template beheben.

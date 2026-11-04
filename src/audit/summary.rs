@@ -13,36 +13,54 @@ use crate::taxonomy::Severity;
 // ── Site-state ────────────────────────────────────────────────────────────────
 
 /// Four-level assessment of the overall site health.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// The score part follows the certificate bands (90/75/60/40, single source
+/// `Certificate::from_score`), so the label and the certificate badge on the
+/// same cover never name contradicting tiers (#899):
+/// `SEHR GUT` = Polished, `GUT`/`STABIL` = NeedsWork, `AUSBAUFÄHIG` = Weak,
+/// `UNGENÜGEND` = Critical. Open urgent findings can only lower the state
+/// (like the certificate's risk veto), never raise it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SiteState {
-    /// score ≥ 88, no urgent (critical/high) issues — near-perfect
+    /// certificate `SEHR GUT` and no urgent (critical/high) issues
     Polished,
-    /// score 70–87 or a few urgent issues — solid but improvable
+    /// certificate `GUT`/`STABIL`, or a better score with urgent issues open
     NeedsWork,
-    /// score 50–69 or multiple critical issues — significant barriers present
+    /// certificate `AUSBAUFÄHIG`, or several urgent issues including a critical one
     Weak,
-    /// score < 50 or ≥ 3 critical issues — acute action required
+    /// certificate `UNGENÜGEND` or ≥ 3 critical issues — acute action required
     Critical,
 }
 
 impl SiteState {
+    /// The state the score alone allows, banded like the certificate.
+    pub fn from_score(score: u32) -> Self {
+        use crate::audit::verdict::Certificate;
+        match Certificate::from_score(score) {
+            Certificate::VeryGood => Self::Polished,
+            Certificate::Good | Certificate::Stable => Self::NeedsWork,
+            Certificate::NeedsImprovement => Self::Weak,
+            _ => Self::Critical,
+        }
+    }
+
     pub fn from_normalized(normalized: &NormalizedReport) -> Self {
-        let score = normalized.score;
         // Use occurrence-level counts so thresholds reflect the total mass of
         // affected elements, not just the number of distinct rules fired.
         let critical = normalized.occurrence_counts.critical;
         let high = normalized.occurrence_counts.high;
         let urgent = critical + high;
 
-        if score < 50 || critical >= 3 {
+        let floor = if critical >= 3 {
             Self::Critical
-        } else if score < 70 || (critical >= 1 && urgent >= 3) {
+        } else if critical >= 1 && urgent >= 3 {
             Self::Weak
-        } else if score < 88 || urgent > 0 {
+        } else if urgent > 0 {
             Self::NeedsWork
         } else {
             Self::Polished
-        }
+        };
+        Self::from_score(normalized.score).max(floor)
     }
 
     pub fn label(&self) -> &str {
@@ -754,6 +772,44 @@ mod tests {
         }
     }
 
+    /// #899: sweeping the score, the state label never contradicts the
+    /// certificate tier named beside it.
+    #[test]
+    fn site_state_never_contradicts_certificate_tier() {
+        use crate::audit::verdict::Certificate;
+        for score in 0..=100u32 {
+            let state = SiteState::from_normalized(&make_report(score, vec![]));
+            let expected = match Certificate::from_score(score) {
+                Certificate::VeryGood => SiteState::Polished,
+                Certificate::Good | Certificate::Stable => SiteState::NeedsWork,
+                Certificate::NeedsImprovement => SiteState::Weak,
+                _ => SiteState::Critical,
+            };
+            assert_eq!(state, expected, "score {score}");
+        }
+        // Band edges 90/75/60/40.
+        assert_eq!(SiteState::from_score(90), SiteState::Polished);
+        assert_eq!(SiteState::from_score(89), SiteState::NeedsWork);
+        assert_eq!(SiteState::from_score(60), SiteState::NeedsWork);
+        assert_eq!(SiteState::from_score(59), SiteState::Weak);
+        assert_eq!(SiteState::from_score(40), SiteState::Weak);
+        assert_eq!(SiteState::from_score(39), SiteState::Critical);
+    }
+
+    #[test]
+    fn site_state_urgent_findings_only_lower_the_state() {
+        let one_high = vec![make_finding("r1", "T1", Severity::High, 1)];
+        assert_eq!(
+            SiteState::from_normalized(&make_report(95, one_high)),
+            SiteState::NeedsWork
+        );
+        let weak_score = vec![make_finding("r1", "T1", Severity::High, 1)];
+        assert_eq!(
+            SiteState::from_normalized(&make_report(45, weak_score)),
+            SiteState::Weak
+        );
+    }
+
     #[test]
     fn test_site_state_polished() {
         let report = make_report(92, vec![]);
@@ -762,7 +818,7 @@ mod tests {
 
     #[test]
     fn test_site_state_critical_by_score() {
-        let report = make_report(40, vec![]);
+        let report = make_report(30, vec![]);
         assert_eq!(SiteState::from_normalized(&report), SiteState::Critical);
     }
 

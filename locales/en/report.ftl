@@ -105,6 +105,9 @@ narrative-findings-intro-default = The following issues have the largest impact 
 
 # Verdict (single audit)
 verdict-tier-excellent = { $url } reaches { $score }/100 within the automated accessibility scope — no structural problem. Any remaining findings are polish; this score does not replace a manual review.
+verdict-tier-excellent-medium = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is very good; the open medium-severity findings are targeted improvements. This score does not replace a manual review.
+verdict-tier-excellent-high = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is very good, but at least one high-severity finding is still open — fix it first. This score does not replace a manual review.
+verdict-tier-excellent-critical = { $url } reaches { $score }/100 within the automated accessibility scope. Despite the high score, at least one critical finding is open and should be fixed first. This score does not replace a manual review.
 verdict-tier-solid = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is good — the remaining findings are targeted improvement levers at manageable effort.
 verdict-tier-stable = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is stable but not free of barriers — several improvement levers should be planned.
 verdict-tier-deficient = { $url } reaches { $score }/100 within the automated accessibility scope. There are significant barriers — not isolated details but structural backlog.
@@ -1260,3 +1263,55 @@ privacy-batch-providers-single = { $count } further providers on a single page o
 privacy-batch-matrix-legend = Number: indicators found. 0: nothing found. –: not applicable. n/m: not measured.
 privacy-batch-matrix-more = Showing { $shown } of { $total } pages; the rest is in the JSON report.
 privacy-batch-matrix-nm = n/m
+
+# HTML conformance: written recommendation per rule family (#899)
+html-conform-parser-title = Fix HTML syntax errors
+html-conform-parser-fix = Fix the syntax errors the browser silently repairs while parsing (unclosed or misnested tags, stray end tags, duplicate attributes). Run the rendered HTML through the checker and correct the cause in the template or CMS, not just the output.
+html-conform-schema-title = Remove disallowed elements and attributes
+html-conform-schema-fix = Use elements and attributes only where the HTML Standard allows them: remove unknown or obsolete attributes, place elements only inside permitted parents and correct invalid attribute values. Each message names the affected element.
+html-conform-ids-title = Make duplicate IDs unique
+html-conform-ids-fix = Assign each id only once per document, including repeated components and cards. Label references (for), ARIA references and anchors otherwise point to the wrong element. Repeated components need an id generated per instance.
+html-conform-headings-title = Correct the heading structure
+html-conform-headings-fix = Use heading levels without gaps and without empty headings: do not skip a level (h1 straight to h3), give every section and article element a heading and set exactly one main heading. The level follows the outline, not the wanted font size.
+html-conform-language-title = Declare the page language on the html element
+html-conform-language-fix = Set the lang attribute on the html element to the matching language code (for example lang=en) and, if xml:lang is present, use the same value. Screen readers pick the pronunciation from it.
+html-conform-image-alt-title = Give images a text alternative
+html-conform-image-alt-fix = Give every img element an alt attribute: a short descriptive text for meaningful images, an empty alt for purely decorative ones. Images with a role or aria attributes need an accessible name, or an empty alt without a conflicting role.
+html-conform-responsive-images-title = Correct srcset, sizes and source markup
+html-conform-responsive-images-fix = Add the sizes attribute when srcset uses width descriptors (w), use sizes only together with srcset and give source elements inside picture a media or type attribute. Contradicting combinations make browsers pick the wrong image or none.
+html-conform-image-maps-title = Correct image maps
+html-conform-image-maps-fix = Define image maps completely: usemap must point to an existing map with a matching name and id, area elements belong inside the map and ismap needs an enclosing link with href. Where possible replace image maps with real links.
+html-conform-nested-interactive-title = Resolve nested interactive elements
+html-conform-nested-interactive-fix = Do not nest links, buttons, form fields or focusable elements inside links or buttons. Solve a large click area with a single block-level link instead, or place the elements side by side rather than inside each other.
+html-conform-forms-title = Mark up form elements correctly
+html-conform-forms-fix = Mark up form fields as the standard requires: point label for at an existing field, one label per field, attributes that fit the type (pattern, maxlength, required, readonly only where the type allows them) and selects with a valid placeholder entry and valid select, optgroup and option structure, and only utf-8 for accept-charset.
+html-conform-document-meta-title = Correct metadata in the document head
+html-conform-document-meta-fix = Clean up the document head: a non-empty title, exactly one meta charset with UTF-8 near the top, a viewport meta without user-scalable=no, at most one description and base before all links and scripts. Remove leftovers such as X-UA-Compatible.
+html-conform-link-rel-title = Correct link elements in the head
+html-conform-link-rel-fix = Specify link elements completely: href present, rel matching the other attributes (as on preload and modulepreload with a valid value, imagesizes only with imagesrcset, integrity only for permitted rel values, alternate stylesheet with a title).
+html-conform-scripts-title = Correct script attributes and script types
+html-conform-scripts-fix = Use script attributes only in permitted combinations: no defer on modules, no async or defer on inline scripts, no attributes such as nomodule, integrity or fetchpriority on import maps and speculation rules, and remove the unnecessary type text/javascript and the obsolete language attribute. The content of importmap and speculationrules must be valid JSON.
+html-conform-csp-title = Comply with the Content-Security-Policy meta element
+html-conform-csp-fix = Move inline scripts and inline styles into files, allow them by nonce or hash in the policy, or adjust the policy. A policy set through meta otherwise blocks them in the browser. Prefer delivering the policy as an HTTP header.
+html-conform-tables-title = Correct the table structure
+html-conform-tables-fix = Build tables as a regular grid: every row has the same number of cells, colspan and rowspan do not exceed the table edge or groups, rows are not empty, th gets a valid scope and headers points to existing th cells. Do not use tables for layout.
+html-conform-aria-redundant-role-title = Remove redundant ARIA roles
+html-conform-aria-redundant-role-fix = Remove roles the HTML element already has natively (for example role=button on button, role=navigation on nav, role=list on ul). Redundant roles add maintenance cost and can override native behaviour.
+html-conform-aria-naming-title = Use ARIA names only where permitted
+html-conform-aria-naming-fix = Set aria-label, aria-labelledby and aria-braillelabel only on elements and roles that may carry a name; for roles without name support (for example generic) make the text visible or choose a fitting role. Do not add aria-label on label elements that use for.
+html-conform-aria-state-title = Remove disallowed ARIA attributes and states
+html-conform-aria-state-fix = Set ARIA states only where role and element allow them: no aria-valuemin, aria-valuemax or aria-checked on elements that express min, max or checked natively, no aria-hidden on focusable elements, aria-activedescendant and aria-controls only with an existing target. Native attributes take precedence over ARIA.
+html-conform-aria-structure-title = Use ARIA roles in the right context
+html-conform-aria-structure-fix = Use roles only in a fitting context: option in listbox, row in table, grid or treegrid, listitem in list, tab in tablist, cell in row. Do not place buttons or headings inside elements whose children are presentational (role=img, button) and do not use roles inside headings or summary where they are forbidden. Use the native element where possible.
+html-conform-obsolete-title = Replace obsolete HTML elements
+html-conform-obsolete-fix = Replace obsolete elements such as font, center, marquee or big with semantic HTML and CSS. They are no longer developed and assistive technologies handle them inconsistently.
+html-conform-microdata-title = Complete the microdata attributes
+html-conform-microdata-fix = Set microdata attributes only together: itemtype, itemid and itemref need an enclosing itemscope, itemprop belongs inside an element with itemscope and itemref must point to an existing id. Alternatively deliver structured data as JSON-LD.
+html-conform-meter-progress-title = Correct the value ranges of meter and progress
+html-conform-meter-progress-fix = Put the values of meter and progress in a consistent order: min below max, value within that range, and for meter low below high and optimum between min and max. For progress without max the range is 0 to 1.
+html-conform-sectioning-title = Nest sectioning elements correctly
+html-conform-sectioning-fix = Use sectioning elements as the standard requires: only one visible main, not inside article, aside, footer, header or nav; no header or footer inside header or footer; no address inside address; dt without headings, header, footer or sectioning elements and without duplicate names; figure with figcaption instead of caption.
+html-conform-media-text-title = Use media and text elements correctly
+html-conform-media-text-fix = Specify media and special elements completely: track with a label and at most one default, ruby and rtc in the intended structure, bdo with dir and custom elements without an is attribute. Replace non-conforming variants with the intended markup.
+html-conform-generic-title = Fix the HTML conformance violation
+html-conform-generic-fix = Correct the element or attribute named in the message as the HTML Standard requires and check the rendered HTML again. If the finding appears on every page, fix the cause in the shared template.
