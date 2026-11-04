@@ -60,6 +60,10 @@ impl RiskTier {
 pub enum ManagementRiskKind {
     Legal {
         legal_flags: usize,
+        /// Open findings with BFSG/EAA relevance high or medium — the one
+        /// definition shared with the screen-reader callout and the finding
+        /// rows (#952-2). A superset of the Level-A `legal_flags`.
+        bfsg_relevant: usize,
         critical: usize,
         high: usize,
         blocking_issues: usize,
@@ -106,6 +110,7 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
+                bfsg_relevant,
                 critical,
                 high,
                 blocking_issues,
@@ -113,7 +118,7 @@ impl ManagementRiskKind {
             } => {
                 if *legal_flags > 0 || *critical > 0 || *blocking_issues >= 5 {
                     RiskTier::High
-                } else if *high > 0 || *blocking_issues > 0 {
+                } else if *bfsg_relevant > 0 || *high > 0 || *blocking_issues > 0 {
                     RiskTier::Medium
                 } else {
                     RiskTier::Low
@@ -256,11 +261,16 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
+                bfsg_relevant,
                 critical,
                 high,
                 blocking_issues,
                 keyboard_blocking,
             } => {
+                // One count for "possible legal relevance": the open findings
+                // the finding rows mark Medium/High (never fewer than the
+                // Level-A flags, which also include screen-reader blockers).
+                let legal_flags = &(*bfsg_relevant).max(*legal_flags);
                 let base = if en {
                     format!(
                         "{legal_flags} findings with possible legal relevance, {critical} critical and {high} high WCAG findings detected automatically."
@@ -506,6 +516,10 @@ fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
 /// Alle Risiko-Dimensionen für einen Lauf.
 pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<ManagementRiskKind> {
     let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
+    let bfsg_relevant: usize = reports
+        .iter()
+        .map(|r| r.findings.iter().filter(|f| f.is_bfsg_relevant()).count())
+        .sum();
     let critical: usize = reports.iter().map(|r| r.severity_counts.critical).sum();
     let high: usize = reports.iter().map(|r| r.severity_counts.high).sum();
     // Controls without an accessible name (WCAG 4.1.2) can be "medium"
@@ -578,6 +592,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     vec![
         ManagementRiskKind::Legal {
             legal_flags,
+            bfsg_relevant,
             critical,
             high,
             blocking_issues,
@@ -624,6 +639,7 @@ mod tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
+                bfsg_relevant: 2,
                 critical: 1,
                 high: 2,
                 blocking_issues: 7,

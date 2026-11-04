@@ -175,9 +175,11 @@ pub(in crate::output::pdf) fn bfsg_relevant_wcag_findings(
     groups
         .iter()
         .filter(|g| {
-            g.occurrence_count > 0
-                && matches!(g.bfsg_relevance.as_str(), "high" | "medium")
-                && g.verification != "manual_review_recommended"
+            crate::audit::normalized::is_bfsg_relevant_open(
+                &g.bfsg_relevance,
+                g.occurrence_count,
+                &g.verification,
+            )
         })
         .count()
 }
@@ -186,12 +188,21 @@ pub(in crate::output::pdf) fn bfsg_relevant_wcag_findings(
 /// BFSG-relevant WCAG violation elsewhere in the report must never sit next to
 /// a "no violations" statement (#902-5): it lifts the verdict to
 /// `ViolationsFound`; the stricter state of the two wins.
+///
+/// Reading-order notes alone (Low/Medium heuristics) are no violation: without
+/// a BFSG-relevant WCAG finding and without a high-severity screen-reader
+/// blocker (the same bar `legal_flags` uses, #484), a `ViolationsFound` from the
+/// reading-order audit is shown as "needs review" (#952-2).
 pub(in crate::output::pdf) fn effective_bfsg_verdict(
     sr_verdict: crate::screen_reader::BfsgVerdict,
     bfsg_relevant_wcag_findings: usize,
+    sr_high_issues: usize,
 ) -> crate::screen_reader::BfsgVerdict {
+    use crate::screen_reader::BfsgVerdict;
     if bfsg_relevant_wcag_findings > 0 {
-        crate::screen_reader::BfsgVerdict::ViolationsFound
+        BfsgVerdict::ViolationsFound
+    } else if sr_verdict == BfsgVerdict::ViolationsFound && sr_high_issues == 0 {
+        BfsgVerdict::NeedsReview
     } else {
         sr_verdict
     }
@@ -291,7 +302,14 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     );
 
     let bfsg_note = bfsg_callout(
-        effective_bfsg_verdict(sr.bfsg_compliance.verdict, bfsg_relevant_wcag_findings),
+        effective_bfsg_verdict(
+            sr.bfsg_compliance.verdict,
+            bfsg_relevant_wcag_findings,
+            sr.issues
+                .iter()
+                .filter(|i| !i.review && i.severity.eq_ignore_ascii_case("high"))
+                .count(),
+        ),
         en,
     );
     builder = builder.add_component(bfsg_note);

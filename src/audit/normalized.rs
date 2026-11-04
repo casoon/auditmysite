@@ -414,6 +414,15 @@ pub struct NormalizedFinding {
 }
 
 impl NormalizedFinding {
+    /// See [`is_bfsg_relevant_open`].
+    pub fn is_bfsg_relevant(&self) -> bool {
+        is_bfsg_relevant_open(
+            &self.bfsg_relevance,
+            self.occurrence_count,
+            &self.verification,
+        )
+    }
+
     /// Raises a legal flag: a WCAG Level-A finding of High or Critical
     /// severity. A convention rule (`display/*`) never does (#704) — it is
     /// only anchored to a criterion, it does not test it.
@@ -425,6 +434,23 @@ impl NormalizedFinding {
             && !crate::taxonomy::is_convention_rule(&self.rule_id)
             && self.verification != "manual_review_recommended"
     }
+}
+
+/// The one definition of a "legally relevant finding": an open (occurring)
+/// finding whose BFSG/EAA relevance is high or medium and that is no longer
+/// waiting on a manual check. The management card, the screen-reader BFSG
+/// callout and the per-finding "BFSG-/EAA-Relevanz" row all read this, so none
+/// can say "no legal relevance" while another shows a Medium/High finding
+/// (#952-2). `RiskAssessment.legal_flags` (JSON, risk score, verdict) keeps its
+/// narrower Level-A definition on purpose; this set is a superset of it.
+pub fn is_bfsg_relevant_open(
+    bfsg_relevance: &str,
+    occurrence_count: usize,
+    verification: &str,
+) -> bool {
+    occurrence_count > 0
+        && matches!(bfsg_relevance, "high" | "medium")
+        && verification != "manual_review_recommended"
 }
 
 /// Strukturierte Darstellung des Score-Impacts für JSON/API-Verbraucher
