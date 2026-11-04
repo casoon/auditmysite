@@ -382,7 +382,7 @@ fn interpretation(
         if en {
             "Strong search experience: technical visibility, content clarity and trust signals align."
         } else {
-            "Starke Search Experience: technische Auffindbarkeit, Inhaltsverständlichkeit und Vertrauen passen zusammen."
+            "Starke Sichtbarkeit und Nutzerverständnis: technische Auffindbarkeit, Inhaltsverständlichkeit und Vertrauen passen zusammen."
         }
         .into()
     } else if score >= 60 {
@@ -396,7 +396,7 @@ fn interpretation(
         if en {
             "Limited search experience: the page is not sufficiently understandable, trustworthy or extractable."
         } else {
-            "Eingeschränkte Search Experience: Die Seite ist nicht ausreichend verständlich, vertrauensstark oder extrahierbar."
+            "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich, vertrauensstark oder extrahierbar."
         }
         .into()
     }

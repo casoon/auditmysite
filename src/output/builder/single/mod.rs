@@ -378,7 +378,11 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let label_violations_total = i18n.t("metric-violations-total");
                 let label_critical = i18n.t("metric-critical-high");
                 let label_checked_nodes = i18n.t("metric-checked-nodes");
-                let label_quick_wins: String = "Quick Wins".into();
+                let label_quick_wins: String = if i18n.locale() == "en" {
+                    "Quick wins".into()
+                } else {
+                    "Schnell umsetzbar".into()
+                };
                 let label_wcag_level = i18n.t("metric-wcag-level");
                 let label_warnings = i18n.t("metric-warnings");
                 let label_not_testable = i18n.t("metric-not-testable");

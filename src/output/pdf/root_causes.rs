@@ -212,11 +212,14 @@ fn render_module_measure_cards(
         )
         .with_level(3),
     );
+    // These measures carry no impact or effort of their own, so they are a
+    // compact list, not cards with only a title and a sentence (#952).
+    let mut list = renderreport::components::advanced::List::new();
     for (measure, extra) in &measures {
         let (title, body) = measure.card_parts(*extra, en);
-        builder = builder.add_component(RecommendationCard::new(title, body));
+        list = list.add_item(format!("{title}: {body}"));
     }
-    builder
+    builder.add_component(list)
 }
 
 pub(super) fn render_timeframe_roadmap(

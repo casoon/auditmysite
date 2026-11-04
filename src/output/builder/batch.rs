@@ -752,7 +752,7 @@ pub fn build_batch_presentation_with_normalized(
                     without += 1;
                 } else {
                     for schema_type in &seo.structured_data.types {
-                        *type_counts.entry(format!("{:?}", schema_type)).or_insert(0) += 1;
+                        *type_counts.entry(schema_type.to_string()).or_insert(0) += 1;
                     }
                 }
             }

@@ -700,12 +700,15 @@ fn build_technical_overview_localized(
         .and_then(|p| p.vitals.dom_nodes)
         .map(|n| n as usize)
         .unwrap_or(dom);
+    // German text groups thousands ("7.594"); the canonical English fields
+    // keep the plain digits so the JSON stays unchanged.
+    let dom_de = crate::i18n::number::integer(dom_display as i64, false);
     // The class follows the figure the sentence prints (#902-6): classifying
     // on `nodes_analyzed` printed "Gering — 7347 DOM-Knoten" for a page the
     // Performance module itself rates as far above its DOM guideline.
     let tech = match (dom_display, perf_score) {
         (d, Some(p)) if d > 2000 && p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Hoch — {dom_display} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
+            de: format!("Tech-Komplexität: Hoch — {dom_de} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
             en: format!("Tech complexity: High — {dom_display} DOM nodes, performance {p} pts — refactoring recommended"),
         },
         // p is 60-74 here ("Verbesserungswürdig"/"Needs improvement" band,
@@ -715,7 +718,7 @@ fn build_technical_overview_localized(
         // self-contradictory (feedback 2026-09-07). Only p >= 75 earns
         // "stabil" below.
         (d, Some(p)) if d > 2000 && p < 75 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
+            de: format!("Tech-Komplexität: Mittel-hoch — {dom_de} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
             en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
         },
         // "stabil"/"stable" in parentheses read as reassurance about exactly
@@ -723,19 +726,19 @@ fn build_technical_overview_localized(
         // two blocks further up (plan 36 §6). Both facts, neither arguing
         // with the other.
         (d, Some(p)) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten bei derzeit tragfähiger Performance ({p} Pkt)"),
+            de: format!("Tech-Komplexität: Mittel-hoch — {dom_de} DOM-Knoten bei derzeit tragfähiger Performance ({p} Pkt)"),
             en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes, performance currently holding up ({p} pts)"),
         },
         (_d, Some(p)) if p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {dom_display} DOM-Knoten analysiert"),
+            de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {dom_de} DOM-Knoten analysiert"),
             en: format!("Tech complexity: Performance critical ({p} pts) — {dom_display} DOM nodes analyzed"),
         },
         (_d, Some(p)) if p < 80 => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {dom_display} DOM-Knoten, Performance optimierbar ({p} Pkt)"),
+            de: format!("Tech-Komplexität: Gering — {dom_de} DOM-Knoten, Performance optimierbar ({p} Pkt)"),
             en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance can be optimized ({p} pts)"),
         },
         (_d, Some(p)) => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {dom_display} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"),
+            de: format!("Tech-Komplexität: Gering — {dom_de} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"),
             en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance {p} pts — technical baseline stable"),
         },
         (d, None) if d > 2000 => LocalizedText {
@@ -1331,7 +1334,7 @@ mod tests {
             .expect("technical overview must include a tech-complexity bullet");
 
         assert!(
-            tech_bullet.de.contains("20368"),
+            tech_bullet.de.contains("20.368"),
             "tech-complexity bullet must state the real DOM element count, got: {}",
             tech_bullet.de
         );
@@ -1401,7 +1404,7 @@ mod tests {
         };
 
         let tech = find("Tech-Komplexität");
-        assert!(tech.de.contains("7347"), "{}", tech.de);
+        assert!(tech.de.contains("7.347"), "{}", tech.de);
         assert!(
             !tech.de.contains("Gering") && !tech.en.contains("Low"),
             "7347 DOM nodes must not be classed as low complexity: {}",

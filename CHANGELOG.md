@@ -7,6 +7,13 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **PDF:** duplicates and empty values in the German report (Refs #952): repeated manual-check rows are grouped by criterion and hint with a count ("1.4.3 · Manuelle Prüfung · 4×"); action-plan card titles stay short (a whole sentence moves into the card body); module recommendations without impact data are a compact list instead of bare cards; the heuristic disclaimer is one note per AI-visibility section instead of the key of every row; rows without a value (evidence field names, "Seitentitel —", "Website —") are omitted through one helper; the lead sentence of the Sichtbarkeit chapter is no longer repeated; the print-layout hint names its cause instead of "wirkt riskant".
+- **PDF:** no Rust debug output in report text (`Other("Service")` is now `Service`, also in the batch schema-type counts); "Search Experience" and "Quick Win" are German in the German report; the journey/SEO page-type labels say what they classify ("SEO-Seitentyp", "Journey-Einordnung", "Inhaltstyp"); the HTML-conformance table shows the localized rule family instead of the raw checker id (the id stays in the JSON).
+- **UX:** the missing-imprint finding no longer states "legally required in DACH" for every site; the text names provider details neutrally.
+- **PDF:** numbers and plurals in German text follow one convention: thousands grouped ("7.594", also in the tech-complexity sentences), decimal comma for CLS, vitals and CO2e, and counts select singular and plural ("Minifizierung von 1 Datei", "1 weiterer Befund", "1 Cookie") through Fluent plural selectors; `I18n::count_with` keeps a count numeric next to text placeholders.
+
 ## [2.0.1] - 2026-11-04
 
 ### Changed

@@ -485,7 +485,7 @@ pub(super) fn build_seo_details(
                 optimization_note: page_profile_optimization_note_text(cp, en),
                 page_profile_facts: vec![
                     (
-                        if en { "Page type" } else { "Seitentyp" }.to_string(),
+                        if en { "SEO page type" } else { "SEO-Seitentyp" }.to_string(),
                         cp.page_classification.primary_type.label(en).to_string(),
                     ),
                     (
@@ -786,21 +786,11 @@ fn tracking_summary_rows(
                         }
                     })
                     .unwrap_or_default();
-                    if en {
-                        format!(
-                            "{} cookies, {} without Secure/SameSite signal{}",
-                            cookie_inventory.len(),
-                            risky,
-                            category_suffix
-                        )
-                    } else {
-                        format!(
-                            "{} Cookies, {} ohne Secure/SameSite-Signal{}",
-                            cookie_inventory.len(),
-                            risky,
-                            category_suffix
-                        )
-                    }
+                    let summary =
+                        crate::i18n::count_text("seo-cookie-inventory", cookie_inventory.len(), en);
+                    let risky_text =
+                        crate::i18n::count_text("seo-cookie-inventory-risky", risky, en);
+                    format!("{summary}, {risky_text}{category_suffix}")
                 }
             },
         ),

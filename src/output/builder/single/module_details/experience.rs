@@ -83,18 +83,22 @@ pub(super) fn build_journey_details(
         let seo_type: Option<String> = normalized
             .raw_seo
             .and_then(|s| s.content_profile.as_ref())
-            .map(|cp| cp.page_classification.primary_type.label(en).to_lowercase());
-        let journey_type = j.page_intent.label(en).to_lowercase();
+            .map(|cp| cp.page_classification.primary_type.label(en).to_string());
+        let journey_type = j.page_intent.label(en).to_string();
         let type_note = match seo_type {
-            Some(ref st) if !st.is_empty() && !journey_type.is_empty() && st != &journey_type => {
+            Some(ref st)
+                if !st.is_empty()
+                    && !journey_type.is_empty()
+                    && !st.eq_ignore_ascii_case(&journey_type) =>
+            {
                 if locale == "en" {
                     format!(
-                        " (Primary classification: {}. Secondary signals point to {}.)",
+                        " (SEO page type: {}; the journey classification is {}.)",
                         st, journey_type
                     )
                 } else {
                     format!(
-                        " (Primäre Einordnung: {}. Sekundäre Signale deuten auf {} hin.)",
+                        " (SEO-Seitentyp: {}; die Journey-Einordnung lautet {}.)",
                         st, journey_type
                     )
                 }

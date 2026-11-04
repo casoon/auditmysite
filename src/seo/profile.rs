@@ -599,7 +599,7 @@ fn build_identity(seo: &SeoAnalysis, en: bool) -> ContentIdentity {
         .structured_data
         .types
         .iter()
-        .map(|t| format!("{:?}", t))
+        .map(|t| t.to_string())
         .collect();
 
     ContentIdentity {

@@ -73,8 +73,10 @@ pub(in crate::output::pdf) fn render_html_conform(
         .with_title(&title);
         for (rule_id, severity, message, location, occurrences) in &hc.findings {
             let occurrences = occurrences.to_string();
+            // The checker's raw id stays in the JSON; the table names the family.
+            let rule_title = crate::html_conform::recommendation::recommendation(rule_id, i18n).0;
             table = table.add_row(vec![
-                rule_id.as_str(),
+                rule_title.as_str(),
                 severity.as_str(),
                 message.as_str(),
                 location.as_str(),
