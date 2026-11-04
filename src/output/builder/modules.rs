@@ -44,7 +44,7 @@ pub(super) fn derive_accessibility_context(i18n: &I18n, normalized: &NormalizedR
     }
     i18n.t_args(
         "context-accessibility-summary",
-        &[("total", total.to_string()), ("high", high.to_string())],
+        &[("total", total as i64), ("high", high as i64)],
     )
 }
 
@@ -60,7 +60,7 @@ pub(super) fn derive_accessibility_card_context(
     if high == 0 {
         i18n.t("card-accessibility-none")
     } else {
-        i18n.t_args("card-accessibility-summary", &[("high", high.to_string())])
+        i18n.t_args("card-accessibility-summary", &[("high", high as i64)])
     }
 }
 

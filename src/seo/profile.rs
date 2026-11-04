@@ -1433,9 +1433,9 @@ fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                     format!("{} Sprachen", seo.technical.hreflang.len())
                 }
             } else if en {
-                "no hreflang tags".to_string()
+                "no hreflang tags (not needed for a single-language page)".to_string()
             } else {
-                "keine Hreflang-Tags".to_string()
+                "keine Hreflang-Tags (bei einsprachigen Seiten nicht nötig)".to_string()
             }),
         ),
         check(
@@ -1445,7 +1445,13 @@ fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 "Robots erlaubt Indexierung"
             },
             robots_ok,
-            seo.technical.robots_meta.clone(),
+            Some(seo.technical.robots_meta.clone().unwrap_or_else(|| {
+                if en {
+                    "no robots meta tag (default: index)".to_string()
+                } else {
+                    "kein Robots-Meta-Tag (Standard: index)".to_string()
+                }
+            })),
         ),
     ];
     let (passed, total) = category_counts(&checks);
@@ -1824,7 +1830,10 @@ fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 "Linkdichte > 0,5%"
             },
             link_density > 0.005,
-            Some(format!("{:.2}%", link_density * 100.0)),
+            Some(format!(
+                "{}%",
+                crate::i18n::number::decimal(f64::from(link_density * 100.0), 2, en)
+            )),
         ),
     ];
     let (passed, total) = category_counts(&checks);

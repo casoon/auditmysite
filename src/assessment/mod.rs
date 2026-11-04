@@ -167,6 +167,108 @@ pub enum EvidenceSource {
     Computed,
 }
 
+impl EvidenceSource {
+    /// Report label of the source (`en = true`: English).
+    pub fn label(&self, en: bool) -> &'static str {
+        match (self, en) {
+            (Self::Meta, true) => "Meta tag",
+            (Self::Meta, false) => "Meta-Tag",
+            (Self::JsonLd, _) => "JSON-LD",
+            (Self::VisibleText, true) => "Visible text",
+            (Self::VisibleText, false) => "Sichtbarer Text",
+            (Self::Link, _) => "Link",
+            (Self::HttpHeader, true) => "HTTP header",
+            (Self::HttpHeader, false) => "HTTP-Header",
+            (Self::AxTree, true) => "Accessibility tree",
+            (Self::AxTree, false) => "Accessibility-Tree",
+            (Self::DomAttribute, true) => "DOM attribute",
+            (Self::DomAttribute, false) => "DOM-Attribut",
+            (Self::CssProperty, true) => "CSS property",
+            (Self::CssProperty, false) => "CSS-Eigenschaft",
+            (Self::Computed, true) => "Derived value",
+            (Self::Computed, false) => "Abgeleiteter Wert",
+        }
+    }
+}
+
+/// Readable name of an evidence field path. Internal identifiers
+/// (`structured_data.rich_snippets`) map to a name; schema types and CSS-like
+/// selectors (`FAQPage`, `html[lang]`) are shown as they are; any other
+/// snake_case identifier has no readable name and returns `None`, so it is
+/// never printed as a value (#902).
+pub fn evidence_field_label(path: &str, en: bool) -> Option<String> {
+    let known = match (path, en) {
+        ("heading.h1", _) => "H1",
+        ("meta.title", true) => "Title",
+        ("meta.title", false) => "Titel",
+        ("meta.description", true) => "Meta description",
+        ("meta.description", false) => "Meta-Beschreibung",
+        ("ssr_content_gap", true) => "Server-rendering gap",
+        ("ssr_content_gap", false) => "Server-Rendering-Lücke",
+        ("canonical", _) => "Canonical",
+        ("patterns.recognized", true) => "Recognized patterns",
+        ("patterns.recognized", false) => "Erkannte Muster",
+        ("structured_data.type", true) => "Structured data type",
+        ("structured_data.type", false) => "Typ der strukturierten Daten",
+        ("structured_data.rich_snippets", true) => "Rich snippet potential",
+        ("structured_data.rich_snippets", false) => "Rich-Snippet-Potenzial",
+        ("structured_data", true) => "Structured data",
+        ("structured_data", false) => "Strukturierte Daten",
+        ("headings.h2_plus", true) => "Headings from H2",
+        ("headings.h2_plus", false) => "Überschriften ab H2",
+        ("internal_links", true) => "Internal links",
+        ("internal_links", false) => "Interne Links",
+        ("word_count", true) => "Word count",
+        ("word_count", false) => "Wortanzahl",
+        _ => "",
+    };
+    if !known.is_empty() {
+        return Some(known.to_string());
+    }
+    let identifier = path
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.');
+    (!identifier).then(|| path.to_string())
+}
+
+#[cfg(test)]
+mod evidence_label_tests {
+    use super::*;
+
+    #[test]
+    fn identifiers_are_named_or_dropped_never_printed() {
+        assert_eq!(
+            evidence_field_label("structured_data.rich_snippets", false).as_deref(),
+            Some("Rich-Snippet-Potenzial")
+        );
+        assert_eq!(evidence_field_label("some_new_internal_key", false), None);
+        assert_eq!(
+            evidence_field_label("FAQPage", false).as_deref(),
+            Some("FAQPage")
+        );
+        assert_eq!(
+            evidence_field_label("html[lang]", true).as_deref(),
+            Some("html[lang]")
+        );
+    }
+
+    #[test]
+    fn source_labels_have_no_debug_names() {
+        for source in [
+            EvidenceSource::Meta,
+            EvidenceSource::JsonLd,
+            EvidenceSource::VisibleText,
+            EvidenceSource::HttpHeader,
+            EvidenceSource::AxTree,
+            EvidenceSource::DomAttribute,
+            EvidenceSource::CssProperty,
+            EvidenceSource::Computed,
+        ] {
+            assert_ne!(source.label(false), format!("{source:?}"));
+        }
+    }
+}
+
 // ─── Content Evidence ─────────────────────────────────────────────────────────
 
 /// Machine-readable provenance for a single signal.

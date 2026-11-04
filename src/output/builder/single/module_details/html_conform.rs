@@ -16,6 +16,7 @@ use super::{module_interpretation, normalized_module_score};
 fn distinct_html_conform_rows(
     findings: &[crate::html_conform::HtmlConformFinding],
     severity_label: &impl Fn(&str) -> String,
+    en: bool,
 ) -> Vec<(String, String, String, String, u32)> {
     let mut order: Vec<String> = Vec::new();
     let mut rows: std::collections::HashMap<String, (String, String, String, String, u32)> =
@@ -36,13 +37,18 @@ fn distinct_html_conform_rows(
                         // Location column, and on a row standing for N
                         // occurrences it would name just one of them as if it
                         // were the whole finding.
-                        finding
-                            .message
-                            .split(" at ")
-                            .next()
-                            .unwrap_or(&finding.message)
-                            .trim()
-                            .to_string(),
+                        // The run language replaces the checker's English
+                        // prose (#902).
+                        crate::html_conform::message::message_text(
+                            &finding.rule_id,
+                            finding
+                                .message
+                                .split(" at ")
+                                .next()
+                                .unwrap_or(&finding.message)
+                                .trim(),
+                            en,
+                        ),
                         finding.location.clone().unwrap_or_else(|| "—".to_string()),
                         1,
                     ),
@@ -71,7 +77,7 @@ pub(super) fn build_html_conform_details(
             "warning" => i18n.t("severity-warning"),
             _ => i18n.t("severity-info"),
         };
-        let rows = distinct_html_conform_rows(&hc.findings, &severity_label);
+        let rows = distinct_html_conform_rows(&hc.findings, &severity_label, locale == "en");
         let error_label = i18n.t("severity-error");
         let warning_label = i18n.t("severity-warning");
         let severity_rank = |label: &str| -> u8 {
@@ -208,20 +214,19 @@ mod html_conform_recommendations_tests {
             .expect("html_conform data must produce a presentation");
 
         assert_eq!(
-            presentation.recommendations[0],
-            "A script element with type module must not have a defer attribute",
+            presentation.recommendations[0], "Skript-Attribute und Skriptarten korrigieren",
             "the error with the most occurrences must rank first"
         );
         assert!(
-            presentation.recommendations.contains(
-                &"A link element with an as attribute must have a rel attribute".to_string()
-            ),
+            presentation
+                .recommendations
+                .contains(&"link-Elemente im Kopf korrigieren".to_string()),
             "the other distinct error must be included"
         );
         let warning_pos = presentation
             .recommendations
             .iter()
-            .position(|r| r.contains("computed heading level"))
+            .position(|r| r == "Überschriftenstruktur korrigieren")
             .expect("the warning must still be included when under the cap of 4");
         assert!(
             warning_pos > 0,
@@ -280,7 +285,10 @@ mod html_conform_recommendations_tests {
                 .collect();
             // Two script rules share one family and one action.
             assert_eq!(actions.len(), 2, "{locale}");
-            assert!(actions.iter().all(|a| a.action.contains(": ")));
+            // Title and hint are separate: the card title is the title only (#902).
+            assert!(actions
+                .iter()
+                .all(|a| !a.action.contains(": ") && !a.hint.is_empty()));
 
             let presentation = build_html_conform_details(&ctx, &i18n).unwrap();
             assert_eq!(presentation.measures.len(), 2);

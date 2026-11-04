@@ -71,13 +71,14 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         // HTML conformance recommendations are written per rule family; the
         // keyword-based humanizer would replace them with a generic action.
         // Rules of one family share the action text and so collapse below.
-        let action =
+        let (action, hint) =
             if group.rule_id.starts_with("html_conform.") && !group.recommendation.is_empty() {
-                let (title, fix) =
-                    crate::html_conform::recommendation::recommendation(&group.rule_id, i18n);
-                format!("{title}: {fix}")
+                crate::html_conform::recommendation::recommendation(&group.rule_id, i18n)
             } else {
-                humanize_action_text(i18n, &group.recommendation)
+                (
+                    humanize_action_text(i18n, &group.recommendation),
+                    String::new(),
+                )
             };
         // A group without a written recommendation (HTML conformance, some
         // page-health findings) has no action to plan: it stays in its module
@@ -88,6 +89,7 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         }
         let item = ActionItem {
             action,
+            hint,
             benefit: group.business_impact.clone(),
             role: group.responsible_role,
             priority: group.priority,

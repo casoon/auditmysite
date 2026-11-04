@@ -66,11 +66,16 @@ pub(super) fn build_modules_block_from_normalized(
     // Nutzerverständnis" composite used to stand in its place, so the cover
     // showed 71 where the overall score counted 65 (plan 105). The composite
     // follows below with the indicators.
-    if let Some(score) = normalized
-        .raw_seo
-        .and_then(|_| normalized_module_score(&normalized.normalized, "SEO"))
-    {
-        let interpretation = module_interpretation(&normalized.normalized, "seo", locale);
+    if let Some((seo, score)) = normalized.raw_seo.and_then(|seo| {
+        normalized_module_score(&normalized.normalized, "SEO").map(|score| (seo, score))
+    }) {
+        // The shared interpretation has no SEO entry; the audit-data row read
+        // "80 / 100 — " without one (#902).
+        let mut interpretation = module_interpretation(&normalized.normalized, "seo", locale);
+        if interpretation.is_empty() {
+            interpretation =
+                crate::seo::interpretation::seo_interpretation_text(seo, locale == "en");
+        }
         dashboard.push(ModuleScore {
             name: localized_module_name("SEO", i18n),
             score,
@@ -152,10 +157,21 @@ pub(super) fn build_modules_block_from_normalized(
     }
     if let Some(u) = normalized.raw_ux {
         let ux_score = normalized_module_score(&normalized.normalized, "UX").unwrap_or(u.score);
-        let ux_context = format!(
-            "CTA Clarity {}/100, Visual Hierarchy {}/100, Content Clarity {}/100, Trust Signals {}/100, Cognitive Load {}/100",
-            u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
-        );
+        let en = locale == "en";
+        let ux_context = {
+            use crate::ux::{ux_dimension_name, UxDimensionKind::*};
+            [
+                (CtaClarity, u.cta_clarity.score),
+                (VisualHierarchy, u.visual_hierarchy.score),
+                (ContentClarity, u.content_clarity.score),
+                (TrustSignals, u.trust_signals.score),
+                (CognitiveLoad, u.cognitive_load.score),
+            ]
+            .iter()
+            .map(|(kind, score)| format!("{} {}/100", ux_dimension_name(*kind, en), score))
+            .collect::<Vec<_>>()
+            .join(", ")
+        };
         let ux_lever: String = if u.cta_clarity.score < 60 {
             i18n.t("ux-lever-cta")
         } else if u.trust_signals.score < 60 {
@@ -180,15 +196,31 @@ pub(super) fn build_modules_block_from_normalized(
     if let Some(j) = normalized.raw_journey {
         let journey_score =
             normalized_module_score(&normalized.normalized, "Journey").unwrap_or(j.score);
+        let journey_dimensions = {
+            use crate::journey::{journey_dimension_name, JourneyDimensionKind::*};
+            [
+                (EntryClarity, j.entry_clarity.score),
+                (Orientation, j.orientation.score),
+                (Navigation, j.navigation.score),
+                (Interaction, j.interaction.score),
+                (Conversion, j.conversion.score),
+            ]
+            .iter()
+            .map(|(kind, score)| {
+                format!(
+                    "{} {}/100",
+                    journey_dimension_name(*kind, locale == "en"),
+                    score
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+        };
         let journey_context = format!(
-            "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
+            "{}: {} · {}",
             i18n.t("journey-intent-label"),
             j.page_intent.label(locale == "en"),
-            j.entry_clarity.score,
-            j.orientation.score,
-            j.navigation.score,
-            j.interaction.score,
-            j.conversion.score
+            journey_dimensions
         );
         let journey_lever = j
             .friction_points

@@ -134,9 +134,32 @@ pub async fn analyze_heading_structure(
             const t = s.trim();
             return t.length ? t.split(/\s+/).length : 0;
         };
+        const headingText = (h) => {
+            // Lines of a split headline are block-level boxes or <br>: textContent
+            // drops the boundary and glued the words together ("Webseiten &Webanwendungen").
+            // Inline-block children (per-letter spans) stay glued.
+            const blockish = new Set(['block', 'flex', 'grid', 'list-item', 'flow-root', 'table', 'table-row', 'table-cell']);
+            let out = '';
+            const walk = (node) => {
+                for (const child of node.childNodes) {
+                    if (child.nodeType === 3) {
+                        out += child.nodeValue;
+                    } else if (child.nodeType === 1) {
+                        const tag = child.tagName;
+                        if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+                        const brk = tag === 'BR' || blockish.has(getComputedStyle(child).display);
+                        if (brk) out += ' ';
+                        walk(child);
+                        if (brk) out += ' ';
+                    }
+                }
+            };
+            walk(h);
+            return out.replace(/\s+/g, ' ').trim();
+        };
         const headings = headingEls.map((h, i) => {
             const level = parseInt(h.tagName.charAt(1));
-            const text = h.textContent.trim();
+            const text = headingText(h);
             const is_question = text.endsWith('?');
             const in_faq_context = !!(
                 h.closest('[itemtype*="Question"]') ||

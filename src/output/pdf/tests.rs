@@ -1443,7 +1443,8 @@ mod tests {
             "HTML-Konformität",
             "schema.html5",
             "parser.html5",
-            "Element <div> not allowed as child of <head>",
+            // Unmapped checker prose is replaced by the family title (#902).
+            "Unzulässige Elemente und Attribute entfernen",
             "12:34",
         ] {
             assert!(

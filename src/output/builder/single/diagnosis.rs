@@ -197,12 +197,20 @@ pub(super) fn build_thematic_clusters(
     clusters
 }
 
+/// A finding category (the canonical English `dimension` of a finding) in the
+/// run language, through the same `module-*` entries as the module names.
+pub(super) fn category_name(dimension: &str, en: bool) -> String {
+    if en {
+        return dimension.to_string();
+    }
+    match crate::i18n::I18n::new(if en { "en" } else { "de" }) {
+        Ok(i18n) => crate::output::builder::helpers::localized_module_name(dimension, &i18n),
+        Err(_) => dimension.to_string(),
+    }
+}
+
 fn dimension_cluster_label(en: bool, dimension: &str, count: usize) -> String {
-    let count_label = if en {
-        format!("{count} findings")
-    } else {
-        format!("{count} Befunde")
-    };
+    let count_label = crate::i18n::count_text("count-findings", count, en);
     match dimension {
         "Accessibility" => {
             if en {
@@ -239,7 +247,7 @@ fn dimension_cluster_label(en: bool, dimension: &str, count: usize) -> String {
                 format!("Mobile-Probleme ({count_label})")
             }
         }
-        other => format!("{other} ({count_label})"),
+        other => format!("{} ({count_label})", category_name(other, en)),
     }
 }
 
@@ -334,7 +342,7 @@ pub(super) fn build_diagnosis_block(
                 crate::wcag::Severity::Medium => if en { "Medium" } else { "Mittel" }.to_string(),
                 crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
             };
-            (dim, count, sev_label)
+            (category_name(&dim, en), count, sev_label)
         })
         .collect();
     category_breakdown.sort_by_key(|c| std::cmp::Reverse(c.1));

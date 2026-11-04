@@ -382,11 +382,16 @@ fn friction_severity(kind: FrictionKind) -> &'static str {
 /// Localized dimension name for a [`JourneyDimensionKind`].
 pub fn journey_dimension_name(kind: JourneyDimensionKind, en: bool) -> &'static str {
     match (kind, en) {
-        (JourneyDimensionKind::EntryClarity, _) => "Entry Clarity",
-        (JourneyDimensionKind::Orientation, _) => "Orientation",
-        (JourneyDimensionKind::Navigation, _) => "Navigation",
-        (JourneyDimensionKind::Interaction, _) => "Interaction",
-        (JourneyDimensionKind::Conversion, _) => "Conversion",
+        (JourneyDimensionKind::EntryClarity, true) => "Entry Clarity",
+        (JourneyDimensionKind::Orientation, true) => "Orientation",
+        (JourneyDimensionKind::Navigation, true) => "Navigation",
+        (JourneyDimensionKind::Interaction, true) => "Interaction",
+        (JourneyDimensionKind::Conversion, true) => "Conversion",
+        (JourneyDimensionKind::EntryClarity, false) => "Einstiegsklarheit",
+        (JourneyDimensionKind::Orientation, false) => "Orientierung",
+        (JourneyDimensionKind::Navigation, false) => "Navigation",
+        (JourneyDimensionKind::Interaction, false) => "Interaktion",
+        (JourneyDimensionKind::Conversion, false) => "Conversion",
     }
 }
 
@@ -1630,5 +1635,21 @@ mod tests {
             journey_dimension_summary(JourneyDimensionKind::Conversion, 95, false),
             "Klarer Conversion-Pfad mit erreichbarem CTA"
         );
+    }
+}
+
+#[cfg(test)]
+mod dimension_name_tests {
+    use super::*;
+
+    #[test]
+    fn dimension_names_are_localized_and_json_stays_english() {
+        use JourneyDimensionKind::*;
+        assert_eq!(journey_dimension_name(EntryClarity, true), "Entry Clarity");
+        assert_eq!(
+            journey_dimension_name(EntryClarity, false),
+            "Einstiegsklarheit"
+        );
+        assert_eq!(journey_dimension_name(Orientation, false), "Orientierung");
     }
 }

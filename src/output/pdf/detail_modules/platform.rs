@@ -88,7 +88,8 @@ pub(in crate::output::pdf) fn render_security(
                 },
             )
             .with_accent("#2563eb"),
-            MetricStripItem::new("Issues", sec.issues.len().to_string()).with_accent("#dc2626"),
+            MetricStripItem::new(i18n.t("pdf-metric-issues"), sec.issues.len().to_string())
+                .with_accent("#dc2626"),
         ])
         .compact(),
     );
@@ -96,11 +97,11 @@ pub(in crate::output::pdf) fn render_security(
     if !sec.headers.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new("Header"),
-            TableColumn::new("Status"),
+            TableColumn::new(i18n.t("pdf-ai-policy-status-label")),
             TableColumn::new(i18n.t("pdf-sec-header-tier-column")),
             TableColumn::new(i18n.t("pdf-seo-value")),
         ])
-        .with_title("Security Headers");
+        .with_title(i18n.t("pdf-sec-headers-title"));
         // The tuple is (name, status, value, tier); the columns read
         // Header · Status · Kategorie (tier) · Wert (value).
         for (name, status, val, tier) in &sec.headers {
@@ -224,7 +225,8 @@ pub(in crate::output::pdf) fn render_mobile(
             MetricStripItem::new("Viewport", viewport_status).with_accent("#0f766e"),
             MetricStripItem::new(i18n.t("mobile-touch-targets"), touch_targets)
                 .with_accent("#d97706"),
-            MetricStripItem::new("Issues", mobile.issues.len().to_string()).with_accent("#dc2626"),
+            MetricStripItem::new(i18n.t("pdf-metric-issues"), mobile.issues.len().to_string())
+                .with_accent("#dc2626"),
         ])
         .compact(),
     );

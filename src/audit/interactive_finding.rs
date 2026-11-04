@@ -1047,12 +1047,12 @@ pub fn interactive_finding_text(
                 )
             } else {
                 format!(
-                    "{count} {} tragen generischen oder wenig aussagekräftigen Text \
+                    "{} generischen oder wenig aussagekräftigen Text \
                      ({examples}). Ohne den umgebenden Kontext sind sie für \
                      Screenreader-Nutzer schwer unterscheidbar. Heuristische Warnung zu \
                      WCAG 2.4.4 — ob der Linkzweck aus dem Kontext hervorgeht, muss manuell \
                      geprüft werden.",
-                    if count == 1 { "Link" } else { "Links" }
+                    crate::i18n::count_text("count-links-generic", count as usize, false)
                 )
             },
             Some(if en {
@@ -1080,10 +1080,10 @@ pub fn interactive_finding_text(
                 )
             } else {
                 format!(
-                    "{count} {} kommen 3-mal oder häufiger auf der Seite vor: {examples}. \
+                    "{} 3-mal oder häufiger auf der Seite vor: {examples}. \
                      Verweisen sie auf unterschiedliche Ziele, können Screenreader-Nutzer sie \
                      nicht unterscheiden.",
-                    if count == 1 { "Linktext" } else { "Linktexte" }
+                    crate::i18n::count_text("count-link-texts-repeated", count as usize, false)
                 )
             },
             Some(if en {

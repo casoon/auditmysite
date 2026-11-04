@@ -578,8 +578,8 @@ fn heading_summary(s: &SeoAnalysis, en: bool) -> String {
         )
     } else {
         format!(
-            "{} H1-Überschrift(en), {} Überschriften gesamt, {} Probleme",
-            s.headings.h1_count,
+            "{}, {} Überschriften gesamt, {} Probleme",
+            crate::i18n::count_text("count-h1-headings", s.headings.h1_count, false),
             s.headings.total_count,
             s.headings.issues.len()
         )

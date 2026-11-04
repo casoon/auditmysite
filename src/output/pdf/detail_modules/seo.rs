@@ -155,7 +155,7 @@ pub(in crate::output::pdf) fn render_seo(
         ])
         .with_title(i18n.t("seo-technical-issues-title"));
         for (_, msg, sev) in &seo.technical_issues {
-            table = table.add_row(vec![msg.as_str(), sev.as_str()]);
+            table = table.add_row(vec![msg.clone(), super::severity_text(sev, i18n)]);
         }
         builder = builder.add_component(table);
     }
@@ -187,7 +187,10 @@ pub(in crate::output::pdf) fn render_seo(
         kv = kv.add(i18n.t("pdf-seo-ie-total"), ie.total_images.to_string());
         kv = kv.add(
             i18n.t("pdf-seo-ie-modern"),
-            format!("{:.1}% (WebP/AVIF/SVG)", ie.modern_format_pct),
+            format!(
+                "{}% (WebP/AVIF/SVG)",
+                crate::i18n::number::decimal(ie.modern_format_pct, 1, is_english(i18n))
+            ),
         );
         if ie.legacy_count > 0 {
             kv = kv.add(
@@ -330,7 +333,7 @@ pub(in crate::output::pdf) fn render_page_health(
         ])
         .with_title(i18n.t("seo-page-health-issues"));
         for (_, msg, sev) in &ph.issues {
-            table = table.add_row(vec![msg.as_str(), sev.as_str()]);
+            table = table.add_row(vec![msg.clone(), super::severity_text(sev, i18n)]);
         }
         builder = builder.add_component(table);
     }
@@ -374,10 +377,10 @@ pub(in crate::output::pdf) fn render_page_health(
         .with_title(i18n.t("seo-page-html-validation"));
         for (check, count, sev, detail) in &ph.html_issues {
             table = table.add_row(vec![
-                check.as_str(),
-                &count.to_string(),
-                sev.as_str(),
-                detail.as_str(),
+                check.clone(),
+                count.to_string(),
+                super::severity_text(sev, i18n),
+                detail.clone(),
             ]);
         }
         builder = builder.add_component(table);

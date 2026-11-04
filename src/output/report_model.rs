@@ -680,8 +680,21 @@ pub struct RoadmapColumnData {
     pub items: Vec<RoadmapItemData>,
 }
 
+impl ActionItem {
+    /// The action as one sentence: title and hint when it has both.
+    pub fn full_text(&self) -> String {
+        if self.hint.is_empty() {
+            self.action.clone()
+        } else {
+            format!("{}: {}", self.action, self.hint)
+        }
+    }
+}
+
 pub struct RoadmapItemData {
     pub action: String,
+    /// Body text of the card when `action` is only a title (see `ActionItem`).
+    pub hint: String,
     pub role: String,
     pub priority: String,
     pub execution_priority: String,
@@ -1257,6 +1270,10 @@ pub struct FrictionPointPresentation {
 #[derive(Clone)]
 pub struct ActionItem {
     pub action: String,
+    /// What to do, when `action` is only the title (HTML-conformance families
+    /// carry a title and a fix hint). Shown as the card body, never in the
+    /// card title (#902). Empty for actions that are one sentence.
+    pub hint: String,
     pub benefit: String,
     pub role: Role,
     pub priority: Priority,

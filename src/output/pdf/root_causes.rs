@@ -108,8 +108,9 @@ pub(super) fn render_root_cause_analysis(
             )
         } else {
             format!(
-                "Keine bestätigten WCAG-Verstöße, daher ist keine Ursachenanalyse erforderlich. Es bleiben {} Barrierefreiheits-Warnung(en) und {} manuelle(r) Prüfhinweis(e) — sie stehen in den eigenen Abschnitten und fließen nicht in den Score ein.",
-                evidence.warnings, evidence.manual_checks
+                "Keine bestätigten WCAG-Verstöße, daher ist keine Ursachenanalyse erforderlich. Offen bleiben {} und {} — dokumentiert in den eigenen Abschnitten, ohne Einfluss auf den Score.",
+                crate::i18n::count_text("count-a11y-warnings", evidence.warnings as usize, false),
+                crate::i18n::count_text("count-manual-hints", evidence.manual_checks as usize, false)
             )
         };
         builder = builder.add_component(if evidence.is_empty() {
@@ -170,7 +171,10 @@ pub(super) fn render_root_cause_analysis(
             if en {
                 format!("Other ({remaining_findings} further findings)")
             } else {
-                format!("Sonstige ({remaining_findings} weitere Befunde)")
+                format!(
+                    "Sonstige ({})",
+                    i18n.count("count-more-findings", remaining_findings)
+                )
             },
             remaining_occurrences.to_string(),
             format!("{} %", share_pct(remaining_occurrences)),
@@ -226,7 +230,8 @@ pub(super) fn render_timeframe_roadmap(
                 )
             } else {
                 format!(
-                    "Keine priorisierten Barrierefreiheits-Maßnahmen. {module_measure_count} Empfehlung(en) aus anderen Modulen (Performance, SEO, Sicherheit, Mobile) stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben."
+                    "Keine priorisierten Barrierefreiheits-Maßnahmen. Zu anderen Modulen (Performance, SEO, Sicherheit, Mobile): {} — sie stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben.",
+                    crate::i18n::count_text("count-recommendations", module_measure_count, false)
                 )
             }
         } else if en {
@@ -257,6 +262,13 @@ pub(super) fn render_timeframe_roadmap(
             } else {
                 item.risk_effect.clone()
             };
+            if !item.hint.is_empty() {
+                why = if why.is_empty() {
+                    item.hint.clone()
+                } else {
+                    format!("{}\n\n{why}", item.hint)
+                };
+            }
             // plan/6-remediation-leverage-metric.md: "is this worth doing
             // first" verdict — reach (occurrences), cost (effort) and risk
             // condensed into one line. "betroffen", not "behoben"/"beseitigt"

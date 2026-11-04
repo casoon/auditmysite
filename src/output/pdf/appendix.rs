@@ -34,23 +34,24 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
         // no specific warning was derived), which would otherwise print the
         // same sentence twice in a row (plan/32-appendix-duplicated-
         // interpretation-sentence.md).
-        let value =
-            if module.card_context.is_empty() || module.card_context == module.interpretation {
-                format!("{} / 100 — {}", module.score, module.interpretation)
+        let value = if module.interpretation.trim().is_empty() {
+            format!("{} / 100", module.score)
+        } else if module.card_context.is_empty() || module.card_context == module.interpretation {
+            format!("{} / 100 — {}", module.score, module.interpretation)
+        } else {
+            // The interpretation is a full sentence already; a second
+            // period printed "Optimierungsmöglichkeiten.. 5417 DOM-Knoten".
+            let sentence = module.interpretation.trim_end();
+            let stop = if sentence.ends_with(['.', '!', '?']) {
+                ""
             } else {
-                // The interpretation is a full sentence already; a second
-                // period printed "Optimierungsmöglichkeiten.. 5417 DOM-Knoten".
-                let sentence = module.interpretation.trim_end();
-                let stop = if sentence.ends_with(['.', '!', '?']) {
-                    ""
-                } else {
-                    "."
-                };
-                format!(
-                    "{} / 100 — {}{} {}",
-                    module.score, sentence, stop, module.card_context
-                )
+                "."
             };
+            format!(
+                "{} / 100 — {}{} {}",
+                module.score, sentence, stop, module.card_context
+            )
+        };
         table = table.add_row(vec![row_module.clone(), module.name.clone(), value]);
     }
 
@@ -62,7 +63,11 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
     for finding in vm.findings.top_findings.iter().take(6) {
         table = table.add_row(vec![
             row_finding.clone(),
-            format!("{} ({})", finding.rule_id, finding.wcag_criterion),
+            if finding.wcag_criterion.is_empty() {
+                finding.rule_id.clone()
+            } else {
+                format!("{} ({})", finding.rule_id, finding.wcag_criterion)
+            },
             format!(
                 "{} {} — {}",
                 finding.occurrence_count,

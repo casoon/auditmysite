@@ -856,6 +856,10 @@ fn collect(
                     FindingScoring::new("HTML Conformance", E::Deduction),
                     L::Page,
                 )
+                .text({
+                    let (rule_id, message) = (finding.rule_id.clone(), finding.message.clone());
+                    move |en| crate::html_conform::message::message_text(&rule_id, &message, en)
+                })
                 .selector(finding.location.clone()),
             );
         }

@@ -410,6 +410,7 @@ finding-affected-selectors = Affected selectors
 finding-recommendation = Recommendation
 finding-wrong = ✗ Wrong
 finding-right = ✓ Correct
+finding-line-column = Line { $line }, column { $column }
 finding-location = Location
 finding-note = Note
 finding-representative-occurrences = Representative occurrences
@@ -526,9 +527,15 @@ narrative-implementation-empty = { $effort } — { $owner }
 lever-accessibility-biggest = Biggest lever: { $finding }
 lever-accessibility-default = Biggest lever: maintain results and verify manually
 context-accessibility-none = No automatically detected barriers in the current run.
-context-accessibility-summary = { $total } detected finding group(s), { $high } with high impact.
+context-accessibility-summary = { $total ->
+        [one] { $total } detected finding group
+       *[other] { $total } detected finding groups
+    }, { $high } with high impact.
 card-accessibility-none = No high-impact findings
-card-accessibility-summary = { $high } high-impact finding group(s)
+card-accessibility-summary = { $high ->
+        [one] { $high } high-impact finding group
+       *[other] { $high } high-impact finding groups
+    }
 lever-performance-dom = Biggest lever: reduce DOM size ({ $dom_nodes } nodes)
 lever-performance-load = Biggest lever: reduce load time ({ $load } ms)
 lever-performance-default = Biggest lever: keep optimizing the render path and asset size
@@ -1315,3 +1322,77 @@ html-conform-media-text-title = Use media and text elements correctly
 html-conform-media-text-fix = Specify media and special elements completely: track with a label and at most one default, ruby and rtc in the intended structure, bdo with dir and custom elements without an is attribute. Replace non-conforming variants with the intended markup.
 html-conform-generic-title = Fix the HTML conformance violation
 html-conform-generic-fix = Correct the element or attribute named in the message as the HTML Standard requires and check the rendered HTML again. If the finding appears on every page, fix the cause in the shared template.
+
+# Count messages with singular/plural agreement (#902). Used through `I18n::count`.
+count-occurrences-found = { $count ->
+        [one] { $count } occurrence was found
+       *[other] { $count } occurrences were found
+    }
+count-problem-groups = { $count ->
+        [one] { $count } problem group
+       *[other] { $count } problem groups
+    }
+count-more-findings = { $count ->
+        [one] { $count } more finding
+       *[other] { $count } more findings
+    }
+count-notes = { $count ->
+        [one] { $count } note
+       *[other] { $count } notes
+    }
+count-warnings = { $count ->
+        [one] { $count } warning
+       *[other] { $count } warnings
+    }
+count-h1-headings = { $count ->
+        [one] { $count } H1 heading
+       *[other] { $count } H1 headings
+    }
+count-link-texts-repeated = { $count ->
+        [one] { $count } link text appears
+       *[other] { $count } link texts appear
+    }
+count-links-generic = { $count ->
+        [one] { $count } link carries
+       *[other] { $count } links carry
+    }
+count-heuristic-warnings = { $count ->
+        [one] { $count } heuristic accessibility warning
+       *[other] { $count } heuristic accessibility warnings
+    }
+count-manual-points = { $count ->
+        [one] { $count } point
+       *[other] { $count } points
+    }
+count-a11y-warnings = { $count ->
+        [one] { $count } accessibility warning
+       *[other] { $count } accessibility warnings
+    }
+count-manual-hints = { $count ->
+        [one] { $count } manual check
+       *[other] { $count } manual checks
+    }
+count-recommendations = { $count ->
+        [one] { $count } recommendation
+       *[other] { $count } recommendations
+    }
+count-images-scaled-down = { $count ->
+        [one] { $count } image is
+       *[other] { $count } images are
+    }
+
+pdf-ai-policy-label = Policy
+pdf-ai-policy-status-label = Status
+
+module-design-quality = Design Quality
+module-commerce = Commerce
+module-ai-transparency = AI Transparency
+module-privacy = Privacy
+count-findings = { $count ->
+        [one] { $count } finding
+       *[other] { $count } findings
+    }
+pdf-metric-issues = Issues
+pdf-sec-headers-title = Security Headers
+pdf-screenshot-alt-desktop = Desktop screenshot preview
+pdf-screenshot-alt-mobile = Mobile screenshot preview

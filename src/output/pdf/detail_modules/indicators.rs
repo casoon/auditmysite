@@ -416,13 +416,25 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         );
     } else if av.policy.blocks_ai_citation {
         let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy-limited-title"));
-        kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add("Status", i18n.t("pdf-ai-policy-limited-body"));
+        kv = kv.add(
+            i18n.t("pdf-ai-policy-label"),
+            crate::seo::robots::localize_policy_label(&av.policy.inferred_policy, is_english(i18n)),
+        );
+        kv = kv.add(
+            i18n.t("pdf-ai-policy-status-label"),
+            i18n.t("pdf-ai-policy-limited-body"),
+        );
         builder = builder.add_component(kv);
     } else if av.policy.blocks_ai_training {
         let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy"));
-        kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add("Status", i18n.t("pdf-ai-policy-training-body"));
+        kv = kv.add(
+            i18n.t("pdf-ai-policy-label"),
+            crate::seo::robots::localize_policy_label(&av.policy.inferred_policy, is_english(i18n)),
+        );
+        kv = kv.add(
+            i18n.t("pdf-ai-policy-status-label"),
+            i18n.t("pdf-ai-policy-training-body"),
+        );
         builder = builder.add_component(kv);
     }
 
@@ -565,8 +577,12 @@ pub(in crate::output::pdf) fn render_content_visibility(
                 let mut kv = KeyValueList::new();
                 for ev in &signal.evidence {
                     let mut detail = String::new();
-                    if let Some(ref fp) = ev.field_path {
-                        detail.push_str(fp);
+                    if let Some(name) = ev
+                        .field_path
+                        .as_deref()
+                        .and_then(|fp| crate::assessment::evidence_field_label(fp, en))
+                    {
+                        detail.push_str(&name);
                     }
                     if let Some(ref val) = ev.value_excerpt {
                         if !detail.is_empty() {
@@ -581,8 +597,7 @@ pub(in crate::output::pdf) fn render_content_visibility(
                     if detail.is_empty() {
                         continue;
                     }
-                    let source_label = format!("{:?}", ev.source);
-                    kv = kv.add(&source_label, &detail);
+                    kv = kv.add(ev.source.label(en), &detail);
                 }
                 if !kv.items.is_empty() {
                     builder = builder.add_component(kv);
@@ -698,7 +713,7 @@ pub(in crate::output::pdf) fn render_best_practices(
             table = table.add_row(vec![
                 lib.name.clone(),
                 lib.version.clone(),
-                lib.severity.clone(),
+                super::severity_text(&lib.severity, i18n),
                 description,
                 lib.safe_version.clone(),
             ]);

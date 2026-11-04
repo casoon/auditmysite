@@ -265,6 +265,18 @@ pub(super) fn module_chapter_opener(
 /// First sentence of an interpretation text — used as the chapter's one-line
 /// key takeaway so the opener stays concise even when the full interpretation
 /// runs to several sentences.
+/// A canonical severity string (`high`, `medium`, ...) in the run language.
+/// Text that is no known severity is returned unchanged.
+pub(super) fn severity_text(severity: &str, i18n: &I18n) -> String {
+    let key = format!("severity-{}", severity.to_lowercase());
+    let text = i18n.t(&key);
+    if text == key {
+        severity.to_string()
+    } else {
+        text
+    }
+}
+
 pub(super) fn first_sentence(text: &str) -> String {
     let t = text.trim();
     match t.find(". ") {
@@ -364,6 +376,28 @@ fn journey_category_label(category: &str, i18n: &I18n) -> String {
             "Tab navigation"
         } else {
             "Tab-Navigation"
+        }),
+        "LinkText" => Some(if en { "Link Text" } else { "Linktext" }),
+        "Landmark" => Some(if en { "Landmark" } else { "Landmarke" }),
+        "MediaControls" => Some(if en {
+            "Media controls"
+        } else {
+            "Medienbedienung"
+        }),
+        "AddToCart" => Some(if en {
+            "Add to cart"
+        } else {
+            "In den Warenkorb legen"
+        }),
+        "QuantityStepper" => Some(if en {
+            "Quantity stepper"
+        } else {
+            "Mengenauswahl"
+        }),
+        "HeadingOutline" => Some(if en {
+            "Heading outline"
+        } else {
+            "Überschriftengliederung"
         }),
         _ => None,
     };

@@ -357,8 +357,8 @@ pub(super) fn build_problem_concentration_note(
             )
         } else {
             format!(
-                "Es wurden {} Vorkommen erkannt — zu wenige, um ein wiederkehrendes Muster abzuleiten.",
-                c.total_occurrences
+                "{} — zu wenige, um ein wiederkehrendes Muster abzuleiten.",
+                i18n.count("count-occurrences-found", c.total_occurrences)
             )
         });
     }

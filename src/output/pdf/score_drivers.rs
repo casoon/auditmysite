@@ -128,7 +128,7 @@ pub(super) fn render_score_driver_table(
     ])
     .with_title(match (is_derivation, en) {
         (true, true) => "Why the combined technical score is what it is",
-        (true, false) => "Warum der kombinierte technische Wert ist, was er ist",
+        (true, false) => "Wie sich der kombinierte technische Wert zusammensetzt",
         (false, true) => "The modules that carry weight",
         (false, false) => "Die gewichteten Module im Einzelnen",
     });
