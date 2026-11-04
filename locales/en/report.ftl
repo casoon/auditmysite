@@ -892,7 +892,10 @@ pdf-ai-policy-training-body = AI training bots blocked, AI search bots have acce
 pdf-cv-section-title = Content Visibility & Trust (indicator)
 pdf-cv-overview-title = Content Visibility — Overview
 pdf-cv-overview-body = Aggregated indicator from SEO, Source Quality, and AI Visibility signals. Covers organic search indexability, E-E-A-T authority markers, local business presence, content depth, and topical authority heuristics. Heuristic estimate — not a directly measured value.
-pdf-cv-signals-analyzed = { $signals } signals analyzed, { $problems } with optimization potential.
+pdf-cv-signals-analyzed = { $signals ->
+        [one] { $signals } signal
+       *[other] { $signals } signals
+    } analyzed, { $problems } with optimization potential.
 pdf-cv-manual-review-title = Manual review required
 pdf-cv-success = All content visibility signals look good. No optimization required.
 pdf-bp-score-title = Best Practices score

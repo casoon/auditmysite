@@ -364,6 +364,23 @@ fn friction_step(kind: FrictionKind) -> &'static str {
     }
 }
 
+/// The funnel step of a friction point (`Entry`, `Orientation`, ...) in the
+/// requested language; the stored value is canonical English.
+pub fn journey_step_name(step: &str, en: bool) -> String {
+    if en {
+        return step.to_string();
+    }
+    match step {
+        "Entry" => "Einstieg",
+        "Orientation" => "Orientierung",
+        "Navigation" => "Navigation",
+        "Interaction" => "Interaktion",
+        "Conversion" => "Conversion",
+        other => other,
+    }
+    .to_string()
+}
+
 /// Severity of a friction point (stable, locale-independent).
 fn friction_severity(kind: FrictionKind) -> &'static str {
     use FrictionKind::*;
@@ -1651,5 +1668,7 @@ mod dimension_name_tests {
             "Einstiegsklarheit"
         );
         assert_eq!(journey_dimension_name(Orientation, false), "Orientierung");
+        assert_eq!(journey_step_name("Orientation", false), "Orientierung");
+        assert_eq!(journey_step_name("Orientation", true), "Orientation");
     }
 }

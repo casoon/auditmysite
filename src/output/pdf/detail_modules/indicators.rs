@@ -503,8 +503,8 @@ pub(in crate::output::pdf) fn render_content_visibility(
         .add_component(TextBlock::new(i18n.t_args(
             "pdf-cv-signals-analyzed",
             &[
-                ("signals", cv.signal_count.to_string()),
-                ("problems", cv.problem_count.to_string()),
+                ("signals", cv.signal_count as i64),
+                ("problems", cv.problem_count as i64),
             ],
         )));
 

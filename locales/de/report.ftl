@@ -696,7 +696,7 @@ pdf-robots-block-all-body = Alle Crawler vollständig gesperrt (User-agent: * / 
 pdf-robots-block-all-title = Alle Crawler gesperrt
 pdf-robots-limit-ai-body = KI-Suchbots (z. B. PerplexityBot, Amazonbot) sind blockiert. Das ist eine bewusste Entscheidung — Inhalte erscheinen nicht in KI-generierten Antworten. Das Sperren von KI-Trainingsbots (GPTBot etc.) ist dagegen übliche Praxis und kein Problem.
 pdf-robots-limit-ai-title = Eingeschränkte KI-Sichtbarkeit
-pdf-robots-training-blocked-body = Policy: { $policy } — KI-Trainingsbots ({ $bots }) sind gesperrt, KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.
+pdf-robots-training-blocked-body = Richtlinie: { $policy } — KI-Trainingsbots ({ $bots }) sind gesperrt, KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.
 pdf-robots-training-blocked-title = KI-Training blockiert (Standard)
 pdf-robots-crawler-rules = Crawler-Regeln
 pdf-robots-allowed = Erlaubt
@@ -892,7 +892,13 @@ pdf-ai-policy-training-body = KI-Trainingsbots blockiert, KI-Suchbots haben Zuga
 pdf-cv-section-title = Content Visibility & Trust (Indikator)
 pdf-cv-overview-title = Content-Sichtbarkeit — Überblick
 pdf-cv-overview-body = Aggregierter Indikator aus SEO-, Quellenqualitäts- und KI-Sichtbarkeitssignalen. Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, Inhaltstiefe und topische Relevanz-Heuristiken. Heuristischer Schätzwert — kein direkt gemessener Wert.
-pdf-cv-signals-analyzed = { $signals } Signale analysiert, { $problems } Hinweise auf Optimierungsbedarf.
+pdf-cv-signals-analyzed = { $signals ->
+        [one] { $signals } Signal analysiert
+       *[other] { $signals } Signale analysiert
+    }, { $problems ->
+        [one] { $problems } Hinweis
+       *[other] { $problems } Hinweise
+    } auf Optimierungsbedarf.
 pdf-cv-manual-review-title = Manuell prüfen
 pdf-cv-success = Alle Content-Visibility-Signale sind in Ordnung. Kein Optimierungsbedarf.
 pdf-bp-score-title = Best Practices Score

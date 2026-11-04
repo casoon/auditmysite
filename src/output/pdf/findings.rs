@@ -604,7 +604,14 @@ pub(super) fn render_finding_technical(
                     compact_html(&occ.selector, 60)
                 }
             ));
-            if !is_html_conform {
+            // The node id is an internal handle (accessibility-tree number,
+            // the rule key of a validator finding, "document"): only a real
+            // identifier is worth a row (#902).
+            let node_id = occ.node_id.trim();
+            let internal_handle = node_id.is_empty()
+                || node_id == "document"
+                || node_id.chars().all(|c| c.is_ascii_digit());
+            if !is_html_conform && !internal_handle {
                 snapshot = snapshot.add_item("Node", truncate_url(&occ.node_id, 75));
             }
             snapshot = snapshot.add_item(i18n.t("finding-note"), first_sentence(&occ.message));
