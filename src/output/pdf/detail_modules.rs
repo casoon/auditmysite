@@ -105,8 +105,9 @@ fn module_customer_context(
         ("performance", false) => "Besucher können Verzögerungen, instabiles Rendering oder unnötige Datenmenge erleben, bevor die Seite nutzbar wirkt.",
         ("seo", true) => "Search engines and AI systems need clear titles, headings, structured data and enough readable content to understand the page.",
         ("seo", false) => "Suchmaschinen und KI-Systeme benötigen klare Titel, Überschriften, strukturierte Daten und ausreichend lesbaren Inhalt, um die Seite zu verstehen.",
-        ("search_experience", true) => "This score combines technical findability with whether users, search engines and AI systems can actually understand and trust the content.",
-        ("search_experience", false) => "Dieser Wert verbindet technische Auffindbarkeit mit der Frage, ob Nutzer, Suchmaschinen und KI-Systeme die Inhalte tatsächlich verstehen und ihnen vertrauen können.",
+        // The composite's own chapter opener already states what the value combines;
+        // repeating it here printed two near-identical lead sentences (#952).
+        ("search_experience", _) => "",
         ("security", true) => "Security headers and HTTPS signals influence visible trust and reduce avoidable browser-side risk in the checked scope.",
         ("security", false) => "Security Header und HTTPS-Signale beeinflussen sichtbares Vertrauen und reduzieren vermeidbare Browser-Risiken im geprüften Umfang.",
         ("html_conform", true) => "Clean, spec-conformant HTML helps browsers, assistive technologies and search engines parse and render the page reliably.",
@@ -130,7 +131,9 @@ fn module_customer_context(
     if let Some(w) = weakness {
         parts.push(w);
     }
-    parts.push(module_text);
+    if !module_text.is_empty() {
+        parts.push(module_text);
+    }
     // No meta-label prefix — the plain-language sentence speaks for itself
     // ("Was das für Kunden bedeutet:" was redundant wording, #446 readability).
     let text = parts.join(" ");

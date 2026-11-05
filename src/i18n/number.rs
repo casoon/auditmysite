@@ -15,6 +15,25 @@ pub fn decimal(value: f64, decimals: usize, en: bool) -> String {
     }
 }
 
+/// `value` with thousands grouping: German `7.594`, English `7,594`. Values
+/// below 1000 stay plain. One convention for every whole number in report
+/// text, so `7.594` and `7594` never appear for the same figure (#952).
+pub fn integer(value: i64, en: bool) -> String {
+    let separator = if en { ',' } else { '.' };
+    let digits = value.unsigned_abs().to_string();
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3 + 1);
+    if value < 0 {
+        grouped.push('-');
+    }
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(separator);
+        }
+        grouped.push(digit);
+    }
+    grouped
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -26,6 +45,14 @@ mod tests {
         assert_eq!(decimal(17.2, 1, false), "17,2");
         assert_eq!(decimal(4.0, 1, false), "4,0");
         assert_eq!(decimal(100.0, 0, false), "100");
+    }
+
+    #[test]
+    fn integers_are_grouped_per_language() {
+        assert_eq!(integer(7594, false), "7.594");
+        assert_eq!(integer(7594, true), "7,594");
+        assert_eq!(integer(999, false), "999");
+        assert_eq!(integer(-1234567, false), "-1.234.567");
     }
 
     #[test]

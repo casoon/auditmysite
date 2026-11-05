@@ -177,7 +177,7 @@ fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
         ("immediate", true) => "Immediate",
         ("immediate", false) => "Sofort",
         ("quick_win", true) => "Quick win",
-        ("quick_win", false) => "Quick Win",
+        ("quick_win", false) => "Schnell umsetzbar",
         ("normal", true) => "Normal",
         ("normal", false) => "Normal",
         ("manual_review_recommended", true) => "Manual review recommended",

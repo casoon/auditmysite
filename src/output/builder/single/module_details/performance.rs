@@ -31,19 +31,7 @@ fn rate_threshold(value: f64, good_max: f64, poor_min: f64) -> &'static str {
 use crate::i18n::number::decimal as localized_decimal;
 
 fn localized_integer(value: i64, en: bool) -> String {
-    let separator = if en { ',' } else { '.' };
-    let digits = value.abs().to_string();
-    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(separator);
-        }
-        grouped.push(digit);
-    }
-    if value < 0 {
-        grouped.insert(0, '-');
-    }
-    grouped
+    crate::i18n::number::integer(value, en)
 }
 
 pub(super) fn build_performance_details(
@@ -81,7 +69,15 @@ pub(super) fn build_performance_details(
         if let Some(ref cw) = p.content_weight {
             additional.push((
                 if en { "CO2e per view" } else { "CO2e pro View" }.to_string(),
-                format!("{} g ({})", cw.carbon.format_grams(), cw.carbon.rating),
+                format!(
+                    "{} g ({})",
+                    if en {
+                        cw.carbon.format_grams()
+                    } else {
+                        cw.carbon.format_grams().replace('.', ",")
+                    },
+                    cw.carbon.rating
+                ),
             ));
         }
 
@@ -316,7 +312,7 @@ pub(super) fn build_performance_details(
                     capping_warnings.push(i18n.t_args(
                         "perf-capped-requests",
                         &[
-                            ("count", cw.request_count.to_string()),
+                            ("count", localized_integer(cw.request_count as i64, en)),
                             ("cap", cap.to_string()),
                         ],
                     ));
@@ -326,7 +322,10 @@ pub(super) fn build_performance_details(
                 if dom_cap == min_computed && dom_cap < 100 {
                     capping_warnings.push(i18n.t_args(
                         "perf-capped-dom",
-                        &[("nodes", nodes.to_string()), ("cap", cap.to_string())],
+                        &[
+                            ("nodes", localized_integer(nodes, en)),
+                            ("cap", cap.to_string()),
+                        ],
                     ));
                 }
             }

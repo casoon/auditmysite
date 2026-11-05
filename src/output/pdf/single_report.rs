@@ -1284,6 +1284,35 @@ fn render_manual_only_criteria_note(
     }))
 }
 
+/// One row per distinct (label, hint) pair, in first-seen order, with the
+/// number of occurrences ("1.4.3 · Manuelle Prüfung · 4×"): the same fix
+/// sentence is shown once instead of once per element (#952). At most `cap`
+/// rows are returned.
+fn grouped_checklist_rows(entries: Vec<(String, String)>, cap: usize) -> Vec<ChecklistRow> {
+    let mut groups: Vec<(String, String, usize)> = Vec::new();
+    for (label, text) in entries {
+        match groups
+            .iter_mut()
+            .find(|(l, t, _)| *l == label && *t == text)
+        {
+            Some(group) => group.2 += 1,
+            None => groups.push((label, text, 1)),
+        }
+    }
+    groups
+        .into_iter()
+        .take(cap)
+        .map(|(label, text, count)| {
+            let label = if count > 1 {
+                format!("{label} · {count}\u{d7}")
+            } else {
+                label
+            };
+            ChecklistRow::new(label, text).with_status("warn")
+        })
+        .collect()
+}
+
 fn render_assessment_and_execution_notes(
     mut builder: renderreport::engine::ReportBuilder,
     report: &AuditReport,
@@ -1292,8 +1321,8 @@ fn render_assessment_and_execution_notes(
     let en = is_english(i18n);
     let wcag = &report.accessibility.wcag_results;
     if !wcag.warnings.is_empty() || !wcag.not_testables.is_empty() {
-        let mut rows = Vec::new();
-        for finding in wcag.not_testables.iter().take(20) {
+        let mut entries: Vec<(String, String)> = Vec::new();
+        for finding in wcag.not_testables.iter() {
             let mut recommendation = finding
                 .rule_id
                 .as_deref()
@@ -1311,27 +1340,20 @@ fn render_assessment_and_execution_notes(
                 recommendation.push(' ');
                 recommendation.push_str(instruction);
             }
-            rows.push(
-                ChecklistRow::new(
-                    format!(
-                        "{} · {}",
-                        finding.rule,
-                        if en {
-                            "Manual review"
-                        } else {
-                            "Manuelle Prüfung"
-                        }
-                    ),
-                    recommendation,
-                )
-                .with_status("warn"),
-            );
+            entries.push((
+                format!(
+                    "{} · {}",
+                    finding.rule,
+                    if en {
+                        "Manual review"
+                    } else {
+                        "Manuelle Prüfung"
+                    }
+                ),
+                recommendation,
+            ));
         }
-        for finding in wcag
-            .warnings
-            .iter()
-            .take(20usize.saturating_sub(rows.len()))
-        {
+        for finding in wcag.warnings.iter() {
             let mut text = finding
                 .rule_id
                 .as_deref()
@@ -1349,18 +1371,16 @@ fn render_assessment_and_execution_notes(
                 text.push(' ');
                 text.push_str(instruction);
             }
-            rows.push(
-                ChecklistRow::new(
-                    format!(
-                        "{} · {}",
-                        finding.rule,
-                        if en { "Warning" } else { "Hinweis" }
-                    ),
-                    text,
-                )
-                .with_status("warn"),
-            );
+            entries.push((
+                format!(
+                    "{} · {}",
+                    finding.rule,
+                    if en { "Warning" } else { "Hinweis" }
+                ),
+                text,
+            ));
         }
+        let rows = grouped_checklist_rows(entries, 20);
         builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
             "Manual review and heuristic signals"
         } else {
@@ -2245,6 +2265,36 @@ fn render_active_module_section(
 }
 
 #[cfg(test)]
+mod grouped_rows_tests {
+    use super::*;
+
+    /// #952: the same manual-check hint is shown once, with a count.
+    #[test]
+    fn repeated_manual_checks_collapse_into_one_counted_row() {
+        let entry = |label: &str, text: &str| (label.to_string(), text.to_string());
+        let rows = grouped_checklist_rows(
+            vec![
+                entry("2.1.2 · Manuelle Prüfung", "A"),
+                entry("1.4.3 · Manuelle Prüfung", "B"),
+                entry("1.4.3 · Manuelle Prüfung", "B"),
+                entry("1.4.3 · Manuelle Prüfung", "B"),
+                entry("1.4.3 · Manuelle Prüfung", "C"),
+            ],
+            20,
+        );
+        let labels: Vec<_> = rows.iter().map(|r| r.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            [
+                "2.1.2 · Manuelle Prüfung",
+                "1.4.3 · Manuelle Prüfung · 3\u{d7}",
+                "1.4.3 · Manuelle Prüfung"
+            ]
+        );
+    }
+}
+
+#[cfg(test)]
 mod top_measure_tests {
     use super::*;
 
@@ -2501,10 +2551,10 @@ pub(super) mod risk_and_strength_tests {
             score: 56,
             measurement_type: "composite".into(),
             interpretation:
-                "Eingeschränkte Search Experience: Die Seite ist nicht ausreichend verständlich."
+                "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich."
                     .into(),
             card_context:
-                "Eingeschränkte Search Experience: Die Seite ist nicht ausreichend verständlich."
+                "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich."
                     .into(),
             score_context: String::new(),
             key_lever: String::new(),
@@ -2522,7 +2572,9 @@ pub(super) mod risk_and_strength_tests {
         let value = row[2].as_str().unwrap();
 
         assert_eq!(
-            value.matches("Eingeschränkte Search Experience").count(),
+            value
+                .matches("Eingeschränkte Sichtbarkeit und Nutzerverständnis")
+                .count(),
             1,
             "interpretation sentence must appear exactly once, got: {value}"
         );

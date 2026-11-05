@@ -312,20 +312,45 @@ pub fn dark_mode_issue_text(kind: &DarkModeIssueKind, selectors: &[String], en: 
             chrome_hidden,
             clipped_elements,
         } => {
+            // Name the cause: the issue is raised when the interactive chrome
+            // stays visible in print or when content is clipped (#952).
+            let mut causes: Vec<String> = Vec::new();
+            if !*chrome_hidden {
+                causes.push(
+                    if en {
+                        "interactive controls such as navigation and buttons are not hidden when printing"
+                    } else {
+                        "interaktive Bedienelemente wie Navigation und Buttons werden im Druck nicht ausgeblendet"
+                    }
+                    .to_string(),
+                );
+            }
+            if *clipped_elements > 0 {
+                causes.push(if en {
+                    format!("{clipped_elements} elements are potentially clipped")
+                } else {
+                    format!("{clipped_elements} Elemente werden potenziell abgeschnitten")
+                });
+            }
+            if causes.is_empty() {
+                causes.push(
+                    if en {
+                        "content is not fully contained on the printed page"
+                    } else {
+                        "Inhalte passen nicht vollständig auf die gedruckte Seite"
+                    }
+                    .to_string(),
+                );
+            }
             if en {
                 format!(
-                    "Print stylesheet detected but the print layout appears risky: interactive \
-                 chrome hidden = {}, potentially clipped elements = {}.",
-                    if *chrome_hidden { "yes" } else { "no" },
-                    clipped_elements
+                    "A print stylesheet is present, but the print layout has gaps: {}.",
+                    causes.join("; ")
                 )
             } else {
                 format!(
-                    "Ein Print-Stylesheet ist vorhanden, das Druck-Layout wirkt jedoch riskant: \
-                 interaktive Bedienelemente ausgeblendet = {}, potenziell abgeschnittene \
-                 Elemente = {}.",
-                    if *chrome_hidden { "ja" } else { "nein" },
-                    clipped_elements
+                    "Ein Print-Stylesheet ist vorhanden, das Druck-Layout hat jedoch Lücken: {}.",
+                    causes.join("; ")
                 )
             }
         }
@@ -2261,5 +2286,21 @@ mod tests {
                 "EN dark-mode issue text contains German umlaut ({kind:?}): {text}"
             );
         }
+    }
+
+    /// #952: the print-layout claim names its cause.
+    #[test]
+    fn print_layout_risk_states_its_cause() {
+        let kind = |hidden, clipped| DarkModeIssueKind::PrintLayoutRisk {
+            chrome_hidden: hidden,
+            clipped_elements: clipped,
+        };
+        let de = dark_mode_issue_text(&kind(false, 0), &[], false);
+        assert!(de.contains("nicht ausgeblendet"), "{de}");
+        assert!(!de.contains("riskant"), "{de}");
+        let en = dark_mode_issue_text(&kind(true, 3), &[], true);
+        assert!(en.contains("3 elements are potentially clipped"), "{en}");
+        let fallback = dark_mode_issue_text(&kind(true, 0), &[], false);
+        assert!(fallback.contains("Inhalte passen nicht"), "{fallback}");
     }
 }

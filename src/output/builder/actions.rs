@@ -62,6 +62,9 @@ pub(super) fn localized_finding_text(
     }
 }
 
+/// Longest action text that still reads as a card title.
+const MAX_ACTION_TITLE_CHARS: usize = 100;
+
 pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -> ActionPlan {
     let mut quick_wins = Vec::new();
     let mut medium_term = Vec::new();
@@ -71,7 +74,7 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         // HTML conformance recommendations are written per rule family; the
         // keyword-based humanizer would replace them with a generic action.
         // Rules of one family share the action text and so collapse below.
-        let (action, hint) =
+        let (mut action, mut hint) =
             if group.rule_id.starts_with("html_conform.") && !group.recommendation.is_empty() {
                 crate::html_conform::recommendation::recommendation(&group.rule_id, i18n)
             } else {
@@ -80,6 +83,14 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
                     String::new(),
                 )
             };
+        // A card title is a title: a whole recommendation sentence moves to
+        // the card body and the finding's own title takes its place (#952).
+        if hint.is_empty()
+            && action.chars().count() > MAX_ACTION_TITLE_CHARS
+            && !group.title.trim().is_empty()
+        {
+            hint = std::mem::replace(&mut action, group.title.clone());
+        }
         // A group without a written recommendation (HTML conformance, some
         // page-health findings) has no action to plan: it stays in its module
         // section. An empty action printed as a recommendation card with an
@@ -116,7 +127,7 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         |items: Vec<ActionItem>, seen: &mut std::collections::HashSet<String>| -> Vec<ActionItem> {
             items
                 .into_iter()
-                .filter(|i| seen.insert(i.action.clone()))
+                .filter(|i| seen.insert(format!("{}\n{}", i.action, i.hint)))
                 .collect()
         };
     let quick_wins = dedup(quick_wins, &mut seen_actions);

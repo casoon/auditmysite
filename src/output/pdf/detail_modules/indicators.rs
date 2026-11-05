@@ -261,6 +261,14 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         return builder.add_component(Callout::success(i18n.t("pdf-ai-success")));
     }
 
+    // The heuristic disclaimer is one note for all dimensions, not the key of
+    // every dimension's value row (#952).
+    builder = builder.add_component(
+        Label::new(i18n.t("label-heuristic-indicator"))
+            .with_size("10.5pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    );
+
     // Render each dimension
     for (dim, title) in [
         (&av.readability.dimension, i18n.t("pdf-ai-readability")),
@@ -275,7 +283,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         builder = builder.add_component(Section::new(title).with_level(3));
         let dim_label = ai_dimension_label(dim.score, en);
         let mut dim_kv = KeyValueList::new().add(
-            i18n.t("label-heuristic-indicator"),
+            if en { "Estimate" } else { "Schätzwert" },
             format!("~{} / 100 — {}", dim.score, score_quality_label(dim.score)),
         );
         if !dim_label.is_empty() {
@@ -298,10 +306,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
             }
             builder = builder.add_component(table);
             if dim.signals.len() > 5 {
-                let more_note = i18n.t_args(
-                    "pdf-ai-more-signals",
-                    &[("count", (dim.signals.len() - 5).to_string())],
-                );
+                let more_note = i18n.count("pdf-ai-more-signals", dim.signals.len() - 5);
                 builder = builder.add_component(Callout::info(&more_note));
             }
         }
@@ -584,19 +589,20 @@ pub(in crate::output::pdf) fn render_content_visibility(
                     {
                         detail.push_str(&name);
                     }
-                    if let Some(ref val) = ev.value_excerpt {
-                        if !detail.is_empty() {
-                            detail.push_str(": ");
-                        }
-                        detail.push_str(val);
-                    }
-                    // No real field_path/value_excerpt to show — omit the row
-                    // entirely rather than falling back to the debug-derived
-                    // source label as both key and value (e.g. "HttpHeader
-                    // HttpHeader", zero added information).
-                    if detail.is_empty() {
+                    let Some(val) = ev
+                        .value_excerpt
+                        .as_deref()
+                        .filter(|v| crate::output::localized::has_value(v))
+                    else {
+                        // A field name without a value ("Meta-Tag: Meta-
+                        // Beschreibung", "Erkannte Muster") adds nothing:
+                        // omit the row (#952).
                         continue;
+                    };
+                    if !detail.is_empty() {
+                        detail.push_str(": ");
                     }
+                    detail.push_str(val);
                     kv = kv.add(ev.source.label(en), &detail);
                 }
                 if !kv.items.is_empty() {

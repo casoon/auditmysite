@@ -74,7 +74,10 @@ pub(super) fn derive_performance_lever(
         if dom_nodes > 1500 {
             return i18n.t_args(
                 "lever-performance-dom",
-                &[("dom_nodes", dom_nodes.to_string())],
+                &[(
+                    "dom_nodes",
+                    crate::i18n::number::integer(dom_nodes, i18n.locale() == "en"),
+                )],
             );
         }
     }
@@ -143,7 +146,12 @@ pub(super) fn derive_performance_context(
     let dom = perf
         .vitals
         .dom_nodes
-        .map(|n| i18n.t_args("context-performance-dom-nodes", &[("n", n.to_string())]))
+        .map(|n| {
+            i18n.t_args(
+                "context-performance-dom-nodes",
+                &[("n", crate::i18n::number::integer(n, i18n.locale() == "en"))],
+            )
+        })
         .unwrap_or_else(|| i18n.t("context-performance-dom-na"));
     i18n.t_args(
         "context-performance-summary",
@@ -158,7 +166,10 @@ pub(super) fn derive_performance_card_context(
     if let Some(dom_nodes) = perf.vitals.dom_nodes {
         return i18n.t_args(
             "card-performance-dom",
-            &[("dom_nodes", dom_nodes.to_string())],
+            &[(
+                "dom_nodes",
+                crate::i18n::number::integer(dom_nodes, i18n.locale() == "en"),
+            )],
         );
     }
     if let Some(load) = perf.vitals.load_time {
