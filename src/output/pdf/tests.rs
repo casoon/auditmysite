@@ -173,7 +173,7 @@ mod tests {
         for expected in [
             // "Page title" is omitted: the fixture has no title, and a row
             // without a value is not printed (#952).
-            "Content type",
+            "Schema.org content type",
             "Topic hints",
             "SEO page type",
             "Characteristics",
@@ -197,7 +197,7 @@ mod tests {
         // methodology note above, regardless of this fix.
         for leaked in [
             "Seitentitel",
-            "Inhaltstyp",
+            "Schema.org-Inhaltstyp",
             "Themenhinweise",
             "Seitentyp",
             "Merkmale",

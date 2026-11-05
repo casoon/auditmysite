@@ -63,10 +63,12 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
     for finding in vm.findings.top_findings.iter().take(6) {
         table = table.add_row(vec![
             row_finding.clone(),
+            // The readable title, not the internal rule id ("html_conform.
+            // schema.html5"): the id stays in the JSON (#952-7).
             if finding.wcag_criterion.is_empty() {
-                finding.rule_id.clone()
+                finding.title.clone()
             } else {
-                format!("{} ({})", finding.rule_id, finding.wcag_criterion)
+                format!("{} ({})", finding.title, finding.wcag_criterion)
             },
             format!(
                 "{} {} — {}",

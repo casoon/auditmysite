@@ -374,8 +374,9 @@ pub(crate) fn detail_entities_detected(present: bool, v: &AiSignalValues, en: bo
     let count = v.entity_count.unwrap_or(0);
     if en {
         format!(
-            "{} entities extracted — {}",
+            "{} {} extracted — {}",
             count,
+            if count == 1 { "entity" } else { "entities" },
             if present {
                 "rich knowledge model"
             } else {
@@ -384,8 +385,9 @@ pub(crate) fn detail_entities_detected(present: bool, v: &AiSignalValues, en: bo
         )
     } else {
         format!(
-            "{} Entitäten extrahiert — {}",
+            "{} {} extrahiert — {}",
             count,
+            if count == 1 { "Entität" } else { "Entitäten" },
             if present {
                 "reichhaltiges Wissensmodell"
             } else {
@@ -399,8 +401,9 @@ pub(crate) fn detail_schema_entities(present: bool, v: &AiSignalValues, en: bool
     let count = v.schema_entity_count.unwrap_or(0);
     if en {
         format!(
-            "{} entities from Schema.org — {}",
+            "{} {} from Schema.org — {}",
             count,
+            if count == 1 { "entity" } else { "entities" },
             if present {
                 "good machine readability"
             } else {
@@ -409,8 +412,9 @@ pub(crate) fn detail_schema_entities(present: bool, v: &AiSignalValues, en: bool
         )
     } else {
         format!(
-            "{} Entitäten aus Schema.org — {}",
+            "{} {} aus Schema.org — {}",
             count,
+            if count == 1 { "Entität" } else { "Entitäten" },
             if present {
                 "gute Maschinenlesbarkeit"
             } else {
@@ -424,8 +428,13 @@ pub(crate) fn detail_relationships(present: bool, v: &AiSignalValues, en: bool) 
     let count = v.relationship_count.unwrap_or(0);
     if en {
         format!(
-            "{} relationships between entities — {}",
+            "{} {} between entities — {}",
             count,
+            if count == 1 {
+                "relationship"
+            } else {
+                "relationships"
+            },
             if present {
                 "knowledge network recognizable"
             } else {
@@ -434,8 +443,13 @@ pub(crate) fn detail_relationships(present: bool, v: &AiSignalValues, en: bool) 
         )
     } else {
         format!(
-            "{} Beziehungen zwischen Entitäten — {}",
+            "{} {} zwischen Entitäten — {}",
             count,
+            if count == 1 {
+                "Beziehung"
+            } else {
+                "Beziehungen"
+            },
             if present {
                 "Wissensnetz erkennbar"
             } else {
@@ -616,6 +630,22 @@ fn build_schema_relationships(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #952-8: one entity is "1 Entität", not "1 Entitäten".
+    #[test]
+    fn signal_details_agree_in_number() {
+        let one = AiSignalValues {
+            entity_count: Some(1),
+            schema_entity_count: Some(1),
+            relationship_count: Some(1),
+            ..Default::default()
+        };
+        assert!(detail_entities_detected(true, &one, false).starts_with("1 Entität extrahiert"));
+        assert!(detail_entities_detected(true, &one, true).starts_with("1 entity extracted"));
+        assert!(detail_schema_entities(true, &one, false).starts_with("1 Entität aus"));
+        assert!(detail_relationships(true, &one, false).starts_with("1 Beziehung zwischen"));
+        assert!(detail_relationships(true, &one, true).starts_with("1 relationship between"));
+    }
 
     fn rich_input() -> KnowledgeGraphInput {
         KnowledgeGraphInput {

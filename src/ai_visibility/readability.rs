@@ -268,9 +268,17 @@ pub(crate) fn detail_lists(present: bool, v: &AiSignalValues, en: bool) -> Strin
     let list_count = v.list_count.unwrap_or(0);
     if present {
         if en {
-            format!("{} lists found — good for fact extraction", list_count)
+            format!(
+                "{} {} found — good for fact extraction",
+                list_count,
+                if list_count == 1 { "list" } else { "lists" }
+            )
         } else {
-            format!("{} Listen gefunden — gut für Fakten-Extraktion", list_count)
+            format!(
+                "{} {} gefunden — gut für Fakten-Extraktion",
+                list_count,
+                if list_count == 1 { "Liste" } else { "Listen" }
+            )
         }
     } else if en {
         "No lists — bullet points improve LLM extractability".into()
@@ -412,6 +420,17 @@ pub(crate) fn detail_definition_patterns(present: bool, en: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #952-8: "1 Liste gefunden", not "1 Listen gefunden".
+    #[test]
+    fn one_list_is_singular() {
+        let v = AiSignalValues {
+            list_count: Some(1),
+            ..Default::default()
+        };
+        assert!(detail_lists(true, &v, false).starts_with("1 Liste gefunden"));
+        assert!(detail_lists(true, &v, true).starts_with("1 list found"));
+    }
 
     fn rich_input() -> ReadabilityInput {
         ReadabilityInput {

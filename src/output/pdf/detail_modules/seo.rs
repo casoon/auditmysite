@@ -52,8 +52,15 @@ pub(in crate::output::pdf) fn render_seo(
     }
     if let Some(profile) = &seo.profile {
         seo_strip.push(
-            MetricStripItem::new("Schema.org", profile.schema_count.to_string())
-                .with_accent("#2563eb"),
+            MetricStripItem::new(
+                "Schema.org",
+                if profile.schema_count == 0 {
+                    pick(i18n, "keine", "none").to_string()
+                } else {
+                    profile.schema_count.to_string()
+                },
+            )
+            .with_accent("#2563eb"),
         );
         seo_strip.push(
             MetricStripItem::new(i18n.t("pdf-seo-maturity"), &profile.maturity_level)
