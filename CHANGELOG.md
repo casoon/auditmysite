@@ -7,11 +7,13 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-05
+
 ### Changed
 
 - **Report:** the "legally relevant finding" has one definition for the management card, the screen-reader BFSG callout and each finding's "BFSG-/EAA-Relevanz" row: an open, confirmed finding whose relevance is high or medium (Refs #952-2). The Legal card counts those findings (never fewer than `risk.legal_flags`) and is at least "medium" while one is open; the callout says "violations found" only for such a finding or a high-severity screen-reader blocker, low reading-order notes alone read "needs review". `risk.legal_flags`, the risk score, the verdict and all JSON field names are unchanged: `legal_flags` stays the narrower Level-A count, but `management_risks[].rationale` and `.level` of the Legal card follow the wider set.
 - **Report:** `principle_coverage` (JSON and PDF) is scoped to the A/AA criteria the "N of ~55 checked automatically" statement counts; criteria that only emit review hints ran but are neither checked nor passed, so the totals (were 40) no longer exceed that statement (30) (Refs #952-5).
-- **Library users:** `seo::headings::HeadingInfo` gained `hidden`; code that builds it with a struct literal must add the field.
+- **Library users:** public structs gained fields (`seo::headings::HeadingInfo.hidden`, `source_quality::SignalValues.total`); code that builds them with struct literals must add the fields.
 
 ### Fixed
 

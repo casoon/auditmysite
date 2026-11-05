@@ -319,7 +319,7 @@ checksum = "239d25181cb40f1955529367ee495e35d03aab4e578028f41e7abc8b21c367a8"
 
 [[package]]
 name = "auditmysite"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "a11y-dom",
  "a11y-perception",
