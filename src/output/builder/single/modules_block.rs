@@ -254,10 +254,11 @@ pub(super) fn build_modules_block_from_normalized(
         overall_score,
         overall_interpretation,
         module_scores: normalized.normalized.module_scores.clone(),
-        accessibility_subcategory_scores: normalized
-            .normalized
-            .accessibility_subcategory_scores
-            .clone(),
+        accessibility_score_areas:
+            crate::output::json::helpers::build_accessibility_score_breakdown(
+                std::slice::from_ref(&normalized.normalized),
+                normalized.normalized.score,
+            ),
         security_category_scores: normalized.normalized.security_category_scores.clone(),
     }
 }

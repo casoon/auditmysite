@@ -300,10 +300,12 @@ pub struct ModulesBlock {
     /// weight). Used by the score-driver table (plan/2-score-driver-
     /// breakdown.md), which must show each module's actual weight_pct.
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
-    /// Per-subcategory Accessibility score breakdown (plan/5-module-
-    /// accessibility-security-driver-detail.md), verbatim from
-    /// `NormalizedReport.accessibility_subcategory_scores`.
-    pub accessibility_subcategory_scores: Vec<crate::audit::normalized::SubcategoryScoreEntry>,
+    /// Per-area Accessibility score breakdown — the same derivation as the
+    /// JSON `summary.accessibility_score_breakdown`
+    /// (`build_accessibility_score_breakdown`), so the PDF sub-scores and the
+    /// JSON agree (#902 item 10). The 7-subcategory scores stay JSON-only in
+    /// `detail.accessibility_subcategory_scores`.
+    pub accessibility_score_areas: Vec<crate::output::json::AccessibilityScoreComponent>,
     /// Per-category Security score breakdown, same purpose as above for
     /// Security. Empty when the Security module didn't run.
     pub security_category_scores: Vec<crate::audit::normalized::SecurityCategoryScoreEntry>,

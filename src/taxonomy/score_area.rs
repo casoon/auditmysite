@@ -57,6 +57,30 @@ impl ScoreArea {
             ScoreArea::Landmarks => "Landmarks / page structure",
         }
     }
+
+    /// Umkehrung von [`ScoreArea::label`] für Konsumenten, die den Bereich nur
+    /// als JSON-Label kennen (der PDF-Bericht liest den Breakdown so).
+    pub fn from_label(label: &str) -> Option<ScoreArea> {
+        ScoreArea::ALL.into_iter().find(|a| a.label() == label)
+    }
+
+    /// Label in der Berichtssprache. Nur für die Präsentation; das JSON trägt
+    /// immer [`ScoreArea::label`] (#406).
+    pub fn localized_label(self, en: bool) -> &'static str {
+        if en {
+            return self.label();
+        }
+        match self {
+            ScoreArea::Semantics => "Semantik",
+            ScoreArea::Forms => "Formulare",
+            ScoreArea::Keyboard => "Tastatur",
+            ScoreArea::FocusManagement => "Fokusführung",
+            ScoreArea::ImagesAlternativeText => "Bilder / Alternativtexte",
+            ScoreArea::Aria => "ARIA",
+            ScoreArea::HeadingStructure => "Überschriftenstruktur",
+            ScoreArea::Landmarks => "Landmarken / Seitenstruktur",
+        }
+    }
 }
 
 use ScoreArea::*;
