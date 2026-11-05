@@ -65,6 +65,15 @@ jobs:
         if: steps.scope.outputs.rust == 'true'
         run: cargo fmt --all -- --check
 
+      # The rest of this job builds without optional features, so rustdoc
+      # errors (the crate denies rustdoc::all) and code behind `pdf` were first
+      # seen in the tag run (#949). Docs only: no codegen, no test binaries.
+      - name: Check rustdoc (all features)
+        if: steps.scope.outputs.rust == 'true'
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --all-features --no-deps
+
       - name: Clippy (without optional features)
         if: steps.scope.outputs.rust == 'true'
         run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
