@@ -139,10 +139,7 @@ pub(in crate::output::pdf) fn render_seo(
         }
         builder = builder.add_component(kv);
         if seo.technical_summary.len() > 5 {
-            let more_note = i18n.t_args(
-                "pdf-seo-more-signals",
-                &[("count", (seo.technical_summary.len() - 5).to_string())],
-            );
+            let more_note = i18n.count("pdf-seo-more-signals", seo.technical_summary.len() - 5);
             builder = builder.add_component(Callout::info(&more_note));
         }
     }
@@ -512,6 +509,9 @@ pub(in crate::output::pdf) fn render_seo_profile(
     ])
     .with_title(i18n.t("pdf-seo-profile-content-profile"));
     for (key, value) in &profile.identity_facts {
+        if !crate::output::localized::has_value(value) {
+            continue;
+        }
         identity_table = identity_table.add_row(vec![key.clone(), value.clone()]);
     }
 
@@ -570,12 +570,16 @@ pub(in crate::output::pdf) fn render_seo_profile(
 
     // Content Identity
     let mut identity = KeyValueList::new().with_title(i18n.t("pdf-seo-profile-website-identity"));
-    identity = identity.add("Website", &profile.site_name);
+    if crate::output::localized::has_value(&profile.site_name) {
+        identity = identity.add("Website", &profile.site_name);
+    }
     identity = identity.add(
         i18n.t("pdf-seo-profile-content-type"),
         &profile.content_type,
     );
-    identity = identity.add(i18n.t("pdf-seo-profile-language"), &profile.language);
+    if crate::output::localized::has_value(&profile.language) {
+        identity = identity.add(i18n.t("pdf-seo-profile-language"), &profile.language);
+    }
     if !profile.category_hints.is_empty() {
         identity = identity.add(
             i18n.t("pdf-seo-profile-schema-types"),

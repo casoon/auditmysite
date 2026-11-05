@@ -375,7 +375,7 @@ ux-dimensions = UX dimensions
 
 # Journey section
 journey-score-card = Journey score (indicator)
-journey-page-type-dimensions = Page type & dimensions
+journey-page-type-dimensions = Journey classification & dimensions
 
 # Budget section
 budget-callout-exceeded = Budget exceeded
@@ -640,7 +640,10 @@ pdf-perf-cov-title = Code Coverage
 pdf-perf-cov-js-used = JS used
 pdf-perf-cov-css-used = CSS used
 pdf-perf-resource-focus-title = Largest directly actionable lever
-pdf-perf-resource-focus = Minifying { $count } files can remove an estimated { $savings } KB from the delivered code. This reduces payload and parsing work without removing functionality. Remeasure under the same conditions afterwards.
+pdf-perf-resource-focus = Minifying { $count } { $count ->
+        [one] file
+       *[other] files
+    } can remove an estimated { $savings } KB from the delivered code. This reduces payload and parsing work without removing functionality. Remeasure under the same conditions afterwards.
 pdf-perf-resource-note = JS heap is an observation without a universal threshold; growth and peaks during interactions matter. CO2e per view is a modeled estimate classified by the stated efficiency grade.
 pdf-perf-resource-note-heap = JS heap is an observation without a universal threshold; growth and peaks during interactions matter.
 pdf-perf-resource-note-carbon = CO2e per view is a modeled estimate classified by the stated efficiency grade.
@@ -744,7 +747,7 @@ pdf-seo-schema-status-check = Check
 pdf-seo-schema-status-detail = Impact
 pdf-seo-schema-issues-title = Detected structure issues
 pdf-seo-schema-fit-title = Page type and schema fit
-pdf-seo-schema-fit-page-type = Detected page type
+pdf-seo-schema-fit-page-type = Detected SEO page type
 pdf-seo-schema-fit-confidence = Detection confidence
 pdf-seo-schema-fit-expected = Plausible primary schemas
 pdf-seo-schema-fit-detected = Detected primary schemas
@@ -808,10 +811,18 @@ pdf-commerce-trust-pages-title = Mandatory-page linking
 pdf-commerce-linked = Linked
 pdf-commerce-not-linked = Not linked
 pdf-ux-overview-title = UX — Overview
-pdf-ux-more-issues = { $count } additional issues in the detailed appendix.
+pdf-ux-more-issues =
+    { $count } additional { $count ->
+        [one] issue
+       *[other] issues
+    } in the detailed appendix.
 pdf-journey-overview-title = Journey — Overview
-pdf-journey-detected-page-type = Detected page type
-pdf-journey-more-issues = { $count } additional issues in the detailed appendix.
+pdf-journey-detected-page-type = Journey classification
+pdf-journey-more-issues =
+    { $count } additional { $count ->
+        [one] issue
+       *[other] issues
+    } in the detailed appendix.
 pdf-dm-status-supported = Supported
 pdf-dm-status-not-supported = Not supported
 pdf-dm-optional-note = Dark mode is an optional product feature, not a WCAG conformance criterion — the score on the left describes the detected implementation depth, not a pass/fail assessment.
@@ -828,7 +839,10 @@ pdf-dm-contrast-violations = Contrast violations in dark mode
 pdf-dm-only-issues = Dark-mode-only issues
 pdf-dm-only-issues-val = { $count } (not in light mode)
 pdf-dm-resolved-issues = Resolved in dark mode
-pdf-dm-resolved-issues-val = { $count } light-mode issues disappear in dark mode
+pdf-dm-resolved-issues-val = { $count } light-mode { $count ->
+        [one] issue disappears
+       *[other] issues disappear
+    } in dark mode
 pdf-dm-issue-title = Dark mode issue
 pdf-dm-note-title = Dark mode note
 pdf-dm-print = Print
@@ -921,7 +935,10 @@ pdf-bp-libs-not-checked = Library versions could not be checked; the score rests
 pdf-perf-cov-js-val = { $pct }% ({ $unused } KB unused)
 pdf-perf-cov-css-val = { $pct }% ({ $used } of { $total } style rules used, from load to the end of the analysis, without clicks or scrolling)
 pdf-perf-cov-css-partial = — readable stylesheets only
-pdf-perf-dup-title = { $count } duplicate asset groups found (~{ $wasted } KB wasted)
+pdf-perf-dup-title = { $count } duplicate asset { $count ->
+        [one] group
+       *[other] groups
+    } found (~{ $wasted } KB wasted)
 pdf-cv-area-organic-visibility = Organic Visibility
 pdf-cv-area-local-business = Local Business & Trust Data
 pdf-cv-area-eeat = E-E-A-T Indicators
@@ -1403,3 +1420,14 @@ pdf-metric-issues = Issues
 pdf-sec-headers-title = Security Headers
 pdf-screenshot-alt-desktop = Desktop screenshot preview
 pdf-screenshot-alt-mobile = Mobile screenshot preview
+
+seo-cookie-inventory =
+    { $count } { $count ->
+        [one] cookie
+       *[other] cookies
+    }
+seo-cookie-inventory-risky =
+    { $count } { $count ->
+        [one] without Secure/SameSite signal
+       *[other] without Secure/SameSite signal
+    }

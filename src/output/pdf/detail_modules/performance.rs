@@ -60,7 +60,7 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
     for (name, value, rating) in extra {
         table = table.add_row(vec![
             name.clone(),
-            value.clone(),
+            localize_measure(value, en),
             vital_rating_label(rating, en).to_string(),
         ]);
     }
@@ -73,6 +73,23 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
     }))
 }
 
+/// Measured values are stored in canonical notation (`0.000`, `2.5s`); the
+/// German PDF writes the decimal comma. Only a leading number is touched.
+fn localize_measure(value: &str, en: bool) -> String {
+    let digits = value
+        .trim_start_matches('-')
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .count();
+    let split = value.len() - value.trim_start_matches('-').len() + digits;
+    let (number, rest) = value.split_at(split);
+    if en {
+        value.to_string()
+    } else {
+        format!("{}{rest}", number.replace('.', ","))
+    }
+}
+
 fn localized_decimal(value: f64, en: bool) -> String {
     crate::i18n::number::decimal(value, 1, en)
 }
@@ -82,15 +99,13 @@ fn resource_focus_callout(perf: &PerformancePresentation, i18n: &I18n) -> Option
     if min.total_count == 0 || min.total_savings_kb <= 0.0 {
         return None;
     }
-    let body = i18n.t_args(
+    let body = i18n.count_with(
         "pdf-perf-resource-focus",
-        &[
-            ("count", min.total_count.to_string()),
-            (
-                "savings",
-                localized_decimal(min.total_savings_kb, is_english(i18n)),
-            ),
-        ],
+        min.total_count,
+        &[(
+            "savings",
+            localized_decimal(min.total_savings_kb, is_english(i18n)),
+        )],
     );
     let callout = if min.total_savings_kb >= 100.0 {
         Callout::warning(body)
@@ -365,7 +380,7 @@ pub(in crate::output::pdf) fn render_performance(
                     .iter()
                     .take(4)
                     .map(|(name, value, rating)| {
-                        MetricStripItem::new(name, value)
+                        MetricStripItem::new(name, localize_measure(value, is_english(i18n)))
                             .with_status(vital_status(rating))
                             .with_accent(vital_color(rating))
                     })
@@ -391,7 +406,7 @@ pub(in crate::output::pdf) fn render_performance(
                     .iter()
                     .take(4)
                     .map(|(name, value, rating)| {
-                        MetricStripItem::new(name, value)
+                        MetricStripItem::new(name, localize_measure(value, is_english(i18n)))
                             .with_status(vital_status(rating))
                             .with_accent(vital_color(rating))
                     })
@@ -409,7 +424,7 @@ pub(in crate::output::pdf) fn render_performance(
                 .iter()
                 .take(4)
                 .map(|(name, value, rating)| {
-                    MetricStripItem::new(name, value)
+                    MetricStripItem::new(name, localize_measure(value, is_english(i18n)))
                         .with_status(vital_status(rating))
                         .with_accent(vital_color(rating))
                 })
@@ -480,9 +495,9 @@ pub(in crate::output::pdf) fn render_performance(
         for entry in &perf.throttled_profiles {
             table = table.add_row(vec![
                 display_profile_label(&entry.profile_name).to_string(),
-                entry.lcp.clone(),
-                entry.tbt.clone(),
-                entry.cls.clone(),
+                localize_measure(&entry.lcp, is_english(i18n)),
+                localize_measure(&entry.tbt, is_english(i18n)),
+                localize_measure(&entry.cls, is_english(i18n)),
                 entry
                     .score
                     .map(|score| score.to_string())
@@ -514,7 +529,11 @@ pub(in crate::output::pdf) fn render_performance(
             } else {
                 node.as_str()
             };
-            table = table.add_row(vec![val.as_str(), time.as_str(), display_node]);
+            table = table.add_row(vec![
+                localize_measure(val, is_english(i18n)),
+                time.clone(),
+                display_node.to_string(),
+            ]);
         }
         builder = builder.add_component(table);
     }
@@ -680,12 +699,10 @@ pub(in crate::output::pdf) fn render_performance(
                 .iter()
                 .map(|g| g.kb * g.urls.len().saturating_sub(1) as f64)
                 .sum();
-            let mut dup_list = List::new().with_title(i18n.t_args(
+            let mut dup_list = List::new().with_title(i18n.count_with(
                 "pdf-perf-dup-title",
-                &[
-                    ("count", cov.duplicate_assets.len().to_string()),
-                    ("wasted", localized_decimal(wasted_kb, is_english(i18n))),
-                ],
+                cov.duplicate_assets.len(),
+                &[("wasted", localized_decimal(wasted_kb, is_english(i18n)))],
             ));
             for group in &cov.duplicate_assets {
                 dup_list = dup_list.add_item(format!(
@@ -715,7 +732,7 @@ pub(in crate::output::pdf) fn render_performance(
             .resource_ratings
             .iter()
             .map(|(name, value, rating, target)| {
-                MetricStripItem::new(name, value)
+                MetricStripItem::new(name, localize_measure(value, is_english(i18n)))
                     .with_unit(target)
                     .with_status(vital_status(rating))
                     .with_accent(vital_color(rating))
@@ -835,5 +852,14 @@ mod tests {
     fn localized_decimal_uses_report_locale_separator() {
         assert_eq!(localized_decimal(495.24, false), "495,2");
         assert_eq!(localized_decimal(495.24, true), "495.2");
+    }
+
+    #[test]
+    fn german_measures_use_the_decimal_comma() {
+        assert_eq!(localize_measure("0.000", false), "0,000");
+        assert_eq!(localize_measure("0.671", false), "0,671");
+        assert_eq!(localize_measure("2984ms", false), "2984ms");
+        assert_eq!(localize_measure("-0.5s", false), "-0,5s");
+        assert_eq!(localize_measure("0.000", true), "0.000");
     }
 }

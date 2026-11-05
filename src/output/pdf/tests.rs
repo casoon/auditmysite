@@ -171,10 +171,11 @@ mod tests {
         // Confirms the English-only branches actually fire (not just "no
         // German leaked", but "the intended English text is present").
         for expected in [
-            "Page title",
+            // "Page title" is omitted: the fixture has no title, and a row
+            // without a value is not printed (#952).
             "Content type",
             "Topic hints",
-            "Page type",
+            "SEO page type",
             "Characteristics",
             "Classification",
             "Recommendation",
@@ -1441,8 +1442,7 @@ mod tests {
 
         for expected in [
             "HTML-Konformität",
-            "schema.html5",
-            "parser.html5",
+            // The table names the rule family, never the raw checker id.
             // Unmapped checker prose is replaced by the family title (#902).
             "Unzulässige Elemente und Attribute entfernen",
             "12:34",
@@ -1450,6 +1450,12 @@ mod tests {
             assert!(
                 text.contains(expected),
                 "missing HTML conformance PDF content: {expected}"
+            );
+        }
+        for raw in ["schema.html5", "parser.html5"] {
+            assert!(
+                !text.contains(raw),
+                "raw checker id {raw} leaked into the PDF"
             );
         }
     }

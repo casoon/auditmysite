@@ -34,17 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo
 
       - name: Build (without PDF)
         run: cargo build --no-default-features
@@ -62,17 +54,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-all-features
 
       - name: Build (all features)
         run: cargo build --all-features
@@ -97,17 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-pdf-smoke-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-pdf-smoke
 
       # poppler-utils (pdftoppm/pdftotext) powers the visual smoke checks
       # (#510: blank-page, page-budget, dual-viewport-gauge regression tests)
@@ -139,9 +115,10 @@ jobs:
   # The action is in beta and pinned to a commit rather than a tag; failures do
   # not block the merge (`continue-on-error`) until it has proven itself.
   #
-  # Tags only. The question is "will docs.rs manage to build this", and it is
-  # worth answering once, where a wrong answer still costs something: right
-  # before the version that gets published. On every pull request it would
+  # Tags and manual dispatch only. The question is "will docs.rs manage to
+  # build this", and it is worth answering where a wrong answer still costs
+  # something: on the release candidate (dispatch it before tagging, #894) and
+  # again on the tag that gets published. On every pull request it would
   # spend seven runner minutes and a cache slot to re-answer it for a commit
   # nobody publishes. `github.ref` is the caller's ref when release.yml calls
   # this workflow, so the tag reaches here.
@@ -149,7 +126,7 @@ jobs:
     name: docs.rs Build (sandbox parity)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     continue-on-error: true
     # A composite action runs its steps in this job, with this job's token.
     # This one needs to read the checkout and nothing else, so that is all the
@@ -188,7 +165,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-machete
-        run: cargo install cargo-machete --locked
+        run: cargo install cargo-machete --version 0.9.2 --locked
 
       - name: Check for unused dependencies
         run: cargo machete
@@ -204,7 +181,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        run: cargo install cargo-audit --version 0.22.2 --locked
 
       # Ignore list lives in .cargo/audit.toml, with a comment per advisory
       # ID explaining why it isn't fixable yet (plan/24-dependency-security-
@@ -219,17 +196,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-mocked-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-mocked
 
       - name: Run mocked integration tests
         run: cargo test --test integration_mocked --no-default-features -- --nocapture
@@ -242,20 +211,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-coverage
 
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --locked
+        run: cargo install cargo-tarpaulin --version 0.37.5 --locked
 
       - name: Measure coverage (unit tests + mocked integration)
         run: >
@@ -285,17 +246,9 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-browser
 
       - name: Install Chrome
         id: setup-chrome
@@ -441,17 +394,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-browser
 
       - name: Install Chrome
         id: setup-chrome
@@ -466,14 +411,17 @@ jobs:
 
   # Test strength of the detectors (#783): every targeted mutation in the
   # rule contracts must turn its named test red. Rebuilds once per mutation,
-  # so it runs for release tags only; the contract gate itself
-  # (tests/rule_contract_gate.rs) runs in every `cargo test` above.
+  # so it runs for release tags and manual dispatch only (dispatch it on the
+  # release candidate before tagging, #894). It stays a blocking gate of the
+  # tag run, as #783 asked: moving it to a weekly run would let a release ship
+  # without it. The contract gate itself (tests/rule_contract_gate.rs) runs in
+  # every `cargo test` above.
   # One mutation takes about two minutes on a runner (v2.0.0: 60 of 127 in the
   # old 120-minute single job), so `--shard K/N` splits the sorted list
   # round-robin into four jobs that together cover every mutation once.
   mutation-check:
     name: Detector mutation check ${{ matrix.shard }}/4
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -483,17 +431,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install --no-self-update
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+          cache-name: cargo-browser
 
       - name: Install Chrome
         id: setup-chrome

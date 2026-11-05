@@ -77,6 +77,26 @@ impl I18n {
         self.t_args(key, &[("count", n as i64)])
     }
 
+    /// [`I18n::count`] for messages that also take plain text placeholders
+    /// (`$count` stays numeric so the plural selector works).
+    pub fn count_with(&self, key: &str, n: usize, extra: &[(&str, String)]) -> String {
+        let Some(msg) = self.bundle.get_message(key) else {
+            return key.to_string();
+        };
+        let Some(pattern) = msg.value() else {
+            return key.to_string();
+        };
+        let mut fluent_args = FluentArgs::new();
+        fluent_args.set("count", FluentValue::from(n as i64));
+        for (name, value) in extra {
+            fluent_args.set(*name, FluentValue::from(value.clone()));
+        }
+        let mut errors = vec![];
+        self.bundle
+            .format_pattern(pattern, Some(&fluent_args), &mut errors)
+            .to_string()
+    }
+
     pub fn locale(&self) -> &str {
         &self.locale
     }
@@ -290,5 +310,63 @@ mod tests {
             assert_ne!(rendered, "batch-scope-sample", "key must exist in {locale}");
             assert!(rendered.contains("20") && rendered.contains("487"));
         }
+    }
+
+    /// Plural agreement of the 2.0.1 leftovers (#952): the count reaches the
+    /// message as a number, so "1 Datei" / "1 weiterer Befund" select the
+    /// singular instead of printing "1 Dateien" / "1 weitere Befunde".
+    #[test]
+    fn counted_messages_agree_in_number() {
+        let de = I18n::new("de").unwrap();
+        let en = I18n::new("en").unwrap();
+        for (key, singular_de, plural_de, singular_en) in [
+            (
+                "pdf-ux-more-issues",
+                "1 weiterer Befund",
+                "2 weitere Befunde",
+                "1 additional issue",
+            ),
+            (
+                "pdf-journey-more-issues",
+                "1 weiterer Befund",
+                "2 weitere Befunde",
+                "1 additional issue",
+            ),
+            (
+                "pdf-seo-more-signals",
+                "1 weiteres Signal",
+                "2 weitere Signale",
+                "1 additional signal",
+            ),
+            (
+                "pdf-ai-more-signals",
+                "1 weiteres Signal",
+                "2 weitere Signale",
+                "1 additional signal",
+            ),
+            ("seo-cookie-inventory", "1 Cookie", "2 Cookies", "1 cookie"),
+        ] {
+            assert!(
+                de.count(key, 1).starts_with(singular_de),
+                "{key}: {}",
+                de.count(key, 1)
+            );
+            assert!(
+                de.count(key, 2).starts_with(plural_de),
+                "{key}: {}",
+                de.count(key, 2)
+            );
+            assert!(
+                en.count(key, 1).starts_with(singular_en),
+                "{key}: {}",
+                en.count(key, 1)
+            );
+        }
+        let one = de.count_with("pdf-perf-resource-focus", 1, &[("savings", "175,5".into())]);
+        assert!(one.contains("von 1 Datei lassen"), "{one}");
+        let many = de.count_with("pdf-perf-resource-focus", 2, &[("savings", "175,5".into())]);
+        assert!(many.contains("von 2 Dateien lassen"), "{many}");
+        let dup = de.count_with("pdf-perf-dup-title", 1, &[("wasted", "3,0".into())]);
+        assert!(dup.starts_with("1 doppelte Asset-Gruppe erkannt"), "{dup}");
     }
 }

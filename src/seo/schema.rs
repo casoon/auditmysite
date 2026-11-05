@@ -223,6 +223,17 @@ pub enum SchemaType {
     Other(String),
 }
 
+/// The schema.org type name as written in markup (`Other("Service")` shows as
+/// `Service`); report text never prints the Rust `Debug` form.
+impl std::fmt::Display for SchemaType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SchemaType::Other(name) => f.write_str(name),
+            known => write!(f, "{known:?}"),
+        }
+    }
+}
+
 impl std::str::FromStr for SchemaType {
     type Err = std::convert::Infallible;
 
@@ -929,5 +940,14 @@ mod tests {
             .collect();
         assert!(issue_types.contains(&"jsonld_missing_context"));
         assert!(issue_types.contains(&"jsonld_missing_type"));
+    }
+
+    #[test]
+    fn display_never_prints_the_debug_form() {
+        assert_eq!(SchemaType::Other("Service".into()).to_string(), "Service");
+        assert_eq!(SchemaType::FAQPage.to_string(), "FAQPage");
+        assert!(!SchemaType::Other("WebDesignCompany".into())
+            .to_string()
+            .contains("Other("));
     }
 }

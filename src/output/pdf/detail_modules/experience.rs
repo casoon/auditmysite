@@ -67,10 +67,7 @@ pub(in crate::output::pdf) fn render_ux(
         builder = builder.add_component(Finding::new(dimension, sev, &desc));
     }
     if ux.issues.len() > 3 {
-        let more_note = i18n.t_args(
-            "pdf-ux-more-issues",
-            &[("count", (ux.issues.len() - 3).to_string())],
-        );
+        let more_note = i18n.count("pdf-ux-more-issues", ux.issues.len() - 3);
         builder = builder.add_component(Callout::info(&more_note));
     }
     builder
@@ -154,10 +151,7 @@ pub(in crate::output::pdf) fn render_journey(
         builder = builder.add_component(Finding::new(&problem, sev, &desc));
     }
     if journey.friction_points.len() > 3 {
-        let more_note = i18n.t_args(
-            "pdf-journey-more-issues",
-            &[("count", (journey.friction_points.len() - 3).to_string())],
-        );
+        let more_note = i18n.count("pdf-journey-more-issues", journey.friction_points.len() - 3);
         builder = builder.add_component(Callout::info(&more_note));
     }
     builder

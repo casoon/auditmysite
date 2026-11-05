@@ -375,7 +375,7 @@ ux-dimensions = UX-Dimensionen
 
 # Journey section
 journey-score-card = Journey Score (Indikator)
-journey-page-type-dimensions = Seitentyp & Dimensionen
+journey-page-type-dimensions = Journey-Einordnung & Dimensionen
 
 # Budget section
 budget-callout-exceeded = Budget überschritten
@@ -397,7 +397,7 @@ finding-key-impact = Was Nutzer erleben
 finding-key-cause = Ursache
 finding-key-fix = Was tun
 finding-key-effort = Aufwand
-finding-key-quick-win = Quick Win — wenige Stunden, hohe Wirkung
+finding-key-quick-win = Schnell umsetzbar — geringer Aufwand, hohe Wirkung
 finding-tech-context = Technische Einordnung
 finding-tech-rule = Regel
 finding-tech-instances = Instanzen
@@ -515,7 +515,7 @@ narrative-impact-critical = Dies kann eine zentrale Nutzerinteraktion für betro
 narrative-impact-high = Dies beeinträchtigt die Nutzbarkeit für betroffene Nutzergruppen erheblich.
 narrative-impact-medium = Dies verursacht einen spürbaren Reibungspunkt für bestimmte Nutzer.
 narrative-impact-low = Dies ist ein kleineres Problem, das eine Teilgruppe der Nutzer betreffen kann.
-narrative-effort-quick = Quick Win — geringer Aufwand
+narrative-effort-quick = Schnell umsetzbar — geringer Aufwand
 narrative-effort-medium = Mittlerer Aufwand
 narrative-effort-structural = Strukturelle Änderung erforderlich
 narrative-owner-dev = Entwicklung
@@ -640,7 +640,10 @@ pdf-perf-cov-title = Code-Abdeckung
 pdf-perf-cov-js-used = JS genutzt
 pdf-perf-cov-css-used = CSS genutzt
 pdf-perf-resource-focus-title = Größter direkt nutzbarer Hebel
-pdf-perf-resource-focus = Durch die Minifizierung von { $count } Dateien lassen sich voraussichtlich { $savings } KB aus dem ausgelieferten Code entfernen. Das reduziert Datenmenge und Parsing-Aufwand, ohne Funktionen zu streichen. Danach unter denselben Bedingungen erneut messen.
+pdf-perf-resource-focus = Durch die Minifizierung von { $count } { $count ->
+        [one] Datei
+       *[other] Dateien
+    } lassen sich voraussichtlich { $savings } KB aus dem ausgelieferten Code entfernen. Das reduziert Datenmenge und Parsing-Aufwand, ohne Funktionen zu streichen. Danach unter denselben Bedingungen erneut messen.
 pdf-perf-resource-note = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen. CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.
 pdf-perf-resource-note-heap = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen.
 pdf-perf-resource-note-carbon = CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.
@@ -744,7 +747,7 @@ pdf-seo-schema-status-check = Prüfung
 pdf-seo-schema-status-detail = Auswirkung
 pdf-seo-schema-issues-title = Festgestellte Strukturprobleme
 pdf-seo-schema-fit-title = Seitentyp und Schema-Eignung
-pdf-seo-schema-fit-page-type = Erkannter Seitentyp
+pdf-seo-schema-fit-page-type = Erkannter SEO-Seitentyp
 pdf-seo-schema-fit-confidence = Erkennungssicherheit
 pdf-seo-schema-fit-expected = Plausible Haupt-Schemas
 pdf-seo-schema-fit-detected = Erkannte Haupt-Schemas
@@ -808,10 +811,18 @@ pdf-commerce-trust-pages-title = Pflichtseiten-Verlinkung
 pdf-commerce-linked = Verlinkt
 pdf-commerce-not-linked = Nicht verlinkt
 pdf-ux-overview-title = UX — Überblick
-pdf-ux-more-issues = { $count } weitere Befunde im detaillierten Anhang.
+pdf-ux-more-issues =
+    { $count } { $count ->
+        [one] weiterer Befund
+       *[other] weitere Befunde
+    } im detaillierten Anhang.
 pdf-journey-overview-title = Journey — Überblick
-pdf-journey-detected-page-type = Erkannter Seitentyp
-pdf-journey-more-issues = { $count } weitere Befunde im detaillierten Anhang.
+pdf-journey-detected-page-type = Journey-Einordnung
+pdf-journey-more-issues =
+    { $count } { $count ->
+        [one] weiterer Befund
+       *[other] weitere Befunde
+    } im detaillierten Anhang.
 pdf-dm-status-supported = Unterstützt
 pdf-dm-status-not-supported = Nicht unterstützt
 pdf-dm-optional-note = Dark Mode ist ein optionales Produktmerkmal, kein WCAG-Konformitätskriterium – der Score links beschreibt den erkannten Umsetzungsgrad, keine Bestehens- oder Nichtbestehens-Bewertung.
@@ -828,7 +839,10 @@ pdf-dm-contrast-violations = Kontrast-Violations im Dark Mode
 pdf-dm-only-issues = Nur-Dark-Mode-Probleme
 pdf-dm-only-issues-val = { $count } (nicht im Light Mode)
 pdf-dm-resolved-issues = Im Dark Mode behoben
-pdf-dm-resolved-issues-val = { $count } Light-Mode-Probleme verschwinden im Dark Mode
+pdf-dm-resolved-issues-val = { $count } { $count ->
+        [one] Light-Mode-Problem verschwindet
+       *[other] Light-Mode-Probleme verschwinden
+    } im Dark Mode
 pdf-dm-issue-title = Dark Mode Problem
 pdf-dm-note-title = Dark Mode Hinweis
 pdf-dm-print = Print
@@ -924,7 +938,10 @@ pdf-bp-libs-not-checked = Bibliotheksversionen konnten nicht geprüft werden; de
 pdf-perf-cov-js-val = { $pct }% ({ $unused } KB ungenutzt)
 pdf-perf-cov-css-val = { $pct }% ({ $used } von { $total } Stilregeln genutzt, vom Laden bis zum Ende der Analyse, ohne Klicken oder Scrollen)
 pdf-perf-cov-css-partial = — nur lesbare Stylesheets
-pdf-perf-dup-title = { $count } doppelte Asset-Gruppen erkannt (~{ $wasted } KB verschwendet)
+pdf-perf-dup-title = { $count } { $count ->
+        [one] doppelte Asset-Gruppe
+       *[other] doppelte Asset-Gruppen
+    } erkannt (~{ $wasted } KB verschwendet)
 pdf-cv-area-organic-visibility = Organische Sichtbarkeit
 pdf-cv-area-local-business = Local Business & Vertrauensdaten
 pdf-cv-area-eeat = E-E-A-T-Indizien
@@ -1406,3 +1423,14 @@ pdf-metric-issues = Probleme
 pdf-sec-headers-title = Sicherheits-Header
 pdf-screenshot-alt-desktop = Desktop-Screenshot der geprüften Seite
 pdf-screenshot-alt-mobile = Mobile-Screenshot der geprüften Seite
+
+seo-cookie-inventory =
+    { $count } { $count ->
+        [one] Cookie
+       *[other] Cookies
+    }
+seo-cookie-inventory-risky =
+    { $count } { $count ->
+        [one] ohne Secure/SameSite-Signal
+       *[other] ohne Secure/SameSite-Signal
+    }

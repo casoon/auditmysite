@@ -93,7 +93,10 @@ fn critical_qualifier_text(q: PerfCriticalQualifier, en: bool) -> String {
             if en {
                 format!("high DOM complexity ({nodes} nodes)")
             } else {
-                format!("die hohe DOM-Komplexität ({nodes} Knoten)")
+                format!(
+                    "die hohe DOM-Komplexität ({} Knoten)",
+                    crate::i18n::number::integer(nodes, false)
+                )
             }
         }
         PerfCriticalQualifier::LateThrottledLcp(ms) => {

@@ -635,19 +635,19 @@ pub fn ux_issue_text(
         ),
         NoImprint => (
             if en {
-                "No imprint link recognizable".into()
+                "No imprint or provider-details link recognizable".into()
             } else {
-                "Kein Impressum-Link erkennbar".into()
+                "Kein Impressum- oder Anbieterangaben-Link erkennbar".into()
             },
             if en {
-                "Legally required in DACH — signals a lack of credibility".into()
+                "Provider identification is a legal requirement in several jurisdictions (for example Germany, Austria, Switzerland); a missing link can signal a lack of credibility".into()
             } else {
-                "Rechtlich erforderlich in DACH — signalisiert mangelnde Seriosität".into()
+                "Eine Anbieterkennzeichnung ist in mehreren Rechtsräumen vorgeschrieben (etwa Deutschland, Österreich, Schweiz); ein fehlender Link kann mangelnde Seriosität signalisieren".into()
             },
             if en {
-                "Link the imprint in the footer".into()
+                "Link the imprint or provider details in the footer".into()
             } else {
-                "Impressum im Footer verlinken".into()
+                "Impressum bzw. Anbieterangaben im Footer verlinken".into()
             },
         ),
         NoPrivacy => (
@@ -1427,5 +1427,17 @@ mod dimension_name_tests {
             assert!(!en.chars().any(|c| "äöüÄÖÜß".contains(c)), "{en}");
         }
         assert_eq!(ux_dimension_name(CtaClarity, true), "CTA Clarity");
+    }
+
+    /// #952: a locale-specific legal claim must not be printed for every site.
+    #[test]
+    fn imprint_finding_does_not_claim_a_dach_only_duty() {
+        for en in [true, false] {
+            let (problem, impact, recommendation) =
+                ux_issue_text(UxIssueKind::NoImprint, &UxIssueValues::default(), en);
+            let all = format!("{problem} {impact} {recommendation}");
+            assert!(!all.contains("in DACH"), "{all}");
+            assert!(!all.contains("required in DACH"), "{all}");
+        }
     }
 }

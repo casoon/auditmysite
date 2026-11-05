@@ -189,9 +189,9 @@ pub(in crate::output::pdf) fn render_dark_mode(
         if dm.light_only_violations > 0 {
             kv = kv.add(
                 i18n.t("pdf-dm-resolved-issues"),
-                i18n.t_args(
+                i18n.count(
                     "pdf-dm-resolved-issues-val",
-                    &[("count", dm.light_only_violations.to_string())],
+                    dm.light_only_violations as usize,
                 ),
             );
         }

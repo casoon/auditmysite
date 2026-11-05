@@ -31,13 +31,15 @@ pub(in crate::output::pdf) fn render_search_experience(
             Label::new(body)
                 .with_size("10.5pt")
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
-        )
-        .add_component(module_customer_context(
+        );
+    if sx.score < 75 {
+        builder = builder.add_component(module_customer_context(
             i18n,
             "search_experience",
             Some(sx.score),
             &sx.interpretation,
         ));
+    }
 
     // Warnings before the breakdown table: `module_customer_context` above just
     // made a claim ("shows visible improvement potential") with no specifics —
