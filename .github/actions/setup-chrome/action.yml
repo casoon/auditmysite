@@ -1,0 +1,27 @@
+name: Set up Chrome
+description: >-
+  Installs Chrome for Testing and exposes its binary path. The step fails when
+  no path is reported, so a later `steps.<id>.outcome == 'success'` still means
+  a usable browser.
+
+outputs:
+  chrome-path:
+    description: Absolute path of the installed Chrome binary.
+    value: ${{ steps.chrome.outputs.chrome-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install Chrome
+      id: chrome
+      uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+
+    - name: Check the reported path
+      shell: bash
+      env:
+        CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+      run: |
+        if [ -z "$CHROME_PATH" ]; then
+          echo "::error::setup-chrome reported no chrome-path"
+          exit 1
+        fi
