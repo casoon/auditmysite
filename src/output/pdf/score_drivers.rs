@@ -92,25 +92,34 @@ pub(super) fn render_score_driver_table(
         .max_by_key(|m| (100 - m.score) * m.weight_pct)
         .map(|m| m.name.clone());
 
-    let classify = |m: &crate::audit::normalized::ModuleScoreEntry| -> &'static str {
-        if Some(&m.name) == weakest_name.as_ref() {
-            if en {
-                "Biggest weak point"
+    let classify =
+        |m: &crate::audit::normalized::ModuleScoreEntry, band_corrected: bool| -> &'static str {
+            if Some(&m.name) == weakest_name.as_ref() {
+                if en {
+                    "Biggest weak point"
+                } else {
+                    "Größter Schwachpunkt"
+                }
+            } else if m.score < 75 {
+                if en {
+                    "Significant risk driver"
+                } else {
+                    "Erheblicher Risikotreiber"
+                }
+            } else if band_corrected {
+                // The wording band was lowered by open severe findings, so the
+                // row must not call the module stabilizing (#952-4).
+                if en {
+                    "Open severe findings limit the rating"
+                } else {
+                    "Offene schwere Befunde begrenzen die Einordnung"
+                }
+            } else if en {
+                "Stabilizes the combined technical score"
             } else {
-                "Größter Schwachpunkt"
+                "Stabilisiert den kombinierten Wert"
             }
-        } else if m.score < 75 {
-            if en {
-                "Significant risk driver"
-            } else {
-                "Erheblicher Risikotreiber"
-            }
-        } else if en {
-            "Stabilizes the combined technical score"
-        } else {
-            "Stabilisiert den kombinierten Wert"
-        }
-    };
+        };
 
     // In `viewport_weighted` mode the per-module weighting is NOT how
     // `overall_score` was computed — the score comes from a desktop/mobile
@@ -151,11 +160,12 @@ pub(super) fn render_score_driver_table(
             Some(sec) if m.name == "Security" => sec.band_label.as_str(),
             _ => score_band_label(m.score, i18n),
         };
+        let band_corrected = band != score_band_label(m.score, i18n);
         table = table.add_row(vec![
             display_name,
             format!("{} ({})", m.score, band),
             format!("{}%", m.weight_pct),
-            classify(m).to_string(),
+            classify(m, band_corrected).to_string(),
         ]);
     }
 

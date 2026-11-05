@@ -166,7 +166,17 @@ fn bottleneck_callout(perf: &PerformancePresentation, i18n: &I18n) -> Option<Cal
     } else {
         "pdf-perf-bottleneck-load-action"
     });
-    let (title_key, body_key) = if rating == "poor" {
+    // "The page becomes usable late" is a timing claim: only a poor timing
+    // metric may carry it. A poor DOM size alone is browser load, not a
+    // measured delay (#952-4: 0.8 s load time next to "late").
+    let only_dom_is_poor = perf
+        .resource_ratings
+        .iter()
+        .filter(|(_, _, metric_rating, _)| metric_rating == rating)
+        .all(|(name, _, _, _)| name == "DOM-Knoten" || name == "DOM nodes");
+    let (title_key, body_key) = if rating == "poor" && only_dom_is_poor {
+        ("pdf-perf-bottleneck-dom-title", "pdf-perf-bottleneck-dom")
+    } else if rating == "poor" {
         (
             "pdf-perf-bottleneck-critical-title",
             "pdf-perf-bottleneck-critical",
@@ -314,6 +324,34 @@ pub(in crate::output::pdf) fn render_performance(
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
             );
             builder = builder.add_component(score_gauge_grid(desktop.score, mobile.score));
+            // The module score is one number; the gauges are two. Say which
+            // viewport it is, so "Performance 82" next to a Desktop gauge of
+            // 57 is no contradiction (#952-4).
+            let en = is_english(i18n);
+            let basis = if perf.score == mobile.score {
+                Some("Mobile")
+            } else if perf.score == desktop.score {
+                Some("Desktop")
+            } else {
+                None
+            };
+            if let Some(basis) = basis {
+                builder = builder.add_component(
+                    Label::new(if en {
+                        format!(
+                            "The performance score of this report ({}) is the {basis} view; the other view is scored separately.",
+                            perf.score
+                        )
+                    } else {
+                        format!(
+                            "Der Performance-Wert dieses Berichts ({}) ist der Wert der Ansicht {basis}; die andere Ansicht wird getrennt bewertet.",
+                            perf.score
+                        )
+                    })
+                    .with_size("9pt")
+                    .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+                );
+            }
 
             builder = builder.add_component(
                 Label::new(if is_english(i18n) {

@@ -446,13 +446,12 @@ pub(super) fn estimate_tti(fcp: f64, tasks: &[LongTask], dom_interactive: f64) -
 /// clipped to the window, and the part of the clipped task beyond 50 ms
 /// blocks. Tasks before FCP or after TTI do not count (#770).
 pub(super) fn total_blocking_time(fcp: f64, tti: f64, tasks: &[LongTask]) -> f64 {
-    tasks
-        .iter()
-        .map(|task| {
-            let clipped = task.end().min(tti) - task.start.max(fcp);
-            (clipped - BLOCKING_THRESHOLD_MS).max(0.0)
-        })
-        .sum()
+    // A fold from +0.0, not `Sum`: the float `Sum` of an empty iterator is
+    // -0.0, which the report printed as "-0ms" (#952-4).
+    tasks.iter().fold(0.0, |total, task| {
+        let clipped = task.end().min(tti) - task.start.max(fcp);
+        total + (clipped - BLOCKING_THRESHOLD_MS).max(0.0)
+    })
 }
 
 /// Parse CLS shift entries from the JSON value returned by the browser.
@@ -1058,6 +1057,13 @@ mod tests {
         let tti = estimate_tti(500.0, &tasks, 0.0);
         assert_eq!(tti, 1120.0);
         assert_eq!(total_blocking_time(500.0, tti, &tasks), 120.0);
+    }
+
+    #[test]
+    fn no_long_task_gives_positive_zero_blocking_time() {
+        let tbt = total_blocking_time(500.0, 900.0, &[]);
+        assert_eq!(tbt, 0.0);
+        assert!(tbt.is_sign_positive(), "printed as -0ms otherwise");
     }
 
     #[test]

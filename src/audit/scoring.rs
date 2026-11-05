@@ -200,6 +200,9 @@ impl AccessibilityScorer {
         let criteria: BTreeMap<String, bool> = criteria
             .into_iter()
             .filter_map(|(id, state)| state.map(|passed| (id, passed)))
+            // Scoped to the criteria the coverage statement counts, so the
+            // four ratios add up to at most "N automatically checked" (#952-5).
+            .filter(|(id, _)| crate::wcag::coverage::is_automated_aa_criterion(id))
             .collect();
         let ratio_for = |principle| {
             let entries: Vec<_> = criteria
@@ -688,6 +691,30 @@ mod tests {
         // 1.2.1 has nothing to check and leaves the denominator.
         assert_eq!(coverage.perceivable.total, 4);
         assert_eq!(coverage.perceivable.passed, 1);
+    }
+
+    /// #952-5: the four ratios are scoped to the criteria the "N of ~55
+    /// checked automatically" statement counts. A criterion that can only emit
+    /// review hints (1.4.2) ran, but is neither checked nor passed, so it
+    /// leaves the ratio; the totals never exceed the statement.
+    #[test]
+    fn test_coverage_is_scoped_to_the_automated_criteria_it_is_compared_with() {
+        use crate::wcag::RuleRun;
+        let results = run_results(vec![
+            RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("hint", 0).with_wcag(["1.4.2"]),
+        ]);
+        let coverage = AccessibilityScorer::calculate_execution_coverage(&results);
+        assert_eq!(
+            (coverage.perceivable.passed, coverage.perceivable.total),
+            (1, 1)
+        );
+        let (automated, _) = crate::wcag::coverage::coverage_stats();
+        let total = coverage.perceivable.total
+            + coverage.operable.total
+            + coverage.understandable.total
+            + coverage.robust.total;
+        assert!(total as usize <= automated);
     }
 
     #[test]

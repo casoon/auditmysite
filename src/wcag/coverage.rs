@@ -136,6 +136,17 @@ pub fn automated_criteria() -> &'static [(&'static str, &'static str)] {
     })
 }
 
+/// True if `id` is one of the WCAG 2.2 A/AA criteria [`coverage_stats`] counts
+/// as automatically checked. The principle coverage ratios of a run are scoped
+/// to exactly this set, so their totals can never exceed the "N of ~55"
+/// statement (#952-5): a criterion that only emits review hints is neither
+/// counted as checked nor shown as passed.
+pub fn is_automated_aa_criterion(id: &str) -> bool {
+    automated_criteria()
+        .iter()
+        .any(|(c, level)| *c == id && (*level == "A" || *level == "AA"))
+}
+
 /// Candidate WCAG criteria that fundamentally require behavioral / manual
 /// review. Filtered against `automated_criteria()` at read time (see
 /// `manual_review_criteria`) so a criterion that gains automated coverage

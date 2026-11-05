@@ -831,14 +831,24 @@ mod tests {
             BfsgVerdict::ViolationsFound,
         ] {
             assert_eq!(
-                effective_bfsg_verdict(sr, relevant),
+                effective_bfsg_verdict(sr, relevant, 0),
                 BfsgVerdict::ViolationsFound
             );
         }
         // Nothing relevant elsewhere: the screen-reader verdict stands.
         assert_eq!(
-            effective_bfsg_verdict(BfsgVerdict::NoViolationsFound, 0),
+            effective_bfsg_verdict(BfsgVerdict::NoViolationsFound, 0, 0),
             BfsgVerdict::NoViolationsFound
+        );
+        // Low-severity reading-order notes alone are no violation (#952-2) ...
+        assert_eq!(
+            effective_bfsg_verdict(BfsgVerdict::ViolationsFound, 0, 0),
+            BfsgVerdict::NeedsReview
+        );
+        // ... a high-severity screen-reader blocker still is.
+        assert_eq!(
+            effective_bfsg_verdict(BfsgVerdict::ViolationsFound, 0, 1),
+            BfsgVerdict::ViolationsFound
         );
     }
 

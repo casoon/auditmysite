@@ -485,6 +485,9 @@ struct Collected {
     /// The message as a function of the language (#898); `message` is its
     /// `en = true` rendering.
     text: Option<crate::audit::finding_text::MessageText>,
+    /// Elements this one collected problem stands for (1 unless the module
+    /// reports an aggregate such as "79 touch targets too small", #952-3).
+    elements: usize,
 }
 
 impl Collected {
@@ -512,7 +515,13 @@ impl Collected {
             scoring,
             scope,
             text: None,
+            elements: 1,
         }
+    }
+
+    fn elements(mut self, elements: u32) -> Self {
+        self.elements = (elements as usize).max(1);
+        self
     }
 
     /// Bind the module's text function: the PDF re-derives the message in the
@@ -814,6 +823,9 @@ fn collect(
             );
             if issue.kind() == Some(crate::mobile::MobileIssueKind::MissingViewport) {
                 c.cause = Some(VIEWPORT_MISSING);
+            }
+            if let Some(count) = issue.values.small_target_count {
+                c = c.elements(count);
             }
             let mobile_issue = issue.clone();
             c = c.text(move |en| mobile_issue.localized_message(en));
@@ -1284,7 +1296,9 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         .map(|c| c.severity)
         .max()
         .unwrap_or(first.severity);
-    let occurrence_count = group.len();
+    // Element count, not problem count: the scope ("Lokal · n"), complexity
+    // and priority all read it (#952-3).
+    let occurrence_count: usize = group.iter().map(|c| c.elements).sum();
     let (dimension_kind, subcategory_kind, dimension) = first.domain.taxonomy();
     let subcategory_kind = match first.source {
         "seo.headings" => Subcategory::ContentStructure,
@@ -1428,6 +1442,60 @@ fn check_title(check: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #952-3: "79 touch targets too small" is one collected problem standing
+    /// for 79 elements. The finding's occurrence count, which drives scope
+    /// ("Lokal · n"), complexity and the project-risk count, is the element
+    /// count, not 1.
+    #[test]
+    fn small_touch_targets_count_their_elements_not_one_problem() {
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            crate::cli::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report = report.with_mobile(crate::mobile::MobileFriendliness {
+            score: 80,
+            viewport: Default::default(),
+            touch_targets: Default::default(),
+            font_sizes: Default::default(),
+            content_sizing: Default::default(),
+            issues: vec![crate::mobile::MobileIssue {
+                category: "touch_targets".into(),
+                issue_type: "small_targets".into(),
+                message: "79 touch targets are too small".into(),
+                severity: Severity::High,
+                impact: "Difficult to tap".into(),
+                values: crate::mobile::MobileIssueValues {
+                    small_target_count: Some(79),
+                    ..Default::default()
+                },
+            }],
+        });
+        let n = normalize(&report).normalized;
+        let finding = n
+            .findings
+            .iter()
+            .find(|f| f.contract.domain == FindingDomain::Mobile)
+            .expect("mobile finding");
+        assert_eq!(finding.occurrence_count, 79);
+        let kinds =
+            crate::audit::management_risk::build_management_risk_kinds(std::slice::from_ref(&n));
+        let project = kinds
+            .iter()
+            .find_map(|k| match k {
+                crate::audit::management_risk::ManagementRiskKind::Project { count, .. } => {
+                    Some(*count)
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(
+            project, 1,
+            "the project-risk count reads the same element count"
+        );
+    }
 
     #[test]
     fn kind_codes_are_snake_case() {

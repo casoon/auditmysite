@@ -60,6 +60,10 @@ impl RiskTier {
 pub enum ManagementRiskKind {
     Legal {
         legal_flags: usize,
+        /// Open findings with BFSG/EAA relevance high or medium — the one
+        /// definition shared with the screen-reader callout and the finding
+        /// rows (#952-2). A superset of the Level-A `legal_flags`.
+        bfsg_relevant: usize,
         critical: usize,
         high: usize,
         blocking_issues: usize,
@@ -86,6 +90,9 @@ pub enum ManagementRiskKind {
     PerformanceMobile {
         performance: Option<u32>,
         mobile: Option<u32>,
+        /// Open findings of High or Critical severity in the performance and
+        /// mobile modules. A good module score does not hide them (#952-3).
+        high_findings: usize,
     },
     Trust {
         accessibility: u32,
@@ -106,6 +113,7 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
+                bfsg_relevant,
                 critical,
                 high,
                 blocking_issues,
@@ -113,7 +121,7 @@ impl ManagementRiskKind {
             } => {
                 if *legal_flags > 0 || *critical > 0 || *blocking_issues >= 5 {
                     RiskTier::High
-                } else if *high > 0 || *blocking_issues > 0 {
+                } else if *bfsg_relevant > 0 || *high > 0 || *blocking_issues > 0 {
                     RiskTier::Medium
                 } else {
                     RiskTier::Low
@@ -158,6 +166,7 @@ impl ManagementRiskKind {
             ManagementRiskKind::PerformanceMobile {
                 performance,
                 mobile,
+                high_findings,
             } => {
                 // The weaker of the two drives the tier — a fast page that is
                 // unusable on a phone is not a low risk.
@@ -167,7 +176,10 @@ impl ManagementRiskKind {
                     (None, Some(m)) => Some(*m),
                     (None, None) => None,
                 };
-                RiskTier::from_optional_score(worst)
+                match RiskTier::from_optional_score(worst) {
+                    RiskTier::Low if *high_findings > 0 => RiskTier::Medium,
+                    tier => tier,
+                }
             }
             ManagementRiskKind::Trust {
                 accessibility,
@@ -256,18 +268,25 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
+                bfsg_relevant,
                 critical,
                 high,
                 blocking_issues,
                 keyboard_blocking,
             } => {
+                // One count for "possible legal relevance": the open findings
+                // the finding rows mark Medium/High (never fewer than the
+                // Level-A flags, which also include screen-reader blockers).
+                let legal_flags = &(*bfsg_relevant).max(*legal_flags);
                 let base = if en {
                     format!(
-                        "{legal_flags} findings with possible legal relevance, {critical} critical and {high} high WCAG findings detected automatically."
+                        "{legal_flags} {} with possible legal relevance, {critical} critical and {high} high WCAG findings detected automatically.",
+                        if *legal_flags == 1 { "finding" } else { "findings" }
                     )
                 } else {
                     format!(
-                        "{legal_flags} Befunde mit möglicher Rechtsrelevanz, {critical} kritische und {high} hohe WCAG-Befunde automatisiert erkannt."
+                        "{legal_flags} {} mit möglicher Rechtsrelevanz, {critical} kritische und {high} hohe WCAG-Befunde automatisiert erkannt.",
+                        if *legal_flags == 1 { "Befund" } else { "Befunde" }
                     )
                 };
                 if *blocking_issues == 0 {
@@ -367,6 +386,7 @@ impl ManagementRiskKind {
             ManagementRiskKind::PerformanceMobile {
                 performance,
                 mobile,
+                high_findings,
             } => {
                 if performance.is_none() && mobile.is_none() {
                     return if en {
@@ -377,10 +397,21 @@ impl ManagementRiskKind {
                 }
                 let perf = score_or_not_measured(*performance, en);
                 let mob = score_or_not_measured(*mobile, en);
-                if en {
+                let base = if en {
                     format!("Performance {perf}, mobile usability {mob} (lab measurement).")
                 } else {
                     format!("Performance {perf}, mobile Nutzbarkeit {mob} (Labormessung).")
+                };
+                match (*high_findings, en) {
+                    (0, _) => base,
+                    (n, true) => format!(
+                        "{base} {n} high-severity finding{} in these modules.",
+                        if n == 1 { "" } else { "s" }
+                    ),
+                    (n, false) => format!(
+                        "{base} {n} {} mit hohem Schweregrad in diesen Modulen.",
+                        if n == 1 { "Befund" } else { "Befunde" }
+                    ),
                 }
             }
             ManagementRiskKind::Trust {
@@ -415,13 +446,17 @@ impl ManagementRiskKind {
                 None => {
                     if en {
                         format!(
-                            "{count} finding{} affect 10 or more elements on this page or need a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.",
-                            if *count == 1 { "" } else { "s" }
+                            "{count} finding{} {} 10 or more elements on this page or {} a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.",
+                            if *count == 1 { "" } else { "s" },
+                            if *count == 1 { "affects" } else { "affect" },
+                            if *count == 1 { "needs" } else { "need" }
                         )
                     } else {
                         format!(
-                            "{count} Befund{} betreffen 10 oder mehr Elemente dieser Seite oder erfordern eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.",
-                            if *count == 1 { "" } else { "e" }
+                            "{count} Befund{} {} 10 oder mehr Elemente dieser Seite oder {} eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.",
+                            if *count == 1 { "" } else { "e" },
+                            if *count == 1 { "betrifft" } else { "betreffen" },
+                            if *count == 1 { "erfordert" } else { "erfordern" }
                         )
                     }
                 }
@@ -506,6 +541,10 @@ fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
 /// Alle Risiko-Dimensionen für einen Lauf.
 pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<ManagementRiskKind> {
     let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
+    let bfsg_relevant: usize = reports
+        .iter()
+        .map(|r| r.findings.iter().filter(|f| f.is_bfsg_relevant()).count())
+        .sum();
     let critical: usize = reports.iter().map(|r| r.severity_counts.critical).sum();
     let high: usize = reports.iter().map(|r| r.severity_counts.high).sum();
     // Controls without an accessible name (WCAG 4.1.2) can be "medium"
@@ -578,6 +617,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     vec![
         ManagementRiskKind::Legal {
             legal_flags,
+            bfsg_relevant,
             critical,
             high,
             blocking_issues,
@@ -600,6 +640,17 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
         ManagementRiskKind::PerformanceMobile {
             performance,
             mobile,
+            high_findings: reports
+                .iter()
+                .flat_map(|r| r.findings.iter())
+                .filter(|f| {
+                    matches!(
+                        f.contract.domain,
+                        crate::audit::finding_contract::FindingDomain::Mobile
+                            | crate::audit::finding_contract::FindingDomain::Performance
+                    ) && f.severity >= crate::taxonomy::Severity::High
+                })
+                .count(),
         },
         ManagementRiskKind::Trust {
             accessibility,
@@ -617,6 +668,40 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
 mod tests {
     use super::*;
 
+    /// #952-2/#952-3: an open finding the finding rows mark BFSG-relevant, or a
+    /// high finding in the performance/mobile modules, is never a "low" card
+    /// next to a good module score.
+    #[test]
+    fn open_findings_lift_a_card_that_scores_alone_would_leave_low() {
+        let legal = |bfsg_relevant| ManagementRiskKind::Legal {
+            legal_flags: 0,
+            bfsg_relevant,
+            critical: 0,
+            high: 0,
+            blocking_issues: 0,
+            keyboard_blocking: 0,
+        };
+        assert_eq!(legal(0).tier(), RiskTier::Low);
+        assert_eq!(legal(1).tier(), RiskTier::Medium);
+        assert!(legal(1)
+            .rationale(false)
+            .starts_with("1 Befund mit möglicher"));
+        assert!(legal(2)
+            .rationale(true)
+            .starts_with("2 findings with possible"));
+
+        let perf = |high_findings| ManagementRiskKind::PerformanceMobile {
+            performance: Some(82),
+            mobile: Some(80),
+            high_findings,
+        };
+        assert_eq!(perf(0).tier(), RiskTier::Low);
+        assert_eq!(perf(1).tier(), RiskTier::Medium);
+        assert!(perf(1)
+            .rationale(false)
+            .contains("1 Befund mit hohem Schweregrad"));
+    }
+
     /// Plan 99: seven nameless links are not "inoperable". The texts name the
     /// cause that was measured and claim no blocked task.
     #[test]
@@ -624,6 +709,7 @@ mod tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
+                bfsg_relevant: 2,
                 critical: 1,
                 high: 2,
                 blocking_issues: 7,
