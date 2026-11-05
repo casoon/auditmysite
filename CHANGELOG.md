@@ -7,6 +7,11 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **PDF:** the accessibility sub-scores in the Management Summary ("Weitere Teilbereiche der Barrierefreiheit") come from the same breakdown as the JSON `summary.accessibility_score_breakdown` (eight areas, same numbers) instead of the seven-subcategory scores, which gave 98/95 next to 94 for the same findings; the seven subcategory scores remain in `detail.accessibility_subcategory_scores` (Refs #902-10).
+- **PDF:** "Problemprofil: punktuell" no longer says "without structural problems" while "Wichtigste Risiken" lists a finding with wide reach or a structural fix; the badge text reads the same project-risk count (Refs #952-4).
+
 ## [2.0.2] - 2026-11-05
 
 ### Changed

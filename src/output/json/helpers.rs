@@ -246,7 +246,7 @@ pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary 
 ///
 /// `weight_pct` is consequently each area's share of that loss (summing to 100
 /// whenever anything was lost), not an invented importance weight.
-pub(super) fn build_accessibility_score_breakdown(
+pub(crate) fn build_accessibility_score_breakdown(
     reports: &[NormalizedReport],
     accessibility_score: u32,
 ) -> Vec<AccessibilityScoreComponent> {

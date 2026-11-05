@@ -603,6 +603,52 @@ mod tests {
         assert_eq!(urgent_metric.value, "1");
     }
 
+    /// #902 item 10: the PDF sub-score callout and the JSON
+    /// `summary.accessibility_score_breakdown` must carry the same numbers.
+    #[test]
+    fn view_model_accessibility_areas_match_the_json_breakdown() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.4.3",
+            "Contrast (Minimum)",
+            WcagLevel::AA,
+            Severity::High,
+            "Insufficient color contrast",
+            "node-1",
+        ));
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1500,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let json = serde_json::to_value(
+            crate::output::json::UnifiedReport::single_from_normalized(&normalized.normalized),
+        )
+        .unwrap();
+        let from_json: Vec<(String, u64)> = json["summary"]["accessibility_score_breakdown"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                (
+                    c["area"].as_str().unwrap().to_string(),
+                    c["score"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        let from_vm: Vec<(String, u64)> = vm
+            .modules
+            .accessibility_score_areas
+            .iter()
+            .map(|c| (c.area.clone(), c.score as u64))
+            .collect();
+        assert_eq!(from_vm, from_json);
+        assert!(from_vm.iter().any(|(_, s)| *s < 100));
+    }
+
     #[test]
     fn english_view_model_excludes_top_level_german_labels() {
         use crate::audit::normalized::normalize;

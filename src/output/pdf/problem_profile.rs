@@ -219,6 +219,20 @@ fn format_module_names(
     }
 }
 
+/// Findings the "key risks" list counts as project risk (reach of 10+ elements
+/// or a structural fix) — the same value, not a second threshold.
+fn structural_finding_count(vm: &ReportViewModel) -> usize {
+    vm.management_risks
+        .iter()
+        .filter_map(|kind| match kind {
+            crate::audit::management_risk::ManagementRiskKind::Project { count, .. } => {
+                Some(*count)
+            }
+            _ => None,
+        })
+        .sum()
+}
+
 fn build_problem_profile_description(
     vm: &ReportViewModel,
     kind: ProblemProfileKind,
@@ -241,18 +255,38 @@ fn build_problem_profile_description(
 
     match kind {
         ProblemProfileKind::Punktuell => {
+            // The risk list's "project risk" is the one definition of "wide
+            // reach or structural fix"; the badge must not claim "no
+            // structural problem" while that list names one (#952-4).
+            let structural = structural_finding_count(vm);
+            let tail_en = match structural {
+                0 => "Isolated local optimizations without structural problems.".to_string(),
+                n => format!(
+                    "Isolated local optimizations; {n} finding{} with wide reach or a structural fix {} named under key risks.",
+                    if n == 1 { "" } else { "s" },
+                    if n == 1 { "is" } else { "are" }
+                ),
+            };
+            let tail_de = match structural {
+                0 => "Einzelne lokale Optimierungen ohne strukturelles Problem.".to_string(),
+                n => format!(
+                    "Einzelne lokale Optimierungen; {n} {} mit großer Reichweite oder struktureller Änderung {} unter den wichtigsten Risiken genannt.",
+                    if n == 1 { "Befund" } else { "Befunde" },
+                    if n == 1 { "wird" } else { "werden" }
+                ),
+            };
             if critical_modules.is_empty() {
                 if en {
-                    "Very good technical condition. Isolated local optimizations without structural problems.".to_string()
+                    format!("Very good technical condition. {tail_en}")
                 } else {
-                    "Sehr guter technischer Zustand. Einzelne lokale Optimierungen ohne strukturelles Problem.".to_string()
+                    format!("Sehr guter technischer Zustand. {tail_de}")
                 }
             } else {
                 let name = format_module_names(&critical_modules, i18n);
                 if en {
-                    format!("{name} determines the primary need for action. Isolated local optimizations without structural problems.")
+                    format!("{name} determines the primary need for action. {tail_en}")
                 } else {
-                    format!("{name} bestimmt den Handlungsbedarf. Einzelne lokale Optimierungen ohne strukturelles Problem.")
+                    format!("{name} bestimmt den Handlungsbedarf. {tail_de}")
                 }
             }
         }
@@ -409,6 +443,39 @@ mod tests {
     // The fixture stays where the rest of the report tests use it; only these
     // three moved (plan 27).
     use super::super::single_report::risk_and_strength_tests::test_report_view_model;
+
+    /// #952-4: the badge must not say "no structural problem" while the risk
+    /// list counts a finding with wide reach / structural fix.
+    #[test]
+    fn punktuell_text_follows_the_project_risk_count() {
+        let mut vm = test_report_view_model();
+        let i18n_de = I18n::new("de").unwrap();
+        let i18n_en = I18n::new("en").unwrap();
+        vm.modules.module_scores = vec![crate::audit::normalized::ModuleScoreEntry::new(
+            "Accessibility",
+            99,
+            "measured",
+            true,
+        )];
+        vm.management_risks = vec![crate::audit::management_risk::ManagementRiskKind::Project {
+            count: 0,
+            pages: None,
+        }];
+        let kind = ProblemProfileKind::Punktuell;
+        assert!(build_problem_profile_description(&vm, kind, &i18n_de)
+            .contains("ohne strukturelles Problem"));
+
+        vm.management_risks = vec![crate::audit::management_risk::ManagementRiskKind::Project {
+            count: 1,
+            pages: None,
+        }];
+        let de = build_problem_profile_description(&vm, kind, &i18n_de);
+        assert!(!de.contains("ohne strukturelles Problem"), "{de}");
+        assert!(de.contains("1 Befund mit großer Reichweite"), "{de}");
+        let en = build_problem_profile_description(&vm, kind, &i18n_en);
+        assert!(!en.contains("without structural problems"), "{en}");
+        assert!(!en.chars().any(|c| "äöüß".contains(c)), "{en}");
+    }
 
     #[test]
     fn problem_profile_casoon_scenario_is_punktuell() {

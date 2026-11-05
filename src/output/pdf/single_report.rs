@@ -956,26 +956,27 @@ pub(super) fn render_management_page(
     } else {
         "Barrierefreiheit"
     };
+    // Same areas and numbers as the JSON `accessibility_score_breakdown`
+    // (#902 item 10).
     let accessibility_entries: Vec<(String, u32)> = vm
         .modules
-        .accessibility_subcategory_scores
+        .accessibility_score_areas
         .iter()
-        .map(|s| (s.subcategory_kind.label(en).to_string(), s.score))
+        .filter_map(|c| {
+            let area = crate::taxonomy::ScoreArea::from_label(&c.area)?;
+            Some((area.localized_label(en).to_string(), c.score))
+        })
         .collect();
     // Where each critical accessibility finding counts, from the findings'
-    // own sub-area (plan 70).
+    // own score area (plan 70).
     let accessibility_critical: Vec<(String, String)> = vm
         .findings
         .all_findings
         .iter()
         .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
         .filter_map(|f| {
-            let area = vm
-                .modules
-                .accessibility_subcategory_scores
-                .iter()
-                .find(|s| Some(s.subcategory_kind.label(true)) == f.subcategory.as_deref())?;
-            Some((f.title.clone(), area.subcategory_kind.label(en).to_string()))
+            let area = crate::taxonomy::score_area_for_rule(&f.rule_id)?;
+            Some((f.title.clone(), area.localized_label(en).to_string()))
         })
         .collect();
     builder = render_subcategory_breakdown(
