@@ -1,8 +1,8 @@
 //! Run-language text of `html-conform` findings (#902, #406).
 //!
 //! The checker's messages are third-party English prose with parser-internal
-//! noise (`unexpected element `{http://www.w3.org/1999/xhtml}span` at
-//! 190:12271`). The stored message stays exactly that (canonical English in
+//! noise (for example an "unexpected element" message that names the XHTML
+//! namespace URI of `span` and a line and column position). The stored message stays exactly that (canonical English in
 //! the JSON). A German report shows [`message_text`] instead: the most common
 //! messages are mapped by rule id and shape, every other one falls back to the
 //! localized title of the rule's family (`recommendation.rs`), so no English
