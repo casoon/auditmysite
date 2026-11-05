@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.2 AA Accessibility Checker in Rust"
