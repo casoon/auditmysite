@@ -70,12 +70,12 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "excessive_dom".to_string(),
             message: if en {
                 format!(
-                    "DOM size critical: {} elements (recommended: <1500, max depth: {})",
+                    "DOM size critical: {} HTML elements (recommended: <1500, max depth: {})",
                     a.dom_node_count, a.dom_max_depth
                 )
             } else {
                 format!(
-                    "DOM-Größe kritisch: {} Elemente (Empfehlung: <1500, max Tiefe: {})",
+                    "DOM-Größe kritisch: {} HTML-Elemente (Empfehlung: <1500, max Tiefe: {})",
                     a.dom_node_count, a.dom_max_depth
                 )
             },
@@ -86,12 +86,12 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "large_dom".to_string(),
             message: if en {
                 format!(
-                    "DOM size elevated: {} elements (recommended: <800, max depth: {})",
+                    "DOM size elevated: {} HTML elements (recommended: <800, max depth: {})",
                     a.dom_node_count, a.dom_max_depth
                 )
             } else {
                 format!(
-                    "DOM-Größe erhöht: {} Elemente (Empfehlung: <800, max Tiefe: {})",
+                    "DOM-Größe erhöht: {} HTML-Elemente (Empfehlung: <800, max Tiefe: {})",
                     a.dom_node_count, a.dom_max_depth
                 )
             },

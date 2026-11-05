@@ -248,7 +248,7 @@ impl ManagementRiskKind {
                 if en {
                     "Trust / brand"
                 } else {
-                    "Vertrauen & Marke"
+                    "Markenwirkung (aus Barrierefreiheit abgeleitet)"
                 }
             }
             ManagementRiskKind::Project { .. } => {
@@ -667,6 +667,19 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #952-4: the trust risk is derived from accessibility alone, so its
+    /// German name must not read like the measured "Vertrauenssignale" score.
+    #[test]
+    fn trust_risk_is_not_named_like_the_trust_signal_score() {
+        let trust = ManagementRiskKind::Trust {
+            accessibility: 93,
+            critical: 0,
+            high: 1,
+        };
+        assert!(!trust.dimension(false).contains("Vertrauen"));
+        assert_eq!(trust.dimension(true), "Trust / brand");
+    }
 
     /// #952-2/#952-3: an open finding the finding rows mark BFSG-relevant, or a
     /// high finding in the performance/mobile modules, is never a "low" card

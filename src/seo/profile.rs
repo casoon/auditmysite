@@ -1288,9 +1288,23 @@ fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                     _ => String::new(),
                 };
                 if en {
-                    format!("{order_problems} issues{first}")
+                    format!(
+                        "{order_problems} {}{first}",
+                        if order_problems == 1 {
+                            "issue"
+                        } else {
+                            "issues"
+                        }
+                    )
                 } else {
-                    format!("{order_problems} Probleme{first}")
+                    format!(
+                        "{order_problems} {}{first}",
+                        if order_problems == 1 {
+                            "Problem"
+                        } else {
+                            "Probleme"
+                        }
+                    )
                 }
             }),
         ),
@@ -1355,7 +1369,8 @@ fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             seo.social
                 .open_graph
                 .as_ref()
-                .map(|og| format!("{}%", og.completeness())),
+                .map(|og| format!("{}%", og.completeness()))
+                .or_else(|| Some(present_or_missing(false))),
         ),
         check(
             if en {
@@ -1376,7 +1391,8 @@ fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             seo.social
                 .twitter_card
                 .as_ref()
-                .map(|tc| format!("{}%", tc.completeness())),
+                .map(|tc| format!("{}%", tc.completeness()))
+                .or_else(|| Some(present_or_missing(false))),
         ),
     ];
     let (passed, total) = category_counts(&checks);
@@ -1981,6 +1997,40 @@ mod tests {
             serp: None,
             image_efficiency: None,
         }
+    }
+
+    /// #952-6/8: a missing Twitter Card is "fehlt", never an empty detail, and
+    /// one ordering problem is "1 Problem".
+    #[test]
+    fn social_and_heading_details_are_never_empty_or_plural_wrong() {
+        let seo = minimal_seo();
+        let social = build_social_signals(&seo, false);
+        assert!(social
+            .checks
+            .iter()
+            .all(|c| c.detail.as_deref().is_some_and(|d| !d.is_empty())));
+
+        let heading = |level: u8| HeadingInfo {
+            level,
+            text: format!("H{level}"),
+            length: 2,
+            is_question: false,
+            in_faq_context: false,
+            word_count_after: 0,
+            hidden: false,
+        };
+        let mut seo = minimal_seo();
+        seo.headings.h1_count = 1;
+        seo.headings.h1_text = Some("H1".into());
+        seo.headings.headings = vec![heading(2), heading(1), heading(2)];
+        let de = build_heading_signals(&seo, false);
+        let detail = de
+            .checks
+            .iter()
+            .find(|c| c.label == "Logische Hierarchie")
+            .and_then(|c| c.detail.clone())
+            .expect("detail");
+        assert!(detail.starts_with("1 Problem,"), "{detail}");
     }
 
     /// #952-1: a lone H1 that is not the first heading is no "logical

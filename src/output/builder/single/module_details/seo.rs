@@ -452,7 +452,12 @@ pub(super) fn build_seo_details(
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     (
-                        if en { "Content type" } else { "Inhaltstyp" }.to_string(),
+                        if en {
+                            "Schema.org content type"
+                        } else {
+                            "Schema.org-Inhaltstyp"
+                        }
+                        .to_string(),
                         cp.content_identity.content_type.clone(),
                     ),
                     (

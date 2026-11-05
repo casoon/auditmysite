@@ -732,7 +732,10 @@ pub(in crate::output::pdf) fn render_performance(
             .resource_ratings
             .iter()
             .map(|(name, value, rating, target)| {
-                MetricStripItem::new(name, localize_measure(value, is_english(i18n)))
+                // Already written in the run language by the builder
+                // ("7.594"); localize_measure would read the thousands dot
+                // as a decimal point and print "7,594" (#952).
+                MetricStripItem::new(name, value)
                     .with_unit(target)
                     .with_status(vital_status(rating))
                     .with_accent(vital_color(rating))
