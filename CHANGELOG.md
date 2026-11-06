@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependencies:** barrierlab 0.28.1 (`a11y-*`), `html-conform` 0.4.1, `csp-parse` and `stylesheet-parse` 0.1.1: names from a hidden `aria-labelledby` target keep its descendants, selectors with CSS escapes match, ten more `manual/*` checklist items, CSP nonces no longer flag inline scripts. JSON shape unchanged.
+
 ### Fixed
 
 - **PDF:** the accessibility sub-scores in the Management Summary ("Weitere Teilbereiche der Barrierefreiheit") come from the same breakdown as the JSON `summary.accessibility_score_breakdown` (eight areas, same numbers) instead of the seven-subcategory scores, which gave 98/95 next to 94 for the same findings; the seven subcategory scores remain in `detail.accessibility_subcategory_scores` (Refs #902-10).

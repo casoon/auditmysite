@@ -53,7 +53,7 @@ pub struct HtmlConformAnalysis {
     pub raw_html: Option<String>,
 }
 
-/// A single HTML5 conformance finding, passthrough from `html_conform::Finding`.
+/// A single HTML5 conformance finding, taken from `html_conform::CheckReport::to_report`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HtmlConformFinding {
     /// Stable rule identifier from the checker (e.g. "schema.html5", "parser.html5").
@@ -127,29 +127,32 @@ pub async fn analyze_html_conform(
     let mut warning_count = 0u32;
     let mut info_count = 0u32;
     let findings: Vec<HtmlConformFinding> = report
+        .to_report()
         .findings
         .into_iter()
         .map(|f| {
-            let severity = match f.severity {
-                html_conform::Severity::Error => {
+            // `to_report` maps checker Error/Warning/Info to Fail/Review/Untested.
+            let severity = match f.outcome {
+                a11y_report::Outcome::Fail => {
                     error_count += 1;
                     "error"
                 }
-                html_conform::Severity::Warning => {
+                a11y_report::Outcome::Review => {
                     warning_count += 1;
                     "warning"
                 }
-                html_conform::Severity::Info => {
+                a11y_report::Outcome::Untested => {
                     info_count += 1;
                     "info"
                 }
+                a11y_report::Outcome::Pass => unreachable!("html-conform reports no passes"),
             };
             HtmlConformFinding {
                 rule_id: f.rule_id,
                 severity: severity.to_string(),
                 message: f.message,
-                location: f.location.map(|l| l.to_string()),
-                byte_offset: f.location.map(|l| l.byte_offset),
+                location: f.location.source_hint,
+                byte_offset: f.location.position.map(|p| p.byte_offset),
             }
         })
         .collect();
@@ -343,6 +346,7 @@ mod tests {
         let (back, via_task) = check_blocking(html.clone()).await;
         let via_task = via_task.expect("check runs");
         assert_eq!(back, html);
+        let (direct, via_task) = (direct.to_report(), via_task.to_report());
         assert_eq!(via_task.findings.len(), direct.findings.len());
         assert!(!direct.findings.is_empty());
         for (a, b) in via_task.findings.iter().zip(direct.findings.iter()) {

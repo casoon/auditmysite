@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.27.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25992854baa89300a864b260e23064493d2af5b397be118588a136c875241052"
+checksum = "a58719f77b79772c09325e34e7ac0d0e12c381404069eace66fbf8132182f894"
 
 [[package]]
 name = "a11y-perception"
@@ -19,21 +19,22 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.27.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557e11fa4d3b1753cafe3cfa6b78958184162cc5acb545fcacb77f47b986ca91"
+checksum = "19ee6462c10eb59e4c899e623c8ff7b3a5c082a3a4240a19ca81a3e37dc3941f"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.27.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82fb82ef7557a4ae9e201ed49a3147c103837f84ad4c8ed8b4a8ac1c183cf7e0"
+checksum = "be79a4f20abf88cfaaa1a80a162edb4aa9bb152f48e03051dca835c4f736dc6b"
 dependencies = [
  "a11y-dom",
  "a11y-report",
+ "style-cascade",
  "stylesheet-parse",
 ]
 
@@ -58,9 +59,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.27.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db896ca8ab9180a99b3af48bb081e02623b74f44268bf0c072b5ac0ba4b9279d"
+checksum = "8321ade173a27c8ddc99a1be96df2a751533aedc63b8644cf3e76105d8e32397"
 dependencies = [
  "a11y-dom",
 ]
@@ -1345,9 +1346,15 @@ dependencies = [
 
 [[package]]
 name = "csp-parse"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "753c2d52fe6774eeb5f41b0d08d6e4b4e93c328c49849a5648abaed823efd234"
+
+[[package]]
+name = "css-tokenize"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1cd2527b63dd3d6edbb8a0f251aa31bb52e81cc7ad37dc461d2974084fa5c33"
+checksum = "8f1ad48f06c01b658df3098d4fec3a598a6adc2c72cbe3193a87b4e4303eb6f8"
 
 [[package]]
 name = "csv"
@@ -2499,10 +2506,11 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.3.4"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "979b9960a3828e191d483401a79a1f6ee346b480b642d8e27d82d4e354806afa"
+checksum = "70c9d767ee42c369c4198b1965a2e0847e92a0166bd66db46c3192dbbfdfa29d"
 dependencies = [
+ "a11y-report",
  "csp-parse",
  "encoding_rs",
  "html5-parser",
@@ -2517,9 +2525,9 @@ dependencies = [
 
 [[package]]
 name = "html5-parser"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38ffb819bfbd6e33f301804dfbdc4ef8f756e731be9dcea206a39eeada55a34f"
+checksum = "3fc4ad4b7d77b05c067e23ba806400a16e9a60109c448226e7e8b9485fe965d7"
 
 [[package]]
 name = "html5ever"
@@ -3477,9 +3485,12 @@ dependencies = [
 
 [[package]]
 name = "media-query-parse"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93a1e4247a741c4a1d80414a107c4ddae6302e41b783de3eabcfbceca71727c"
+checksum = "b152f240adcab2252b8cbb87c5f6674ebd41b5940e54f7a002917131b8f69c1b"
+dependencies = [
+ "css-tokenize",
+]
 
 [[package]]
 name = "memchr"
@@ -5068,9 +5079,9 @@ dependencies = [
 
 [[package]]
 name = "schematron-engine"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d03d137c8f6fe46a110081ff99c95562c2dc22f1c9f10b06933cb457551857e"
+checksum = "0b2f570a8e36a6e6d4d5b933b208e2a819150f353ed95f3ba083f1491ae1459d"
 dependencies = [
  "roxmltree 0.21.1",
  "xpath-eval",
@@ -5606,12 +5617,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "stylesheet-parse"
+name = "style-cascade"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f656ee850467622d66fdb15c3253df676e7f547d4252396117731f67cd55560"
+checksum = "db963e1f088fe1192c7f13384c06799af2d98dbe7d623ae4f5ab05b79095e74e"
 dependencies = [
+ "a11y-dom",
  "media-query-parse",
+ "stylesheet-parse",
+]
+
+[[package]]
+name = "stylesheet-parse"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7156bf0be5016122c6eed75398192c5576458158fd7e6bbaac80bb77e40d265"
+dependencies = [
+ "css-tokenize",
 ]
 
 [[package]]
