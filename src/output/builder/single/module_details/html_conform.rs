@@ -47,6 +47,7 @@ fn distinct_html_conform_rows(
                                 .next()
                                 .unwrap_or(&finding.message)
                                 .trim(),
+                            finding.detail.as_ref(),
                             en,
                         ),
                         finding.location.clone().unwrap_or_else(|| "—".to_string()),
@@ -161,6 +162,7 @@ mod html_conform_recommendations_tests {
             message: message.to_string(),
             location: None,
             byte_offset: None,
+            detail: None,
         }
     }
 

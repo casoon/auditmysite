@@ -418,6 +418,7 @@ fn test_technician_index_and_findings_match_schemas() {
             message: "Element div not allowed as child of element span".to_string(),
             location: Some("3:7".to_string()),
             byte_offset: None,
+            detail: None,
         }],
         raw_html: None,
     });

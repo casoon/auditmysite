@@ -113,7 +113,12 @@ pub fn german_texts(violations: &[Violation]) -> std::collections::HashMap<Strin
             violation.message.clone(),
             format!(
                 "Ungültiges HTML-Content-Model innerhalb eines <{family}>-Elements: {}",
-                crate::html_conform::message::message_text("schema.html5", finding_message, false)
+                crate::html_conform::message::message_text(
+                    "schema.html5",
+                    finding_message,
+                    None,
+                    false
+                )
             ),
         );
     }
@@ -256,6 +261,7 @@ mod tests {
             message: "unexpected element `img` at 12:5".to_string(),
             location: None,
             byte_offset,
+            detail: None,
         }
     }
 
@@ -440,6 +446,7 @@ mod tests {
                 message: f.message,
                 location: None,
                 byte_offset: f.location.position.map(|p| p.byte_offset),
+                detail: None,
             })
             .collect();
         assert!(
