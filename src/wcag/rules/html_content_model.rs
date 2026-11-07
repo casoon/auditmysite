@@ -431,6 +431,7 @@ mod tests {
                     </body></html>";
         let report = html_conform::check(html).expect("html-conform runs");
         let findings: Vec<HtmlConformFinding> = report
+            .to_report()
             .findings
             .into_iter()
             .map(|f| HtmlConformFinding {
@@ -438,7 +439,7 @@ mod tests {
                 severity: "error".to_string(),
                 message: f.message,
                 location: None,
-                byte_offset: f.location.map(|l| l.byte_offset),
+                byte_offset: f.location.position.map(|p| p.byte_offset),
             })
             .collect();
         assert!(

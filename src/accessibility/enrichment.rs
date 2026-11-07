@@ -86,11 +86,11 @@ pub async fn enrich_violations_with_page(
                 // the up-to-3-level ancestor chain a developer can paste into
                 // devtools to locate the element.
                 if let Some(path) = dom_path.filter(|p| !p.is_empty()) {
-                    violation.evidence.push(crate::wcag::types::Evidence {
-                        source: "ax_tree".to_string(),
-                        field: Some("dom_path".to_string()),
-                        value: Some(path),
-                    });
+                    violation.evidence.push(
+                        crate::wcag::types::Evidence::new("ax_tree")
+                            .with_field("dom_path")
+                            .with_value(path),
+                    );
                 }
             }
             None => {
