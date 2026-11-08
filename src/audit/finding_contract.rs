@@ -312,9 +312,21 @@ const NOT_HTTPS: &str = "page.transport.not_https";
 /// stay references to it (#779). It is no WCAG failure (best practice), so
 /// Accessibility does not charge it either.
 const H1_MISSING: &str = "page.h1.missing";
+/// Zoom locked by the viewport meta (`user-scalable=no`). WCAG 1.4.4 charges it
+/// in Accessibility; the Mobile finding of the same observation is a reference
+/// (#921).
+const ZOOM_LOCKED: &str = "page.zoom.locked";
+/// Interactive elements below the minimum target size. WCAG 2.5.8 charges it in
+/// Accessibility; Mobile lists its own 44 px measurement as a reference (#921).
+const TARGET_SIZE_SMALL: &str = "page.target_size.small";
 
 fn shared_cause_for_wcag(rule_id: &str) -> Option<&'static str> {
-    (rule_id == "a11y.language.missing").then_some(LANG_MISSING)
+    match rule_id {
+        "a11y.language.missing" => Some(LANG_MISSING),
+        "a11y.resize_text.weak" => Some(ZOOM_LOCKED),
+        "a11y.target_size_minimum.small" => Some(TARGET_SIZE_SMALL),
+        _ => None,
+    }
 }
 
 /// Indexability the page is meant to have — context for `noindex`, not a
@@ -808,19 +820,36 @@ fn collect(
     }
 
     if let Some(mobile) = &report.experience.mobile {
-        // `mobile_penalty` charges every issue.
+        // `mobile_penalty` charges every issue except the two WCAG causes:
+        // zoom lock (1.4.4) and small targets (2.5.8) are charged once, in
+        // Accessibility, and stay here as measured references (#921).
         for issue in &mobile.issues {
+            let kind = issue.kind();
+            let scoring = match kind {
+                Some(
+                    crate::mobile::MobileIssueKind::NotScalable
+                    | crate::mobile::MobileIssueKind::SmallTargets,
+                ) => FindingScoring::new("Accessibility", E::Reference),
+                _ => FindingScoring::new("Mobile", E::Deduction),
+            };
             let mut c = Collected::new(
                 D::Mobile,
                 "mobile",
                 issue.issue_type.clone(),
                 issue.severity,
                 issue.message.clone(),
-                FindingScoring::new("Mobile", E::Deduction),
+                scoring,
                 L::Page,
             );
-            if issue.kind() == Some(crate::mobile::MobileIssueKind::MissingViewport) {
-                c.cause = Some(VIEWPORT_MISSING);
+            match kind {
+                Some(crate::mobile::MobileIssueKind::MissingViewport) => {
+                    c.cause = Some(VIEWPORT_MISSING);
+                }
+                Some(crate::mobile::MobileIssueKind::NotScalable) => c.cause = Some(ZOOM_LOCKED),
+                Some(crate::mobile::MobileIssueKind::SmallTargets) => {
+                    c.cause = Some(TARGET_SIZE_SMALL);
+                }
+                _ => {}
             }
             if let Some(count) = issue.values.small_target_count {
                 c = c.elements(count);
@@ -1482,6 +1511,71 @@ mod tests {
             project, 1,
             "the project-risk count reads the same element count"
         );
+    }
+
+    /// #921: small targets (2.5.8) and a locked zoom (1.4.4) are observed by
+    /// Accessibility and by Mobile. Accessibility charges each cause; the Mobile
+    /// finding stays in the report with its values as a reference, so one
+    /// defect never lowers two weighted modules.
+    #[test]
+    fn small_targets_and_locked_zoom_are_charged_once() {
+        use crate::wcag::{Violation, WcagLevel};
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new("2.5.8", "x", WcagLevel::AA, Severity::Medium, "x", "n1")
+                .with_rule_id("targets/size"),
+        );
+        results.add_violation(
+            Violation::new("1.4.4", "x", WcagLevel::AA, Severity::High, "x", "n2")
+                .with_rule_id("zoom/viewport-locked"),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1)
+            .with_mobile(crate::mobile::MobileFriendliness {
+                score: 100,
+                viewport: Default::default(),
+                touch_targets: Default::default(),
+                font_sizes: Default::default(),
+                content_sizing: Default::default(),
+                issues: vec![
+                    crate::mobile::MobileIssue {
+                        category: "viewport".into(),
+                        issue_type: "not_scalable".into(),
+                        message: "Page disables zooming".into(),
+                        severity: Severity::Critical,
+                        impact: "x".into(),
+                        values: Default::default(),
+                    },
+                    crate::mobile::MobileIssue {
+                        category: "touch_targets".into(),
+                        issue_type: "small_targets".into(),
+                        message: "3 touch targets are too small".into(),
+                        severity: Severity::Low,
+                        impact: "x".into(),
+                        values: crate::mobile::MobileIssueValues {
+                            small_target_count: Some(3),
+                            ..Default::default()
+                        },
+                    },
+                ],
+            });
+        let n = normalize(&report).normalized;
+        n.validate().unwrap();
+        for (a11y_rule, mobile_rule) in [
+            ("a11y.target_size_minimum.small", "mobile.small_targets"),
+            ("a11y.resize_text.weak", "mobile.not_scalable"),
+        ] {
+            let a11y = n.findings.iter().find(|f| f.rule_id == a11y_rule).unwrap();
+            let mobile = n
+                .findings
+                .iter()
+                .find(|f| f.rule_id == mobile_rule)
+                .unwrap();
+            assert_eq!(a11y.contract.cause, mobile.contract.cause, "{a11y_rule}");
+            assert_eq!(a11y.contract.scoring.effect, ScoringEffect::Deduction);
+            assert_eq!(mobile.contract.scoring.effect, ScoringEffect::Reference);
+            assert!(!mobile.contract.scoring.charges());
+            assert!(!mobile.contract.is_primary());
+        }
     }
 
     #[test]

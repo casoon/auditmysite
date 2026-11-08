@@ -3560,9 +3560,10 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Users with low vision cannot enlarge content.",
         technical_impact: "Viewport-Meta mit user-scalable=no.",
         technical_impact_en: "Viewport meta with user-scalable=no.",
+        // Charged once, as WCAG 1.4.4 in Accessibility (#921).
         score_impact: ScoreImpact {
-            base_penalty: 20.0,
-            max_penalty: 20.0,
+            base_penalty: 0.0,
+            max_penalty: 0.0,
             occurrence_scaling: Scaling::Fixed,
         },
         report_visibility: VIS_ALL,
@@ -3583,9 +3584,10 @@ pub static RULES: &[Rule] = &[
         user_impact_en: "Hard to operate on touchscreens.",
         technical_impact: "Bounding Box unter 44x44px.",
         technical_impact_en: "Bounding box below 44x44px.",
+        // Charged once, as WCAG 2.5.8 in Accessibility (#921).
         score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
+            base_penalty: 0.0,
+            max_penalty: 0.0,
             occurrence_scaling: Scaling::Fixed,
         },
         report_visibility: VIS_STANDARD,
