@@ -1,0 +1,54 @@
+name: Rule request
+description: Propose a new accessibility rule or a new check
+labels: ["enhancement", "wcag"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A new rule needs a normative source and test cases before it can be merged. Agreeing
+        on both here saves a rewrite later. How rules are added:
+        [CONTRIBUTING](https://github.com/casoon/auditmysite/blob/main/docs/CONTRIBUTING.md#adding-a-browser-bound-wcag-rule).
+  - type: input
+    id: criterion
+    attributes:
+      label: Success criterion or normative source
+      description: The WCAG success criterion (for example 2.4.11 Focus Not Obscured), or the WAI-ARIA, HTML or other specification section.
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: What the rule should flag
+      description: The failure in one or two sentences, and what counts as conforming, so that both sides can be tested.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: HTML for a page that must be flagged, one that must pass, and one the rule does not apply to.
+      render: html
+    validations:
+      required: true
+  - type: dropdown
+    id: needs
+    attributes:
+      label: What does deciding it need
+      description: This decides which repository the rule goes in. Rules that need only the HTML, the stylesheets or the accessibility tree belong in barrierlab (the shared rule library); rules that need a running browser belong in auditmysite.
+      options:
+        - Only the HTML, the stylesheets or the accessibility tree
+        - A running browser (interaction, frames, focus, computed layout)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: prior
+    attributes:
+      label: Existing coverage
+      description: What other tools (axe-core, Pa11y, Lighthouse) report for this, and whether an auditmysite rule already covers part of it.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this myself.
