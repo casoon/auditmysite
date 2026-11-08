@@ -17,7 +17,7 @@ It is designed for teams that want a fast local check, stable JSON for automatio
 
 - Real browser signals instead of static guesses
 - Works for single pages, sitemaps, URL lists, and same-domain crawl discovery
-- Outputs as terminal table, JSON, PDF, AI-optimized task list, or compact summary JSON for dashboards
+- Outputs as terminal table, JSON, PDF, SARIF, AI-optimized task list, or compact summary JSON for dashboards
 - JSON output is schema-backed and tested for release stability
 - Ships as a Rust binary instead of a Node-based toolchain
 
@@ -130,10 +130,32 @@ Common options:
 
 - `--url-file <FILE>`: audit a list of URLs; `--sitemap <URL>`: audit a sitemap; `--crawl` discovers same-domain pages
 - `--browser-path <PATH>`: use a specific Chrome or Chromium binary
-- `-f json|table|pdf`, `-o <FILE>`: output format and target; `--lang de|en`: report language
+- `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang de|en`: report language
 - `--full`: add performance, SEO, security and mobile; `--level A|AA|AAA`: WCAG level
 
 Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).
+
+## Runtime per page
+
+A default run is the full analysis set (desktop and mobile accessibility, throttled performance passes, SEO, security, interactive journeys). Measured on eight reference sites (full Chrome, macOS, Apple M4 Pro, one run each):
+
+| Mode | Flags | Seconds per page (median, range) |
+|---|---|---|
+| Default | none | 28.0 (14.8 – 54.1) |
+| Without journeys | `--interactive off` | 17.8 (11.5 – 32.9) |
+| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 7.0 (2.5 – 8.9) |
+
+In batch runs pages share one browser and run in parallel: six URLs took 99 s with `-c 1`, 47 s with `-c 3` and 34 s with `-c 6`. `--max-pages` caps the page count and is the main lever on total time. How `--concurrency`, `--timeout`, `--max-pages` and the module flags interact, the full batch table and the measuring conditions: [CLI and output contract](docs/reference/cli-and-output.md#runtime-per-page).
+
+## SARIF output
+
+`-f sarif` writes SARIF 2.1.0 for single pages and batches: one result per finding occurrence, one rule per rule ID, `level` from the severity, and the audited page URL as the location (there is no source file).
+
+```bash
+auditmysite https://example.com -f sarif -o auditmysite.sarif --quiet --report-mode
+```
+
+Add `--report-mode` so the exit code does not fail the step before an upload step runs. A GitHub Actions example and the limits of Code Scanning with page-URL locations: [SARIF output](docs/reference/cli-and-output.md#sarif-output).
 
 ## How the overall score is weighted
 

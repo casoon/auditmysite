@@ -48,6 +48,129 @@ auditmysite --help
 auditmysite browser --help
 ```
 
+## Runtime per page
+
+A default run (`auditmysite <url>`) is the full analysis set: accessibility on desktop and mobile, performance with throttled passes, SEO, security, mobile checks and the interactive journeys. Wall-clock time per page depends mostly on how many of these passes run and on the page itself.
+
+Measured on 2026-11-08 with auditmysite 2.0.2 (release build), full Google Chrome 157 on macOS, Apple M4 Pro (14 cores), one run per cell, live sites over a home connection, the eight sites of the [reference set](https://github.com/casoon/auditmysite/blob/main/tests/fixtures/reference_sites.json) (gov.uk, gov.ie, casoon.de, mit.edu, bundesregierung.de, dm.de, berlin.de, basf.com). Single-page figures include the process and browser start.
+
+| Mode (single page) | Flags | Range over 8 sites | Median |
+|---|---|---|---|
+| Default | none (same as `--full`) | 14.8 – 54.1 s | 28.0 s |
+| Without journeys | `--interactive off` | 11.5 – 32.9 s | 17.8 s |
+| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 2.5 – 8.9 s | 7.0 s |
+
+`--skip-performance` or `--skip-mobile` also switches off the other `--full` modules (SEO, security), so the last row is the accessibility tree and the WCAG rules without the rest. Heavy, script-driven pages cost more: bundesregierung.de (54.1 s) and dm.de (53.6 s) were the slowest in the default mode; gov.uk (14.8 s) the fastest.
+
+Batch runs share one browser, so the start-up cost is paid once. Same six URLs (gov.uk, gov.ie, casoon.de, mit.edu, bundesregierung.de, berlin.de) as a `--url-file`, `-f json`, default modules:
+
+| Run | Flags | Total | Per page |
+|---|---|---|---|
+| Sequential | `-c 1` | 99.4 s | 16.6 s |
+| Default concurrency | none | 90.1 s | 15.0 s |
+| Three tabs | `-c 3` | 47.0 s | 7.8 s |
+| Six tabs | `-c 6` | 33.9 s | 5.7 s |
+| Three tabs, no journeys | `-c 3 --interactive off` | 26.6 s | 4.4 s |
+| First three URLs | `-c 3 -m 3` | 24.4 s | 8.1 s |
+
+All six pages were audited in every run. Concurrency does not scale linearly: three tabs were 2.1 times and six tabs 2.9 times faster than one. Divide the sequential per-page time by that factor, not by the tab count, to size a sitemap run. Timings vary from run to run and with load on the machine and the sites; treat them as an order of magnitude, not a promise.
+
+### How the batch flags interact
+
+- `-c, --concurrency <1-10>`: browser tabs audited at the same time. Default 3, except on macOS with a full Chrome while journeys are on: there the default is 1 (the `Default concurrency` row above), because parallel keyboard journeys can stall that browser (see [Browser setup](../../guides/browser-setup/)). An explicit `-c` always wins. `0` and values above 10 are rejected.
+- `-t, --timeout <secs>`: page load timeout, default 30. It bounds one page, not the run. A page waiting for a free tab waits up to four times `--timeout` (two minutes at least); a page that still gets none is retried one at a time after the parallel phase.
+- `--stability-budget-ms <ms>`: wait for late hydration after navigation, default 1500; the same budget again bounds the wait for finite CSS animations. Paid on every page, so it scales with the page count, not with concurrency.
+- `-m, --max-pages <n>`: caps the number of audited URLs (0 = unlimited). `--include-path` and `--exclude-path` are applied first; `--sample-strategy first-n|stratified` decides which N are kept. This is the main lever on total time, since total time is roughly the page count times the per-page time divided by the concurrency speed-up.
+- `--interactive off`, `--skip-performance`, `--skip-mobile`: reduce the work per page and apply to every page of the batch.
+- Single-URL only, not run in batch mode: `--perf-runs`, `--isolate-third-party-impact`, `--check-ssr-content`. `--privacy-check` adds one page load per audited page in either mode. `--crawl` adds link-check requests on top of the page audits.
+
+## SARIF output
+
+`-f sarif` writes a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/) log for SARIF consumers such as GitHub Code Scanning. It works for single pages and for batch inputs (sitemap, URL file, crawl); a batch produces one run with the findings of all audited pages.
+
+```bash
+auditmysite https://example.com -f sarif -o auditmysite.sarif --quiet
+auditmysite --sitemap https://example.com/sitemap.xml -f sarif -o auditmysite.sarif --quiet
+```
+
+What the file contains (checked against a real run on mit.edu: 54 results, 41 rules; a two-URL batch: 100 results, 59 rules):
+
+- `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages.
+- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `a11y.contrast.weak`, `seo.meta.description`, `security.headers.missing_header`). One result is written per occurrence.
+- `level` follows the severity: critical and high are `error`, medium is `warning`, low is `note`.
+- `helpUri` is set only for rules that have a help URL, in practice the WCAG rules (a link to the W3C "Understanding" page of the criterion). Rules of the other modules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
+- The location of every result is the audited page URL as `artifactLocation.uri`. There is no source file to point to, so the element's selector is appended to the message text (`... (selector: input#es-search-form-input)`). No `region` and no `partialFingerprints` are written.
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "auditmysite",
+          "informationUri": "https://github.com/casoon/auditmysite",
+          "version": "2.0.2",
+          "rules": [
+            {
+              "id": "a11y.contrast.weak",
+              "name": "Insufficient color contrast",
+              "shortDescription": { "text": "Insufficient color contrast" },
+              "fullDescription": {
+                "text": "The text reaches a contrast ratio of 3.04:1; 4.5:1 is required for normal text."
+              },
+              "helpUri": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+              "properties": { "tags": ["wcag", "Accessibility"], "wcagCriterion": "1.4.3" }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "a11y.contrast.weak",
+          "level": "error",
+          "message": {
+            "text": "The text reaches a contrast ratio of 3.04:1; 4.5:1 is required for normal text. (selector: span.site-nav__arrow)"
+          },
+          "locations": [
+            { "physicalLocation": { "artifactLocation": { "uri": "https://www.mit.edu/" } } }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+(Shortened to one rule and one result.) The process exit code still encodes the verdict (0 pass, 1 warn, 2 fail). In CI, add `--report-mode` so the step succeeds whenever the file was written and a following upload step runs; gate the build separately if needed. The default `*-screen-reader-audit.json` sidecar is written next to `-o` for SARIF as well; `--no-screen-reader-report` skips it.
+
+### GitHub Code Scanning
+
+```yaml
+name: Accessibility
+on:
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Install auditmysite
+        run: curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh | bash
+      - name: Audit
+        run: auditmysite https://staging.example.com -f sarif -o auditmysite.sarif --quiet --report-mode
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          sarif_file: auditmysite.sarif
+          category: auditmysite
+```
+
+The workflow is a template and was not run on GitHub. Code Scanning is built around source files: its [SARIF documentation](https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning) lists `region.startLine` and `partialFingerprints` as required and says a location must match a committed file to be displayed, none of which auditmysite's page-URL locations provide. Whether and how GitHub shows these results as alerts has not been verified; check a first upload before relying on it. The SARIF file follows the 2.1.0 structure (it was not validated against the schema) and can also be kept as a workflow artifact.
+
 ## Output Contract
 
 JSON output is treated as an automation contract.
