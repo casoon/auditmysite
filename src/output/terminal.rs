@@ -48,6 +48,11 @@ fn detected_width() -> Option<usize> {
         .map(|(_rows, cols)| cols as usize)
 }
 
+/// Runemark's default overflow hint names a `--details` flag this CLI does
+/// not have. The table is a sample by design; the complete findings are in
+/// the JSON and PDF outputs.
+const DETAILS_HINT: &str = "use --format json or --format pdf for all";
+
 fn render_options() -> RenderOptions {
     match detected_width() {
         Some(width) => RenderOptions::new().with_width(width),
@@ -104,6 +109,7 @@ pub fn render_single_report_for(
     let verdict = terminal_verdict(normalized.normalized.decision.verdict);
 
     let mut rm_report = Report::new(&vm.meta.title, verdict)
+        .with_details_hint(Some(DETAILS_HINT.to_string()))
         // Accessibility first — it is what grade and certificate below
         // classify (plan 29, D1); the combined technical value follows, named.
         .add_metric(Metric::new("Accessibility", vm.summary.score.to_string()))
@@ -174,6 +180,7 @@ pub fn render_batch_report(
     let verdict = terminal_verdict(batch_report.summary.decision.verdict);
 
     let mut rm_report = Report::new(format!("Batch Audit — {}", p.domain), verdict)
+        .with_details_hint(Some(DETAILS_HINT.to_string()))
         .add_metric(Metric::new("URLs", p.total_urls.to_string()))
         .add_metric(Metric::new("Passed", p.passed.to_string()))
         .add_metric(Metric::new("Failed", p.failed.to_string()))
@@ -320,6 +327,33 @@ mod tests {
         let broken_out = render_single_report(&broken, &args).unwrap();
         assert!(clean_out.starts_with("[OK]"), "{clean_out}");
         assert!(broken_out.starts_with("[FAIL]"), "{broken_out}");
+    }
+
+    /// The overflow line must not point at a `--details` flag that does not exist.
+    #[test]
+    fn overflow_hint_names_real_output_formats() {
+        use crate::wcag::Violation;
+        let mut results = WcagResults::new();
+        for i in 0..5 {
+            results.add_violation(Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                crate::cli::WcagLevel::A,
+                crate::taxonomy::Severity::High,
+                format!("Image {i} without alternative text"),
+                format!("img-{i}"),
+            ));
+        }
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            results,
+            42,
+        );
+        let output = render_single_report(&report, &test_args()).unwrap();
+        assert!(output.contains("more finding(s)"), "{output}");
+        assert!(output.contains(DETAILS_HINT), "{output}");
+        assert!(!output.contains("--details"), "{output}");
     }
 
     #[test]
