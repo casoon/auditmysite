@@ -156,6 +156,7 @@ mod tests {
                     message: message.to_string(),
                     location: Some("190:12271".to_string()),
                     byte_offset: None,
+                    detail: None,
                 },
             )
             .collect(),

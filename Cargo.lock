@@ -19,9 +19,9 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.28.1"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ee6462c10eb59e4c899e623c8ff7b3a5c082a3a4240a19ca81a3e37dc3941f"
+checksum = "d64da4e0305059cdd73199d89da83ceb7f153d4373d5fd10aafc768834415f50"
 dependencies = [
  "serde",
 ]
@@ -2506,9 +2506,9 @@ dependencies = [
 
 [[package]]
 name = "html-conform"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70c9d767ee42c369c4198b1965a2e0847e92a0166bd66db46c3192dbbfdfa29d"
+checksum = "a8d5503ec0ecec664d49be845ed28c3f79a4e550a41bdc72b22bfd8b32e87c07"
 dependencies = [
  "a11y-report",
  "csp-parse",

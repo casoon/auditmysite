@@ -6,11 +6,10 @@
 //! validator: the SEO view's former html5ever parse-error count of the same
 //! serialized DOM was a subset of this check and is gone (#724).
 //!
-//! `rule_id`/`message` are stored as opaque canonical-English payload —
-//! `html-conform`'s rule set is open-ended (not a small closed enum) and its
-//! messages are third-party English prose, the same shape as
-//! `best_practices::console_errors`/`vulnerable_libs`, so this module
-//! deliberately does not use the #406 kind-enum localization pattern.
+//! `rule_id`/`message` are stored as canonical-English payload. Schema
+//! findings additionally carry their structured arguments
+//! ([`message::SchemaDetail`], the #406 kind-enum pattern), from which the PDF
+//! writes the run-language text; see [`message`].
 
 pub mod message;
 pub mod module;
@@ -72,6 +71,12 @@ pub struct HtmlConformFinding {
     /// re-parsing text back into a number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub byte_offset: Option<usize>,
+    /// Structured arguments of a schema finding (#902), the source of the
+    /// run-language text in [`message::message_text`]. Not serialized: the
+    /// JSON keeps the checker's canonical English `message`; a report read
+    /// back from JSON falls back to parsing that message.
+    #[serde(skip)]
+    pub detail: Option<message::SchemaDetail>,
 }
 
 /// Runs `html_conform::check` against the live page's rendered HTML.
@@ -123,39 +128,10 @@ pub async fn analyze_html_conform(
         }
     };
 
-    let mut error_count = 0u32;
-    let mut warning_count = 0u32;
-    let mut info_count = 0u32;
-    let findings: Vec<HtmlConformFinding> = report
-        .to_report()
-        .findings
-        .into_iter()
-        .map(|f| {
-            // `to_report` maps checker Error/Warning/Info to Fail/Review/Untested.
-            let severity = match f.outcome {
-                a11y_report::Outcome::Fail => {
-                    error_count += 1;
-                    "error"
-                }
-                a11y_report::Outcome::Review => {
-                    warning_count += 1;
-                    "warning"
-                }
-                a11y_report::Outcome::Untested => {
-                    info_count += 1;
-                    "info"
-                }
-                a11y_report::Outcome::Pass => unreachable!("html-conform reports no passes"),
-            };
-            HtmlConformFinding {
-                rule_id: f.rule_id,
-                severity: severity.to_string(),
-                message: f.message,
-                location: f.location.source_hint,
-                byte_offset: f.location.position.map(|p| p.byte_offset),
-            }
-        })
-        .collect();
+    let findings = findings_from(report.to_report());
+    let count = |severity: &str| findings.iter().filter(|f| f.severity == severity).count() as u32;
+    let (error_count, warning_count, info_count) =
+        (count("error"), count("warning"), count("info"));
 
     let score = score_findings(&findings);
     let distinct_defect_count = distinct_defect_count(&findings);
@@ -170,6 +146,35 @@ pub async fn analyze_html_conform(
         findings,
         raw_html: Some(html),
     })
+}
+
+/// The checker's findings in this module's shape, with each schema finding's
+/// structured arguments taken from `extra`, where `to_report` puts them.
+fn findings_from(report: a11y_report::Report) -> Vec<HtmlConformFinding> {
+    report
+        .findings
+        .into_iter()
+        .map(|f| {
+            // `to_report` maps checker Error/Warning/Info to Fail/Review/Untested.
+            let severity = match f.outcome {
+                a11y_report::Outcome::Fail => "error",
+                a11y_report::Outcome::Review => "warning",
+                a11y_report::Outcome::Untested => "info",
+                a11y_report::Outcome::Pass => unreachable!("html-conform reports no passes"),
+            };
+            HtmlConformFinding {
+                rule_id: f.rule_id,
+                severity: severity.to_string(),
+                message: f.message,
+                location: f.location.source_hint,
+                byte_offset: f.location.position.map(|p| p.byte_offset),
+                detail: f
+                    .extra
+                    .get::<html_conform::FindingDetail>()
+                    .and_then(message::SchemaDetail::from_checker),
+            }
+        })
+        .collect()
 }
 
 /// Severity weights for one *distinct* defect (see [`score_findings`]).
@@ -355,6 +360,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn schema_findings_carry_their_detail_and_read_german_without_namespace() {
+        let html = r#"<!DOCTYPE html><html lang="en"><head><title>t</title></head><body><ul>text<li>x</li><span>s</span></ul><img src="a.png" alt="" width="100%"><div bogus="1">d</div><dl><dt>x</dt></dl></body></html>"#;
+        let report = html_conform::check(html).expect("check runs").to_report();
+        let findings = findings_from(report.clone());
+        let schema: Vec<_> = findings
+            .iter()
+            .filter(|f| f.rule_id == "schema.html5")
+            .collect();
+        assert_eq!(schema.len(), 5, "{schema:#?}");
+        for f in &schema {
+            assert!(f.detail.is_some(), "{f:?}");
+            let de = message::message_text(&f.rule_id, &f.message, f.detail.as_ref(), false);
+            assert!(!de.contains("{http://www.w3.org/1999/xhtml}"), "{de}");
+            assert!(
+                !de.contains("unexpected") && !de.contains("missing"),
+                "{de}"
+            );
+        }
+        // The JSON is unchanged: the checker's English message, no detail key.
+        for (f, original) in findings.iter().zip(&report.findings) {
+            let json = serde_json::to_value(f).expect("serializes");
+            assert_eq!(json["message"], original.message.as_str());
+            assert!(json.get("detail").is_none(), "{json}");
+        }
+    }
+
     fn finding(rule: &str, severity: &str, message: &str) -> HtmlConformFinding {
         HtmlConformFinding {
             rule_id: rule.to_string(),
@@ -362,6 +394,7 @@ mod tests {
             message: message.to_string(),
             location: None,
             byte_offset: None,
+            detail: None,
         }
     }
 

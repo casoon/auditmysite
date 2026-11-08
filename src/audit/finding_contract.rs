@@ -869,8 +869,19 @@ fn collect(
                     L::Page,
                 )
                 .text({
-                    let (rule_id, message) = (finding.rule_id.clone(), finding.message.clone());
-                    move |en| crate::html_conform::message::message_text(&rule_id, &message, en)
+                    let (rule_id, message, detail) = (
+                        finding.rule_id.clone(),
+                        finding.message.clone(),
+                        finding.detail.clone(),
+                    );
+                    move |en| {
+                        crate::html_conform::message::message_text(
+                            &rule_id,
+                            &message,
+                            detail.as_ref(),
+                            en,
+                        )
+                    }
                 })
                 .selector(finding.location.clone()),
             );

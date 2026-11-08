@@ -1408,6 +1408,7 @@ mod tests {
                         message: "Element <div> not allowed as child of <head>".to_string(),
                         location: Some("12:34".to_string()),
                         byte_offset: None,
+                        detail: None,
                     },
                     crate::html_conform::HtmlConformFinding {
                         rule_id: "parser.html5".to_string(),
@@ -1415,6 +1416,7 @@ mod tests {
                         message: "Unknown entity reference".to_string(),
                         location: None,
                         byte_offset: None,
+                        detail: None,
                     },
                 ],
                 raw_html: None,

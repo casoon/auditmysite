@@ -238,6 +238,7 @@ fn report_with_every_domain() -> AuditReport {
             message: "Duplicate id `main`.".to_string(),
             location: Some("#main".to_string()),
             byte_offset: None,
+            detail: None,
         }],
         raw_html: None,
     });

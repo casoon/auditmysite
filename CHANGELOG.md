@@ -13,6 +13,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **PDF:** German HTML-conformance schema findings are written from the checker's structured arguments (`html-conform` 0.4.2) instead of its English message: unexpected element, text and attribute, invalid attribute value and missing content now name the element, without the XHTML namespace or source position; the JSON `message` stays the checker's English (Refs #902-12).
 - **PDF:** the accessibility sub-scores in the Management Summary ("Weitere Teilbereiche der Barrierefreiheit") come from the same breakdown as the JSON `summary.accessibility_score_breakdown` (eight areas, same numbers) instead of the seven-subcategory scores, which gave 98/95 next to 94 for the same findings; the seven subcategory scores remain in `detail.accessibility_subcategory_scores` (Refs #902-10).
 - **PDF:** "Problemprofil: punktuell" no longer says "without structural problems" while "Wichtigste Risiken" lists a finding with wide reach or a structural fix; the badge text reads the same project-risk count (Refs #952-4).
 
