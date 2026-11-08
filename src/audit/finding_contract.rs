@@ -57,7 +57,6 @@ pub enum FindingDomain {
     BestPractices,
     DarkMode,
     DesignQuality,
-    TechStack,
     Ux,
     Journey,
     Commerce,
@@ -80,7 +79,6 @@ impl FindingDomain {
             Self::BestPractices => "best_practices",
             Self::DarkMode => "dark_mode",
             Self::DesignQuality => "design_quality",
-            Self::TechStack => "tech_stack",
             Self::Ux => "ux",
             Self::Journey => "journey",
             Self::Commerce => "commerce",
@@ -110,7 +108,7 @@ impl FindingDomain {
                 "Accessibility",
             ),
             Self::Seo => (Dimension::Seo, Subcategory::Indexability, "SEO"),
-            Self::Security | Self::TechStack | Self::NetworkDns => (
+            Self::Security | Self::NetworkDns => (
                 Dimension::Security,
                 Subcategory::ServerConfiguration,
                 "Security",
@@ -435,7 +433,7 @@ pub const DOMAIN_POLICIES: &[(&str, DomainPolicy)] = &[
     ("privacy", DomainPolicy::Findings(FindingDomain::Privacy)),
     (
         "tech_stack",
-        DomainPolicy::Findings(FindingDomain::TechStack),
+        DomainPolicy::SignalsOnly("detection only: read-only fingerprints, no problem model"),
     ),
     ("ux", DomainPolicy::Findings(FindingDomain::Ux)),
     (
@@ -961,28 +959,6 @@ fn collect(
                 })
                 .selector(Some(finding.selector.clone()))
                 .review(),
-            );
-        }
-    }
-
-    if let Some(stack) = &report.discoverability.tech_stack {
-        for finding in &stack.findings {
-            out.push(
-                Collected::new(
-                    D::TechStack,
-                    "tech_stack",
-                    format!(
-                        "{}.{}",
-                        finding.tech.to_ascii_lowercase().replace(' ', "_"),
-                        finding.title.to_ascii_lowercase().replace(' ', "_")
-                    ),
-                    finding.severity,
-                    finding.detail.clone(),
-                    FindingScoring::none(),
-                    L::Site,
-                )
-                .title(finding.title.clone())
-                .selector(finding.url_checked.clone()),
             );
         }
     }

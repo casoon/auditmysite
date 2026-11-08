@@ -443,7 +443,6 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::journey::module::DOM_MAIN,
     &crate::journey::module::EARLY_TEXT,
     &crate::tech_stack::DETECTION,
-    &crate::tech_stack::HARDENING_PROBES,
     &crate::best_practices::console_errors::CONSOLE,
     &crate::best_practices::vulnerable_libs::LIBRARIES,
     &crate::design_quality::CANDIDATES,
@@ -689,10 +688,6 @@ mod tests {
             ("journey.dom_main", crate::journey::module::counter_cases),
             ("journey.early_text", crate::journey::module::counter_cases),
             ("tech_stack.detection", crate::tech_stack::counter_cases),
-            (
-                "tech_stack.hardening_probes",
-                crate::tech_stack::counter_cases,
-            ),
             (
                 "best_practices.console",
                 crate::best_practices::console_errors::counter_cases,

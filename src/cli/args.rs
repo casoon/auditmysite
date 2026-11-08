@@ -347,7 +347,7 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "MODE")]
     pub display: Option<DisplaySelection>,
 
-    /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
+    /// Enable tech stack detection from in-page signals (CMS, frameworks; no extra requests)
     #[arg(long)]
     pub stack: bool,
 

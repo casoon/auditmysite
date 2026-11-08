@@ -2242,13 +2242,13 @@ fn render_active_module_section(
             }
         }
         "tech_stack" => {
-            // Nothing detected and nothing probed: no chapter — a page for
+            // Nothing detected: no chapter — a page for
             // "nothing to report" (plan 76). The JSON keeps the module.
             if let Some(ts) = vm
                 .module_details
                 .tech_stack
                 .as_ref()
-                .filter(|ts| !ts.detected.is_empty() || !ts.findings.is_empty())
+                .filter(|ts| !ts.detected.is_empty())
             {
                 return (render_tech_stack(builder, ts, is_first, i18n), true);
             }

@@ -15,6 +15,10 @@ and verification for each change is in the
 
 - **Dependencies:** barrierlab 0.28.1 (`a11y-*`), `html-conform` 0.4.1, `csp-parse` and `stylesheet-parse` 0.1.1: names from a hidden `aria-labelledby` target keep its descendants, selectors with CSS escapes match, ten more `manual/*` checklist items, CSP nonces no longer flag inline scripts. JSON shape unchanged.
 
+### Removed
+
+- **Tech stack:** `--stack` (and `--full`) no longer send requests of their own to the audited host: the probes for `/wp-admin/`, `/wp-json/wp/v2/users`, `/xmlrpc.php`, `/user/login`, `/admin/`, `/administrator/` and the Next.js debug endpoint (user agent `auditmysite-stackcheck/1.0`) and their findings are gone (Refs #914). Breaking, JSON/library: `detail.modules.tech_stack` holds only `detected`; `findings`, `score`, `grade` and `audited_stacks` are removed, as are `tech_stack` findings and the `tech_stack` finding domain. `--stack` remains and enables the read-only detection of CMS and frameworks from in-page signals. Stored snapshots are cache misses (`EVALUATION_VERSION` 3).
+
 ### Fixed
 
 - **PDF:** German HTML-conformance schema findings are written from the checker's structured arguments (`html-conform` 0.4.2) instead of its English message: unexpected element, text and attribute, invalid attribute value and missing content now name the element, without the XHTML namespace or source position; the JSON `message` stays the checker's English (Refs #902-12).
