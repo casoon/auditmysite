@@ -10,3 +10,20 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+
+  # Cargo.lock is committed and `cargo audit` / `cargo deny` gate it in CI.
+  # Monthly and grouped keeps the number of PRs (each one runs Quick CI) at a
+  # few a month.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch
+      cargo-major:
+        update-types:
+          - major

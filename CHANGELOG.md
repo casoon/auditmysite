@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Added
+
+- **Security:** `SECURITY.md` with the disclosure contact, supported versions and scope; Dependabot also watches Cargo dependencies (monthly, grouped); `deny.toml` and a `cargo deny check licenses bans sources` step in the dependency-audit CI job (Refs #944).
+
 ### Changed
 
 - **Dependencies:** barrierlab 0.28.1 (`a11y-*`), `html-conform` 0.4.1, `csp-parse` and `stylesheet-parse` 0.1.1: names from a hidden `aria-labelledby` target keep its descendants, selectors with CSS escapes match, ten more `manual/*` checklist items, CSP nonces no longer flag inline scripts. JSON shape unchanged.

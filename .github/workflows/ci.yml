@@ -189,6 +189,14 @@ jobs:
       - name: Run cargo audit
         run: cargo audit
 
+      # Licences, bans and sources per deny.toml (#944). Advisories stay with
+      # cargo audit above, so they are not checked twice.
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.20.2 --locked
+
+      - name: Run cargo deny
+        run: cargo deny check licenses bans sources
+
   integration-mocked:
     name: Mocked Integration Tests (no Chrome)
     runs-on: ubuntu-latest
