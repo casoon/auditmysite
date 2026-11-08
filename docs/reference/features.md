@@ -131,7 +131,7 @@ journey_budget_ms = 8000  # wall-clock budget per URL in milliseconds (default: 
 
 ## Risk assessment
 
-Risk level is computed independently from the score. A page scoring 81 can still carry "Critical" risk if it has Level A violations relevant under BFSG/EAA. Risk levels: Low, Medium, High, Critical — based on critical/high violations, legal flags, and blocking issues (4.1.2/2.1.1).
+Risk level is computed independently from the score. A page scoring 81 can still carry "Critical" risk if it has Level A/AA violations relevant under BFSG/EAA. Risk levels: Low, Medium, High, Critical — based on critical/high violations, legal flags, and blocking issues (4.1.2/2.1.1).
 
 ## Configuration file
 

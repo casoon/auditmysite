@@ -423,15 +423,19 @@ impl NormalizedFinding {
         )
     }
 
-    /// Raises a legal flag: a WCAG Level-A finding of High or Critical
-    /// severity. A convention rule (`display/*`) never does (#704) — it is
-    /// only anchored to a criterion, it does not test it.
+    /// Raises a legal flag: a WCAG Level-A or Level-AA finding of High or
+    /// Critical severity, automatically confirmed (#922). BFSG and EN 301 549
+    /// require AA, so a High contrast failure (1.4.3) flags as a Level-A one
+    /// does. A convention rule (`display/*`) never does (#704) — it is only
+    /// anchored to a criterion, it does not test it; nor does a criterion
+    /// outside EN 301 549 V3.2.1 (WCAG-2.2-only criteria): both derive
+    /// `bfsg_relevance` "low".
     pub fn is_legal_flag(&self) -> bool {
         // A finding that still needs a manual check is no legal flag, however
         // severe its rule (plan 74).
-        self.wcag_level == "A"
+        matches!(self.wcag_level.as_str(), "A" | "AA")
             && matches!(self.severity, Severity::Critical | Severity::High)
-            && !crate::taxonomy::is_convention_rule(&self.rule_id)
+            && self.bfsg_relevance != "low"
             && self.verification != "manual_review_recommended"
     }
 }
@@ -442,7 +446,8 @@ impl NormalizedFinding {
 /// callout and the per-finding "BFSG-/EAA-Relevanz" row all read this, so none
 /// can say "no legal relevance" while another shows a Medium/High finding
 /// (#952-2). `RiskAssessment.legal_flags` (JSON, risk score, verdict) keeps its
-/// narrower Level-A definition on purpose; this set is a superset of it.
+/// narrower definition on purpose (Level A/AA, High/Critical severity); this
+/// set is a superset of it.
 pub fn is_bfsg_relevant_open(
     bfsg_relevance: &str,
     occurrence_count: usize,
@@ -681,7 +686,8 @@ pub struct RiskAssessment {
     pub critical_issues: usize,
     /// Number of high-severity issues
     pub high_issues: usize,
-    /// Number of WCAG Level A violations (legally relevant under BFSG/EAA)
+    /// Number of distinct WCAG Level A/AA rules with High/Critical severity,
+    /// automatically confirmed (legally relevant under BFSG/EAA)
     pub legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
@@ -708,7 +714,7 @@ impl RiskAssessment {
         match self.level {
             // Breadth-driven vs. volume-driven Critical (#457).
             RiskLevel::Critical if self.legal_flags >= 3 => format!(
-                "Critical risk: {} WCAG Level A violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
+                "Critical risk: {} WCAG Level A/AA violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
                 self.legal_flags, self.blocking_issues
             ),
             RiskLevel::Critical => format!(
@@ -1873,6 +1879,62 @@ mod tests {
         for slug in ["aria-prohibited-attr", "aria-hidden-focus", "frame-tested"] {
             assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
         }
+    }
+
+    /// #922: the legal flag covers Level A and Level AA (BFSG and EN 301 549
+    /// require AA), High/Critical, automatically confirmed, within EN 301 549.
+    #[test]
+    fn legal_flag_covers_level_a_and_aa_high_confirmed() {
+        let flag =
+            |criterion: &str, level: WcagLevel, severity: Severity, selector: Option<&str>| {
+                let mut v = Violation::new(criterion, "x", level, severity, "x", "42");
+                if let Some(sel) = selector {
+                    v = v.with_selector(sel);
+                }
+                let mut results = WcagResults::new();
+                results.add_violation(v);
+                let report =
+                    AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+                let n = normalize(&report).normalized;
+                let f = n.findings.into_iter().next().unwrap();
+                (f.is_legal_flag(), n.risk.legal_flags)
+            };
+        // Positive: AA High contrast, AA Critical, A High.
+        assert_eq!(
+            flag("1.4.3", WcagLevel::AA, Severity::High, Some("p.x")),
+            (true, 1)
+        );
+        assert_eq!(
+            flag("1.4.3", WcagLevel::AA, Severity::Critical, Some("p.x")),
+            (true, 1)
+        );
+        assert_eq!(
+            flag("1.1.1", WcagLevel::A, Severity::High, Some("img.x")),
+            (true, 1)
+        );
+        // Negative: AA Medium, A Low, AA High that still needs a manual check
+        // (no located element), AAA High, and a WCAG-2.2-only AA criterion
+        // (2.5.8) that EN 301 549 V3.2.1 does not cover.
+        assert_eq!(
+            flag("1.4.3", WcagLevel::AA, Severity::Medium, Some("p.x")),
+            (false, 0)
+        );
+        assert_eq!(
+            flag("1.1.1", WcagLevel::A, Severity::Low, Some("img.x")),
+            (false, 0)
+        );
+        assert_eq!(
+            flag("1.4.3", WcagLevel::AA, Severity::High, None),
+            (false, 0)
+        );
+        assert_eq!(
+            flag("2.3.3", WcagLevel::AAA, Severity::High, Some("div.x")),
+            (false, 0)
+        );
+        assert_eq!(
+            flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
+            (false, 0)
+        );
     }
 
     /// #704: a display-convention rule is only anchored to 1.1.1; it must

@@ -156,19 +156,19 @@ fn build_single_key_points_text(
     if normalized.risk.legal_flags > 0 {
         if en {
             points.push(
-                "High or critical WCAG Level A findings detected automatically — manual review needed for a defensible BFSG classification".to_string(),
+                "High or critical WCAG Level A/AA findings detected automatically — manual review needed for a defensible BFSG classification".to_string(),
             );
         } else {
             points.push(
-                "Hohe oder kritische WCAG-Level-A-Befunde automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
+                "Hohe oder kritische WCAG-Level-A/AA-Befunde automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
             );
         }
     } else if severity.high > 0 {
         if en {
-            points.push("No Level A violations, but structural weaknesses".to_string());
+            points.push("No Level A/AA violations, but structural weaknesses".to_string());
         } else {
             points.push(
-                "Keine Level-A-Verstöße, aber strukturelle Optimierungspotenziale".to_string(),
+                "Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale".to_string(),
             );
         }
     } else if !normalized.audit_flags.is_empty() {

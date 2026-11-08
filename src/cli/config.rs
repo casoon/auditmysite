@@ -100,7 +100,7 @@ pub struct ThresholdsConfig {
 /// CI verdict thresholds (`[verdict]` in auditmysite.toml).
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct VerdictConfig {
-    /// Fail if any WCAG Level A violations with High/Critical severity exist. Default: true.
+    /// Fail if any WCAG Level A/AA violations with High/Critical severity exist. Default: true.
     pub fail_on_legal_flags: Option<bool>,
     /// Fail if any blocking interaction issues (buttons/forms without accessible names) exist. Default: true.
     pub fail_on_blocking_issues: Option<bool>,

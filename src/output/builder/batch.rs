@@ -775,10 +775,10 @@ pub fn build_batch_presentation_with_normalized(
             (RiskLevel::Low, false) => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
             (RiskLevel::Medium, true) => "Some pages show medium risk. Targeted improvements recommended.",
             (RiskLevel::Medium, false) => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
-            (RiskLevel::High, true) => "Several pages show high risk. Timely remediation recommended, especially for WCAG Level A violations.",
-            (RiskLevel::High, false) => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
-            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.",
-            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — vorrangige Behebung empfohlen; ob daraus rechtliche Pflichten folgen, hängt vom anwendbaren Rahmen (z. B. BFSG/EAA) ab und braucht eine manuelle Prüfung.",
+            (RiskLevel::High, true) => "Several pages show high risk. Timely remediation recommended, especially for WCAG Level A/AA violations.",
+            (RiskLevel::High, false) => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A/AA-Verstößen.",
+            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A/AA violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.",
+            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A/AA-Verstöße automatisiert erkannt — vorrangige Behebung empfohlen; ob daraus rechtliche Pflichten folgen, hängt vom anwendbaren Rahmen (z. B. BFSG/EAA) ab und braucht eine manuelle Prüfung.",
         };
         (level_str, summary.to_string())
     };

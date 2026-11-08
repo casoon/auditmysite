@@ -1299,7 +1299,7 @@ pub struct BatchSummary {
     /// Number of distinct WCAG rule IDs that fired anywhere across all pages.
     #[serde(default)]
     pub violated_rule_count: usize,
-    /// Number of distinct WCAG Level-A rules with High/Critical severity across
+    /// Number of distinct WCAG Level-A/AA rules with High/Critical severity across
     /// all pages (legal exposure indicator).
     #[serde(default)]
     pub legal_flags: usize,
@@ -1505,12 +1505,12 @@ pub fn count_violated_rules(reports: &[crate::audit::normalized::NormalizedRepor
         .len()
 }
 
-/// Count the number of distinct WCAG Level-A rules with High/Critical severity
+/// Count the number of distinct WCAG Level-A/AA rules with High/Critical severity
 /// that appear across any of the given reports (legal exposure indicator).
 ///
 /// Also accounts for legal exposure raised purely by the screen-reader BFSG
 /// verdict (`RiskAssessment.legal_flags` can exceed the page's own WCAG
-/// Level-A finding count, see `audit::normalized::compute_risk`). That signal
+/// Level-A/AA finding count, see `audit::normalized::compute_risk`). That signal
 /// has no WCAG rule id of its own, so it is represented as a synthetic member
 /// of the same distinct-signal set whenever it fires on at least one page —
 /// otherwise a page could FAIL its single-page verdict on this signal while

@@ -1051,7 +1051,7 @@ fn pick_verdict_key(
     legal_flags: usize,
     counts: &crate::audit::normalized::SeverityCounts,
 ) -> String {
-    // A page with legal-relevant Level-A findings must never receive the
+    // A page with legal-relevant Level-A/AA findings must never receive the
     // reassuring "solid" verdict, regardless of an otherwise passable score (#356).
     let key = verdict_tier_key("verdict-tier", score);
     if legal_flags > 0

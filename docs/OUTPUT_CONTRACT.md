@@ -321,6 +321,70 @@ Independent 0-100 risk index; unlike quality scores, higher means more risk.
 The adjacent `level`, `threshold`, and `driven_by` fields explain its
 classification.
 
+**What it is.** A tool convention, not a measurement and not a legal or
+statistical model. The weights below were chosen by the maintainers so that the
+index orders pages by how much harm and legal-review exposure their automatic
+findings suggest; no empirical calibration or legal source stands behind the
+exact numbers. Read the counts (`legal_flags`, `critical_issues`,
+`high_issues`, `blocking_issues`) as the evidence and the score as a summary.
+
+```
+score = min(100,
+    20 * legal_flags
+  + 10 * critical_issues              (WCAG, per occurrence)
+  +  3 * high_issues                  (WCAG, per occurrence)
+  +  2 * blocking_issues              (per element)
+  + 10 * interactive_critical_issues  (journey findings)
+  +  5 * interactive_high_issues
+  +  3 * screen-reader findings of severity high
+  +  1 * screen-reader findings of severity medium)
+```
+
+- `legal_flags` counts *distinct rules* on the page, not occurrences (1000
+  images without alt text are one flag). A finding is a legal flag when it is a
+  WCAG Level A **or** Level AA finding of High or Critical severity, is
+  `automatically_confirmed` (a finding that needs manual review raises none),
+  and its criterion is covered by EN 301 549 V3.2.1 (the WCAG 2.1 A/AA table;
+  WCAG-2.2-only criteria and AAA do not flag). Convention rules (`display/*`)
+  never flag. AA is included because BFSG and EN 301 549 require AA: a High
+  contrast failure (1.4.3) is as actionable as a Level A failure. A page also
+  carries at least one flag when the screen-reader audit confirms a
+  BFSG-violating high-severity blocker (empty interactive element, unlabeled
+  form field) and was not blocked by a consent wall. The flag marks automatic
+  evidence worth a legal review, not a legal conclusion.
+- `critical_issues` and `high_issues` count occurrences, so a widespread defect
+  weighs more than an isolated one. `blocking_issues` counts distinct elements
+  with a missing accessible name or role (4.1.2) or a keyboard failure (2.1.1),
+  Medium severity or higher.
+- Why these weights: a legal flag is weighted highest (20) because it is the
+  only term that signals exposure beyond user harm; a critical occurrence (10)
+  is a barrier that stops a task; a high occurrence (3) hinders it; a blocker
+  (2) is added on top of those counts, so it is a small extra for the same
+  elements. Journey findings count per finding rather than per occurrence, at 10
+  for critical (equal to a static critical occurrence) and 5 for high (above a
+  static high occurrence); the 5 is a convention, not a result. Screen-reader
+  findings are heuristic quality signals and weigh 3 (high) and 1 (medium);
+  they never enter `severity_counts`. The relative order is
+  deliberate; the absolute values are not derived from anything.
+- The sum is capped at 100, so on a heavily affected page the score saturates
+  and stops distinguishing pages. The `level` does not.
+
+**`level`** is not read from the score. It is chosen by explicit precedence, the
+first match wins:
+
+| Level | Condition |
+| --- | --- |
+| `critical` | `legal_flags >= 3` (breadth: at least three distinct Level A/AA rules at High/Critical) or `critical_issues >= 5` (volume) |
+| `high` | `legal_flags > 0` together with `critical_issues > 0`, or `critical_issues >= 3`, or `blocking_issues >= 5`, or `risk_score >= 80` |
+| `medium` | `high_issues >= 3` with accessibility score below 80, or any critical issue, legal flag, blocking issue, interactive critical/high finding, or accessibility score at most 20 |
+| `low` | otherwise |
+
+`driven_by` names the condition that fired (`Legal Compliance` only when the
+breadth path produced `critical`). `threshold` (60/30/10/0) is a fixed label per
+level, not a cut-off the score is compared against; the only score comparison
+in the level logic is `risk_score >= 80`. The "at least three" breadth bound and
+the volume bounds (5, 3, 5) are likewise conventions.
+
 <a id="principle-coverage-ratio"></a>
 ### principle_coverage_ratio — `pages[].principle_coverage.*.ratio`
 

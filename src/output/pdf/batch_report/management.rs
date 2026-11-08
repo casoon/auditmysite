@@ -641,21 +641,21 @@ pub(super) fn build_batch_key_points(
     if dist.critical > 0 {
         if en {
             points.push(
-                "WCAG Level A violations detected automatically — manual review needed for a defensible BFSG classification".to_string(),
+                "WCAG Level A/AA violations detected automatically — manual review needed for a defensible BFSG classification".to_string(),
             );
         } else {
             points.push(
-                "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
+                "WCAG-Level-A/AA-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
             );
         }
     } else if dist.high > 0 {
         if en {
             points.push(
-                "No Level A violations, but structural weaknesses on multiple pages".to_string(),
+                "No Level A/AA violations, but structural weaknesses on multiple pages".to_string(),
             );
         } else {
             points.push(
-                "Keine Level-A-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten"
+                "Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten"
                     .to_string(),
             );
         }
