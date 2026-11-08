@@ -13,6 +13,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Risk:** `risk.legal_flags` now covers WCAG Level A **and** AA (High/Critical, automatically confirmed, criterion covered by EN 301 549), not only Level A: a High contrast failure (1.4.3) is a legal flag, so such pages can reach a higher risk level, a failing verdict and a restricted certificate; the report texts say "Level A/AA". The risk score weights and level conditions are documented as tool conventions in `docs/OUTPUT_CONTRACT.md` (Refs #922).
+
 - **Dependencies:** barrierlab 0.28.1 (`a11y-*`), `html-conform` 0.4.1, `csp-parse` and `stylesheet-parse` 0.1.1: names from a hidden `aria-labelledby` target keep its descendants, selectors with CSS escapes match, ten more `manual/*` checklist items, CSP nonces no longer flag inline scripts. JSON shape unchanged.
 
 ### Removed

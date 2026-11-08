@@ -23,8 +23,8 @@ pub(super) fn compute_risk_assessment(
     let critical_issues = occurrence_counts.critical;
     let high_issues = occurrence_counts.high;
 
-    // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
-    // Per-occurrence counting would inflate the number (e.g. 1000 images without
+    // Legal flags: count distinct WCAG Level A/AA rules with High/Critical
+    // severity (#922). Per-occurrence counting would inflate the number (e.g. 1000 images without
     // alt text is one rule violation, not 1000 legal flags).
     let mut legal_flags = findings.iter().filter(|f| f.is_legal_flag()).count();
 
@@ -111,6 +111,8 @@ pub(super) fn compute_risk_assessment(
         .map(|sr| (sr.count_severity("high"), sr.count_severity("medium")))
         .unwrap_or((0, 0));
 
+    // Weights are tool conventions, documented in docs/OUTPUT_CONTRACT.md
+    // (risk_score) — keep the two in step.
     let risk_score = (legal_flags as u32 * 20
         + critical_issues as u32 * 10
         + high_issues as u32 * 3
@@ -125,9 +127,9 @@ pub(super) fn compute_risk_assessment(
     // raise the floor even when critical_issues is zero (see issue #250).
     //
     // "Critical" is reserved for *systemic* legal exposure: breadth (≥3 distinct
-    // WCAG Level A rules with High/Critical severity) OR volume (≥5 critical
+    // WCAG Level A/AA rules with High/Critical severity) OR volume (≥5 critical
     // occurrences). The breadth path must NOT also require a critical occurrence
-    // — legal_flags already counts High-severity Level A rules, so gating it on
+    // — legal_flags already counts High-severity Level A/AA rules, so gating it on
     // `critical_issues > 0` made a site with 4 High-severity legal barriers rank
     // *below* one with a single flag but 5+ critical occurrences (#457). A single
     // isolated legal flag with a few critical occurrences stays High (#250).
@@ -177,8 +179,8 @@ pub(super) fn compute_risk_assessment(
                     prefix,
                     plural(
                         legal_flags,
-                        "WCAG Level A violation",
-                        "WCAG Level A violations"
+                        "WCAG Level A/AA violation",
+                        "WCAG Level A/AA violations"
                     ),
                     plural(
                         blocking_issues,
@@ -206,8 +208,8 @@ pub(super) fn compute_risk_assessment(
                     "Medium risk: {} with legal relevance (BFSG){}.",
                     plural(
                         legal_flags,
-                        "WCAG Level A violation",
-                        "WCAG Level A violations"
+                        "WCAG Level A/AA violation",
+                        "WCAG Level A/AA violations"
                     ),
                     if blocking_issues > 0 {
                         format!(
@@ -269,7 +271,7 @@ pub(super) fn compute_risk_assessment(
         RiskLevel::Critical => (
             60u32,
             // Attribute to the condition that actually triggered Critical:
-            // breadth of legal exposure (≥3 distinct Level A rules) vs. a high
+            // breadth of legal exposure (≥3 distinct Level A/AA rules) vs. a high
             // volume of critical occurrences. A single flag that rode in on
             // volume must not be labelled "Legal Compliance" (#457).
             if legal_flags >= 3 {

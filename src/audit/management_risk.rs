@@ -62,7 +62,7 @@ pub enum ManagementRiskKind {
         legal_flags: usize,
         /// Open findings with BFSG/EAA relevance high or medium — the one
         /// definition shared with the screen-reader callout and the finding
-        /// rows (#952-2). A superset of the Level-A `legal_flags`.
+        /// rows (#952-2). A superset of `legal_flags`.
         bfsg_relevant: usize,
         critical: usize,
         high: usize,
@@ -276,7 +276,7 @@ impl ManagementRiskKind {
             } => {
                 // One count for "possible legal relevance": the open findings
                 // the finding rows mark Medium/High (never fewer than the
-                // Level-A flags, which also include screen-reader blockers).
+                // legal flags, which also include screen-reader blockers).
                 let legal_flags = &(*bfsg_relevant).max(*legal_flags);
                 let base = if en {
                     format!(

@@ -280,9 +280,9 @@ pub(super) fn render_batch_impact_summary(
     };
     let legal_impact = if dist.critical > 0 {
         if en {
-            "WCAG Level A violations detected automatically — manual review required for a defensible BFSG classification."
+            "WCAG Level A/AA violations detected automatically — manual review required for a defensible BFSG classification."
         } else {
-            "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
+            "WCAG-Level-A/AA-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
         }
     } else if en {
         "No critical violations detected automatically — manual review recommended for full classification."
