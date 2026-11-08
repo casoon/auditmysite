@@ -1,5 +1,6 @@
 //! Direction of dependencies (#790, plan 96): analysis modules do not reach
-//! up into `cli`, `output` or the orchestration of `audit`.
+//! up into `cli`, `output` or `audit`. `audit` imports every analysis module,
+//! so any import back is a cycle (#932).
 //!
 //! Existing backward imports are a baseline that may only shrink
 //! (`tests/fixtures/architecture/backward_imports.txt`, `path count`). A new
@@ -10,8 +11,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Modules that collect or evaluate; they sit below `audit` orchestration and
-/// `output`.
+/// Modules that collect or evaluate; they sit below `audit` and `output`.
 const ANALYSIS_MODULES: &[&str] = &[
     "a11y_journey",
     "accessibility",
@@ -90,6 +90,9 @@ fn baseline() -> BTreeMap<String, usize> {
         .collect()
 }
 
+/// Upward imports analysis modules must not gain; one line counts once.
+const BACKWARD_IMPORTS: &[&str] = &["crate::cli", "crate::output", "crate::audit"];
+
 /// Differences between the imports found and the baseline.
 fn ratchet_problems(
     actual: &BTreeMap<String, usize>,
@@ -98,10 +101,10 @@ fn ratchet_problems(
     let mut problems = Vec::new();
     for (file, n) in actual {
         match allowed.get(file) {
-            None => problems.push(format!("{file}: {n} new import(s) of cli/output")),
-            Some(max) if n > max => {
-                problems.push(format!("{file}: {n} imports of cli/output, baseline {max}"))
-            }
+            None => problems.push(format!("{file}: {n} new import(s) of cli/output/audit")),
+            Some(max) if n > max => problems.push(format!(
+                "{file}: {n} imports of cli/output/audit, baseline {max}"
+            )),
             Some(max) if n < max => problems.push(format!(
                 "{file}: now {n}, baseline {max} — lower the baseline"
             )),
@@ -117,11 +120,8 @@ fn ratchet_problems(
 }
 
 #[test]
-fn analysis_modules_do_not_gain_imports_of_cli_or_output() {
-    let problems = ratchet_problems(
-        &count_imports(&["crate::cli", "crate::output"]),
-        &baseline(),
-    );
+fn analysis_modules_do_not_gain_imports_of_cli_output_or_audit() {
+    let problems = ratchet_problems(&count_imports(BACKWARD_IMPORTS), &baseline());
     assert!(
         problems.is_empty(),
         "dependency direction (plan 96):\n{}",
@@ -140,7 +140,7 @@ fn the_ratchet_rejects_new_and_grown_imports_and_stale_entries() {
         &allowed
     )
     .is_empty());
-    // A new file importing cli/output.
+    // A new file importing cli/output/audit.
     assert_eq!(
         ratchet_problems(
             &map(&[
