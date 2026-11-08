@@ -306,12 +306,13 @@ fn mobile_issue(
 }
 
 /// Summed penalty of the mobile issues. A locked zoom is the accessibility
-/// finding for WCAG 1.4.4 under the same condition; counting it here as well
-/// made one observation lower two weighted modules (plan 105). It stays listed.
+/// finding for WCAG 1.4.4 under the same condition, and small targets are WCAG
+/// 2.5.8; counting them here as well lowered two weighted modules for one
+/// observation (plan 105, #921). Both stay listed with their measured values.
 fn mobile_penalty(issues: &[MobileIssue]) -> u32 {
     issues
         .iter()
-        .filter(|issue| issue.issue_type != "not_scalable")
+        .filter(|issue| !matches!(issue.issue_type.as_str(), "not_scalable" | "small_targets"))
         .map(|issue| match issue.severity {
             Severity::Critical => 20,
             Severity::High => 20,
@@ -661,7 +662,7 @@ pub async fn analyze_mobile_friendliness(
                 ..Default::default()
             },
             severity,
-            "Difficult to tap on mobile devices",
+            "Difficult to tap on mobile devices; the 44x44px measure is informational, WCAG 2.5.8 is scored under accessibility, not in this score",
         ));
     }
 
@@ -791,6 +792,42 @@ mod localization_tests {
         );
         assert_eq!(mobile_penalty(std::slice::from_ref(&locked)), 0);
         assert_eq!(mobile_penalty(&[locked, small]), 10);
+    }
+
+    /// #921: small targets (WCAG 2.5.8) and a locked zoom (WCAG 1.4.4) are
+    /// charged in Accessibility only. A page with exactly these two problems
+    /// keeps a perfect mobile score (before: 100 - 20 for high-severity small
+    /// targets = 80); both issues and their values stay listed.
+    #[test]
+    fn small_targets_and_locked_zoom_do_not_lower_the_mobile_score() {
+        let issues = vec![
+            mobile_issue(
+                "viewport",
+                MobileIssueKind::NotScalable,
+                MobileIssueValues::default(),
+                Severity::Critical,
+                "x",
+            ),
+            mobile_issue(
+                "touch_targets",
+                MobileIssueKind::SmallTargets,
+                sample_values(),
+                Severity::High,
+                "x",
+            ),
+        ];
+        assert_eq!(mobile_penalty(&issues), 0);
+        assert_eq!(mobile_score_from_penalty(mobile_penalty(&issues)), 100);
+        assert_eq!(issues[1].values.small_target_count, Some(4));
+        // Issues that only Mobile owns still charge.
+        let scroll = mobile_issue(
+            "content",
+            MobileIssueKind::HorizontalScroll,
+            MobileIssueValues::default(),
+            Severity::High,
+            "x",
+        );
+        assert_eq!(mobile_penalty(&[issues, vec![scroll]].concat()), 20);
     }
 
     /// #406 guard: every kind renders differently per language and the English
