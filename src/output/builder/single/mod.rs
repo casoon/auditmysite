@@ -1000,10 +1000,6 @@ mod tests {
         })
         .with_tech_stack(crate::tech_stack::TechStackAnalysis {
             detected: vec![],
-            findings: vec![],
-            score: 100,
-            grade: "A".into(),
-            audited_stacks: Vec::new(),
         })
         .with_patterns(crate::patterns::PatternAnalysis {
             recognized: vec![],

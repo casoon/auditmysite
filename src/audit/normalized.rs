@@ -3128,7 +3128,7 @@ mod tests {
                 ),
                 // Modules with scoring collectors and no module score of
                 // their own: the gap may not add one.
-                "design_quality" | "tech_stack" => (base(), None),
+                "design_quality" => (base(), None),
                 other => panic!(
                     "scoring collector of module {other}: add its score assertion to this test"
                 ),

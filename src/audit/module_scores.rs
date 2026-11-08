@@ -199,8 +199,6 @@ pub(super) fn build_module_scores(
     // The counts are reported in the module payload instead.
 
     // Tech Stack is detection-only — no score in module_scores.
-    // Stack-specific security findings (WordPress admin exposure, etc.) flow
-    // into the Security module score instead.
 
     module_scores
 }

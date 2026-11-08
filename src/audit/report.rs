@@ -620,7 +620,7 @@ pub struct DiscoverabilitySection {
     /// Source quality analysis (Substanz / Konsistenz / Autorität)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
-    /// Technology stack detection and stack-specific audit findings.
+    /// Technology stack detection from in-page signals.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
 }

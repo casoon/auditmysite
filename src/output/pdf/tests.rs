@@ -435,50 +435,6 @@ mod tests {
         );
     }
 
-    /// Regression test for the tech-stack findings-severity localization fix
-    /// in `detail_modules/indicators.rs::render_tech_stack` — the severity
-    /// column used to call `finding.severity.label()` unconditionally, always
-    /// emitting the German label ("Hoch"/"Kritisch") even in the EN-locale
-    /// report.
-    #[test]
-    fn test_tech_stack_findings_english_locale_uses_english_severity_label() {
-        let report = pdf_fixture_report().with_tech_stack(crate::tech_stack::TechStackAnalysis {
-            detected: vec![],
-            findings: vec![crate::tech_stack::StackFinding {
-                tech: "jQuery".to_string(),
-                title: "Outdated jQuery version".to_string(),
-                detail: "jQuery 1.x has known vulnerabilities.".to_string(),
-                severity: Severity::Critical,
-                fix: None,
-                url_checked: None,
-            }],
-            score: 60,
-            grade: "C".to_string(),
-            audited_stacks: vec!["WordPress".to_string()],
-        });
-        let typ = generate_typ(
-            &report,
-            &ReportConfig {
-                level: ReportLevel::Technical,
-                locale: "en".to_string(),
-                ..ReportConfig::default()
-            },
-        )
-        .expect("English Typst source should render");
-
-        assert!(
-            typ.contains("CRITICAL"),
-            "expected English severity label \"CRITICAL\" in EN-locale Typst source"
-        );
-        // Component templates carry German fallback defaults
-        // (`default: "Kritisch"`); only the report content counts.
-        assert!(
-            !typ.replace("default: \"Kritisch\"", "")
-                .contains("Kritisch"),
-            "German severity label \"Kritisch\" leaked into EN-locale Typst source"
-        );
-    }
-
     /// Regression test for #577: Dark Mode is an optional product feature,
     /// not a WCAG conformance criterion, so its chapter must not present a
     /// low score with the same Excellent/Good/…/Critical compliance-band
@@ -1067,17 +1023,6 @@ mod tests {
                 confidence: crate::tech_stack::Confidence::High,
                 signals: vec!["window.jQuery".to_string()],
             }],
-            findings: vec![crate::tech_stack::StackFinding {
-                tech: "jQuery".to_string(),
-                title: "Outdated jQuery version".to_string(),
-                detail: "jQuery 1.x has known vulnerabilities.".to_string(),
-                severity: Severity::Critical,
-                fix: None,
-                url_checked: None,
-            }],
-            score: 60,
-            grade: "C".to_string(),
-            audited_stacks: vec!["WordPress".to_string()],
         });
 
         let config = ReportConfig {

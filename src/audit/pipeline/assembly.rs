@@ -362,8 +362,6 @@ pub(super) fn aggregate_report(
         report = report.with_network_dns(network_dns);
     }
 
-    // Whether the hardening probes ran, answered or did not apply is recorded
-    // by the `tech_stack.hardening_probes` collection (#777).
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
         report = report.with_tech_stack(tech_stack);
     }

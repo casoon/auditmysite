@@ -29,7 +29,7 @@ Useful flags:
 - `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
 - `--html-conform`: run the HTML-conformance module without `--full`
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
-- `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
+- `--stack`: enable tech stack detection from in-page signals (included automatically with `--full`); sends no requests of its own to the audited host
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs). Clicking submit buttons, add-to-cart triggers and quantity steppers is an opt-in: `--allow-state-changes` (with `full`)
 - `--annex <en301549|bik>`: add an opt-in appendix to the PDF report. `en301549` maps findings to EN 301 549 (chapter 9, "Web") clauses — a technical building block for a human-authored accessibility statement, not a statement itself. `bik` regroups the same findings by the chapters of the "BIK für Alle" editorial guide (images/alt text, link text, structure, easy language, PDFs, videos), without adding new checks. The underlying JSON data (`en301549_annex`, `bik_guide`) is always present regardless of this flag; it only gates the PDF section.
 - `--privacy-check`: opt-in (not part of `--full`), pre-consent privacy findings of one first visit in a clean browser context (requests, cookies, storage keys classified by provider; technical findings with a confidence class, no legal verdict, no score); one extra page load per audited page, see [privacy findings](../privacy-findings.md)

@@ -51,7 +51,6 @@ fn expected() -> Vec<Expected> {
         exp(D::BestPractices, "best_practices.console.error", 1),
         exp(D::DarkMode, "dark_mode.no_meta_color_scheme", 1),
         exp(D::DesignQuality, "design_quality.line_length", 1),
-        exp(D::TechStack, "tech_stack.wordpress.exposed_version", 1),
         exp(D::Ux, "ux.competing_ctas", 1),
         exp(D::Journey, "journey.no_h1", 1),
         exp(D::Commerce, "commerce.missing_price", 1),
@@ -86,7 +85,6 @@ fn injected(domain: FindingDomain) -> bool {
         | D::BestPractices
         | D::DarkMode
         | D::DesignQuality
-        | D::TechStack
         | D::Ux
         | D::Journey
         | D::Commerce
@@ -110,7 +108,6 @@ const ALL_DOMAINS: &[FindingDomain] = &[
     FindingDomain::BestPractices,
     FindingDomain::DarkMode,
     FindingDomain::DesignQuality,
-    FindingDomain::TechStack,
     FindingDomain::Ux,
     FindingDomain::Journey,
     FindingDomain::Commerce,
@@ -310,22 +307,6 @@ fn report_with_every_domain() -> AuditReport {
             message: "Long lines may reduce readability.".to_string(),
         }],
         rules_run: vec!["design.line_length".to_string()],
-    });
-
-    // ── Tech stack ────────────────────────────────────────────────────────
-    report = report.with_tech_stack(crate::tech_stack::TechStackAnalysis {
-        detected: vec![],
-        findings: vec![crate::tech_stack::StackFinding {
-            tech: "WordPress".to_string(),
-            title: "Exposed version".to_string(),
-            detail: "The generator meta tag reveals the version.".to_string(),
-            severity: Severity::High,
-            fix: None,
-            url_checked: Some("https://example.com/".to_string()),
-        }],
-        score: 80,
-        grade: "B".into(),
-        audited_stacks: Vec::new(),
     });
 
     // ── UX ────────────────────────────────────────────────────────────────

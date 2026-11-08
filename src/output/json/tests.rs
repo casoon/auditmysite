@@ -694,13 +694,7 @@ fn all_active_modules_report() -> AuditReport {
         },
         score: 100,
     })
-    .with_tech_stack(crate::tech_stack::TechStackAnalysis {
-        detected: vec![],
-        findings: vec![],
-        score: 100,
-        grade: "A".into(),
-        audited_stacks: Vec::new(),
-    })
+    .with_tech_stack(crate::tech_stack::TechStackAnalysis { detected: vec![] })
     .with_patterns(crate::patterns::PatternAnalysis {
         recognized: vec![],
         violations: vec![],

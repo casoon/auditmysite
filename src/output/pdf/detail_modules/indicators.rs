@@ -1,5 +1,4 @@
 use super::*;
-use crate::taxonomy::SeverityExt;
 
 pub(in crate::output::pdf) fn render_source_quality(
     mut builder: renderreport::engine::ReportBuilder,
@@ -138,18 +137,6 @@ pub(in crate::output::pdf) fn render_tech_stack(
         (false, false) => format!("{} Technologien erkannt.", ts.detected.len()),
     };
     builder = super::module_chapter_opener(builder, &ts_title, &ts_takeaway, is_first);
-    // Without a stack-specific probe the 100 is a default, not an assessment
-    // (plan 69).
-    builder = if ts.is_hardening_assessed() {
-        builder.add_component(
-            ScoreCard::new(super::module_score_caption(i18n), ts.score)
-                .with_description(super::score_band_label(ts.score, i18n))
-                .with_thresholds(75, 40),
-        )
-    } else {
-        builder.add_component(TextBlock::new(i18n.t("pdf-ts-not-assessed")))
-    };
-
     if !ts.detected.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("pdf-ts-technology")).with_width("28%"),
@@ -175,29 +162,6 @@ pub(in crate::output::pdf) fn render_tech_stack(
             ]);
         }
         builder = builder.add_component(table);
-    }
-
-    if !ts.findings.is_empty() {
-        let mut findings_table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("pdf-ts-finding")).with_width("35%"),
-            TableColumn::new(i18n.t("pdf-ts-severity")).with_width("15%"),
-            TableColumn::new("Detail").with_width("50%"),
-        ])
-        .with_title(i18n.t("pdf-ts-findings-title"));
-
-        let en = is_english(i18n);
-        for finding in &ts.findings {
-            findings_table = findings_table.add_row(vec![
-                finding.title.clone(),
-                if en {
-                    finding.severity.label_en().to_string()
-                } else {
-                    finding.severity.label().to_string()
-                },
-                finding.detail.clone(),
-            ]);
-        }
-        builder = builder.add_component(findings_table);
     }
 
     builder

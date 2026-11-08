@@ -398,7 +398,7 @@ pub struct PipelineConfig {
     /// is active. Costly like the other opt-in extra-reload passes: one
     /// extra full page reload. Runs in single and batch mode alike.
     pub check_ssr_content: bool,
-    /// Run tech stack detection and stack-specific audits
+    /// Run tech stack detection (in-page signals only)
     pub check_stack: bool,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
     /// Consulted by `check_all_with_config` for tree-based rules, by

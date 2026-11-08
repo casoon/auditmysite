@@ -1619,10 +1619,6 @@ fn test_json_report_includes_report_artifact_fields() {
             confidence: auditmysite::tech_stack::Confidence::High,
             signals: vec!["test signal".to_string()],
         }],
-        findings: vec![],
-        score: 100,
-        grade: "A".to_string(),
-        audited_stacks: Vec::new(),
     });
     report.experience.budget_violations = vec![auditmysite::audit::BudgetViolation {
         metric: "LCP".to_string(),
