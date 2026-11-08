@@ -1,0 +1,58 @@
+name: False positive or missed barrier
+description: A finding that is wrong, or a real barrier that auditmysite does not report
+labels: ["bug", "wcag"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Wrong results are the most useful reports we get. Each one becomes a test case,
+        so a page or snippet that reproduces it matters more than the description.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - False positive (a finding that is not a barrier)
+        - Missed barrier (a real barrier that is not reported)
+        - Wrong severity, level or criterion on a correct finding
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id and success criterion
+      description: The rule id from the report or JSON (for example `css-orientation-lock` or `document/title-missing`) and the WCAG criterion. For a missed barrier, the criterion you expected it under.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: A public URL, or better a minimal HTML snippet that shows the problem on its own. State the command line you ran.
+      render: html
+    validations:
+      required: true
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Why it is wrong
+      description: Quote the part of the success criterion or the technique that supports your reading, ideally the normative text (WCAG Understanding or Techniques, WAI-ARIA, HTML). An axe-core or other tool's result is welcome as a second opinion but is not the reference.
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: The finding or its absence
+      description: The finding as reported (message, selector, severity), or what a correct report would have contained.
+  - type: input
+    id: version
+    attributes:
+      label: auditmysite version
+      description: Output of `auditmysite --version`.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: From `auditmysite browser detect`.

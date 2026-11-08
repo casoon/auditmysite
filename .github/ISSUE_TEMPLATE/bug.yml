@@ -1,0 +1,57 @@
+name: Bug report
+description: auditmysite crashes, fails, or produces a wrong report (for a wrong accessibility finding use "False positive or missed barrier")
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A wrong or missing accessibility finding goes into the
+        "False positive or missed barrier" form instead. Please search the open issues first.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command line you ran, including flags.
+      render: shell
+      placeholder: auditmysite https://example.com --full --format pdf --output reports/example.pdf
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead. Paste the error output or the relevant part of the report.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: auditmysite version
+      description: Output of `auditmysite --version`.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15 arm64, Ubuntu 24.04 x86_64, Windows 11
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: From `auditmysite browser detect`.
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: The page involved (a URL or a minimal HTML snippet), `--verbose` output, config file contents.

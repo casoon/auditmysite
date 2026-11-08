@@ -217,6 +217,10 @@ Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) a
 
 ## Contributing
 
+Bug reports, false positives and new rules are welcome. Setup, the rule workflow
+and the pull request checklist are in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md);
+please read the [Code of Conduct](CODE_OF_CONDUCT.md) first.
+
 ## License
 
 `auditmysite` is licensed under the MIT License. Use it freely, including
