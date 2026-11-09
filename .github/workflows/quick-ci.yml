@@ -45,6 +45,19 @@ jobs:
           python3 scripts/test_quick_ci_scope.py
           python3 scripts/test_check_v2_readiness.py
 
+      # JavaScript embedded in the Rust sources (src/**/js/*.js, #941): ESLint
+      # and node:test, pinned in scripts/js/package-lock.json. Same job, a
+      # few seconds; no cache, so nothing to invalidate.
+      - name: Set up Node.js (embedded JavaScript checks)
+        if: steps.scope.outputs.rust == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Lint and test embedded JavaScript
+        if: steps.scope.outputs.rust == 'true'
+        run: bash scripts/check-js.sh
+
       - name: Install Rust toolchain
         if: steps.scope.outputs.rust == 'true'
         run: rustup toolchain install --no-self-update

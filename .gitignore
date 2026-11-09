@@ -85,3 +85,8 @@ scripts/node_modules/
 packages/npm/node_modules/
 packages/npm/vendor/
 packages/npm/*.tgz
+
+# Lint and tests for the JavaScript embedded in src/**/js (#941)
+!scripts/js/package.json
+!scripts/js/package-lock.json
+scripts/js/node_modules/
