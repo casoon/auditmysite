@@ -107,8 +107,8 @@ land in the report and reviewing the exact wording of every section.
 ## Repository CI
 
 `quick-ci.yml` runs on pull requests targeting `main` and pushes to `main`.
-Its single Ubuntu job, **Quick checks**, checks formatting, Clippy for all targets
-without optional features, the normal tests without optional features, and lint
+Its single Ubuntu job, **Quick checks**, checks formatting, rustdoc with all features
+(`-D warnings`), Clippy for all targets without optional features, the normal tests without optional features, and lint
 plus unit tests for the embedded JavaScript (see below).
 That test run includes mocked integration and security unit tests once; ignored
 browser tests and feature-gated PDF tests stay in full QA. Test threads remain
@@ -124,9 +124,11 @@ base history runs the checks. Superseded quick runs are cancelled.
 
 `ci.yml` is the full QA workflow: production-feature tests (PDF) and all-feature rustdoc, PDF smoke,
 browser integration, three WCAG corpus shards, dependency audit, unused-dependency
-checks, and mocked tests. Coverage runs on non-tag refs; detector mutations and
-docs.rs sandbox parity retain their tag-only conditions. The latter remains
-advisory (`continue-on-error`), as before. All jobs have time limits and the QA
+checks, and mocked tests. Coverage runs on non-tag refs. Detector mutations (four
+shards) and docs.rs sandbox parity run on `v*` tags and on `workflow_dispatch`
+(any ref, #894), so a release candidate can be exercised before it is tagged. The
+docs.rs job remains advisory (`continue-on-error`), as before; the mutation check
+is a blocking gate. All jobs have time limits and the QA
 token has read-only contents access. Full runs use distinct concurrency groups
 per run and attempt, so dispatches and release calls cannot cancel or replace
 one another.
@@ -149,20 +151,20 @@ which is what `release.yml` and a manual dispatch get, so tags and dispatches ru
 the same jobs as before. The rule-contract gate (`tests/rule_contract_gate.rs`)
 needs no Chrome and already runs inside the `cargo test` of Quick checks; a change
 under `rule_contracts/` additionally runs the corpus its contracts refer to.
-Detector mutations, docs.rs parity, native macOS/Windows smoke, audit and
-coverage stay tag/dispatch/full only. A new push to the PR cancels the running
+Detector mutations and docs.rs parity stay tag/dispatch only; native
+macOS/Windows smoke, audit and coverage stay in full runs only. A new push to the PR cancels the running
 filtered jobs.
 
 To validate a release candidate without publishing, select **CI → Run workflow**
-and the candidate ref, or, once `workflow_dispatch` is present on `main`:
+and the candidate ref, or:
 
 ```bash
 gh workflow run ci.yml --ref <candidate-branch-or-tag>
 ```
 
-The selected ref must contain this workflow. A branch dispatch skips tag-only
-jobs; dispatching an existing tag exercises those jobs too, without publishing.
-Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
+The selected ref must contain this workflow. A dispatch runs every job, including
+docs.rs sandbox parity and the four mutation shards (PR #956); a branch dispatch
+needs no tag. Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
 commit and requires both version/milestone validation and full QA before any
 binary packaging. `scripts/v2-readiness.json` retains exactly U01–U26; additional
 open milestone issues and #792 also block 2.x, including prereleases. API errors
@@ -258,6 +260,85 @@ It validates:
 - JSON contract tests
 - installer/release artifact consistency
 - stale docs references
+
+### Order before a release tag
+
+1. `./scripts/release-check.sh` (above).
+2. The reference runs: `cargo test --test reference_sites_test -- --ignored` and
+   `python3 scripts/privacy-reference.py live` (details in `CLAUDE.md`, release step 0).
+3. The [human release smoke](#human-release-smoke) below.
+4. **Dispatch the full QA on the release candidate** and wait for it to finish green:
+
+   ```bash
+   gh workflow run ci.yml --ref <release-candidate-branch>
+   gh run list --workflow ci.yml --branch <release-candidate-branch> --limit 1   # run id
+   gh run watch <run-id>
+   ```
+
+   The dispatch runs the tag-only jobs too (docs.rs sandbox parity, four detector
+   mutation shards). The mutation shards set the wall time: 75 to 90 minutes, against a job
+   limit of 90 (#894). A mutation or docs.rs failure found here costs a branch push; found
+   on the tag it costs a re-tag (2.0.0 and 2.0.1 both needed one).
+5. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
+6. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then `cargo publish`.
+
+### Human release smoke
+
+The release gate measures contracts, schemas and detector strength, but nobody had read a
+real report before tagging: 2.0.0 shipped with every clean run `partial`, a 5-URL batch with
+0 of 5 passed, a grade label contradicting its score, and English in the German PDF (#895,
+#896, #898). Read one real report
+before every tag (#924). Tick the four boxes in the release PR
+(`.github/PULL_REQUEST_TEMPLATE.md`, section "For a release PR").
+
+Build the candidate and write everything to `reports/` (gitignored):
+
+```bash
+cargo build --release   # ./target/release/auditmysite (or under $CARGO_TARGET_DIR, if set)
+
+# Two real sites: one German, one English. Both PDFs per site, German and English.
+./target/release/auditmysite https://<german-site> --full -f pdf --lang de -o reports/smoke-de-site-de.pdf
+./target/release/auditmysite https://<german-site> --full -f pdf --lang en -o reports/smoke-de-site-en.pdf
+./target/release/auditmysite https://<english-site> --full -f pdf --lang de -o reports/smoke-en-site-de.pdf
+./target/release/auditmysite https://<english-site> --full -f pdf --lang en -o reports/smoke-en-site-en.pdf
+
+# One batch of five URLs (one per line in the file)
+./target/release/auditmysite --url-file reports/smoke-urls.txt --full -f pdf --lang en -o reports/smoke-batch.pdf
+
+# The terminal table, for wording and thresholds
+./target/release/auditmysite https://<german-site> --lang de
+./target/release/auditmysite https://<english-site>
+```
+
+`--lang` defaults to `en`; `-o x.pdf` alone would also select the PDF. To read wording as
+text instead of opening the binary PDF, build the maintainer binary and add `--debug-typ`
+(see "Debugging report content" above).
+
+Check:
+
+1. **Two sites, four PDFs.** Read each PDF. Look for wording in the wrong language (the
+   English PDF of a German site and the German PDF of an English site are the cases that
+   broke), and compare every score with the card or table that shows it (a grade or label
+   next to a score that contradicts it, as in #896).
+2. **One 5-URL batch.** All five URLs are audited and none is reported as failed or
+   `partial` unless that page really fails to load or measure.
+3. **Terminal table.** Wording is in the requested language and the labels and thresholds
+   match the PDF of the same run.
+4. Anything wrong is a release blocker or a filed issue before the tag, not a note for
+   after it.
+
+No script enforces this; the checkboxes in the release PR are the record.
+
+### Decisions on the release pipeline
+
+- **The detector mutation check stays a blocking gate of the tag run.** There is no weekly
+  run on `main` (#783 asked for a binding gate; a weekly run would let a release ship without
+  it). The cost is paid before the tag, by the pre-tag dispatch above. The decision is
+  written in the comment above the `mutation-check` job in `ci.yml`.
+- **The E2E job (`Browser Integration Tests (E2E)`) is not split** like the detection corpus.
+  The last 11 successful runs took 22 to 33 minutes against its 45-minute limit, and a split
+  would not shorten a tag or dispatch run, whose wall time is set by the mutation shards.
+  Revisit if it passes about 38 minutes (#894).
 
 ## Library / Development
 
