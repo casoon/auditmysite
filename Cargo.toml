@@ -80,7 +80,7 @@ zip = "9"
 dirs = "7"
 
 # Config file parsing
-toml = "0.8"
+toml = "1"
 
 # Local HTML5 validation (replaces remote W3C/Nu validator)
 html5ever = "0.27"
