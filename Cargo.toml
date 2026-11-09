@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "web-programming"]
 readme = "README.md"
 # Dev, CI and agent tooling, tests and extra docs are not needed to build or
 # use the crate; everything `include_str!`/`include_bytes!` reads lives under
-# src/, assets/ and locales/ (plan/28-toolchain-package-hygiene.md). Patterns
+# src/, assets/ and locales/. Patterns
 # are anchored with `/`: an unanchored `tests/` would also drop src/**/tests/.
 exclude = [
     "/.claude/",
@@ -23,9 +23,7 @@ exclude = [
     "/scripts/",
     "/tests/",
     "/site/",
-    "/examples/",
-    "/WCAG-MANUAL-CHECKS.md",
-    "/SCREEN-READER-AUDIT-LLM.md",
+    "/assets/casts/",
     "/rust-toolchain.toml",
 ]
 

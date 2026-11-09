@@ -4,10 +4,10 @@
 # (with node-pty) and network access; the audited page is live, so scores can change between
 # recordings.
 #
-#   examples/record.sh [path-to-auditmysite]
+#   assets/casts/record.sh [path-to-auditmysite]
 #
 # castwright is called as `castwright`; set CASTWRIGHT to use another command, e.g.
-#   CASTWRIGHT="node ~/GitHub/castwright/packages/core/bin/castwright.mjs" examples/record.sh
+#   CASTWRIGHT="node ~/GitHub/castwright/packages/core/bin/castwright.mjs" assets/casts/record.sh
 set -euo pipefail
 
 bin="$(command -v "${1:-auditmysite}")"

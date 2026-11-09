@@ -1,29 +1,29 @@
 import { ansiToHtml } from '@casoon/pages-theme/ansi';
 import type { ShowcaseExample } from '@casoon/pages-theme/showcase';
 
-// Real output of auditmysite, recorded with examples/record.sh and rendered at build time.
+// Real output of auditmysite, recorded with assets/casts/record.sh and rendered at build time.
 // Text fixtures go through the theme's ANSI renderer; the terminal demos are castwright
 // recordings (<name>.terminal.yaml) compiled to an animated SVG and an asciicast (<name>.cast),
 // whose text is the demo's accessible and reduced-motion version.
-const files = import.meta.glob<string>('../../examples/*.{txt,json,cast}', {
+const files = import.meta.glob<string>('../../assets/casts/*.{txt,json,cast}', {
   query: '?raw',
   import: 'default',
   eager: true,
 });
-const svgs = import.meta.glob<string>('../../examples/*.svg', {
+const svgs = import.meta.glob<string>('../../assets/casts/*.svg', {
   query: '?url',
   import: 'default',
   eager: true,
 });
-const svgSources = import.meta.glob<string>('../../examples/*.svg', {
+const svgSources = import.meta.glob<string>('../../assets/casts/*.svg', {
   query: '?raw',
   import: 'default',
   eager: true,
 });
 
 export function fixture(file: string): string {
-  const source = files[`../../examples/${file}`];
-  if (source === undefined) throw new Error(`examples/${file} not found`);
+  const source = files[`../../assets/casts/${file}`];
+  if (source === undefined) throw new Error(`assets/casts/${file} not found`);
   return source;
 }
 
@@ -62,9 +62,9 @@ const style = `<style>
  */
 export function castDemo(name: string, id: string, caption?: string, narrow?: string): string {
   const svgOf = (scene: string) => {
-    const src = svgs[`../../examples/${scene}.svg`];
-    const svg = svgSources[`../../examples/${scene}.svg`];
-    if (src === undefined || svg === undefined) throw new Error(`examples/${scene}.svg not found`);
+    const src = svgs[`../../assets/casts/${scene}.svg`];
+    const svg = svgSources[`../../assets/casts/${scene}.svg`];
+    if (src === undefined || svg === undefined) throw new Error(`assets/casts/${scene}.svg not found`);
     const [, width, height] = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg) ?? [];
     return { src, width, height };
   };
@@ -131,7 +131,7 @@ const examples_ = [
 
 export const examples: ShowcaseExample[] = examples_.map(({ file, demo, command, ...meta }) => ({
   ...meta,
-  file: demo ? `examples/${demo}.terminal.yaml` : `examples/${file}`,
+  file: demo ? `assets/casts/${demo}.terminal.yaml` : `assets/casts/${file}`,
   input: { code: `$ ${command.split('\n').join('\n$ ')}`, lang: 'sh' },
   output: demo
     ? { html: castDemo(demo, `cw-${meta.slug}`), kind: 'panel' }

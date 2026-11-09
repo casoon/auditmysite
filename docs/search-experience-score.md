@@ -1,22 +1,22 @@
 # Search Experience Score
 
-Der Report zeigt in der vorderen Modulanzeige nicht mehr den isolierten technischen SEO-Wert, sondern einen zusammengesetzten Wert für Sichtbarkeit und Nutzerverständnis.
+The report no longer shows the isolated technical SEO value in the front module display, but a composite value for visibility and user understanding.
 
-## Ziel
+## Goal
 
-Klassisches SEO misst, ob eine Seite technisch auffindbar ist. Für Endkunden ist aber auch entscheidend, ob Inhalte verständlich, vertrauenswürdig, zitierbar und für Nutzer gut erfassbar sind. Der Search-Experience-Wert bündelt diese Signale, damit ein hoher technischer SEO-Score nicht schwache Content-, Trust- oder KI-Lesbarkeit überdeckt.
+Classic SEO measures whether a page is technically discoverable. For end customers, it also matters whether content is understandable, trustworthy, citable and easy for users to grasp. The Search Experience value bundles these signals so that a high technical SEO score does not mask weak content, trust or AI readability.
 
-## Gewichtung
+## Weighting
 
-- 35% Technisches SEO: Title, Description, Canonical, Sitemap, Schema, interne Links.
-- 25% Inhaltsverständlichkeit: Umfang, Struktur und Klarheit des sichtbaren Inhalts.
-- 15% Vertrauen: Kontakt-, Impressum-, Datenschutz-, LocalBusiness- und Autoritaetssignale.
-- 10% KI-Lesbarkeit: Lesbarkeit, Chunking und kompakte Abschnittsstruktur für KI-Systeme (ungeprüfte Heuristik).
-- 10% Struktur und Semantik: H1, Heading-Logik, strukturierte Daten und visuelle Hierarchie.
-- 5% Mobile Lesbarkeit: mobile Nutzbarkeit als Sichtbarkeits- und Verständlichkeitsfaktor.
+- 35% Technical SEO: title, description, canonical, sitemap, schema, internal links.
+- 25% Content comprehensibility: scope, structure and clarity of the visible content.
+- 15% Trust: contact, legal notice (Impressum), privacy policy, LocalBusiness and authority signals.
+- 10% AI readability: readability, chunking and compact section structure for AI systems (unverified heuristic).
+- 10% Structure and semantics: H1, heading logic, structured data and visual hierarchy.
+- 5% Mobile readability: mobile usability as a visibility and comprehensibility factor.
 
-Fehlende Module werden nicht als 0 gewertet. Die verfügbaren Gewichte werden normalisiert.
+Missing modules are not scored as 0. The available weights are normalized.
 
-## Reporting-Regel
+## Reporting rule
 
-Der technische SEO-Score bleibt im Detailkapitel sichtbar. Die vordere Aussage nutzt den zusammengesetzten Wert. Wenn technisches SEO gut ist, aber Content, Trust oder KI-Signale schwach sind, lautet die Kundenaussage: technisch auffindbar, aber inhaltlich oder semantisch nicht stark genug.
+The technical SEO score stays visible in the detail chapter. The front statement uses the composite value. If technical SEO is good but content, trust or AI signals are weak, the customer statement is: technically discoverable, but not strong enough in content or semantics.

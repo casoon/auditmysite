@@ -12,7 +12,7 @@ runs:
   using: composite
   steps:
     # No toolchain argument: installs the version, profile and components
-    # pinned in rust-toolchain.toml (plan/28-toolchain-package-hygiene.md).
+    # pinned in rust-toolchain.toml.
     - name: Install Rust toolchain
       shell: bash
       run: rustup toolchain install --no-self-update

@@ -78,16 +78,13 @@ Implication for `auditmysite`:
 - Multi-module view across accessibility, performance, SEO, security, mobile, UX, journey, AI visibility, and more.
 - Stakeholder-oriented PDF output via renderreport/Typst — presentation-grade typography.
 - Accessibility Journey Layer: interactive checks (tab-walk, focus-trap, SPA navigation, form-error announcement).
-- Semantic AI evaluation (local Fastembed + optional Mistral) for content discoverability signals.
-- Historical tracking and trend comparison across audit runs.
 - Stable scoring semantics documented in OUTPUT_CONTRACT.md and enforced via JSON schema.
 - Actionable fix guidance (`fix_guidance`) in every JSON report, per finding.
 
 ## Current gaps to close
 
 1. Interactive/manual follow-up guidance is present in journey findings but not yet a first-class story in the PDF executive report.
-2. Trend dashboarding across repeated audits is functional in JSON but not yet surfaced as a visual PDF chapter.
-3. Iframe and embedded content analysis is limited compared to axe-core's `frame-tested` scope.
+2. Iframe and embedded content analysis is limited compared to axe-core's `frame-tested` scope.
 
 ## Product Direction
 

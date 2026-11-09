@@ -9,7 +9,7 @@ permissions:
 
 # Every `Install Rust toolchain` step runs `rustup toolchain install` without
 # a toolchain argument, which installs the version, profile and components
-# pinned in rust-toolchain.toml (plan/28-toolchain-package-hygiene.md).
+# pinned in rust-toolchain.toml.
 # Incremental compilation stays off as it was under dtolnay/rust-toolchain:
 # CI builds from scratch and would only bloat the cached `target/`.
 env:
@@ -39,8 +39,7 @@ jobs:
   # Runs the CI job set (fmt, clippy, tests without and with PDF,
   # dependency-audit, browser integration and detection-corpus tests, ...)
   # against this exact tagged commit before any artifact is built
-  # (plan/25-release-workflow-quality-gate.md,
-  # plan/30-release-browser-gate-for-tag-sha.md) — a `v*` tag pushed
+  # — a `v*` tag pushed
   # straight from a branch that never went through CI must not be able to
   # produce a release. Only `coverage` is skipped for tags; it is a
   # measurement, not a gate.

@@ -1,4 +1,8 @@
-# Screen Reader Audit: LLM-Assisted Quality Analysis
+---
+title: "Screen reader audit with LLM analysis"
+description: "Prepare the screen reader audit JSON for a qualitative LLM pass over reading flow, coherence and navigability."
+order: 12
+---
 
 `auditmysite` produces a structured JSON file during a screen reader audit containing the complete reading flow a screen reader traverses on the page. The tool's rule-based analysis detects structural violations (empty links, missing names, WCAG criteria). It **cannot** judge whether the reading flow is comprehensible, coherent, and navigable as an experience.
 
@@ -114,4 +118,4 @@ LLM findings are **qualitative, not normative** — they supplement the rule-bas
 
 ## Related documents
 
-- `WCAG-MANUAL-CHECKS.md` — manual checks no tool can replace
+- [`WCAG-MANUAL-CHECKS.md`](../reference/WCAG-MANUAL-CHECKS.md) — manual checks no tool can replace

@@ -3,11 +3,11 @@ name: Pages
 on:
   push:
     branches: [main]
-    # The site reads docs/, examples/ and the version from Cargo.toml.
+    # The site reads docs/, assets/casts/ and the version from Cargo.toml.
     paths:
       - "site/**"
       - "docs/**"
-      - "examples/**"
+      - "assets/casts/**"
       - "Cargo.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -28,8 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # No cargo build: the examples are recorded output checked into examples/
-      # (examples/record.sh), not rendered by the binary during the site build.
+      # No cargo build: the examples are recorded output checked into assets/casts/
+      # (assets/casts/record.sh), not rendered by the binary during the site build.
 
       # Project repos have no package.json at the root, so the pnpm version is set here.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

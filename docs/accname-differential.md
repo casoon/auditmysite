@@ -1,153 +1,151 @@
-# accname-Differential
+# accname differential
 
-`auditmysite accname-diff <URL>` stellt die eigene Accessible-Name-Berechnung aus
-dem [`accname`](https://crates.io/crates/accname)-Crate gegen die native Berechnung
-von Blink und meldet, wo beide auseinandergehen.
+`auditmysite accname-diff <URL>` compares the tool's own accessible name computation from
+the [`accname`](https://crates.io/crates/accname) crate against the native computation
+of Blink and reports where the two diverge.
 
 ```bash
 auditmysite accname-diff https://example.com
 auditmysite accname-diff https://example.com --output reports/example-accname.json
 auditmysite accname-diff https://example.com --max-samples 500
 
-# Korpus: mehrere URLs und/oder eine URL-Datei (eine URL je Zeile, `#` für Kommentare)
+# Corpus: several URLs and/or a URL file (one URL per line, `#` for comments)
 auditmysite accname-diff https://a.example https://b.example --output reports/accname-corpus.json
 auditmysite accname-diff --url-file urls.txt --output reports/accname-corpus.json
 ```
 
-Eine URL ergibt das Einzelergebnis wie bisher. Mehr als eine URL — Argumente und
-`--url-file` zusammengezählt — ergibt ein Korpus-Aggregat (siehe unten). Alle
-Seiten laufen im selben Browser, jede in einem eigenen Tab; eine Seite, die nicht
-lädt, landet in `failures`, statt den Lauf abzubrechen.
+One URL yields the single result as before. More than one URL (arguments and
+`--url-file` counted together) yields a corpus aggregate (see below). All
+pages run in the same browser, each in its own tab; a page that does not
+load ends up in `failures` instead of aborting the run.
 
-## Warum das ohne zusätzlichen Aufbau geht
+## Why this works without additional setup
 
-`CdpDocument` (`src/accessibility/dom_document.rs`) trägt beides nebeneinander: den
-über `DOM.getDocument` geholten DOM als Arena samt Attributen, und die nativen
-Accessibility-Werte aus `Accessibility.getFullAXTree`, über die Backend-Node-ID
-verbunden. Damit liegt eine unabhängige zweite Implementierung derselben
-Spezifikation bereits im Prozess — kein zweiter Browserlauf, kein Screenreader,
-keine VM.
+`CdpDocument` (`src/accessibility/dom_document.rs`) carries both side by side: the
+DOM fetched via `DOM.getDocument` as an arena including attributes, and the native
+accessibility values from `Accessibility.getFullAXTree`, joined via the backend node ID.
+This means an independent second implementation of the same
+specification is already in the process: no second browser run, no screen reader,
+no VM.
 
-Im Normalbetrieb erfüllt `CdpDocument` das `Semantics`-Trait bewusst über die
-nativen Werte; `accname` ist dort der Ersatz für Hosts *ohne* nativen Tree
-(astro-post-audit, LiveAudit). Der Differentialmodus ist der einzige Ort, an dem
-beide Wege gleichzeitig laufen.
+In normal operation `CdpDocument` deliberately satisfies the `Semantics` trait via the
+native values; `accname` is the replacement there for hosts *without* a native tree
+(astro-post-audit, LiveAudit). The differential mode is the only place where
+both paths run at the same time.
 
-## Chrome ist nicht die Spezifikation
+## Chrome is not the specification
 
-Eine Abweichung ist ein **Hinweis, kein Urteil**. Sie kann sein:
+A divergence is a **hint, not a verdict**. It can be:
 
-- ein Fehler in `accname`,
-- eine bekannte Chrome-Eigenheit,
-- eine Stelle, an der [accname 1.2](https://w3c.github.io/accname/) mehrdeutig ist.
+- a bug in `accname`,
+- a known Chrome quirk,
+- a spot where [accname 1.2](https://w3c.github.io/accname/) is ambiguous.
 
-Entschieden wird eine Abweichung gegen die Spezifikation oder gegen
-[WPT](https://github.com/web-platform-tests/wpt) (`accname/`, `html-aam/`), nicht
-gegen Chrome. Deshalb gibt das Kommando **keine Trefferquote** aus und **keinen
-Exit-Code ungleich 0**: es misst, es urteilt nicht.
+A divergence is decided against the specification or against
+[WPT](https://github.com/web-platform-tests/wpt) (`accname/`, `html-aam/`), not
+against Chrome. This is why the command outputs **no hit rate** and **no
+exit code other than 0**: it measures, it does not judge.
 
-## Was verglichen wird
+## What is compared
 
-Nur Elemente, die im Accessibility-Tree ein Gegenstück haben und dort nicht als
-`ignored` geführt werden. Für alle anderen hat Chrome keinen Namen berechnet; ein
-Vergleich wäre Rauschen. Beide übersprungenen Mengen werden gezählt und
-ausgewiesen, damit der nicht verglichene Anteil sichtbar bleibt.
+Only elements that have a counterpart in the accessibility tree and are not listed there as
+`ignored`. For all others Chrome did not compute a name; a
+comparison would be noise. Both skipped sets are counted and
+reported, so the share that was not compared stays visible.
 
-Die eigene Seite rechnet mit `accname::name_rendered`, also mit berechnetem
-`display` und `visibility` aus einem CDP-`DOMSnapshot` (seit a11y-core 0.11.3):
-Inline-Elemente schließen ohne Leerzeichen an, per Stil Verstecktes fällt weg.
-Ein Element ohne Layout-Objekt gilt als `display: contents`, wenn darunter etwas
-gerendert wird, sonst als `none`. Aus demselben Snapshot kommen die
-Leerraum-Textknoten, die `DOM.getDocument` auslässt — ohne sie klebten
-`<span>a</span> <span>b</span>` zusammen. Gemessen wird damit, was ein Host mit
-Rendering-Daten bekommt; statische Hosts rechnen mit `accname::name` ohne Stil.
+The tool's own side computes with `accname::name_rendered`, that is, with computed
+`display` and `visibility` from a CDP `DOMSnapshot` (since a11y-core 0.11.3):
+inline elements join without whitespace, anything hidden by style is dropped.
+An element without a layout object counts as `display: contents` if something is rendered below it,
+otherwise as `none`. The whitespace-only text nodes that `DOM.getDocument` omits come from the same snapshot; without them
+`<span>a</span> <span>b</span>` would stick together. What is measured is therefore what a host with
+rendering data gets; static hosts compute with `accname::name` without style.
 
-## Klassifikation
+## Classification
 
-Zwei Achsen, weil eine Zahl allein nicht sagt, wo hinzuschauen ist.
+Two axes, because a single number does not say where to look.
 
-**Form der Abweichung** (`names_by_shape`):
+**Shape of the divergence** (`names_by_shape`):
 
-| Wert | Bedeutung |
+| Value | Meaning |
 |---|---|
-| `whitespace` | Nach Normalisierung gleich, im Rohtext verschieden. `accname` zieht Leerraum selbst zusammen, dieser Fall entsteht also nur, wenn Chrome ihn stehen lässt — etwa bei geschütztem Leerzeichen. Wird getrennt geführt, damit er die Statistik nicht dominiert. |
-| `missing_locally` | Chrome hat einen Namen, `accname` keinen. |
-| `missing_in_chrome` | `accname` hat einen Namen, Chrome keinen. |
-| `mismatch` | Beide haben einen Namen, die Texte unterscheiden sich. |
-| `text_transform` | Beide Namen sind bis auf Groß-/Kleinschreibung gleich (Vergleich über Großschreibung, damit „ß“ → „SS“ erfasst wird), und das Element oder ein Nachfahre hat ein berechnetes `text-transform` ungleich `none`. Chrome wendet die CSS-Transformation auf den Namen an, `accname` rechnet über den DOM-Text. **Erwartete Abweichung, kein Fehler** (Entscheidung 2026-09-27): accname 1.2 regelt CSS-Transformationen nicht, `accname` bleibt beim DOM-Text. Getrennt geführt, weil die Klasse sonst jeden Korpus dominiert. |
+| `whitespace` | Equal after normalization, different in the raw text. `accname` collapses whitespace itself, so this case only arises when Chrome leaves it in place, for example with a non-breaking space. Tracked separately so it does not dominate the statistics. |
+| `missing_locally` | Chrome has a name, `accname` has none. |
+| `missing_in_chrome` | `accname` has a name, Chrome has none. |
+| `mismatch` | Both have a name, the texts differ. |
+| `text_transform` | Both names are equal except for case (compared via uppercasing, so that "ß" → "SS" is captured), and the element or a descendant has a computed `text-transform` other than `none`. Chrome applies the CSS transformation to the name, `accname` computes over the DOM text. **Expected divergence, not a bug** (decision 2026-09-27): accname 1.2 does not regulate CSS transformations, `accname` stays with the DOM text. Tracked separately because the class would otherwise dominate every corpus. |
 
-Der Stil wird nur für die Kandidaten geholt — Elemente, deren Namen sich nur in
-der Groß-/Kleinschreibung unterscheiden — über `DOM.resolveNode` und
-`getComputedStyle` im laufenden Tab. Das ist Messung auf der Seite dieses
-Werkzeugs; `accname` bleibt unberührt. Ein Kandidat ohne `text-transform` bleibt
-`mismatch` und damit sichtbar.
+The style is fetched only for the candidates (elements whose names differ only in
+case) via `DOM.resolveNode` and
+`getComputedStyle` in the running tab. This is measurement on the side of this
+tool; `accname` is left untouched. A candidate without `text-transform` stays a
+`mismatch` and thus visible.
 
-**Namensquelle laut Chrome** (`names_by_source`): die Quelle, die Chrome in
-`name.sources` von `Accessibility.getFullAXTree` als erste mit Wert meldet (spätere
-sind `superseded`). Die Kennung folgt CDP: bei `attribute` das Attribut
-(`aria-label`, `alt`, `title`, `value`, …), bei `relatedElement` `aria-labelledby`
-oder die native Quelle — `labelfor`/`labelwrapped` werden `label`, ein
-SVG-`<title>`-Kind wird `title-element`, andere (`legend`, `tablecaption`,
-`figcaption`, …) behalten Chromes Namen —, dazu `placeholder` und `contents`.
-`unknown` bleibt nur, wo Chrome gar keine Quelle mit Wert nennt. Die nützlichere
-Achse, weil sie direkt auf den Abschnitt der Spezifikation zeigt, der zu prüfen ist.
+**Name source according to Chrome** (`names_by_source`): the source that Chrome reports first with a value in
+`name.sources` of `Accessibility.getFullAXTree` (later ones
+are `superseded`). The identifier follows CDP: for `attribute` the attribute
+(`aria-label`, `alt`, `title`, `value`, ...), for `relatedElement` `aria-labelledby`
+or the native source (`labelfor`/`labelwrapped` become `label`, an
+SVG `<title>` child becomes `title-element`, others (`legend`, `tablecaption`,
+`figcaption`, ...) keep Chrome's name), plus `placeholder` and `contents`.
+`unknown` remains only where Chrome names no source with a value at all. The more useful
+axis, because it points directly to the section of the specification that needs to be checked.
 
-Die feine Quelle reist neben dem AXTree (`extract_ax_tree_with_name_sources`,
-`CdpDocument::with_chrome_name_sources`). Das grobe `NameSource` aus
-`a11y-perception`, das die WCAG-Regeln lesen, bleibt unverändert.
+The fine-grained source travels alongside the AXTree (`extract_ax_tree_with_name_sources`,
+`CdpDocument::with_chrome_name_sources`). The coarse `NameSource` from
+`a11y-perception`, which the WCAG rules read, remains unchanged.
 
-`names_by_shape_and_source` führt beide Achsen als Kreuztabelle.
+`names_by_shape_and_source` presents both axes as a cross table.
 
-## Rollenvergleich
+## Role comparison
 
-Sekundär und heuristisch. Chrome liefert im AX-Tree teils interne Bezeichnungen
-statt ARIA-Rollennamen (`RootWebArea`, `StaticText`, `LineBreak`). Diese werden am
-Großbuchstaben erkannt und als `roles_not_comparable` gezählt statt als Abweichung.
-Die Heuristik ist als solche ausgewiesen; die Zahl gehört mitgelesen.
+Secondary and heuristic. In the AX tree Chrome sometimes delivers internal designations
+instead of ARIA role names (`RootWebArea`, `StaticText`, `LineBreak`). These are recognized by their
+capital letter and counted as `roles_not_comparable` rather than as a divergence.
+The heuristic is labelled as such; the number should be read along with it.
 
-Bekannte Schreibvarianten derselben Rolle zählen als gleich: Chrome `image`
-gegen `accname` `img` (ARIA 1.3 führt `image` als Synonym). Das ist Normalisierung
-der Messung, keine Änderung an `accname`.
+Known spelling variants of the same role count as equal: Chrome `image`
+against `accname` `img` (ARIA 1.3 lists `image` as a synonym). This is a normalization
+of the measurement, not a change to `accname`.
 
-## JSON-Ausgabe
+## JSON output
 
-`--output` schreibt das vollständige Ergebnis. Zählungen sind immer vollständig,
-`--max-samples` deckelt nur die mitgeführten Beispiele je Abweichungsart.
+`--output` writes the complete result. Counts are always complete,
+`--max-samples` only caps the carried examples per divergence kind.
 
-Jedes Beispiel trägt `backend_node_id` und `ax_node_id` — der Rückweg auf das
-Element in der Seite und in den vorhandenen Anreicherungspfad
+Each example carries `backend_node_id` and `ax_node_id`: the way back to the
+element in the page and into the existing enrichment path
 (`enrichment`, `element_capture`).
 
-## Korpus-Aggregat
+## Corpus aggregate
 
-Bei mehr als einer URL schreibt `--output` ein `AccnameCorpus`:
+With more than one URL, `--output` writes an `AccnameCorpus`:
 
-| Feld | Inhalt |
+| Field | Content |
 |---|---|
-| `pages_total`, `pages_compared`, `failures` | Umfang und nicht geladene Seiten |
-| `elements_*`, `skipped_*`, `names_equal`, `roles_*` | Summen über alle Seiten |
-| `names_by_shape`, `names_by_source`, `names_by_shape_and_source` | Summen der Klassifikation |
-| `name_patterns` | Wiederkehrende Muster (Form, Quelle, Tag, Namenspaar) mit `occurrences`, `pages`, `first_url`; je Form nach Vorkommen sortiert, gedeckelt durch `--max-samples` |
-| `patterns_complete` | `false`, wenn eine Seite an ihre Beispielgrenze gestoßen ist — dann sind die Vorkommen je Muster Untergrenzen |
-| `pages` | Die vollständigen Einzelergebnisse, jeweils mit `url` |
+| `pages_total`, `pages_compared`, `failures` | Scope and pages that did not load |
+| `elements_*`, `skipped_*`, `names_equal`, `roles_*` | Sums over all pages |
+| `names_by_shape`, `names_by_source`, `names_by_shape_and_source` | Sums of the classification |
+| `name_patterns` | Recurring patterns (shape, source, tag, name pair) with `occurrences`, `pages`, `first_url`; sorted by occurrences within each shape, capped by `--max-samples` |
+| `patterns_complete` | `false` if a page hit its example limit; the occurrences per pattern are then lower bounds |
+| `pages` | The complete individual results, each with `url` |
 
-Die Muster sind die Leseeinheit für einen Korpus: dieselbe Navigation auf dreißig
-Unterseiten ist ein Befund, nicht dreißig.
+The patterns are the unit of reading for a corpus: the same navigation on thirty
+subpages is one finding, not thirty.
 
-## Grenzen
+## Limits
 
-- Der Vergleich läuft gegen **eine** Engine. Eine Übereinstimmung mit Chrome ist
-  kein Nachweis von Spezifikationstreue, nur Abwesenheit eines Unterschieds.
-- Ein einzelner Seitenlauf ist eine Stichprobe. Aussagekraft entsteht erst über
-  einen Korpus (`--url-file`); Verlauf und Entscheidungen in `docs/reference/development-history.md` und in
-  `barrierlab/plan/01-accname-findings-from-auditmysite.md`.
-- Der Rollenvergleich ist heuristisch abgegrenzt, siehe oben.
+- The comparison runs against **one** engine. A match with Chrome is
+  not proof of specification conformance, only the absence of a difference.
+- A single page run is a sample. Meaningful results only emerge across
+  a corpus (`--url-file`); history and decisions are in `docs/reference/development-history.md`.
+- The role comparison is delimited heuristically, see above.
 
 ## Code
 
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `src/accessibility/accname_diff.rs` | Vergleich, Klassifikation und Korpus-Aggregat, reine Funktionen über `CdpDocument`, unit-getestet ohne Browser |
+| `src/accessibility/accname_diff.rs` | Comparison, classification and corpus aggregate, pure functions over `CdpDocument`, unit-tested without a browser |
 | `src/cli/args.rs` | `Command::AccnameDiff` |
-| `src/cli/commands.rs` | `run_accname_diff_command`, Stilabfrage für `text_transform`, Terminalausgabe |
-| `src/accessibility/dom_document.rs` | `fetch_dom_document_with_layout`, `LayoutStyles` (DOMSnapshot), `RenderedCdpDocument` (Tier 3 für `name_rendered`) |
+| `src/cli/commands.rs` | `run_accname_diff_command`, style query for `text_transform`, terminal output |
+| `src/accessibility/dom_document.rs` | `fetch_dom_document_with_layout`, `LayoutStyles` (DOMSnapshot), `RenderedCdpDocument` (tier 3 for `name_rendered`) |

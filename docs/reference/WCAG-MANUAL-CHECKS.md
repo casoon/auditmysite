@@ -1,4 +1,8 @@
-# WCAG Rules: Not Automatable
+---
+title: "WCAG rules: not automatable"
+description: "The WCAG criteria that static DOM/AX-tree analysis and CDP evaluation cannot check reliably and that need manual inspection."
+order: 5
+---
 
 These rules cannot be reliably checked through static DOM/AX-tree analysis or CDP
 evaluation. They require manual inspection or specialised tools (OCR, video analysis,

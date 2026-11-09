@@ -278,6 +278,7 @@ Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) a
 | Report types and levels | [Report modes](docs/guides/report-modes.md), [Reports](docs/guides/reports.mdx) |
 | What is checked | [Feature scope](docs/reference/features.md) |
 | How it differs from axe-core and Pa11y | [Compared to typical setups](docs/reference/comparison.md) |
+| Upgrading from 1.x | [Migrating to 2.0](docs/guides/migration-2.0.md) |
 | Heuristic signals and calibration | [Calibration](docs/calibration.md) |
 | Building, tests, release checks, library API | [Development](docs/guides/development.md), [API reference](docs/reference/api.md) |
 | Browser dependency | [Chrome dependency](docs/chrome-dependency.md) |

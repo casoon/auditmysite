@@ -46,7 +46,7 @@ Cargo.lock
 scripts/__pycache__/
 # Project site (GitHub Pages) and its recorded example output
 !site/**/*.json
-!examples/*.json
+!assets/casts/*.json
 
 # Logs
 *.log
