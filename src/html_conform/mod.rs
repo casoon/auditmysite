@@ -304,15 +304,7 @@ fn not_measured() -> HtmlConformAnalysis {
 /// exporting it out of `page_health` and threading a new `raw_html` field
 /// through `ModuleContext`/`SnapshotData` for a ~15-line CDP call.
 async fn extract_document_html(page: &Page) -> crate::audit::collection::Collected<String> {
-    let js = r#"
-    (() => {
-        const d = document.doctype;
-        const doctype = d
-            ? `<!DOCTYPE ${d.name}${d.publicId ? ` PUBLIC "${d.publicId}"` : ''}${d.systemId ? ` "${d.systemId}"` : ''}>`
-            : '<!DOCTYPE html>';
-        return doctype + '\n' + document.documentElement.outerHTML;
-    })()
-    "#;
+    let js = include_str!("js/doctype.js");
 
     crate::audit::collection::evaluate_js_value(page, js).await
 }

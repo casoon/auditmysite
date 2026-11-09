@@ -59,18 +59,16 @@ fn parity_axe_mappings_resolve_to_taxonomy_rules() {
         .as_object()
         .expect("axe_rule_mappings object");
 
-    for (axe_id, patterns) in mappings {
-        let patterns = patterns.as_array().expect("mapping patterns array");
-        assert!(
-            RULES.iter().any(|rule| {
-                rule.axe_id == Some(axe_id.as_str())
-                    || patterns.iter().any(|pattern| {
-                        let pattern = pattern.as_str().expect("mapping pattern string");
-                        rule.id.replace('.', "_").contains(pattern)
-                    })
-            }),
-            "parity mapping for {axe_id} must resolve to a taxonomy axe id or rule-id pattern"
-        );
+    for (axe_id, rule_ids) in mappings {
+        let rule_ids = rule_ids.as_array().expect("mapping rule id array");
+        assert!(!rule_ids.is_empty(), "parity mapping for {axe_id} is empty");
+        for rule_id in rule_ids {
+            let rule_id = rule_id.as_str().expect("mapping rule id string");
+            assert!(
+                RULES.iter().any(|rule| rule.id == rule_id),
+                "parity mapping for {axe_id} names {rule_id}, which is no taxonomy rule id"
+            );
+        }
     }
 }
 

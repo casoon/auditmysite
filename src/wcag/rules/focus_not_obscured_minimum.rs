@@ -110,55 +110,7 @@ fn is_entirely_hidden(focusable: Rect, overlays: &[Rect]) -> bool {
 /// elements ("overlays"), and (b) natively-focusable elements with, for
 /// each, the indices of overlays that are *not* one of its own DOM
 /// ancestors (candidates that could actually obscure it).
-const FOCUS_OBSCURED_JS: &str = r#"
-(function() {
-  /*CSS_SELECTOR*/
-
-  var overlays = [];
-  var overlayEls = [];
-  var all = document.querySelectorAll('*');
-  for (var i = 0; i < all.length && overlays.length < 30; i++) {
-    var el = all[i];
-    var cs = getComputedStyle(el);
-    if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
-    if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;
-    var rect = el.getBoundingClientRect();
-    if (rect.width < 20 || rect.height < 20) continue;
-    overlays.push({ selector: __amsCssSelector(el), x: rect.x, y: rect.y, w: rect.width, h: rect.height });
-    overlayEls.push(el);
-  }
-  if (overlays.length === 0) return { overlays: [], focusables: [] };
-
-  var sel = 'a[href], button, input:not([type="hidden"]), select, textarea, ' +
-            '[tabindex], [contenteditable=""], [contenteditable="true"]';
-  var els = document.querySelectorAll(sel);
-  var focusables = [];
-  for (var j = 0; j < els.length && __amsReal(focusables) < 200; j++) {
-    var fel = els[j];
-    if (fel.disabled) continue;
-    if (typeof fel.tabIndex === 'number' && fel.tabIndex < 0) continue;
-    var fcs = getComputedStyle(fel);
-    if (fcs.display === 'none' || fcs.visibility === 'hidden') continue;
-    var frect = fel.getBoundingClientRect();
-    if (frect.width <= 0 || frect.height <= 0) continue;
-
-    var candidates = [];
-    for (var k = 0; k < overlayEls.length; k++) {
-      if (overlayEls[k] === fel || overlayEls[k].contains(fel)) continue;
-      candidates.push(k);
-    }
-    if (candidates.length === 0) continue;
-
-    __amsPush(focusables, fel, {
-      selector: __amsCssSelector(fel),
-      x: frect.x, y: frect.y, w: frect.width, h: frect.height,
-      overlayIndices: candidates
-    }, 200);
-  }
-
-  return { overlays: overlays, focusables: focusables };
-})()
-"#;
+const FOCUS_OBSCURED_JS: &str = include_str!("js/focus_not_obscured_minimum.js");
 
 pub async fn check_focus_not_obscured_minimum_with_page(page: &Page) -> Vec<Violation> {
     if let Some(findings) = focus_walk_findings(page).await {
@@ -283,56 +235,10 @@ pub async fn check_focus_not_obscured_minimum_with_page(page: &Page) -> Vec<Viol
 /// this live probe cannot execute.
 async fn focus_walk_findings(page: &Page) -> Option<Vec<Violation>> {
     let value = page
-        .evaluate(
-            r#"
-            (() => {
-              const originalX = scrollX, originalY = scrollY, original = document.activeElement;
-              /*CSS_SELECTOR*/
-              const selector = 'a[href],button,input:not([type="hidden"]),select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]';
-              const controls = [];
-              for (const element of document.querySelectorAll(selector)) {
-                const style = getComputedStyle(element);
-                const rect = element.getBoundingClientRect();
-                if (element.disabled || style.display === 'none' || style.visibility === 'hidden' || rect.width <= 3 || rect.height <= 3) continue;
-                __amsPush(controls, element, element, 60);
-                if (__amsReal(controls) >= 60) break;
-              }
-              const findings = [];
-              for (const control of controls) {
-                control.focus({preventScroll: true});
-                control.scrollIntoView({block: 'nearest', inline: 'nearest'});
-                const rect = control.getBoundingClientRect();
-                const points = [
-                  [rect.left + 1, rect.top + 1], [rect.right - 1, rect.top + 1],
-                  [rect.left + 1, rect.bottom - 1], [rect.right - 1, rect.bottom - 1],
-                  [rect.left + rect.width / 2, rect.top + rect.height / 2]
-                ].filter(([x,y]) => x >= 0 && y >= 0 && x < innerWidth && y < innerHeight);
-                if (!points.length) continue;
-                const blockers = points.map(([x,y]) => {
-                  const painted = document.elementsFromPoint(x, y);
-                  const controlIndex = painted.findIndex(element => element === control || control.contains(element));
-                  if (controlIndex <= 0) return null;
-                  return painted.slice(0, controlIndex).find(element => {
-                    if (element.contains(control) || control.contains(element)) return false;
-                    const style = getComputedStyle(element);
-                    return style.position === 'fixed' || style.position === 'sticky';
-                  }) || null;
-                });
-                if (blockers.every(Boolean)) {
-                  __amsPush(findings, control, {control: __amsCssSelector(control), blocker: __amsCssSelector(blockers[0])}, 5);
-                  if (__amsReal(findings) >= 5) break;
-                }
-              }
-              scrollTo(originalX, originalY);
-              if (original && original.focus) original.focus({preventScroll:true});
-              return { findings };
-            })()
-            "#
-            .replace(
-                "/*CSS_SELECTOR*/",
-                crate::accessibility::js_helpers::CSS_SELECTOR_JS,
-            ),
-        )
+        .evaluate(include_str!("js/focus_walk.js").replace(
+            "/*CSS_SELECTOR*/",
+            crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        ))
         .await
         .ok()?
         .value()

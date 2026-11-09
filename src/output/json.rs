@@ -388,9 +388,9 @@ pub struct En301549Annex {
     /// of EN 301 549 chapter 9 (Web).
     pub scope: &'static str,
     pub clauses: Vec<En301549ClauseEntry>,
-    /// Count of WCAG findings whose criterion is outside the 50-clause WCAG
-    /// 2.1 A/AA table (AAA criteria, WCAG-2.2-only criteria) — excluded from
-    /// `clauses` but not silently dropped.
+    /// Count of WCAG findings whose criterion is outside the 55-clause WCAG
+    /// 2.2 A/AA table (AAA criteria, which EN 301 549 V4.1.1 lists only
+    /// informatively) — excluded from `clauses` but not silently dropped.
     pub out_of_standard_findings: usize,
     pub out_of_scope_chapters: Vec<OutOfScopeChapterEntry>,
     /// Cautious, non-legal-conclusion disclaimer. Needs lawyer review before

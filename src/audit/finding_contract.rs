@@ -299,9 +299,9 @@ const TARGET_SIZE_SMALL: &str = "page.target_size.small";
 
 fn shared_cause_for_wcag(rule_id: &str) -> Option<&'static str> {
     match rule_id {
-        "a11y.language.missing" => Some(LANG_MISSING),
-        "a11y.resize_text.weak" => Some(ZOOM_LOCKED),
-        "a11y.target_size_minimum.small" => Some(TARGET_SIZE_SMALL),
+        "document/lang-missing" => Some(LANG_MISSING),
+        "zoom/viewport-locked" => Some(ZOOM_LOCKED),
+        "targets/size" => Some(TARGET_SIZE_SMALL),
         _ => None,
     }
 }
@@ -1092,7 +1092,6 @@ fn collect(
 fn journey_cause(rule: &str) -> &'static str {
     crate::taxonomy::RuleLookup::by_id(rule)
         .map(|r| r.id)
-        .or_else(|| crate::taxonomy::RuleLookup::by_legacy_wcag_id(rule).map(|r| r.id))
         .unwrap_or("a11y.unmapped")
 }
 
@@ -1427,8 +1426,8 @@ mod tests {
         let n = normalize(&report).normalized;
         n.validate().unwrap();
         for (a11y_rule, mobile_rule) in [
-            ("a11y.target_size_minimum.small", "mobile.small_targets"),
-            ("a11y.resize_text.weak", "mobile.not_scalable"),
+            ("targets/size", "mobile.small_targets"),
+            ("zoom/viewport-locked", "mobile.not_scalable"),
         ] {
             let a11y = n.findings.iter().find(|f| f.rule_id == a11y_rule).unwrap();
             let mobile = n
@@ -1797,7 +1796,7 @@ mod tests {
             .collect();
         for expected in [
             (
-                "a11y.language.missing",
+                "document/lang-missing",
                 "Accessibility".to_string(),
                 ScoringEffect::Deduction,
             ),
@@ -1928,6 +1927,6 @@ mod tests {
         assert!(n
             .findings
             .iter()
-            .all(|f| !f.rule_id.starts_with("a11y.main_heading")));
+            .all(|f| !f.rule_id.starts_with("headings/h1-")));
     }
 }

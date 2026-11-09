@@ -71,19 +71,7 @@ pub async fn analyze_minification(
 ) -> crate::audit::collection::Collected<MinificationAnalysis> {
     info!("Analyzing unminified JS/CSS assets...");
 
-    let js = r#"
-    (() => {
-        var resources = performance.getEntriesByType('resource');
-        return JSON.stringify(resources.map(function(r) {
-            return {
-                url: r.name,
-                initiatorType: r.initiatorType || 'other',
-                decodedBodySize: r.decodedBodySize || 0,
-                transferSize: r.transferSize || 0
-            };
-        }));
-    })()
-    "#;
+    let js = include_str!("js/minification.js");
     let entries: Vec<RawEntry> = match crate::audit::collection::evaluate_js(page, js)
         .await
         .into_measurement()

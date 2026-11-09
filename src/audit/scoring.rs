@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::{
-    criterion_for_rule, principle_for_criterion, RuleLookup, Scaling, ScoreImpact, WcagPrinciple,
+    criterion_for_rule, criterion_impact, principle_for_criterion, WcagPrinciple,
 };
 use crate::wcag::types::{Severity, Violation};
 
@@ -38,36 +38,6 @@ fn apply_soft_floor(raw_score: f32) -> f32 {
         raw_score
     } else {
         SOFT_FLOOR_START * ((raw_score - SOFT_FLOOR_START) / 8.0).exp()
-    }
-}
-
-/// Default penalty for rules not found in the taxonomy registry.
-///
-/// `pub(crate)` so the JSON score breakdown attributes penalties with the
-/// exact same per-rule cost the scorer uses, instead of a second severity
-/// weighting of its own (plan 37).
-pub(crate) fn default_impact(severity: Severity) -> ScoreImpact {
-    match severity {
-        Severity::Critical => ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 15.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        Severity::High => ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        Severity::Medium => ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        Severity::Low => ScoreImpact {
-            base_penalty: 0.5,
-            max_penalty: 2.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
     }
 }
 
@@ -252,34 +222,26 @@ impl AccessibilityScorer {
 
     /// Calculate accessibility score (0-100) based on violations
     ///
-    /// Uses the taxonomy rule registry for per-rule score impacts.
-    /// Groups violations by rule, looks up ScoreImpact, and applies
-    /// occurrence-based penalty scaling.
+    /// Groups violations by success criterion, looks up the criterion's
+    /// `ScoreImpact` and applies occurrence-based penalty scaling.
     pub fn calculate_score(violations: &[Violation]) -> f32 {
         if violations.is_empty() {
             return 100.0;
         }
 
-        // Group violations by rule ID and track severity
-        let mut rule_counts: BTreeMap<&str, (usize, Severity)> = BTreeMap::new();
+        // Group violations by WCAG success criterion: the criterion is the
+        // unit that costs points (`taxonomy::criterion_impact`).
+        let mut rule_counts: BTreeMap<&str, usize> = BTreeMap::new();
         for v in violations {
-            let entry = rule_counts.entry(&v.rule).or_insert((0, v.severity));
-            entry.0 += 1;
-            // Keep highest severity if same rule has mixed severities
-            if v.severity > entry.1 {
-                entry.1 = v.severity;
-            }
+            *rule_counts.entry(&v.rule).or_default() += 1;
         }
 
         let mut total_penalty = 0.0f32;
 
-        for (rule_id, (count, severity)) in &rule_counts {
-            // Look up rule in taxonomy (by legacy WCAG ID)
-            let impact = RuleLookup::by_legacy_wcag_id(rule_id)
-                .map(|r| r.score_impact)
-                .unwrap_or_else(|| default_impact(*severity));
-
-            total_penalty += impact.calculate_penalty(*count);
+        for (criterion, count) in &rule_counts {
+            if let Some(impact) = criterion_impact(criterion) {
+                total_penalty += impact.calculate_penalty(*count);
+            }
         }
 
         let unique_criteria: HashSet<String> = rule_counts
@@ -815,11 +777,10 @@ mod score_invariants {
     use super::*;
     use crate::cli::WcagLevel;
 
-    /// Rule ids mixing catalogued criteria (taxonomy score impacts) with ids
-    /// the taxonomy doesn't know (severity-based `default_impact`).
+    /// Success criteria with a cost row (`taxonomy::criterion_impact`).
     const RULES: &[&str] = &[
-        "1.1.1", "1.3.1", "1.4.3", "2.1.1", "2.4.2", "2.4.4", "3.1.1", "4.1.2", "x.1", "x.2",
-        "x.3", "x.4",
+        "1.1.1", "1.3.1", "1.4.3", "2.1.1", "2.4.2", "2.4.4", "3.1.1", "4.1.2", "1.3.2", "2.4.7",
+        "3.3.2", "4.1.3",
     ];
     const SEVERITIES: &[Severity] = &[
         Severity::Low,

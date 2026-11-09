@@ -612,15 +612,10 @@ impl NormalizedReport {
             if run.not_run.is_some() || run.findings == 0 {
                 continue;
             }
-            let canonical =
-                crate::taxonomy::RuleLookup::by_legacy_wcag_id(&run.rule_id).map(|rule| rule.id);
             let retained: usize = self
                 .findings
                 .iter()
-                .filter(|finding| {
-                    finding.axe_id.as_deref() == Some(run.rule_id.as_str())
-                        || canonical == Some(finding.rule_id.as_str())
-                })
+                .filter(|finding| finding.rule_id == run.rule_id)
                 .map(|finding| finding.occurrence_count)
                 .fold(0usize, usize::saturating_add);
             let assessments = self

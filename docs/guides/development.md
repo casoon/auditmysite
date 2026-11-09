@@ -80,7 +80,8 @@ intentionally hidden from `--help` (developer/debug use only).
 
 `quick-ci.yml` runs on pull requests targeting `main` and pushes to `main`.
 Its single Ubuntu job, **Quick checks**, checks formatting, Clippy for all targets
-without optional features, and the normal tests without optional features.
+without optional features, the normal tests without optional features, and lint
+plus unit tests for the embedded JavaScript (see below).
 That test run includes mocked integration and security unit tests once; ignored
 browser tests and feature-gated PDF tests stay in full QA. Test threads remain
 serialized until parallel safety is demonstrated. The cache is shared between
@@ -162,6 +163,56 @@ and Windows x86_64/Edge runtime gates remain required 2.0 work in #856; the Linu
 ARM64 release cross-build does not satisfy them. Browser selection, bootstrap,
 UA and isolation work remains in #854, #855 and #787. This split changes CI
 execution, not browser behavior.
+
+## Embedded JavaScript (`src/**/js/*.js`)
+
+Scripts that run in the audited page live next to the Rust that sends them, in a
+`js/` directory beside the module file, and are loaded with `include_str!`:
+
+```rust
+const DETECT_JS: &str = include_str!("js/detect.js"); // src/tech_stack/js/detect.js
+```
+
+- **Where:** `src/<module>/js/<name>.js`, relative to the `.rs` file that includes
+  it (`src/wcag/rules/focus_walk.rs` uses `src/wcag/rules/js/`). Name the file after
+  what the script does, not after the Rust constant.
+- **Shape:** the file is exactly what Chrome receives: an expression or IIFE for
+  `Runtime.evaluate`, a bare `function (...) { ... }` for `callFunctionOn`, or a
+  body with top-level `return` that Rust wraps in `(function () { ... })()` after
+  the shared helpers (`src/accessibility/js/helpers_*.js`).
+- **Values from Rust:** never `format!` (the file would need `{{ }}`). Write a
+  placeholder `__NAME__` where the value goes and fill it with
+  `include_str!(..).replace("__NAME__", &value)`, ideally in a small
+  `*_script(..)` function with a unit test that the placeholder is gone and the
+  value is where it belongs. Existing markers `/*CSS_SELECTOR*/` and
+  `/*MAX_FINDINGS*/` work the same way. Values that come from the audited site
+  (selectors, URLs) go in as JSON (`serde_json::to_string`).
+- **Left inline** on purpose: one-line expressions (`document.readyState`,
+  `window.scrollTo(0,0)`, ...) and scripts the Rust code assembles from
+  parts at run time.
+
+### Lint and unit tests
+
+```bash
+scripts/check-js.sh
+```
+
+It installs the pinned tools from `scripts/js/package-lock.json` on first use
+(ESLint 10, `@eslint/js`, `globals`), lints every `src/**/js/*.js` with
+`scripts/js/eslint.config.mjs`, then runs `node --test` on `scripts/js/test/`:
+
+- `placeholders.test.mjs` checks that the `__NAME__` placeholders in the scripts and
+  the ones the Rust code replaces are the same set,
+- `scripts.test.mjs` runs the scripts that need no layout engine against stubs
+  (`performance` entries, the exclusion scripts, the shared cap helpers).
+
+Without Node (20.19+, 22.13+ or 24+) the script prints `check-js: SKIPPED` and exits 0 locally;
+with `CI` set it fails instead. Quick checks runs it as a step of its existing job
+(Node 22 via the already pinned `actions/setup-node`), about two seconds including
+the install. It is not part of the pre-commit hook.
+
+ESLint is configured with `recommended`; findings in the first extraction that would need
+a behaviour change are switched off per file in the config, with the reason.
 
 ## Release checks
 

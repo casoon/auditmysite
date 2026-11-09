@@ -26,6 +26,7 @@ fn report(url: &str, with_reading_flow: bool) -> AuditReport {
                 "Button missing accessible name",
                 format!("node-{i}"),
             )
+            .with_rule_id("buttons/name-missing")
             .with_selector(format!("button.icon-{i}"))
             .with_fix("Add aria-label"),
         );
@@ -39,6 +40,7 @@ fn report(url: &str, with_reading_flow: bool) -> AuditReport {
             "Visual formatting instead of semantic HTML",
             "node-sem",
         )
+        .with_rule_id("tables/header-missing")
         .with_selector("div.table-0"),
     );
     let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, results, 1000);

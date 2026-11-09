@@ -194,7 +194,7 @@ Add `--report-mode` so the exit code does not fail the step before an upload ste
 
 ## GitHub Action
 
-The repository root is a composite action. It downloads the release binary for the runner (checked against the release's `.sha256` file, like `install.sh`), makes sure a browser is available, audits the page and exposes `report.json` and `report.sarif` as outputs.
+The repository root is a composite action. It downloads the release binary for the runner (checked against the release's `SHA256SUMS`, or against the archive's `.sha256` file for releases up to v2.0.2 that have no `SHA256SUMS`; optionally also against the signed build provenance, see `verify-attestation`), makes sure a browser is available, audits the page and exposes `report.json` and `report.sarif` as outputs.
 
 ```yaml
 name: Accessibility
@@ -227,6 +227,7 @@ Note: the SARIF file has page-URL locations without `region` or `partialFingerpr
 | `url`, `sitemap`, `url-file` | What to audit; give exactly one |
 | `args` | Extra CLI arguments for both runs, split on whitespace (no quoting), for example `--full --max-pages 20`; do not pass `-f` or `-o` |
 | `version` | Release tag to install; empty uses the tag of `casoon/auditmysite@vX.Y.Z`, otherwise the latest release |
+| `verify-attestation` | `true` also runs `gh attestation verify` on the downloaded archive and fails without valid build provenance (default `false`: releases up to v2.0.2 have none, and `true` fails there with a clear message) |
 | `browser` | `ensure` (default: installs a managed Chrome for Testing only if the runner has no browser), `install` (always), `none` |
 | `output-dir` | Where the reports go (default `auditmysite-report`) |
 

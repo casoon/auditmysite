@@ -84,63 +84,20 @@ async fn snapshot(page: &Page, label: &str) -> Option<AXSnapshot> {
 /// JS that injects a History-API observer and returns a cleanup handle.
 /// Sets `window.__ams_spa_nav_count` to 0, then increments it on each
 /// pushState/replaceState call.  `popstate` events are also counted.
-const INJECT_SPA_OBSERVER_JS: &str = r#"
-(function() {
-    window.__ams_spa_nav_count = 0;
-    var orig_push = history.pushState.bind(history);
-    var orig_replace = history.replaceState.bind(history);
-    history.pushState = function() {
-        window.__ams_spa_nav_count++;
-        return orig_push.apply(this, arguments);
-    };
-    history.replaceState = function() {
-        window.__ams_spa_nav_count++;
-        return orig_replace.apply(this, arguments);
-    };
-    window.addEventListener('popstate', function() {
-        window.__ams_spa_nav_count++;
-    });
-    true;
-})()
-"#;
+const INJECT_SPA_OBSERVER_JS: &str = include_str!("js/inject_spa_observer.js");
 
 /// JS that collects candidate in-page links whose href differs only in path
 /// (same origin, not a hash-only jump, not a download link).
-const COLLECT_SPA_LINKS_JS: &str = r#"
-(function() {
-    var origin = window.location.origin;
-    var currentHref = window.location.href;
-    var links = Array.from(document.querySelectorAll('a[href]'));
-    var candidates = [];
-    links.forEach(function(a) {
-        var href = a.href;
-        if (!href.startsWith(origin)) return;         // external
-        if (href === currentHref) return;              // same page
-        if (a.getAttribute('href').startsWith('#')) return; // hash-only
-        if (a.download) return;                        // download
-        if (a.target === '_blank') return;             // new tab
-        // Only path-different links (ignore query/hash for classification).
-        var aPath = new URL(href).pathname;
-        var curPath = new URL(currentHref).pathname;
-        if (aPath === curPath) return;                 // same path, different query
-        candidates.push({ selector: cssPath(a), href: href });
-        if (candidates.length >= 5) return;
-    });
-    function cssPath(el) {
-        if (el.id) return '#' + el.id;
-        var parts = [];
-        var n = el;
-        while (n && n.nodeType === 1 && parts.length < 5) {
-            var tag = n.nodeName.toLowerCase();
-            if (n.id) { parts.unshift(tag + '#' + n.id); break; }
-            parts.unshift(tag);
-            n = n.parentNode;
-        }
-        return parts.join(' > ');
-    }
-    return candidates;
-})()
-"#;
+const COLLECT_SPA_LINKS_JS: &str = include_str!("js/collect_spa_links.js");
+
+/// `js/click_spa_link.js` with `__SELECTOR_JSON__` = the link's CSS selector
+/// as a JSON string.
+fn click_script(selector: &str) -> String {
+    include_str!("js/click_spa_link.js").replace(
+        "__SELECTOR_JSON__",
+        &serde_json::to_string(selector).unwrap_or_default(),
+    )
+}
 
 async fn eval_int(page: &Page, js: &str) -> Option<i64> {
     let params = EvaluateParams::builder()
@@ -242,14 +199,7 @@ pub async fn run(
             .unwrap_or(0);
 
         // Click the link via JS (synthetic — SPA links typically need JS click).
-        let click_js = format!(
-            r#"(function() {{
-                var el = document.querySelector({selector_json});
-                if (el) {{ el.click(); return true; }}
-                return false;
-            }})()"#,
-            selector_json = serde_json::to_string(selector).unwrap_or_default()
-        );
+        let click_js = click_script(selector);
         let clicked = eval_bool(page, &click_js).await.unwrap_or(false);
 
         if !clicked {
@@ -363,6 +313,16 @@ pub async fn run(
 mod tests {
     use super::*;
     use crate::accessibility::{AXNode, AXProperty, AXValue, FocusSnapshot};
+
+    #[test]
+    fn click_script_fills_the_selector_placeholder() {
+        let js = click_script(r#"a[href="/x"]"#);
+        assert!(
+            js.contains(r#"document.querySelector("a[href=\"/x\"]")"#),
+            "{js}"
+        );
+        assert!(!js.contains("__SELECTOR_JSON__"));
+    }
 
     fn heading(ax_id: &str, backend: i64, level: i64, name: &str) -> AXNode {
         AXNode {

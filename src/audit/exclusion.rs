@@ -267,6 +267,38 @@ pub async fn resolve_scope(page: &Page, selectors: &[String]) -> ExclusionScope 
     scope
 }
 
+fn json_array<S: serde::Serialize>(values: &[S]) -> String {
+    serde_json::to_string(values).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// `js/exclusion_marker.js` with `__EXCLUDED__` = the excluded selectors.
+fn marker_script(excluded: &[impl serde::Serialize]) -> String {
+    include_str!("js/exclusion_marker.js").replace("__EXCLUDED__", &json_array(excluded))
+}
+
+/// `js/exclusion_count_matches.js` with `__SELECTORS__` = the selectors to count.
+fn count_matches_script(selectors: &[impl serde::Serialize]) -> String {
+    include_str!("js/exclusion_count_matches.js").replace("__SELECTORS__", &json_array(selectors))
+}
+
+/// `js/exclusion_selectors_inside.js` with `__SELECTORS__` and `__EXCLUDED__`.
+/// `__SELECTORS__` comes first in the template; the second placeholder is
+/// only looked for after it, so a selector that happens to contain the text
+/// `__EXCLUDED__` stays data (the `format!` this replaced had that property).
+fn selectors_inside_script(
+    selectors: &[impl serde::Serialize],
+    excluded: &[impl serde::Serialize],
+) -> String {
+    let (head, tail) = include_str!("js/exclusion_selectors_inside.js")
+        .split_once("__SELECTORS__")
+        .expect("template names __SELECTORS__");
+    format!(
+        "{head}{}{}",
+        json_array(selectors),
+        tail.replace("__EXCLUDED__", &json_array(excluded))
+    )
+}
+
 /// Expose the excluded subtree roots to the page's own rule scripts as
 /// `window.__amsIsExcluded(el)`, so capped JavaScript rules do not spend
 /// their cap on excluded elements (see `CSS_SELECTOR_JS`). The roots live in
@@ -278,29 +310,7 @@ async fn install_in_page_marker(page: &Page, scope: &ExclusionScope) {
     if active.is_empty() {
         return;
     }
-    let js = format!(
-        r#"(function(excl) {{
-  var roots = new WeakSet();
-  excl.forEach(function(s) {{
-    try {{ document.querySelectorAll(s).forEach(function(el) {{ roots.add(el); }}); }} catch (e) {{}}
-  }});
-  var isExcluded = function(el) {{
-    var cur = el;
-    while (cur) {{
-      if (roots.has(cur)) return true;
-      if (cur.parentElement) {{ cur = cur.parentElement; continue; }}
-      var root = cur.getRootNode ? cur.getRootNode() : null;
-      cur = (root && root.host) ? root.host : null;
-    }}
-    return false;
-  }};
-  Object.defineProperty(window, '__amsIsExcluded', {{
-    value: isExcluded, configurable: true, writable: true, enumerable: false
-  }});
-  return true;
-}})({})"#,
-        serde_json::to_string(&active).unwrap_or_else(|_| "[]".to_string())
-    );
+    let js = marker_script(&active);
     if let Err(e) = page.evaluate(js).await {
         warn!("Exclusion: installing the in-page marker failed: {e}");
     }
@@ -312,14 +322,7 @@ async fn count_matches(
     page: &Page,
     selectors: &[String],
 ) -> Result<Vec<Option<usize>>, &'static str> {
-    let js = format!(
-        r#"(function(sels) {{
-  return sels.map(function(s) {{
-    try {{ return document.querySelectorAll(s).length; }} catch (e) {{ return -1; }}
-  }});
-}})({})"#,
-        serde_json::to_string(selectors).unwrap_or_else(|_| "[]".to_string())
-    );
+    let js = count_matches_script(selectors);
     let result = page.evaluate(js).await.map_err(|e| {
         warn!("Exclusion: selector count failed: {e}");
         crate::audit::collection::reason::EVALUATION_FAILED
@@ -511,31 +514,7 @@ async fn selectors_inside(
         return HashMap::new();
     }
     let excl = scope.active_selectors();
-    let js = format!(
-        r#"(function(sels, excl) {{
-  function inside(el) {{
-    var cur = el;
-    while (cur) {{
-      for (var i = 0; i < excl.length; i++) {{
-        try {{ if (cur.matches && cur.matches(excl[i])) return true; }} catch (e) {{}}
-      }}
-      if (cur.parentElement) {{ cur = cur.parentElement; continue; }}
-      var root = cur.getRootNode ? cur.getRootNode() : null;
-      cur = (root && root.host) ? root.host : null;
-    }}
-    return false;
-  }}
-  return sels.map(function(s) {{
-    var list;
-    try {{ list = document.querySelectorAll(s); }} catch (e) {{ return false; }}
-    if (!list.length) return false;
-    for (var i = 0; i < list.length; i++) {{ if (!inside(list[i])) return false; }}
-    return true;
-  }});
-}})({}, {})"#,
-        serde_json::to_string(&selectors).unwrap_or_else(|_| "[]".to_string()),
-        serde_json::to_string(&excl).unwrap_or_else(|_| "[]".to_string()),
-    );
+    let js = selectors_inside_script(&selectors, &excl);
     let answers: Vec<bool> = match page.evaluate(js).await {
         Ok(result) => result.into_value().unwrap_or_default(),
         Err(e) => {
@@ -944,6 +923,41 @@ mod tests {
             }],
             ids,
         )
+    }
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|v| v.to_string()).collect()
+    }
+
+    #[test]
+    fn marker_script_fills_the_excluded_placeholder() {
+        let js = marker_script(&strings(&["[data-a]", "#b"]));
+        assert!(js.ends_with(r##"})(["[data-a]","#b"])"##), "{js}");
+        assert!(!js.contains("__EXCLUDED__"));
+    }
+
+    #[test]
+    fn count_matches_script_fills_the_selectors_placeholder() {
+        let js = count_matches_script(&strings(&["a.x", "p"]));
+        assert!(js.ends_with(r#"})(["a.x","p"])"#), "{js}");
+        assert!(!js.contains("__SELECTORS__"));
+    }
+
+    #[test]
+    fn selectors_inside_script_fills_both_placeholders() {
+        let js = selectors_inside_script(&strings(&["a.x"]), &strings(&["[data-e]"]));
+        assert!(js.ends_with(r#"})(["a.x"], ["[data-e]"])"#), "{js}");
+        assert!(!js.contains("__SELECTORS__") && !js.contains("__EXCLUDED__"));
+    }
+
+    /// A selector that names the other placeholder stays data.
+    #[test]
+    fn selectors_inside_script_keeps_placeholder_lookalikes_as_data() {
+        let js = selectors_inside_script(&strings(&["__EXCLUDED__"]), &strings(&["[data-e]"]));
+        assert!(
+            js.ends_with(r#"})(["__EXCLUDED__"], ["[data-e]"])"#),
+            "{js}"
+        );
     }
 
     #[test]

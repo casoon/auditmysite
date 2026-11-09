@@ -1004,14 +1004,14 @@ thresholds = { not_relevant = "The 1x1 px cut-off excludes tracking frames that 
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/iframe_rules.rs"
+target = "src/wcag/rules/js/iframe_scan.js"
 change = "invert the missing-lang condition"
 find = "if (iframeHtmlEl && !(iframeHtmlEl.getAttribute('lang') || '').trim()) {"
 replace = "if (iframeHtmlEl && (iframeHtmlEl.getAttribute('lang') || '').trim()) {"
 killed_by = "corpus:structure_ids_frames"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/iframe_rules.rs"
+target = "src/wcag/rules/js/iframe_scan.js"
 change = "stop descending into shadow roots"
 find = "if (el.shadowRoot) collect(el.shadowRoot);"
 replace = ""

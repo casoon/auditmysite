@@ -316,6 +316,7 @@ mod tests {
                     format!("Button {idx} has no accessible name"),
                     format!("node-{idx}"),
                 )
+                .with_rule_id("buttons/name-missing")
                 .with_selector(format!("#item-{idx}"))
                 .with_fix("Add an accessible name"),
             );
@@ -1400,6 +1401,7 @@ mod tests {
                 "Image missing alternative text",
                 "node-hero-image",
             )
+            .with_rule_id("images/alt-missing")
             .with_selector("img.hero")
             .with_html_snippet("<img class=\"hero\" src=\"hero.jpg\">")
             .with_fix("Add a meaningful alt attribute"),
@@ -1484,6 +1486,16 @@ mod tests {
         for (criterion, rule_name, level, severity, msg, node_id) in violations {
             results.add_violation(
                 Violation::new(criterion, rule_name, level, severity, msg, node_id)
+                    .with_rule_id(match criterion {
+                        "1.4.3" => "contrast/text-insufficient",
+                        "1.1.1" => "images/alt-missing",
+                        "4.1.2" => "buttons/name-missing",
+                        "2.4.4" => "links/generic-name",
+                        "1.3.1" => "forms/group-missing",
+                        "2.4.1" => "headings/none",
+                        "2.4.6" => "headings/empty",
+                        _ => "document/lang-missing",
+                    })
                     .with_selector(format!("#{node_id}"))
                     .with_fix(format!("Fix required for {rule_name}")),
             );
@@ -1722,6 +1734,7 @@ mod tests {
                     "Heading structure is not semantic",
                     "node-breadcrumb",
                 )
+                .with_rule_id("headings/skip-level")
                 .with_selector(long_selector)
                 .with_html_snippet(snippet),
             );

@@ -493,7 +493,7 @@ mod tests {
             crate::audit::normalized::ModuleScoreEntry::new("Security", 95, "measured", true),
             crate::audit::normalized::ModuleScoreEntry::new("Mobile", 90, "measured", true),
         ];
-        // 1 occurrence — matches the real audit's single a11y.text_spacing.clipped finding.
+        // 1 occurrence — matches the real audit's single text-spacing finding.
         let mut finding = vm.findings.all_findings[0].clone();
         finding.rule_id = "1.4.12".into();
         finding.title = "Inhalt wird abgeschnitten".into();

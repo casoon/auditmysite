@@ -340,8 +340,9 @@ score = min(100,
   images without alt text are one flag). A finding is a legal flag when it is a
   WCAG Level A **or** Level AA finding of High or Critical severity, is
   `automatically_confirmed` (a finding that needs manual review raises none),
-  and its criterion is covered by EN 301 549 V3.2.1 (the WCAG 2.1 A/AA table;
-  WCAG-2.2-only criteria and AAA do not flag). Convention rules (`display/*`)
+  and its criterion has a normative clause in EN 301 549 V4.1.1 (2026-09,
+  clauses 9.1-9.4: the WCAG 2.2 A/AA table; AAA criteria do not flag, the
+  retired 4.1.1 Parsing is void in that edition). Convention rules (`display/*`)
   never flag. AA is included because BFSG and EN 301 549 require AA: a High
   contrast failure (1.4.3) is as actionable as a Level A failure. A page also
   carries at least one flag when the screen-reader audit confirms a
@@ -425,6 +426,15 @@ category.
 - `matched[]` entries carry the `url` and, for scope `finding`, the `finding_id` (`pages[].findings[].id`) and optional `pattern_id` they attached to; `unmatched[]` entries carry a `reason`. Every annotation of the file is in one of the two lists.
 - `counts` are over distinct annotations: `total = matched + unmatched` when no annotation is both (an annotation without `url` that matches two pages is one matched annotation with two entries); `by_author_kind` counts them by `author.kind`.
 - `annotation` objects reproduce the file's known fields; unknown fields are not carried.
+
+## EN 301 549 Annex
+
+`pages[].detail.en301549_annex` maps the page's WCAG findings onto the chapter 9 ("Web") clauses of **EN 301 549 V4.1.1 (2026-09)**, which requires WCAG 2.2 Level A/AA. The edition is stated in `standard_version`; `mapping_version` (currently 2) changes whenever the clause table or its status semantics change. The batch roll-up `summary.en301549_rollup` uses the same table.
+
+- `clauses[]` has 55 entries, the 55 WCAG 2.2 A/AA success criteria (31 A, 24 AA), each as `en_clause` = `9.` + the WCAG number. Clause numbers of the 49 criteria that WCAG 2.1 and 2.2 share are identical to EN 301 549 V3.2.1; V4.1.1 adds 9.2.4.11, 9.2.5.7, 9.2.5.8, 9.3.2.6, 9.3.3.7 and 9.3.3.8 and voids 9.4.1.1 (Parsing, removed in WCAG 2.2).
+- The WCAG 2.2 Level AAA criteria (2.4.12, 2.4.13, 3.3.9, like all AAA) have no normative clause in V4.1.1; the standard lists them only informatively in clause 9.5. Findings on them are not in `clauses[]` and are counted in `out_of_standard_findings`.
+- `mapping_version` 1 (reports before this change) targeted EN 301 549 V3.2.1 (2021-03) with 50 clauses (WCAG 2.1, including 4.1.1).
+- The annex is technical evidence, not an accessibility statement (`disclaimer`). V4.1.1 grants a presumption of conformity only once it is cited in the Official Journal of the European Union; until then the cited edition remains the authoritative one for that purpose.
 
 ## JavaScript Library Advisories
 

@@ -272,7 +272,7 @@ change = "1 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/justified)"
 
 [[rule.test_strength.mutations]]
-target = "src/accessibility/dom_document.rs"
+target = "src/accessibility/js/stylesheets.js"
 change = "host: stop passing rules of matching media queries"
 find = "        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);"
 replace = "        if (false) matched(r.cssRules, out, true);"
@@ -509,7 +509,7 @@ thresholds = { cases = ["visual_orientation_ok"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/orientation.rs"
+target = "src/wcag/rules/js/orientation_lock.js"
 change = "disable rotation detection in the transform matrix"
 find = "if (Math.abs(b) > 0.01 && Math.abs(b + c) < 0.01) {"
 replace = "if (false) {"
@@ -671,14 +671,14 @@ thresholds = { cases = ["visual_reflow_ok", "visual_reflow_fixed_width"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/reflow.rs"
+target = "src/wcag/rules/js/find_overflow.js"
 change = "disable detection: never see a horizontal overflow"
 find = "if (document.documentElement.scrollWidth <= vw + 5) return null;"
 replace = "if (true) return null;"
 killed_by = "corpus:visual_reflow_fixed_width"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/reflow.rs"
+target = "src/wcag/rules/js/find_overflow.js"
 change = "drop the 2D-content exception"
 find = "if (el.closest(TWO_D)) {"
 replace = "if (false) {"
@@ -720,14 +720,14 @@ thresholds = { cases = ["visual_text_spacing_ok", "visual_text_spacing_clipped"]
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/text_spacing.rs"
+target = "src/wcag/rules/js/text_spacing.js"
 change = "disable detection: never flag a clipping container"
 find = "flags[i] = (clipsX || clipsY) && el.textContent.trim().length > 0;"
 replace = "flags[i] = false;"
 killed_by = "corpus:visual_text_spacing_clipped,visual_text_spacing_letter"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/text_spacing.rs"
+target = "src/wcag/rules/js/text_spacing.js"
 change = "drop the baseline: report content that was clipped before spacing changed"
 find = "if (after[i] && !before[i]) {"
 replace = "if (after[i]) {"
@@ -802,7 +802,7 @@ thresholds = { not_relevant = "Timing is before/after body parsing, a binary obs
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/display_modes.rs"
+target = "src/wcag/rules/js/display_modes.js"
 change = "invert the never-set condition"
 find = "if (!html.hasAttribute('data-display')) {"
 replace = "if (html.hasAttribute('data-display')) {"
@@ -839,7 +839,7 @@ thresholds = { cases = ["visual_display_text_mode_broken"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/display_modes.rs"
+target = "src/wcag/rules/js/display_modes.js"
 change = "shift the icon threshold from 32x32 to 34x34"
 find = "if (r.width * r.height <= 32 * 32) continue;"
 replace = "if (r.width * r.height <= 34 * 34) continue;"
@@ -877,7 +877,7 @@ thresholds = { not_relevant = "Rendered or not (more than 1 x 1 px, not transpar
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/display_modes.rs"
+target = "src/wcag/rules/js/display_modes.js"
 change = "drop the text-not-visible finding"
 find = "if (!textOk && !hiddenReported && hasStatement) push('text', fig, 'invisible');"
 replace = "if (false) push('text', fig, 'invisible');"
@@ -918,14 +918,14 @@ thresholds = { not_relevant = "Hidden or not, no threshold." }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/display_modes.rs"
+target = "src/wcag/rules/js/display_modes.js"
 change = "drop inert from the hidden reasons"
 find = "if (n.hasAttribute('inert')) return 'inert';"
 replace = ""
 killed_by = "corpus:visual_display_never_set"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/display_modes.rs"
+target = "src/wcag/rules/js/display_modes.js"
 change = "drop the hidden-together-with-figure exception"
 find = "if (reason && !hiddenWithFig) {"
 replace = "if (reason) {"

@@ -87,9 +87,9 @@ pub(super) fn render_wcag_coverage_section(
     let (automated, total) = coverage_stats();
     // Criteria this tool checks automatically that WCAG 2.2 added (they didn't
     // exist in WCAG 2.1). They count toward `automated`/`total` like any other
-    // A/AA criterion (plan 54 §1), but stay marked: EN 301 549 V3.2.1 — the
-    // standard the BFSG references, mapped in this report's own appendix — is
-    // built on WCAG 2.1 and does not cover them (#572).
+    // A/AA criterion (plan 54 §1), but stay marked as new in WCAG 2.2: they
+    // are in EN 301 549 V4.1.1 (mapped in this report's own appendix) but not
+    // in V3.2.1 (#572).
     //
     // Nur A/AA: `automated` zählt keine AAA-Kriterien, und 2.4.12 ist sowohl
     // AAA als auch neu in 2.2 — es als "N davon" in die A/AA-Quote zu zählen
@@ -115,12 +115,12 @@ pub(super) fn render_wcag_coverage_section(
         let wcag22_list = wcag22_criteria.join(", ");
         if en {
             format!(
-                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. {} of them ({wcag22_list}, marked \"WCAG 2.2\" below and on individual findings) were added by WCAG 2.2 and are therefore not part of EN 301 549 V3.2.1. The criteria listed below require manual review.",
+                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. {} of them ({wcag22_list}, marked \"WCAG 2.2\" below and on individual findings) were added by WCAG 2.2 and are part of EN 301 549 V4.1.1 but not of V3.2.1. The criteria listed below require manual review.",
                 wcag22_criteria.len()
             )
         } else {
             format!(
-                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. {} davon ({wcag22_list}, unten und bei einzelnen Befunden mit „WCAG 2.2\" gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und deshalb nicht Teil von EN 301 549 V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.",
+                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. {} davon ({wcag22_list}, unten und bei einzelnen Befunden mit „WCAG 2.2\" gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und Teil von EN 301 549 V4.1.1, aber nicht von V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.",
                 wcag22_criteria.len()
             )
         }

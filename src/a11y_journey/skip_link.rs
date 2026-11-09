@@ -46,17 +46,7 @@ async fn focus_and_resolve(page: &Page, trigger_id: i64) -> Option<(RemoteObject
     let resolved = page.execute(resolve).await.ok()?;
     let trigger = resolved.result.object.object_id.clone()?;
     let call = CallFunctionOnParams::builder()
-        .function_declaration(
-            "function() {
-                this.focus();
-                const href = this.getAttribute('href') || '';
-                if (!href.startsWith('#') || href.length < 2) return 'no_fragment';
-                let id = href.slice(1);
-                try { id = decodeURIComponent(id); } catch (e) {}
-                return document.getElementById(id) || document.getElementsByName(id)[0] || 'missing';
-            }"
-            .to_string(),
-        )
+        .function_declaration(include_str!("js/skip_link_activate.js").to_string())
         .object_id(trigger.clone())
         .return_by_value(false)
         .build()
@@ -83,17 +73,7 @@ async fn focus_relation(
     trigger: &RemoteObjectId,
 ) -> Option<String> {
     let call = CallFunctionOnParams::builder()
-        .function_declaration(
-            "function(trigger) {
-                const a = document.activeElement;
-                if (!a || a === document.body || a === document.documentElement) return 'none';
-                if (a === this || this.contains(a)) return 'inside';
-                if (a === trigger) return 'trigger';
-                return (this.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)
-                    ? 'after' : 'before';
-            }"
-            .to_string(),
-        )
+        .function_declaration(include_str!("js/skip_link_focus_target.js").to_string())
         .object_id(target.clone())
         .argument(CallArgument::builder().object_id(trigger.clone()).build())
         .return_by_value(true)

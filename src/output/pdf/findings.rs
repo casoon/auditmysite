@@ -280,9 +280,9 @@ pub(super) fn render_finding_technical(
 
     let header = if !group.wcag_criterion.is_empty() {
         // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
-        // this report's audit-scope ratio but outside EN 301 549 V3.2.1, which
-        // the BFSG references and which is built on WCAG 2.1. A finding tagged
-        // just "AA" would misrepresent that (#572, plan 54 §1).
+        // this report's audit-scope ratio and EN 301 549 V4.1.1, but were not
+        // part of WCAG 2.1 / EN 301 549 V3.2.1. A finding tagged just "AA"
+        // would hide that (#572, plan 54 §1).
         let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.wcag_criterion) {
             ", WCAG 2.2"
         } else {
@@ -430,7 +430,7 @@ pub(super) fn render_finding_technical(
     // The 1.3.1 self-test is about headings and landmarks; the content-model
     // finding is about invalid children of lists and tables, so it does not
     // apply there (#902).
-    let recheck_instruction = if group.rule_id.contains("html_content_model") {
+    let recheck_instruction = if group.rule_id.contains("html-content-model") {
         None
     } else {
         manual_recheck_instruction(&group.wcag_criterion, en)
@@ -822,7 +822,7 @@ mod tests {
         };
         use crate::screen_reader::BfsgVerdict;
 
-        let mut contrast = group("a11y.contrast.weak", "Contrast", "Accessibility");
+        let mut contrast = group("contrast/text-insufficient", "Contrast", "Accessibility");
         contrast.bfsg_relevance = "medium".to_string();
         let mut html = group("html_conform.schema.html5", "Schema", "HTML Conformance");
         html.bfsg_relevance = "low".to_string();
@@ -924,7 +924,7 @@ mod tests {
         assert_eq!(
             customer_perspective_title(
                 &group(
-                    "a11y.name_role.missing",
+                    "buttons/name-missing",
                     "Fehlende Name/Rolle",
                     "Accessibility"
                 ),
@@ -935,7 +935,7 @@ mod tests {
         assert_eq!(
             customer_perspective_title(
                 &group(
-                    "a11y.structure.missing",
+                    "lists/empty",
                     "Fehlende semantische Struktur",
                     "Accessibility"
                 ),
@@ -946,7 +946,7 @@ mod tests {
         assert_eq!(
             customer_perspective_title(
                 &group(
-                    "a11y.contrast.weak",
+                    "contrast/text-insufficient",
                     "Unzureichender Farbkontrast",
                     "Accessibility"
                 ),

@@ -474,7 +474,8 @@ impl PipelineConfig {
         // 29 for the removal of the design_quality, ai_transparency and
         // network_dns module fields (#915).
         // 30 for the removal of the dark_mode module field (#917).
-        const CACHE_FMT: u8 = 30;
+        // 31 for the engine rule id as the finding `rule_id` (#918).
+        const CACHE_FMT: u8 = 31;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -1654,17 +1655,7 @@ async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<V
 
     // Query viewport metadata
     let eval_res = page
-        .evaluate(
-            "(() => {
-                return {
-                    dpr: window.devicePixelRatio || 1.0,
-                    width: window.innerWidth || 1280,
-                    height: window.innerHeight || 800,
-                    scrollX: window.scrollX || window.pageXOffset || 0,
-                    scrollY: window.scrollY || window.pageYOffset || 0
-                };
-             })()",
-        )
+        .evaluate(include_str!("js/viewport_metadata.js"))
         .await
         .map_err(|e| crate::error::AuditError::NavigationFailed {
             url: "viewport-metadata".to_string(),
