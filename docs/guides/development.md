@@ -102,6 +102,28 @@ token has read-only contents access. Full runs use distinct concurrency groups
 per run and attempt, so dispatches and release calls cannot cancel or replace
 one another.
 
+#### Path-filtered browser and PDF suites on pull requests (#942)
+
+One thin workflow calls `ci.yml` through `workflow_call` with its `suites` input,
+so the steps exist once and Quick checks does not get slower:
+
+| Workflow | Runs on PRs touching | Jobs of `ci.yml` |
+|---|---|---|
+| `pr-browser-qa.yml` | `src/wcag/**`, `src/a11y_journey/**`, `src/output/pdf/**`, `tests/fixtures/rule_contracts/**` | Browser Integration Tests (E2E), Detection corpus (WCAG) 1/3 to 3/3, PDF Smoke Tests |
+
+It also runs when the workflow itself, `ci.yml` or `.github/actions/**`
+changes. A PR that matches no path does not start it, so docs-only PRs
+cost nothing extra and the always-present check stays **Quick checks**. These
+checks are separate from it: if protection is ever enabled, do not make them
+required, since a skipped workflow never reports. `suites` defaults to `all`,
+which is what `release.yml` and a manual dispatch get, so tags and dispatches run
+the same jobs as before. The rule-contract gate (`tests/rule_contract_gate.rs`)
+needs no Chrome and already runs inside the `cargo test` of Quick checks; a change
+under `rule_contracts/` additionally runs the corpus its contracts refer to.
+Detector mutations, docs.rs parity, native macOS/Windows smoke, audit and
+coverage stay tag/dispatch/full only. A new push to the PR cancels the running
+filtered jobs.
+
 To validate a release candidate without publishing, select **CI → Run workflow**
 and the candidate ref, or, once `workflow_dispatch` is present on `main`:
 

@@ -1,0 +1,37 @@
+name: PR browser QA
+
+# Chrome-based and PDF suites on pull requests that touch what they test (#942):
+# the browser smoke, the WCAG detection corpus and the PDF smoke from ci.yml,
+# reused through `workflow_call` with `suites: browser`. A separate workflow, so a PR that
+# matches no path does not wait for it and Quick checks stays the only
+# always-running check. The rule-contract gate itself needs no Chrome and
+# already runs in every `cargo test` of Quick checks; a change to the
+# contracts triggers the corpus here because the contracts name its cases.
+# Detector mutations stay tag/dispatch only.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/wcag/**"
+      - "src/a11y_journey/**"
+      - "src/output/pdf/**"
+      - "tests/fixtures/rule_contracts/**"
+      - ".github/workflows/pr-browser-qa.yml"
+      - ".github/workflows/ci.yml"
+      - ".github/actions/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-browser-qa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: Browser suites
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      suites: browser
