@@ -83,8 +83,8 @@ dirs = "7"
 toml = "1"
 
 # Local HTML5 validation (replaces remote W3C/Nu validator)
-html5ever = "0.27"
-markup5ever_rcdom = "0.3"
+html5ever = "0.40"
+markup5ever_rcdom = "0.40"
 
 # Deep HTML5 spec-conformance checking (RelaxNG + Schematron), scored module
 html-conform = "0.4.2"
