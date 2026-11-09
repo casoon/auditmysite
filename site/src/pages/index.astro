@@ -59,7 +59,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       <Badge>WCAG 2.2 AA</Badge>
       <Badge>macOS · Linux · Windows</Badge>
     </Badges>
-    {/* Excerpt of the recorded single-page audit (examples/hero-excerpt.sh): 64 columns, and
+    {/* Excerpt of the recorded single-page audit (assets/casts/hero-excerpt.sh): 64 columns, and
         a 50-column scene for phones. The full recording is in the showcase. */}
     <Fragment
       slot="output"
@@ -130,8 +130,8 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
   </section>
 
   <BuildOutput
-    caption="Real output of auditmysite, recorded against casoon.de with examples/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
-    file="examples/plan.txt"
+    caption="Real output of auditmysite, recorded against casoon.de with assets/casts/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
+    file="assets/casts/plan.txt"
     heading="What an audit will do"
   >
     <Terminal ansi={fixture('plan.txt')} />

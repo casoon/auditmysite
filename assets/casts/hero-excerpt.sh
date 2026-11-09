@@ -8,7 +8,7 @@
 # the Chrome path and the report file name, whose long lines would wrap. The full recording is
 # in the showcase. Called by record.sh; to rebuild by hand:
 #
-#   examples/hero-excerpt.sh
+#   assets/casts/hero-excerpt.sh
 #
 # castwright is called as `castwright`; set CASTWRIGHT to use another command.
 set -euo pipefail
