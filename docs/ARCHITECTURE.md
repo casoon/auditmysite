@@ -623,11 +623,12 @@ and the actual connect.
 
 `read_url_file()` uses `canonicalize()` to prevent `../` attacks.
 
-### Chromium Downloads
+### Managed Browser Downloads
 
-- Pinned version constant
-- Trusted CDN (storage.googleapis.com)
-- HTTPS only
+- Nothing is downloaded without consent: `auditmysite browser install`, `browser ensure --yes`, or the consent prompt of an interactive audit
+- The version and the per-platform URL come from the publisher's Chrome for Testing manifest; there is no hard-coded fallback version
+- HTTPS only, and only to `googlechromelabs.github.io` (manifest) and `storage.googleapis.com/chrome-for-testing-public/` (archive), including redirects
+- No checksum or signature is published upstream, so publisher integrity is not claimed; details in [chrome-dependency.md](chrome-dependency.md)
 
 ## Testing Strategy
 
@@ -681,6 +682,6 @@ Key crates:
 - `html5ever` / `markup5ever_rcdom` - Local HTML5 parsing (link crawling, no remote validator)
 - `html-conform` - Deep HTML5 spec-conformance checking (RelaxNG + Schematron) for the html_conform module
 - `fluent-bundle` / `unic-langid` - i18n (Project Fluent, default language German)
-- `reqwest` (rustls) - Sitemap fetching, Chromium download
+- `reqwest` (rustls) - Sitemap fetching, managed browser download
 - `renderreport` (optional, `pdf` feature) - PDF generation (Typst-based)
 - `c2pa` (optional, `ai-transparency` feature, `rust_native_crypto` only — no OpenSSL, no HTTP client) - C2PA Content Credentials manifest reading for the ai_transparency module
