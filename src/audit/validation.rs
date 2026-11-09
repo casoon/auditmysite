@@ -56,7 +56,6 @@ pub const CONTRACT_CODES: &[&str] = &[
     "batch_aggregation",
     "browser_provenance",
     "cause_charged_twice",
-    "certificate",
     "collection_gap_completed",
     "collection_gap_scored",
     "collection_state_unexplained",
@@ -187,19 +186,6 @@ impl NormalizedReport {
                 "score must not exceed the 70/30 mobile/desktop accessibility value".into(),
             );
         }
-        check(
-            self.decision.certificate
-                == Some(super::Certificate::derive(
-                    self.score,
-                    &self.risk.level,
-                    self.risk.legal_flags,
-                    self.risk.blocking_issues,
-                )),
-            "certificate",
-            "decision.certificate".into(),
-            "certificate must apply the canonical score and risk policy".into(),
-        );
-
         let mut finding_counts = [0usize; 5];
         let mut occurrence_counts = [0usize; 5];
         for finding in self.findings.iter().filter(|f| f.category == "wcag") {

@@ -795,7 +795,7 @@ pub fn build_batch_presentation_with_normalized(
         })
         .unwrap_or_default();
 
-    // Same contract as the single report: grade and certificate describe the
+    // Same contract as the single report: the grade describes the
     // subject of the report, which is accessibility (plan 29, D1). The
     // weighted `average_overall_score` stays visible as its own figure.
     //
@@ -805,7 +805,6 @@ pub fn build_batch_presentation_with_normalized(
     // be graded differently depending on which report a reader was holding.
     // Empty when nothing was measured; the PDF refuses such a batch.
     let grade = batch.summary.grade().unwrap_or_default();
-    let certificate = batch.summary.decision.certificate_key().to_string();
 
     let en = is_english(i18n);
     // From the root causes (finding patterns on two or more pages), most
@@ -853,7 +852,6 @@ pub fn build_batch_presentation_with_normalized(
             module_averages,
             active_modules,
             domain,
-            certificate,
             grade,
             page_type_distribution,
             page_type_groups,

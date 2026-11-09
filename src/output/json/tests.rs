@@ -68,7 +68,7 @@ fn test_management_risks_rationale_has_no_debug_format_leak() {
 #[test]
 fn test_management_risks_reflect_blocking_issues_not_just_legal_flags() {
     // Regression (satower-mosterei.de, 2026-08-31): overall risk_level
-    // "medium", certificate "EINGESCHRÄNKT", verdict "fail", 4 blocking
+    // "medium", verdict "fail", 4 blocking
     // interaction issues (buttons without an accessible name, WCAG 4.1.2,
     // "medium" severity so legal_flags/critical/high all stayed 0) -- yet
     // every management_risks dimension previously read "low" regardless,
@@ -328,8 +328,8 @@ fn test_single_score_matches_normalized() {
     assert_eq!(page.accessibility_score, normalized.normalized.score);
     assert_eq!(page.grade, normalized.normalized.grade);
     assert_eq!(
-        page.decision.certificate,
-        normalized.normalized.decision.certificate
+        page.decision.verdict,
+        normalized.normalized.decision.verdict
     );
 }
 
@@ -1248,11 +1248,11 @@ fn test_collection_errors_serialized_when_present() {
     let _ = &mut unified;
 }
 
-/// Plan 111: batch grade and certificate describe accessibility, like the
-/// single report. They used to follow the weighted overall, so inros-lackner
-/// (accessibility 49, overall 62) read "D" / "STABIL" and report-lint failed.
+/// Plan 111: the batch grade describes accessibility, like the single
+/// report. It used to follow the weighted overall, so inros-lackner
+/// (accessibility 49, overall 62) read "D" and report-lint failed.
 #[test]
-fn test_batch_grade_and_certificate_follow_accessibility_not_overall() {
+fn test_batch_grade_follows_accessibility_not_overall() {
     let mut report = all_active_modules_report();
     report.accessibility.wcag_results = WcagResults::new();
     report.accessibility.wcag_results.add_violation(
@@ -1283,23 +1283,21 @@ fn test_batch_grade_and_certificate_follow_accessibility_not_overall() {
     );
     assert_eq!(summary["grade"], "F");
     assert!(summary.get("certificate").is_none(), "{summary}");
-    assert_ne!(json["decision"]["certificate"], "stable");
-    assert_eq!(json["decision"]["contract"], "auditmysite.decision/2");
+    assert!(json["decision"].get("certificate").is_none(), "{json}");
+    assert_eq!(json["decision"]["contract"], "auditmysite.decision/3");
 
     let lint = crate::lint::lint(&json, None);
     assert!(
-        lint.findings
-            .iter()
-            .all(|f| !f.check_id.contains("grade") && !f.check_id.contains("certificate")),
+        lint.findings.iter().all(|f| !f.check_id.contains("grade")),
         "{:?}",
         lint.findings
     );
 }
 
-/// Plan 111: the certificate is gated by the batch risk the same way the
-/// single report gates it.
+/// Plan 111: blocking issues across the batch fail it, and the grade stays
+/// the grade of the average accessibility score.
 #[test]
-fn test_batch_certificate_is_risk_gated() {
+fn test_batch_blocking_issues_fail_without_changing_the_grade() {
     let mut batch = BatchReport::from_reports(
         vec![AuditReport::new(
             "https://example.com/a".to_string(),
@@ -1321,10 +1319,7 @@ fn test_batch_certificate_is_risk_gated() {
         batch.summary.grade().unwrap(),
         crate::audit::AccessibilityScorer::calculate_grade(80.0)
     );
-    assert_eq!(
-        batch.summary.decision.certificate,
-        Some(crate::audit::Certificate::Restricted)
-    );
+    assert_eq!(batch.summary.decision.verdict, crate::audit::Verdict::Fail);
 }
 
 #[test]
@@ -1386,9 +1381,8 @@ fn fully_failed_batch_json_has_no_score_and_an_explicit_denominator() {
     let summary = &json["summary"];
     assert!(summary["accessibility_score"].is_null(), "{summary}");
     assert!(summary["overall_score"].is_null(), "{summary}");
-    // No grade and no certificate computed from a stand-in 0 either.
+    // No grade computed from a stand-in 0 either.
     assert!(summary["grade"].is_null(), "{summary}");
-    assert!(summary["certificate"].is_null(), "{summary}");
     assert_eq!(summary["coverage"]["succeeded"], 0);
     assert_eq!(summary["coverage"]["attempted"], 2);
     assert_eq!(summary["coverage"]["failed"], 2);

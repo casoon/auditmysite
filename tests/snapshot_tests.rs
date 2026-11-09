@@ -153,7 +153,7 @@ fn make_full_report() -> AuditReport {
 
 // ─── Snapshot A: NormalizedReport key fields ────────────────────────────────
 //
-// Captures scores, grade, certificate, severity counts, module names, and
+// Captures scores, grade, severity counts, module names, and
 // finding rule IDs — the structural backbone of the data pipeline.
 // Timestamps are excluded (non-deterministic).
 
@@ -183,7 +183,6 @@ fn snapshot_normalized_report_fields() {
         "overall_score": normalized.normalized.overall_score,
         "score": normalized.normalized.score,
         "grade": normalized.normalized.grade,
-        "certificate": normalized.normalized.decision.certificate,
         "severity_counts": {
             "critical": normalized.normalized.severity_counts.critical,
             "high": normalized.normalized.severity_counts.high,
@@ -240,14 +239,12 @@ fn snapshot_view_model_fields() {
         "cover": {
             "score": vm.cover.score,
             "grade": vm.cover.grade,
-            "certificate": vm.cover.certificate,
             "total_issues": vm.cover.total_issues,
             "critical_issues": vm.cover.critical_issues,
         },
         "summary": {
             "score": vm.summary.score,
             "grade": vm.summary.grade,
-            "certificate": vm.summary.certificate,
             "maturity_label": vm.summary.maturity_label,
         },
         "severity": {
@@ -292,7 +289,6 @@ fn snapshot_batch_presentation_fields() {
         "total_urls": pres.portfolio_summary.total_urls,
         "average_score": pres.portfolio_summary.average_score,
         "grade": pres.portfolio_summary.grade,
-        "certificate": pres.portfolio_summary.certificate,
         "module_averages": module_averages.iter().map(|(name, score)| {
             serde_json::json!({ "name": name, "score": score })
         }).collect::<Vec<_>>(),

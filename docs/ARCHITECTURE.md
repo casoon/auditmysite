@@ -106,7 +106,7 @@ src/
 │
 ├── lint/                # Deterministic report-lint (#507, Report Quality Layer)
 │   ├── mod.rs           # LintFinding/LintReport, lint() entry point
-│   ├── checks.rs        # Score/grade/certificate/count-sum/metric_context checks
+│   ├── checks.rs        # Score/grade/count-sum/metric_context checks
 │   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
 ├── audit/               # Audit orchestration
@@ -347,7 +347,7 @@ src/
    │  ├── Enrich findings with taxonomy fields
    │  ├── Normalize warnings/manual-review items separately from violations
    │  ├── Retain Journey execution coverage and compact focus evidence
-   │  └── Compute grade + certificate from corrected score
+   │  └── Compute grade from corrected score
    │
 9. Generate report (JSON/PDF/Table)
    │  └── All formats use NormalizedReport as single source of truth
@@ -381,7 +381,7 @@ Central data layer between raw `AuditReport` and output formats:
 - Applies score corrections (e.g. 3.1.1 language suppression)
 - Enriches violations with taxonomy metadata (dimension, subcategory, issue_class, etc.)
 - Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
-- Computes grade and certificate from corrected score
+- Computes grade from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
 
 The overall score is reconstructed from contributing `module_scores` and their
@@ -393,7 +393,7 @@ applied after viewport aggregation as well as during individual scoring.
 normalizer and validates the resulting `NormalizedReport` independently of any
 output format. `NormalizedReport::validate` collects all detected contradictions
 as serializable `ContractViolation` entries (stable code, path, explanation).
-It checks score limits, canonical grades/certificates, finding and occurrence
+It checks score limits, canonical grades, finding and occurrence
 counts, module identity/weights/measurement state, the reconstructed overall
 score, requested module outcomes and execution completeness. `validate_batch`
 also verifies the measured-page denominator, accessibility average and canonical
@@ -454,7 +454,7 @@ no additional score model. Details per contract live in `docs/OUTPUT_CONTRACT.md
   subcheck and an audit caveat, not a qualification of the audited page.
 - **Finding and decision model** (`audit/finding_contract.rs`,
   `audit/verdict.rs`): findings carry stable identity, applicability, evidence and
-  scoring effect; verdict, certificate and batch counts are computed once during
+  scoring effect; verdict and batch counts are computed once during
   normalization and read by every output.
 - **Measurement profile** (`audit_scope`): document/redirect, sample, viewport,
   session, consent and interaction state are recorded; unsupported flag

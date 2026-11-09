@@ -115,7 +115,7 @@ pub(crate) fn score_from_penalties(
     // reported as near-perfect even if penalties are individually small.
     //
     // A High failure of a Level A criterion keeps the page below the top band
-    // (90 = SEHR GUT): Level A is the conformance floor, a page failing it is
+    // (the 90-100 band): Level A is the conformance floor, a page failing it is
     // not conformant. Before, one missing alt text on an otherwise clean page
     // scored 92 (plan 47, calibration decision 2026-09-26).
     raw_score.min(semantic_cap(
@@ -318,22 +318,6 @@ impl AccessibilityScorer {
         crate::registry::LETTER_GRADE.label(score, false)
     }
 
-    /// Calculate certificate level based on score.
-    ///
-    /// Thresholds follow the official grade bands (#449). The returned value is
-    /// the canonical German token used as the lookup key for badge/colour; the
-    /// display label is localized at render time (see
-    /// `registry::certificate_label_localized`).
-    ///
-    /// - SEHR GUT: ≥90 (platinum)
-    /// - GUT: ≥75 (gold)
-    /// - STABIL: ≥60 (silver)
-    /// - AUSBAUFÄHIG: ≥40 (bronze)
-    /// - UNGENÜGEND: <40 (failed)
-    pub fn calculate_certificate(score: f32) -> &'static str {
-        crate::registry::CERTIFICATE.label(score, false)
-    }
-
     /// Calculate detailed statistics for a set of violations
     pub fn calculate_statistics(violations: &[Violation]) -> ViolationStatistics {
         let total = violations.len();
@@ -405,10 +389,6 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 100.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "A");
-        assert_eq!(
-            AccessibilityScorer::calculate_certificate(score),
-            "SEHR GUT"
-        );
     }
 
     #[test]
@@ -480,7 +460,6 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 80.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
-        assert_eq!(AccessibilityScorer::calculate_certificate(score), "GUT");
     }
 
     #[test]
@@ -522,10 +501,6 @@ mod tests {
         // With log compression, catastrophic failure scores 3–5 (not ~1).
         assert!(score < 10.0, "score was {}", score);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
-        assert_eq!(
-            AccessibilityScorer::calculate_certificate(score),
-            "UNGENÜGEND"
-        );
     }
 
     #[test]

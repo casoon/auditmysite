@@ -1043,8 +1043,7 @@ impl UnifiedReport {
         let measured = batch_report.summary.average_score.is_some();
         let accessibility_score = batch_report.summary.average_score.unwrap_or(0.0).round() as u32;
         let overall_score_batch = presentation.portfolio_summary.average_overall_score;
-        // Accessibility, like the single report; the certificate is in the
-        // batch decision (#781).
+        // Accessibility, like the single report.
         let grade = batch_report.summary.grade();
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,

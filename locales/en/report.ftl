@@ -1,4 +1,3 @@
-label-certificate = Certificate
 section-summary = Executive Summary
 section-methodology = Scope and Methodology
 section-modules = Module Scores
@@ -57,7 +56,6 @@ metric-score = Overall score
 metric-issues-detected = Issues detected
 metric-critical-high = Critical / High
 metric-risk = Risk
-metric-certificate = Certificate
 panel-quick-actions = Recommended improvements
 panel-strengths = What is already strong
 label-strength = Strength
@@ -158,7 +156,7 @@ consequence-stable = No urgent pressure to act. Regular checks preserve the leve
 consequence-default = Without correction the site stays below the achievable standard — improvement potential is left on the table.
 
 # Cover score row
-cover-card-certificate = Overall rating
+cover-card-grade = Grade
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = critical/high
@@ -173,7 +171,6 @@ batch-cover-frame-title = Audit scope
 batch-cover-frame-domain = Domain
 batch-cover-frame-date = Audit date
 batch-cover-frame-urls = Audited URLs
-batch-cover-frame-certificate = Certificate
 batch-cover-frame-modules = Active modules
 batch-cover-frame-version = Tool version
 batch-cover-frame-scope = Coverage

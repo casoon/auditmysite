@@ -1687,7 +1687,7 @@
       "properties": {
         "contract": {
           "type": "string",
-          "const": "auditmysite.decision/2"
+          "const": "auditmysite.decision/3"
         },
         "profile": {
           "$ref": "#/$defs/decisionProfile"
@@ -1699,11 +1699,6 @@
             "warn",
             "fail"
           ]
-        },
-        "certificate": {
-          "description": "Certificate band of the accessibility score, limited by the risk veto (legal flags, blocking issues, high or critical risk). Absent when nothing was measured.",
-          "type": "string",
-          "enum": ["very_good", "good", "stable", "needs_improvement", "insufficient", "restricted", "not_passed"]
         },
         "reasons": {
           "type": "array",

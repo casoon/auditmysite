@@ -105,43 +105,6 @@ pub static SEO_BAND: BandSet = BandSet {
     ],
 };
 
-/// The 90/75/60/40 thresholds rendered as the canonical German certificate
-/// token (used as a lookup key for badge/colour; the display label is
-/// localized separately, see [`certificate_label_localized`]). Shared by
-/// `audit::scoring::AccessibilityScorer::calculate_certificate` (the
-/// canonical source) and the PDF's `cover::batch_certificate_label`, which
-/// re-implemented the same thresholds independently before this migration.
-pub static CERTIFICATE: BandSet = BandSet {
-    name: "certificate_90_75_60_40",
-    bands: &[
-        (90, "SEHR GUT", "SEHR GUT"),
-        (75, "GUT", "GUT"),
-        (60, "STABIL", "STABIL"),
-        (40, "AUSBAUFÄHIG", "AUSBAUFÄHIG"),
-        (i64::MIN, "UNGENÜGEND", "UNGENÜGEND"),
-    ],
-};
-
-/// Localize the canonical (German) certificate token for display. The token
-/// stays German internally so badge/colour lookups remain locale-independent;
-/// only the rendered label (PDF cover, terminal) is translated (#449).
-pub fn certificate_label_localized(canonical: &str, locale: &str) -> String {
-    if locale != "en" {
-        return canonical.to_string();
-    }
-    match canonical {
-        "SEHR GUT" => "EXCELLENT",
-        "GUT" => "GOOD",
-        "STABIL" => "STABLE",
-        "AUSBAUFÄHIG" => "INADEQUATE",
-        "UNGENÜGEND" => "FAILED",
-        "EINGESCHRÄNKT" => "RESTRICTED",
-        "NICHT BESTANDEN" => "NOT PASSED",
-        other => other,
-    }
-    .to_string()
-}
-
 /// The 90/75/60/40 thresholds rendered as a "technical condition" sentence
 /// for the single-report PDF cover.
 pub static COVER_PHRASE: BandSet = BandSet {
@@ -266,20 +229,5 @@ mod tests {
         assert_eq!(SECURITY_GRADE.label(60.0, false), "C");
         assert_eq!(SECURITY_GRADE.label(50.0, false), "D");
         assert_eq!(SECURITY_GRADE.label(49.0, false), "F");
-    }
-
-    #[test]
-    fn english_certificate_labels_have_no_german_chars() {
-        let mut tokens: Vec<&str> = CERTIFICATE.bands.iter().map(|(_, de, _)| *de).collect();
-        tokens.extend(["EINGESCHRÄNKT", "NICHT BESTANDEN"]);
-        for token in tokens {
-            let en = certificate_label_localized(token, "en");
-            assert_ne!(en, token, "{token} has no English label");
-            assert!(
-                !en.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
-                "{token} -> {en}"
-            );
-            assert_eq!(certificate_label_localized(token, "de"), token);
-        }
     }
 }

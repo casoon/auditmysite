@@ -535,7 +535,7 @@ pub enum Command {
         #[arg(long, value_enum)]
         fail_on: Option<ReportLintFailOn>,
         /// Path to the `--debug-typ` Typst source for the same report — when
-        /// given, additionally checks the certificate token is traceable to it
+        /// given, additionally checks the accessibility score is traceable to it
         #[arg(long)]
         typst_source: Option<PathBuf>,
     },

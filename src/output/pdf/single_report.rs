@@ -207,21 +207,17 @@ fn render_module_split_dashboards(
         }));
     } else if !indicator_modules.is_empty() {
         // Module *scores* (0-100 per module) are a different axis from the
-        // risk-gated certificate (which can be downgraded to EINGESCHRÄNKT/
-        // NICHT BESTANDEN by blocking operability issues or legal flags even
-        // when every module score is >= 75 -- see gate_certificate_by_risk).
-        // An unconditional "all good" claim here directly contradicted that
-        // downgrade (confirmed live in satower-mosterei.de, 2026-08-31:
-        // certificate EINGESCHRÄNKT / verdict fail / 4 blockers, right next
-        // to "no module needs prioritized optimization"). Qualify the
+        // verdict (which fails on blocking operability issues or legal flags
+        // even when every module score is >= 75). An unconditional "all
+        // good" claim here directly contradicted a failing verdict
+        // (confirmed live in satower-mosterei.de, 2026-08-31: verdict fail /
+        // 4 blockers, right next to "no module needs prioritized
+        // optimization"). Qualify the
         // message instead of suppressing it entirely, so the "module scores
         // are fine" observation stays but doesn't read as "nothing to fix".
         // Scoped to the indicator modules shown here — the weighted/measured
         // modules' status is the score-driver table's job, not this one's.
-        let risk_gated = matches!(
-            vm.summary.certificate.as_str(),
-            "EINGESCHRÄNKT" | "NICHT BESTANDEN"
-        );
+        let risk_gated = vm.summary.ci_verdict == crate::audit::verdict::Verdict::Fail;
         let message = if risk_gated {
             if en {
                 "The additional indicator modules (UX, Journey, …) are in good shape, but barriers elsewhere in this report (operability, possible legal relevance) still require action — see Management Summary."
@@ -256,14 +252,13 @@ struct DimensionRow {
 
 /// The run's rating and CI verdict, with the reasons that drove it.
 ///
-/// Neither reached the PDF before: `summary.certificate` was only read as a
-/// gate, and `verdict`/`verdict_reasons` appeared zero times in the rendered
-/// output, so the CLI printed "FAIL — legal_flags: 5, blocking_issues: 36"
-/// while the document said nothing (plan 34).
+/// `verdict`/`verdict_reasons` appeared zero times in the rendered output, so
+/// the CLI printed "FAIL — legal_flags: 5, blocking_issues: 36" while the
+/// document said nothing (plan 34).
 ///
-/// Labelled "Gesamteinstufung" / "Overall rating", not "Zertifikat":
-/// `calculate_certificate` maps the overall score onto a band label and
-/// certifies nothing, and this document cites BFSG and EN 301 549 (plan 44).
+/// Labelled "Gesamteinstufung" / "Overall rating": the score band names a
+/// range and certifies nothing, and this document cites BFSG and EN 301 549
+/// (plan 44). The certificate itself is gone (#911).
 fn render_overall_rating(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -272,7 +267,7 @@ fn render_overall_rating(
     use crate::audit::verdict::Verdict;
     let en = is_english(i18n);
 
-    let rating = super::cover::certificate_label_localized(&vm.summary.certificate, i18n.locale());
+    let rating = crate::registry::SCORE_RANGE.label(vm.summary.score as f32, en);
     let verdict_word = match (vm.summary.ci_verdict, en) {
         (Verdict::Pass, true) => "passed",
         (Verdict::Pass, false) => "bestanden",
@@ -339,7 +334,7 @@ fn render_overall_rating(
     builder = builder.add_component(callout.with_title(title));
     builder.add_component(
         Label::new(if en {
-            "The rating is a band label for the accessibility score within the automated scope, not a conformance certificate."
+            "The rating is a band label for the accessibility score within the automated scope, not a statement of conformance."
         } else {
             "Die Einstufung ist ein Bandlabel für den Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis."
         })

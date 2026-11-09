@@ -3,7 +3,6 @@
 
 use serde_json::Value;
 
-use crate::audit::Certificate;
 use crate::registry::{MetricKind, LETTER_GRADE};
 use crate::taxonomy::Severity;
 
@@ -11,7 +10,7 @@ use super::LintFinding;
 
 pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_score_consistency(report, findings);
-    check_grade_certificate_consistency(report, findings);
+    check_grade_consistency(report, findings);
     check_severity_occurrence_sums(report, findings);
     check_metric_context_matches_registry(report, findings);
     check_registry_docs_urls_well_formed(findings);
@@ -261,94 +260,19 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
     }
 }
 
-// ─── Grade/certificate consistency ────────────────────────────────────────
+// ─── Grade consistency ────────────────────────────────────────
 
 // Named after what they check. The basis moved from `overall_score` to
 // `accessibility_score` with plan 29, D1, so the old
 // `*_matches_overall_score` ids would now name the wrong field.
 const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_accessibility_score";
-const CHECK_CERTIFICATE_MATCHES_SCORE: &str = "certificate_matches_accessibility_score";
 
-/// Risk-gate inputs for a `summary` or `pages[i]` node. `pages[i]` carries a
-/// nested `risk` object with full detail; `summary` only ever carries a flat
-/// `risk_level` string (no aggregate `legal_flags`/`blocking_issues`), so
-/// those default to 0 there — level-only gating (High/Critical) still works.
-fn risk_gate_inputs(node: &Value) -> (Option<&str>, i64, i64) {
-    if let Some(risk) = node.get("risk") {
-        let level = risk.get("level").and_then(Value::as_str);
-        let legal_flags = risk.get("legal_flags").and_then(Value::as_i64).unwrap_or(0);
-        let blocking_issues = risk
-            .get("blocking_issues")
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
-        (level, legal_flags, blocking_issues)
-    } else {
-        let level = node.get("risk_level").and_then(Value::as_str);
-        let legal_flags = node.get("legal_flags").and_then(Value::as_i64).unwrap_or(0);
-        let blocking_issues = node
-            .get("blocking_issues")
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
-        (level, legal_flags, blocking_issues)
-    }
-}
-
-/// Certificates `Certificate::derive` (`src/audit/verdict.rs`) can produce
-/// from a given score band, mirroring its exact precedence: Critical risk
-/// always wins (`not_passed`); otherwise a positive band becomes `restricted`
-/// when risk is High or there's any legal/blocking flag. Returns every
-/// canonical token that's a legitimate outcome for this input.
-fn acceptable_certificates(
-    score_based: Certificate,
-    risk_level: Option<&str>,
-    legal_flags: i64,
-    blocking_issues: i64,
-) -> Vec<&'static str> {
-    let mut acceptable = vec![certificate_token(score_based)];
-    if risk_level == Some("critical") {
-        acceptable.push(certificate_token(Certificate::NotPassed));
-    }
-    let is_positive = score_based != Certificate::Insufficient;
-    let does_not_pass = risk_level == Some("high") || legal_flags > 0 || blocking_issues > 0;
-    if is_positive && does_not_pass {
-        acceptable.push(certificate_token(Certificate::Restricted));
-    }
-    acceptable
-}
-
-/// The canonical JSON token of a certificate (`decision.certificate`).
-fn certificate_token(certificate: Certificate) -> &'static str {
-    match certificate {
-        Certificate::VeryGood => "very_good",
-        Certificate::Good => "good",
-        Certificate::Stable => "stable",
-        Certificate::NeedsImprovement => "needs_improvement",
-        Certificate::Insufficient => "insufficient",
-        Certificate::Restricted => "restricted",
-        Certificate::NotPassed => "not_passed",
-    }
-}
-
-/// `grade` and `decision.certificate` must be derivable from
-/// `accessibility_score` via the same shared `BandSet`s the production code
-/// uses (`calculate_grade` / `Certificate::from_score`) — catches a certificate/grade computed from a
-/// different (e.g. stale or pre-normalization) score base. `certificate` may
-/// also legitimately be a risk-gated downgrade of the score-based value; see
-/// [`acceptable_certificates`]. `risk_source` supplies the risk-gate inputs
-/// (`legal_flags`/`blocking_issues`) separately from `node` because a
-/// single-report `summary` only ever carries a flat `risk_level` string, not
-/// the full `risk` object — the caller passes `pages[0]` as `risk_source` in
-/// that case so a `blocking_issues`-driven downgrade (risk_level below
-/// "high") is still recognized as acceptable.
-fn check_grade_and_certificate(
-    node: &Value,
-    decision: &Value,
-    risk_source: &Value,
-    evidence_prefix: &str,
-    findings: &mut Vec<LintFinding>,
-) {
-    // Accessibility, not the weighted overall: grade and certificate describe
-    // the subject of the report (plan 29, D1).
+/// `grade` must be derivable from `accessibility_score` via the same shared
+/// `BandSet` the production code uses (`calculate_grade`) — catches a grade
+/// computed from a different (e.g. stale or pre-normalization) score base.
+fn check_grade(node: &Value, evidence_prefix: &str, findings: &mut Vec<LintFinding>) {
+    // Accessibility, not the weighted overall: the grade describes the
+    // subject of the report (plan 29, D1).
     let Some(basis) = node.get("accessibility_score").and_then(Value::as_i64) else {
         return;
     };
@@ -365,59 +289,15 @@ fn check_grade_and_certificate(
             });
         }
     }
-
-    if let Some(certificate) = decision.get("certificate").and_then(Value::as_str) {
-        let score_based = Certificate::from_score(basis as u32);
-        let (risk_level, legal_flags, blocking_issues) = risk_gate_inputs(risk_source);
-        let acceptable =
-            acceptable_certificates(score_based, risk_level, legal_flags, blocking_issues);
-        if !acceptable.contains(&certificate) {
-            findings.push(LintFinding {
-                check_id: CHECK_CERTIFICATE_MATCHES_SCORE,
-                evidence_path: format!("{evidence_prefix}.decision.certificate"),
-                expected: acceptable.join(" or "),
-                actual: certificate.to_string(),
-                severity: Severity::Critical,
-            });
-        }
-    }
 }
 
-fn check_grade_certificate_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
-    let report_type = report
-        .get("report_type")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let pages = report.get("pages").and_then(Value::as_array);
-
+fn check_grade_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
     if let Some(summary) = report.get("summary") {
-        let batch_risk = serde_json::json!({
-            "risk_level": summary["risk_level"],
-            "legal_flags": pages.into_iter().flatten().filter_map(|p| p["risk"]["legal_flags"].as_u64()).sum::<u64>(),
-            "blocking_issues": pages.into_iter().flatten().filter_map(|p| p["risk"]["blocking_issues"].as_u64()).sum::<u64>(),
-        });
-        let risk_source = if report_type == "single" {
-            pages.and_then(|p| p.first()).unwrap_or(summary)
-        } else {
-            &batch_risk
-        };
-        check_grade_and_certificate(
-            summary,
-            &report["decision"],
-            risk_source,
-            "summary",
-            findings,
-        );
+        check_grade(summary, "summary", findings);
     }
-    if let Some(pages) = pages {
+    if let Some(pages) = report.get("pages").and_then(Value::as_array) {
         for (i, page) in pages.iter().enumerate() {
-            check_grade_and_certificate(
-                page,
-                &page["decision"],
-                page,
-                &format!("pages[{i}]"),
-                findings,
-            );
+            check_grade(page, &format!("pages[{i}]"), findings);
         }
     }
 }
@@ -672,43 +552,37 @@ fn check_registry_docs_urls_well_formed(findings: &mut Vec<LintFinding>) {
     }
 }
 
-// ─── PDF traceability (scoped: certificate token only) ────────────────────
+// ─── PDF traceability (scoped: accessibility score only) ──────────────────
 
-const CHECK_PDF_CERTIFICATE_TRACEABLE: &str = "pdf_certificate_traceable_to_json";
+const CHECK_PDF_SCORE_TRACEABLE: &str = "pdf_score_traceable_to_json";
 
-/// Checks that the certificate the JSON stores in `decision.certificate`
-/// actually appears, as its German label, in the report's rendered Typst
-/// source. The stored certificate, not one re-derived here: it classifies the accessibility score (plan 29,
-/// D1) and may be a risk-gated downgrade, and whether it matches its score is
-/// already `CHECK_CERTIFICATE_MATCHES_SCORE`'s job (plan 63).
+/// Checks that the accessibility score the JSON stores in
+/// `summary.accessibility_score` appears, as `<score>/100`, in the report's
+/// rendered Typst source.
 ///
 /// Deliberately narrow: this does not scan for arbitrary numbers/claims in
 /// the PDF text (a naive "does this number appear anywhere" scan has a real
 /// false-positive risk — dates, page counts, unrelated percentages). It only
-/// checks a single, distinctive, all-caps token this build's `BandSet`
-/// computes from data already in the report, so a mismatch is unambiguous.
-/// Presence-only (not "no other certificate word may appear") because a
-/// legend/explanation of the band system elsewhere in the PDF may
-/// legitimately mention other certificate words.
-pub(super) fn check_pdf_certificate_traceability(
+/// checks the single, distinctive `<score>/100` token the cover sentence
+/// builds from data already in the report, so a mismatch is unambiguous.
+pub(super) fn check_pdf_score_traceability(
     report: &Value,
     typst_source: &str,
     findings: &mut Vec<LintFinding>,
 ) {
-    let Some(stored) = report
-        .get("decision")
-        .and_then(|d| d.get("certificate"))
-        .cloned()
-        .and_then(|c| serde_json::from_value::<Certificate>(c).ok())
+    let Some(score) = report
+        .get("summary")
+        .and_then(|s| s.get("accessibility_score"))
+        .and_then(Value::as_i64)
     else {
         return;
     };
-    let expected = stored.key();
+    let expected = format!("{score}/100");
 
-    if !typst_source.contains(expected) {
+    if !typst_source.contains(&expected) {
         findings.push(LintFinding {
-            check_id: CHECK_PDF_CERTIFICATE_TRACEABLE,
-            evidence_path: "decision.certificate vs --typst-source".to_string(),
+            check_id: CHECK_PDF_SCORE_TRACEABLE,
+            evidence_path: "summary.accessibility_score vs --typst-source".to_string(),
             expected: format!("Typst source contains {expected:?}"),
             actual: "not found in Typst source".to_string(),
             severity: Severity::Low,
@@ -860,7 +734,6 @@ mod tests {
             "schema_version": "2.0",
             "report_type": "single",
             "metric_context": registry_metric_context_json("single"),
-            "decision": {"certificate": "good"},
             "summary": {
                 "accessibility_score": 82,
                 "overall_score": 82,
@@ -875,8 +748,7 @@ mod tests {
                     "accessibility_score": 82,
                     "overall_score": 82,
                     "grade": "B",
-                    "decision": {"certificate": "good"},
-                    "severity_counts": {"critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3},
+                            "severity_counts": {"critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3},
                     "violated_rule_count": 3,
                     "occurrence_counts": {"critical": 1, "high": 3, "medium": 0, "low": 0, "total": 4},
                     "violation_count": 4
@@ -927,78 +799,6 @@ mod tests {
     }
 
     #[test]
-    fn detects_certificate_from_wrong_score_base() {
-        let mut report = clean_single_report();
-        report["decision"]["certificate"] = json!("very_good"); // score 82 should be "GUT"
-        let mut findings = Vec::new();
-        run_all_checks(&report, &mut findings);
-        assert!(findings
-            .iter()
-            .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE));
-    }
-
-    #[test]
-    fn certificate_downgraded_by_risk_gate_is_not_flagged() {
-        // overall_score 82 implies "GUT", but production code
-        // (Certificate::derive) downgrades a positive certificate to
-        // "EINGESCHRÄNKT" whenever risk is High -- report-lint must accept
-        // this as a legitimate outcome, not a score/certificate mismatch.
-        let mut report = clean_single_report();
-        report["decision"]["certificate"] = json!("restricted");
-        report["summary"]["risk_level"] = json!("high");
-        report["pages"][0]["decision"]["certificate"] = json!("restricted");
-        report["pages"][0]["risk"] =
-            json!({"level": "high", "legal_flags": 0, "blocking_issues": 0});
-        let mut findings = Vec::new();
-        run_all_checks(&report, &mut findings);
-        assert!(
-            !findings
-                .iter()
-                .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE),
-            "unexpected findings: {findings:?}"
-        );
-    }
-
-    #[test]
-    fn certificate_still_flagged_when_risk_does_not_justify_downgrade() {
-        // Same downgraded certificate as above, but risk is "low" -- nothing
-        // justifies "EINGESCHRÄNKT" here, so this must still be flagged.
-        let mut report = clean_single_report();
-        report["decision"]["certificate"] = json!("restricted");
-        report["summary"]["risk_level"] = json!("low");
-        let mut findings = Vec::new();
-        run_all_checks(&report, &mut findings);
-        assert!(findings
-            .iter()
-            .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE));
-    }
-
-    #[test]
-    fn certificate_downgraded_by_page_blocking_issues_not_flagged_via_summary() {
-        // Real-world case (satower-mosterei.de, 2026-08-31): risk_level is
-        // only "medium" (not "high"), so Certificate::derive's own
-        // risk-level check doesn't apply -- the downgrade to "EINGESCHRÄNKT"
-        // is driven purely by pages[0].risk.blocking_issues > 0, which the
-        // summary node itself never carries (only a flat risk_level string).
-        // The summary check must recognize this via pages[0]'s full risk
-        // object, not just its own risk_level.
-        let mut report = clean_single_report();
-        report["decision"]["certificate"] = json!("restricted");
-        report["summary"]["risk_level"] = json!("medium");
-        report["pages"][0]["decision"]["certificate"] = json!("restricted");
-        report["pages"][0]["risk"] =
-            json!({"level": "medium", "legal_flags": 0, "blocking_issues": 4});
-        let mut findings = Vec::new();
-        run_all_checks(&report, &mut findings);
-        assert!(
-            !findings
-                .iter()
-                .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE),
-            "unexpected findings: {findings:?}"
-        );
-    }
-
-    #[test]
     fn detects_severity_total_sum_mismatch() {
         let mut report = clean_single_report();
         report["summary"]["severity_counts"]["total"] = json!(99);
@@ -1024,7 +824,6 @@ mod tests {
         json!({
             "schema_version": "2.0",
             "report_type": "batch",
-            "decision": {"certificate": "good"},
             "summary": {
                 "accessibility_score": 82,
                 "overall_score": 82,
@@ -1042,8 +841,7 @@ mod tests {
                     "accessibility_score": 82,
                     "overall_score": 82,
                     "grade": "B",
-                    "decision": {"certificate": "good"},
-                    "severity_counts": {"critical": 0, "high": 1, "medium": 1, "low": 0, "total": 2},
+                            "severity_counts": {"critical": 0, "high": 1, "medium": 1, "low": 0, "total": 2},
                     "violated_rule_count": 2,
                     "occurrence_counts": {"critical": 0, "high": 12, "medium": 3, "low": 0, "total": 15},
                     "violation_count": 15
@@ -1113,11 +911,11 @@ mod tests {
     }
 
     #[test]
-    fn pdf_certificate_traceability_passes_when_token_present() {
-        let report = clean_single_report(); // certificate "GUT"
-        let typst_source = "... some rendered PDF text ... GUT ... more text ...";
+    fn pdf_score_traceability_passes_when_score_present() {
+        let report = clean_single_report(); // accessibility score 82
+        let typst_source = "... erreicht 82/100 im automatisierten Prüfumfang ...";
         let mut findings = Vec::new();
-        check_pdf_certificate_traceability(&report, typst_source, &mut findings);
+        check_pdf_score_traceability(&report, typst_source, &mut findings);
         assert!(findings.is_empty(), "unexpected findings: {findings:?}");
     }
 
@@ -1240,28 +1038,27 @@ mod tests {
     }
 
     #[test]
-    fn pdf_certificate_traceability_follows_the_stored_certificate_not_overall() {
-        // dm.de, 2026-09-28: accessibility 25 -> "NICHT BESTANDEN", overall 43
-        // would be "AUSBAUFÄHIG". The PDF prints the stored token (plan 63).
+    fn pdf_score_traceability_follows_the_accessibility_score_not_overall() {
+        // dm.de, 2026-09-28: accessibility 25, overall 43. The PDF prints the
+        // accessibility score (plan 63).
         let mut report = clean_single_report();
         report["summary"]["accessibility_score"] = json!(25);
         report["summary"]["overall_score"] = json!(43);
-        report["decision"]["certificate"] = json!("not_passed");
-        let typst_source = "... NICHT BESTANDEN ...";
+        let typst_source = "... 25/100 ...";
         let mut findings = Vec::new();
-        check_pdf_certificate_traceability(&report, typst_source, &mut findings);
+        check_pdf_score_traceability(&report, typst_source, &mut findings);
         assert!(findings.is_empty(), "unexpected findings: {findings:?}");
     }
 
     #[test]
-    fn pdf_certificate_traceability_flags_missing_token() {
-        let report = clean_single_report(); // certificate "GUT"
-        let typst_source = "... some rendered PDF text without the certificate word ...";
+    fn pdf_score_traceability_flags_missing_score() {
+        let report = clean_single_report(); // accessibility score 82
+        let typst_source = "... some rendered PDF text without the score ...";
         let mut findings = Vec::new();
-        check_pdf_certificate_traceability(&report, typst_source, &mut findings);
+        check_pdf_score_traceability(&report, typst_source, &mut findings);
         assert!(findings
             .iter()
-            .any(|f| f.check_id == CHECK_PDF_CERTIFICATE_TRACEABLE));
+            .any(|f| f.check_id == CHECK_PDF_SCORE_TRACEABLE));
     }
 }
 

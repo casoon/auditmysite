@@ -5,7 +5,7 @@ description: Runs an evidence-bound AI critique of a finished auditmysite report
 
 # Report Critic
 
-Judges whether a finished auditmysite report actually makes sense and is complete and defensible as a human would read it — the class of problem a deterministic linter structurally cannot catch. `auditmysite report-lint` already guarantees scores/grades/certificates/counts are internally consistent; this skill is for everything that requires judgment instead of arithmetic.
+Judges whether a finished auditmysite report actually makes sense and is complete and defensible as a human would read it — the class of problem a deterministic linter structurally cannot catch. `auditmysite report-lint` already guarantees scores/grades/counts are internally consistent; this skill is for everything that requires judgment instead of arithmetic.
 
 ## Before anything else: two rules that make or break this skill
 
@@ -56,6 +56,6 @@ If nothing surfaced in a category, omit it rather than forcing an entry.
 
 ## What this skill deliberately does not do
 
-- **Does not replace `report-lint`.** That subcommand is the fast, always-correct check for score/grade/certificate/count-sum consistency. If you haven't run it, say so and suggest `auditmysite report-lint <file>` before or alongside this critique — don't manually re-derive arithmetic checks it already owns.
+- **Does not replace `report-lint`.** That subcommand is the fast, always-correct check for score/grade/count-sum consistency. If you haven't run it, say so and suggest `auditmysite report-lint <file>` before or alongside this critique — don't manually re-derive arithmetic checks it already owns.
 - **Never blocks anything.** Every finding here is advisory. `report-lint`'s findings have real pass/fail severity semantics (via `--fail-on`); this skill's findings are judgment calls for a human to weigh, not gates.
 - **Does not judge pixel-level layout.** Spacing, exact alignment, and true visual regressions need a rendering/diff pipeline this project doesn't have yet (issue #510). Flag only what's visible as a text artifact in the Typst source itself.

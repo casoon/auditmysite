@@ -51,8 +51,8 @@ auditmysite https://example.com --lang en -o report.pdf
 
 - Languages: German (default) and English, `--lang de|en`. With `--lang en` the report is
   English throughout, including module tables (security headers, SSL, touch targets, fonts), the
-  HTML-validation callout and the certificate label; the terminal summary shows the certificate
-  in English as well. The JSON field `certificate` keeps its canonical token.
+  HTML-validation callout. The report carries no certificate: the grade and score band are
+  labels for the automated scope, not a statement of conformance.
 - Depth: `--report-level executive|standard|technical`.
 - Accessible output: tagged PDF/UA-1 with structure tree, document language, title and
   bookmarks. Rendering stops with a diagnostic rather than write a non-conformant PDF.
@@ -85,5 +85,5 @@ auditmysite report-lint report.json --fail-on high
 Deterministic consistency checks on a finished JSON report (single or batch): scores, grades and
 count sums that must agree. No network, no Chrome. The default `--fail-on` is `high`; a finding
 at or above it exits with code `3`. With `--typst-source <file.typ>` (the PDF's Typst source,
-written by the hidden `--debug-typ` flag) it also checks that the certificate shown in the PDF
+written by the hidden `--debug-typ` flag) it also checks that the accessibility score shown in the PDF
 traces back to the report.

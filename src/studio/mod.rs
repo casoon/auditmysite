@@ -40,10 +40,8 @@ pub struct StudioAuditResponse {
     pub overall_score: u32,
     /// Grade (A–F) of `accessibility_score` — the one grade basis (#781).
     pub grade: String,
-    /// The stored decision (#781): verdict, certificate, reasons, contract and
-    /// profile — the same PASS/WARN/FAIL as the terminal, the JSON and the
-    /// exit code. The certificate (a canonical kind, see
-    /// docs/studio-contract.schema.json) is `decision.certificate`.
+    /// The stored decision (#781): verdict, reasons, contract and profile —
+    /// the same PASS/WARN/FAIL as the terminal, the JSON and the exit code.
     pub decision: crate::audit::VerdictResult,
 
     // ── Risk (independent from score) ───────────────────────────────

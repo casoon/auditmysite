@@ -43,13 +43,7 @@
         "total": 4
       },
       "violation_count": 4,
-      "score": 82,
-      "decision": {
-        "certificate": "good"
-      }
+      "score": 82
     }
-  ],
-  "decision": {
-    "certificate": "good"
-  }
+  ]
 }

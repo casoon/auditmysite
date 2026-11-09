@@ -5,29 +5,20 @@
     "url_count": 2,
     "accessibility_score": 65,
     "overall_score": 65,
-    "grade": "D"
+    "grade": "A"
   },
   "pages": [
     {
       "url": "https://example.com/a",
       "accessibility_score": 70,
       "overall_score": 70,
-      "grade": "C",
-      "decision": {
-        "certificate": "stable"
-      }
+      "grade": "C"
     },
     {
       "url": "https://example.com/b",
       "accessibility_score": 60,
       "overall_score": 60,
-      "grade": "D",
-      "decision": {
-        "certificate": "stable"
-      }
+      "grade": "D"
     }
-  ],
-  "decision": {
-    "certificate": "very_good"
-  }
+  ]
 }

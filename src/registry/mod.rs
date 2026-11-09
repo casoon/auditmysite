@@ -13,8 +13,8 @@ mod metrics;
 mod paths;
 
 pub use bands::{
-    certificate_label_localized, BandSet, BAR_COLOR_BAND, CERTIFICATE, COVER_PHRASE, FIVE_BAND,
-    FIVE_BAND_LETTERS, LETTER_GRADE, MEDAL, SCORE_RANGE, SECURITY_GRADE, SEO_BAND,
+    BandSet, BAR_COLOR_BAND, COVER_PHRASE, FIVE_BAND, FIVE_BAND_LETTERS, LETTER_GRADE, MEDAL,
+    SCORE_RANGE, SECURITY_GRADE, SEO_BAND,
 };
 pub use metrics::REGISTRY;
 pub use paths::json_path_candidates;
@@ -35,7 +35,7 @@ pub enum MetricKind {
     Impact,
     /// A distinct occurrence/finding count.
     Count,
-    /// A label/grade/certificate derived from an underlying score.
+    /// A label/grade derived from an underlying score.
     Classification,
 }
 

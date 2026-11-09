@@ -16,10 +16,7 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::cover::{
-    batch_certificate_label, build_batch_cover_score_row, certificate_badge_path,
-    certificate_label_localized,
-};
+use super::super::cover::build_batch_cover_score_row;
 use super::super::helpers::score_quality_color;
 use super::actions::build_batch_quick_actions;
 use super::management::{
@@ -72,10 +69,6 @@ pub(super) fn render_batch_cover(
             .add(
                 i18n.t("batch-cover-frame-urls"),
                 format!("{}", pres.portfolio_summary.total_urls),
-            )
-            .add(
-                i18n.t("batch-cover-frame-certificate"),
-                certificate_label_localized(&pres.portfolio_summary.certificate, i18n.locale()),
             )
             .add(i18n.t("batch-cover-frame-modules"), &modules_str)
             .add(
@@ -202,23 +195,12 @@ pub(super) fn render_batch_cover(
         builder = builder.add_component(cover_meta);
     }
 
-    let batch_badge_asset = "/certificate-badge-batch.svg";
-    let batch_badge_enabled =
-        if let Ok(path) = certificate_badge_path(batch_certificate_label(score)) {
-            builder = builder.asset(batch_badge_asset, path);
-            true
-        } else {
-            false
-        };
-
     builder = builder
         .add_component(build_batch_cover_score_row(
             score,
             &pres.portfolio_summary.grade,
-            &pres.portfolio_summary.certificate,
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
-            batch_badge_enabled.then_some(batch_badge_asset),
             i18n,
         )?)
         .add_component(

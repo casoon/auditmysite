@@ -14,33 +14,32 @@ use crate::taxonomy::Severity;
 
 /// Four-level assessment of the overall site health.
 ///
-/// The score part follows the certificate bands (90/75/60/40, single source
-/// `Certificate::from_score`), so the label and the certificate badge on the
-/// same cover never name contradicting tiers (#899):
-/// `SEHR GUT` = Polished, `GUT`/`STABIL` = NeedsWork, `AUSBAUFÄHIG` = Weak,
-/// `UNGENÜGEND` = Critical. Open urgent findings can only lower the state
-/// (like the certificate's risk veto), never raise it.
+/// The score part follows the score bands (90/75/60/40, single source
+/// `ScoreBand::from_score`), so the label and the cover sentence never name
+/// contradicting tiers (#899): Excellent = Polished, Good/NeedsImprovement =
+/// NeedsWork, Weak = Weak, Critical = Critical. Open urgent findings can only
+/// lower the state, never raise it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SiteState {
-    /// certificate `SEHR GUT` and no urgent (critical/high) issues
+    /// score band 90-100 and no urgent (critical/high) issues
     Polished,
-    /// certificate `GUT`/`STABIL`, or a better score with urgent issues open
+    /// score band 60-89, or a better score with urgent issues open
     NeedsWork,
-    /// certificate `AUSBAUFÄHIG`, or several urgent issues including a critical one
+    /// score band 40-59, or several urgent issues including a critical one
     Weak,
-    /// certificate `UNGENÜGEND` or ≥ 3 critical issues — acute action required
+    /// score below 40 or ≥ 3 critical issues — acute action required
     Critical,
 }
 
 impl SiteState {
-    /// The state the score alone allows, banded like the certificate.
+    /// The state the score alone allows, banded like the score bands.
     pub fn from_score(score: u32) -> Self {
-        use crate::audit::verdict::Certificate;
-        match Certificate::from_score(score) {
-            Certificate::VeryGood => Self::Polished,
-            Certificate::Good | Certificate::Stable => Self::NeedsWork,
-            Certificate::NeedsImprovement => Self::Weak,
-            _ => Self::Critical,
+        use crate::audit::interpretation::ScoreBand;
+        match ScoreBand::from_score(score as f32) {
+            ScoreBand::Excellent => Self::Polished,
+            ScoreBand::Good | ScoreBand::NeedsImprovement => Self::NeedsWork,
+            ScoreBand::Weak => Self::Weak,
+            ScoreBand::Critical => Self::Critical,
         }
     }
 
@@ -773,17 +772,17 @@ mod tests {
     }
 
     /// #899: sweeping the score, the state label never contradicts the
-    /// certificate tier named beside it.
+    /// score band.
     #[test]
-    fn site_state_never_contradicts_certificate_tier() {
-        use crate::audit::verdict::Certificate;
+    fn site_state_never_contradicts_score_band() {
+        use crate::audit::interpretation::ScoreBand;
         for score in 0..=100u32 {
             let state = SiteState::from_normalized(&make_report(score, vec![]));
-            let expected = match Certificate::from_score(score) {
-                Certificate::VeryGood => SiteState::Polished,
-                Certificate::Good | Certificate::Stable => SiteState::NeedsWork,
-                Certificate::NeedsImprovement => SiteState::Weak,
-                _ => SiteState::Critical,
+            let expected = match ScoreBand::from_score(score as f32) {
+                ScoreBand::Excellent => SiteState::Polished,
+                ScoreBand::Good | ScoreBand::NeedsImprovement => SiteState::NeedsWork,
+                ScoreBand::Weak => SiteState::Weak,
+                ScoreBand::Critical => SiteState::Critical,
             };
             assert_eq!(state, expected, "score {score}");
         }

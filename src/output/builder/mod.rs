@@ -82,10 +82,6 @@ mod tests {
 
         assert_eq!(vm.summary.score, normalized.normalized.score);
         assert_eq!(vm.summary.grade, normalized.normalized.grade);
-        assert_eq!(
-            vm.summary.certificate,
-            normalized.normalized.decision.certificate_key()
-        );
         assert!(vm
             .summary
             .metrics
@@ -226,9 +222,9 @@ mod tests {
             normalized.normalized.score
         );
         assert_eq!(pres.url_ranking[0].grade, normalized.normalized.grade);
-        // Plan 29, D1: the portfolio grade and certificate describe the
-        // subject of the report, so they follow the accessibility average,
-        // not the weighted overall one.
+        // Plan 29, D1: the portfolio grade describes the subject of the
+        // report, so it follows the accessibility average, not the weighted
+        // overall one.
         let average_a11y = pres
             .portfolio_summary
             .average_score
@@ -236,17 +232,6 @@ mod tests {
         assert_eq!(
             pres.portfolio_summary.grade,
             crate::audit::AccessibilityScorer::calculate_grade(average_a11y).to_string()
-        );
-        assert_eq!(
-            pres.portfolio_summary.certificate,
-            crate::audit::Certificate::derive(
-                average_a11y.round() as u32,
-                &batch.summary.risk,
-                batch.summary.legal_flags,
-                batch.summary.blocking_issues,
-            )
-            .key(),
-            "batch PDF classification must follow the accessibility average"
         );
         assert_eq!(
             pres.url_details[0].module_scores.len(),

@@ -2,11 +2,11 @@
 //!
 //! The scorer's constants were each tuned to fix a symptom, and nothing
 //! checked the result against an expectation set from outside the scorer. These
-//! bands are that expectation, decided on 2026-09-26 in certificate terms:
+//! bands are that expectation, decided on 2026-09-26 in score-band terms:
 //!
 //! - a practically clean page: ≥ 95;
 //! - exactly one High failure of a Level A criterion, otherwise (nearly) clean:
-//!   75–89 — not conformant, so not the top band (SEHR GUT ≥ 90);
+//!   75–89 — not conformant, so not the top band (top band ≥ 90);
 //! - at least one Critical failure: ≤ 49.
 //!
 //! Bands, not exact values, so tuning stays possible. Runs the real pipeline at
