@@ -55,6 +55,18 @@ SKIP_RUST_CHECKS=1 git commit -m "..."
 
 The hook expects `nosecrets` to be available in `PATH`.
 
+## Test tiers
+
+| Tier | Command | Needs | Covers |
+|---|---|---|---|
+| Fast | `cargo test` | nothing | unit tests, schemas, mocked integration, CLI contract without a browser (`tests/cli_contract.rs`, `tests/report_lint_tests.rs`) |
+| Browser | `cargo test --test <name> -- --ignored` | Chrome | `#[ignore = "needs Chrome"]` suites on local fixtures: integration, detection corpus, browser pool, capture, privacy first visit |
+| Live | `cargo test --test reference_sites_test -- --ignored` | Chrome and network | manually rated live sites, run before a release (see `CLAUDE.md`, Release) |
+
+The fast tier is what `quick-ci.yml` runs; the browser tier runs in full QA (`ci.yml`). A new
+test that needs Chrome carries `#[ignore = "needs Chrome"]`, a new test that also needs the
+network says so in the reason, so the tiers stay separable by `--ignored` alone.
+
 ## Debugging report content (hidden `--debug-typ`)
 
 PDF reports are rendered through the `renderreport`/Typst engine. To review report
