@@ -21,20 +21,19 @@ Primary commands:
 
 Useful flags:
 - `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
-- `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory. With `-f json`, `index.json` and `findings.jsonl` are written next to the page files (see [Technician mode](../../guides/technician-mode/))
-- `--technician`: fix-oriented batch preset, see [Technician mode](../../guides/technician-mode/)
+- `--modules <list>`: choose the modules that run next to the accessibility checks, comma-separated: `performance` (alias `perf`), `seo`, `security`, `mobile`, `html-conform`, `stack`, or `a11y` for the WCAG rules only. Without `--modules` (or with the no-op `--full`) every module runs. `--modules` and `--full` exclude each other.
+- `--reuse-cache`: answer a single-URL run from the stored snapshot of an earlier run with the same configuration; without it every run measures afresh
 - `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
 - `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
-- `--html-conform`: run the HTML-conformance module without `--full`
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
-- `--stack`: enable tech stack detection from in-page signals (included automatically with `--full`); sends no requests of its own to the audited host
+- Tech stack detection (`--modules stack`, part of the default set) reads in-page signals only; it sends no requests of its own to the audited host
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs). Clicking submit buttons, add-to-cart triggers and quantity steppers is an opt-in: `--allow-state-changes` (with `full`)
 - `--annex <en301549|bik>`: add an opt-in appendix to the PDF report. `en301549` maps findings to EN 301 549 (chapter 9, "Web") clauses — a technical building block for a human-authored accessibility statement, not a statement itself. `bik` regroups the same findings by the chapters of the "BIK für Alle" editorial guide (images/alt text, link text, structure, easy language, PDFs, videos), without adding new checks. The underlying JSON data (`en301549_annex`, `bik_guide`) is always present regardless of this flag; it only gates the PDF section.
 - `--privacy-check`: opt-in (not part of `--full`), pre-consent privacy findings of one first visit in a clean browser context (requests, cookies, storage keys classified by provider; technical findings with a confidence class, no legal verdict, no score); one extra page load per audited page, see [privacy findings](../privacy-findings.md)
-- `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires `--full` or `--performance`, single-URL mode only
-- `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
+- `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires the `performance` module (the default set or `--modules performance`), single-URL mode only
+- `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires the `seo` module (the default set or `--modules seo`), single-URL mode only
 - `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](../../guides/display-modes/)
 - `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](../../guides/excluding-specimens/))
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
@@ -56,9 +55,9 @@ Measured on 2026-11-08 with auditmysite 2.0.2 (release build), full Google Chrom
 |---|---|---|---|
 | Default | none (same as `--full`) | 14.8 – 54.1 s | 28.0 s |
 | Without journeys | `--interactive off` | 11.5 – 32.9 s | 17.8 s |
-| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 2.5 – 8.9 s | 7.0 s |
+| WCAG rules only | `--interactive off --modules a11y` | 2.5 – 8.9 s | 7.0 s |
 
-`--skip-performance` or `--skip-mobile` also switches off the other `--full` modules (SEO, security), so the last row is the accessibility tree and the WCAG rules without the rest. Heavy, script-driven pages cost more: bundesregierung.de (54.1 s) and dm.de (53.6 s) were the slowest in the default mode; gov.uk (14.8 s) the fastest.
+`--modules a11y` switches off every other module (performance, mobile, SEO, security, HTML conformance, tech stack), so the last row is the accessibility tree and the WCAG rules without the rest. Heavy, script-driven pages cost more: bundesregierung.de (54.1 s) and dm.de (53.6 s) were the slowest in the default mode; gov.uk (14.8 s) the fastest.
 
 Batch runs share one browser, so the start-up cost is paid once. Same six URLs (gov.uk, gov.ie, casoon.de, mit.edu, bundesregierung.de, berlin.de) as a `--url-file`, `-f json`, default modules:
 
@@ -79,7 +78,7 @@ All six pages were audited in every run. Concurrency does not scale linearly: th
 - `-t, --timeout <secs>`: page load timeout, default 30. It bounds one page, not the run. A page waiting for a free tab waits up to four times `--timeout` (two minutes at least); a page that still gets none is retried one at a time after the parallel phase.
 - `--stability-budget-ms <ms>`: wait for late hydration after navigation, default 1500; the same budget again bounds the wait for finite CSS animations. Paid on every page, so it scales with the page count, not with concurrency.
 - `-m, --max-pages <n>`: caps the number of audited URLs (0 = unlimited). `--include-path` and `--exclude-path` are applied first; `--sample-strategy first-n|stratified` decides which N are kept. This is the main lever on total time, since total time is roughly the page count times the per-page time divided by the concurrency speed-up.
-- `--interactive off`, `--skip-performance`, `--skip-mobile`: reduce the work per page and apply to every page of the batch.
+- `--interactive off`, `--modules`: reduce the work per page and apply to every page of the batch.
 - Single-URL only, not run in batch mode: `--perf-runs`, `--isolate-third-party-impact`, `--check-ssr-content`. `--privacy-check` adds one page load per audited page in either mode. `--crawl` adds link-check requests on top of the page audits.
 
 ## SARIF output

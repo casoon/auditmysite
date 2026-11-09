@@ -202,7 +202,7 @@ fn render_weight_basis_note(
     // Derived from the weight table, not from the entry list: a module that
     // was skipped outright has no entry at all, so filtering the entries alone
     // named nothing in exactly the case a reader most needs it
-    // (`--skip-performance`).
+    // (`--modules` without `performance`).
     let contributing: std::collections::HashSet<&str> = vm
         .modules
         .module_scores

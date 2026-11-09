@@ -2296,7 +2296,8 @@ async fn batch_runs_requested_ssr_gap_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
         "--check-ssr-content",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2358,7 +2359,8 @@ async fn batch_records_requested_isolation_outcome_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--performance",
+        "--modules",
+        "performance",
         "--isolate-third-party-impact",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2474,7 +2476,13 @@ fn technician_mode_url_file_run_writes_index_and_findings() {
         .current_dir(dir.path())
         .arg("--url-file")
         .arg(&url_file)
-        .arg("--technician")
+        .args([
+            "--per-page-reports",
+            "-f",
+            "json",
+            "--modules",
+            "seo,html-conform",
+        ])
         .arg("--exclude-path")
         .arg("/skip/**")
         .arg("-o")
@@ -3113,7 +3121,8 @@ async fn batch_runs_requested_privacy_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
         "--privacy-check",
     ]);
     let mut config = BatchConfig::from(&args);

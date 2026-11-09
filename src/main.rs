@@ -41,7 +41,6 @@ async fn main() {
     if let Some(ref cfg) = config {
         cfg.apply_to_args_with_sources(&mut args, interactive_from_cli);
     }
-    args.apply_technician_preset();
 
     let report_mode = args.report_mode;
     app::run_and_exit(app::run(args, &config, request_mode_from_cli), report_mode).await
@@ -269,13 +268,8 @@ mod tests {
     }
 
     #[test]
-    fn test_active_modules_label_respects_skip_flags() {
-        let args = Args::parse_from([
-            "auditmysite",
-            "https://example.com",
-            "--skip-performance",
-            "--skip-mobile",
-        ]);
+    fn test_active_modules_label_respects_the_module_selection() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
         let label = active_modules_label(&args);
 
         let expected =

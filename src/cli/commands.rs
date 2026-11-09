@@ -1,14 +1,13 @@
 //! CLI subcommand handlers.
 //!
-//! Handles the browser and doctor subcommands and the legacy --detect-chrome
-//! flag. No mode-runner or audit logic here. The maintainer commands live in
+//! Handles the browser and doctor subcommands. No mode-runner or audit logic
+//! here. The maintainer commands live in
 //! the `auditmysite-dev` binary (`dev_commands.rs`, #912).
 
 use colored::Colorize;
 
 use auditmysite::browser::{
-    diagnose_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserResolveOptions,
-    InstallTarget,
+    diagnose_browsers, resolve_browser, BrowserInstaller, BrowserResolveOptions, InstallTarget,
 };
 use auditmysite::cli::{Args, BrowserAction, Command};
 use auditmysite::error::Result;
@@ -139,28 +138,6 @@ async fn handle_browser_command(action: &BrowserAction, no_sandbox: bool) -> Res
                 }
             }
             Ok(0.0)
-        }
-    }
-}
-
-pub(crate) fn detect_chrome_command(args: &Args) -> Result<f64> {
-    println!("{}", "Searching for Chrome/Chromium...".cyan().bold());
-    println!();
-
-    match find_chrome(args.chrome_path.as_deref()) {
-        Ok(info) => {
-            println!("{} Chrome found!", "Done:".green().bold());
-            println!("  Path:    {}", info.path.display());
-            println!(
-                "  Version: {}",
-                info.version.as_deref().unwrap_or("unknown")
-            );
-            println!("  Methode: {:?}", info.detection_method);
-            Ok(0.0)
-        }
-        Err(e) => {
-            println!("{}", e);
-            Err(e)
         }
     }
 }

@@ -166,7 +166,7 @@ Common options:
 - `--url-file <FILE>`: audit a list of URLs; `--sitemap <URL>`: audit a sitemap; `--crawl` discovers same-domain pages
 - `--browser-path <PATH>`: use a specific Chrome or Chromium binary
 - `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang de|en`: report language
-- `--full`: add performance, SEO, security and mobile; `--level A|AA|AAA`: WCAG level
+- `--modules <list>`: run only the listed modules next to the accessibility checks (`performance`, `seo`, `security`, `mobile`, `html-conform`, `stack`; `a11y` alone for the WCAG rules only). Without it every module runs. `--level A|AA|AAA`: WCAG level
 
 Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).
 
@@ -178,7 +178,7 @@ A default run is the full analysis set (desktop and mobile accessibility, thrott
 |---|---|---|
 | Default | none | 28.0 (14.8 – 54.1) |
 | Without journeys | `--interactive off` | 17.8 (11.5 – 32.9) |
-| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 7.0 (2.5 – 8.9) |
+| WCAG rules only | `--interactive off --modules a11y` | 7.0 (2.5 – 8.9) |
 
 In batch runs pages share one browser and run in parallel: six URLs took 99 s with `-c 1`, 47 s with `-c 3` and 34 s with `-c 6`. `--max-pages` caps the page count and is the main lever on total time. How `--concurrency`, `--timeout`, `--max-pages` and the module flags interact, the full batch table and the measuring conditions: [CLI and output contract](docs/reference/cli-and-output.md#runtime-per-page).
 

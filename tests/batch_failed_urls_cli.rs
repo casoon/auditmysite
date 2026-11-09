@@ -21,7 +21,8 @@ fn unsupported_extra_check_combinations_exit_with_a_reason() {
             &[
                 "--url-file",
                 "urls.txt",
-                "--seo",
+                "--modules",
+                "seo",
                 "--isolate-third-party-impact",
             ],
             "--isolate-third-party-impact needs performance checking",
@@ -29,7 +30,8 @@ fn unsupported_extra_check_combinations_exit_with_a_reason() {
         (
             &[
                 "http://127.0.0.1:9/",
-                "--performance",
+                "--modules",
+                "performance",
                 "--check-ssr-content",
             ],
             "--check-ssr-content needs SEO checking",

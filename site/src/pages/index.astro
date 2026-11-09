@@ -152,7 +152,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
           { label: 'Report format', keys: ['-f', 'json|pdf|table'] },
           { label: 'Output file', keys: ['-o', '<file>'] },
           { label: 'PDF language', keys: ['--lang', 'de|en'] },
-          { label: 'One JSON per page plus findings.jsonl', keys: ['--technician'] },
+          { label: 'One JSON per page plus findings.jsonl', keys: ['--per-page-reports', '-f', 'json'] },
         ],
       },
     ]}
@@ -247,7 +247,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         q: 'Can it audit more than one page at a time?',
-        a: 'Yes. Point it at a sitemap, a URL file, or a seed URL with --crawl, and it writes one aggregated batch report with averages, ranking, and recurring issues across pages. --technician switches that same batch run to one JSON file per page plus a flat findings.jsonl instead.',
+        a: 'Yes. Point it at a sitemap, a URL file, or a seed URL with --crawl, and it writes one aggregated batch report with averages, ranking, and recurring issues across pages. --per-page-reports -f json switches that same batch run to one JSON file per page plus a flat findings.jsonl instead.',
       },
     ]}
   />

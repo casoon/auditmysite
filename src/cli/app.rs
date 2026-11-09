@@ -12,7 +12,7 @@ use tracing_subscriber::EnvFilter;
 use auditmysite::cli::Args;
 use auditmysite::error::{AuditError, Result};
 
-use crate::commands::{detect_chrome_command, handle_command};
+use crate::commands::handle_command;
 use crate::plan::print_banner;
 use crate::runners::{run_batch_mode, run_display_all, run_single_mode};
 
@@ -108,16 +108,9 @@ pub(crate) async fn run(
             .map(|_| auditmysite::Verdict::Pass);
     }
 
-    if args.detect_chrome {
-        return detect_chrome_command(&args).map(|_| auditmysite::Verdict::Pass);
-    }
-
     // If no input source specified interactively ask for a domain (terminal only)
-    let no_input = args.url.is_none()
-        && args.sitemap.is_none()
-        && args.url_file.is_none()
-        && !args.crawl
-        && !args.detect_chrome;
+    let no_input =
+        args.url.is_none() && args.sitemap.is_none() && args.url_file.is_none() && !args.crawl;
 
     if no_input && !args.quiet && io::stdin().is_terminal() && io::stdout().is_terminal() {
         print_banner();
@@ -142,7 +135,7 @@ pub(crate) async fn run(
 
     // Request-mode prompt: fires whenever terminal + not set from CLI + not a subcommand/compare/scripted mode
     let is_terminal = io::stdin().is_terminal() && io::stdout().is_terminal();
-    let is_audit_run = args.command.is_none() && !args.detect_chrome;
+    let is_audit_run = args.command.is_none();
     if is_terminal && !request_mode_from_cli && !args.quiet && is_audit_run {
         let mode_idx = Select::new()
             .with_prompt("  Request mode")

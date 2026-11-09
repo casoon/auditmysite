@@ -86,7 +86,7 @@ const examples_ = [
     slug: 'single-url',
     title: 'Single URL, terminal summary',
     demo: 'single-table',
-    command: 'auditmysite https://www.casoon.de/ --format table --no-sitemap-suggest --lang en --request-mode browser',
+    command: 'auditmysite https://www.casoon.de/ --format table --lang en --request-mode browser',
     tags: ['single', 'table'],
     description:
       'A full single-page audit of casoon.de with the compact terminal summary. The screen-reader sidecar JSON is written next to it. --request-mode skips the prompt an interactive terminal gets.',
@@ -96,7 +96,7 @@ const examples_ = [
     title: 'Technician mode',
     demo: 'technician',
     command:
-      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
+      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --per-page-reports -f json --modules seo,html-conform -m 3 -o tech/ --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
     tags: ['batch', 'json', 'technician'],
     description:
       'The first three sitemap URLs of casoon.de as one JSON file per page, plus index.json and findings.jsonl to script against.',

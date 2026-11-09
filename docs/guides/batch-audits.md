@@ -19,9 +19,6 @@ auditmysite https://example.com
 # prefer sitemap automatically if one is found
 auditmysite https://example.com --prefer-sitemap
 
-# suppress sitemap suggestion and stay on the single page
-auditmysite https://example.com --no-sitemap-suggest
-
 # URL file
 auditmysite --url-file urls.txt
 

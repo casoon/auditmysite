@@ -51,7 +51,7 @@ use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
     BrowserManager,
 };
-use crate::cli::{Args, WcagLevel};
+use crate::cli::{Args, ModuleChoice, WcagLevel};
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
@@ -577,24 +577,23 @@ impl PipelineConfig {
             stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
             full_audit,
-            check_performance: (full_audit || args.performance) && !args.skip_performance,
-            check_seo: full_audit || args.seo,
-            check_security: full_audit || args.security,
-            check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
-            check_html_conform: full_audit || args.html_conform,
+            check_performance: args.module_enabled(ModuleChoice::Performance),
+            check_seo: args.module_enabled(ModuleChoice::Seo),
+            check_security: args.module_enabled(ModuleChoice::Security),
+            check_mobile: args.module_enabled(ModuleChoice::Mobile),
+            check_html_conform: args.module_enabled(ModuleChoice::HtmlConform),
             check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
             check_isolate_third_party_impact: args.isolate_third_party_impact
-                && (full_audit || args.performance)
-                && !args.skip_performance,
+                && args.module_enabled(ModuleChoice::Performance),
             // Requires SEO checking itself active — the resulting finding
             // is attached to `content_visibility`, which is only derived
             // when `check_seo` is true (see `ContentVisibilityModule::is_enabled`).
-            check_ssr_content: args.check_ssr_content && (full_audit || args.seo),
-            check_stack: full_audit || args.stack,
+            check_ssr_content: args.check_ssr_content && args.module_enabled(ModuleChoice::Seo),
+            check_stack: args.module_enabled(ModuleChoice::Stack),
             rule_filter,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
@@ -2341,30 +2340,19 @@ mod tests {
             quiet: false,
             color: crate::cli::ColorPolicy::Auto,
             progress: crate::cli::ProgressPolicy::Auto,
-            detect_chrome: false,
             full: false,
-            performance: false,
-            skip_performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-            skip_mobile: false,
+            modules: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
-            stack: false,
             reuse_cache: false,
-            force_refresh: false,
-            no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: Default::default(),
             no_screen_reader_report: false,
-            html_conform: false,
-            technician: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
@@ -2422,8 +2410,8 @@ mod tests {
         let config = PipelineConfig::from(&Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--skip-performance",
-            "--skip-mobile",
+            "--modules",
+            "a11y",
         ]));
         let expected = vec![
             "Accessibility",
@@ -2435,14 +2423,14 @@ mod tests {
     }
 
     #[test]
-    fn technician_preset_runs_only_fixable_finding_modules() {
-        let mut args = Args::parse_from([
+    fn seo_and_html_conform_selection_runs_only_fixable_finding_modules() {
+        let args = Args::parse_from([
             "auditmysite",
             "--sitemap",
             "https://example.com/sitemap.xml",
-            "--technician",
+            "--modules",
+            "seo,html-conform",
         ]);
-        args.apply_technician_preset();
         let config = PipelineConfig::from_args_and_config(&args, None);
         assert!(!config.full_audit);
         assert!(!config.check_performance, "no throttled performance passes");
@@ -2537,7 +2525,8 @@ mod tests {
                 "auditmysite",
                 "--url-file",
                 "urls.txt",
-                "--performance",
+                "--modules",
+                "performance",
                 "--check-ssr-content",
                 "--isolate-third-party-impact"
             ]),
@@ -2554,10 +2543,10 @@ mod tests {
         let module_sets: [&[&str]; 6] = [
             &[],
             &["--full"],
-            &["--performance"],
-            &["--seo"],
-            &["--full", "--skip-performance"],
-            &["--performance", "--seo"],
+            &["--modules", "performance"],
+            &["--modules", "seo"],
+            &["--modules", "a11y"],
+            &["--modules", "performance,seo"],
         ];
         let checks = ["--isolate-third-party-impact", "--check-ssr-content"];
         let (mut accepted, mut rejected) = (0, 0);
@@ -2598,7 +2587,8 @@ mod tests {
         let e = reject(&[
             "auditmysite",
             "https://example.com",
-            "--seo",
+            "--modules",
+            "seo",
             "--isolate-third-party-impact",
         ]);
         assert!(
@@ -2609,7 +2599,8 @@ mod tests {
             "auditmysite",
             "--url-file",
             "Cargo.toml",
-            "--performance",
+            "--modules",
+            "performance",
             "--check-ssr-content",
         ]);
         assert!(
@@ -2740,26 +2731,33 @@ mod tests {
     }
 
     #[test]
-    fn html_conform_flag_enables_the_module_without_full() {
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
+    fn html_conform_module_runs_by_default_and_when_selected() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "seo"]);
         assert!(!PipelineConfig::from_args_and_config(&args, None).check_html_conform);
         let args = Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--seo",
-            "--html-conform",
+            "--modules",
+            "seo,html-conform",
         ]);
         assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
     }
 
-    /// Scope of the library check (#773): `--security` alone collects it,
-    /// independent of performance; with neither flag it stays off.
+    /// Scope of the library check (#773): `--modules security` alone collects
+    /// it, independent of performance; with neither it stays off.
     #[test]
     fn security_only_audit_runs_the_library_check() {
         use crate::audit::module::AuditModule;
         use crate::best_practices::{module::collects_best_practices, BestPracticesModule};
 
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--security"]);
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--modules",
+            "security",
+        ]);
         let cfg = PipelineConfig::from_args_and_config(&args, None);
         assert!(!cfg.check_performance, "fixture must be security-only");
         assert!(BestPracticesModule.is_enabled(&cfg));

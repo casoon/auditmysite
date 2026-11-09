@@ -67,17 +67,25 @@ pub(crate) async fn run_single_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
-    run_single(args, config).await.map(|o| o.verdict)
+    run_single(args, config, true).await.map(|o| o.verdict)
 }
 
-async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> Result<RunOutcome> {
+/// `offer_sitemap`: look for a sitemap behind a base URL and offer to scan it.
+/// `--display all` runs one URL several times and keeps it at that URL.
+async fn run_single(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    offer_sitemap: bool,
+) -> Result<RunOutcome> {
     let url = args
         .url
         .as_ref()
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
-    if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
-        return Ok(RunOutcome::verdict_only(batch_verdict));
+    if offer_sitemap {
+        if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
+            return Ok(RunOutcome::verdict_only(batch_verdict));
+        }
     }
 
     print_single_audit_plan(args, url);
@@ -87,7 +95,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
 
     info!("Starting audit for: {}", url);
 
-    if args.reuse_cache && !args.force_refresh {
+    if args.reuse_cache {
         let expected_signature = PipelineConfig::from(args).audit_signature();
         // The stored snapshot is replayed (#790), not reconstructed: an entry
         // that is incomplete, from other versions or for another audit
@@ -238,9 +246,6 @@ async fn maybe_offer_sitemap_scan(
     url: &str,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Option<Verdict>> {
-    if args.no_sitemap_suggest {
-        return Ok(None);
-    }
     if !looks_like_base_url(url) {
         return Ok(None);
     }
@@ -663,7 +668,6 @@ pub(crate) async fn run_display_all(
             .as_deref()
             .map(|p| crate::output_paths::with_display_suffix(p, suffix));
         // One URL stays one URL across all modes.
-        a.no_sitemap_suggest = true;
         a.prefer_sitemap = false;
         a
     };
@@ -683,7 +687,7 @@ pub(crate) async fn run_display_all(
     let calm = if is_batch {
         run_batch(&calm_args, config, None).await?
     } else {
-        run_single(&calm_args, config).await?
+        run_single(&calm_args, config, false).await?
     };
     verdicts.push(calm.verdict);
 
@@ -692,7 +696,7 @@ pub(crate) async fn run_display_all(
     let text = if is_batch {
         run_batch(&text_args, config, None).await?
     } else {
-        run_single(&text_args, config).await?
+        run_single(&text_args, config, false).await?
     };
     verdicts.push(text.verdict);
 
@@ -710,7 +714,7 @@ pub(crate) async fn run_display_all(
         let visual = if is_batch {
             run_batch(&visual_args, config, Some(calm.visual_only_urls)).await?
         } else {
-            run_single(&visual_args, config).await?
+            run_single(&visual_args, config, false).await?
         };
         verdicts.push(visual.verdict);
     }

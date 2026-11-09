@@ -177,10 +177,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_modules_label_skip_performance_disables_full_mode() {
-        // --skip-performance makes full_audit_enabled() return false,
-        // so no optional full modules are active unless explicitly requested.
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--skip-performance"]);
+    fn active_modules_label_a11y_only_disables_the_full_modules() {
+        // `--modules a11y` narrows the default set to the accessibility checks,
+        // so no optional full modules are active.
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
         let expected =
             "Accessibility, Accessibility Journey, AI Visibility, Source Quality".to_string();
         assert_eq!(active_modules_label(&args), expected);
@@ -195,15 +195,16 @@ mod tests {
 
     #[test]
     fn planned_batch_outputs_per_page_json_lists_the_aggregates() {
-        let mut args = Args::parse_from([
+        let args = Args::parse_from([
             "auditmysite",
             "--url-file",
             "urls.txt",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
             "-o",
             "out/tech",
         ]);
-        args.apply_technician_preset();
         assert_eq!(
             planned_batch_outputs(&args),
             vec![
@@ -216,15 +217,16 @@ mod tests {
 
     #[test]
     fn planned_batch_outputs_trailing_slash_gives_no_double_slash() {
-        let mut args = Args::parse_from([
+        let args = Args::parse_from([
             "auditmysite",
             "--url-file",
             "urls.txt",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
             "-o",
             "out/tech/",
         ]);
-        args.apply_technician_preset();
         assert_eq!(planned_batch_outputs(&args)[0], "out/tech/*");
     }
 

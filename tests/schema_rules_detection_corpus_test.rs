@@ -133,7 +133,7 @@ async fn schema_rules_detection_corpus_matches_real_detector_run() {
             .await
             .expect("navigation failed");
 
-        let args = Args::parse_from(["auditmysite", &url, "--seo"]);
+        let args = Args::parse_from(["auditmysite", &url, "--modules", "seo"]);
         let config = PipelineConfig::from_args_and_config(&args, None);
         let audited = audit_page(&page, &url, &config, &manager).await;
         fixture.stop();

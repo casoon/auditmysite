@@ -71,9 +71,11 @@ impl Prerequisite {
         match self {
             Prerequisite::None => None,
             Prerequisite::Performance => Some(
-                "needs performance checking (use --full or --performance, without --skip-performance)",
+                "needs performance checking (the default module set, or --modules performance)",
             ),
-            Prerequisite::Seo => Some("needs SEO checking (use --full or --seo)"),
+            Prerequisite::Seo => {
+                Some("needs SEO checking (the default module set, or --modules seo)")
+            }
         }
     }
 }

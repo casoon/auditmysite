@@ -160,7 +160,7 @@ async fn broken_performance_probes_leave_no_measured_performance_score() {
         <script>performance.getEntriesByType = function () { throw new Error('blocked'); };\
         window.PerformanceObserver = function () { throw new Error('blocked'); };</script>\
         </head><body><main><h1>Hello</h1></main></body></html>";
-    let report = audit(html, &["--performance"]).await;
+    let report = audit(html, &["--modules", "performance"]).await;
     let normalized = auditmysite::audit::normalize_checked(&report)
         .expect("a lost probe is honest partial data")
         .normalized;

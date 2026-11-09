@@ -23,7 +23,7 @@ ln -s "$bin" bin/auditmysite
 export PATH="$tmp/bin:$PATH"
 
 # JSON report and the coverage block derived from it.
-auditmysite https://www.casoon.de/ -f json -o coverage.json --quiet --no-sitemap-suggest || true
+auditmysite https://www.casoon.de/ -f json -o coverage.json --quiet || true
 jq '.summary.wcag_coverage' coverage.json >"$dir/wcag-coverage.json"
 
 # Terminal demos: castwright runs each exec: step once in a pseudo-terminal (--record rewrites
@@ -39,7 +39,7 @@ terminal:
   theme: github-dark
 
 steps:
-  - exec: auditmysite https://www.casoon.de/ --format table --no-sitemap-suggest --lang en --request-mode browser
+  - exec: auditmysite https://www.casoon.de/ --format table --lang en --request-mode browser
     timeout: 180000
     idle: 1500
   - wait: 3000
@@ -55,7 +55,7 @@ terminal:
   theme: github-dark
 
 steps:
-  - exec: auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser
+  - exec: auditmysite --sitemap https://www.casoon.de/sitemap.xml --per-page-reports -f json --modules seo,html-conform -m 3 -o tech/ --request-mode browser
     timeout: 300000
     idle: 1500
   - exec: jq -c .totals tech/index.json

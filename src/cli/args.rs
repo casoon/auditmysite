@@ -159,39 +159,25 @@ pub struct Args {
     #[arg(long, default_value = "auto")]
     pub progress: ProgressPolicy,
 
-    /// Detect Chrome and print path (then exit)
-    #[arg(long)]
-    pub detect_chrome: bool,
-
-    /// Run all checks (Performance + SEO + Security + Mobile)
+    /// Run every module (the default); states it explicitly in scripts.
     ///
-    /// This is already the default for standard single-page audits.
-    #[arg(long, global = true)]
+    /// Excludes `--modules`.
+    #[arg(long, global = true, conflicts_with = "modules")]
     pub full: bool,
 
-    /// Enable performance analysis (Core Web Vitals)
-    #[arg(long)]
-    pub performance: bool,
-
-    /// Skip performance analysis even when --full is used
-    #[arg(long)]
-    pub skip_performance: bool,
-
-    /// Enable SEO analysis (meta tags, headings, schema.org)
-    #[arg(long)]
-    pub seo: bool,
-
-    /// Enable security header analysis
-    #[arg(long)]
-    pub security: bool,
-
-    /// Enable mobile friendliness check
-    #[arg(long)]
-    pub mobile: bool,
-
-    /// Skip mobile analysis even when --full is used
-    #[arg(long)]
-    pub skip_mobile: bool,
+    /// Run only these modules next to the accessibility checks
+    /// (comma-separated): `performance`, `seo`, `security`, `mobile`,
+    /// `html-conform`, `stack`; `a11y` alone runs the WCAG rules only.
+    ///
+    /// Without `--modules` every module runs.
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        value_name = "LIST",
+        global = true
+    )]
+    pub modules: Vec<ModuleChoice>,
 
     /// Report what a first visit sets and contacts before any consent
     /// (requests, cookies, storage, classified by provider; opt-in,
@@ -209,8 +195,8 @@ pub struct Args {
     /// the page once with that origin's requests blocked and diffs the
     /// resulting Total Blocking Time against the normal audit pass. Opt-in
     /// and costly (up to 5 extra full page reloads per audited page) —
-    /// requires performance checking (`--full` or `--performance`) to also
-    /// be active; runs in single-URL and batch mode alike.
+    /// requires performance checking (the default module set or
+    /// `--modules performance`) to also be active; runs in single-URL and batch mode alike.
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
@@ -218,7 +204,7 @@ pub struct Args {
     /// and report the median run with min/median/max per metric. A single
     /// lab run varies from load to load; repeated runs show how much. Each
     /// extra run is one more page load per throttle profile, so it needs
-    /// performance checking (`--full` or `--performance`).
+    /// performance checking (the default module set or `--modules performance`).
     #[arg(long, default_value_t = 1)]
     pub perf_runs: u32,
 
@@ -232,7 +218,7 @@ pub struct Args {
     /// search crawlers and assistive tools that do not execute JavaScript
     /// would see substantially less content. Opt-in and costly (one extra
     /// full page reload per audited page) — requires SEO checking
-    /// (`--full` or `--seo`) to also be active; runs in single-URL
+    /// (the default module set or `--modules seo`) to also be active; runs in single-URL
     /// and batch mode alike.
     #[arg(long)]
     pub check_ssr_content: bool,
@@ -325,26 +311,16 @@ pub struct Args {
     /// (file name suffix `-calm`, `-text`, `-visual`), never a blended score.
     /// `visual` only runs for pages with `figure[data-viz="3d|interactive"]`,
     /// with twice the page timeout. Needs `--output` unless the format is PDF;
-    /// with per-page reports or `--technician` an output directory, which
+    /// with per-page reports an output directory, which
     /// becomes `<DIR>-calm`, `<DIR>-text`, `<DIR>-visual`.
     #[arg(long, value_enum, value_name = "MODE")]
     pub display: Option<DisplaySelection>,
 
-    /// Enable tech stack detection from in-page signals (CMS, frameworks; no extra requests)
-    #[arg(long)]
-    pub stack: bool,
-
-    /// Reuse cached artifacts from previous runs when available
+    /// Answer a single-URL run from the stored snapshot of an earlier run with
+    /// the same configuration, when there is one. Without it every run
+    /// measures afresh.
     #[arg(long)]
     pub reuse_cache: bool,
-
-    /// Ignore cache and force a fresh crawl
-    #[arg(long)]
-    pub force_refresh: bool,
-
-    /// Do not suggest scanning a discovered sitemap for base URLs
-    #[arg(long)]
-    pub no_sitemap_suggest: bool,
 
     /// If a populated sitemap is discovered for a base URL, scan it directly
     #[arg(long)]
@@ -391,25 +367,6 @@ pub struct Args {
     /// The screen-reader summary inside the main report stays.
     #[arg(long)]
     pub no_screen_reader_report: bool,
-
-    /// Enable the HTML-conformance module without --full.
-    #[arg(long)]
-    pub html_conform: bool,
-
-    /// Technician mode: per-page JSON for fixing, not a report to read.
-    ///
-    /// Batch inputs only. Shorthand for `--per-page-reports -f json
-    /// --no-screen-reader-report --seo --html-conform`: one JSON file per
-    /// page plus `index.json` (every attempted URL with status and counts)
-    /// and `findings.jsonl` (one line per finding occurrence) in the -o
-    /// directory. Runs only modules that produce fixable findings —
-    /// accessibility (incl. keyboard journeys), HTML conformance and SEO —
-    /// and no throttled performance passes; every file states that partial
-    /// scope in `execution.scope`/`module_runs`. Flags given explicitly win:
-    /// `-f` replaces the format, `--full`, `--performance`, `--mobile`,
-    /// `--security` or `--interactive` add or change modules as usual.
-    #[arg(long)]
-    pub technician: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum, global = true)]
@@ -595,6 +552,32 @@ impl DisplaySelection {
     }
 }
 
+/// A module `--modules` can select next to the accessibility checks (#913).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleChoice {
+    /// The accessibility checks alone; they run in every selection.
+    #[value(name = "a11y")]
+    A11y,
+    /// Core Web Vitals and the throttled performance passes.
+    #[value(name = "performance", alias = "perf")]
+    Performance,
+    /// Meta tags, headings, structured data.
+    #[value(name = "seo")]
+    Seo,
+    /// Security headers.
+    #[value(name = "security")]
+    Security,
+    /// Mobile friendliness.
+    #[value(name = "mobile")]
+    Mobile,
+    /// HTML5 spec-conformance.
+    #[value(name = "html-conform")]
+    HtmlConform,
+    /// Tech stack detection from in-page signals.
+    #[value(name = "stack")]
+    Stack,
+}
+
 /// Optional regulatory/editorial PDF appendix sections (opt-in, see `--annex`).
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -761,32 +744,15 @@ impl Args {
         }
     }
 
-    /// Expand `--technician` into the flags it stands for.
-    ///
-    /// Only fills in what the user left open: an explicit `-f` stays, and
-    /// module flags are additive, so `--full`, `--performance`, `--mobile` or
-    /// `--security` given alongside still take effect.
-    pub fn apply_technician_preset(&mut self) {
-        if !self.technician {
-            return;
-        }
-        self.per_page_reports = true;
-        if self.format.is_none() {
-            self.format = Some(OutputFormat::Json);
-        }
-        self.no_screen_reader_report = true;
-        self.seo = true;
-        self.html_conform = true;
+    /// Whether `module` runs: every module by default, only the listed ones
+    /// with `--modules`.
+    pub fn module_enabled(&self, module: ModuleChoice) -> bool {
+        self.modules.is_empty() || self.modules.contains(&module)
     }
 
+    /// Whether no module selection narrows the default analysis set.
     pub fn full_audit_enabled(&self) -> bool {
-        self.full
-            || (!self.performance
-                && !self.seo
-                && !self.security
-                && !self.mobile
-                && !self.skip_performance
-                && !self.skip_mobile)
+        self.modules.is_empty()
     }
 
     /// Validate arguments
@@ -805,12 +771,8 @@ impl Args {
         }
         self.load_storage_state()?;
 
-        // At least one input source required (unless --detect-chrome)
-        if !self.detect_chrome
-            && self.url.is_none()
-            && self.sitemap.is_none()
-            && self.url_file.is_none()
-        {
+        // At least one input source required
+        if self.url.is_none() && self.sitemap.is_none() && self.url_file.is_none() {
             return Err("No input specified. Provide a URL, --sitemap, or --url-file.".to_string());
         }
 
@@ -877,32 +839,26 @@ impl Args {
                         .to_string(),
                 );
             }
-            if !((self.full_audit_enabled() || self.performance) && !self.skip_performance) {
+            if !self.module_enabled(ModuleChoice::Performance) {
                 return Err(
-                    "--perf-runs needs performance checking (use --full or --performance, without --skip-performance)"
+                    "--perf-runs needs performance checking (do not narrow --modules to exclude performance)"
                         .to_string(),
                 );
             }
         }
         // Opt-in extra checks: run in the requested mode or are refused here,
         // never silently reduced to "off" later (#788).
-        let full = self.full_audit_enabled();
         crate::audit::support_matrix::ExtraCheckRequest {
             isolate_third_party_impact: self.isolate_third_party_impact,
             check_ssr_content: self.check_ssr_content,
             privacy_check: self.privacy_check,
-            performance_active: (full || self.performance) && !self.skip_performance,
-            seo_active: full || self.seo,
+            performance_active: self.module_enabled(ModuleChoice::Performance),
+            seo_active: self.module_enabled(ModuleChoice::Seo),
             batch: is_batch,
-            reuse_cache: self.reuse_cache && !self.force_refresh,
+            reuse_cache: self.reuse_cache,
             replay: false,
         }
         .validate()?;
-        if self.technician && !is_batch {
-            return Err(
-                "--technician needs a batch input: --sitemap, --url-file or --crawl".to_string(),
-            );
-        }
         if !is_batch && !(self.include_path.is_empty() && self.exclude_path.is_empty()) {
             return Err(
                 "--include-path/--exclude-path need a batch input: --sitemap, --url-file or --crawl"
@@ -941,16 +897,6 @@ impl Args {
             return Err("Cannot use --verbose and --quiet together".to_string());
         }
 
-        if self.reuse_cache && self.force_refresh {
-            return Err("Cannot use --reuse-cache and --force-refresh together".to_string());
-        }
-
-        if self.no_sitemap_suggest && self.prefer_sitemap {
-            return Err(
-                "Cannot use --no-sitemap-suggest and --prefer-sitemap together".to_string(),
-            );
-        }
-
         // One report per mode: a single stdout stream cannot carry several
         // JSON/SARIF documents. PDF derives a file name, table prints each.
         if self.display == Some(DisplaySelection::All)
@@ -965,18 +911,16 @@ impl Args {
             );
         }
 
-        // Per-page reports (and --technician) write into a directory; each
+        // Per-page reports write into a directory; each
         // mode needs its own, or the modes overwrite each other's page files
         // and index.json/findings.jsonl. `-o DIR` becomes `DIR-calm`, ...
         if self.display == Some(DisplaySelection::All)
             && self.per_page_reports
             && self.output.as_ref().is_none_or(|p| p.extension().is_some())
         {
-            return Err(
-                "--display all with per-page reports (or --technician) needs \
+            return Err("--display all with per-page reports needs \
                  --output <DIR> without a file extension; each mode writes to <DIR>-<mode>"
-                    .to_string(),
-            );
+                .to_string());
         }
 
         Ok(())
@@ -1036,8 +980,8 @@ mod tests {
         assert!(help.contains(
             "Default single-URL behavior: generate a PDF report in the current directory."
         ));
-        // `--html-conform` is a module flag, not the removed html format.
-        assert!(!help.replace("--html-conform", "").contains("html"));
+        // `html-conform` is a module name, not the removed html format.
+        assert!(!help.replace("html-conform", "").contains("html"));
         assert!(!help.contains("markdown"));
         assert!(!help.contains("--urls"));
     }
@@ -1066,30 +1010,19 @@ mod tests {
             quiet: false,
             color: ColorPolicy::Auto,
             progress: ProgressPolicy::Auto,
-            detect_chrome: false,
             full: false,
-            performance: false,
-            skip_performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-            skip_mobile: false,
+            modules: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
-            stack: false,
             reuse_cache: false,
-            force_refresh: false,
-            no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: SampleStrategy::FirstN,
             no_screen_reader_report: false,
-            html_conform: false,
-            technician: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
@@ -1129,22 +1062,6 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.verbose = true;
         args.quiet = true;
-        assert!(args.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_reuse_and_force_refresh_conflict() {
-        let mut args = test_args(Some("https://example.com"));
-        args.reuse_cache = true;
-        args.force_refresh = true;
-        assert!(args.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_sitemap_suggest_flags_conflict() {
-        let mut args = test_args(Some("https://example.com"));
-        args.no_sitemap_suggest = true;
-        args.prefer_sitemap = true;
         assert!(args.validate().is_err());
     }
 
@@ -1191,64 +1108,82 @@ mod tests {
     }
 
     #[test]
-    fn test_full_audit_disabled_when_only_skip_flags_are_used() {
-        let mut args = test_args(Some("https://example.com"));
-        args.skip_mobile = true;
+    fn test_modules_narrow_the_default_set() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--modules",
+            "seo,perf",
+        ]);
         assert!(!args.full_audit_enabled());
+        assert!(args.module_enabled(ModuleChoice::Seo));
+        assert!(args.module_enabled(ModuleChoice::Performance));
+        assert!(!args.module_enabled(ModuleChoice::Mobile));
+        assert!(!args.module_enabled(ModuleChoice::Security));
+
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
+        assert!(!args.module_enabled(ModuleChoice::Performance));
+        assert!(!args.module_enabled(ModuleChoice::HtmlConform));
+        assert!(!args.module_enabled(ModuleChoice::Stack));
     }
 
-    fn technician_args(extra: &[&str]) -> Args {
+    #[test]
+    fn test_modules_and_full_exclude_each_other() {
+        assert!(Args::try_parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+            "--modules",
+            "seo"
+        ])
+        .is_err());
+        assert!(
+            Args::try_parse_from(["auditmysite", "https://example.com", "--modules", "pdf"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_removed_flags_are_unknown() {
+        for flag in [
+            "--performance",
+            "--skip-performance",
+            "--seo",
+            "--security",
+            "--mobile",
+            "--skip-mobile",
+            "--html-conform",
+            "--stack",
+            "--force-refresh",
+            "--no-sitemap-suggest",
+            "--detect-chrome",
+            "--technician",
+        ] {
+            assert!(
+                Args::try_parse_from(["auditmysite", "https://example.com", flag]).is_err(),
+                "{flag} is still accepted"
+            );
+        }
+    }
+
+    fn per_page_json_args(extra: &[&str]) -> Args {
         let mut argv = vec![
             "auditmysite",
             "--sitemap",
             "https://example.com/sitemap.xml",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
+            "--modules",
+            "seo,html-conform",
         ];
         argv.extend_from_slice(extra);
-        let mut args = Args::parse_from(argv);
-        args.apply_technician_preset();
-        args
-    }
-
-    #[test]
-    fn technician_preset_expands_to_per_page_json_without_sidecar() {
-        let args = technician_args(&[]);
-        assert!(args.per_page_reports);
-        assert_eq!(args.effective_format(), OutputFormat::Json);
-        assert!(args.no_screen_reader_report);
-        assert!(args.seo);
-        assert!(args.html_conform);
-        assert!(!args.full_audit_enabled(), "a module selection, not --full");
-        assert!(!args.performance && !args.mobile && !args.security);
-        assert!(args.validate().is_ok());
-    }
-
-    #[test]
-    fn technician_preset_keeps_an_explicit_format() {
-        let args = technician_args(&["-f", "sarif"]);
-        assert_eq!(args.effective_format(), OutputFormat::Sarif);
-        assert!(args.per_page_reports);
-    }
-
-    #[test]
-    fn technician_preset_leaves_explicit_module_flags_in_place() {
-        let args = technician_args(&["--performance", "--full"]);
-        assert!(args.performance);
-        assert!(args.full_audit_enabled());
-    }
-
-    #[test]
-    fn without_technician_the_preset_changes_nothing() {
-        let mut args = Args::parse_from(["auditmysite", "--sitemap", "https://example.com/s.xml"]);
-        args.apply_technician_preset();
-        assert!(!args.per_page_reports && !args.seo && !args.html_conform);
-        assert!(!args.no_screen_reader_report);
-        assert!(args.format.is_none());
+        Args::parse_from(argv)
     }
 
     #[test]
     fn display_all_with_per_page_reports_needs_an_output_directory() {
-        let mut args = technician_args(&["--display", "all"]);
+        let mut args = per_page_json_args(&["--display", "all"]);
         args.output = None;
         assert!(args.validate().unwrap_err().contains("--display all"));
         args.output = Some(PathBuf::from("reports/geo.json"));
@@ -1272,11 +1207,7 @@ mod tests {
     }
 
     #[test]
-    fn technician_and_path_filters_need_a_batch_input() {
-        let mut args = test_args(Some("https://example.com"));
-        args.technician = true;
-        assert!(args.validate().unwrap_err().contains("--technician"));
-
+    fn path_filters_need_a_batch_input() {
         let mut args = test_args(Some("https://example.com"));
         args.include_path = vec!["/blog/**".to_string()];
         assert!(args.validate().unwrap_err().contains("--include-path"));
@@ -1330,13 +1261,21 @@ mod tests {
             1
         );
         assert!(check(&["https://example.com", "--full", "--perf-runs", "3"]).is_ok());
-        assert!(check(&["https://example.com", "--performance", "--perf-runs", "9"]).is_ok());
+        assert!(check(&[
+            "https://example.com",
+            "--modules",
+            "performance",
+            "--perf-runs",
+            "9"
+        ])
+        .is_ok());
         let e = check(&["https://example.com", "--full", "--perf-runs", "10"]).unwrap_err();
         assert!(e.contains("between 1 and 9"), "{e}");
         assert!(check(&["https://example.com", "--full", "--perf-runs", "0"]).is_err());
         let e = check(&[
             "https://example.com",
-            "--skip-performance",
+            "--modules",
+            "seo",
             "--perf-runs",
             "3",
         ])
