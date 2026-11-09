@@ -1,6 +1,6 @@
 {
-  "id": "frame-tested",
-  "url": "https://casoon.github.io/auditmysite/rules/frame-tested/",
+  "id": "frames/cross-origin",
+  "url": "https://casoon.github.io/auditmysite/rules/frames/cross-origin/",
   "title": "Cross-origin iframe: review manually",
   "outcome": "manual",
   "criterion": "4.1.2",
@@ -13,9 +13,9 @@
   "user_impact": "Embedded content (maps, videos, consent widgets) may be inaccessible to screen reader users.",
   "technical_impact": "Iframe content is unreachable via CDP — automatic rule checking is not possible.",
   "source": "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin",
-  "applicability": "Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the document, its shadow roots included.",
-  "expectation": "One UNTESTED note per perceivable frame whose document is cross-origin to the\npage, located at the frame. Same-origin and srcdoc frames, and frames that are\nnot perceivable (hidden, aria-hidden, display:none, at most 1px in either\ndimension), get no note. A frame inserted by script or inside a shadow root is\npart of the page and is judged the same way. Never a pass or a violation.",
-  "method": "page",
+  "applicability": "Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the top document, its open shadow roots included.",
+  "expectation": "One UNTESTED note per perceivable frame whose document is cross-origin to the\npage (Rendering::frame_reachable: the frame's contentDocument cannot be read,\nmeasured by accessibility::probes), located at the frame. Same-origin and\nsrcdoc frames, and frames that are not perceivable (hidden, aria-hidden,\ndisplay:none, at most 1px in either dimension), get no note. A frame inserted\nby script or inside a shadow root is part of the page and is judged the same\nway. Never a pass or a violation. A page whose scripts break the probe records\nthe rule as not run (CapabilityMissing).",
+  "method": "shared",
   "capabilities": [
     "dom",
     "geometry",

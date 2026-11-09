@@ -35,11 +35,11 @@ pub(super) fn build_en301549_annex(
         .map(|r| {
             let failed = normalized.rule_outcomes.iter().any(|outcome| {
                 outcome.wcag.iter().any(|c| c == r.clause.wcag)
-                    && crate::wcag::rule_run_errored(outcome)
+                    && crate::wcag::rule_run_unmeasured(outcome)
             });
             let completed = normalized.rule_outcomes.iter().any(|outcome| {
                 outcome.wcag.iter().any(|c| c == r.clause.wcag)
-                    && !crate::wcag::rule_run_errored(outcome)
+                    && !crate::wcag::rule_run_unmeasured(outcome)
             });
             let base = en301549_status_kind(r.status);
             let status = if base == crate::output::json::En301549ClauseStatusKind::ViolationsFound {
@@ -102,13 +102,13 @@ pub(super) fn build_en301549_batch_rollup(
             let failed = reports.iter().any(|report| {
                 report.rule_outcomes.iter().any(|outcome| {
                     outcome.wcag.iter().any(|c| c == r.clause.wcag)
-                        && crate::wcag::rule_run_errored(outcome)
+                        && crate::wcag::rule_run_unmeasured(outcome)
                 })
             });
             let completed = reports.iter().any(|report| {
                 report.rule_outcomes.iter().any(|outcome| {
                     outcome.wcag.iter().any(|c| c == r.clause.wcag)
-                        && !crate::wcag::rule_run_errored(outcome)
+                        && !crate::wcag::rule_run_unmeasured(outcome)
                 })
             });
             let base = en301549_status_kind(r.status);
@@ -1038,7 +1038,7 @@ mod tests {
         );
         // "div.alt-service-hero-card" used to match `alt`.
         assert_eq!(
-            score_area_for_finding(&make_finding("text-spacing", "")),
+            score_area_for_finding(&make_finding("text-spacing/clipped", "")),
             Some("Semantics"),
         );
         // The shared "Navigation & Operation" subcategory label used to route

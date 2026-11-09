@@ -1,0 +1,39 @@
+{
+  "id": "focus/indicator-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/focus/indicator-missing/",
+  "title": "No visible focus indicator measured",
+  "outcome": "hint-only",
+  "criterion": "2.4.7",
+  "level": "AA",
+  "axe_id": "focus-visible",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Weak",
+  "severity": "high",
+  "user_impact": "Keyboard users cannot see which element currently has focus.",
+  "technical_impact": "Focus pass: the element's computed styles before and after focusing are equal, as far as they can serve as an indicator (outline, box-shadow, border, background, color, text-decoration).",
+  "source": "WCAG 2.2 SC 2.4.7 Focus Visible",
+  "applicability": "Rendered, keyboard-focusable controls of the top document and its open shadow roots (at most 300 per page).",
+  "expectation": "needs_review once per control whose computed style does not change when it\nreceives focus in a way that can serve as an indicator\n(Layout::focus_visible, measured by accessibility::probes): no new or changed\noutline, box-shadow, border, background, text colour or text decoration, and\nno browser focus ring. The browser's own focus ring, an author outline, a\nbackground change and a shadow each count as an indicator. A control that\ncannot take focus, or that is not reachable with Tab (tabindex=-1), is not a\ncandidate. Transitions are suspended during the measurement so a transition\non the focus style does not hide the change. Review, not violation: whether\nthe change is perceivable is a human judgement. A page whose scripts break the\nprobe records the rule as not run (CapabilityMissing).",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style",
+    "interaction"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "interaction_focus_indicator",
+    "file": "tests/fixtures/detection_corpus/interaction_focus_indicator.html",
+    "verdict": "needs_review",
+    "selector": "button#fi-bare",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Controls with and without a visible focus indicator</title>\n<style>\n  body { font-family: sans-serif; color: #111; background: #fff; margin: 0; padding: 16px; }\n  a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 8px 12px; box-sizing: border-box; margin: 4px; }\n  /* Replaces the browser's focus ring with nothing: focusing changes no style. */\n  .skip { position: absolute; left: -9999px; }\n  .skip:focus { left: 16px; top: 16px; background: #fff; }\n  .bare { outline: none; border: 1px solid #767676; background: #fff; color: #111; }\n  /* An author ring on focus. */\n  .ring:focus-visible { outline: 3px solid #0050a0; outline-offset: 2px; }\n  /* No ring, but the background changes: still an indicator. */\n  .fill { outline: none; background: #fff; }\n  .fill:focus { background: #ffe58a; }\n  /* No ring, but a shadow appears. */\n  .glow { outline: none; }\n  .glow:focus { box-shadow: 0 0 0 3px #0050a0; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Garden shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/shop\">Shop</a></nav></header>\n<main id=\"main\">\n  <h1>Focus indicators</h1>\n  <!-- needs_review: the focus ring is removed and nothing replaces it -->\n  <button id=\"fi-bare\" class=\"bare\" type=\"button\">Bare button</button>\n  <a id=\"fi-bare-link\" class=\"bare\" href=\"/cart\">Bare link</a>\n  <input id=\"fi-bare-input\" class=\"bare\" type=\"text\" aria-label=\"Bare field\">\n  <!-- absent: the browser's own focus ring -->\n  <button id=\"fi-default\" type=\"button\">Default ring</button>\n  <a id=\"fi-default-link\" href=\"/shop\">Default link</a>\n  <!-- absent: author-drawn indicators -->\n  <button id=\"fi-ring\" class=\"ring\" type=\"button\">Author ring</button>\n  <button id=\"fi-fill\" class=\"fill\" type=\"button\">Fill change</button>\n  <button id=\"fi-glow\" class=\"glow\" type=\"button\">Shadow</button>\n  <!-- absent: not reachable with Tab, so not a candidate -->\n  <button id=\"fi-skipped\" class=\"bare\" type=\"button\" tabindex=\"-1\">Skipped</button>\n</main>\n<footer><p>Garden shop, 2026</p></footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "interaction_focus_indicator",
+    "file": "tests/fixtures/detection_corpus/interaction_focus_indicator.html",
+    "verdict": "absent",
+    "selector": "button#fi-default",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Controls with and without a visible focus indicator</title>\n<style>\n  body { font-family: sans-serif; color: #111; background: #fff; margin: 0; padding: 16px; }\n  a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 8px 12px; box-sizing: border-box; margin: 4px; }\n  /* Replaces the browser's focus ring with nothing: focusing changes no style. */\n  .skip { position: absolute; left: -9999px; }\n  .skip:focus { left: 16px; top: 16px; background: #fff; }\n  .bare { outline: none; border: 1px solid #767676; background: #fff; color: #111; }\n  /* An author ring on focus. */\n  .ring:focus-visible { outline: 3px solid #0050a0; outline-offset: 2px; }\n  /* No ring, but the background changes: still an indicator. */\n  .fill { outline: none; background: #fff; }\n  .fill:focus { background: #ffe58a; }\n  /* No ring, but a shadow appears. */\n  .glow { outline: none; }\n  .glow:focus { box-shadow: 0 0 0 3px #0050a0; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Garden shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/shop\">Shop</a></nav></header>\n<main id=\"main\">\n  <h1>Focus indicators</h1>\n  <!-- needs_review: the focus ring is removed and nothing replaces it -->\n  <button id=\"fi-bare\" class=\"bare\" type=\"button\">Bare button</button>\n  <a id=\"fi-bare-link\" class=\"bare\" href=\"/cart\">Bare link</a>\n  <input id=\"fi-bare-input\" class=\"bare\" type=\"text\" aria-label=\"Bare field\">\n  <!-- absent: the browser's own focus ring -->\n  <button id=\"fi-default\" type=\"button\">Default ring</button>\n  <a id=\"fi-default-link\" href=\"/shop\">Default link</a>\n  <!-- absent: author-drawn indicators -->\n  <button id=\"fi-ring\" class=\"ring\" type=\"button\">Author ring</button>\n  <button id=\"fi-fill\" class=\"fill\" type=\"button\">Fill change</button>\n  <button id=\"fi-glow\" class=\"glow\" type=\"button\">Shadow</button>\n  <!-- absent: not reachable with Tab, so not a candidate -->\n  <button id=\"fi-skipped\" class=\"bare\" type=\"button\" tabindex=\"-1\">Skipped</button>\n</main>\n<footer><p>Garden shop, 2026</p></footer>\n</body>\n</html>"
+  }
+}

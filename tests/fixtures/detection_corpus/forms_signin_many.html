@@ -21,7 +21,7 @@
 </header>
 <main id="main">
 <h1>Account switcher</h1>
-<!-- G2 #783 threshold: six password fields that all block paste. Each is a 3.3.8 failure; the report lists at most five per page. -->
+<!-- G2 #783 threshold: six password fields that all block paste. Each is a 3.3.8 failure; all six are reported (the shared rule has no reporting cap). -->
 <form action="/login/1" method="post"><p><label for="pw-many-1">Password for profile 1</label> <input id="pw-many-1" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 1</button></p></form>
 <form action="/login/2" method="post"><p><label for="pw-many-2">Password for profile 2</label> <input id="pw-many-2" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 2</button></p></form>
 <form action="/login/3" method="post"><p><label for="pw-many-3">Password for profile 3</label> <input id="pw-many-3" name="pw" type="password" autocomplete="current-password" onpaste="return false"></p><p><button type="submit">Sign in to profile 3</button></p></form>

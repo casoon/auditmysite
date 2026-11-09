@@ -1,25 +1,26 @@
 {
-  "id": "focus-not-obscured-enhanced",
-  "url": "https://casoon.github.io/auditmysite/rules/focus-not-obscured-enhanced/",
-  "title": "Focused element partially obscured",
+  "id": "focus/obscured",
+  "url": "https://casoon.github.io/auditmysite/rules/focus/obscured/",
+  "title": "Focused element entirely obscured",
   "outcome": "hint-only",
-  "criterion": "2.4.12",
-  "level": "AAA",
-  "axe_id": "focus-not-obscured-enhanced",
+  "criterion": "2.4.11",
+  "level": "AA",
+  "axe_id": "focus-not-obscured-minimum",
   "dimension": "Accessibility",
   "subcategory": "Navigation & Operation",
   "issue_class": "Weak",
   "severity": "medium",
-  "user_impact": "Keyboard users tab to an element whose visible area is partially covered by a sticky header, footer, cookie banner, or similar overlay.",
-  "technical_impact": "A position: fixed/sticky element partially overlaps a focusable element.",
-  "source": "WCAG 2.2 SC 2.4.12 Focus Not Obscured (Enhanced) (AAA)",
-  "applicability": "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element at least 20 x 20 px.",
-  "expectation": "needs_review once per control of which a fixed or sticky element painted\nabove it covers any meaningful part (at least 5 % of its area; a 1 px edge\ncontact is rounding, not covering). An entirely covered control is reported\nhere as well as under 2.4.11. Not reported: an overlay that is\nvisibility: hidden, an overlay painted below the control (z-index), a\ncontrol inside the overlay. An overlay fixed only on the phone viewport, or\nadded by script after load, counts.",
-  "method": "page",
+  "user_impact": "Keyboard users tab to an element that is entirely covered by a sticky header, footer, cookie banner, or similar overlay and is therefore not visible.",
+  "technical_impact": "Focus pass: element focused, scrolled into view with scrollIntoView({block:'nearest'}), 3×3 points sampled with elementsFromPoint; every point lies under a position: fixed/sticky element.",
+  "source": "WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum)",
+  "applicability": "Pages with rendered keyboard-focusable controls (at most 300 per page; the rest is named in the rule's reason) and at least one visible fixed or sticky element.",
+  "expectation": "needs_review once per control that, focused and scrolled into view with\nscrollIntoView({ block: 'nearest' }), is entirely hidden by an author-created\nfixed or sticky element painted above it (every sampled point of the 3 x 3\ngrid, inset 1 px, lands on that element first: Rendering::focus_cover,\nmeasured by accessibility::probes). Not reported: a control only partly\ncovered (that is 2.4.12), a 1 px edge contact, an overlay that is\nvisibility: hidden, an overlay painted below the control (z-index), a control\ninside the overlay itself. An overlay that is fixed only on the phone\nviewport, or added by script after load, counts. A fixed bar that reaches\nlower than scroll-padding-top is reported on the bar itself (the shared rule's\nstatic hint, hides_focus). Review, not violation: the sampling approximates\n\"entirely\" and a real Tab can scroll differently. A page whose DOM\ncannot be captured records the rule as not run. If only the focus pass fails\n(page scripts break it) the rule still runs on the static hints and names the\nfailed pass in its reason.",
+  "method": "shared",
   "capabilities": [
     "dom",
     "geometry",
-    "computed_style"
+    "computed_style",
+    "interaction"
   ],
   "page_level": false,
   "failing": {
@@ -33,7 +34,7 @@
     "case": "interaction_focus_obscured",
     "file": "tests/fixtures/detection_corpus/interaction_focus_obscured.html",
     "verdict": "absent",
-    "selector": "a#fo-edge",
+    "selector": "a#fo-partial",
     "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focus hidden behind fixed content</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 480px 16px 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 0; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; top: 520px; }\n        .probe { position: absolute; width: 140px; height: 44px; background: #fff; }\n        #cookie { position: fixed; top: 0; left: 0; right: 0; height: 120px; background: #222; color: #fff; padding: 12px; box-sizing: border-box; }\n        #cookie button { background: #fff; color: #111; }\n        #hidden-bar { position: fixed; top: 150px; left: 0; right: 0; height: 60px; background: #222; visibility: hidden; }\n        #backdrop { position: fixed; top: 220px; left: 0; right: 0; height: 60px; background: #e8eef8; z-index: -1; }\n        #mobile-bar { display: none; }\n        @media (max-width: 600px) {\n            #mobile-bar { display: block; position: fixed; top: 300px; left: 0; right: 0; height: 60px; background: #222; }\n        }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p style=\"margin: 0\">Example Insurance</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/claims\">Claims</a>\n    </nav>\n    <main id=\"main\">\n        <!-- Controls placed at fixed spots of the first screen, so each meets exactly one overlay. -->\n        <!-- needs_review (2.4.11 and 2.4.12): entirely under the cookie banner -->\n        <a id=\"fo-covered\" class=\"probe\" href=\"/privacy\" style=\"top: 40px; left: 24px;\">Privacy</a>\n        <!-- needs_review (2.4.12 only): 20 of 44 px under the banner -->\n        <a id=\"fo-partial\" class=\"probe\" href=\"/imprint\" style=\"top: 100px; left: 24px;\">Imprint</a>\n        <!-- absent: 1 px edge contact, within the rounding tolerance -->\n        <a id=\"fo-edge\" class=\"probe\" href=\"/contact\" style=\"top: 119px; left: 180px;\">Contact</a>\n        <!-- absent: the bar above it is visibility: hidden -->\n        <a id=\"fo-under-hidden\" class=\"probe\" href=\"/jobs\" style=\"top: 160px; left: 24px;\">Jobs</a>\n        <!-- absent: the fixed backdrop paints below the link (z-index: -1) -->\n        <a id=\"fo-above-backdrop\" class=\"probe\" href=\"/press\" style=\"top: 230px; left: 24px;\">Press</a>\n        <!-- needs_review (2.4.11 and 2.4.12) on the mobile viewport only -->\n        <a id=\"fo-mobile\" class=\"probe\" href=\"/app\" style=\"top: 310px; left: 24px;\">Get the app</a>\n        <!-- needs_review (2.4.11 and 2.4.12): covered by a chat widget a script adds after load -->\n        <a id=\"fo-dynamic\" class=\"probe\" href=\"/support\" style=\"top: 410px; left: 24px;\">Support</a>\n        <h1>Make a claim</h1>\n        <p>Report damage online or <a href=\"/call\">call us</a>.</p>\n    </main>\n    <footer><p>Example Insurance footer</p></footer>\n\n    <div id=\"hidden-bar\"></div>\n    <div id=\"backdrop\"></div>\n    <div id=\"mobile-bar\"></div>\n    <!-- Its own button is inside the overlay and never counts as obscured by it. -->\n    <div id=\"cookie\" role=\"region\" aria-label=\"Cookie notice\">\n        We use cookies for statistics. <button id=\"fo-in-banner\" type=\"button\">Accept</button>\n    </div>\n    <script>\n        var chat = document.createElement('div');\n        chat.id = 'chat';\n        chat.style.cssText = 'position: fixed; top: 400px; left: 0; width: 200px; height: 64px; background: #222;';\n        document.body.appendChild(chat);\n    </script>\n</body>\n</html>"
   }
 }

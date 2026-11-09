@@ -1,6 +1,6 @@
 {
   "case": "visual_text_spacing_letter",
   "expectations": [
-    { "rule_id": "text-spacing", "selector": "span#chip", "verdict": "violation", "occurrences": 1 }
+    { "rule_id": "text-spacing/clipped", "selector": "span#chip", "verdict": "needs_review", "occurrences": 1 }
   ]
 }

@@ -874,23 +874,30 @@ replace = "if focusable_count == 0 && tree.len() > 6 {"
 killed_by = "lib:wcag::rules::focus_visible"
 
 [[rule]]
-id = "focus-not-obscured-minimum"
-errored = ["error_page_scripts_sabotaged"]
+id = "focus/obscured"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=focus/obscured)"]
 automation = "automated"
-method = "page"
+method = "shared"
 source = "WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum)"
 capabilities = ["dom", "geometry", "computed_style", "interaction"]
-applicability = "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element."
+applicability = "Pages with rendered keyboard-focusable controls (at most 300 per page; the rest is named in the rule's reason) and at least one visible fixed or sticky element."
 expectation = """
-needs_review once per control that, focused and scrolled into view, is
-entirely hidden by an author-created fixed or sticky element painted above
-it (every probe point of the control lands on that element first). Not
-reported: a control only partly covered (that is 2.4.12), a 1 px edge
-contact, an overlay that is visibility: hidden, an overlay painted below the
-control (z-index), a control inside the overlay itself. An overlay that is
-fixed only on the phone viewport, or added by script after load, counts.
-Review, not violation: the walk is bounded and the layout after real
-scrolling can differ."""
+needs_review once per control that, focused and scrolled into view with
+scrollIntoView({ block: 'nearest' }), is entirely hidden by an author-created
+fixed or sticky element painted above it (every sampled point of the 3 x 3
+grid, inset 1 px, lands on that element first: Rendering::focus_cover,
+measured by accessibility::probes). Not reported: a control only partly
+covered (that is 2.4.12), a 1 px edge contact, an overlay that is
+visibility: hidden, an overlay painted below the control (z-index), a control
+inside the overlay itself. An overlay that is fixed only on the phone
+viewport, or added by script after load, counts. A fixed bar that reaches
+lower than scroll-padding-top is reported on the bar itself (the shared rule's
+static hint, hides_focus). Review, not violation: the sampling approximates
+\"entirely\" and a real Tab can scroll differently. A page whose DOM
+cannot be captured records the rule as not run. If only the focus pass fails
+(page scripts break it) the rule still runs on the static hints and names the
+failed pass in its reason."""
 positive = ["interaction_focus_obscured", "media_and_visual"]
 negative = ["interaction_focus_obscured"]
 not_applicable = ["interaction_static_text", "interaction_click_pointer"]
@@ -899,7 +906,7 @@ not_applicable = ["interaction_static_text", "interaction_click_pointer"]
 visibility = { cases = ["interaction_focus_obscured"] }
 native_vs_aria = { not_relevant = "The walk takes every keyboard-focusable control, native or with tabindex, alike; coverage is geometry and paint order." }
 alternative_labels = { not_relevant = "Naming plays no part in being covered." }
-frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own." }
+frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own; the focus pass walks the top document and its open shadow roots." }
 responsive = { cases = ["interaction_focus_obscured"] }
 dynamic = { cases = ["interaction_focus_obscured"] }
 thresholds = { cases = ["interaction_focus_obscured"] }
@@ -908,35 +915,35 @@ thresholds = { cases = ["interaction_focus_obscured"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/focus_walk.js"
-change = "accept a partly covered control as entirely hidden"
-find = "if (blockers.every(Boolean)) {"
-replace = "if (blockers.some(Boolean)) {"
-killed_by = "corpus:interaction_focus_obscured"
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id focus/obscured)"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/focus_not_obscured_minimum.rs"
-change = "shift the entirely-hidden ratio of the static fallback"
-find = "const ENTIRELY_HIDDEN_RATIO: f64 = 0.98;"
-replace = "const ENTIRELY_HIDDEN_RATIO: f64 = 0.05;"
-killed_by = "lib:wcag::rules::focus_not_obscured_minimum"
+target = "src/accessibility/js/probes/focus.js"
+change = "drop the paint-order check: look past the control at fixed elements painted below it"
+find = "            if (hit === el || el.contains(hit)) break;"
+replace = "            if (hit === el || el.contains(hit)) continue;"
+killed_by = "corpus:interaction_focus_obscured"
 
 [[rule]]
-id = "focus-not-obscured-enhanced"
+id = "focus/obscured-enhanced"
 errored = ["error_page_scripts_sabotaged"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=focus/obscured-enhanced)"]
 automation = "automated"
-method = "page"
+method = "shared"
 source = "WCAG 2.2 SC 2.4.12 Focus Not Obscured (Enhanced) (AAA)"
-capabilities = ["dom", "geometry", "computed_style"]
-applicability = "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element at least 20 x 20 px."
+capabilities = ["dom", "geometry", "computed_style", "interaction"]
+applicability = "Pages with rendered keyboard-focusable controls and at least one visible fixed or sticky element."
 expectation = """
-needs_review once per control of which a fixed or sticky element painted
-above it covers any meaningful part (at least 5 % of its area; a 1 px edge
-contact is rounding, not covering). An entirely covered control is reported
-here as well as under 2.4.11. Not reported: an overlay that is
-visibility: hidden, an overlay painted below the control (z-index), a
-control inside the overlay. An overlay fixed only on the phone viewport, or
-added by script after load, counts."""
+needs_review once per control of which at least one sampled point (3 x 3 grid,
+inset 1 px, after focusing and scrolling into view) lies under a fixed or
+sticky element painted above it. An entirely covered control is reported here
+as well as under 2.4.11. A 1 px edge contact does not reach a sampled point.
+Not reported: an overlay that is visibility: hidden, an overlay painted below
+the control (z-index), a control inside the overlay. An overlay fixed only on
+the phone viewport, or added by script after load, counts. A page whose
+scripts break the probe records the rule as not run (CapabilityMissing)."""
 positive = ["interaction_focus_obscured", "media_and_visual"]
 negative = ["interaction_focus_obscured"]
 not_applicable = ["interaction_static_text", "interaction_click_pointer"]
@@ -945,7 +952,7 @@ not_applicable = ["interaction_static_text", "interaction_click_pointer"]
 visibility = { cases = ["interaction_focus_obscured"] }
 native_vs_aria = { not_relevant = "Every keyboard-focusable control, native or with tabindex, is taken alike; coverage is geometry and paint order." }
 alternative_labels = { not_relevant = "Naming plays no part in being covered." }
-frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own." }
+frames_shadow_dom = { not_relevant = "Fixed content inside an iframe is positioned within that frame's document, which is audited on its own; the focus pass walks the top document and its open shadow roots." }
 responsive = { cases = ["interaction_focus_obscured"] }
 dynamic = { cases = ["interaction_focus_obscured"] }
 thresholds = { cases = ["interaction_focus_obscured"] }
@@ -954,25 +961,60 @@ thresholds = { cases = ["interaction_focus_obscured"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
-change = "shift the partly-hidden ratio"
-find = "const PARTIALLY_HIDDEN_RATIO: f64 = 0.05;"
-replace = "const PARTIALLY_HIDDEN_RATIO: f64 = 0.5;"
-killed_by = "corpus:interaction_focus_obscured"
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id focus/obscured-enhanced)"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/focus_not_obscured_enhanced.js"
-change = "drop the paint-order check"
-find = "      if (paintsBelow(overlayEls[k], overlays[k], fel, frect)) continue;"
+target = "src/accessibility/js/probes/focus.js"
+change = "drop the 1 px inset of the sample grid: the edge contact counts as covered"
+find = "  return share === 0 ? start + 1 : start + length - 1;"
+replace = "  return share === 0 ? start : start + length;"
+killed_by = "corpus:interaction_focus_obscured"
+
+[[rule]]
+id = "focus/indicator-missing"
+errored = ["error_page_scripts_sabotaged"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=focus/indicator-missing)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.4.7 Focus Visible"
+capabilities = ["dom", "computed_style", "interaction"]
+applicability = "Rendered, keyboard-focusable controls of the top document and its open shadow roots (at most 300 per page)."
+expectation = """
+needs_review once per control whose computed style does not change when it
+receives focus in a way that can serve as an indicator
+(Layout::focus_visible, measured by accessibility::probes): no new or changed
+outline, box-shadow, border, background, text colour or text decoration, and
+no browser focus ring. The browser's own focus ring, an author outline, a
+background change and a shadow each count as an indicator. A control that
+cannot take focus, or that is not reachable with Tab (tabindex=-1), is not a
+candidate. Transitions are suspended during the measurement so a transition
+on the focus style does not hide the change. Review, not violation: whether
+the change is perceivable is a human judgement. A page whose scripts break the
+probe records the rule as not run (CapabilityMissing)."""
+positive = ["interaction_focus_indicator", "interaction_outline_removed", "interaction_outline_removed_mobile", "interaction_outline_removed_dynamic"]
+negative = ["interaction_focus_indicator"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { cases = ["interaction_focus_indicator"] }
+native_vs_aria = { not_relevant = "Every keyboard-focusable control, native or with tabindex, is taken alike; the check reads computed style." }
+alternative_labels = { not_relevant = "Naming plays no part in a focus indicator." }
+frames_shadow_dom = { not_relevant = "The focus pass walks the top document and its open shadow roots; a frame document is audited on its own." }
+responsive = { cases = ["interaction_outline_removed_mobile"] }
+dynamic = { cases = ["interaction_outline_removed_dynamic"] }
+thresholds = { cases = ["interaction_focus_indicator"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/js/probes/focus.js"
+change = "see only an outline as an indicator: a background change or a shadow no longer counts"
+find = "  for (let i = 4; i < a.length; i++) if (a[i] !== b[i]) return true;"
 replace = ""
-killed_by = "corpus:interaction_focus_obscured"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
-change = "drop the finding"
-find = "        if is_partially_hidden(rect, &candidate_overlays) {"
-replace = "        if false {"
-killed_by = "corpus:interaction_focus_obscured"
+killed_by = "corpus:interaction_focus_indicator"
 
 [[rule]]
 id = "pointer-cancellation"

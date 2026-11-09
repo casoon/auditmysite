@@ -19,7 +19,7 @@
     { "rule_id": "pointer-cancellation", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "keyboard-trap", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "focus-visible", "verdict": "absent" },
-    { "rule_id": "focus-not-obscured-minimum", "verdict": "not_applicable" },
-    { "rule_id": "focus-not-obscured-enhanced", "verdict": "not_applicable" }
+    { "rule_id": "focus/obscured", "verdict": "not_applicable" },
+    { "rule_id": "focus/obscured-enhanced", "verdict": "not_applicable" }
   ]
 }
