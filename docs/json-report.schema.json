@@ -1186,6 +1186,9 @@
         },
         "decision": {
           "$ref": "#/$defs/decision"
+        },
+        "baseline": {
+          "$ref": "#/$defs/pageBaseline"
         }
       }
     },
@@ -1746,6 +1749,10 @@
         "id": {
           "type": "string",
           "description": "F- and eight hex digits from the rule; the same on every page and run."
+        },
+        "known": {
+          "type": "boolean",
+          "description": "Present (true) when the finding's id is in the findings baseline (--baseline): it does not affect the decision."
         },
         "patterns": {
           "type": "array",
@@ -2343,6 +2350,87 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 100
+        },
+        "baseline_digest": {
+          "type": "string",
+          "description": "Digest of the findings baseline the run was gated against (--baseline); absent without one."
+        }
+      }
+    },
+    "pageBaseline": {
+      "description": "How this page relates to the findings baseline (--baseline). Scores and findings are unchanged; `gate` holds the verdict inputs left after the known findings. Absent without --baseline.",
+      "type": "object",
+      "required": [
+        "digest",
+        "page_listed",
+        "known",
+        "new",
+        "fixed",
+        "gate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string",
+          "description": "SHA-256 over the baseline's recorded urls and finding ids; also decision.profile.baseline_digest."
+        },
+        "page_listed": {
+          "type": "boolean",
+          "description": "Whether the baseline lists this URL; a page it does not list has no known findings."
+        },
+        "known": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Findings of this run whose id is in the baseline (findings[].known)."
+        },
+        "new": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Baseline entries of this page without a finding in this run: fixed, or from a module that did not run."
+        },
+        "fixed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gate": {
+          "type": "object",
+          "required": [
+            "legal_flags",
+            "blocking_issues",
+            "keyboard_blocking_issues",
+            "technical_blockers",
+            "open_findings"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "legal_flags": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocking_issues": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "keyboard_blocking_issues": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "technical_blockers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "open_findings": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "WCAG findings that are not known."
+            }
+          }
         }
       }
     },

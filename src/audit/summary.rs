@@ -622,6 +622,7 @@ mod tests {
         count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
@@ -714,6 +715,7 @@ mod tests {
 
         NormalizedReport {
             decision: crate::audit::verdict::VerdictResult::undecided(),
+            baseline: None,
             finding_inventory: Vec::new(),
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,

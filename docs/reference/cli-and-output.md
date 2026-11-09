@@ -38,6 +38,7 @@ Useful flags:
 - `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](../../guides/display-modes/)
 - `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](../../guides/excluding-specimens/))
 - `--annotations <file.json>`: show external assessments of findings next to them in the report, without changing any result, see [Annotations](#annotations)
+- `--write-baseline <file>` / `--baseline <file>`: record the finding ids of a run, then gate later runs so that only new findings affect the exit code (known findings are marked `known` and counted; scores and the finding list stay unchanged; per URL in a batch). A malformed baseline, or one written under another finding id scheme, exits 3. Format, scoping and the id stability it relies on: [Findings baseline](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#findings-baseline)
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
 For the full current interface, use:
@@ -214,6 +215,7 @@ JSON output is treated as an automation contract.
 - Batch report schema: [docs/json-batch-report.schema.json](https://github.com/casoon/auditmysite/blob/main/docs/json-batch-report.schema.json)
 
 Key fields in a single-page report:
+- `pages[].baseline`, `pages[].findings[].known`, `decision.profile.baseline_digest` (batch: also top-level `baseline`) — present only with `--baseline`: known, new and fixed findings against a baseline file. Finding ids are stable per rule and page: what changes an id and what must not is in [Finding id stability](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-id-stability)
 - `metric_context` — machine-readable definitions for the 0–100 score scale and the report's scoped count fields
 - `findings` — static WCAG violations and SEO findings
 - `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used

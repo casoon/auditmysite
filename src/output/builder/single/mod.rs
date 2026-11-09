@@ -366,6 +366,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ),
             ci_verdict: verdict_result.verdict,
             ci_verdict_reasons: verdict_result.reason_kinds,
+            baseline: normalized.normalized.baseline.clone(),
             run_is_partial: normalized.normalized.execution.quality.status
                 != crate::audit::AuditQualityStatus::Complete,
             score_calculation_method: normalized.normalized.score_calculation_method.clone(),

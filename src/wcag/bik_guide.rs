@@ -335,6 +335,7 @@ mod tests {
         occurrence_count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),

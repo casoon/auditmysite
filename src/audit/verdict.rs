@@ -40,6 +40,11 @@ pub struct DecisionProfile {
     pub fail_below_score: Option<u32>,
     /// Warn below this accessibility score.
     pub warn_below_score: u32,
+    /// Digest of the findings baseline the run was gated against (#930), so
+    /// a result with and without baseline can never be mistaken for each
+    /// other. `None` when no baseline was used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_digest: Option<String>,
 }
 
 impl Default for DecisionProfile {
@@ -64,6 +69,7 @@ impl DecisionProfile {
             fail_on_technical_blockers: fail_on_technical_blockers.unwrap_or(false),
             fail_below_score: fail_below_score.filter(|threshold| *threshold > 0),
             warn_below_score: warn_below_score.unwrap_or(70),
+            baseline_digest: None,
         };
         let default = Self {
             name: String::new(),
@@ -72,6 +78,7 @@ impl DecisionProfile {
             fail_on_technical_blockers: false,
             fail_below_score: None,
             warn_below_score: 70,
+            baseline_digest: None,
         };
         profile.name = if profile == default {
             "default"
@@ -80,6 +87,15 @@ impl DecisionProfile {
         }
         .to_string();
         profile
+    }
+}
+
+impl DecisionProfile {
+    /// Records the baseline the run is gated against. A gated decision is
+    /// never the `default` profile.
+    pub fn set_baseline_digest(&mut self, digest: &str) {
+        self.baseline_digest = Some(digest.to_string());
+        self.name = "custom".to_string();
     }
 }
 
@@ -240,23 +256,40 @@ pub fn technical_blockers(normalized: &NormalizedReport) -> usize {
 /// `NormalizedReport.decision`.
 pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile) -> VerdictResult {
     let mut fail = Reasons::default();
-    let risk = &normalized.risk;
-    if profile.fail_on_legal_flags && risk.legal_flags > 0 {
+    // Under a baseline (#930) the finding-driven inputs are the ones left
+    // after the known findings; score and audit quality are not baselined.
+    let (legal_flags, blocking_issues, keyboard_blocking, blockers, open_findings) =
+        match &normalized.baseline {
+            Some(baseline) => (
+                baseline.gate.legal_flags,
+                baseline.gate.blocking_issues,
+                baseline.gate.keyboard_blocking_issues,
+                baseline.gate.technical_blockers,
+                baseline.gate.open_findings,
+            ),
+            None => (
+                normalized.risk.legal_flags,
+                normalized.risk.blocking_issues,
+                normalized.risk.keyboard_blocking_issues,
+                technical_blockers(normalized),
+                normalized.severity_counts.total,
+            ),
+        };
+    if profile.fail_on_legal_flags && legal_flags > 0 {
         fail.push(
-            format!("legal_flags: {}", risk.legal_flags),
-            VerdictReasonKind::LegalFlags(risk.legal_flags),
+            format!("legal_flags: {legal_flags}"),
+            VerdictReasonKind::LegalFlags(legal_flags),
         );
     }
-    if profile.fail_on_blocking_issues && risk.blocking_issues > 0 {
+    if profile.fail_on_blocking_issues && blocking_issues > 0 {
         fail.push(
-            format!("blocking_issues: {}", risk.blocking_issues),
+            format!("blocking_issues: {blocking_issues}"),
             VerdictReasonKind::BlockingIssues {
-                total: risk.blocking_issues,
-                keyboard: risk.keyboard_blocking_issues,
+                total: blocking_issues,
+                keyboard: keyboard_blocking,
             },
         );
     }
-    let blockers = technical_blockers(normalized);
     if profile.fail_on_technical_blockers && blockers > 0 {
         fail.push(
             format!("technical_blockers: {blockers}"),
@@ -305,8 +338,8 @@ pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile)
                 threshold: profile.warn_below_score,
             },
         );
-    } else if normalized.severity_counts.total > 0 {
-        let n = normalized.severity_counts.total;
+    } else if open_findings > 0 {
+        let n = open_findings;
         warn.push(
             format!(
                 "{} {} present",
@@ -363,22 +396,34 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
             summary.coverage.attempted, summary.coverage.failed, summary.coverage.blocked
         ));
     }
-    if profile.fail_on_legal_flags && summary.legal_flags > 0 {
+    // Under a baseline (#930) the finding-driven inputs are the ones left
+    // after the known findings.
+    let (legal_flags, blocking_issues, technical_blockers, open_violations) =
+        match &summary.baseline {
+            Some(baseline) => (
+                baseline.gate.legal_flags,
+                baseline.gate.blocking_issues,
+                baseline.gate.technical_blockers,
+                baseline.gate.open_violations,
+            ),
+            None => (
+                summary.legal_flags,
+                summary.blocking_issues,
+                summary.technical_blockers,
+                summary.total_violations,
+            ),
+        };
+    if profile.fail_on_legal_flags && legal_flags > 0 {
+        fail.push(format!("legal_flags: {legal_flags} (across all pages)"));
+    }
+    if profile.fail_on_blocking_issues && blocking_issues > 0 {
         fail.push(format!(
-            "legal_flags: {} (across all pages)",
-            summary.legal_flags
+            "blocking_issues: {blocking_issues} (across all pages)"
         ));
     }
-    if profile.fail_on_blocking_issues && summary.blocking_issues > 0 {
+    if profile.fail_on_technical_blockers && technical_blockers > 0 {
         fail.push(format!(
-            "blocking_issues: {} (across all pages)",
-            summary.blocking_issues
-        ));
-    }
-    if profile.fail_on_technical_blockers && summary.technical_blockers > 0 {
-        fail.push(format!(
-            "technical_blockers: {} (across all pages)",
-            summary.technical_blockers
+            "technical_blockers: {technical_blockers} (across all pages)"
         ));
     }
     if let Some(threshold) = profile.fail_below_score {
@@ -418,10 +463,9 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
     if summary.audit_quality.qualified_results {
         warn.push(format!("audit_quality: {:?}", summary.audit_quality.status));
     }
-    if summary.technical_blockers > 0 {
+    if technical_blockers > 0 {
         warn.push(format!(
-            "technical_blockers: {} (across all pages)",
-            summary.technical_blockers
+            "technical_blockers: {technical_blockers} (across all pages)"
         ));
     }
     if average_score.is_some_and(|a| a < profile.warn_below_score) {
@@ -436,11 +480,11 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
             summary.failed,
             if summary.failed == 1 { "URL" } else { "URLs" }
         ));
-    } else if summary.total_violations > 0 {
+    } else if open_violations > 0 {
         warn.push(format!(
             "{} {} found",
-            summary.total_violations,
-            if summary.total_violations == 1 {
+            open_violations,
+            if open_violations == 1 {
                 "violation"
             } else {
                 "violations"
@@ -581,6 +625,7 @@ mod tests {
             score_spread: None,
             selection_profile: Default::default(),
             measurement_browsers: Vec::new(),
+            baseline: None,
         };
 
         let result = compute_batch_verdict(&summary, &DecisionProfile::default());

@@ -39,6 +39,7 @@ Before every change, clarify which side the code belongs to:
 ## Key CLI Modes
 - Single: `auditmysite <URL>` (default: table on stdout, English, no file written, no prompt; `-o report.json` / `-f pdf -o report.pdf` write a report)
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
+- Findings baseline: `--write-baseline <FILE>` records the finding ids of a run, `--baseline <FILE>` makes findings with a recorded id `known` (no effect on verdict/exit code, per URL in a batch; scores and findings unchanged; digest in `decision.profile.baseline_digest`; malformed or other-scheme file exits 3; #930). Finding ids derive from the rule id alone: `FINDING_ID_SCHEME` in `src/audit/baseline.rs` must be raised with any change of that derivation, a rule rename is a changelog entry (docs/OUTPUT_CONTRACT.md "Finding id stability")
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (every module — the default; see Modules below)
 - Browser: `auditmysite browser {detect|install|ensure|remove|path}`, `auditmysite doctor`

@@ -710,6 +710,10 @@ pub struct RunContext {
     pub indexability: crate::audit::finding_contract::IndexabilityExpectation,
     #[serde(default)]
     pub decision_profile: crate::audit::verdict::DecisionProfile,
+    /// What the findings baseline (`--baseline`, #930) says about this page.
+    /// `None`: the run is not gated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::PageBaseline>,
 }
 
 /// Performance analysis results wrapper
@@ -1298,6 +1302,12 @@ pub struct BatchSummary {
     /// browser was not recorded. Never averaged away.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub measurement_browsers: Vec<BrowserPages>,
+    /// The findings baseline the run was gated against (#930): known, new
+    /// and fixed findings, and the verdict inputs left after the known ones.
+    /// `total_violations`, `legal_flags` and the other counts above stay the
+    /// unfiltered totals. Absent without `--baseline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::BatchBaselineSummary>,
 }
 
 /// One browser provenance of a batch and the number of pages it measured.
@@ -1657,6 +1667,7 @@ impl BatchReport {
                 score_spread,
                 selection_profile,
                 measurement_browsers,
+                baseline: crate::audit::baseline::summarize_batch(&normalized_reports),
             },
             crawl_diagnostics: None,
             sitemap_diagnostics: None,

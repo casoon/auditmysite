@@ -195,6 +195,7 @@ mod fallback_tests {
     /// to a raw-English marker that must never surface as `customer_description`.
     fn uncovered_rule_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
@@ -271,6 +272,7 @@ mod fallback_tests {
     /// finding (#571).
     fn region_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
@@ -314,6 +316,7 @@ mod fallback_tests {
     /// live against a real report (plan/1-root-cause-title-occurrence-mismatch.md).
     fn landmark_unique_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,

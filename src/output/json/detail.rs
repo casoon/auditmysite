@@ -53,6 +53,7 @@ pub(super) fn build_page(
         findings: normalized.findings.clone(),
         finding_inventory: normalized.finding_inventory.clone(),
         decision: normalized.decision.clone(),
+        baseline: normalized.baseline.clone(),
         audit_flags: normalized.audit_flags.clone(),
         audit_quality: normalized.execution.quality.clone(),
         module_runs: normalized.execution.module_runs.clone(),

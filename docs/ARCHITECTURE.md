@@ -119,6 +119,7 @@ src/
 ├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicators and their `ExperimentalIndicators` result block, #916)
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
+│   ├── baseline.rs      # Findings baseline (#930): file format, digest, known/new/fixed classification and the gate inputs the verdict reads; `BatchReport::with_baseline`
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
 │   ├── dark_scheme.rs   # Second pass of the shared `contrast/*` rules under `prefers-color-scheme: dark` emulation when the page declares a dark scheme; findings keep the rule id and carry `color_scheme: dark` evidence (#917)
 │   ├── capture_collectors.rs # Capture-layer collectors (navigation, AX tree, consent, exclusion, frames, stability, rule execution, journeys) projected onto the contract

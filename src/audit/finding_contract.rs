@@ -1252,6 +1252,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
     let help_url = crate::audit::rule_docs::finding_help_url(&rule_id);
 
     NormalizedFinding {
+        known: false,
         id,
         patterns,
         pattern_count,
