@@ -1,0 +1,113 @@
+# Mutations of the module scores and the overall score (#117). See scoring.toml.
+
+[[mutation]]
+id = "ux-penalty-many-critical-threshold"
+target = "src/audit/module_scores.rs"
+change = "UX: severe penalty from 11 critical findings instead of 10"
+find = "if critical >= 10 {\n        25"
+replace = "if critical >= 11 {\n        25"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "ux-penalty-many-critical-value"
+target = "src/audit/module_scores.rs"
+change = "UX: severe penalty 20 instead of 25"
+find = "if critical >= 10 {\n        25"
+replace = "if critical >= 10 {\n        20"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "ux-penalty-some-critical-threshold"
+target = "src/audit/module_scores.rs"
+change = "UX: middle penalty from 6 critical findings instead of 5"
+find = "} else if critical >= 5 {\n        15"
+replace = "} else if critical >= 6 {\n        15"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "ux-penalty-single-critical"
+target = "src/audit/module_scores.rs"
+change = "UX: a single critical finding costs nothing"
+find = "} else if critical > 0 {\n        10"
+replace = "} else if critical > 1 {\n        10"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "ux-penalty-high-threshold"
+target = "src/audit/module_scores.rs"
+change = "UX: high-finding penalty from 6 findings instead of 5"
+find = "} else if high >= 5 {"
+replace = "} else if high >= 6 {"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "journey-penalty-many-critical-threshold"
+target = "src/audit/module_scores.rs"
+change = "Journey: severe penalty from 11 critical findings instead of 10"
+find = "if critical >= 10 {\n        20"
+replace = "if critical >= 11 {\n        20"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "journey-penalty-middle-value"
+target = "src/audit/module_scores.rs"
+change = "Journey: middle penalty 5 instead of 10"
+find = "} else if critical >= 5 {\n        10"
+replace = "} else if critical >= 5 {\n        5"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "journey-penalty-single-critical"
+target = "src/audit/module_scores.rs"
+change = "Journey: a single critical finding costs nothing"
+find = "} else if critical > 0 {\n        5"
+replace = "} else if critical > 1 {\n        5"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "module-weight-requires-contribution"
+target = "src/audit/normalized.rs"
+change = "weight a module although it does not contribute"
+find = "let weight_pct = if contributes_to_overall {"
+replace = "let weight_pct = if !contributes_to_overall {"
+killed_by = "lib:audit::module_scores"
+
+[[mutation]]
+id = "weights-seo"
+target = "src/taxonomy/score.rs"
+change = "SEO weight 20 instead of 15"
+find = "(\"SEO\", 15),"
+replace = "(\"SEO\", 20),"
+killed_by = "lib:taxonomy::score"
+
+[[mutation]]
+id = "weights-security"
+target = "src/taxonomy/score.rs"
+change = "Security weight 15 instead of 10"
+find = "(\"Security\", 10),"
+replace = "(\"Security\", 15),"
+killed_by = "lib:taxonomy::score"
+
+[[mutation]]
+id = "weights-html-conformance"
+target = "src/taxonomy/score.rs"
+change = "HTML Conformance weight 0 instead of 5"
+find = "(\"HTML Conformance\", 5),"
+replace = "(\"HTML Conformance\", 0),"
+killed_by = "lib:taxonomy::score"
+
+[[mutation]]
+id = "overall-score-rounds"
+target = "src/audit/normalized.rs"
+change = "truncate the weighted overall score instead of rounding it"
+find = "(weighted_sum as f64 / total_weight as f64).round() as u32\n}"
+replace = "(weighted_sum as f64 / total_weight as f64).floor() as u32\n}"
+killed_by = "lib:audit::normalized"
+
+[[mutation]]
+id = "overall-score-weights-by-module"
+target = "src/audit/normalized.rs"
+change = "weight every contributing module equally"
+find = "sum + module.score as u64 * module.weight_pct as u64,"
+replace = "sum + module.score as u64 * 10,"
+killed_by = "lib:audit::normalized"

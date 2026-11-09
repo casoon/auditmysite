@@ -222,3 +222,76 @@ pub(crate) fn journey_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
         0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn counts(critical: usize, high: usize) -> SeverityCounts {
+        SeverityCounts {
+            critical,
+            high,
+            medium: 0,
+            low: 0,
+            total: critical + high,
+        }
+    }
+
+    /// Exact steps of the UX penalty; every threshold and value is pinned by a mutation in
+    /// tests/fixtures/mutation_contracts/module_scores.toml (#117).
+    #[test]
+    fn ux_penalty_steps_are_exact() {
+        let table = [
+            ((0, 0), 0),
+            ((0, 4), 0),
+            ((0, 5), 5),
+            ((1, 0), 10),
+            ((4, 0), 10),
+            ((5, 0), 15),
+            ((9, 0), 15),
+            ((10, 0), 25),
+        ];
+        for ((critical, high), expected) in table {
+            assert_eq!(
+                ux_a11y_penalty(&counts(critical, high)),
+                expected,
+                "critical={critical} high={high}"
+            );
+        }
+    }
+
+    #[test]
+    fn journey_penalty_steps_are_exact_and_ignore_high_findings() {
+        let table = [
+            ((0, 99), 0),
+            ((1, 0), 5),
+            ((4, 0), 5),
+            ((5, 0), 10),
+            ((9, 0), 10),
+            ((10, 0), 20),
+        ];
+        for ((critical, high), expected) in table {
+            assert_eq!(
+                journey_a11y_penalty(&counts(critical, high)),
+                expected,
+                "critical={critical} high={high}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_a_contributing_module_carries_its_published_weight() {
+        assert_eq!(
+            ModuleScoreEntry::new("Accessibility", 80, "measured", true).weight_pct,
+            40
+        );
+        assert_eq!(
+            ModuleScoreEntry::new("Accessibility", 80, "partial", false).weight_pct,
+            0
+        );
+        assert_eq!(
+            ModuleScoreEntry::new("UX", 80, "heuristic", false).weight_pct,
+            0
+        );
+    }
+}
