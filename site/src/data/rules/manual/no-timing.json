@@ -1,30 +1,35 @@
 {
   "id": "manual/no-timing",
   "url": "https://casoon.github.io/auditmysite/rules/manual/no-timing/",
+  "domain": "wcag",
   "title": "Timing present (AAA)",
   "outcome": "manual",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.3",
   "level": "AAA",
   "axe_id": "no-timing",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Risk",
   "severity": "medium",
   "user_impact": "Users cannot complete tasks at their own pace.",
   "technical_impact": "Active time limits on the page.",
-  "source": "WCAG 2.2 SC 2.2.3 No Timing (AAA)",
-  "applicability": "Pages with form fields (input other than hidden/submit/button/reset, select, textarea) or a meta refresh.",
-  "expectation": "One needs_review (UNTESTED) note per page, at the root, when the page has\nform fields or a meta refresh; never pass or violation. Pages without either\nget no note.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": true,
-  "manual_reason": "Whether any task depends on timing shows only while completing it; no markup states a time limit.",
-  "failing": {
-    "case": "interaction_manual_checklist",
-    "file": "tests/fixtures/detection_corpus/interaction_manual_checklist.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Member area</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Club</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/events\">Events</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Member area</h1>\n\n        <!-- manual/pointer-gestures: a swipe carousel -->\n        <section aria-label=\"Photo gallery\">\n            <h2>Last season</h2>\n            <div class=\"carousel\" id=\"gallery\">\n                <p>Slide 1 of 3: the summer tournament.</p>\n            </div>\n            <button type=\"button\">Previous photo</button>\n            <button type=\"button\">Next photo</button>\n        </section>\n\n        <!-- manual/re-authenticating, manual/no-timing, manual/help: a sign-in form -->\n        <form action=\"/login\" method=\"post\">\n            <h2>Sign in</h2>\n            <p><label for=\"user\">Member number</label> <input id=\"user\" name=\"user\" type=\"text\" autocomplete=\"username\"></p>\n            <p><label for=\"pass\">Password</label> <input id=\"pass\" name=\"pass\" type=\"password\" autocomplete=\"current-password\"></p>\n            <p><button type=\"submit\">Sign in</button></p>\n        </form>\n\n        <!-- manual/interruptions: a live region announcing updates -->\n        <div role=\"status\" aria-live=\"polite\" id=\"news\">Next event: Saturday.</div>\n    </main>\n    <footer><p>Example Club footer</p></footer>\n    <script>\n        // manual/motion-actuation: shake to refresh the photos\n        window.addEventListener('devicemotion', function (event) {\n            if (event.acceleration && event.acceleration.x > 20) { location.reload(); }\n        });\n    </script>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "manual/no-timing",
+      "outcome": "manual",
+      "source": "WCAG 2.2 SC 2.2.3 No Timing (AAA)",
+      "applicability": "Pages with form fields (input other than hidden/submit/button/reset, select, textarea) or a meta refresh.",
+      "expectation": "One needs_review (UNTESTED) note per page, at the root, when the page has\nform fields or a meta refresh; never pass or violation. Pages without either\nget no note.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "manual_reason": "Whether any task depends on timing shows only while completing it; no markup states a time limit.",
+      "failing": {
+        "case": "interaction_manual_checklist",
+        "file": "tests/fixtures/detection_corpus/interaction_manual_checklist.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Member area</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Club</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/events\">Events</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Member area</h1>\n\n        <!-- manual/pointer-gestures: a swipe carousel -->\n        <section aria-label=\"Photo gallery\">\n            <h2>Last season</h2>\n            <div class=\"carousel\" id=\"gallery\">\n                <p>Slide 1 of 3: the summer tournament.</p>\n            </div>\n            <button type=\"button\">Previous photo</button>\n            <button type=\"button\">Next photo</button>\n        </section>\n\n        <!-- manual/re-authenticating, manual/no-timing, manual/help: a sign-in form -->\n        <form action=\"/login\" method=\"post\">\n            <h2>Sign in</h2>\n            <p><label for=\"user\">Member number</label> <input id=\"user\" name=\"user\" type=\"text\" autocomplete=\"username\"></p>\n            <p><label for=\"pass\">Password</label> <input id=\"pass\" name=\"pass\" type=\"password\" autocomplete=\"current-password\"></p>\n            <p><button type=\"submit\">Sign in</button></p>\n        </form>\n\n        <!-- manual/interruptions: a live region announcing updates -->\n        <div role=\"status\" aria-live=\"polite\" id=\"news\">Next event: Saturday.</div>\n    </main>\n    <footer><p>Example Club footer</p></footer>\n    <script>\n        // manual/motion-actuation: shake to refresh the photos\n        window.addEventListener('devicemotion', function (event) {\n            if (event.acceleration && event.acceleration.x > 20) { location.reload(); }\n        });\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
 }

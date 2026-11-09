@@ -1,0 +1,34 @@
+{
+  "id": "best_practices.vulnerable_libraries.prototype",
+  "url": "https://casoon.github.io/auditmysite/rules/best_practices.vulnerable_libraries.prototype/",
+  "domain": "libraries",
+  "title": "Prototype: version with known vulnerabilities",
+  "outcome": "automatic",
+  "area": "Security, vulnerable libraries",
+  "checks": [
+    {
+      "contract_id": "Prototype",
+      "outcome": "automatic",
+      "source": "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 against NVD and the project repository; CVE-2020-27511 (reported against 1.7.3, the last release, 2015; no commit since 2017); OWASP Top 10 A06 (unsupported components)",
+      "applicability": "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version.",
+      "expectation": "Fails for every detected Prototype version: unmaintained, and every release is covered by CVE-2020-27511. There is no conforming version; the negative is a look-alike: an application class named Prototype without the library's `Prototype.Version` is not the library. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean.",
+      "method": "analyze_vulnerable_libraries",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "vulnerable_libs_outdated_underscore_and_legacy",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_outdated_underscore_and_legacy.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Outdated Underscore, Prototype and MooTools</title>\n  <script>\n    // Underscore shares `_` with Lodash and lacks `_.runInContext`.\n    window._ = { VERSION: \"1.12.0\" };\n    // Unmaintained: every release is flagged.\n    window.Prototype = { Version: \"1.7.3\" };\n    window.MooTools = { version: \"1.6.0\" };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>Outdated Underscore, Prototype and MooTools</h1>\n\n  </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "vulnerable_libs_lookalikes",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_lookalikes.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Plugins and namespaces that look like libraries</title>\n  <!-- Plugins carry their own version, not the library's. -->\n  <script src=\"/ui/1.12.1/jquery-ui.min.js\"></script>\n  <script src=\"/js/jquery.validate-1.19.5.min.js\"></script>\n  <script src=\"/js/bootstrap-datepicker-1.9.0.min.js\"></script>\n  <!-- Angular 2+ is not AngularJS. -->\n  <script type=\"module\" src=\"/npm/@angular/core@17.3.0/fesm2022/core.mjs\"></script>\n  <script>\n    // An application class and namespace that only share a name.\n    window.Prototype = class Prototype { constructor() { this.screens = []; } };\n    window.MooToolsMigration = { done: true, version: \"2.0.0\" };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>Plugins and namespaces that look like libraries</h1>\n\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

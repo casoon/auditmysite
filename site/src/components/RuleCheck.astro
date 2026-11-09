@@ -1,0 +1,108 @@
+---
+// One check of a rule page: what the contract says and the corpus examples.
+// `nested` pages (several checks behind one finding) put each check under its own heading.
+import { CodeBlock } from '@casoon/pages-theme/components';
+import { type Check, type Example, repoUrl } from '../lib/rules';
+
+interface Props {
+  check: Check;
+  nested: boolean;
+}
+
+const { check, nested } = Astro.props;
+
+// The contract text is hard-wrapped: a blank line separates paragraphs, a single break is a space.
+const expectation = check.expectation
+  .split(/\n\s*\n/)
+  .map((p) => p.replace(/\s*\n\s*/g, ' ').trim());
+
+const verdictText: Record<Example['verdict'], string> = {
+  violation: 'The check reports a violation here.',
+  needs_review: 'The check flags this for review.',
+  pass: 'The check passes here and reports nothing.',
+  absent: 'The check reports nothing here.',
+};
+const examples = [
+  { heading: 'Failing example', example: check.failing },
+  { heading: 'Passing example', example: check.passing },
+].flatMap((e) => (e.example ? [{ heading: e.heading, example: e.example }] : []));
+
+const headers = (e: Example) =>
+  Object.entries(e.response_headers ?? {})
+    .map(([name, value]) => `${name}: ${value}`)
+    .join('\n');
+---
+
+<section class="check">
+  {nested && check.label && <h3>{check.label}</h3>}
+  <p><strong>Scope.</strong> {check.applicability}</p>
+  {expectation.map((p, i) => <p>{i === 0 && <strong>Expectation. </strong>}{p}</p>)}
+  {check.manual_reason && <p><strong>Why a person has to decide.</strong> {check.manual_reason}</p>}
+  <p><strong>Source.</strong> {check.source}</p>
+  <p class="detail">Detection: {check.method}; needs {check.capabilities.join(', ')}.</p>
+
+  {
+    examples.map(({ heading, example }) => (
+      <div class="example">
+        {nested ? <h4>{heading}</h4> : <h3>{heading}</h3>}
+        <p>
+          {verdictText[example.verdict]} Corpus case{' '}
+          <a href={`${repoUrl}/blob/main/${example.file}`}>
+            <code>{example.case}</code>
+          </a>
+          {example.selector && (
+            <>
+              , element <code>{example.selector}</code>
+            </>
+          )}
+          .{' '}
+          {example.html
+            ? 'The page may contain further findings for other rules.'
+            : 'The case is a set of response headers; there is no page.'}
+        </p>
+        {example.response_headers && (
+          <CodeBlock code={headers(example)} lang="http" title="Response headers" label="HTTP" />
+        )}
+        {!example.html && !example.response_headers && <p>The server sends no header the check looks at.</p>}
+        {example.html && (
+          <CodeBlock code={example.html} lang="html" title={example.file.split('/').pop()} label="HTML" />
+        )}
+      </div>
+    ))
+  }
+</section>
+
+<style>
+  .check + .check {
+    margin-top: 32px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  h3 {
+    margin: 20px 0 6px;
+    color: var(--heading);
+    font-size: 17px;
+    font-weight: 600;
+  }
+  h4 {
+    margin: 16px 0 6px;
+    color: var(--heading);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .detail {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  code {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--code-bg);
+    font-size: 0.86em;
+  }
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+</style>

@@ -1,37 +1,42 @@
 {
   "id": "forms/instructions-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/instructions-missing/",
+  "domain": "wcag",
   "title": "Missing form labels",
   "outcome": "hint-only",
+  "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",
   "level": "A",
   "axe_id": "label",
-  "dimension": "Accessibility",
-  "subcategory": "Forms & Interaction",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
   "technical_impact": "Missing <label> elements.",
-  "source": "WCAG 2.2 SC 3.3.2 Labels or Instructions; technique G89 (expected data format)",
-  "applicability": "Rendered text-entry fields (native or ARIA) whose label names a value with a format (date, phone, postal code, pass number, ...).",
-  "expectation": "Needs review when such a field gives no instructions: no description, no\nformat in the label (\"DD.MM.YYYY\", \"e.g.\"), no placeholder. The format need\nis guessed from the label, so never a confirmed violation. Native date and\ntime inputs bring their own format. Short terms count only as whole words:\n\"Bus pass number\" is reported, \"Passage\" and \"Was ist passiert?\" are not.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "ax_tree"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "form_heuristics_flagged",
-    "file": "tests/fixtures/detection_corpus/form_heuristics_flagged.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true positives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Registration form</h1>\n        <form>\n            <!-- Date field without any instruction: still reported, but as\n                 needs review (the format requirement is guessed from the\n                 label), never as a confirmed violation -->\n            <label for=\"dob\">Date of birth</label>\n            <input type=\"text\" id=\"dob\" name=\"dob\">\n\n            <!-- Two related checkboxes (same name) without fieldset/legend -->\n            <p>Interests</p>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"news\"> News</label>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"events\"> Events</label>\n\n            <button type=\"submit\">Register</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "form_heuristics_clean",
-    "file": "tests/fixtures/detection_corpus/form_heuristics_clean.html",
-    "verdict": "absent",
-    "selector": "input#booking-date",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true negatives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Booking form</h1>\n        <form>\n            <!-- Mode switch: radios correctly grouped -->\n            <fieldset>\n                <legend>Mode</legend>\n                <label><input type=\"radio\" name=\"mode\" value=\"broken\" checked> Broken</label>\n                <label><input type=\"radio\" name=\"mode\" value=\"fixed\"> Fixed</label>\n            </fieldset>\n\n            <!-- Date field with instructions via aria-describedby: the\n                 description counts as the format instruction -->\n            <label for=\"booking-date\">Date</label>\n            <input type=\"text\" id=\"booking-date\" name=\"date\" inputmode=\"numeric\" aria-describedby=\"booking-date-hint\">\n            <p id=\"booking-date-hint\">Day of travel</p>\n\n            <!-- \"passiert\" contains \"pass\" but is no passport field -->\n            <label for=\"report-what\">Was ist passiert?</label>\n            <textarea id=\"report-what\" name=\"what\" rows=\"4\" aria-describedby=\"report-what-hint\"></textarea>\n            <span id=\"report-what-hint\">Was Sie erwartet haben und was stattdessen passiert ist</span>\n\n            <!-- A single checkbox, and a second one with a different name:\n                 neither is a group -->\n            <label><input type=\"checkbox\" class=\"bill-sr\"> Screen reader view</label>\n            <label><input type=\"checkbox\" name=\"newsletter\"> Send me the newsletter</label>\n\n            <button type=\"submit\">Search</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "forms/instructions-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 3.3.2 Labels or Instructions; technique G89 (expected data format)",
+      "applicability": "Rendered text-entry fields (native or ARIA) whose label names a value with a format (date, phone, postal code, pass number, ...).",
+      "expectation": "Needs review when such a field gives no instructions: no description, no\nformat in the label (\"DD.MM.YYYY\", \"e.g.\"), no placeholder. The format need\nis guessed from the label, so never a confirmed violation. Native date and\ntime inputs bring their own format. Short terms count only as whole words:\n\"Bus pass number\" is reported, \"Passage\" and \"Was ist passiert?\" are not.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "form_heuristics_flagged",
+        "file": "tests/fixtures/detection_corpus/form_heuristics_flagged.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true positives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Registration form</h1>\n        <form>\n            <!-- Date field without any instruction: still reported, but as\n                 needs review (the format requirement is guessed from the\n                 label), never as a confirmed violation -->\n            <label for=\"dob\">Date of birth</label>\n            <input type=\"text\" id=\"dob\" name=\"dob\">\n\n            <!-- Two related checkboxes (same name) without fieldset/legend -->\n            <p>Interests</p>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"news\"> News</label>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"events\"> Events</label>\n\n            <button type=\"submit\">Register</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "form_heuristics_clean",
+        "file": "tests/fixtures/detection_corpus/form_heuristics_clean.html",
+        "verdict": "absent",
+        "selector": "input#booking-date",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true negatives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Booking form</h1>\n        <form>\n            <!-- Mode switch: radios correctly grouped -->\n            <fieldset>\n                <legend>Mode</legend>\n                <label><input type=\"radio\" name=\"mode\" value=\"broken\" checked> Broken</label>\n                <label><input type=\"radio\" name=\"mode\" value=\"fixed\"> Fixed</label>\n            </fieldset>\n\n            <!-- Date field with instructions via aria-describedby: the\n                 description counts as the format instruction -->\n            <label for=\"booking-date\">Date</label>\n            <input type=\"text\" id=\"booking-date\" name=\"date\" inputmode=\"numeric\" aria-describedby=\"booking-date-hint\">\n            <p id=\"booking-date-hint\">Day of travel</p>\n\n            <!-- \"passiert\" contains \"pass\" but is no passport field -->\n            <label for=\"report-what\">Was ist passiert?</label>\n            <textarea id=\"report-what\" name=\"what\" rows=\"4\" aria-describedby=\"report-what-hint\"></textarea>\n            <span id=\"report-what-hint\">Was Sie erwartet haben und was stattdessen passiert ist</span>\n\n            <!-- A single checkbox, and a second one with a different name:\n                 neither is a group -->\n            <label><input type=\"checkbox\" class=\"bill-sr\"> Screen reader view</label>\n            <label><input type=\"checkbox\" name=\"newsletter\"> Send me the newsletter</label>\n\n            <button type=\"submit\">Search</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

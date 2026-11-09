@@ -1,38 +1,43 @@
 {
   "id": "lists/role-redundant",
   "url": "https://casoon.github.io/auditmysite/rules/lists/role-redundant/",
+  "domain": "wcag",
   "title": "Redundant ARIA role",
   "outcome": "hint-only",
+  "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "redundant-role",
-  "dimension": "Accessibility",
-  "subcategory": "Technical Robustness",
-  "issue_class": "Invalid",
   "severity": "low",
   "user_impact": "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
   "technical_impact": "role attribute duplicates the tag's native implicit role.",
-  "source": "WAI-ARIA 1.2 §5.1 (do not repeat implicit roles), ARIA in HTML §4 (redundant roles); auditmysite#644 (WebKit drops list semantics for list-style: none)",
-  "applicability": "Every rendered <ul>/<ol> with role=\"list\".",
-  "expectation": "role=\"list\" on <ul>/<ol> repeats the implicit role and is redundant (best\npractice) only while the list keeps visible markers. With list-style-type: none\nthe role restores semantics WebKit/VoiceOver drop, so it is needed and passes.\nA role needed in one viewport is not redundant: a list whose markers are\nremoved only at a mobile or only at a desktop width passes. Without a computed\nlist-style-type the rule cannot decide and reports UNTESTED for the page.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "redundant_role_list_style",
-    "file": "tests/fixtures/detection_corpus/redundant_role_list_style.html",
-    "verdict": "needs_review",
-    "selector": "ol#numbered-list",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Redundant role and unstyled lists</title>\n    <style>\n        .plain { list-style: none; padding: 0; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Lists with explicit roles</h1>\n        <!-- #644: role=\"list\" restores the list semantics WebKit/VoiceOver\n             drops for list-style: none lists. Not redundant. -->\n        <ul role=\"list\" class=\"plain\" id=\"plain-list\">\n            <li>First</li>\n            <li>Second</li>\n        </ul>\n        <!-- Default list style keeps its semantics everywhere: the role only\n             restates the implicit one. -->\n        <ol role=\"list\" id=\"numbered-list\">\n            <li>One</li>\n            <li>Two</li>\n        </ol>\n        <button type=\"button\" role=\"button\" id=\"send-button\">Send</button>\n    </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "redundant_role_list_style",
-    "file": "tests/fixtures/detection_corpus/redundant_role_list_style.html",
-    "verdict": "pass",
-    "selector": "ul#plain-list",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Redundant role and unstyled lists</title>\n    <style>\n        .plain { list-style: none; padding: 0; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Lists with explicit roles</h1>\n        <!-- #644: role=\"list\" restores the list semantics WebKit/VoiceOver\n             drops for list-style: none lists. Not redundant. -->\n        <ul role=\"list\" class=\"plain\" id=\"plain-list\">\n            <li>First</li>\n            <li>Second</li>\n        </ul>\n        <!-- Default list style keeps its semantics everywhere: the role only\n             restates the implicit one. -->\n        <ol role=\"list\" id=\"numbered-list\">\n            <li>One</li>\n            <li>Two</li>\n        </ol>\n        <button type=\"button\" role=\"button\" id=\"send-button\">Send</button>\n    </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "lists/role-redundant",
+      "outcome": "hint-only",
+      "source": "WAI-ARIA 1.2 §5.1 (do not repeat implicit roles), ARIA in HTML §4 (redundant roles); auditmysite#644 (WebKit drops list semantics for list-style: none)",
+      "applicability": "Every rendered <ul>/<ol> with role=\"list\".",
+      "expectation": "role=\"list\" on <ul>/<ol> repeats the implicit role and is redundant (best\npractice) only while the list keeps visible markers. With list-style-type: none\nthe role restores semantics WebKit/VoiceOver drop, so it is needed and passes.\nA role needed in one viewport is not redundant: a list whose markers are\nremoved only at a mobile or only at a desktop width passes. Without a computed\nlist-style-type the rule cannot decide and reports UNTESTED for the page.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "redundant_role_list_style",
+        "file": "tests/fixtures/detection_corpus/redundant_role_list_style.html",
+        "verdict": "needs_review",
+        "selector": "ol#numbered-list",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Redundant role and unstyled lists</title>\n    <style>\n        .plain { list-style: none; padding: 0; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Lists with explicit roles</h1>\n        <!-- #644: role=\"list\" restores the list semantics WebKit/VoiceOver\n             drops for list-style: none lists. Not redundant. -->\n        <ul role=\"list\" class=\"plain\" id=\"plain-list\">\n            <li>First</li>\n            <li>Second</li>\n        </ul>\n        <!-- Default list style keeps its semantics everywhere: the role only\n             restates the implicit one. -->\n        <ol role=\"list\" id=\"numbered-list\">\n            <li>One</li>\n            <li>Two</li>\n        </ol>\n        <button type=\"button\" role=\"button\" id=\"send-button\">Send</button>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "redundant_role_list_style",
+        "file": "tests/fixtures/detection_corpus/redundant_role_list_style.html",
+        "verdict": "pass",
+        "selector": "ul#plain-list",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Redundant role and unstyled lists</title>\n    <style>\n        .plain { list-style: none; padding: 0; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Lists with explicit roles</h1>\n        <!-- #644: role=\"list\" restores the list semantics WebKit/VoiceOver\n             drops for list-style: none lists. Not redundant. -->\n        <ul role=\"list\" class=\"plain\" id=\"plain-list\">\n            <li>First</li>\n            <li>Second</li>\n        </ul>\n        <!-- Default list style keeps its semantics everywhere: the role only\n             restates the implicit one. -->\n        <ol role=\"list\" id=\"numbered-list\">\n            <li>One</li>\n            <li>Two</li>\n        </ol>\n        <button type=\"button\" role=\"button\" id=\"send-button\">Send</button>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

@@ -1,38 +1,43 @@
 {
   "id": "color/link-indistinct",
   "url": "https://casoon.github.io/auditmysite/rules/color/link-indistinct/",
+  "domain": "wcag",
   "title": "Link distinguishable by color only",
   "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.1",
   "level": "A",
   "axe_id": "link-in-text-block",
-  "dimension": "Accessibility",
-  "subcategory": "Visual Presentation",
-  "issue_class": "Weak",
   "severity": "medium",
   "user_impact": "Users with color vision deficiency cannot recognize in-text links.",
   "technical_impact": "No underline, bold weight or other non-color cue present.",
-  "source": "WCAG 2.2 SC 1.4.1 Use of Color; failure F73; techniques G183, C15",
-  "applicability": "Rendered links (a[href] or role=link) with text inside running text (a block with at least two other words), outside navigation and logos, displayed inline.",
-  "expectation": "Fails when the link differs from the surrounding text only by colour: no\nunderline, same weight, style, font, bottom border and background (F73).\nUnderline, bold, a border or a background are non-colour cues and pass.\nG183 passes as well: at least 3:1 contrast to the surrounding text plus a\nnon-colour cue on hover and focus; below 3:1 the hover cue does not help\n(forms_link_color 2.61:1 fails, forms_gap_link_color 3.71:1 passes). Links in\nlists, navigation, logos and block-level links are identified by their\nposition. role=link elements in running text are links too. Links inside a\nsame-origin frame are content of the page (forms_gap_frame_link_color). If\nthe host provides no computed style the rule reports itself untested.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "link_in_text_block_context",
-    "file": "tests/fixtures/detection_corpus/link_in_text_block_context.html",
-    "verdict": "violation",
-    "selector": "a#inline-link",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Link in text block: only running text counts</title>\n    <style>\n        body { color: #222; font-family: sans-serif; }\n        a { color: #0050a0; text-decoration: none; }\n        ul { list-style: none; padding: 0; }\n        .skip { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <!-- #710: standalone links, identified by position rather than colour -->\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header>\n        <div class=\"logo\"><a id=\"logo-link\" href=\"/\">Government Portal</a></div>\n        <div class=\"header-links\"><a id=\"header-help\" href=\"/help\">Help</a> | <a id=\"header-contact\" href=\"/contact\">Contact</a></div>\n        <nav>\n            <ul>\n                <li><a id=\"nav-home\" href=\"/\" aria-current=\"page\">Home</a></li>\n                <li><a id=\"nav-services\" href=\"/services\">Services</a></li>\n            </ul>\n        </nav>\n    </header>\n    <main id=\"main\">\n        <h1>Link in text block</h1>\n        <ul class=\"exposed-links\">\n            <li><a id=\"list-link\" href=\"/topics\">Topics</a></li>\n            <li><a id=\"list-link-2\" href=\"/news\">News</a></li>\n        </ul>\n        <!-- true positive: inline link inside running text, distinguished only by colour -->\n        <p>Please read our <a id=\"inline-link\" href=\"/policy\">privacy policy</a> before you submit the form.</p>\n    </main>\n    <footer>\n        <div id=\"footer-links\"><a id=\"footer-imprint\" href=\"/imprint\">Imprint</a> · <a id=\"footer-privacy\" href=\"/privacy\">Privacy</a> · <a id=\"footer-a11y\" href=\"/accessibility\">Accessibility</a></div>\n        <ul>\n            <li><a id=\"footer-list-link\" href=\"/sitemap\">Sitemap</a></li>\n        </ul>\n    </footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "link_in_text_block_context",
-    "file": "tests/fixtures/detection_corpus/link_in_text_block_context.html",
-    "verdict": "pass",
-    "selector": "a#logo-link",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Link in text block: only running text counts</title>\n    <style>\n        body { color: #222; font-family: sans-serif; }\n        a { color: #0050a0; text-decoration: none; }\n        ul { list-style: none; padding: 0; }\n        .skip { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <!-- #710: standalone links, identified by position rather than colour -->\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header>\n        <div class=\"logo\"><a id=\"logo-link\" href=\"/\">Government Portal</a></div>\n        <div class=\"header-links\"><a id=\"header-help\" href=\"/help\">Help</a> | <a id=\"header-contact\" href=\"/contact\">Contact</a></div>\n        <nav>\n            <ul>\n                <li><a id=\"nav-home\" href=\"/\" aria-current=\"page\">Home</a></li>\n                <li><a id=\"nav-services\" href=\"/services\">Services</a></li>\n            </ul>\n        </nav>\n    </header>\n    <main id=\"main\">\n        <h1>Link in text block</h1>\n        <ul class=\"exposed-links\">\n            <li><a id=\"list-link\" href=\"/topics\">Topics</a></li>\n            <li><a id=\"list-link-2\" href=\"/news\">News</a></li>\n        </ul>\n        <!-- true positive: inline link inside running text, distinguished only by colour -->\n        <p>Please read our <a id=\"inline-link\" href=\"/policy\">privacy policy</a> before you submit the form.</p>\n    </main>\n    <footer>\n        <div id=\"footer-links\"><a id=\"footer-imprint\" href=\"/imprint\">Imprint</a> · <a id=\"footer-privacy\" href=\"/privacy\">Privacy</a> · <a id=\"footer-a11y\" href=\"/accessibility\">Accessibility</a></div>\n        <ul>\n            <li><a id=\"footer-list-link\" href=\"/sitemap\">Sitemap</a></li>\n        </ul>\n    </footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "color/link-indistinct",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.1 Use of Color; failure F73; techniques G183, C15",
+      "applicability": "Rendered links (a[href] or role=link) with text inside running text (a block with at least two other words), outside navigation and logos, displayed inline.",
+      "expectation": "Fails when the link differs from the surrounding text only by colour: no\nunderline, same weight, style, font, bottom border and background (F73).\nUnderline, bold, a border or a background are non-colour cues and pass.\nG183 passes as well: at least 3:1 contrast to the surrounding text plus a\nnon-colour cue on hover and focus; below 3:1 the hover cue does not help\n(forms_link_color 2.61:1 fails, forms_gap_link_color 3.71:1 passes). Links in\nlists, navigation, logos and block-level links are identified by their\nposition. role=link elements in running text are links too. Links inside a\nsame-origin frame are content of the page (forms_gap_frame_link_color). If\nthe host provides no computed style the rule reports itself untested.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "link_in_text_block_context",
+        "file": "tests/fixtures/detection_corpus/link_in_text_block_context.html",
+        "verdict": "violation",
+        "selector": "a#inline-link",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Link in text block: only running text counts</title>\n    <style>\n        body { color: #222; font-family: sans-serif; }\n        a { color: #0050a0; text-decoration: none; }\n        ul { list-style: none; padding: 0; }\n        .skip { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <!-- #710: standalone links, identified by position rather than colour -->\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header>\n        <div class=\"logo\"><a id=\"logo-link\" href=\"/\">Government Portal</a></div>\n        <div class=\"header-links\"><a id=\"header-help\" href=\"/help\">Help</a> | <a id=\"header-contact\" href=\"/contact\">Contact</a></div>\n        <nav>\n            <ul>\n                <li><a id=\"nav-home\" href=\"/\" aria-current=\"page\">Home</a></li>\n                <li><a id=\"nav-services\" href=\"/services\">Services</a></li>\n            </ul>\n        </nav>\n    </header>\n    <main id=\"main\">\n        <h1>Link in text block</h1>\n        <ul class=\"exposed-links\">\n            <li><a id=\"list-link\" href=\"/topics\">Topics</a></li>\n            <li><a id=\"list-link-2\" href=\"/news\">News</a></li>\n        </ul>\n        <!-- true positive: inline link inside running text, distinguished only by colour -->\n        <p>Please read our <a id=\"inline-link\" href=\"/policy\">privacy policy</a> before you submit the form.</p>\n    </main>\n    <footer>\n        <div id=\"footer-links\"><a id=\"footer-imprint\" href=\"/imprint\">Imprint</a> · <a id=\"footer-privacy\" href=\"/privacy\">Privacy</a> · <a id=\"footer-a11y\" href=\"/accessibility\">Accessibility</a></div>\n        <ul>\n            <li><a id=\"footer-list-link\" href=\"/sitemap\">Sitemap</a></li>\n        </ul>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "link_in_text_block_context",
+        "file": "tests/fixtures/detection_corpus/link_in_text_block_context.html",
+        "verdict": "pass",
+        "selector": "a#logo-link",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Link in text block: only running text counts</title>\n    <style>\n        body { color: #222; font-family: sans-serif; }\n        a { color: #0050a0; text-decoration: none; }\n        ul { list-style: none; padding: 0; }\n        .skip { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <!-- #710: standalone links, identified by position rather than colour -->\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header>\n        <div class=\"logo\"><a id=\"logo-link\" href=\"/\">Government Portal</a></div>\n        <div class=\"header-links\"><a id=\"header-help\" href=\"/help\">Help</a> | <a id=\"header-contact\" href=\"/contact\">Contact</a></div>\n        <nav>\n            <ul>\n                <li><a id=\"nav-home\" href=\"/\" aria-current=\"page\">Home</a></li>\n                <li><a id=\"nav-services\" href=\"/services\">Services</a></li>\n            </ul>\n        </nav>\n    </header>\n    <main id=\"main\">\n        <h1>Link in text block</h1>\n        <ul class=\"exposed-links\">\n            <li><a id=\"list-link\" href=\"/topics\">Topics</a></li>\n            <li><a id=\"list-link-2\" href=\"/news\">News</a></li>\n        </ul>\n        <!-- true positive: inline link inside running text, distinguished only by colour -->\n        <p>Please read our <a id=\"inline-link\" href=\"/policy\">privacy policy</a> before you submit the form.</p>\n    </main>\n    <footer>\n        <div id=\"footer-links\"><a id=\"footer-imprint\" href=\"/imprint\">Imprint</a> · <a id=\"footer-privacy\" href=\"/privacy\">Privacy</a> · <a id=\"footer-a11y\" href=\"/accessibility\">Accessibility</a></div>\n        <ul>\n            <li><a id=\"footer-list-link\" href=\"/sitemap\">Sitemap</a></li>\n        </ul>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

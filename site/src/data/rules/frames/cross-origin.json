@@ -1,33 +1,38 @@
 {
   "id": "frames/cross-origin",
   "url": "https://casoon.github.io/auditmysite/rules/frames/cross-origin/",
+  "domain": "wcag",
   "title": "Cross-origin iframe: review manually",
   "outcome": "manual",
+  "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "frame-tested",
-  "dimension": "Accessibility",
-  "subcategory": "Technical Robustness",
-  "issue_class": "Informational",
   "severity": "medium",
   "user_impact": "Embedded content (maps, videos, consent widgets) may be inaccessible to screen reader users.",
   "technical_impact": "Iframe content is unreachable via CDP — automatic rule checking is not possible.",
-  "source": "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin",
-  "applicability": "Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the top document, its open shadow roots included.",
-  "expectation": "One UNTESTED note per perceivable frame whose document is cross-origin to the\npage (Rendering::frame_reachable: the frame's contentDocument cannot be read,\nmeasured by accessibility::probes), located at the frame. Same-origin and\nsrcdoc frames, and frames that are not perceivable (hidden, aria-hidden,\ndisplay:none, at most 1px in either dimension), get no note. A frame inserted\nby script or inside a shadow root is part of the page and is judged the same\nway. Never a pass or a violation. A page whose scripts break the probe records\nthe rule as not run (CapabilityMissing).",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "geometry",
-    "frames"
-  ],
-  "page_level": false,
-  "manual_reason": "The rule only flags embedded content from another origin for a human: whether\nthat content meets WCAG is outside the page's own markup and is never\nconcluded automatically.",
-  "failing": {
-    "case": "content_frames_cross_origin",
-    "file": "tests/fixtures/detection_corpus/content_frames_cross_origin.html",
-    "verdict": "needs_review",
-    "selector": "iframe#booking",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Room booking</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Book a study room</h1>\n        <iframe id=\"booking\" title=\"Room booking\" src=\"{{CROSS_ORIGIN}}/booking\" width=\"400\" height=\"200\"></iframe>\n        <p>Our location, as a small marker:</p>\n        <iframe id=\"small-map\" title=\"Location map\" src=\"{{CROSS_ORIGIN}}/map\" width=\"2\" height=\"2\" style=\"border: 0\"></iframe>\n        <p>Visits are counted anonymously.</p>\n        <iframe id=\"pixel\" title=\"Visitor counter\" src=\"{{CROSS_ORIGIN}}/pixel\" width=\"1\" height=\"1\" style=\"border: 0\"></iframe>\n        <iframe id=\"collapsed\" title=\"Chat\" src=\"{{CROSS_ORIGIN}}/chat\" style=\"display: none\"></iframe>\n        <iframe id=\"silent\" title=\"Analytics\" src=\"{{CROSS_ORIGIN}}/analytics\" width=\"300\" height=\"100\" aria-hidden=\"true\" tabindex=\"-1\"></iframe>\n        <iframe id=\"local-help\" title=\"Booking help\" width=\"400\" height=\"120\" srcdoc=\"<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Help</title></head><body><p>Rooms can be booked for up to two hours.</p></body></html>\"></iframe>\n        <booking-widget></booking-widget>\n        <div id=\"late-frame\"></div>\n        <script>\n            var crossOrigin = '{{CROSS_ORIGIN}}';\n            customElements.define('booking-widget', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML =\n                        '<iframe id=\"shadow-calendar\" title=\"Room calendar\" src=\"' + crossOrigin + '/calendar\" width=\"300\" height=\"150\"></iframe>';\n                }\n            });\n            document.getElementById('late-frame').innerHTML =\n                '<iframe id=\"late-reviews\" title=\"Reviews\" src=\"' + crossOrigin + '/reviews\" width=\"300\" height=\"150\"></iframe>';\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "frames/cross-origin",
+      "outcome": "manual",
+      "source": "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin",
+      "applicability": "Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the top document, its open shadow roots included.",
+      "expectation": "One UNTESTED note per perceivable frame whose document is cross-origin to the\npage (Rendering::frame_reachable: the frame's contentDocument cannot be read,\nmeasured by accessibility::probes), located at the frame. Same-origin and\nsrcdoc frames, and frames that are not perceivable (hidden, aria-hidden,\ndisplay:none, at most 1px in either dimension), get no note. A frame inserted\nby script or inside a shadow root is part of the page and is judged the same\nway. Never a pass or a violation. A page whose scripts break the probe records\nthe rule as not run (CapabilityMissing).",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "geometry",
+        "frames"
+      ],
+      "page_level": false,
+      "manual_reason": "The rule only flags embedded content from another origin for a human: whether\nthat content meets WCAG is outside the page's own markup and is never\nconcluded automatically.",
+      "failing": {
+        "case": "content_frames_cross_origin",
+        "file": "tests/fixtures/detection_corpus/content_frames_cross_origin.html",
+        "verdict": "needs_review",
+        "selector": "iframe#booking",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Room booking</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Book a study room</h1>\n        <iframe id=\"booking\" title=\"Room booking\" src=\"{{CROSS_ORIGIN}}/booking\" width=\"400\" height=\"200\"></iframe>\n        <p>Our location, as a small marker:</p>\n        <iframe id=\"small-map\" title=\"Location map\" src=\"{{CROSS_ORIGIN}}/map\" width=\"2\" height=\"2\" style=\"border: 0\"></iframe>\n        <p>Visits are counted anonymously.</p>\n        <iframe id=\"pixel\" title=\"Visitor counter\" src=\"{{CROSS_ORIGIN}}/pixel\" width=\"1\" height=\"1\" style=\"border: 0\"></iframe>\n        <iframe id=\"collapsed\" title=\"Chat\" src=\"{{CROSS_ORIGIN}}/chat\" style=\"display: none\"></iframe>\n        <iframe id=\"silent\" title=\"Analytics\" src=\"{{CROSS_ORIGIN}}/analytics\" width=\"300\" height=\"100\" aria-hidden=\"true\" tabindex=\"-1\"></iframe>\n        <iframe id=\"local-help\" title=\"Booking help\" width=\"400\" height=\"120\" srcdoc=\"<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Help</title></head><body><p>Rooms can be booked for up to two hours.</p></body></html>\"></iframe>\n        <booking-widget></booking-widget>\n        <div id=\"late-frame\"></div>\n        <script>\n            var crossOrigin = '{{CROSS_ORIGIN}}';\n            customElements.define('booking-widget', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML =\n                        '<iframe id=\"shadow-calendar\" title=\"Room calendar\" src=\"' + crossOrigin + '/calendar\" width=\"300\" height=\"150\"></iframe>';\n                }\n            });\n            document.getElementById('late-frame').innerHTML =\n                '<iframe id=\"late-reviews\" title=\"Reviews\" src=\"' + crossOrigin + '/reviews\" width=\"300\" height=\"150\"></iframe>';\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

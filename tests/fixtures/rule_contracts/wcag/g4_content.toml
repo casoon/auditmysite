@@ -49,6 +49,7 @@ id = "lists/empty"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/empty)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
 capabilities = ["dom", "computed_style"]
@@ -169,6 +170,7 @@ id = "lists/role-redundant"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/role-redundant)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 §5.1 (do not repeat implicit roles), ARIA in HTML §4 (redundant roles); auditmysite#644 (WebKit drops list semantics for list-style: none)"
 capabilities = ["dom", "computed_style"]
@@ -213,6 +215,7 @@ id = "tables/header-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/header-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -250,6 +253,7 @@ id = "tables/name-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/name-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -359,6 +363,7 @@ id = "tables/data-undetermined"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/data-undetermined)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -474,6 +479,7 @@ id = "images/alt-suspicious"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/alt-suspicious)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2"
 capabilities = ["dom", "computed_style"]
@@ -580,6 +586,7 @@ id = "images/server-side-map"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/server-side-map)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.1.1 Keyboard and 1.1.1 (F54-like, H24 vs ismap); HTML §4.8.4 ismap"
 capabilities = ["dom", "computed_style"]
@@ -656,6 +663,7 @@ id = "media/audio-autoplay"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=media/audio-autoplay)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 autoplay/muted"
 capabilities = ["dom", "computed_style"]
@@ -810,6 +818,7 @@ id = "viz/table-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/table-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
 capabilities = ["dom"]
@@ -944,6 +953,7 @@ killed_by = "corpus:media_and_motion"
 id = "video-caption"
 errored = ["error_page_scripts_sabotaged"]
 automation = "automated"
+review_only = true
 method = "page"
 source = "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track"
 capabilities = ["dom", "network"]

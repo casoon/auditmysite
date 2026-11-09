@@ -1,0 +1,34 @@
+{
+  "id": "seo.schema.schema_rule_missing_item_list",
+  "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_item_list/",
+  "domain": "schema",
+  "title": "Item List: missing required properties",
+  "outcome": "automatic",
+  "area": "SEO, structured data",
+  "checks": [
+    {
+      "contract_id": "item_list",
+      "outcome": "automatic",
+      "source": "https://developers.google.com/search/docs/appearance/structured-data/carousel (ItemList: itemListElement with position and url; recommended: name, numberOfItems; CollectionPage: no required properties)",
+      "applicability": "Applies to JSON-LD nodes of type ItemList, CollectionPage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
+      "expectation": "ItemList fails when itemListElement is missing or an entry lacks position or url; CollectionPage has no required properties. Missing recommended properties: needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)). All present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",
+      "method": "detect_structured_data",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "schema_rules_incomplete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_incomplete.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Schema rules corpus — incomplete JSON-LD missing required properties</title>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"Product\",\"name\":\"Bare product\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Only\"}]}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"LocalBusiness\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"FAQPage\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"Event\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"Recipe\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"VideoObject\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"JobPosting\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"SoftwareApplication\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"ProfilePage\"}\n</script>\n\n<script type=\"application/ld+json\">\n{\"@context\":\"https://schema.org\",\"@type\":\"ItemList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1}]}\n</script>\n\n</head>\n<body>\n  <h1>Schema rules corpus fixture (incomplete/missing required JSON-LD)</h1>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "schema_rules_subtypes",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_subtypes.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Article and application subtypes</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"NewsArticle\", \"headline\": \"News\", \"author\": {\"@type\": \"Person\", \"name\": \"Ada\"}, \"datePublished\": \"2026-01-01\", \"dateModified\": \"2026-01-02\", \"image\": \"https://example.com/n.jpg\"}\n  </script>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"WebApplication\", \"name\": \"Web app\", \"offers\": {\"@type\": \"Offer\", \"price\": 0}, \"aggregateRating\": {\"@type\": \"AggregateRating\", \"ratingValue\": 4.2, \"ratingCount\": 40}, \"applicationCategory\": \"BusinessApplication\", \"operatingSystem\": \"Any\"}\n  </script>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"CollectionPage\", \"name\": \"Guides\", \"url\": \"https://example.com/guides\", \"mainEntity\": {\"@type\": \"ItemList\", \"itemListElement\": []}}\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Article and application subtypes</h1>\n    <p>Structured data corpus page.</p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

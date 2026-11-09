@@ -1,36 +1,41 @@
 {
   "id": "landmarks/navigation-missing",
   "url": "https://casoon.github.io/auditmysite/rules/landmarks/navigation-missing/",
+  "domain": "wcag",
   "title": "Missing navigation landmark",
   "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",
   "level": "A",
   "axe_id": "landmark-navigation-present",
-  "dimension": "Accessibility",
-  "subcategory": "Structure & Semantics",
-  "issue_class": "Missing",
   "severity": "low",
   "user_impact": "Screen reader users cannot jump straight to the navigation.",
   "technical_impact": "No element with role=\"navigation\" (implicit via <nav> or explicit) present.",
-  "source": "WAI-ARIA 1.2 navigation role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1",
-  "applicability": "Every top-level document. A body without any content has nothing to structure and is not applicable.",
-  "expectation": "Asks for review when the document has no rendered navigation landmark (nav or\nrole=\"navigation\"). A page may legitimately have no navigation (a single\ndelivery note, a consent wall), so this is an expectation, not a failure. When\nthe desktop and the mobile navigation are separate elements shown per\nbreakpoint, each viewport has one: nothing to report. One review at the html\nelement.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "missing_main_landmark",
-    "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "structure_responsive_chrome",
-    "file": "tests/fixtures/detection_corpus/structure_responsive_chrome.html",
-    "verdict": "absent",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Gift cards – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .mobile-only { display: none; }\n        @media (max-width: 600px) {\n            .desktop-only { display: none; }\n            .mobile-only { display: block; }\n        }\n    </style>\n</head>\n<body>\n    <!-- A responsive template (#783): header, navigation and main heading\n         exist twice, one copy per breakpoint, and CSS shows exactly one of\n         each. In every viewport the page has one banner, one navigation and\n         one h1; the hidden copy is not rendered and not exposed. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header class=\"desktop-only\">\n        <p>Acme Hardware – tools since 1952</p>\n    </header>\n    <header class=\"mobile-only\">\n        <p>Acme</p>\n    </header>\n    <nav class=\"desktop-only\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/gift-cards/\">Gift cards</a></li>\n        </ul>\n    </nav>\n    <nav class=\"mobile-only\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/menu/\">Menu</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1 class=\"desktop-only\">Gift cards for every workshop</h1>\n        <h1 class=\"mobile-only\">Gift cards</h1>\n        <p>Choose an amount between 10 and 200 euros.</p>\n        <h2>How to redeem</h2>\n        <p>Show the card at the till or enter its code at checkout.</p>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "landmarks/navigation-missing",
+      "outcome": "hint-only",
+      "source": "WAI-ARIA 1.2 navigation role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1",
+      "applicability": "Every top-level document. A body without any content has nothing to structure and is not applicable.",
+      "expectation": "Asks for review when the document has no rendered navigation landmark (nav or\nrole=\"navigation\"). A page may legitimately have no navigation (a single\ndelivery note, a consent wall), so this is an expectation, not a failure. When\nthe desktop and the mobile navigation are separate elements shown per\nbreakpoint, each viewport has one: nothing to report. One review at the html\nelement.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "missing_main_landmark",
+        "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_responsive_chrome",
+        "file": "tests/fixtures/detection_corpus/structure_responsive_chrome.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Gift cards – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .mobile-only { display: none; }\n        @media (max-width: 600px) {\n            .desktop-only { display: none; }\n            .mobile-only { display: block; }\n        }\n    </style>\n</head>\n<body>\n    <!-- A responsive template (#783): header, navigation and main heading\n         exist twice, one copy per breakpoint, and CSS shows exactly one of\n         each. In every viewport the page has one banner, one navigation and\n         one h1; the hidden copy is not rendered and not exposed. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header class=\"desktop-only\">\n        <p>Acme Hardware – tools since 1952</p>\n    </header>\n    <header class=\"mobile-only\">\n        <p>Acme</p>\n    </header>\n    <nav class=\"desktop-only\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/gift-cards/\">Gift cards</a></li>\n        </ul>\n    </nav>\n    <nav class=\"mobile-only\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/menu/\">Menu</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1 class=\"desktop-only\">Gift cards for every workshop</h1>\n        <h1 class=\"mobile-only\">Gift cards</h1>\n        <p>Choose an amount between 10 and 200 euros.</p>\n        <h2>How to redeem</h2>\n        <p>Show the card at the till or enter its code at checkout.</p>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

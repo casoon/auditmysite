@@ -379,6 +379,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 code, so a corpus case that already fails shows up there as "invalid", not as a
 survivor. Fix the corpus first.
 
+Set `review_only = true` in the contract only for an automated detector that by design reports review hints or untested entries, never a violation (it is the "hint only" class of the rule page; the gate refuses a corpus case that declares a violation for it). A rule that can fail stays `automatic` even where no corpus page shows it.
+
 The rule's page on the project site (`rules/<rule_id>/`, the target of `help_url`) is
 generated from the catalogue entry, the contract and the corpus; nothing is written
 for it by hand. `cargo test --test rule_docs` fails until the regenerated files under

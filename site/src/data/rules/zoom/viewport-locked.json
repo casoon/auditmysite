@@ -1,35 +1,40 @@
 {
   "id": "zoom/viewport-locked",
   "url": "https://casoon.github.io/auditmysite/rules/zoom/viewport-locked/",
+  "domain": "wcag",
   "title": "Text not sufficiently resizable",
   "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.4",
   "level": "AA",
   "axe_id": "meta-viewport",
-  "dimension": "Accessibility",
-  "subcategory": "Visual Presentation",
-  "issue_class": "Weak",
   "severity": "high",
   "user_impact": "Users with low vision lose content when zooming in.",
   "technical_impact": "Fixed pixel values, overflow:hidden.",
-  "source": "WCAG 2.2 SC 1.4.4 Resize Text; CSS Device Adaptation / viewport meta 'parsing the content attribute'",
-  "applicability": "meta name=viewport elements of the document (also when inserted by script).",
-  "expectation": "Fails at the meta element when it disables zooming (user-scalable=no or 0)\nor caps maximum-scale below 2, which prevents resizing text to 200 percent.\nValues are parsed as browsers do: comma, semicolon or whitespace separate\npairs, whitespace around '=' belongs to the pair, case does not matter.\nmaximum-scale=1.9 fails, 2 does not (that is zoom/viewport-scale-limited).\nNo viewport meta at all is zoom/viewport-missing, not this id.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "restrictive_viewport",
-    "file": "tests/fixtures/detection_corpus/restrictive_viewport.html",
-    "verdict": "violation",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n    <title>Restrictive viewport meta corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Page with a zoom-disabling viewport meta tag</h1>\n        <p>The viewport meta tag above sets user-scalable=no.</p>\n    </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "visual_viewport_scale_two",
-    "file": "tests/fixtures/detection_corpus/visual_viewport_scale_two.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=2\">\n<title>Viewport limiting zoom to 200 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport limiting zoom to 200 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "zoom/viewport-locked",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.4 Resize Text; CSS Device Adaptation / viewport meta 'parsing the content attribute'",
+      "applicability": "meta name=viewport elements of the document (also when inserted by script).",
+      "expectation": "Fails at the meta element when it disables zooming (user-scalable=no or 0)\nor caps maximum-scale below 2, which prevents resizing text to 200 percent.\nValues are parsed as browsers do: comma, semicolon or whitespace separate\npairs, whitespace around '=' belongs to the pair, case does not matter.\nmaximum-scale=1.9 fails, 2 does not (that is zoom/viewport-scale-limited).\nNo viewport meta at all is zoom/viewport-missing, not this id.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "restrictive_viewport",
+        "file": "tests/fixtures/detection_corpus/restrictive_viewport.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n    <title>Restrictive viewport meta corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Page with a zoom-disabling viewport meta tag</h1>\n        <p>The viewport meta tag above sets user-scalable=no.</p>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_viewport_scale_two",
+        "file": "tests/fixtures/detection_corpus/visual_viewport_scale_two.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=2\">\n<title>Viewport limiting zoom to 200 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport limiting zoom to 200 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

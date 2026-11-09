@@ -1,38 +1,43 @@
 {
   "id": "contrast/text-insufficient",
   "url": "https://casoon.github.io/auditmysite/rules/contrast/text-insufficient/",
+  "domain": "wcag",
   "title": "Insufficient color contrast",
   "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.3",
   "level": "AA",
   "axe_id": "color-contrast",
-  "dimension": "Accessibility",
-  "subcategory": "Visual Presentation",
-  "issue_class": "Weak",
   "severity": "high",
   "user_impact": "Text is hard to read for people with low vision or under poor lighting conditions.",
   "technical_impact": "Contrast ratio below 4.5:1 for normal text.",
-  "source": "WCAG 2.2 SC 1.4.3 Contrast (Minimum); definitions 'contrast ratio', 'relative luminance', 'large scale (text)'",
-  "applicability": "Every element that itself carries rendered, visible text (own non-empty text node; not display:none, visibility:hidden or visually hidden), in the top document, open shadow roots and frames.",
-  "expectation": "Fails when the contrast ratio between the text colour actually painted\n(-webkit-text-fill-color wins over color; a translucent foreground is\ncomposited) and the effective background is below 4.5:1, or below 3:1 for\nlarge text (at least 18pt = 24px, or 14pt = 18.66px bold). WCAG forbids\nrounding up: 4.48:1 fails, 2.96:1 fails for large text; 4.54:1 and 3.03:1\npass. Text that is not rendered or only visually hidden is not visible text\nand is not measured. Text under aria-hidden is still visible text and is\nmeasured (1.4.3 is about what is seen, not the accessibility tree). Text in\na shadow root or a frame is part of the page. A viewport-specific colour\ncounts in the viewport where it applies; a colour set by script after load\ncounts as rendered. When the background cannot be resolved (gradient,\nbackground-clip:text, covered by an overlay) the rule does not guess: that\nis contrast/text-undetermined, never a pass or fail here.\n\nWhen the page declares a dark colour scheme (@media (prefers-color-scheme:\ndark), a color-scheme naming dark) it is measured a second time with\nprefers-color-scheme: dark emulated, and what fails there is reported under\nthis same id with the computed evidence attribute color_scheme: dark (#917).\nText that passes on the default render but fails under the dark scheme (and\nthe reverse) is judged per scheme; a failure that is identical in both\nschemes (same element, same colours) is one finding, not two. Only confirmed\nfailures of the top document are carried over from the dark render.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style",
-    "geometry"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "low_contrast_text",
-    "file": "tests/fixtures/detection_corpus/low_contrast_text.html",
-    "verdict": "violation",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Low contrast text corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Low contrast body text</h1>\n        <p style=\"color: #aaaaaa; background-color: #ffffff;\">\n            This paragraph uses light gray text on a white background, well below\n            the 4.5:1 contrast ratio required for normal-size body text.\n        </p>\n    </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "text_fill_color_contrast",
-    "file": "tests/fixtures/detection_corpus/text_fill_color_contrast.html",
-    "verdict": "pass",
-    "selector": "p#fill-dark",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Text fill color contrast corpus case</title>\n    <style>\n        body { background-color: #ffffff; color: #111111; }\n        /* Glyphs are painted with -webkit-text-fill-color, not `color`. */\n        .fill-faint { color: #111111; -webkit-text-fill-color: #aaaaaa; }\n        .fill-dark { color: #aaaaaa; -webkit-text-fill-color: #111111; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Text fill color overrides color</h1>\n        <p id=\"fill-faint\" class=\"fill-faint\">\n            This paragraph declares dark text but paints its glyphs light gray\n            through -webkit-text-fill-color, below the required 4.5:1 ratio.\n        </p>\n        <p id=\"fill-dark\" class=\"fill-dark\">\n            This paragraph declares light gray text but paints its glyphs almost\n            black through -webkit-text-fill-color, which passes comfortably.\n        </p>\n    </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "contrast/text-insufficient",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.3 Contrast (Minimum); definitions 'contrast ratio', 'relative luminance', 'large scale (text)'",
+      "applicability": "Every element that itself carries rendered, visible text (own non-empty text node; not display:none, visibility:hidden or visually hidden), in the top document, open shadow roots and frames.",
+      "expectation": "Fails when the contrast ratio between the text colour actually painted\n(-webkit-text-fill-color wins over color; a translucent foreground is\ncomposited) and the effective background is below 4.5:1, or below 3:1 for\nlarge text (at least 18pt = 24px, or 14pt = 18.66px bold). WCAG forbids\nrounding up: 4.48:1 fails, 2.96:1 fails for large text; 4.54:1 and 3.03:1\npass. Text that is not rendered or only visually hidden is not visible text\nand is not measured. Text under aria-hidden is still visible text and is\nmeasured (1.4.3 is about what is seen, not the accessibility tree). Text in\na shadow root or a frame is part of the page. A viewport-specific colour\ncounts in the viewport where it applies; a colour set by script after load\ncounts as rendered. When the background cannot be resolved (gradient,\nbackground-clip:text, covered by an overlay) the rule does not guess: that\nis contrast/text-undetermined, never a pass or fail here.\n\nWhen the page declares a dark colour scheme (@media (prefers-color-scheme:\ndark), a color-scheme naming dark) it is measured a second time with\nprefers-color-scheme: dark emulated, and what fails there is reported under\nthis same id with the computed evidence attribute color_scheme: dark (#917).\nText that passes on the default render but fails under the dark scheme (and\nthe reverse) is judged per scheme; a failure that is identical in both\nschemes (same element, same colours) is one finding, not two. Only confirmed\nfailures of the top document are carried over from the dark render.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style",
+        "geometry"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "low_contrast_text",
+        "file": "tests/fixtures/detection_corpus/low_contrast_text.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Low contrast text corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Low contrast body text</h1>\n        <p style=\"color: #aaaaaa; background-color: #ffffff;\">\n            This paragraph uses light gray text on a white background, well below\n            the 4.5:1 contrast ratio required for normal-size body text.\n        </p>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "text_fill_color_contrast",
+        "file": "tests/fixtures/detection_corpus/text_fill_color_contrast.html",
+        "verdict": "pass",
+        "selector": "p#fill-dark",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Text fill color contrast corpus case</title>\n    <style>\n        body { background-color: #ffffff; color: #111111; }\n        /* Glyphs are painted with -webkit-text-fill-color, not `color`. */\n        .fill-faint { color: #111111; -webkit-text-fill-color: #aaaaaa; }\n        .fill-dark { color: #aaaaaa; -webkit-text-fill-color: #111111; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Text fill color overrides color</h1>\n        <p id=\"fill-faint\" class=\"fill-faint\">\n            This paragraph declares dark text but paints its glyphs light gray\n            through -webkit-text-fill-color, below the required 4.5:1 ratio.\n        </p>\n        <p id=\"fill-dark\" class=\"fill-dark\">\n            This paragraph declares light gray text but paints its glyphs almost\n            black through -webkit-text-fill-color, which passes comfortably.\n        </p>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

@@ -1,37 +1,42 @@
 {
   "id": "keyboard/click-handler-not-focusable",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/click-handler-not-focusable/",
+  "domain": "wcag",
   "title": "Click handler without keyboard equivalent",
   "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.1.1",
   "level": "A",
   "axe_id": "click-events-have-key-events",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "Keyboard users cannot trigger the function.",
   "technical_impact": "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
-  "source": "WCAG 2.2 SC 2.1.1 Keyboard; failure F54 (only pointing-device-specific event handlers); HTML §4.5.1 (a without href is a placeholder, not focusable)",
-  "applicability": "Elements with an inline onclick attribute that are not controls by themselves: div, span, p, li, section, article, and a without href.",
-  "expectation": "violation once per element with an onclick handler that is neither a\ncontrol, nor has an interactive role, nor is in the tab order, and contains\nnothing the Tab key reaches: keyboard users cannot trigger it (F54). When a\nfocusable link or control sits inside (the card around its own link), the\nfunction is reachable that way and the finding is needs_review. An a without\nhref is no link and is reported. A role=\"button\" with tabindex=\"0\" passes.\nAn onclick attribute set by script after load counts.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "interaction_click_anchor",
-    "file": "tests/fixtures/detection_corpus/interaction_click_anchor.html",
-    "verdict": "violation",
-    "selector": "a#ch-anchor",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Placeholder link with a click handler</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Your saved trips</h1>\n        <!-- violation (2.1.1): an a element without href is a placeholder, not a link\n             (HTML §4.5.1, HTML-AAM: role generic), and not focusable -->\n        <a id=\"ch-anchor\" onclick=\"this.textContent = 'Saved'\">Save trip</a>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "interaction_click_pointer",
-    "file": "tests/fixtures/detection_corpus/interaction_click_pointer.html",
-    "verdict": "pass",
-    "selector": "div#ch-role",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Click handlers and pointer-only controls</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, [role=\"button\"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .clickable { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        .card { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        @media (max-width: 600px) { .mobile-tile { cursor: pointer; } }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Plan your trip</h1>\n\n        <h2>Inline click handlers</h2>\n        <!-- violation: onclick on a div, no role, no tabindex, nothing focusable inside -->\n        <div id=\"ch-div\" onclick=\"this.textContent = 'Opened'\">Show itinerary</div>\n        <!-- needs_review: the card handler only repeats the link inside it -->\n        <div id=\"ch-card\" onclick=\"location.href = '/trips/rome'\">\n            <a href=\"/trips/rome\">Rome in three days</a>\n        </div>\n        <!-- pass: role and tab stop make it operable by keyboard (with a key handler) -->\n        <div id=\"ch-role\" role=\"button\" tabindex=\"0\" onclick=\"this.textContent = 'Shared'\" onkeydown=\"if (event.key === 'Enter' || event.key === ' ') this.click()\">Share trip</div>\n        <!-- violation: the handler is attached as an attribute after load -->\n        <div id=\"ch-dynamic\">Show map</div>\n\n        <h2>Looks clickable</h2>\n        <!-- needs_review: cursor pointer, no role, no tabindex, no control inside -->\n        <div id=\"po-filter\" class=\"clickable\">Filter results</div>\n        <!-- absent: the card pattern, the link inside is the keyboard route -->\n        <div id=\"po-card\" class=\"card\">\n            <h3><a href=\"/trips/paris\">Paris for families</a></h3>\n            <p>Four days, two museums.</p>\n        </div>\n        <!-- absent: inherits cursor pointer from the reported parent -->\n        <div id=\"po-parent\" class=\"clickable\"><span id=\"po-child\">Sort by price</span></div>\n        <!-- absent: not rendered -->\n        <div id=\"po-hidden\" class=\"clickable\" style=\"display: none\">Hidden filter</div>\n        <!-- absent: a real button with a pointer cursor -->\n        <button id=\"po-button\" type=\"button\" style=\"cursor: pointer\">Search trips</button>\n        <!-- needs_review: looks clickable on the mobile viewport only -->\n        <div id=\"po-mobile\" class=\"mobile-tile\">Nearby offers</div>\n        <!-- needs_review: a script gives it the pointer cursor after load -->\n        <div id=\"po-dynamic\">Recently viewed</div>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n    <script>\n        document.getElementById('ch-dynamic').setAttribute('onclick', \"this.textContent = 'Map'\");\n        document.getElementById('po-dynamic').style.cursor = 'pointer';\n    </script>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "keyboard/click-handler-not-focusable",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.1.1 Keyboard; failure F54 (only pointing-device-specific event handlers); HTML §4.5.1 (a without href is a placeholder, not focusable)",
+      "applicability": "Elements with an inline onclick attribute that are not controls by themselves: div, span, p, li, section, article, and a without href.",
+      "expectation": "violation once per element with an onclick handler that is neither a\ncontrol, nor has an interactive role, nor is in the tab order, and contains\nnothing the Tab key reaches: keyboard users cannot trigger it (F54). When a\nfocusable link or control sits inside (the card around its own link), the\nfunction is reachable that way and the finding is needs_review. An a without\nhref is no link and is reported. A role=\"button\" with tabindex=\"0\" passes.\nAn onclick attribute set by script after load counts.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "interaction_click_anchor",
+        "file": "tests/fixtures/detection_corpus/interaction_click_anchor.html",
+        "verdict": "violation",
+        "selector": "a#ch-anchor",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Placeholder link with a click handler</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Your saved trips</h1>\n        <!-- violation (2.1.1): an a element without href is a placeholder, not a link\n             (HTML §4.5.1, HTML-AAM: role generic), and not focusable -->\n        <a id=\"ch-anchor\" onclick=\"this.textContent = 'Saved'\">Save trip</a>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "interaction_click_pointer",
+        "file": "tests/fixtures/detection_corpus/interaction_click_pointer.html",
+        "verdict": "pass",
+        "selector": "div#ch-role",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Click handlers and pointer-only controls</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, [role=\"button\"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .clickable { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        .card { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        @media (max-width: 600px) { .mobile-tile { cursor: pointer; } }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Plan your trip</h1>\n\n        <h2>Inline click handlers</h2>\n        <!-- violation: onclick on a div, no role, no tabindex, nothing focusable inside -->\n        <div id=\"ch-div\" onclick=\"this.textContent = 'Opened'\">Show itinerary</div>\n        <!-- needs_review: the card handler only repeats the link inside it -->\n        <div id=\"ch-card\" onclick=\"location.href = '/trips/rome'\">\n            <a href=\"/trips/rome\">Rome in three days</a>\n        </div>\n        <!-- pass: role and tab stop make it operable by keyboard (with a key handler) -->\n        <div id=\"ch-role\" role=\"button\" tabindex=\"0\" onclick=\"this.textContent = 'Shared'\" onkeydown=\"if (event.key === 'Enter' || event.key === ' ') this.click()\">Share trip</div>\n        <!-- violation: the handler is attached as an attribute after load -->\n        <div id=\"ch-dynamic\">Show map</div>\n\n        <h2>Looks clickable</h2>\n        <!-- needs_review: cursor pointer, no role, no tabindex, no control inside -->\n        <div id=\"po-filter\" class=\"clickable\">Filter results</div>\n        <!-- absent: the card pattern, the link inside is the keyboard route -->\n        <div id=\"po-card\" class=\"card\">\n            <h3><a href=\"/trips/paris\">Paris for families</a></h3>\n            <p>Four days, two museums.</p>\n        </div>\n        <!-- absent: inherits cursor pointer from the reported parent -->\n        <div id=\"po-parent\" class=\"clickable\"><span id=\"po-child\">Sort by price</span></div>\n        <!-- absent: not rendered -->\n        <div id=\"po-hidden\" class=\"clickable\" style=\"display: none\">Hidden filter</div>\n        <!-- absent: a real button with a pointer cursor -->\n        <button id=\"po-button\" type=\"button\" style=\"cursor: pointer\">Search trips</button>\n        <!-- needs_review: looks clickable on the mobile viewport only -->\n        <div id=\"po-mobile\" class=\"mobile-tile\">Nearby offers</div>\n        <!-- needs_review: a script gives it the pointer cursor after load -->\n        <div id=\"po-dynamic\">Recently viewed</div>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n    <script>\n        document.getElementById('ch-dynamic').setAttribute('onclick', \"this.textContent = 'Map'\");\n        document.getElementById('po-dynamic').style.cursor = 'pointer';\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
 }

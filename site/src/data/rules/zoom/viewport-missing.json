@@ -1,36 +1,41 @@
 {
   "id": "zoom/viewport-missing",
   "url": "https://casoon.github.io/auditmysite/rules/zoom/viewport-missing/",
+  "domain": "wcag",
   "title": "Missing viewport declaration",
   "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.4",
   "level": "AA",
   "axe_id": "zoom/viewport-missing",
-  "dimension": "Accessibility",
-  "subcategory": "Visual Presentation",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.",
   "technical_impact": "No <meta name=\"viewport\"> in the document.",
-  "source": "Best practice (no WCAG criterion): without a viewport declaration mobile browsers lay out at desktop width and scale the page down; CSS Device Adaptation",
-  "applicability": "Every HTML document: there is no document the check does not apply to.",
-  "expectation": "A best-practice finding at the root element when the document has no meta\nname=viewport, neither in the markup nor inserted by script. Any viewport\ndeclaration, whatever its content, satisfies this id. No not-applicable case\nexists: every HTML document is in scope.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "visual_viewport_missing",
-    "file": "tests/fixtures/detection_corpus/visual_viewport_missing.html",
-    "verdict": "needs_review",
-    "selector": "html",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Page without a viewport declaration</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Page without a viewport declaration</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "visual_viewport_scale_five",
-    "file": "tests/fixtures/detection_corpus/visual_viewport_scale_five.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes\">\n<title>Viewport allowing zoom to 500 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport allowing zoom to 500 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "zoom/viewport-missing",
+      "outcome": "hint-only",
+      "source": "Best practice (no WCAG criterion): without a viewport declaration mobile browsers lay out at desktop width and scale the page down; CSS Device Adaptation",
+      "applicability": "Every HTML document: there is no document the check does not apply to.",
+      "expectation": "A best-practice finding at the root element when the document has no meta\nname=viewport, neither in the markup nor inserted by script. Any viewport\ndeclaration, whatever its content, satisfies this id. No not-applicable case\nexists: every HTML document is in scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "visual_viewport_missing",
+        "file": "tests/fixtures/detection_corpus/visual_viewport_missing.html",
+        "verdict": "needs_review",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Page without a viewport declaration</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Page without a viewport declaration</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_viewport_scale_five",
+        "file": "tests/fixtures/detection_corpus/visual_viewport_scale_five.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes\">\n<title>Viewport allowing zoom to 500 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport allowing zoom to 500 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

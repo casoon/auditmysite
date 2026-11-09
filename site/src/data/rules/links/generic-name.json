@@ -1,38 +1,43 @@
 {
   "id": "links/generic-name",
   "url": "https://casoon.github.io/auditmysite/rules/links/generic-name/",
+  "domain": "wcag",
   "title": "Unclear or generic link text",
   "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.4",
   "level": "A",
   "axe_id": "link-name",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Weak",
   "severity": "medium",
   "user_impact": "Screen reader link lists show meaningless text.",
   "technical_impact": "Generic link text without context.",
-  "source": "WCAG 2.2 SC 2.4.4 Link Purpose (In Context); techniques H80, G53; failure F84",
-  "applicability": "Rendered links (a[href] or role=link) with a non-empty accessible name.",
-  "expectation": "Needs review when the link's accessible name says nothing about the target\n(\"Click here\", \"Read more\"): programmatic context (same sentence, list item,\ncell, preceding heading) can still make the purpose clear, which is a human\njudgement — with context the review has low severity. A descriptive\naccessible name passes, also when it extends the visible text through\naria-label or visually hidden text. role=link elements are links too\n(forms_gap_aria_links).",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "ax_tree"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "forms_gap_aria_links",
-    "file": "tests/fixtures/detection_corpus/forms_gap_aria_links.html",
-    "verdict": "needs_review",
-    "selector": "span#gn-aria-role",
-    "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Deals</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Deals</h1>\n<!-- G2 #783: 2.4.4 and 2.4.9 apply to every link, native or role=link: the same vague text, bare address and single character as on native links. -->\n<p><span id=\"gn-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals'\">Click here</span></p>\n<div><div><ul><li><span id=\"url-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = 'https://example.org/press'\" onkeydown=\"if (event.key === 'Enter') location.href = 'https://example.org/press'\">https://example.org/press</span></li></ul></div></div>\n<p><span id=\"sc-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/close-offer'\" onkeydown=\"if (event.key === 'Enter') location.href = '/close-offer'\">x</span></p>\n<p><span id=\"good-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals/bikes'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals/bikes'\">Bike deals of the week</span></p>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "forms_gap_aria_links",
-    "file": "tests/fixtures/detection_corpus/forms_gap_aria_links.html",
-    "verdict": "absent",
-    "selector": "span#good-aria-role",
-    "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Deals</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Deals</h1>\n<!-- G2 #783: 2.4.4 and 2.4.9 apply to every link, native or role=link: the same vague text, bare address and single character as on native links. -->\n<p><span id=\"gn-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals'\">Click here</span></p>\n<div><div><ul><li><span id=\"url-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = 'https://example.org/press'\" onkeydown=\"if (event.key === 'Enter') location.href = 'https://example.org/press'\">https://example.org/press</span></li></ul></div></div>\n<p><span id=\"sc-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/close-offer'\" onkeydown=\"if (event.key === 'Enter') location.href = '/close-offer'\">x</span></p>\n<p><span id=\"good-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals/bikes'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals/bikes'\">Bike deals of the week</span></p>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "links/generic-name",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.4.4 Link Purpose (In Context); techniques H80, G53; failure F84",
+      "applicability": "Rendered links (a[href] or role=link) with a non-empty accessible name.",
+      "expectation": "Needs review when the link's accessible name says nothing about the target\n(\"Click here\", \"Read more\"): programmatic context (same sentence, list item,\ncell, preceding heading) can still make the purpose clear, which is a human\njudgement — with context the review has low severity. A descriptive\naccessible name passes, also when it extends the visible text through\naria-label or visually hidden text. role=link elements are links too\n(forms_gap_aria_links).",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "forms_gap_aria_links",
+        "file": "tests/fixtures/detection_corpus/forms_gap_aria_links.html",
+        "verdict": "needs_review",
+        "selector": "span#gn-aria-role",
+        "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Deals</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Deals</h1>\n<!-- G2 #783: 2.4.4 and 2.4.9 apply to every link, native or role=link: the same vague text, bare address and single character as on native links. -->\n<p><span id=\"gn-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals'\">Click here</span></p>\n<div><div><ul><li><span id=\"url-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = 'https://example.org/press'\" onkeydown=\"if (event.key === 'Enter') location.href = 'https://example.org/press'\">https://example.org/press</span></li></ul></div></div>\n<p><span id=\"sc-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/close-offer'\" onkeydown=\"if (event.key === 'Enter') location.href = '/close-offer'\">x</span></p>\n<p><span id=\"good-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals/bikes'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals/bikes'\">Bike deals of the week</span></p>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "forms_gap_aria_links",
+        "file": "tests/fixtures/detection_corpus/forms_gap_aria_links.html",
+        "verdict": "absent",
+        "selector": "span#good-aria-role",
+        "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Deals</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Deals</h1>\n<!-- G2 #783: 2.4.4 and 2.4.9 apply to every link, native or role=link: the same vague text, bare address and single character as on native links. -->\n<p><span id=\"gn-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals'\">Click here</span></p>\n<div><div><ul><li><span id=\"url-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = 'https://example.org/press'\" onkeydown=\"if (event.key === 'Enter') location.href = 'https://example.org/press'\">https://example.org/press</span></li></ul></div></div>\n<p><span id=\"sc-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/close-offer'\" onkeydown=\"if (event.key === 'Enter') location.href = '/close-offer'\">x</span></p>\n<p><span id=\"good-aria-role\" role=\"link\" tabindex=\"0\" onclick=\"location.href = '/deals/bikes'\" onkeydown=\"if (event.key === 'Enter') location.href = '/deals/bikes'\">Bike deals of the week</span></p>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
+      }
+    }
+  ]
 }

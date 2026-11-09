@@ -76,6 +76,34 @@ fn generated_rule_pages_are_up_to_date() {
     );
 }
 
+/// The finding ids each family reports that have a page, one sample per page
+/// (schema findings carry the property after the feature key).
+fn documented_finding_ids() -> Vec<String> {
+    let mut ids: Vec<String> = auditmysite::taxonomy::rules::RULES
+        .iter()
+        .map(|r| r.id.to_string())
+        .collect();
+    ids.extend(
+        common::nonwcag_rule_inventory::canonical_security_check_ids()
+            .iter()
+            .filter_map(|c| {
+                c.split_once(':')
+                    .map(|(_, t)| format!("security.headers.{t}"))
+            }),
+    );
+    ids.extend(
+        common::nonwcag_rule_inventory::canonical_schema_feature_ids()
+            .iter()
+            .map(|k| format!("seo.schema.schema_rule_missing_{k}_offers")),
+    );
+    ids.extend(
+        common::nonwcag_rule_inventory::canonical_vulnerable_library_ids()
+            .iter()
+            .map(|n| format!("best_practices.vulnerable_libraries.{}", n.to_lowercase())),
+    );
+    ids
+}
+
 #[test]
 fn every_active_rule_id_has_an_addressable_page() {
     let pages = generate();
@@ -94,29 +122,69 @@ fn every_active_rule_id_has_an_addressable_page() {
         .filter(|id| !active.contains(*id))
         .collect();
     assert!(extra.is_empty(), "pages for ids no rule reports: {extra:?}");
-    let unaddressable: Vec<&String> = active
+
+    // The other families: every contracted check lands on a page.
+    let mut non_wcag = Vec::new();
+    non_wcag.extend(
+        common::nonwcag_rule_inventory::canonical_security_check_ids()
+            .iter()
+            .map(|c| auditmysite::audit::rule_docs::security_page_id(c).expect("header:type")),
+    );
+    non_wcag.extend(
+        common::nonwcag_rule_inventory::canonical_schema_feature_ids()
+            .iter()
+            .map(|k| auditmysite::audit::rule_docs::schema_page_id(k)),
+    );
+    non_wcag.extend(
+        common::nonwcag_rule_inventory::canonical_vulnerable_library_ids()
+            .iter()
+            .map(|n| auditmysite::audit::rule_docs::library_page_id(n)),
+    );
+    let missing: Vec<&String> = non_wcag
+        .iter()
+        .filter(|id| !pages.contains_key(&page_file(id)))
+        .collect();
+    assert!(missing.is_empty(), "checks without a page: {missing:?}");
+
+    // No page that no active check or rule explains.
+    let expected: BTreeSet<String> = active.iter().cloned().chain(non_wcag).collect();
+    let orphans: Vec<&String> = pages
+        .keys()
+        .filter(|f| *f != "index.json")
+        .filter(|f| !expected.contains(f.strip_suffix(".json").unwrap()))
+        .collect();
+    assert!(
+        orphans.is_empty(),
+        "pages without an active check: {orphans:?}"
+    );
+
+    let unaddressable: Vec<&String> = expected
         .iter()
         .filter(|id| !is_addressable_rule_id(id))
         .collect();
     assert!(
         unaddressable.is_empty(),
-        "rule ids that cannot be part of a page URL: {unaddressable:?}"
+        "page ids that cannot be part of a page URL: {unaddressable:?}"
     );
 }
 
-/// The URL every finding carries as `help_url` (`rule_doc_url`) names the file
-/// the site builds the page from: the id below `rules/`.
+/// The `help_url` a finding gets (`audit::rule_docs::finding_help_url`) names
+/// the file the site builds the page from: the page id below `rules/`.
 #[test]
 fn every_help_url_points_at_a_generated_page() {
     let pages = generate();
-    for rule in auditmysite::taxonomy::rules::RULES {
-        let url = rule_doc_url(rule.id);
+    for finding_id in documented_finding_ids() {
+        let url = auditmysite::audit::rule_docs::finding_help_url(&finding_id)
+            .unwrap_or_else(|| panic!("{finding_id} has no help_url"));
         let path = url
             .strip_prefix(RULE_DOCS_BASE_URL)
             .and_then(|p| p.strip_suffix('/'))
             .unwrap_or_else(|| panic!("{url} is not below {RULE_DOCS_BASE_URL}"));
-        assert_eq!(path, rule.id);
-        assert!(pages.contains_key(&page_file(path)), "no page for {url}");
+        assert_eq!(url, rule_doc_url(path));
+        assert!(
+            pages.contains_key(&page_file(path)),
+            "no page for {url} (finding {finding_id})"
+        );
     }
 }
 

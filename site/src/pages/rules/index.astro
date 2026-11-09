@@ -3,12 +3,9 @@ import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
 import { outcomes, ruleIndex } from '../../lib/rules';
 
-const { counts, rules } = ruleIndex;
-const rows = [
-  { key: 'automatic', count: counts.automatic },
-  { key: 'hint-only', count: counts.hint_only },
-  { key: 'manual', count: counts.manual },
-] as const;
+const { counts, rules, total } = ruleIndex;
+const domainLabel = Object.fromEntries(counts.map((c) => [c.domain, c.label]));
+const sum = (key: 'automatic' | 'hint_only' | 'manual') => counts.reduce((n, c) => n + c[key], 0);
 ---
 
 <Base
@@ -18,33 +15,56 @@ const rows = [
   <div class="page">
     <h1>Rules</h1>
     <p class="lead">
-      Every rule the accessibility audit can report has a page here: what it checks, why it is
-      flagged, which success criterion it belongs to and, where the detection corpus has one, a
-      failing and a passing example. The pages are generated from the rule catalogue and the rule
-      contracts, so they cannot drift from what the tool does.
+      Every rule of the accessibility audit, and every security header check, structured-data
+      feature and checked JavaScript library, has a page here: what it checks, how it is tested
+      and, where the detection corpus has one, a failing and a passing example. The pages are
+      generated from the rule catalogue and the rule contracts, so they cannot drift from what the
+      tool does.
     </p>
 
     <h2>Coverage</h2>
     <table>
-      <caption class="sr-only">Rules by outcome class</caption>
+      <caption class="sr-only">Pages by family and outcome class</caption>
       <thead>
-        <tr><th scope="col">Outcome class</th><th scope="col">Rules</th><th scope="col">Meaning</th></tr>
+        <tr>
+          <th scope="col">Family</th>
+          <th scope="col">Automatic</th>
+          <th scope="col">Hint only</th>
+          <th scope="col">Manual</th>
+          <th scope="col">Total</th>
+        </tr>
       </thead>
       <tbody>
-        {rows.map(({ key, count }) => (
+        {counts.map((c) => (
           <tr>
-            <th scope="row">{outcomes[key].label}</th>
-            <td>{count}</td>
-            <td>{outcomes[key].meaning}</td>
+            <th scope="row">{c.label}</th>
+            <td>{c.automatic}</td>
+            <td>{c.hint_only}</td>
+            <td>{c.manual}</td>
+            <td>{c.total}</td>
           </tr>
         ))}
-        <tr><th scope="row">Total</th><td>{counts.total}</td><td></td></tr>
+        <tr>
+          <th scope="row">All</th>
+          <td>{sum('automatic')}</td>
+          <td>{sum('hint_only')}</td>
+          <td>{sum('manual')}</td>
+          <td>{total}</td>
+        </tr>
       </tbody>
     </table>
+    <dl class="classes">
+      {(Object.keys(outcomes) as (keyof typeof outcomes)[]).map((key) => (
+        <>
+          <dt>{outcomes[key].label}</dt>
+          <dd>{outcomes[key].meaning}</dd>
+        </>
+      ))}
+    </dl>
     <p>
-      The class follows from the rule's contract and the corpus, not from a hand-kept list:
-      <em>manual</em> is the contract's own automation field, and of the remaining rules those
-      with a confirmed violation in the corpus are <em>automatic</em>.
+      The class is declared by the rule's contract (<code>automation</code> and
+      <code>review_only</code>), not by what the corpus happens to show. A security page can stand
+      for several header checks that surface as one finding.
     </p>
 
     <h2>Addresses</h2>
@@ -52,15 +72,20 @@ const rows = [
       A rule's page is <code>rules/&lt;rule_id&gt;/</code> below this site, with the id unchanged:
       <code>/</code> stays a path separator, so <code>document/title-missing</code> is at
       <a href={url('rules/document/title-missing/')}><code>rules/document/title-missing/</code></a>.
-      The <code>help_url</code> of a finding in the JSON, SARIF and AI report points here; the
+      The <code>help_url</code> of a finding in the JSON, SARIF and AI report points here, using
+      the id the finding carries: <code>security.headers.missing_header</code> and
+      <code>best_practices.vulnerable_libraries.jquery</code> for the other families; structured-data
+      findings (<code>seo.schema.schema_rule_missing_&lt;feature&gt;_&lt;property&gt;</code>) point at
+      their feature's page, <code>seo.schema.schema_rule_missing_&lt;feature&gt;</code>. A WCAG
       criterion's W3C Understanding page is <code>understanding_url</code>.
     </p>
 
     <h2>All rules</h2>
     <table>
-      <caption class="sr-only">All rules by success criterion</caption>
+      <caption class="sr-only">All pages, WCAG rules by success criterion</caption>
       <thead>
         <tr>
+          <th scope="col">Family</th>
           <th scope="col">Criterion</th>
           <th scope="col">Level</th>
           <th scope="col">Rule</th>
@@ -70,7 +95,8 @@ const rows = [
       <tbody>
         {rules.map((rule) => (
           <tr>
-            <td>{rule.criterion ?? 'Best practice'}</td>
+            <td>{domainLabel[rule.domain]}</td>
+            <td>{rule.criterion ?? (rule.domain === 'wcag' ? 'Best practice' : '')}</td>
             <td>{rule.level ?? ''}</td>
             <td>
               <a href={url(`rules/${rule.id}/`)}>{rule.title}</a><br /><code>{rule.id}</code>
@@ -131,6 +157,20 @@ const rows = [
     text-decoration: underline;
     text-underline-offset: 2px;
     text-decoration-thickness: 1px;
+  }
+  .classes {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 6px 24px;
+    margin: 20px 0;
+    font-size: 14.5px;
+  }
+  .classes dt {
+    color: var(--heading);
+    font-weight: 600;
+  }
+  .classes dd {
+    margin: 0;
   }
   .sr-only {
     position: absolute;

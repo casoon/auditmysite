@@ -1,35 +1,40 @@
 {
   "id": "document/title-missing",
   "url": "https://casoon.github.io/auditmysite/rules/document/title-missing/",
+  "domain": "wcag",
   "title": "Missing or insufficient page title",
   "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.2",
   "level": "A",
   "axe_id": "document-title",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "Screen reader users cannot identify the page.",
   "technical_impact": "Empty or generic <title> tag.",
-  "source": "WCAG 2.2 SC 2.4.2 Page Titled; ACT 2779a5 (HTML page has non-empty title); HTML §4.2.2 the title element; SVG 2 §5.9 the title element",
-  "applicability": "Every top-level HTML document.",
-  "expectation": "Fails when the document has no HTML title element. An SVG <title> inside the\nbody titles its graphic, not the document (SVG 2 §5.9, HTML §4.2.2 counts only\nthe title element in the HTML namespace), so a page whose only title element\nis an SVG title has no title. The title of an embedded document does not title\nthe host page. A title written by script before the audit reads the DOM counts.\nA present but empty title is document/title-empty. The finding concerns the\nwhole document and carries no element.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "structure_aria_landmarks_svg_title",
-    "file": "tests/fixtures/detection_corpus/structure_aria_landmarks_svg_title.html",
-    "verdict": "violation",
-    "html": "<!DOCTYPE html>\n<html lang=\"en-GB\" xml:lang=\"en-US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A legacy div layout (#783): the document has no <title> in its head;\n         the only title element is the SVG logo's, which titles the graphic,\n         not the document (HTML §4.2.2, SVG 2 §5.9). Landmarks and the main\n         heading are expressed with ARIA roles instead of native elements.\n         lang and xml:lang share the primary subtag \"en\". -->\n    <a href=\"#content\" class=\"skip-link\">Skip to content</a>\n    <div role=\"banner\">\n        <svg role=\"img\" aria-labelledby=\"logo-title\" width=\"120\" height=\"40\" viewBox=\"0 0 120 40\">\n            <title id=\"logo-title\">Acme Hardware</title>\n            <rect width=\"120\" height=\"40\" fill=\"#1a4d2e\"></rect>\n        </svg>\n    </div>\n    <div role=\"navigation\" aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n        </ul>\n    </div>\n    <div role=\"main\" id=\"content\">\n        <div role=\"heading\" aria-level=\"1\">Spring sale</div>\n        <p>All garden tools are reduced until the end of the month.</p>\n        <h2>Garden tools</h2>\n        <p>Spades, rakes and hoes.</p>\n        <h2>Power tools</h2>\n        <p>Drills and saws.</p>\n    </div>\n    <div role=\"contentinfo\">\n        <p>Acme Hardware, Berlin</p>\n    </div>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "structure_modal_dynamic",
-    "file": "tests/fixtures/detection_corpus/structure_modal_dynamic.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title></title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A consent wall (#783): the application has not rendered yet, and a\n         script sets the page language and the document title and opens a modal\n         dialog after load.\n         While the dialog is open, the page's headings and main landmark are\n         missing for the moment of measurement, not necessarily for the page. -->\n    <div id=\"app\"></div>\n    <dialog id=\"consent\" aria-label=\"Cookie settings\">\n        <p>We use cookies to remember your shopping basket.</p>\n        <form method=\"dialog\">\n            <button value=\"accept\">Accept</button>\n            <button value=\"reject\">Reject</button>\n        </form>\n    </dialog>\n    <script>\n        document.documentElement.lang = 'en';\n        document.title = 'Cookie settings – Acme Hardware';\n        document.getElementById('consent').showModal();\n    </script>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "document/title-missing",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.4.2 Page Titled; ACT 2779a5 (HTML page has non-empty title); HTML §4.2.2 the title element; SVG 2 §5.9 the title element",
+      "applicability": "Every top-level HTML document.",
+      "expectation": "Fails when the document has no HTML title element. An SVG <title> inside the\nbody titles its graphic, not the document (SVG 2 §5.9, HTML §4.2.2 counts only\nthe title element in the HTML namespace), so a page whose only title element\nis an SVG title has no title. The title of an embedded document does not title\nthe host page. A title written by script before the audit reads the DOM counts.\nA present but empty title is document/title-empty. The finding concerns the\nwhole document and carries no element.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "structure_aria_landmarks_svg_title",
+        "file": "tests/fixtures/detection_corpus/structure_aria_landmarks_svg_title.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en-GB\" xml:lang=\"en-US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A legacy div layout (#783): the document has no <title> in its head;\n         the only title element is the SVG logo's, which titles the graphic,\n         not the document (HTML §4.2.2, SVG 2 §5.9). Landmarks and the main\n         heading are expressed with ARIA roles instead of native elements.\n         lang and xml:lang share the primary subtag \"en\". -->\n    <a href=\"#content\" class=\"skip-link\">Skip to content</a>\n    <div role=\"banner\">\n        <svg role=\"img\" aria-labelledby=\"logo-title\" width=\"120\" height=\"40\" viewBox=\"0 0 120 40\">\n            <title id=\"logo-title\">Acme Hardware</title>\n            <rect width=\"120\" height=\"40\" fill=\"#1a4d2e\"></rect>\n        </svg>\n    </div>\n    <div role=\"navigation\" aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n        </ul>\n    </div>\n    <div role=\"main\" id=\"content\">\n        <div role=\"heading\" aria-level=\"1\">Spring sale</div>\n        <p>All garden tools are reduced until the end of the month.</p>\n        <h2>Garden tools</h2>\n        <p>Spades, rakes and hoes.</p>\n        <h2>Power tools</h2>\n        <p>Drills and saws.</p>\n    </div>\n    <div role=\"contentinfo\">\n        <p>Acme Hardware, Berlin</p>\n    </div>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_modal_dynamic",
+        "file": "tests/fixtures/detection_corpus/structure_modal_dynamic.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title></title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A consent wall (#783): the application has not rendered yet, and a\n         script sets the page language and the document title and opens a modal\n         dialog after load.\n         While the dialog is open, the page's headings and main landmark are\n         missing for the moment of measurement, not necessarily for the page. -->\n    <div id=\"app\"></div>\n    <dialog id=\"consent\" aria-label=\"Cookie settings\">\n        <p>We use cookies to remember your shopping basket.</p>\n        <form method=\"dialog\">\n            <button value=\"accept\">Accept</button>\n            <button value=\"reject\">Reject</button>\n        </form>\n    </dialog>\n    <script>\n        document.documentElement.lang = 'en';\n        document.title = 'Cookie settings – Acme Hardware';\n        document.getElementById('consent').showModal();\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
 }

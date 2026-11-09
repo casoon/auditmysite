@@ -1,38 +1,43 @@
 {
   "id": "display/text-hidden",
   "url": "https://casoon.github.io/auditmysite/rules/display/text-hidden/",
+  "domain": "wcag",
   "title": "Visualisation text layer hidden from assistive technology",
   "outcome": "automatic",
+  "area": "Accessibility, Content & Alternatives",
   "criterion": "1.1.1",
   "level": "A",
   "axe_id": "display/text-hidden",
-  "dimension": "Accessibility",
-  "subcategory": "Content & Alternatives",
-  "issue_class": "Invalid",
   "severity": "high",
   "user_impact": "Screen reader users do not get the statement of the visualisation.",
   "technical_impact": "hidden, aria-hidden=true, inert or display:none/visibility:hidden on [data-viz-text] or an ancestor.",
-  "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; accname 1.2 (description from hidden referenced nodes); HTML inert",
-  "applicability": "Pages with figure[data-viz] and a [data-viz-text], in any mode.",
-  "expectation": "A best-practice violation at the text layer when it is removed from\nassistive technology while its figure is shown: hidden attribute,\naria-hidden=true, inert, or CSS (display: none) on it or an ancestor, also\nwhen set by script after load. Visually hidden but exposed (clip pattern)\npasses. A figure that is itself not shown (inactive tab panel with hidden)\nhides its statement for everyone and passes. A CSS-hidden or hidden layer\nthat a rendered element of the figure references by aria-describedby or\naria-details still reaches assistive technology as a description: a low\nreview, not a violation; inert does not get that exception.",
-  "method": "page",
-  "capabilities": [
-    "dom",
-    "computed_style",
-    "geometry"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "display_modes_described_text",
-    "file": "tests/fixtures/detection_corpus/display_modes_described_text.html",
-    "verdict": "violation",
-    "selector": "div#pressure-text",
-    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653), rendered in visual mode (#704). Figure f1\n     hides its text layer with display:none outside text mode, but the chart\n     and the figure's stage reference it by aria-describedby: accname 1.2\n     computes the description from the hidden node, so the statement still\n     reaches assistive technology. Expect a low review note, no violation.\n     Figure f2 hides its text layer the same way without any reference:\n     that stays a display/text-hidden violation. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: text layer delivered as description</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] { display: none; }\n    html[data-display=\"text\"] [data-viz-static] { display: none; }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Atmosphere layers</h1>\n    <figure id=\"f1\" data-viz=\"diagram\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Layers of the atmosphere\" aria-describedby=\"layers-desc\"\n             width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"300\" height=\"60\" fill=\"#4575b4\"></rect>\n          <rect y=\"60\" width=\"300\" height=\"60\" fill=\"#91bfdb\"></rect>\n        </svg>\n        <div role=\"application\" aria-label=\"Layer explorer\" aria-describedby=\"layers-desc\"\n             tabindex=\"0\" style=\"width: 300px; height: 40px;\">Explore</div>\n      </div>\n      <div id=\"layers-desc\" data-viz-text>\n        <p>The troposphere reaches about 12 km, the stratosphere about 50 km.</p>\n      </div>\n      <figcaption>Layers of the atmosphere</figcaption>\n    </figure>\n    <figure id=\"f2\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Pressure by altitude\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"300\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div id=\"pressure-text\" data-viz-text>\n        <p>Air pressure halves about every 5.5 km of altitude.</p>\n      </div>\n      <figcaption>Pressure by altitude</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "display_modes_conforming",
-    "file": "tests/fixtures/detection_corpus/display_modes_conforming.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) followed correctly, rendered in text mode:\n     data-display is set by a blocking script in <head>, the toggle exists,\n     the visualisation's media is hidden in text mode and its text layer is\n     visible. Expect no display/* finding. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: conforming page</title>\n  <script>document.documentElement.dataset.display = 'text';</script>\n  <style>\n    html[data-display=\"text\"] [data-viz-static],\n    html[data-display=\"text\"] [data-viz-live] { display: none; }\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\">Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\" selected>Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Temperature since 1850</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Warming stripes\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"150\" height=\"120\" fill=\"#4575b4\"></rect>\n          <rect x=\"150\" width=\"150\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div data-viz-text>\n        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>\n        <table>\n          <caption>Temperature anomaly</caption>\n          <tr><th scope=\"col\">Year</th><th scope=\"col\">Anomaly</th></tr>\n          <tr><td>1850</td><td>0.0</td></tr>\n          <tr><td>2025</td><td>1.3</td></tr>\n        </table>\n        <p>Source: example data.</p>\n      </div>\n      <figcaption>Global temperature anomaly</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "display/text-hidden",
+      "outcome": "automatic",
+      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; accname 1.2 (description from hidden referenced nodes); HTML inert",
+      "applicability": "Pages with figure[data-viz] and a [data-viz-text], in any mode.",
+      "expectation": "A best-practice violation at the text layer when it is removed from\nassistive technology while its figure is shown: hidden attribute,\naria-hidden=true, inert, or CSS (display: none) on it or an ancestor, also\nwhen set by script after load. Visually hidden but exposed (clip pattern)\npasses. A figure that is itself not shown (inactive tab panel with hidden)\nhides its statement for everyone and passes. A CSS-hidden or hidden layer\nthat a rendered element of the figure references by aria-describedby or\naria-details still reaches assistive technology as a description: a low\nreview, not a violation; inert does not get that exception.",
+      "method": "page",
+      "capabilities": [
+        "dom",
+        "computed_style",
+        "geometry"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "display_modes_described_text",
+        "file": "tests/fixtures/detection_corpus/display_modes_described_text.html",
+        "verdict": "violation",
+        "selector": "div#pressure-text",
+        "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653), rendered in visual mode (#704). Figure f1\n     hides its text layer with display:none outside text mode, but the chart\n     and the figure's stage reference it by aria-describedby: accname 1.2\n     computes the description from the hidden node, so the statement still\n     reaches assistive technology. Expect a low review note, no violation.\n     Figure f2 hides its text layer the same way without any reference:\n     that stays a display/text-hidden violation. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: text layer delivered as description</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] { display: none; }\n    html[data-display=\"text\"] [data-viz-static] { display: none; }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Atmosphere layers</h1>\n    <figure id=\"f1\" data-viz=\"diagram\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Layers of the atmosphere\" aria-describedby=\"layers-desc\"\n             width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"300\" height=\"60\" fill=\"#4575b4\"></rect>\n          <rect y=\"60\" width=\"300\" height=\"60\" fill=\"#91bfdb\"></rect>\n        </svg>\n        <div role=\"application\" aria-label=\"Layer explorer\" aria-describedby=\"layers-desc\"\n             tabindex=\"0\" style=\"width: 300px; height: 40px;\">Explore</div>\n      </div>\n      <div id=\"layers-desc\" data-viz-text>\n        <p>The troposphere reaches about 12 km, the stratosphere about 50 km.</p>\n      </div>\n      <figcaption>Layers of the atmosphere</figcaption>\n    </figure>\n    <figure id=\"f2\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Pressure by altitude\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"300\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div id=\"pressure-text\" data-viz-text>\n        <p>Air pressure halves about every 5.5 km of altitude.</p>\n      </div>\n      <figcaption>Pressure by altitude</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "display_modes_conforming",
+        "file": "tests/fixtures/detection_corpus/display_modes_conforming.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) followed correctly, rendered in text mode:\n     data-display is set by a blocking script in <head>, the toggle exists,\n     the visualisation's media is hidden in text mode and its text layer is\n     visible. Expect no display/* finding. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: conforming page</title>\n  <script>document.documentElement.dataset.display = 'text';</script>\n  <style>\n    html[data-display=\"text\"] [data-viz-static],\n    html[data-display=\"text\"] [data-viz-live] { display: none; }\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\">Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\" selected>Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Temperature since 1850</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Warming stripes\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"150\" height=\"120\" fill=\"#4575b4\"></rect>\n          <rect x=\"150\" width=\"150\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div data-viz-text>\n        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>\n        <table>\n          <caption>Temperature anomaly</caption>\n          <tr><th scope=\"col\">Year</th><th scope=\"col\">Anomaly</th></tr>\n          <tr><td>1850</td><td>0.0</td></tr>\n          <tr><td>2025</td><td>1.3</td></tr>\n        </table>\n        <p>Source: example data.</p>\n      </div>\n      <figcaption>Global temperature anomaly</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

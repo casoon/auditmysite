@@ -1,37 +1,42 @@
 {
   "id": "aria/role-abstract",
   "url": "https://casoon.github.io/auditmysite/rules/aria/role-abstract/",
+  "domain": "wcag",
   "title": "Invalid ARIA role",
   "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "aria-roles",
-  "dimension": "Accessibility",
-  "subcategory": "Technical Robustness",
-  "issue_class": "Invalid",
   "severity": "high",
   "user_impact": "Assistive technologies cannot determine the element's function.",
   "technical_impact": "Role value is not defined in the ARIA specification.",
-  "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.3.1 (\"Authors MUST NOT use abstract roles in content\")",
-  "applicability": "role attributes on elements in the accessibility tree.",
-  "expectation": "Fails for every abstract role token (widget, landmark, command, section, ...): it has no\nmapping and conveys nothing. Concrete roles pass. Hidden subtrees are out of scope.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "ax_tree"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "aria_roles_invalid",
-    "file": "tests/fixtures/detection_corpus/aria_roles_invalid.html",
-    "verdict": "violation",
-    "selector": "div#filters",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order overview - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Order overview</h1>\n\n        <!-- aria/role-invalid: misspelled role, the element stays generic -->\n        <div id=\"orders\" role=\"tabel\">\n            <p>Order 1001 - shipped</p>\n        </div>\n\n        <!-- aria/role-abstract: abstract roles must not be authored -->\n        <div id=\"filters\" role=\"widget\" tabindex=\"0\">Filter orders</div>\n\n        <!-- aria/role-redundant: the role repeats the implicit role -->\n        <button type=\"button\" id=\"reorder\" role=\"button\">Reorder</button>\n\n        <!-- aria/required-parent-missing: tab outside any tablist -->\n        <div id=\"tab-returns\" role=\"tab\" tabindex=\"0\" aria-selected=\"true\">Returns</div>\n\n        <!-- aria/required-children-missing: a tablist owning buttons, not tabs -->\n        <div id=\"views\" role=\"tablist\" aria-label=\"Views\">\n            <button type=\"button\" id=\"view-list\">List</button>\n            <button type=\"button\" id=\"view-grid\">Grid</button>\n        </div>\n\n        <!-- aria/required-attribute-missing: custom checkbox and switch without\n             aria-checked, combobox without aria-expanded -->\n        <div id=\"gift\" role=\"checkbox\" tabindex=\"0\">Gift wrap</div>\n        <div id=\"express\" role=\"switch\" tabindex=\"0\">Express delivery</div>\n        <div id=\"carrier\" role=\"combobox\" tabindex=\"0\" aria-controls=\"carriers\" aria-label=\"Carrier\">Standard</div>\n        <ul id=\"carriers\" role=\"listbox\" aria-label=\"Carriers\">\n            <li role=\"option\" id=\"carrier-std\" aria-selected=\"true\">Standard</li>\n            <li role=\"option\" id=\"carrier-fast\">Fast</li>\n        </ul>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "aria_roles_valid",
-    "file": "tests/fixtures/detection_corpus/aria_roles_valid.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order overview - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Order overview</h1>\n\n        <!-- Valid concrete roles -->\n        <div id=\"orders\" role=\"table\" aria-label=\"Orders\">\n            <div role=\"rowgroup\">\n                <div role=\"row\" id=\"order-head\">\n                    <span role=\"columnheader\">Order</span>\n                    <span role=\"columnheader\">Status</span>\n                </div>\n                <div role=\"row\" id=\"order-row\">\n                    <span role=\"cell\">Order 1001</span>\n                    <span role=\"cell\">shipped</span>\n                </div>\n            </div>\n        </div>\n        <div id=\"filters\" role=\"group\" aria-label=\"Filter orders\">\n            <button type=\"button\" id=\"filter-open\">Open orders</button>\n        </div>\n\n        <!-- A role that changes the element's semantics is not redundant -->\n        <a href=\"/orders/export\" id=\"export\" role=\"button\">Export</a>\n\n        <!-- Tabs inside their tablist, through a generic wrapper; the tablist\n             owns a tab through aria-owns as well -->\n        <div id=\"views\" role=\"tablist\" aria-label=\"Views\" aria-owns=\"view-map\">\n            <div class=\"tab-wrap\">\n                <div id=\"view-list\" role=\"tab\" tabindex=\"0\" aria-selected=\"true\" aria-controls=\"view-panel\">List</div>\n            </div>\n            <div id=\"view-grid\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Grid</div>\n        </div>\n        <div id=\"view-map\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Map</div>\n        <div id=\"view-panel\" role=\"tabpanel\" aria-labelledby=\"view-list\">Three orders.</div>\n\n        <!-- A busy feed may hold a placeholder instead of articles while loading -->\n        <div id=\"loading\" role=\"feed\" aria-busy=\"true\" aria-label=\"Recent orders\">\n            <p class=\"spinner\">Loading</p>\n        </div>\n\n        <!-- Required states present; native controls carry them natively -->\n        <div id=\"gift\" role=\"checkbox\" tabindex=\"0\" aria-checked=\"false\">Gift wrap</div>\n        <div id=\"express\" role=\"switch\" tabindex=\"0\" aria-checked=\"true\">Express delivery</div>\n        <input type=\"checkbox\" id=\"insure\" role=\"switch\">\n        <label for=\"insure\">Insure parcel</label>\n        <div id=\"carrier\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"false\" aria-controls=\"carriers\" aria-label=\"Carrier\">Standard</div>\n        <ul id=\"carriers\" role=\"listbox\" aria-label=\"Carriers\" hidden>\n            <li role=\"option\" id=\"carrier-std\" aria-selected=\"true\">Standard</li>\n        </ul>\n        <hr id=\"divider\">\n        <div id=\"static-sep\" role=\"separator\"></div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "aria/role-abstract",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.3.1 (\"Authors MUST NOT use abstract roles in content\")",
+      "applicability": "role attributes on elements in the accessibility tree.",
+      "expectation": "Fails for every abstract role token (widget, landmark, command, section, ...): it has no\nmapping and conveys nothing. Concrete roles pass. Hidden subtrees are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_roles_invalid",
+        "file": "tests/fixtures/detection_corpus/aria_roles_invalid.html",
+        "verdict": "violation",
+        "selector": "div#filters",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order overview - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Order overview</h1>\n\n        <!-- aria/role-invalid: misspelled role, the element stays generic -->\n        <div id=\"orders\" role=\"tabel\">\n            <p>Order 1001 - shipped</p>\n        </div>\n\n        <!-- aria/role-abstract: abstract roles must not be authored -->\n        <div id=\"filters\" role=\"widget\" tabindex=\"0\">Filter orders</div>\n\n        <!-- aria/role-redundant: the role repeats the implicit role -->\n        <button type=\"button\" id=\"reorder\" role=\"button\">Reorder</button>\n\n        <!-- aria/required-parent-missing: tab outside any tablist -->\n        <div id=\"tab-returns\" role=\"tab\" tabindex=\"0\" aria-selected=\"true\">Returns</div>\n\n        <!-- aria/required-children-missing: a tablist owning buttons, not tabs -->\n        <div id=\"views\" role=\"tablist\" aria-label=\"Views\">\n            <button type=\"button\" id=\"view-list\">List</button>\n            <button type=\"button\" id=\"view-grid\">Grid</button>\n        </div>\n\n        <!-- aria/required-attribute-missing: custom checkbox and switch without\n             aria-checked, combobox without aria-expanded -->\n        <div id=\"gift\" role=\"checkbox\" tabindex=\"0\">Gift wrap</div>\n        <div id=\"express\" role=\"switch\" tabindex=\"0\">Express delivery</div>\n        <div id=\"carrier\" role=\"combobox\" tabindex=\"0\" aria-controls=\"carriers\" aria-label=\"Carrier\">Standard</div>\n        <ul id=\"carriers\" role=\"listbox\" aria-label=\"Carriers\">\n            <li role=\"option\" id=\"carrier-std\" aria-selected=\"true\">Standard</li>\n            <li role=\"option\" id=\"carrier-fast\">Fast</li>\n        </ul>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_roles_valid",
+        "file": "tests/fixtures/detection_corpus/aria_roles_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order overview - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Order overview</h1>\n\n        <!-- Valid concrete roles -->\n        <div id=\"orders\" role=\"table\" aria-label=\"Orders\">\n            <div role=\"rowgroup\">\n                <div role=\"row\" id=\"order-head\">\n                    <span role=\"columnheader\">Order</span>\n                    <span role=\"columnheader\">Status</span>\n                </div>\n                <div role=\"row\" id=\"order-row\">\n                    <span role=\"cell\">Order 1001</span>\n                    <span role=\"cell\">shipped</span>\n                </div>\n            </div>\n        </div>\n        <div id=\"filters\" role=\"group\" aria-label=\"Filter orders\">\n            <button type=\"button\" id=\"filter-open\">Open orders</button>\n        </div>\n\n        <!-- A role that changes the element's semantics is not redundant -->\n        <a href=\"/orders/export\" id=\"export\" role=\"button\">Export</a>\n\n        <!-- Tabs inside their tablist, through a generic wrapper; the tablist\n             owns a tab through aria-owns as well -->\n        <div id=\"views\" role=\"tablist\" aria-label=\"Views\" aria-owns=\"view-map\">\n            <div class=\"tab-wrap\">\n                <div id=\"view-list\" role=\"tab\" tabindex=\"0\" aria-selected=\"true\" aria-controls=\"view-panel\">List</div>\n            </div>\n            <div id=\"view-grid\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Grid</div>\n        </div>\n        <div id=\"view-map\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Map</div>\n        <div id=\"view-panel\" role=\"tabpanel\" aria-labelledby=\"view-list\">Three orders.</div>\n\n        <!-- A busy feed may hold a placeholder instead of articles while loading -->\n        <div id=\"loading\" role=\"feed\" aria-busy=\"true\" aria-label=\"Recent orders\">\n            <p class=\"spinner\">Loading</p>\n        </div>\n\n        <!-- Required states present; native controls carry them natively -->\n        <div id=\"gift\" role=\"checkbox\" tabindex=\"0\" aria-checked=\"false\">Gift wrap</div>\n        <div id=\"express\" role=\"switch\" tabindex=\"0\" aria-checked=\"true\">Express delivery</div>\n        <input type=\"checkbox\" id=\"insure\" role=\"switch\">\n        <label for=\"insure\">Insure parcel</label>\n        <div id=\"carrier\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"false\" aria-controls=\"carriers\" aria-label=\"Carrier\">Standard</div>\n        <ul id=\"carriers\" role=\"listbox\" aria-label=\"Carriers\" hidden>\n            <li role=\"option\" id=\"carrier-std\" aria-selected=\"true\">Standard</li>\n        </ul>\n        <hr id=\"divider\">\n        <div id=\"static-sep\" role=\"separator\"></div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

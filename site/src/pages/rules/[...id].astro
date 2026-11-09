@@ -1,8 +1,8 @@
 ---
-import { CodeBlock } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
-import { type Example, outcomes, repoUrl, type RulePage, rulePages } from '../../lib/rules';
+import RuleCheck from '../../components/RuleCheck.astro';
+import { outcomes, type RulePage, rulePages } from '../../lib/rules';
 
 export function getStaticPaths() {
   return rulePages.map((page) => ({ params: { id: page.id }, props: { page } }));
@@ -10,23 +10,16 @@ export function getStaticPaths() {
 
 const { page } = Astro.props as { page: RulePage };
 const outcome = outcomes[page.outcome];
-// The contract text is hard-wrapped: a blank line separates paragraphs, a single break is a space.
-const expectation = page.expectation.split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, ' ').trim());
-const criterion = page.criterion ? `${page.criterion}${page.level ? ` (level ${page.level})` : ''}` : undefined;
-
-const verdictText: Record<Example['verdict'], string> = {
-  violation: 'The rule reports a violation on this page.',
-  needs_review: 'The rule flags this page for review.',
-  pass: 'The page conforms; the rule reports nothing.',
-  absent: 'The rule reports nothing on this page.',
-};
-const examples = [
-  { heading: 'Failing example', example: page.failing },
-  { heading: 'Passing example', example: page.passing },
-].flatMap((e) => (e.example ? [{ heading: e.heading, example: e.example }] : []));
+const criterion = page.criterion
+  ? `${page.criterion}${page.level ? ` (level ${page.level})` : ''}`
+  : undefined;
+const nested = page.checks.length > 1;
 ---
 
-<Base title={`${page.title} (${page.id})`} description={`${page.title}: what the rule ${page.id} checks and why it is flagged.`}>
+<Base
+  title={`${page.title} (${page.id})`}
+  description={`${page.title}: what the check ${page.id} looks at and how it is tested.`}
+>
   <div class="page">
     <nav class="crumb" aria-label="Breadcrumb">
       <a href={url('rules/')}>All rules</a>
@@ -39,41 +32,24 @@ const examples = [
       <dt>Outcome class</dt>
       <dd><strong>{outcome.label}.</strong> {outcome.meaning}</dd>
       <dt>Area</dt>
-      <dd>{page.dimension}, {page.subcategory}</dd>
-      <dt>Default severity</dt>
-      <dd>{page.severity}</dd>
+      <dd>{page.area}</dd>
+      {page.severity && (<><dt>Default severity</dt><dd>{page.severity}</dd></>)}
       {page.axe_id && (<><dt>axe-core rule</dt><dd><code>{page.axe_id}</code></dd></>)}
-      <dt>Detection</dt>
-      <dd>{page.method}; needs {page.capabilities.join(', ')}</dd>
     </dl>
 
-    <h2>Why we flag this</h2>
-    <p>{page.user_impact}</p>
-    <p>{page.technical_impact}</p>
+    {page.user_impact && (
+      <>
+        <h2>Why we flag this</h2>
+        <p>{page.user_impact}</p>
+        {page.technical_impact && <p>{page.technical_impact}</p>}
+      </>
+    )}
 
-    <h2>What the rule checks</h2>
-    <h3>Applies to</h3>
-    <p>{page.applicability}</p>
-    <h3>Expectation</h3>
-    {expectation.map((p) => <p>{p}</p>)}
-    {page.manual_reason && (<><h3>Why a person has to decide</h3><p>{page.manual_reason}</p></>)}
-    <h3>Source</h3>
-    <p>{page.source}</p>
-
-    {examples.map(({ heading, example }) => (
-      <section>
-        <h2>{heading}</h2>
-        <p>
-          {verdictText[example.verdict]} Fixture page <a href={`${repoUrl}/blob/main/${example.file}`}><code>{example.case}</code></a>
-          from the detection corpus{example.selector && (<> , element <code>{example.selector}</code></>)}.
-          The page may contain further findings for other rules.
-        </p>
-        <CodeBlock code={example.html} lang="html" title={example.file.split('/').pop()} label="HTML" />
-      </section>
-    ))}
+    <h2>{nested ? 'What the checks look at' : 'What the rule checks'}</h2>
+    {page.checks.map((check) => <RuleCheck check={check} nested={nested} />)}
 
     <p class="generated">
-      This page is generated from the rule catalogue and the rule contract; see the
+      This page is generated from the rule catalogue and the rule contracts; see the
       <a href={url('rules/')}>rule overview</a> for how the outcome classes are derived.
     </p>
   </div>
@@ -100,12 +76,6 @@ const examples = [
     margin: 40px 0 12px;
     color: var(--heading);
     font-size: 22px;
-    font-weight: 600;
-  }
-  h3 {
-    margin: 20px 0 6px;
-    color: var(--heading);
-    font-size: 15px;
     font-weight: 600;
   }
   .id {

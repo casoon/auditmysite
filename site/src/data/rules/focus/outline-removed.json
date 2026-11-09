@@ -1,35 +1,40 @@
 {
   "id": "focus/outline-removed",
   "url": "https://casoon.github.io/auditmysite/rules/focus/outline-removed/",
+  "domain": "wcag",
   "title": "Focus indicator removed via CSS",
   "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.7",
   "level": "AA",
   "axe_id": "focus-visible-outline-none",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Invalid",
   "severity": "high",
   "user_impact": "Keyboard users cannot see which element currently has focus.",
   "technical_impact": "outline: none/0 in :focus rules without an alternative visible focus indicator.",
-  "source": "WCAG 2.2 SC 2.4.7 Focus Visible; failure F78 (styling that removes or renders the focus indicator non-visible)",
-  "applicability": "Pages whose stylesheets contain a :focus rule that removes the outline (outline: none / 0, outline-style: none, outline-width: 0).",
-  "expectation": "violation once per page (page-level) when a stylesheet removes the focus\noutline under :focus and no rule replaces it: no :focus-visible rule anywhere\nand no :focus rule that sets another indicator (box-shadow, border,\nbackground, text decoration, or the outline itself). Rules inside a media\nquery that applies on the phone viewport count, as do stylesheets a script\ninjects after load. A replacement in the same rule, or a :focus-visible rule\nfor keyboard focus, passes. Pages without such a rule are not applicable.",
-  "method": "shared",
-  "capabilities": [
-    "stylesheets"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "interaction_outline_removed",
-    "file": "tests/fixtures/detection_corpus/interaction_outline_removed.html",
-    "verdict": "violation",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focus outline removed</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        /* violation: removes the indicator and nothing replaces it */\n        a:focus { outline: none; }\n        button:focus { outline: 0; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Bank</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/accounts\">Accounts</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Focus outline removed</h1>\n        <p>Review your recent payments or <a href=\"/statements\">download a statement</a>.</p>\n        <button type=\"button\">Show more payments</button>\n    </main>\n    <footer><p>Example Bank footer</p></footer>\n\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "interaction_outline_replaced",
-    "file": "tests/fixtures/detection_corpus/interaction_outline_replaced.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focus outline replaced</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        /* pass: the outline gives way to a box shadow in the same rule */\n        a:focus, button:focus { outline: none; box-shadow: 0 0 0 3px #1a5fb4; }\n        /* pass: a reset for mouse focus, with :focus-visible for the keyboard */\n        nav a:focus { outline: none; }\n        nav a:focus-visible { outline: 3px solid #1a5fb4; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Bank</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/accounts\">Accounts</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Focus outline replaced</h1>\n        <p>Review your recent payments or <a href=\"/statements\">download a statement</a>.</p>\n        <button type=\"button\">Show more payments</button>\n    </main>\n    <footer><p>Example Bank footer</p></footer>\n\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "focus/outline-removed",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.4.7 Focus Visible; failure F78 (styling that removes or renders the focus indicator non-visible)",
+      "applicability": "Pages whose stylesheets contain a :focus rule that removes the outline (outline: none / 0, outline-style: none, outline-width: 0).",
+      "expectation": "violation once per page (page-level) when a stylesheet removes the focus\noutline under :focus and no rule replaces it: no :focus-visible rule anywhere\nand no :focus rule that sets another indicator (box-shadow, border,\nbackground, text decoration, or the outline itself). Rules inside a media\nquery that applies on the phone viewport count, as do stylesheets a script\ninjects after load. A replacement in the same rule, or a :focus-visible rule\nfor keyboard focus, passes. Pages without such a rule are not applicable.",
+      "method": "shared",
+      "capabilities": [
+        "stylesheets"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "interaction_outline_removed",
+        "file": "tests/fixtures/detection_corpus/interaction_outline_removed.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focus outline removed</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        /* violation: removes the indicator and nothing replaces it */\n        a:focus { outline: none; }\n        button:focus { outline: 0; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Bank</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/accounts\">Accounts</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Focus outline removed</h1>\n        <p>Review your recent payments or <a href=\"/statements\">download a statement</a>.</p>\n        <button type=\"button\">Show more payments</button>\n    </main>\n    <footer><p>Example Bank footer</p></footer>\n\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "interaction_outline_replaced",
+        "file": "tests/fixtures/detection_corpus/interaction_outline_replaced.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focus outline replaced</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        /* pass: the outline gives way to a box shadow in the same rule */\n        a:focus, button:focus { outline: none; box-shadow: 0 0 0 3px #1a5fb4; }\n        /* pass: a reset for mouse focus, with :focus-visible for the keyboard */\n        nav a:focus { outline: none; }\n        nav a:focus-visible { outline: 3px solid #1a5fb4; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Bank</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/accounts\">Accounts</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Focus outline replaced</h1>\n        <p>Review your recent payments or <a href=\"/statements\">download a statement</a>.</p>\n        <button type=\"button\">Show more payments</button>\n    </main>\n    <footer><p>Example Bank footer</p></footer>\n\n</body>\n</html>"
+      }
+    }
+  ]
 }

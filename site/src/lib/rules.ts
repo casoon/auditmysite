@@ -1,32 +1,25 @@
 // Rule pages are generated, not written: `cargo test --test rule_docs` (with
 // UPDATE_RULE_DOCS=1) writes site/src/data/rules/ from the rule catalogue, the
 // rule contracts and the detection corpus (tests/common/rule_docs.rs). The URL
-// scheme is `rules/<rule_id>/`, documented in src/taxonomy/rule_docs.rs.
+// scheme is `rules/<page id>/`, documented in src/taxonomy/rule_docs.rs and
+// src/audit/rule_docs.rs.
 
 export type Outcome = 'automatic' | 'hint-only' | 'manual';
+export type Domain = 'wcag' | 'security' | 'schema' | 'libraries';
 
 export interface Example {
   case: string;
   file: string;
   verdict: 'violation' | 'needs_review' | 'pass' | 'absent';
   selector?: string;
-  html: string;
+  response_headers?: Record<string, string>;
+  html?: string;
 }
 
-export interface RulePage {
-  id: string;
-  url: string;
-  title: string;
+export interface Check {
+  contract_id: string;
+  label?: string;
   outcome: Outcome;
-  criterion?: string;
-  level?: string;
-  axe_id?: string;
-  dimension: string;
-  subcategory: string;
-  issue_class: string;
-  severity: string;
-  user_impact: string;
-  technical_impact: string;
   source: string;
   applicability: string;
   expectation: string;
@@ -38,10 +31,41 @@ export interface RulePage {
   passing?: Example;
 }
 
+export interface RulePage {
+  id: string;
+  url: string;
+  domain: Domain;
+  title: string;
+  outcome: Outcome;
+  area: string;
+  criterion?: string;
+  level?: string;
+  axe_id?: string;
+  severity?: string;
+  user_impact?: string;
+  technical_impact?: string;
+  checks: Check[];
+}
+
 export interface RuleIndex {
   base_url: string;
-  counts: { automatic: number; hint_only: number; manual: number; total: number };
-  rules: { id: string; title: string; outcome: Outcome; criterion?: string; level?: string }[];
+  counts: {
+    domain: Domain;
+    label: string;
+    automatic: number;
+    hint_only: number;
+    manual: number;
+    total: number;
+  }[];
+  total: number;
+  rules: {
+    id: string;
+    title: string;
+    domain: Domain;
+    outcome: Outcome;
+    criterion?: string;
+    level?: string;
+  }[];
 }
 
 const files = import.meta.glob<RulePage | RuleIndex>('../data/rules/**/*.json', {
@@ -59,13 +83,12 @@ export const rulePages: RulePage[] = Object.entries(files)
 export const outcomes: Record<Outcome, { label: string; meaning: string }> = {
   automatic: {
     label: 'Automatic',
-    meaning:
-      'The detection corpus pins at least one page on which the rule reports a confirmed violation.',
+    meaning: 'An automated check that can report a confirmed violation.',
   },
   'hint-only': {
     label: 'Hint only',
     meaning:
-      'The rule reports review hints: its findings are marked for manual review, and no corpus page makes it fail.',
+      'An automated check that by design reports review hints only: its findings are marked for manual review, never as confirmed violations.',
   },
   manual: {
     label: 'Manual',

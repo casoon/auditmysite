@@ -1499,7 +1499,7 @@
         },
         "help_url": {
           "type": "string",
-          "description": "Documentation page of the rule on the project site (https://casoon.github.io/auditmysite/rules/<rule_id>/). Present for every WCAG finding whose rule is in the catalogue; absent for the findings of the other modules."
+          "description": "Documentation page of the rule on the project site (https://casoon.github.io/auditmysite/rules/<page_id>/). Present for every WCAG finding whose rule is in the catalogue and for the security header, vulnerable library and structured-data (missing required properties) findings; absent for every other finding."
         },
         "understanding_url": {
           "type": "string",

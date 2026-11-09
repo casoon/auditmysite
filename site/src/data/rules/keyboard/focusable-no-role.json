@@ -1,31 +1,36 @@
 {
   "id": "keyboard/focusable-no-role",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/focusable-no-role/",
+  "domain": "wcag",
   "title": "Focusable element without an interactive role",
   "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.1.1",
   "level": "A",
   "axe_id": "focusable-no-role",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Invalid",
   "severity": "critical",
   "user_impact": "Focusable element without an interactive role.",
   "technical_impact": "Focusable element without an interactive role.",
-  "source": "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 §5.3 (roles of focusable widgets); HTML §6.6.3 tabindex",
-  "applicability": "Rendered, non-inert elements in the sequential tab order (tabindex >= 0) that are not natively focusable.",
-  "expectation": "needs_review once per element that the Tab key reaches but that has no\ninteractive role (generic, group, paragraph, none and similar): a keyboard\nuser lands on it, but nothing tells whether or how it can be operated. Not\nreported: tabindex=\"-1\" (a script focus target, not a tab stop; the boundary\nis 0), a named region with tabindex=\"0\" (the recommended scrollable-region\npattern), elements that are not rendered. A tabindex added by script after\nload counts.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "ax_tree",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "keyboard_and_targets",
-    "file": "tests/fixtures/detection_corpus/keyboard_and_targets.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Keyboard and target size corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Keyboard access and target size issues</h1>\n        <div tabindex=\"0\">Focusable div without an interactive role</div>\n        <div onclick=\"console.log('clicked')\">Clickable div with no keyboard handler</div>\n        <!-- target-size-minimum violation: two 16 px targets side by side — their 24 px circles overlap -->\n        <p><button id=\"tight-a\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">X</button><button id=\"tight-b\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">Y</button></p>\n        <!-- target-size-minimum pass: a lone 16 px target, spaced (2.5.8 spacing exception) -->\n        <p style=\"margin:48px 0;\"><button id=\"lone\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;\">Z</button></p>\n        <!-- pass for both target-size rules: a link in running text (inline exception) -->\n        <p>Read the <a id=\"inline\" href=\"/terms\">terms of use</a> before you continue.</p>\n        <form>\n            <label for=\"q\">Search</label>\n            <input type=\"text\" id=\"q\" name=\"q\">\n        </form>\n    </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "keyboard/focusable-no-role",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 §5.3 (roles of focusable widgets); HTML §6.6.3 tabindex",
+      "applicability": "Rendered, non-inert elements in the sequential tab order (tabindex >= 0) that are not natively focusable.",
+      "expectation": "needs_review once per element that the Tab key reaches but that has no\ninteractive role (generic, group, paragraph, none and similar): a keyboard\nuser lands on it, but nothing tells whether or how it can be operated. Not\nreported: tabindex=\"-1\" (a script focus target, not a tab stop; the boundary\nis 0), a named region with tabindex=\"0\" (the recommended scrollable-region\npattern), elements that are not rendered. A tabindex added by script after\nload counts.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "keyboard_and_targets",
+        "file": "tests/fixtures/detection_corpus/keyboard_and_targets.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Keyboard and target size corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Keyboard access and target size issues</h1>\n        <div tabindex=\"0\">Focusable div without an interactive role</div>\n        <div onclick=\"console.log('clicked')\">Clickable div with no keyboard handler</div>\n        <!-- target-size-minimum violation: two 16 px targets side by side — their 24 px circles overlap -->\n        <p><button id=\"tight-a\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">X</button><button id=\"tight-b\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">Y</button></p>\n        <!-- target-size-minimum pass: a lone 16 px target, spaced (2.5.8 spacing exception) -->\n        <p style=\"margin:48px 0;\"><button id=\"lone\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;\">Z</button></p>\n        <!-- pass for both target-size rules: a link in running text (inline exception) -->\n        <p>Read the <a id=\"inline\" href=\"/terms\">terms of use</a> before you continue.</p>\n        <form>\n            <label for=\"q\">Search</label>\n            <input type=\"text\" id=\"q\" name=\"q\">\n        </form>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

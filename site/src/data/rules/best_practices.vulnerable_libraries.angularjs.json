@@ -1,0 +1,34 @@
+{
+  "id": "best_practices.vulnerable_libraries.angularjs",
+  "url": "https://casoon.github.io/auditmysite/rules/best_practices.vulnerable_libraries.angularjs/",
+  "domain": "libraries",
+  "title": "AngularJS: version with known vulnerabilities",
+  "outcome": "automatic",
+  "area": "Security, vulnerable libraries",
+  "checks": [
+    {
+      "contract_id": "AngularJS",
+      "outcome": "automatic",
+      "source": "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; AngularJS end of life (January 2022); CVE-2022-25844 (>= 1.7.0, no fix), CVE-2023-26116..26118 (< 1.8.4, never released)",
+      "applicability": "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version.",
+      "expectation": "Fails for every detected AngularJS (1.x) version: the line is end of life and every release, including the last one 1.8.3, is covered by an advisory. There is no conforming version; the negative is a look-alike: Angular 2+ (@angular/core) is a different framework and not AngularJS. Detected through `angular.version.full` or a script path naming angular.js (not angular/). A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean.",
+      "method": "analyze_vulnerable_libraries",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "vulnerable_libs_dollar_alias",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_dollar_alias.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>jQuery only as $, Bootstrap via attribute</title>\n  <script>\n    // jQuery.noConflict() hands back `jQuery`; some pages keep only `$`.\n    window.$ = { fn: { jquery: \"3.4.1\" } };\n    // AngularJS is end of life: even its last release is flagged.\n    window.angular = { version: { full: \"1.8.3\" } };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>jQuery only as $, Bootstrap via attribute</h1>\n    <div data-bs-version=\"4.0.0\"></div>\n  </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "vulnerable_libs_lookalikes",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_lookalikes.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Plugins and namespaces that look like libraries</title>\n  <!-- Plugins carry their own version, not the library's. -->\n  <script src=\"/ui/1.12.1/jquery-ui.min.js\"></script>\n  <script src=\"/js/jquery.validate-1.19.5.min.js\"></script>\n  <script src=\"/js/bootstrap-datepicker-1.9.0.min.js\"></script>\n  <!-- Angular 2+ is not AngularJS. -->\n  <script type=\"module\" src=\"/npm/@angular/core@17.3.0/fesm2022/core.mjs\"></script>\n  <script>\n    // An application class and namespace that only share a name.\n    window.Prototype = class Prototype { constructor() { this.screens = []; } };\n    window.MooToolsMigration = { done: true, version: \"2.0.0\" };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>Plugins and namespaces that look like libraries</h1>\n\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

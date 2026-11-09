@@ -6,13 +6,15 @@
 //! (`tests/rule_docs.rs`, committed under `site/src/data/rules/`) and rendered
 //! by `site/src/pages/rules/`.
 //!
-//! URL scheme: `<RULE_DOCS_BASE_URL><rule_id>/` — the id verbatim, with `/` as
+//! URL scheme: `<RULE_DOCS_BASE_URL><page_id>/` — the id verbatim, with `/` as
 //! path separator and a trailing slash (the directory form the static site
-//! serves without a redirect). An addressable id consists of lowercase ASCII
-//! letters, digits, `-`, `.` and `/` only, has no empty or dot-only segment and
-//! no leading or trailing `/`, so it needs no percent-encoding and cannot
-//! escape `rules/`. `is_addressable_rule_id` states that rule; the generator
-//! test refuses every catalogue id that breaks it.
+//! serves without a redirect). The page id is the rule id of a WCAG finding,
+//! or for the other modules the id their findings carry (`audit::rule_docs`).
+//! An addressable id consists of lowercase ASCII letters, digits, `-`, `_`,
+//! `.` and `/` only, has no empty or dot-only segment and no leading or
+//! trailing `/`, so it needs no percent-encoding and cannot escape `rules/`.
+//! `is_addressable_rule_id` states that rule; the generator test refuses every
+//! page id that breaks it.
 
 /// Landing page of the rule documentation; every rule page lives below it.
 pub const RULE_DOCS_BASE_URL: &str = "https://casoon.github.io/auditmysite/rules/";
@@ -30,7 +32,7 @@ pub fn is_addressable_rule_id(rule_id: &str) -> bool {
                 && segment.chars().any(|c| c != '.')
                 && segment
                     .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-.".contains(c))
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-_.".contains(c))
         })
 }
 

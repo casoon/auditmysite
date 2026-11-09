@@ -6,7 +6,7 @@ order: 3
 
 ## WCAG rules (Level A and AA)
 
-Every rule has its own page at `https://casoon.github.io/auditmysite/rules/<rule_id>/` (the `help_url` of its findings), with the success criterion, why it is flagged, what it checks, a failing and a passing example from the detection corpus and its outcome class: automatic, hint only or manual. The [rule overview](https://casoon.github.io/auditmysite/rules/) lists them all with the coverage counts. The pages are generated from the rule catalogue and the rule contracts; the list below is a summary.
+Every rule has its own page at `https://casoon.github.io/auditmysite/rules/<rule_id>/` (the `help_url` of its findings), with the success criterion, why it is flagged, what it checks, a failing and a passing example from the detection corpus and its outcome class: automatic (can report a confirmed violation), hint only (by design only review hints) or manual (a person decides). The security header checks, the structured-data features and the checked JavaScript libraries have pages too, under the ids their findings carry. The [rule overview](https://casoon.github.io/auditmysite/rules/) lists them all with the coverage counts. The pages are generated from the rule catalogue and the rule contracts; the list below is a summary.
 
 Core rules:
 - Non-text content (1.1.1)

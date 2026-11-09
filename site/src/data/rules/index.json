@@ -1,15 +1,45 @@
 {
   "base_url": "https://casoon.github.io/auditmysite/rules/",
-  "counts": {
-    "automatic": 71,
-    "hint_only": 78,
-    "manual": 15,
-    "total": 164
-  },
+  "counts": [
+    {
+      "domain": "wcag",
+      "label": "WCAG rules",
+      "automatic": 71,
+      "hint_only": 78,
+      "manual": 15,
+      "total": 164
+    },
+    {
+      "domain": "security",
+      "label": "Security headers",
+      "automatic": 14,
+      "hint_only": 0,
+      "manual": 0,
+      "total": 14
+    },
+    {
+      "domain": "schema",
+      "label": "Structured data",
+      "automatic": 17,
+      "hint_only": 0,
+      "manual": 0,
+      "total": 17
+    },
+    {
+      "domain": "libraries",
+      "label": "Vulnerable libraries",
+      "automatic": 8,
+      "hint_only": 0,
+      "manual": 0,
+      "total": 8
+    }
+  ],
+  "total": 203,
   "rules": [
     {
       "id": "display/text-hidden",
       "title": "Visualisation text layer hidden from assistive technology",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -17,6 +47,7 @@
     {
       "id": "display/text-not-visible",
       "title": "Visualisation text layer missing in text mode",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -24,6 +55,7 @@
     {
       "id": "image-alt",
       "title": "Missing alternative text on images",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -31,6 +63,7 @@
     {
       "id": "images/alt-missing",
       "title": "Missing alternative text on images",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -38,6 +71,7 @@
     {
       "id": "images/alt-suspicious",
       "title": "Alternative text probably not descriptive",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.1.1",
       "level": "A"
@@ -45,6 +79,7 @@
     {
       "id": "images/area-alt-missing",
       "title": "Missing alternative text on image map areas",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -52,6 +87,7 @@
     {
       "id": "images/input-alt-missing",
       "title": "Missing alternative text on image buttons",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -59,6 +95,7 @@
     {
       "id": "images/server-side-map",
       "title": "Server-side image map used",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.1.1",
       "level": "A"
@@ -66,6 +103,7 @@
     {
       "id": "objects/alt-missing",
       "title": "Missing text alternative on embedded objects",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -73,6 +111,7 @@
     {
       "id": "svg/name-missing",
       "title": "Missing alternative text on SVG graphics",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -80,6 +119,7 @@
     {
       "id": "viz/caption-missing",
       "title": "Visualisation without a caption",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -87,6 +127,7 @@
     {
       "id": "viz/text-missing",
       "title": "Visualisation text layer missing in text mode",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
@@ -94,6 +135,7 @@
     {
       "id": "video-caption",
       "title": "Missing captions for videos",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.2.2",
       "level": "A"
@@ -101,6 +143,7 @@
     {
       "id": "media-alt",
       "title": "Missing media alternative (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "1.2.8",
       "level": "AAA"
@@ -108,6 +151,7 @@
     {
       "id": "forms/group-missing",
       "title": "Missing grouping for related form fields",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -115,6 +159,7 @@
     {
       "id": "forms/title-only-label",
       "title": "Form field labeled only via the title attribute",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -122,6 +167,7 @@
     {
       "id": "headings/h1-multiple",
       "title": "Multiple main headings (h1)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -129,6 +175,7 @@
     {
       "id": "headings/skip-level",
       "title": "Skipped heading level",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -136,6 +183,7 @@
     {
       "id": "html-content-model",
       "title": "HTML5 content model violation",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -143,6 +191,7 @@
     {
       "id": "landmarks/banner-duplicate",
       "title": "Multiple banner landmarks",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -150,6 +199,7 @@
     {
       "id": "landmarks/banner-missing",
       "title": "Missing banner landmark",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -157,6 +207,7 @@
     {
       "id": "landmarks/content-outside",
       "title": "Content outside a landmark region",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -164,6 +215,7 @@
     {
       "id": "landmarks/contentinfo-duplicate",
       "title": "Multiple contentinfo landmarks",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -171,6 +223,7 @@
     {
       "id": "landmarks/contentinfo-missing",
       "title": "Missing contentinfo landmark",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -178,6 +231,7 @@
     {
       "id": "landmarks/main-duplicate",
       "title": "Multiple main landmarks",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -185,6 +239,7 @@
     {
       "id": "landmarks/navigation-missing",
       "title": "Missing navigation landmark",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -192,6 +247,7 @@
     {
       "id": "landmarks/not-top-level",
       "title": "Landmark is nested",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -199,6 +255,7 @@
     {
       "id": "landmarks/not-unique",
       "title": "Landmarks are not uniquely named",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -206,6 +263,7 @@
     {
       "id": "lists/empty",
       "title": "Empty list",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -213,6 +271,7 @@
     {
       "id": "lists/invalid-structure",
       "title": "List with invalid child elements",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -220,6 +279,7 @@
     {
       "id": "lists/item-outside-list",
       "title": "List items outside a list container",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -227,6 +287,7 @@
     {
       "id": "lists/term-without-definition",
       "title": "Term without definition in a description list",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -234,6 +295,7 @@
     {
       "id": "tables/data-undetermined",
       "title": "Table header without associated data cells",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -241,6 +303,7 @@
     {
       "id": "tables/header-missing",
       "title": "Data table without header cells",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -248,6 +311,7 @@
     {
       "id": "tables/header-without-data",
       "title": "Table header without associated data cells",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -255,6 +319,7 @@
     {
       "id": "tables/headers-attr-invalid",
       "title": "Invalid headers reference in a table cell",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -262,6 +327,7 @@
     {
       "id": "tables/name-missing",
       "title": "Data table without a name",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -269,6 +335,7 @@
     {
       "id": "tables/presentational-with-headers",
       "title": "Layout table with header cells",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
@@ -276,6 +343,7 @@
     {
       "id": "viz/table-missing",
       "title": "Chart without a values table",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
       "level": "A"
@@ -283,6 +351,7 @@
     {
       "id": "order/visual-mismatch",
       "title": "Visual order diverges from the reading order",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.2",
       "level": "A"
@@ -290,6 +359,7 @@
     {
       "id": "orientation/content-hidden",
       "title": "Restricted screen orientation",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.4",
       "level": "AA"
@@ -297,6 +367,7 @@
     {
       "id": "orientation/root-rotated",
       "title": "Restricted screen orientation",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.4",
       "level": "AA"
@@ -304,6 +375,7 @@
     {
       "id": "forms/autocomplete-invalid",
       "title": "Missing input purpose identification",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.5",
       "level": "AA"
@@ -311,6 +383,7 @@
     {
       "id": "forms/purpose-missing",
       "title": "Missing input purpose identification",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.5",
       "level": "AA"
@@ -318,6 +391,7 @@
     {
       "id": "color/link-indistinct",
       "title": "Link distinguishable by color only",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.1",
       "level": "A"
@@ -325,6 +399,7 @@
     {
       "id": "media/audio-autoplay",
       "title": "Check autoplaying audio for a control",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.2",
       "level": "A"
@@ -332,6 +407,7 @@
     {
       "id": "contrast/text-insufficient",
       "title": "Insufficient color contrast",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.3",
       "level": "AA"
@@ -339,6 +415,7 @@
     {
       "id": "contrast/text-undetermined",
       "title": "Insufficient color contrast",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.3",
       "level": "AA"
@@ -346,6 +423,7 @@
     {
       "id": "zoom/viewport-locked",
       "title": "Text not sufficiently resizable",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.4",
       "level": "AA"
@@ -353,6 +431,7 @@
     {
       "id": "zoom/viewport-missing",
       "title": "Missing viewport declaration",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.4",
       "level": "AA"
@@ -360,6 +439,7 @@
     {
       "id": "zoom/viewport-scale-limited",
       "title": "Viewport meta tag prevents zooming to 500%",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.4",
       "level": "AA"
@@ -367,6 +447,7 @@
     {
       "id": "contrast/text-enhanced",
       "title": "Enhanced color contrast not met (AAA)",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.6",
       "level": "AAA"
@@ -374,6 +455,7 @@
     {
       "id": "text/justified",
       "title": "Limited visual presentation of text (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.8",
       "level": "AAA"
@@ -381,6 +463,7 @@
     {
       "id": "text/line-height-tight",
       "title": "Limited visual presentation of text (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.8",
       "level": "AAA"
@@ -388,6 +471,7 @@
     {
       "id": "visual-presentation",
       "title": "Limited visual presentation of text (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "1.4.8",
       "level": "AAA"
@@ -395,6 +479,7 @@
     {
       "id": "css-overflow-hidden",
       "title": "No reflow at 320 CSS pixels",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.10",
       "level": "AA"
@@ -402,6 +487,7 @@
     {
       "id": "contrast/control-insufficient",
       "title": "Insufficient contrast for UI elements",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.11",
       "level": "AA"
@@ -409,6 +495,7 @@
     {
       "id": "contrast/control-undetermined",
       "title": "Insufficient contrast for UI elements",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.11",
       "level": "AA"
@@ -416,6 +503,7 @@
     {
       "id": "text-spacing/clipped",
       "title": "Content clipped when text spacing is increased",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.12",
       "level": "AA"
@@ -423,6 +511,7 @@
     {
       "id": "patterns/tooltip-unreferenced",
       "title": "Inaccessible hover or focus content (tooltips)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.13",
       "level": "AA"
@@ -430,6 +519,7 @@
     {
       "id": "keyboard/click-handler-not-focusable",
       "title": "Click handler without keyboard equivalent",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.1.1",
       "level": "A"
@@ -437,6 +527,7 @@
     {
       "id": "keyboard/focusable-no-role",
       "title": "Focusable element without an interactive role",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.1.1",
       "level": "A"
@@ -444,6 +535,7 @@
     {
       "id": "keyboard/interactive-not-focusable",
       "title": "Content not operable by keyboard",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.1.1",
       "level": "A"
@@ -451,6 +543,7 @@
     {
       "id": "keyboard/pointer-only",
       "title": "Click handler without keyboard equivalent",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.1.1",
       "level": "A"
@@ -458,6 +551,7 @@
     {
       "id": "keyboard/scrollable-region-not-focusable",
       "title": "Scrollable region not reachable by keyboard",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.1.1",
       "level": "A"
@@ -465,6 +559,7 @@
     {
       "id": "keyboard-trap",
       "title": "Keyboard trap — focus cannot leave the element",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.1.2",
       "level": "A"
@@ -472,6 +567,7 @@
     {
       "id": "meta-refresh",
       "title": "Non-adjustable time limit",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.1",
       "level": "A"
@@ -479,6 +575,7 @@
     {
       "id": "timing/meta-refresh",
       "title": "Non-adjustable time limit",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.2.1",
       "level": "A"
@@ -486,6 +583,7 @@
     {
       "id": "display/init-missing",
       "title": "Display mode set too late",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.2.2",
       "level": "A"
@@ -493,6 +591,7 @@
     {
       "id": "display/text-media-visible",
       "title": "Visualisations visible in text mode",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.2.2",
       "level": "A"
@@ -500,6 +599,7 @@
     {
       "id": "display/toggle-missing",
       "title": "No display-mode toggle",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.2.2",
       "level": "A"
@@ -507,6 +607,7 @@
     {
       "id": "motion/infinite-animation",
       "title": "Missing pause/stop/hide control",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.2.2",
       "level": "A"
@@ -514,6 +615,7 @@
     {
       "id": "viz/static-missing",
       "title": "Moving visualisation without a still image",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.2.2",
       "level": "A"
@@ -521,6 +623,7 @@
     {
       "id": "manual/no-timing",
       "title": "Timing present (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.3",
       "level": "AAA"
@@ -528,6 +631,7 @@
     {
       "id": "manual/interruptions",
       "title": "Non-suppressible interruptions (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.4",
       "level": "AAA"
@@ -535,6 +639,7 @@
     {
       "id": "manual/re-authenticating",
       "title": "No data preservation on re-authentication (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.5",
       "level": "AAA"
@@ -542,6 +647,7 @@
     {
       "id": "timeouts",
       "title": "No warning before inactivity timeout (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.6",
       "level": "AAA"
@@ -549,6 +655,7 @@
     {
       "id": "motion/reduced-motion-ignored",
       "title": "Animations without prefers-reduced-motion",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.3.3",
       "level": "AAA"
@@ -556,6 +663,7 @@
     {
       "id": "frames/name-missing",
       "title": "Iframe without accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.1",
       "level": "A"
@@ -563,6 +671,7 @@
     {
       "id": "headings/none",
       "title": "Missing bypass navigation",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.1",
       "level": "A"
@@ -570,6 +679,7 @@
     {
       "id": "keyboard/skip-link-missing",
       "title": "Missing skip link",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.1",
       "level": "A"
@@ -577,6 +687,7 @@
     {
       "id": "landmarks/main-missing",
       "title": "No main-content region as a bypass target",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.1",
       "level": "A"
@@ -584,6 +695,7 @@
     {
       "id": "document-title",
       "title": "Missing or insufficient page title",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.2",
       "level": "A"
@@ -591,6 +703,7 @@
     {
       "id": "document/title-empty",
       "title": "Missing or insufficient page title",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.2",
       "level": "A"
@@ -598,6 +711,7 @@
     {
       "id": "document/title-missing",
       "title": "Missing or insufficient page title",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.2",
       "level": "A"
@@ -605,6 +719,7 @@
     {
       "id": "dialog/focusable-missing",
       "title": "Illogical focus order",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.3",
       "level": "A"
@@ -612,6 +727,7 @@
     {
       "id": "keyboard/positive-tabindex",
       "title": "Positive tabindex changes the focus order",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.3",
       "level": "A"
@@ -619,6 +735,7 @@
     {
       "id": "links/generic-name",
       "title": "Unclear or generic link text",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
       "level": "A"
@@ -626,6 +743,7 @@
     {
       "id": "links/single-character-name",
       "title": "Unclear or generic link text",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
       "level": "A"
@@ -633,6 +751,7 @@
     {
       "id": "links/url-name",
       "title": "Unclear or generic link text",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
       "level": "A"
@@ -640,6 +759,7 @@
     {
       "id": "headings/empty",
       "title": "Empty heading",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.6",
       "level": "AA"
@@ -647,6 +767,7 @@
     {
       "id": "focus-visible",
       "title": "Focus indicator not visible",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.4.7",
       "level": "AA"
@@ -654,6 +775,7 @@
     {
       "id": "focus/indicator-missing",
       "title": "No visible focus indicator measured",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.7",
       "level": "AA"
@@ -661,6 +783,7 @@
     {
       "id": "focus/outline-removed",
       "title": "Focus indicator removed via CSS",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.4.7",
       "level": "AA"
@@ -668,6 +791,7 @@
     {
       "id": "navigation/location-missing",
       "title": "Missing location indication (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.8",
       "level": "AAA"
@@ -675,6 +799,7 @@
     {
       "id": "links/purpose-link-only",
       "title": "Unclear link label without context (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.9",
       "level": "AAA"
@@ -682,6 +807,7 @@
     {
       "id": "headings/section-without-heading",
       "title": "Missing section headings",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.10",
       "level": "AAA"
@@ -689,6 +815,7 @@
     {
       "id": "focus/obscured",
       "title": "Focused element entirely obscured",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.11",
       "level": "AA"
@@ -696,6 +823,7 @@
     {
       "id": "focus/obscured-enhanced",
       "title": "Focused element partially obscured",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.12",
       "level": "AAA"
@@ -703,6 +831,7 @@
     {
       "id": "manual/pointer-gestures",
       "title": "Missing alternative for pointer gestures",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.1",
       "level": "A"
@@ -710,6 +839,7 @@
     {
       "id": "pointer-cancellation",
       "title": "Action triggered on pointer down",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.2",
       "level": "A"
@@ -717,6 +847,7 @@
     {
       "id": "label-in-name/mismatch",
       "title": "Visible text ≠ accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "2.5.3",
       "level": "A"
@@ -724,6 +855,7 @@
     {
       "id": "manual/motion-actuation",
       "title": "Missing alternative for motion actuation",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.4",
       "level": "A"
@@ -731,6 +863,7 @@
     {
       "id": "targets/size-enhanced",
       "title": "Insufficient click target size (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.5",
       "level": "AAA"
@@ -738,6 +871,7 @@
     {
       "id": "targets/size",
       "title": "Insufficient click target size",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.8",
       "level": "AA"
@@ -745,6 +879,7 @@
     {
       "id": "document/lang-invalid",
       "title": "Invalid page language",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.1.1",
       "level": "A"
@@ -752,6 +887,7 @@
     {
       "id": "document/lang-mismatch",
       "title": "Conflicting language declarations",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.1.1",
       "level": "A"
@@ -759,6 +895,7 @@
     {
       "id": "document/lang-missing",
       "title": "Missing language declaration",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.1.1",
       "level": "A"
@@ -766,6 +903,7 @@
     {
       "id": "html-has-lang",
       "title": "Missing language declaration",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.1.1",
       "level": "A"
@@ -773,6 +911,7 @@
     {
       "id": "language/part-undetermined",
       "title": "Check text in another language without lang",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.1.2",
       "level": "AA"
@@ -780,6 +919,7 @@
     {
       "id": "language/part-unmarked",
       "title": "Check text in another language without lang",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.1.2",
       "level": "AA"
@@ -787,6 +927,7 @@
     {
       "id": "manual/unusual-words",
       "title": "Missing explanation of unusual words (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.1.3",
       "level": "AAA"
@@ -794,6 +935,7 @@
     {
       "id": "language/abbreviation-unexpanded",
       "title": "Missing explanation of abbreviations (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.1.4",
       "level": "AAA"
@@ -801,6 +943,7 @@
     {
       "id": "context/autofocus",
       "title": "Unexpected context change on focus",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.1",
       "level": "A"
@@ -808,6 +951,7 @@
     {
       "id": "context/on-focus",
       "title": "Unexpected context change on focus",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.1",
       "level": "A"
@@ -815,6 +959,7 @@
     {
       "id": "context/on-input",
       "title": "Unexpected context change on input",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.2.2",
       "level": "A"
@@ -822,6 +967,7 @@
     {
       "id": "forms/no-submit",
       "title": "Form without submit button",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.2",
       "level": "A"
@@ -829,6 +975,7 @@
     {
       "id": "links/new-window-unannounced",
       "title": "New window without notice (AAA)",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.5",
       "level": "AAA"
@@ -836,6 +983,7 @@
     {
       "id": "forms/error-unidentified",
       "title": "Invalid field without an accessible error description",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.1",
       "level": "A"
@@ -843,6 +991,7 @@
     {
       "id": "forms/group-name-missing",
       "title": "Missing form labels",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
       "level": "A"
@@ -850,6 +999,7 @@
     {
       "id": "forms/instructions-missing",
       "title": "Missing form labels",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
       "level": "A"
@@ -857,6 +1007,7 @@
     {
       "id": "forms/label-missing",
       "title": "Missing form labels",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.3.2",
       "level": "A"
@@ -864,6 +1015,7 @@
     {
       "id": "forms/placeholder-as-label",
       "title": "Missing form labels",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
       "level": "A"
@@ -871,6 +1023,7 @@
     {
       "id": "forms/required-unmarked",
       "title": "Missing form labels",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
       "level": "A"
@@ -878,6 +1031,7 @@
     {
       "id": "manual/help",
       "title": "Missing input help (AAA)",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.3.5",
       "level": "AAA"
@@ -885,6 +1039,7 @@
     {
       "id": "forms/redundant-entry",
       "title": "Missing reuse of previously entered data",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.7",
       "level": "A"
@@ -892,6 +1047,7 @@
     {
       "id": "auth/captcha",
       "title": "Review CAPTCHA in authentication form",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.8",
       "level": "AA"
@@ -899,6 +1055,7 @@
     {
       "id": "auth/paste-blocked",
       "title": "Paste blocked in password or code field",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.3.8",
       "level": "AA"
@@ -906,6 +1063,7 @@
     {
       "id": "aria/attribute-not-allowed",
       "title": "ARIA attribute not allowed for this role",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -913,6 +1071,7 @@
     {
       "id": "aria/attribute-prohibited",
       "title": "Prohibited ARIA attributes",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -920,6 +1079,7 @@
     {
       "id": "aria/attribute-unknown",
       "title": "Invalid ARIA attribute name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -927,6 +1087,7 @@
     {
       "id": "aria/attribute-value-invalid",
       "title": "Invalid ARIA attribute value",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -934,6 +1095,7 @@
     {
       "id": "aria/combobox-popup-missing",
       "title": "Combobox without an options list",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -941,6 +1103,7 @@
     {
       "id": "aria/owns-conflict",
       "title": "ARIA reference points to an ambiguous ID",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -948,6 +1111,7 @@
     {
       "id": "aria/reference-missing",
       "title": "Empty reference in an ARIA relationship attribute",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -955,6 +1119,7 @@
     {
       "id": "aria/required-attribute-missing",
       "title": "Required ARIA attribute missing",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -962,6 +1127,7 @@
     {
       "id": "aria/required-children-missing",
       "title": "Required child elements of an ARIA role are missing",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -969,6 +1135,7 @@
     {
       "id": "aria/required-parent-missing",
       "title": "Element outside its required parent context",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -976,6 +1143,7 @@
     {
       "id": "aria/role-abstract",
       "title": "Invalid ARIA role",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -983,6 +1151,7 @@
     {
       "id": "aria/role-invalid",
       "title": "Invalid ARIA role",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -990,6 +1159,7 @@
     {
       "id": "aria/role-redundant",
       "title": "Redundant ARIA role",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -997,6 +1167,7 @@
     {
       "id": "aria/tab-selected-missing",
       "title": "No tab marked as selected",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1004,6 +1175,7 @@
     {
       "id": "aria/tabpanel-missing",
       "title": "Tab list without an associated tab panel",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1011,6 +1183,7 @@
     {
       "id": "buttons/name-missing",
       "title": "Form control, link, or button without an accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1018,6 +1191,7 @@
     {
       "id": "description-duplicates-name",
       "title": "Description repeats the name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1025,6 +1199,7 @@
     {
       "id": "dialog/modal-unmarked",
       "title": "Dialog not marked as modal",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1032,6 +1207,7 @@
     {
       "id": "dialog/name-missing",
       "title": "Dialog without an accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1039,6 +1215,7 @@
     {
       "id": "frames/cross-origin",
       "title": "Cross-origin iframe: review manually",
+      "domain": "wcag",
       "outcome": "manual",
       "criterion": "4.1.2",
       "level": "A"
@@ -1046,6 +1223,7 @@
     {
       "id": "ids/duplicate",
       "title": "Referenced ID is assigned more than once",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1053,6 +1231,7 @@
     {
       "id": "inert/dialog-inert",
       "title": "Invalid modern interaction attributes",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1060,6 +1239,7 @@
     {
       "id": "keyboard/hidden-focusable",
       "title": "Focusable element hidden from screen readers",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1067,6 +1247,7 @@
     {
       "id": "links/name-missing",
       "title": "Form control, link, or button without an accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1074,6 +1255,7 @@
     {
       "id": "links/used-as-button",
       "title": "Link used as a button substitute without a matching role",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1081,6 +1263,7 @@
     {
       "id": "lists/role-redundant",
       "title": "Redundant ARIA role",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1088,6 +1271,7 @@
     {
       "id": "modern-attribute-misuse",
       "title": "Invalid modern interaction attributes",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1095,6 +1279,7 @@
     {
       "id": "names/required-missing",
       "title": "Interactive element without a meaningful name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1102,6 +1287,7 @@
     {
       "id": "names/symbol-only",
       "title": "Interactive element without a meaningful name",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1109,6 +1295,7 @@
     {
       "id": "names/title-only",
       "title": "Native title attribute as the only description",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1116,6 +1303,7 @@
     {
       "id": "patterns/accordion-controls-missing",
       "title": "Expanded button without a reference to its region",
+      "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
@@ -1123,6 +1311,7 @@
     {
       "id": "popover/target-invalid",
       "title": "Invalid modern interaction attributes",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1130,6 +1319,7 @@
     {
       "id": "popover/target-missing",
       "title": "Invalid modern interaction attributes",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1137,6 +1327,7 @@
     {
       "id": "summary/name-missing",
       "title": "Summary element without an accessible name",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
@@ -1144,6 +1335,7 @@
     {
       "id": "status/live-overridden",
       "title": "Status messages not programmatically determinable",
+      "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.3",
       "level": "AA"
@@ -1151,7 +1343,242 @@
     {
       "id": "headings/h1-missing",
       "title": "Missing main heading (h1)",
+      "domain": "wcag",
       "outcome": "hint-only"
+    },
+    {
+      "id": "security.headers.cors_wildcard_credentials",
+      "title": "Cors wildcard credentials",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.hsts_preload_ineligible",
+      "title": "Hsts preload ineligible",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.missing_base-uri",
+      "title": "Missing base-uri",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.missing_frame-ancestors",
+      "title": "Missing frame-ancestors",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.missing_header",
+      "title": "Missing header",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.missing_https",
+      "title": "Missing https",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.missing_object-src",
+      "title": "Missing object-src",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.permissions_policy_permissive",
+      "title": "Permissions policy permissive",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.public_source_map",
+      "title": "Public source map",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.unsafe_eval_script",
+      "title": "Unsafe eval script",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.unsafe_inline_script",
+      "title": "Unsafe inline script",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.unsafe_inline_style",
+      "title": "Unsafe inline style",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.wildcard_script_source",
+      "title": "Wildcard script source",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "security.headers.wildcard_source",
+      "title": "Wildcard source",
+      "domain": "security",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_article",
+      "title": "Article: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_breadcrumb",
+      "title": "Breadcrumb: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_event",
+      "title": "Event: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_faq",
+      "title": "FAQ: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_item_list",
+      "title": "Item List: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_job_posting",
+      "title": "Job Posting: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_local_business",
+      "title": "LocalBusiness: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_merchant_listing",
+      "title": "Merchant Listing: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_organization",
+      "title": "Organization: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_person",
+      "title": "Person: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_product_snippet",
+      "title": "Product Snippet: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_profile_page",
+      "title": "Profile Page: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_recipe",
+      "title": "Recipe: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_software_application",
+      "title": "Software Application: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_video",
+      "title": "Video: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_web_page",
+      "title": "WebPage: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "seo.schema.schema_rule_missing_web_site",
+      "title": "WebSite: missing required properties",
+      "domain": "schema",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.angularjs",
+      "title": "AngularJS: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.bootstrap",
+      "title": "Bootstrap: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.handlebars",
+      "title": "Handlebars: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.jquery",
+      "title": "jQuery: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.lodash",
+      "title": "Lodash: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.mootools",
+      "title": "MooTools: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.prototype",
+      "title": "Prototype: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
+    },
+    {
+      "id": "best_practices.vulnerable_libraries.underscore",
+      "title": "Underscore: version with known vulnerabilities",
+      "domain": "libraries",
+      "outcome": "automatic"
     }
   ]
 }

@@ -1,37 +1,42 @@
 {
   "id": "aria/attribute-not-allowed",
   "url": "https://casoon.github.io/auditmysite/rules/aria/attribute-not-allowed/",
+  "domain": "wcag",
   "title": "ARIA attribute not allowed for this role",
   "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "aria-allowed-attr",
-  "dimension": "Accessibility",
-  "subcategory": "Technical Robustness",
-  "issue_class": "Invalid",
   "severity": "high",
   "user_impact": "Assistive technologies ignore the attribute or interpret it incorrectly.",
   "technical_impact": "The attribute/role combination does not match the ARIA specification.",
-  "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.2 (supported states and properties per role); ARIA in HTML section 3 (author MUST NOT rules); ACT 5c01ea",
-  "applicability": "Every non-empty WAI-ARIA attribute on an element in the accessibility tree whose role (explicit or implicit) is defined in WAI-ARIA 1.2.",
-  "expectation": "Fails when the element's role does not support the attribute (aria-selected on a\nlistitem, aria-checked on role img, aria-expanded on a generic div), and when ARIA in HTML forbids it\non the native element (aria-checked on a native checkbox, aria-valuemax next to max). Attributes the\nrole supports pass, also on a custom widget whose role takes the state (role=checkbox with\naria-checked) and the treegrid row with aria-expanded. Prohibited naming is\naria/attribute-prohibited, not this id. Hidden subtrees are out of scope.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "ax_tree"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "widget_patterns",
-    "file": "tests/fixtures/detection_corpus/widget_patterns.html",
-    "verdict": "violation",
-    "selector": "div",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Widget pattern corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Accordion, tablist, and combobox patterns</h1>\n\n        <!-- accordion-trigger-not-button: aria-expanded on a non-button element -->\n        <div aria-expanded=\"false\">Section 1 (div trigger)</div>\n\n        <!-- accordion-no-controls: button trigger without aria-controls -->\n        <button aria-expanded=\"false\">Section 2</button>\n\n        <!-- aria-tablist-tabpanel + aria-tab-selected-state: no tabpanel, no aria-selected -->\n        <div role=\"tablist\" aria-label=\"Sections\">\n            <div role=\"tab\" id=\"tab1\">Tab 1</div>\n        </div>\n\n        <!-- aria-combobox-options: listbox is a sibling, not a subtree descendant -->\n        <div role=\"combobox\" aria-expanded=\"true\" aria-label=\"Fruit\" tabindex=\"0\"></div>\n        <ul id=\"listbox1\" role=\"listbox\">\n            <li role=\"option\">Apple</li>\n        </ul>\n    </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "treegrid_expandable_rows",
-    "file": "tests/fixtures/detection_corpus/treegrid_expandable_rows.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Expandable treegrid rows and tree items corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Grouped orders</h1>\n        <!-- WAI-ARIA treegrid pattern: aria-expanded on a parent row is the\n             pattern's own state, not an accordion trigger (#655). -->\n        <table role=\"treegrid\" aria-label=\"Orders\">\n            <thead>\n                <tr><th>Country</th><th>Amount</th></tr>\n            </thead>\n            <tbody>\n                <tr aria-level=\"1\" aria-expanded=\"true\" tabindex=\"0\">\n                    <td>Country: AT (2 rows)</td><td>300</td>\n                </tr>\n                <tr aria-level=\"2\"><td>Vienna</td><td>100</td></tr>\n                <tr aria-level=\"2\"><td>Graz</td><td>200</td></tr>\n                <tr aria-level=\"1\" aria-expanded=\"false\" tabindex=\"-1\">\n                    <td>Country: CH (1 row)</td><td>50</td>\n                </tr>\n            </tbody>\n        </table>\n\n        <div role=\"grid\" aria-label=\"Plain grid\">\n            <div role=\"row\" aria-expanded=\"false\" tabindex=\"-1\">\n                <div role=\"gridcell\">Group row</div>\n            </div>\n        </div>\n\n        <ul role=\"tree\" aria-label=\"Files\">\n            <li role=\"treeitem\" aria-expanded=\"false\" tabindex=\"0\">src</li>\n            <li role=\"treeitem\" tabindex=\"-1\">README.md</li>\n        </ul>\n    </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "aria/attribute-not-allowed",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.2 (supported states and properties per role); ARIA in HTML section 3 (author MUST NOT rules); ACT 5c01ea",
+      "applicability": "Every non-empty WAI-ARIA attribute on an element in the accessibility tree whose role (explicit or implicit) is defined in WAI-ARIA 1.2.",
+      "expectation": "Fails when the element's role does not support the attribute (aria-selected on a\nlistitem, aria-checked on role img, aria-expanded on a generic div), and when ARIA in HTML forbids it\non the native element (aria-checked on a native checkbox, aria-valuemax next to max). Attributes the\nrole supports pass, also on a custom widget whose role takes the state (role=checkbox with\naria-checked) and the treegrid row with aria-expanded. Prohibited naming is\naria/attribute-prohibited, not this id. Hidden subtrees are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "widget_patterns",
+        "file": "tests/fixtures/detection_corpus/widget_patterns.html",
+        "verdict": "violation",
+        "selector": "div",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Widget pattern corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Accordion, tablist, and combobox patterns</h1>\n\n        <!-- accordion-trigger-not-button: aria-expanded on a non-button element -->\n        <div aria-expanded=\"false\">Section 1 (div trigger)</div>\n\n        <!-- accordion-no-controls: button trigger without aria-controls -->\n        <button aria-expanded=\"false\">Section 2</button>\n\n        <!-- aria-tablist-tabpanel + aria-tab-selected-state: no tabpanel, no aria-selected -->\n        <div role=\"tablist\" aria-label=\"Sections\">\n            <div role=\"tab\" id=\"tab1\">Tab 1</div>\n        </div>\n\n        <!-- aria-combobox-options: listbox is a sibling, not a subtree descendant -->\n        <div role=\"combobox\" aria-expanded=\"true\" aria-label=\"Fruit\" tabindex=\"0\"></div>\n        <ul id=\"listbox1\" role=\"listbox\">\n            <li role=\"option\">Apple</li>\n        </ul>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "treegrid_expandable_rows",
+        "file": "tests/fixtures/detection_corpus/treegrid_expandable_rows.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Expandable treegrid rows and tree items corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Grouped orders</h1>\n        <!-- WAI-ARIA treegrid pattern: aria-expanded on a parent row is the\n             pattern's own state, not an accordion trigger (#655). -->\n        <table role=\"treegrid\" aria-label=\"Orders\">\n            <thead>\n                <tr><th>Country</th><th>Amount</th></tr>\n            </thead>\n            <tbody>\n                <tr aria-level=\"1\" aria-expanded=\"true\" tabindex=\"0\">\n                    <td>Country: AT (2 rows)</td><td>300</td>\n                </tr>\n                <tr aria-level=\"2\"><td>Vienna</td><td>100</td></tr>\n                <tr aria-level=\"2\"><td>Graz</td><td>200</td></tr>\n                <tr aria-level=\"1\" aria-expanded=\"false\" tabindex=\"-1\">\n                    <td>Country: CH (1 row)</td><td>50</td>\n                </tr>\n            </tbody>\n        </table>\n\n        <div role=\"grid\" aria-label=\"Plain grid\">\n            <div role=\"row\" aria-expanded=\"false\" tabindex=\"-1\">\n                <div role=\"gridcell\">Group row</div>\n            </div>\n        </div>\n\n        <ul role=\"tree\" aria-label=\"Files\">\n            <li role=\"treeitem\" aria-expanded=\"false\" tabindex=\"0\">src</li>\n            <li role=\"treeitem\" tabindex=\"-1\">README.md</li>\n        </ul>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

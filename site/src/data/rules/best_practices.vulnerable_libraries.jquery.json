@@ -1,0 +1,34 @@
+{
+  "id": "best_practices.vulnerable_libraries.jquery",
+  "url": "https://casoon.github.io/auditmysite/rules/best_practices.vulnerable_libraries.jquery/",
+  "domain": "libraries",
+  "title": "jQuery: version with known vulnerabilities",
+  "outcome": "automatic",
+  "area": "Security, vulnerable libraries",
+  "checks": [
+    {
+      "contract_id": "jQuery",
+      "outcome": "automatic",
+      "source": "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-11-02 against NVD and GitHub advisories; CVE-2020-11022 (1.12.0 to < 3.5.0), CVE-2020-11023 (1.0.3 to < 3.5.0), CVE-2015-9251 (< 3.0.0)",
+      "applicability": "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version.",
+      "expectation": "Fails for every jQuery below 3.5.0 (from 1.0.3 by CVE-2020-11023, below 3.0.0 also by CVE-2015-9251); 3.5.0 and later pass. Detected through `jQuery.fn.jquery`, the `$` alias alone, or a script path naming the core build (jquery-3.6.0.min.js, /jquery/3.6.0/jquery.min.js, jquery@3.6.0). A plugin named after jQuery (jquery-ui, jquery.validate) is not jQuery and its version is not jQuery's; the host part of a URL (127.0.0.1) is never a version. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean.",
+      "method": "analyze_vulnerable_libraries",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "vulnerable_libs_dollar_alias",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_dollar_alias.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>jQuery only as $, Bootstrap via attribute</title>\n  <script>\n    // jQuery.noConflict() hands back `jQuery`; some pages keep only `$`.\n    window.$ = { fn: { jquery: \"3.4.1\" } };\n    // AngularJS is end of life: even its last release is flagged.\n    window.angular = { version: { full: \"1.8.3\" } };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>jQuery only as $, Bootstrap via attribute</h1>\n    <div data-bs-version=\"4.0.0\"></div>\n  </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "vulnerable_libs_boundaries_first_safe",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_boundaries_first_safe.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>First fixed releases</title>\n  <script>\n    window.jQuery = { fn: { jquery: \"3.5.0\" } };\n    window.bootstrap = { Tooltip: { VERSION: \"4.3.1\" } };\n    window.Handlebars = { VERSION: \"4.7.10\" };\n    window._ = { VERSION: \"4.18.0\", runInContext: function () {} };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>First fixed releases</h1>\n\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -1,0 +1,282 @@
+{
+  "id": "security.headers.missing_header",
+  "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_header/",
+  "domain": "security",
+  "title": "Missing header",
+  "outcome": "automatic",
+  "area": "Security, response headers",
+  "checks": [
+    {
+      "contract_id": "Content-Security-Policy:missing_header",
+      "label": "Content-Security-Policy",
+      "outcome": "automatic",
+      "source": "CSP Level 3, 'The Content-Security-Policy HTTP Response Header Field' and 'Policy lists'; OWASP Secure Headers Project",
+      "applicability": "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Fails when the response carries no enforced Content-Security-Policy header. A Content-Security-Policy-Report-Only header does not enforce anything (CSP3, report-only header) and does not count. Field names are case-insensitive (RFC 9110 §5.1); several CSP headers form one policy list and count as present.\n\nAlways applicable: every document response is in scope. Known gap: a policy delivered by <meta http-equiv> (CSP3, 'The <meta> element') is enforced by browsers but not read by this header-only analyzer.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "security_csp_report_only",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_csp_report_only.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy-Report-Only": "default-src 'none'; script-src 'unsafe-inline'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "Cross-Origin-Opener-Policy:missing_header",
+      "label": "Cross-Origin-Opener-Policy",
+      "outcome": "automatic",
+      "source": "HTML Standard, 'Cross-origin opener policies'; auditmysite #578 header tiers",
+      "applicability": "Applies to every successfully fetched top-level document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Opener-Policy: COOP is an opt-in isolation mechanism whose need depends on deployment context (SharedArrayBuffer, cross-origin popups) that a single fetch cannot observe, so the finding asks a human to verify. A present header passes.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "Cross-Origin-Resource-Policy:missing_header",
+      "label": "Cross-Origin-Resource-Policy",
+      "outcome": "automatic",
+      "source": "Fetch Standard, 'Cross-Origin-Resource-Policy header'; auditmysite #578 header tiers",
+      "applicability": "Applies to every successfully fetched response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Resource-Policy: whether other origins may embed the resource is a deployment decision a single fetch cannot observe. A present header passes.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "Permissions-Policy:missing_header",
+      "label": "Permissions-Policy",
+      "outcome": "automatic",
+      "source": "Permissions Policy (W3C), 'The Permissions-Policy HTTP header field'; OWASP Secure Headers Project",
+      "applicability": "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Fails when the response has no Permissions-Policy header. A present but empty or all-wildcard header is Permissions-Policy:permissions_policy_permissive, not this id.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "violation"
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "Referrer-Policy:missing_header",
+      "label": "Referrer-Policy",
+      "outcome": "automatic",
+      "source": "Referrer Policy (W3C), 'Delivery via Referrer-Policy header'; OWASP Secure Headers Project",
+      "applicability": "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Fails when the response has no Referrer-Policy header. Field names are case-insensitive. Known gap: <meta name=\"referrer\"> (HTML, 'Standard metadata names: referrer') also sets the policy and is not read by this header-only analyzer.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "violation"
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "Strict-Transport-Security:missing_header",
+      "label": "Strict-Transport-Security",
+      "outcome": "automatic",
+      "source": "RFC 6797 §6.1 (STS header), §7.2 and §8.1 (the header is only honoured over secure transport)",
+      "applicability": "Applies to documents served over HTTPS; over plain HTTP the header is ignored by user agents, so the check does not apply.",
+      "expectation": "Fails when an HTTPS response carries no Strict-Transport-Security header. Over plain HTTP the check does not apply (not_applicable), with or without the header. Field names are case-insensitive.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "security_https_without_hsts",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_without_hsts.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "hsts_preload_eligible",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/hsts_preload_eligible.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "X-Content-Type-Options:missing_header",
+      "label": "X-Content-Type-Options",
+      "outcome": "automatic",
+      "source": "Fetch Standard, 'X-Content-Type-Options header'; OWASP Secure Headers Project",
+      "applicability": "Applies to every successfully fetched document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Fails when the response has no X-Content-Type-Options header; nosniff is the only defined value. Field names are case-insensitive.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "violation"
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    },
+    {
+      "contract_id": "X-Frame-Options:missing_header",
+      "label": "X-Frame-Options",
+      "outcome": "automatic",
+      "source": "HTML Standard, 'The X-Frame-Options header' (a CSP frame-ancestors directive takes precedence); RFC 7034; OWASP Clickjacking Defense Cheat Sheet",
+      "applicability": "Applies to document responses whose enforced CSP sets no frame-ancestors directive; with frame-ancestors, X-Frame-Options is not consulted at all.",
+      "expectation": "Fails when neither X-Frame-Options nor an enforced CSP frame-ancestors directive protects the document against framing. With frame-ancestors present the check does not apply (not_applicable), whether XFO is set or not; a report-only CSP's frame-ancestors does not count. XFO DENY/SAMEORIGIN passes.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "violation"
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    }
+  ]
+}

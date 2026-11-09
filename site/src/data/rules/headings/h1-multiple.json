@@ -1,37 +1,42 @@
 {
   "id": "headings/h1-multiple",
   "url": "https://casoon.github.io/auditmysite/rules/headings/h1-multiple/",
+  "domain": "wcag",
   "title": "Multiple main headings (h1)",
   "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",
   "level": "A",
   "axe_id": "headings/h1-multiple",
-  "dimension": "Accessibility",
-  "subcategory": "Structure & Semantics",
-  "issue_class": "Weak",
   "severity": "low",
   "user_impact": "Screen reader users find it harder to tell the actual page title from the rest.",
   "technical_impact": "Several <h1> elements in the document.",
-  "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (review); HTML §4.3.11 headings and outlines",
-  "applicability": "Documents with at least one rendered h1.",
-  "expectation": "Asks for review when more than one h1 is rendered: HTML allows several h1, so\nit is an expectation, not a proven failure. One review at the second h1. A\nsecond h1 that is hidden (in a hidden main, or by a breakpoint) does not\ncount.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "structure_heading_outline",
-    "file": "tests/fixtures/detection_corpus/structure_heading_outline.html",
-    "verdict": "needs_review",
-    "selector": "h1#second-title",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Workshop guides – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .print-only { display: none; }\n    </style>\n</head>\n<body>\n    <!-- A guide page with an uneven outline (#783). -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/guides/\">Guides</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1 id=\"page-title\">Workshop guides</h1>\n        <h2>Woodwork</h2>\n        <!-- h2 to h4: one level skipped. -->\n        <h4 id=\"skipped-level\">Choosing a saw</h4>\n        <p>Crosscut or rip cut, depending on the grain.</p>\n        <!-- Back up to h2, then one level down: both fine. -->\n        <h2>Metalwork</h2>\n        <h3>Drilling steel</h3>\n        <p>Use cutting oil and a low speed.</p>\n        <!-- Not rendered, so not part of the outline: h3 to (h5) is no skip. -->\n        <h5 class=\"print-only\">Printed safety sheet</h5>\n        <h3>Filing</h3>\n        <p>Push strokes only.</p>\n        <!-- A second h1 for a sub-page area. -->\n        <h1 id=\"second-title\">Guide archive</h1>\n        <!-- Teaser cards without headings: an article and a named section. -->\n        <article>\n            <p>How to sharpen a chisel in five minutes.</p>\n        </article>\n        <section aria-label=\"Popular downloads\">\n            <p>Measuring chart, cutting list template.</p>\n        </section>\n        <!-- An unnamed section is no region and needs no heading. -->\n        <section>\n            <p>Updated monthly.</p>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "structure_landmark_duplicates",
-    "file": "tests/fixtures/detection_corpus/structure_landmark_duplicates.html",
-    "verdict": "absent",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order history – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A single-page app shell (#783). The inactive view's main is hidden,\n         which HTML allows (only one main without the hidden attribute). A\n         promo widget inside main declares itself a banner, and a cookie note\n         declares itself a second contentinfo. The article's header belongs to\n         the article and is no banner. -->\n    <a href=\"#orders\" class=\"skip-link\">Skip to content</a>\n    <header id=\"site-header\">\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Account\">\n        <ul>\n            <li><a href=\"/account/\">Account</a></li>\n            <li><a href=\"/orders/\">Orders</a></li>\n        </ul>\n    </nav>\n    <main id=\"profile\" hidden>\n        <h1>Your profile</h1>\n    </main>\n    <main id=\"orders\">\n        <h1>Order history</h1>\n        <div id=\"promo\" role=\"banner\">\n            <p>Free delivery this week.</p>\n        </div>\n        <article>\n            <header><h2>Order 2026-0412</h2></header>\n            <p>Three boxes of wood screws.</p>\n        </article>\n    </main>\n    <footer id=\"site-footer\">\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <div id=\"cookie-note\" role=\"contentinfo\">\n        <p>This site stores your basket in a cookie.</p>\n    </div>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "headings/h1-multiple",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (review); HTML §4.3.11 headings and outlines",
+      "applicability": "Documents with at least one rendered h1.",
+      "expectation": "Asks for review when more than one h1 is rendered: HTML allows several h1, so\nit is an expectation, not a proven failure. One review at the second h1. A\nsecond h1 that is hidden (in a hidden main, or by a breakpoint) does not\ncount.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "structure_heading_outline",
+        "file": "tests/fixtures/detection_corpus/structure_heading_outline.html",
+        "verdict": "needs_review",
+        "selector": "h1#second-title",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Workshop guides – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .print-only { display: none; }\n    </style>\n</head>\n<body>\n    <!-- A guide page with an uneven outline (#783). -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/guides/\">Guides</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1 id=\"page-title\">Workshop guides</h1>\n        <h2>Woodwork</h2>\n        <!-- h2 to h4: one level skipped. -->\n        <h4 id=\"skipped-level\">Choosing a saw</h4>\n        <p>Crosscut or rip cut, depending on the grain.</p>\n        <!-- Back up to h2, then one level down: both fine. -->\n        <h2>Metalwork</h2>\n        <h3>Drilling steel</h3>\n        <p>Use cutting oil and a low speed.</p>\n        <!-- Not rendered, so not part of the outline: h3 to (h5) is no skip. -->\n        <h5 class=\"print-only\">Printed safety sheet</h5>\n        <h3>Filing</h3>\n        <p>Push strokes only.</p>\n        <!-- A second h1 for a sub-page area. -->\n        <h1 id=\"second-title\">Guide archive</h1>\n        <!-- Teaser cards without headings: an article and a named section. -->\n        <article>\n            <p>How to sharpen a chisel in five minutes.</p>\n        </article>\n        <section aria-label=\"Popular downloads\">\n            <p>Measuring chart, cutting list template.</p>\n        </section>\n        <!-- An unnamed section is no region and needs no heading. -->\n        <section>\n            <p>Updated monthly.</p>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_landmark_duplicates",
+        "file": "tests/fixtures/detection_corpus/structure_landmark_duplicates.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order history – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A single-page app shell (#783). The inactive view's main is hidden,\n         which HTML allows (only one main without the hidden attribute). A\n         promo widget inside main declares itself a banner, and a cookie note\n         declares itself a second contentinfo. The article's header belongs to\n         the article and is no banner. -->\n    <a href=\"#orders\" class=\"skip-link\">Skip to content</a>\n    <header id=\"site-header\">\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Account\">\n        <ul>\n            <li><a href=\"/account/\">Account</a></li>\n            <li><a href=\"/orders/\">Orders</a></li>\n        </ul>\n    </nav>\n    <main id=\"profile\" hidden>\n        <h1>Your profile</h1>\n    </main>\n    <main id=\"orders\">\n        <h1>Order history</h1>\n        <div id=\"promo\" role=\"banner\">\n            <p>Free delivery this week.</p>\n        </div>\n        <article>\n            <header><h2>Order 2026-0412</h2></header>\n            <p>Three boxes of wood screws.</p>\n        </article>\n    </main>\n    <footer id=\"site-footer\">\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <div id=\"cookie-note\" role=\"contentinfo\">\n        <p>This site stores your basket in a cookie.</p>\n    </div>\n</body>\n</html>"
+      }
+    }
+  ]
 }

@@ -1,36 +1,41 @@
 {
   "id": "viz/text-missing",
   "url": "https://casoon.github.io/auditmysite/rules/viz/text-missing/",
+  "domain": "wcag",
   "title": "Visualisation text layer missing in text mode",
   "outcome": "automatic",
+  "area": "Accessibility, Content & Alternatives",
   "criterion": "1.1.1",
   "level": "A",
   "axe_id": "display/text-not-visible",
-  "dimension": "Accessibility",
-  "subcategory": "Content & Alternatives",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "In text mode the statement of the visualisation is lost.",
   "technical_impact": "[data-viz-text] missing, empty or not visible with html[data-display=text].",
-  "source": "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption",
-  "applicability": "Every figure[data-viz] (opt-in convention).",
-  "expectation": "A visualisation without a [data-viz-text] layer, or whose layers contain only\nwhitespace, has nothing for text mode and no text alternative (1.1.1):\nviolation at the figure (best-practice tag). One word of text passes. A figure\nthat is not presented (inside a hidden panel) carries no graphic either and is\nnot judged in that state (#725).",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "content_viz_broken",
-    "file": "tests/fixtures/detection_corpus/content_viz_broken.html",
-    "verdict": "violation",
-    "selector": "figure#loans-chart",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Library in numbers: broken figures</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden;\n      clip-path: inset(50%); white-space: nowrap;\n    }\n    body > a[href=\"#main\"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }\n  </style>\n</head>\n<body>\n  <a href=\"#main\">Skip to main content</a>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main id=\"main\">\n    <h1>Library in numbers</h1>\n    <figure id=\"loans-chart\" data-viz=\"chart\">\n      <svg data-viz-static aria-hidden=\"true\" width=\"120\" height=\"30\" viewBox=\"0 0 120 30\"><path d=\"M0 25 L120 5\" stroke=\"#333\" fill=\"none\"></path></svg>\n    </figure>\n    <figure id=\"blank-text\" data-viz=\"map\">\n      <svg data-viz-static aria-hidden=\"true\" width=\"120\" height=\"30\" viewBox=\"0 0 120 30\"><path d=\"M0 25 L120 5\" stroke=\"#333\" fill=\"none\"></path></svg>\n      <div data-viz-text>   </div>\n      <figcaption>Branches on the map</figcaption>\n    </figure>\n    <figure id=\"globe\" data-viz=\"3d\">\n      <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n      <div data-viz-text><p>A globe of partner libraries; drag to turn it.</p></div>\n      <figcaption>Partner libraries</figcaption>\n    </figure>\n    <figure id=\"floor-explorer\" data-viz=\"Interactive\">\n      <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n      <div data-viz-text><p>Floor plan; select a room to see its seats.</p></div>\n      <div><figcaption>Floor explorer</figcaption></div>\n    </figure>\n    <viz-card></viz-card>\n    <div id=\"late-viz\"></div>\n    <script>\n      customElements.define('viz-card', class extends HTMLElement {\n        connectedCallback() {\n          this.attachShadow({ mode: 'open' }).innerHTML =\n            '<figure id=\"shadow-chart\" data-viz=\"chart\"><div data-viz-text><p>Visits rose from 200 to 310.</p></div></figure>';\n        }\n      });\n      document.getElementById('late-viz').innerHTML =\n        '<figure id=\"late-chart\" data-viz=\"chart\"><div data-viz-text><p>Members rose from 4,100 to 4,800.</p></div></figure>';\n    </script>\n  </main>\n  <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "content_viz_hidden_panel",
-    "file": "tests/fixtures/detection_corpus/content_viz_hidden_panel.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Library in numbers: archived panel</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden;\n      clip-path: inset(50%); white-space: nowrap;\n    }\n    body > a[href=\"#main\"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }\n  </style>\n</head>\n<body>\n  <a href=\"#main\">Skip to main content</a>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main id=\"main\">\n    <h1>Library in numbers</h1>\n    <section aria-labelledby=\"this-year\">\n      <h2 id=\"this-year\">This year</h2>\n      <p>Figures for this year follow in spring.</p>\n    </section>\n    <section aria-labelledby=\"last-year\" hidden>\n      <h2 id=\"last-year\">Last year</h2>\n      <figure id=\"archived-chart\" data-viz=\"interactive\">\n        <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n        <div data-viz-text><p>Loans fell slightly to 14,200.</p></div>\n      </figure>\n    </section>\n  </main>\n  <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "viz/text-missing",
+      "outcome": "automatic",
+      "source": "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption",
+      "applicability": "Every figure[data-viz] (opt-in convention).",
+      "expectation": "A visualisation without a [data-viz-text] layer, or whose layers contain only\nwhitespace, has nothing for text mode and no text alternative (1.1.1):\nviolation at the figure (best-practice tag). One word of text passes. A figure\nthat is not presented (inside a hidden panel) carries no graphic either and is\nnot judged in that state (#725).",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "content_viz_broken",
+        "file": "tests/fixtures/detection_corpus/content_viz_broken.html",
+        "verdict": "violation",
+        "selector": "figure#loans-chart",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Library in numbers: broken figures</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden;\n      clip-path: inset(50%); white-space: nowrap;\n    }\n    body > a[href=\"#main\"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }\n  </style>\n</head>\n<body>\n  <a href=\"#main\">Skip to main content</a>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main id=\"main\">\n    <h1>Library in numbers</h1>\n    <figure id=\"loans-chart\" data-viz=\"chart\">\n      <svg data-viz-static aria-hidden=\"true\" width=\"120\" height=\"30\" viewBox=\"0 0 120 30\"><path d=\"M0 25 L120 5\" stroke=\"#333\" fill=\"none\"></path></svg>\n    </figure>\n    <figure id=\"blank-text\" data-viz=\"map\">\n      <svg data-viz-static aria-hidden=\"true\" width=\"120\" height=\"30\" viewBox=\"0 0 120 30\"><path d=\"M0 25 L120 5\" stroke=\"#333\" fill=\"none\"></path></svg>\n      <div data-viz-text>   </div>\n      <figcaption>Branches on the map</figcaption>\n    </figure>\n    <figure id=\"globe\" data-viz=\"3d\">\n      <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n      <div data-viz-text><p>A globe of partner libraries; drag to turn it.</p></div>\n      <figcaption>Partner libraries</figcaption>\n    </figure>\n    <figure id=\"floor-explorer\" data-viz=\"Interactive\">\n      <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n      <div data-viz-text><p>Floor plan; select a room to see its seats.</p></div>\n      <div><figcaption>Floor explorer</figcaption></div>\n    </figure>\n    <viz-card></viz-card>\n    <div id=\"late-viz\"></div>\n    <script>\n      customElements.define('viz-card', class extends HTMLElement {\n        connectedCallback() {\n          this.attachShadow({ mode: 'open' }).innerHTML =\n            '<figure id=\"shadow-chart\" data-viz=\"chart\"><div data-viz-text><p>Visits rose from 200 to 310.</p></div></figure>';\n        }\n      });\n      document.getElementById('late-viz').innerHTML =\n        '<figure id=\"late-chart\" data-viz=\"chart\"><div data-viz-text><p>Members rose from 4,100 to 4,800.</p></div></figure>';\n    </script>\n  </main>\n  <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_viz_hidden_panel",
+        "file": "tests/fixtures/detection_corpus/content_viz_hidden_panel.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Library in numbers: archived panel</title>\n  <script>document.documentElement.dataset.display = 'visual';</script>\n  <style>\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden;\n      clip-path: inset(50%); white-space: nowrap;\n    }\n    body > a[href=\"#main\"], #display-toggle { display: inline-block; min-width: 44px; min-height: 44px; }\n  </style>\n</head>\n<body>\n  <a href=\"#main\">Skip to main content</a>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\" selected>Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\">Text</option>\n      </select>\n    </nav>\n  </header>\n  <main id=\"main\">\n    <h1>Library in numbers</h1>\n    <section aria-labelledby=\"this-year\">\n      <h2 id=\"this-year\">This year</h2>\n      <p>Figures for this year follow in spring.</p>\n    </section>\n    <section aria-labelledby=\"last-year\" hidden>\n      <h2 id=\"last-year\">Last year</h2>\n      <figure id=\"archived-chart\" data-viz=\"interactive\">\n        <canvas data-viz-live width=\"200\" height=\"100\" aria-hidden=\"true\"></canvas>\n        <div data-viz-text><p>Loans fell slightly to 14,200.</p></div>\n      </figure>\n    </section>\n  </main>\n  <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

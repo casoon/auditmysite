@@ -1,35 +1,40 @@
 {
   "id": "forms/group-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/group-missing/",
+  "domain": "wcag",
   "title": "Missing grouping for related form fields",
   "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",
   "level": "A",
   "axe_id": "form-field-group",
-  "dimension": "Accessibility",
-  "subcategory": "Structure & Semantics",
-  "issue_class": "Missing",
   "severity": "medium",
   "user_impact": "Screen reader users cannot tell that several fields belong to one question/group.",
   "technical_impact": "Radio buttons/checkboxes without an enclosing <fieldset> with <legend>.",
-  "source": "WCAG 2.2 SC 1.3.1 Info and Relationships; techniques H71, ARIA17",
-  "applicability": "Radio buttons (native or role=radio) and checkboxes sharing a name within one form.",
-  "expectation": "Needs review for each radio button and each checkbox of a same-name set of\ntwo or more that is not inside a fieldset, details, role=group or\nrole=radiogroup: the question the set answers is not tied to it. fieldset is\na technique, not a requirement, so never a confirmed violation. A single\ncheckbox (\"I accept the terms\") is no set; grouped options are not\nreported.",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "form_heuristics_flagged",
-    "file": "tests/fixtures/detection_corpus/form_heuristics_flagged.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true positives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Registration form</h1>\n        <form>\n            <!-- Date field without any instruction: still reported, but as\n                 needs review (the format requirement is guessed from the\n                 label), never as a confirmed violation -->\n            <label for=\"dob\">Date of birth</label>\n            <input type=\"text\" id=\"dob\" name=\"dob\">\n\n            <!-- Two related checkboxes (same name) without fieldset/legend -->\n            <p>Interests</p>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"news\"> News</label>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"events\"> Events</label>\n\n            <button type=\"submit\">Register</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "form_heuristics_clean",
-    "file": "tests/fixtures/detection_corpus/form_heuristics_clean.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true negatives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Booking form</h1>\n        <form>\n            <!-- Mode switch: radios correctly grouped -->\n            <fieldset>\n                <legend>Mode</legend>\n                <label><input type=\"radio\" name=\"mode\" value=\"broken\" checked> Broken</label>\n                <label><input type=\"radio\" name=\"mode\" value=\"fixed\"> Fixed</label>\n            </fieldset>\n\n            <!-- Date field with instructions via aria-describedby: the\n                 description counts as the format instruction -->\n            <label for=\"booking-date\">Date</label>\n            <input type=\"text\" id=\"booking-date\" name=\"date\" inputmode=\"numeric\" aria-describedby=\"booking-date-hint\">\n            <p id=\"booking-date-hint\">Day of travel</p>\n\n            <!-- \"passiert\" contains \"pass\" but is no passport field -->\n            <label for=\"report-what\">Was ist passiert?</label>\n            <textarea id=\"report-what\" name=\"what\" rows=\"4\" aria-describedby=\"report-what-hint\"></textarea>\n            <span id=\"report-what-hint\">Was Sie erwartet haben und was stattdessen passiert ist</span>\n\n            <!-- A single checkbox, and a second one with a different name:\n                 neither is a group -->\n            <label><input type=\"checkbox\" class=\"bill-sr\"> Screen reader view</label>\n            <label><input type=\"checkbox\" name=\"newsletter\"> Send me the newsletter</label>\n\n            <button type=\"submit\">Search</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "forms/group-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships; techniques H71, ARIA17",
+      "applicability": "Radio buttons (native or role=radio) and checkboxes sharing a name within one form.",
+      "expectation": "Needs review for each radio button and each checkbox of a same-name set of\ntwo or more that is not inside a fieldset, details, role=group or\nrole=radiogroup: the question the set answers is not tied to it. fieldset is\na technique, not a requirement, so never a confirmed violation. A single\ncheckbox (\"I accept the terms\") is no set; grouped options are not\nreported.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "form_heuristics_flagged",
+        "file": "tests/fixtures/detection_corpus/form_heuristics_flagged.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true positives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Registration form</h1>\n        <form>\n            <!-- Date field without any instruction: still reported, but as\n                 needs review (the format requirement is guessed from the\n                 label), never as a confirmed violation -->\n            <label for=\"dob\">Date of birth</label>\n            <input type=\"text\" id=\"dob\" name=\"dob\">\n\n            <!-- Two related checkboxes (same name) without fieldset/legend -->\n            <p>Interests</p>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"news\"> News</label>\n            <label><input type=\"checkbox\" name=\"interests\" value=\"events\"> Events</label>\n\n            <button type=\"submit\">Register</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "form_heuristics_clean",
+        "file": "tests/fixtures/detection_corpus/form_heuristics_clean.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true negatives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Booking form</h1>\n        <form>\n            <!-- Mode switch: radios correctly grouped -->\n            <fieldset>\n                <legend>Mode</legend>\n                <label><input type=\"radio\" name=\"mode\" value=\"broken\" checked> Broken</label>\n                <label><input type=\"radio\" name=\"mode\" value=\"fixed\"> Fixed</label>\n            </fieldset>\n\n            <!-- Date field with instructions via aria-describedby: the\n                 description counts as the format instruction -->\n            <label for=\"booking-date\">Date</label>\n            <input type=\"text\" id=\"booking-date\" name=\"date\" inputmode=\"numeric\" aria-describedby=\"booking-date-hint\">\n            <p id=\"booking-date-hint\">Day of travel</p>\n\n            <!-- \"passiert\" contains \"pass\" but is no passport field -->\n            <label for=\"report-what\">Was ist passiert?</label>\n            <textarea id=\"report-what\" name=\"what\" rows=\"4\" aria-describedby=\"report-what-hint\"></textarea>\n            <span id=\"report-what-hint\">Was Sie erwartet haben und was stattdessen passiert ist</span>\n\n            <!-- A single checkbox, and a second one with a different name:\n                 neither is a group -->\n            <label><input type=\"checkbox\" class=\"bill-sr\"> Screen reader view</label>\n            <label><input type=\"checkbox\" name=\"newsletter\"> Send me the newsletter</label>\n\n            <button type=\"submit\">Search</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

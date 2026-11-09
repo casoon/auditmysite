@@ -1,24 +1,29 @@
 {
   "id": "keyboard/hidden-focusable",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/hidden-focusable/",
+  "domain": "wcag",
   "title": "Focusable element hidden from screen readers",
   "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "aria-hidden-focus",
-  "dimension": "Accessibility",
-  "subcategory": "Technical Robustness",
-  "issue_class": "Invalid",
   "severity": "high",
   "user_impact": "Keyboard users reach elements that screen readers do not announce — invisible traps.",
   "technical_impact": "aria-hidden=\"true\" on a focusable element or its ancestor.",
-  "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1; WAI-ARIA 1.2 §6.7 aria-hidden (authors must not hide focusable content); HTML §6.6.3 tabindex, §6.3 inert",
-  "applicability": "Rendered elements in the sequential tab order (native focusable or tabindex >= 0) that are inside, or carry, aria-hidden=\"true\".",
-  "expectation": "Fails (violation, one per element) when an element that the Tab key reaches\nis hidden from the accessibility tree by aria-hidden=\"true\" on itself or an\nancestor, also across an open shadow root (aria-hidden applies to the flat\ntree): keyboard users land on something that is not announced. Passes when\nthe element is taken out of the tab order (tabindex=\"-1\"), when the hidden\nsubtree is inert, when it is not rendered, or when aria-hidden is \"false\".\nNative links and ARIA widgets with tabindex 0 count alike, as does\naria-hidden set by a script after load.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false
+  "checks": [
+    {
+      "contract_id": "keyboard/hidden-focusable",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1; WAI-ARIA 1.2 §6.7 aria-hidden (authors must not hide focusable content); HTML §6.6.3 tabindex, §6.3 inert",
+      "applicability": "Rendered elements in the sequential tab order (native focusable or tabindex >= 0) that are inside, or carry, aria-hidden=\"true\".",
+      "expectation": "Fails (violation, one per element) when an element that the Tab key reaches\nis hidden from the accessibility tree by aria-hidden=\"true\" on itself or an\nancestor, also across an open shadow root (aria-hidden applies to the flat\ntree): keyboard users land on something that is not announced. Passes when\nthe element is taken out of the tab order (tabindex=\"-1\"), when the hidden\nsubtree is inert, when it is not rendered, or when aria-hidden is \"false\".\nNative links and ARIA widgets with tabindex 0 count alike, as does\naria-hidden set by a script after load.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false
+    }
+  ]
 }

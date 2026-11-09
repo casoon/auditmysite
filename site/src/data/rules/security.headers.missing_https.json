@@ -1,0 +1,52 @@
+{
+  "id": "security.headers.missing_https",
+  "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_https/",
+  "domain": "security",
+  "title": "Missing https",
+  "outcome": "automatic",
+  "area": "Security, response headers",
+  "checks": [
+    {
+      "contract_id": "HTTPS:missing_https",
+      "label": "HTTPS",
+      "outcome": "automatic",
+      "source": "RFC 9110 §4.2.2 (https URI scheme); OWASP Transport Layer Security Cheat Sheet; auditmysite #775 (final URL decides)",
+      "applicability": "Applies to every audited URL that answered: the scheme of the final URL after redirects is the transport. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
+      "expectation": "Fails when the final URL of the fetched document is not https:. A certificate the client cannot validate is no HTTPS: the fetch fails and nothing is measured (errored), it never passes. An https: response validated against the trusted roots passes.\n\nAlways applicable: every fetched URL has a scheme. Note: the corpus serves on 127.0.0.1, which Secure Contexts ('Is origin potentially trustworthy?') treats as potentially trustworthy; the check deliberately judges the scheme, since an audit of a local build stands in for the deployed site.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "baseline_headers_present",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/baseline_headers_present.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "hsts_preload_eligible",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/hsts_preload_eligible.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    }
+  ]
+}

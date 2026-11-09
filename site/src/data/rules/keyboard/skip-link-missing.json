@@ -1,35 +1,40 @@
 {
   "id": "keyboard/skip-link-missing",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/skip-link-missing/",
+  "domain": "wcag",
   "title": "Missing skip link",
   "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.1",
   "level": "A",
   "axe_id": "skip-link",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Missing",
   "severity": "medium",
   "user_impact": "Keyboard users must tab through the entire navigation on every page change.",
   "technical_impact": "No link with a recognizable 'skip'/'to content' text or anchor to #main/#content at the top of the page.",
-  "source": "WCAG 2.2 SC 2.4.1 Bypass Blocks; techniques G1 (skip link at the top), ARIA11/H69 (landmarks, headings)",
-  "applicability": "Pages with blocks a keyboard user has to pass to reach the main content: links or other tab stops in front of it. A page without any link or focusable element has nothing to bypass.",
-  "expectation": "needs_review once per page (page-level, at the root) when header or\nnavigation links precede the main content and no link bypasses them: no\nfragment link to the start of the main content, no run of in-page links in\nfront of the first link that leaves the page. A skip link counts in any\nlanguage, also when it is visually hidden until focused, and also when a\nscript inserts it after load. Review, not violation: 2.4.1 can also be met by\nlandmarks and headings. A page without any link or focusable element is not\napplicable (nothing to tab past).",
-  "method": "shared",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "interaction_skip_link_missing",
-    "file": "tests/fixtures/detection_corpus/interaction_skip_link_missing.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Museum shop without a skip link</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <!-- needs_review (2.4.1): a header and a navigation repeat on every page,\n         and no link bypasses them -->\n    <header>\n        <p>Example Museum</p>\n        <a href=\"/tickets\">Tickets</a>\n        <a href=\"/members\">Members</a>\n    </header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/visit\">Visit</a>\n        <a href=\"/shop\">Shop</a>\n    </nav>\n    <main>\n        <h1>Museum shop</h1>\n        <p>Catalogues, posters and postcards.</p>\n    </main>\n    <footer><p>Example Museum footer</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "skip_link_language",
-    "file": "tests/fixtures/detection_corpus/skip_link_language.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Lien d'évitement en français</title>\n    <style>\n        .skip-link { position: absolute; left: -9999px; }\n        .skip-link:focus { left: 0; }\n    </style>\n</head>\n<body>\n    <!-- #642: a skip link is recognised by its same-page target placed before\n         the first regular link, not by its (here French) text. -->\n    <a href=\"#main\" class=\"skip-link\" id=\"skip\">Aller au contenu</a>\n    <header>\n        <a href=\"/\">Accueil</a>\n    </header>\n    <nav aria-label=\"Navigation principale\">\n        <ul>\n            <li><a href=\"/apprendre/\">Apprendre</a></li>\n            <li><a href=\"/outils/\">Outils</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>L'accessibilité numérique</h1>\n        <p>Le contenu principal de la page.</p>\n    </main>\n    <!-- Same text and target, but after the regular links and outside every\n         landmark: ordinary content, still reported. -->\n    <div>\n        <a href=\"#main\" id=\"stray-link\">Aller au contenu</a>\n    </div>\n    <footer>\n        <p>Pied de page</p>\n    </footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "keyboard/skip-link-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.4.1 Bypass Blocks; techniques G1 (skip link at the top), ARIA11/H69 (landmarks, headings)",
+      "applicability": "Pages with blocks a keyboard user has to pass to reach the main content: links or other tab stops in front of it. A page without any link or focusable element has nothing to bypass.",
+      "expectation": "needs_review once per page (page-level, at the root) when header or\nnavigation links precede the main content and no link bypasses them: no\nfragment link to the start of the main content, no run of in-page links in\nfront of the first link that leaves the page. A skip link counts in any\nlanguage, also when it is visually hidden until focused, and also when a\nscript inserts it after load. Review, not violation: 2.4.1 can also be met by\nlandmarks and headings. A page without any link or focusable element is not\napplicable (nothing to tab past).",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "interaction_skip_link_missing",
+        "file": "tests/fixtures/detection_corpus/interaction_skip_link_missing.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Museum shop without a skip link</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <!-- needs_review (2.4.1): a header and a navigation repeat on every page,\n         and no link bypasses them -->\n    <header>\n        <p>Example Museum</p>\n        <a href=\"/tickets\">Tickets</a>\n        <a href=\"/members\">Members</a>\n    </header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/visit\">Visit</a>\n        <a href=\"/shop\">Shop</a>\n    </nav>\n    <main>\n        <h1>Museum shop</h1>\n        <p>Catalogues, posters and postcards.</p>\n    </main>\n    <footer><p>Example Museum footer</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "skip_link_language",
+        "file": "tests/fixtures/detection_corpus/skip_link_language.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Lien d'évitement en français</title>\n    <style>\n        .skip-link { position: absolute; left: -9999px; }\n        .skip-link:focus { left: 0; }\n    </style>\n</head>\n<body>\n    <!-- #642: a skip link is recognised by its same-page target placed before\n         the first regular link, not by its (here French) text. -->\n    <a href=\"#main\" class=\"skip-link\" id=\"skip\">Aller au contenu</a>\n    <header>\n        <a href=\"/\">Accueil</a>\n    </header>\n    <nav aria-label=\"Navigation principale\">\n        <ul>\n            <li><a href=\"/apprendre/\">Apprendre</a></li>\n            <li><a href=\"/outils/\">Outils</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>L'accessibilité numérique</h1>\n        <p>Le contenu principal de la page.</p>\n    </main>\n    <!-- Same text and target, but after the regular links and outside every\n         landmark: ordinary content, still reported. -->\n    <div>\n        <a href=\"#main\" id=\"stray-link\">Aller au contenu</a>\n    </div>\n    <footer>\n        <p>Pied de page</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }

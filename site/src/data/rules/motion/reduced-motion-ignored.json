@@ -1,36 +1,41 @@
 {
   "id": "motion/reduced-motion-ignored",
   "url": "https://casoon.github.io/auditmysite/rules/motion/reduced-motion-ignored/",
+  "domain": "wcag",
   "title": "Animations without prefers-reduced-motion",
   "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
   "criterion": "2.3.3",
   "level": "AAA",
   "axe_id": "prefers-reduced-motion",
-  "dimension": "Accessibility",
-  "subcategory": "Visual Presentation",
-  "issue_class": "Missing",
   "severity": "low",
   "user_impact": "Users with vestibular disorders or photosensitivity cannot disable motion.",
   "technical_impact": "No @media (prefers-reduced-motion) in the stylesheets.",
-  "source": "WCAG 2.2 SC 2.3.3 Animation from Interactions (Level AAA); Media Queries 5 'prefers-reduced-motion'",
-  "applicability": "Style rules outside a prefers-reduced-motion: reduce block that animate or transition a motion property (transform, translate, rotate, scale, position offsets, ...) on a selector matching an element of the page.",
-  "expectation": "One page-level review when at least one such rule is not switched off under\n@media (prefers-reduced-motion: reduce). Switched off means animation: none,\na duration of at most about 50 ms (the usual 0.01ms reset), paused, or\ntransition: none / transition-property: none, set for the same selector or\nby a universal reset. A reduce block that only shortens the movement (0.2s)\ndoes not switch it off. Colour and opacity fades are not motion. Rules whose\nselector matches nothing on the page are not evidence. Review, not a\nviolation: whether the motion is triggered by interaction and is essential is\na human decision.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "stylesheets"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "reduced_motion_transform",
-    "file": "tests/fixtures/detection_corpus/reduced_motion_transform.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Reduced motion: transform animation without override</title>\n    <style>\n        /* #712: motion (transform) that prefers-reduced-motion does not reduce */\n        .card { transition: transform 0.3s ease; }\n        .card:hover { transform: translateY(-4px); }\n        .slide-in { animation: slide-in 1s ease-out; }\n        @keyframes slide-in { from { transform: translateX(-100%); } to { transform: none; } }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Transform animation</h1>\n        <div class=\"card\">Card that lifts on hover</div>\n        <div class=\"slide-in\">Panel sliding in</div>\n    </main>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "reduced_motion_override",
-    "file": "tests/fixtures/detection_corpus/reduced_motion_override.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Reduced motion: transform animation with override</title>\n    <style>\n        /* #712: same motion, neutralised under prefers-reduced-motion: reduce */\n        .card { transition: transform 0.3s ease; }\n        .card:hover { transform: translateY(-4px); }\n        .slide-in { animation: slide-in 1s ease-out; }\n        @keyframes slide-in { from { transform: translateX(-100%); } to { transform: none; } }\n        @media (prefers-reduced-motion: reduce) {\n            *, *::before, *::after { transition-duration: 0.01ms !important; }\n            .slide-in { animation: none; }\n        }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Transform animation with reduced-motion override</h1>\n        <div class=\"card\">Card that lifts on hover</div>\n        <div class=\"slide-in\">Panel sliding in</div>\n    </main>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "motion/reduced-motion-ignored",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.3.3 Animation from Interactions (Level AAA); Media Queries 5 'prefers-reduced-motion'",
+      "applicability": "Style rules outside a prefers-reduced-motion: reduce block that animate or transition a motion property (transform, translate, rotate, scale, position offsets, ...) on a selector matching an element of the page.",
+      "expectation": "One page-level review when at least one such rule is not switched off under\n@media (prefers-reduced-motion: reduce). Switched off means animation: none,\na duration of at most about 50 ms (the usual 0.01ms reset), paused, or\ntransition: none / transition-property: none, set for the same selector or\nby a universal reset. A reduce block that only shortens the movement (0.2s)\ndoes not switch it off. Colour and opacity fades are not motion. Rules whose\nselector matches nothing on the page are not evidence. Review, not a\nviolation: whether the motion is triggered by interaction and is essential is\na human decision.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "stylesheets"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "reduced_motion_transform",
+        "file": "tests/fixtures/detection_corpus/reduced_motion_transform.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Reduced motion: transform animation without override</title>\n    <style>\n        /* #712: motion (transform) that prefers-reduced-motion does not reduce */\n        .card { transition: transform 0.3s ease; }\n        .card:hover { transform: translateY(-4px); }\n        .slide-in { animation: slide-in 1s ease-out; }\n        @keyframes slide-in { from { transform: translateX(-100%); } to { transform: none; } }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Transform animation</h1>\n        <div class=\"card\">Card that lifts on hover</div>\n        <div class=\"slide-in\">Panel sliding in</div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "reduced_motion_override",
+        "file": "tests/fixtures/detection_corpus/reduced_motion_override.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Reduced motion: transform animation with override</title>\n    <style>\n        /* #712: same motion, neutralised under prefers-reduced-motion: reduce */\n        .card { transition: transform 0.3s ease; }\n        .card:hover { transform: translateY(-4px); }\n        .slide-in { animation: slide-in 1s ease-out; }\n        @keyframes slide-in { from { transform: translateX(-100%); } to { transform: none; } }\n        @media (prefers-reduced-motion: reduce) {\n            *, *::before, *::after { transition-duration: 0.01ms !important; }\n            .slide-in { animation: none; }\n        }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Transform animation with reduced-motion override</h1>\n        <div class=\"card\">Card that lifts on hover</div>\n        <div class=\"slide-in\">Panel sliding in</div>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
 }

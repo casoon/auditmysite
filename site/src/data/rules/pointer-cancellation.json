@@ -1,30 +1,35 @@
 {
   "id": "pointer-cancellation",
   "url": "https://casoon.github.io/auditmysite/rules/pointer-cancellation/",
+  "domain": "wcag",
   "title": "Action triggered on pointer down",
   "outcome": "manual",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.2",
   "level": "A",
   "axe_id": "pointer-cancellation",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Invalid",
   "severity": "medium",
   "user_impact": "Users may trigger actions accidentally without being able to cancel them.",
   "technical_impact": "Event handlers respond to mousedown or touchstart instead of click or mouseup.",
-  "source": "WCAG 2.2 SC 2.5.2 Pointer Cancellation",
-  "applicability": "Pages with functionality a single pointer can operate: links, controls, widget roles, tab stops, pointer handler attributes, draggable or editable content, embedded documents, or any script (which can attach listeners unseen).",
-  "expectation": "One page-wide UNTESTED note (needs_review) on every page with single-pointer\nfunctionality; never pass or violation. A static page without any control,\nhandler, embedded document or script is not applicable: no note. A page\nwhose DOM query API fails records the rule as not run.",
-  "method": "page",
-  "capabilities": [
-    "dom"
-  ],
-  "page_level": true,
-  "manual_reason": "Whether an action fires on the down-event, or can be aborted or undone, only shows under a real pointer; handlers added by script are invisible in the markup.",
-  "failing": {
-    "case": "interaction_click_pointer",
-    "file": "tests/fixtures/detection_corpus/interaction_click_pointer.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Click handlers and pointer-only controls</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, [role=\"button\"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .clickable { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        .card { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        @media (max-width: 600px) { .mobile-tile { cursor: pointer; } }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Plan your trip</h1>\n\n        <h2>Inline click handlers</h2>\n        <!-- violation: onclick on a div, no role, no tabindex, nothing focusable inside -->\n        <div id=\"ch-div\" onclick=\"this.textContent = 'Opened'\">Show itinerary</div>\n        <!-- needs_review: the card handler only repeats the link inside it -->\n        <div id=\"ch-card\" onclick=\"location.href = '/trips/rome'\">\n            <a href=\"/trips/rome\">Rome in three days</a>\n        </div>\n        <!-- pass: role and tab stop make it operable by keyboard (with a key handler) -->\n        <div id=\"ch-role\" role=\"button\" tabindex=\"0\" onclick=\"this.textContent = 'Shared'\" onkeydown=\"if (event.key === 'Enter' || event.key === ' ') this.click()\">Share trip</div>\n        <!-- violation: the handler is attached as an attribute after load -->\n        <div id=\"ch-dynamic\">Show map</div>\n\n        <h2>Looks clickable</h2>\n        <!-- needs_review: cursor pointer, no role, no tabindex, no control inside -->\n        <div id=\"po-filter\" class=\"clickable\">Filter results</div>\n        <!-- absent: the card pattern, the link inside is the keyboard route -->\n        <div id=\"po-card\" class=\"card\">\n            <h3><a href=\"/trips/paris\">Paris for families</a></h3>\n            <p>Four days, two museums.</p>\n        </div>\n        <!-- absent: inherits cursor pointer from the reported parent -->\n        <div id=\"po-parent\" class=\"clickable\"><span id=\"po-child\">Sort by price</span></div>\n        <!-- absent: not rendered -->\n        <div id=\"po-hidden\" class=\"clickable\" style=\"display: none\">Hidden filter</div>\n        <!-- absent: a real button with a pointer cursor -->\n        <button id=\"po-button\" type=\"button\" style=\"cursor: pointer\">Search trips</button>\n        <!-- needs_review: looks clickable on the mobile viewport only -->\n        <div id=\"po-mobile\" class=\"mobile-tile\">Nearby offers</div>\n        <!-- needs_review: a script gives it the pointer cursor after load -->\n        <div id=\"po-dynamic\">Recently viewed</div>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n    <script>\n        document.getElementById('ch-dynamic').setAttribute('onclick', \"this.textContent = 'Map'\");\n        document.getElementById('po-dynamic').style.cursor = 'pointer';\n    </script>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "pointer-cancellation",
+      "outcome": "manual",
+      "source": "WCAG 2.2 SC 2.5.2 Pointer Cancellation",
+      "applicability": "Pages with functionality a single pointer can operate: links, controls, widget roles, tab stops, pointer handler attributes, draggable or editable content, embedded documents, or any script (which can attach listeners unseen).",
+      "expectation": "One page-wide UNTESTED note (needs_review) on every page with single-pointer\nfunctionality; never pass or violation. A static page without any control,\nhandler, embedded document or script is not applicable: no note. A page\nwhose DOM query API fails records the rule as not run.",
+      "method": "page",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "manual_reason": "Whether an action fires on the down-event, or can be aborted or undone, only shows under a real pointer; handlers added by script are invisible in the markup.",
+      "failing": {
+        "case": "interaction_click_pointer",
+        "file": "tests/fixtures/detection_corpus/interaction_click_pointer.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Click handlers and pointer-only controls</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, [role=\"button\"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .clickable { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        .card { cursor: pointer; padding: 12px; margin: 8px 0; border: 1px solid #555; }\n        @media (max-width: 600px) { .mobile-tile { cursor: pointer; } }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Plan your trip</h1>\n\n        <h2>Inline click handlers</h2>\n        <!-- violation: onclick on a div, no role, no tabindex, nothing focusable inside -->\n        <div id=\"ch-div\" onclick=\"this.textContent = 'Opened'\">Show itinerary</div>\n        <!-- needs_review: the card handler only repeats the link inside it -->\n        <div id=\"ch-card\" onclick=\"location.href = '/trips/rome'\">\n            <a href=\"/trips/rome\">Rome in three days</a>\n        </div>\n        <!-- pass: role and tab stop make it operable by keyboard (with a key handler) -->\n        <div id=\"ch-role\" role=\"button\" tabindex=\"0\" onclick=\"this.textContent = 'Shared'\" onkeydown=\"if (event.key === 'Enter' || event.key === ' ') this.click()\">Share trip</div>\n        <!-- violation: the handler is attached as an attribute after load -->\n        <div id=\"ch-dynamic\">Show map</div>\n\n        <h2>Looks clickable</h2>\n        <!-- needs_review: cursor pointer, no role, no tabindex, no control inside -->\n        <div id=\"po-filter\" class=\"clickable\">Filter results</div>\n        <!-- absent: the card pattern, the link inside is the keyboard route -->\n        <div id=\"po-card\" class=\"card\">\n            <h3><a href=\"/trips/paris\">Paris for families</a></h3>\n            <p>Four days, two museums.</p>\n        </div>\n        <!-- absent: inherits cursor pointer from the reported parent -->\n        <div id=\"po-parent\" class=\"clickable\"><span id=\"po-child\">Sort by price</span></div>\n        <!-- absent: not rendered -->\n        <div id=\"po-hidden\" class=\"clickable\" style=\"display: none\">Hidden filter</div>\n        <!-- absent: a real button with a pointer cursor -->\n        <button id=\"po-button\" type=\"button\" style=\"cursor: pointer\">Search trips</button>\n        <!-- needs_review: looks clickable on the mobile viewport only -->\n        <div id=\"po-mobile\" class=\"mobile-tile\">Nearby offers</div>\n        <!-- needs_review: a script gives it the pointer cursor after load -->\n        <div id=\"po-dynamic\">Recently viewed</div>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n    <script>\n        document.getElementById('ch-dynamic').setAttribute('onclick', \"this.textContent = 'Map'\");\n        document.getElementById('po-dynamic').style.cursor = 'pointer';\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
 }

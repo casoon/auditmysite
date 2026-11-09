@@ -1,37 +1,42 @@
 {
   "id": "headings/none",
   "url": "https://casoon.github.io/auditmysite/rules/headings/none/",
+  "domain": "wcag",
   "title": "Missing bypass navigation",
   "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.1",
   "level": "A",
   "axe_id": "bypass",
-  "dimension": "Accessibility",
-  "subcategory": "Navigation & Operation",
-  "issue_class": "Missing",
   "severity": "high",
   "user_impact": "Keyboard users must tab through the navigation on every page change.",
   "technical_impact": "Missing skip link, missing HTML5 landmarks.",
-  "source": "WCAG 2.2 SC 2.4.1 Bypass Blocks; ACT cf77f2 (Bypass Blocks of Repeated Content); G1, H69, ARIA11",
-  "applicability": "Every top-level document.",
-  "expectation": "SC 2.4.1 is met by any one of headings (H69), a main landmark (ARIA11) or a\nskip link (G1). Fails when none of the three exists and the page marks up a\nnavigation or banner block, the blocks Understanding 2.4.1 names as repeated.\nWithout such a block, whether anything repeats across pages cannot be told\nfrom one document: review. While a modal dialog is open, the mechanisms are\nmissing for the moment of measurement: review. role=\"heading\" and role=\"main\"\ncount like native ones, also inside open shadow roots; a hidden heading\n(hidden attribute) bypasses nothing. One finding at the html element.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "computed_style"
-  ],
-  "page_level": false,
-  "failing": {
-    "case": "structure_bypass_missing",
-    "file": "tests/fixtures/detection_corpus/structure_bypass_missing.html",
-    "verdict": "violation",
-    "selector": "html",
-    "html": "<!DOCTYPE html>\n<html lang=\"en_US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- An old intranet page (#783): no <title> at all, a locale-style lang\n         value (\"en_US\" uses an underscore, which BCP 47 does not allow, so\n         the primary subtag is not \"en\"), and a repeated navigation block with\n         no way to bypass it: no heading, no main landmark, no skip link. -->\n    <nav>\n        <a href=\"/\">Intranet home</a>\n        <a href=\"/staff/\">Staff directory</a>\n        <a href=\"/forms/\">Request forms</a>\n        <a href=\"/help/\">IT help desk</a>\n    </nav>\n    <!-- The only heading is hidden, so it bypasses nothing. -->\n    <h1 hidden>Intranet</h1>\n    <div class=\"content\">\n        <p>Holiday requests for next year are due by the end of the month.</p>\n        <p>Use the staff portal to submit them.</p>\n        <!-- An embedded calendar with its own title: it titles the frame\n             document, not this page. -->\n        <iframe title=\"Staff calendar\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Staff calendar</title></head><body><p>No events today</p></body></html>\"></iframe>\n    </div>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "missing_main_landmark",
-    "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
-    "verdict": "pass",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "headings/none",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.4.1 Bypass Blocks; ACT cf77f2 (Bypass Blocks of Repeated Content); G1, H69, ARIA11",
+      "applicability": "Every top-level document.",
+      "expectation": "SC 2.4.1 is met by any one of headings (H69), a main landmark (ARIA11) or a\nskip link (G1). Fails when none of the three exists and the page marks up a\nnavigation or banner block, the blocks Understanding 2.4.1 names as repeated.\nWithout such a block, whether anything repeats across pages cannot be told\nfrom one document: review. While a modal dialog is open, the mechanisms are\nmissing for the moment of measurement: review. role=\"heading\" and role=\"main\"\ncount like native ones, also inside open shadow roots; a hidden heading\n(hidden attribute) bypasses nothing. One finding at the html element.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "structure_bypass_missing",
+        "file": "tests/fixtures/detection_corpus/structure_bypass_missing.html",
+        "verdict": "violation",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<html lang=\"en_US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- An old intranet page (#783): no <title> at all, a locale-style lang\n         value (\"en_US\" uses an underscore, which BCP 47 does not allow, so\n         the primary subtag is not \"en\"), and a repeated navigation block with\n         no way to bypass it: no heading, no main landmark, no skip link. -->\n    <nav>\n        <a href=\"/\">Intranet home</a>\n        <a href=\"/staff/\">Staff directory</a>\n        <a href=\"/forms/\">Request forms</a>\n        <a href=\"/help/\">IT help desk</a>\n    </nav>\n    <!-- The only heading is hidden, so it bypasses nothing. -->\n    <h1 hidden>Intranet</h1>\n    <div class=\"content\">\n        <p>Holiday requests for next year are due by the end of the month.</p>\n        <p>Use the staff portal to submit them.</p>\n        <!-- An embedded calendar with its own title: it titles the frame\n             document, not this page. -->\n        <iframe title=\"Staff calendar\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Staff calendar</title></head><body><p>No events today</p></body></html>\"></iframe>\n    </div>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "missing_main_landmark",
+        "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
+      }
+    }
+  ]
 }

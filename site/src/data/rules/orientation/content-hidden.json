@@ -1,36 +1,41 @@
 {
   "id": "orientation/content-hidden",
   "url": "https://casoon.github.io/auditmysite/rules/orientation/content-hidden/",
+  "domain": "wcag",
   "title": "Restricted screen orientation",
   "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.4",
   "level": "AA",
   "axe_id": "css-orientation-lock",
-  "dimension": "Accessibility",
-  "subcategory": "Structure & Semantics",
-  "issue_class": "Weak",
   "severity": "high",
   "user_impact": "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
   "technical_impact": "CSS media queries lock the orientation.",
-  "source": "WCAG 2.2 SC 1.3.4 Orientation",
-  "applicability": "Style rules inside an orientation media query that hide (display: none, visibility: hidden) or rotate content, on selectors matching an element of the page.",
-  "expectation": "One page-level review when such a rule exists: content hidden or turned in\none orientation (a timetable hidden in portrait behind a rotate hint, the\nbody rotated in portrait). Re-laying out content (grid columns) is not\nhiding. Pseudo-elements (breakpoint markers) and selectors matching nothing\nare not content. A rotation applied by script through an inline style is not\na stylesheet rule and not this id's (css-orientation-lock measures it).\nReview, not a violation: whether the hidden content is available in the\nother orientation, or the orientation essential, is a human decision.",
-  "method": "shared",
-  "capabilities": [
-    "dom",
-    "stylesheets"
-  ],
-  "page_level": true,
-  "failing": {
-    "case": "visual_orientation_hide",
-    "file": "tests/fixtures/detection_corpus/visual_orientation_hide.html",
-    "verdict": "needs_review",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Timetable hidden in portrait behind a rotate hint</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .rotate-hint { display: none; }\n  @media (orientation: portrait) {\n    .timetable { display: none; }\n    .rotate-hint { display: block; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Regional trains</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Timetable</h1>\n  <p class=\"rotate-hint\">Please turn your device to see the timetable.</p>\n  <div class=\"timetable\">\n    <table>\n      <caption>Departures from Central Station</caption>\n      <tr><th scope=\"col\">Train</th><th scope=\"col\">Time</th></tr>\n      <tr><td>RE 1</td><td>08:15</td></tr>\n    </table>\n  </div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
-  },
-  "passing": {
-    "case": "visual_orientation_ok",
-    "file": "tests/fixtures/detection_corpus/visual_orientation_ok.html",
-    "verdict": "absent",
-    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Layout that adapts to the orientation without hiding content</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  /* A full turn and a plain shift: no rotation remains. */\n  html { transform: rotate(360deg); }\n  body { transform: translateX(0); }\n  .gallery { display: block; }\n  @media (orientation: landscape) {\n    .gallery { display: grid; grid-template-columns: 1fr 1fr; }\n    /* Breakpoint marker on a pseudo-element, and a rule for an element\n       this page does not have: neither hides content here. */\n    body::before { content: \"landscape\"; display: none; }\n    .promo-banner { display: none; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Photo gallery</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Gallery</h1>\n  <div class=\"gallery\">\n    <p>Harbour at dawn</p>\n    <p>Old town square</p>\n  </div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
-  }
+  "checks": [
+    {
+      "contract_id": "orientation/content-hidden",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.3.4 Orientation",
+      "applicability": "Style rules inside an orientation media query that hide (display: none, visibility: hidden) or rotate content, on selectors matching an element of the page.",
+      "expectation": "One page-level review when such a rule exists: content hidden or turned in\none orientation (a timetable hidden in portrait behind a rotate hint, the\nbody rotated in portrait). Re-laying out content (grid columns) is not\nhiding. Pseudo-elements (breakpoint markers) and selectors matching nothing\nare not content. A rotation applied by script through an inline style is not\na stylesheet rule and not this id's (css-orientation-lock measures it).\nReview, not a violation: whether the hidden content is available in the\nother orientation, or the orientation essential, is a human decision.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "stylesheets"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "visual_orientation_hide",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_hide.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Timetable hidden in portrait behind a rotate hint</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .rotate-hint { display: none; }\n  @media (orientation: portrait) {\n    .timetable { display: none; }\n    .rotate-hint { display: block; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Regional trains</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Timetable</h1>\n  <p class=\"rotate-hint\">Please turn your device to see the timetable.</p>\n  <div class=\"timetable\">\n    <table>\n      <caption>Departures from Central Station</caption>\n      <tr><th scope=\"col\">Train</th><th scope=\"col\">Time</th></tr>\n      <tr><td>RE 1</td><td>08:15</td></tr>\n    </table>\n  </div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_orientation_ok",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_ok.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Layout that adapts to the orientation without hiding content</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  /* A full turn and a plain shift: no rotation remains. */\n  html { transform: rotate(360deg); }\n  body { transform: translateX(0); }\n  .gallery { display: block; }\n  @media (orientation: landscape) {\n    .gallery { display: grid; grid-template-columns: 1fr 1fr; }\n    /* Breakpoint marker on a pseudo-element, and a rule for an element\n       this page does not have: neither hides content here. */\n    body::before { content: \"landscape\"; display: none; }\n    .promo-banner { display: none; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Photo gallery</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Gallery</h1>\n  <div class=\"gallery\">\n    <p>Harbour at dawn</p>\n    <p>Old town square</p>\n  </div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
 }
