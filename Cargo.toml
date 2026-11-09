@@ -124,8 +124,8 @@ stylesheet-parse = "0.1.1"
 
 [dev-dependencies]
 tempfile = "3"
-jsonschema = "0.18"
-lopdf = "0.45"
+jsonschema = { version = "0.49", default-features = false }
+lopdf = "0.47"
 insta = { version = "1", features = ["json"] }
 # TLS side of the HTTPS fixture server in tests/common/routing_server.rs
 # (#783). Same version and `ring` provider reqwest's rustls-tls already

@@ -6,7 +6,6 @@
 #![allow(deprecated)]
 
 use chrono::{DateTime, Utc};
-use jsonschema::JSONSchema;
 use std::path::PathBuf;
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport};
@@ -62,12 +61,14 @@ fn load_schema(name: &str) -> serde_json::Value {
 
 fn assert_matches_schema(instance: &serde_json::Value, schema_name: &str) {
     let schema_json = load_schema(schema_name);
-    let compiled = JSONSchema::compile(&schema_json)
+    let compiled = jsonschema::validator_for(&schema_json)
         .unwrap_or_else(|e| panic!("Failed to compile schema {}: {}", schema_name, e));
 
-    let validation = compiled.validate(instance);
-    if let Err(errors) = validation {
-        let messages: Vec<String> = errors.map(|err| err.to_string()).collect();
+    let messages: Vec<String> = compiled
+        .iter_errors(instance)
+        .map(|err| err.to_string())
+        .collect();
+    if !messages.is_empty() {
         panic!(
             "JSON did not match schema {}:\n{}",
             schema_name,

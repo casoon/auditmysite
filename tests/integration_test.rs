@@ -2697,15 +2697,16 @@ fn technician_mode_url_file_run_writes_index_and_findings() {
                 .join("docs")
                 .join(name),
         );
-        jsonschema::JSONSchema::compile(&value).expect("schema compiles")
+        jsonschema::validator_for(&value).expect("schema compiles")
     };
 
     let index = read_json(&out.join("index.json"));
-    if let Err(errors) = schema("technician-index.schema.json").validate(&index) {
-        panic!(
-            "index.json: {:?}",
-            errors.map(|e| e.to_string()).collect::<Vec<_>>()
-        );
+    let errors: Vec<String> = schema("technician-index.schema.json")
+        .iter_errors(&index)
+        .map(|e| e.to_string())
+        .collect();
+    if !errors.is_empty() {
+        panic!("index.json: {errors:?}");
     }
     let pages = index["pages"].as_array().unwrap();
     let urls: Vec<&str> = pages.iter().map(|p| p["url"].as_str().unwrap()).collect();
@@ -2739,11 +2740,12 @@ fn technician_mode_url_file_run_writes_index_and_findings() {
     let mut per_url: std::collections::HashMap<String, u64> = Default::default();
     for line in jsonl.lines() {
         let row: serde_json::Value = serde_json::from_str(line).unwrap();
-        if let Err(errors) = row_schema.validate(&row) {
-            panic!(
-                "{line}: {:?}",
-                errors.map(|e| e.to_string()).collect::<Vec<_>>()
-            );
+        let errors: Vec<String> = row_schema
+            .iter_errors(&row)
+            .map(|e| e.to_string())
+            .collect();
+        if !errors.is_empty() {
+            panic!("{line}: {errors:?}");
         }
         *per_url
             .entry(row["url"].as_str().unwrap().to_string())
