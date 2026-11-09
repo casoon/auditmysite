@@ -184,19 +184,7 @@ async fn capture_object(page: &Page, object_id: RemoteObjectId) -> Option<Vec<u8
     // Scroll the element into view, read its rect + the viewport size, save
     // the previous inline outline (to restore later), and apply the
     // highlight — all in one round trip.
-    let setup_js = r#"function() {
-        this.scrollIntoView({block: 'center', inline: 'center'});
-        const r = this.getBoundingClientRect();
-        const prevOutline = this.style.outline;
-        const prevOutlineOffset = this.style.outlineOffset;
-        this.style.outline = '2px solid #C0392B';
-        this.style.outlineOffset = '2px';
-        return {
-            x: r.x, y: r.y, width: r.width, height: r.height,
-            vw: window.innerWidth || 1280, vh: window.innerHeight || 800,
-            prevOutline: prevOutline, prevOutlineOffset: prevOutlineOffset
-        };
-    }"#;
+    let setup_js = include_str!("js/element_capture_setup.js");
 
     let call = CallFunctionOnParams::builder()
         .function_declaration(setup_js)

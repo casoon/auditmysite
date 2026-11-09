@@ -1042,74 +1042,14 @@ impl LayoutStyles {
 /// etwa einem Cookie-Banner (#716 Fall 7). `elementFromPoint` an der Mitte,
 /// durch offene Shadow Roots hinab wie in der lokalen Kontrastregel; ein
 /// Element mit `pointer-events: none` trifft es nicht.
-const OBSCURED_JS: &str = r#"
-(() => {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const parentOf = (n) => n.assignedSlot || n.parentElement ||
-    ((n.getRootNode && n.getRootNode().host) || null);
-  const within = (outer, n) => {
-    for (; n; n = parentOf(n)) if (n === outer) return true;
-    return false;
-  };
-  const topmostAt = (x, y) => {
-    let top = document.elementFromPoint(x, y);
-    while (top && top.shadowRoot) {
-      const inner = top.shadowRoot.elementFromPoint(x, y);
-      if (!inner || inner === top) break;
-      top = inner;
-    }
-    return top;
-  };
-  const coverOf = (n) => {
-    for (; n && n.nodeType === 1; n = parentOf(n)) {
-      const p = getComputedStyle(n).position;
-      if (p === 'fixed' || p === 'sticky') return n;
-    }
-    return null;
-  };
-  const ownText = (el) => Array.prototype.some.call(el.childNodes,
-    (c) => c.nodeType === 3 && c.nodeValue.trim() !== '');
-  const out = [];
-  const roots = [document.documentElement];
-  while (roots.length > 0) {
-    const walker = document.createTreeWalker(roots.pop(), NodeFilter.SHOW_ELEMENT);
-    for (let el = walker.currentNode; el; el = walker.nextNode()) {
-      if (el.nodeType !== 1) continue;
-      if (el.shadowRoot) roots.push(el.shadowRoot);
-      if (!ownText(el)) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      const x = r.left + r.width / 2, y = r.top + r.height / 2;
-      if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
-      const hit = topmostAt(x, y);
-      if (!hit || within(el, hit) || within(hit, el)) continue;
-      const cover = coverOf(hit);
-      if (cover && !within(cover, el)) out.push(el);
-    }
-  }
-  return out;
-})()
-"#;
+const OBSCURED_JS: &str = include_str!("js/obscured.js");
 
 /// Elemente, auf denen eine *endliche* Animation oder ein Übergang noch läuft
 /// (`document.getAnimations()`, `playState` `running`, endliches `endTime`) —
 /// ihre Größe ist noch nicht die endgültige (#706). Endlose Animationen
 /// zählen nicht, sie kommen nie zur Ruhe. Höchstens 200, die Zahl der
 /// `describeNode`-Aufrufe bleibt begrenzt.
-const ANIMATING_JS: &str = r#"
-(() => {
-  const out = [];
-  const anims = typeof document.getAnimations === 'function' ? document.getAnimations() : [];
-  for (const a of anims) {
-    if (out.length >= 200) break;
-    if (a.playState !== 'running' || !a.effect || !a.effect.target) continue;
-    if (!isFinite(a.effect.getComputedTiming().endTime)) continue;
-    const t = a.effect.target;
-    if (t.nodeType === 1 && !out.includes(t)) out.push(t);
-  }
-  return out;
-})()
-"#;
+const ANIMATING_JS: &str = include_str!("js/animating.js");
 
 /// Backend-IDs der Elemente, die `expression` als Array liefert: ein
 /// Skriptaufruf, ein Aufruf für die Liste, dann je Element ein
@@ -1258,51 +1198,7 @@ const SAMPLES_PER_ELEMENT: usize = 2500;
 /// Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
 /// Glyphenpixel liegen mit in der Stichprobe; die Regel urteilt deshalb über
 /// Median und 40. Perzentil.
-const SAMPLE_JS: &str = r#"
-(async () => {
-  const tasks = __TASKS__;
-  const img = new Image();
-  // Laedt das Foto nie (weder `load` noch `error`), bricht das Skript
-  // selbst ab, statt die Auswertung haengen zu lassen.
-  await Promise.race([
-    new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = () => reject(new Error('screenshot not loadable'));
-      img.src = 'data:image/png;base64,__DATA__';
-    }),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('screenshot load timed out')), __LOAD_MS__)),
-  ]);
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0);
-  // Die Aufgaben stehen relativ zum Zuschnitt; das Foto hat dessen Breite in
-  // CSS-Pixeln, bis auf Rundung.
-  const scale = img.width / __CLIP_W__;
-  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-  const out = {};
-  for (const t of tasks) {
-    const x = Math.round(t.x * scale), y = Math.round(t.y * scale);
-    const w = Math.round(t.w * scale), h = Math.round(t.h * scale);
-    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > img.width || y + h > img.height) continue;
-    const px = ctx.getImageData(x, y, w, h).data;
-    const step = Math.max(1, Math.ceil(Math.sqrt(w * h / __PER__)));
-    const lum = [];
-    for (let j = 0; j < h; j += step) {
-      for (let i = 0; i < w; i += step) {
-        const k = (j * w + i) * 4;
-        const a = px[k + 3] / 255;
-        const c = (v) => lin(v * a + 255 * (1 - a));
-        lum.push(Math.round((0.2126 * c(px[k]) + 0.7152 * c(px[k + 1]) + 0.0722 * c(px[k + 2])) * 1e4) / 1e4);
-      }
-    }
-    out[t.id] = lum;
-  }
-  return out;
-})()
-"#;
+const SAMPLE_JS: &str = include_str!("js/backdrop_sample.js");
 
 /// Die Kandidaten für [`SAMPLE_JS`]: Elemente mit eigenem Text im
 /// Hauptdokument, dargestellt, mit Textfarbe, aber ohne bestimmbaren
@@ -1357,6 +1253,17 @@ fn clip_around(candidates: &[(i64, Rect)]) -> Rect {
     }
 }
 
+/// [`SAMPLE_JS`] mit eingesetzten Platzhaltern: Aufgaben, Abtastungen je
+/// Element, Ladefrist, Breite des Ausschnitts und das Bild (base64).
+fn backdrop_sample_script(tasks: Vec<serde_json::Value>, clip_width: f32, data: &str) -> String {
+    SAMPLE_JS
+        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
+        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
+        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
+        .replace("__CLIP_W__", &clip_width.to_string())
+        .replace("__DATA__", data)
+}
+
 /// Siehe [`SAMPLE_JS`]. Ohne Kandidaten kein Bildschirmfoto.
 async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<i64, Vec<f64>>> {
     let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
@@ -1407,12 +1314,7 @@ async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<
             })
         })
         .collect();
-    let js = SAMPLE_JS
-        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
-        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
-        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
-        .replace("__CLIP_W__", &clip.width.to_string())
-        .replace("__DATA__", shot.result.data.as_ref());
+    let js = backdrop_sample_script(tasks, clip.width, shot.result.data.as_ref());
     let sampled: HashMap<String, Vec<f64>> = page
         .evaluate(js.as_str())
         .await
@@ -1926,35 +1828,7 @@ pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
 /// Der Text jedes lesbaren Stylesheets der Seite, in Dokumentreihenfolge
 /// (`document.styleSheets`). Ein fremdes Sheet ohne lesbare `cssRules` fehlt
 /// -- wie in den früheren JavaScript-Regeln, die dieselbe Liste lasen.
-const STYLESHEETS_JS: &str = r#"
-(function() {
-  // Rules inside `@media` blocks that match the current viewport, appended as
-  // plain rules: the shared stylesheet rules know no viewport, so they would
-  // miss a declaration that only applies at this width (#783). The blocks
-  // themselves stay, for rules that read the condition (reduced motion).
-  function matched(rules, out, inMatch) {
-    for (var j = 0; j < rules.length; j++) {
-      var r = rules[j];
-      if (typeof CSSMediaRule !== 'undefined' && r instanceof CSSMediaRule) {
-        var cond = r.conditionText || (r.media && r.media.mediaText) || '';
-        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);
-      } else if (inMatch) {
-        out.push(r.cssText);
-      }
-    }
-  }
-  var out = [];
-  for (var i = 0; i < document.styleSheets.length; i++) {
-    var rules;
-    try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
-    if (!rules) continue;
-    var extra = [];
-    matched(rules, extra, false);
-    out.push(Array.from(rules).map(function (r) { return r.cssText; }).concat(extra).join('\n'));
-  }
-  return out;
-})()
-"#;
+const STYLESHEETS_JS: &str = include_str!("js/stylesheets.js");
 
 /// Holt und parst die Stylesheets der Seite für die geteilten Regeln über
 /// Stylesheets (`a11y_rules::run_stylesheets`).
@@ -2489,6 +2363,36 @@ mod tests {
     fn abtastskript_hat_eine_ladezeitgrenze() {
         assert!(SAMPLE_JS.contains("Promise.race") && SAMPLE_JS.contains("__LOAD_MS__"));
         assert!(SAMPLE_LOAD_TIMEOUT_MS < SAMPLE_TIMEOUT.as_millis() as u64);
+    }
+
+    /// Jeder Platzhalter von `js/backdrop_sample.js` wird ersetzt.
+    #[test]
+    fn abtastskript_setzt_alle_platzhalter_ein() {
+        let tasks = vec![serde_json::json!({ "id": "7", "x": 1, "y": 2, "w": 3, "h": 4 })];
+        let js = backdrop_sample_script(tasks, 640.0, "QUJD");
+        assert!(
+            js.contains(r#"const tasks = [{"h":4,"id":"7","w":3,"x":1,"y":2}];"#),
+            "{js}"
+        );
+        assert!(js.contains("data:image/png;base64,QUJD"));
+        assert!(
+            js.contains(&format!("timed out')), {SAMPLE_LOAD_TIMEOUT_MS})")),
+            "{js}"
+        );
+        assert!(js.contains("img.width / 640;"), "{js}");
+        assert!(
+            js.contains(&format!("w * h / {SAMPLES_PER_ELEMENT})")),
+            "{js}"
+        );
+        for placeholder in [
+            "__TASKS__",
+            "__PER__",
+            "__LOAD_MS__",
+            "__CLIP_W__",
+            "__DATA__",
+        ] {
+            assert!(!js.contains(placeholder), "{placeholder} bleibt stehen");
+        }
     }
 
     #[test]
