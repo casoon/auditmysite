@@ -932,7 +932,7 @@ mod tests {
     #[test]
     fn marker_script_fills_the_excluded_placeholder() {
         let js = marker_script(&strings(&["[data-a]", "#b"]));
-        assert!(js.ends_with(r#"})(["[data-a]","#b"])"#), "{js}");
+        assert!(js.ends_with(r##"})(["[data-a]","#b"])"##), "{js}");
         assert!(!js.contains("__EXCLUDED__"));
     }
 

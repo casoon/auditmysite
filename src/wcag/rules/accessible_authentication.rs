@@ -105,3 +105,21 @@ pub async fn check_accessible_authentication_with_page(page: &Page) -> Vec<Viola
 
     violations
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn script_gets_the_cap_and_the_shared_helpers() {
+        let js = ACCESSIBLE_AUTH_JS
+            .replace(
+                "/*CSS_SELECTOR*/",
+                crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+            )
+            .replace("/*MAX_FINDINGS*/", &MAX_FINDINGS.to_string());
+        assert!(js.contains(&format!("kind: kindOf(f) }}, {MAX_FINDINGS});")));
+        assert!(js.contains("function __amsPush("));
+        assert!(!js.contains("/*MAX_FINDINGS*/") && !js.contains("/*CSS_SELECTOR*/"));
+    }
+}

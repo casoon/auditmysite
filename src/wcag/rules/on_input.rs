@@ -214,6 +214,17 @@ mod tests {
     use super::*;
     use crate::wcag::types::Outcome;
 
+    /// The bare word `CAP` in `js/on_input_body.js` is the cap placeholder.
+    #[test]
+    fn body_script_gets_the_cap_in_all_three_places() {
+        let js = ON_INPUT_BODY.replace("CAP", &ON_INPUT_CAP.to_string());
+        assert_eq!(ON_INPUT_BODY.matches("CAP").count(), 3);
+        assert!(!js.contains("CAP"));
+        assert!(js.contains(&format!("buttonNames.length < {ON_INPUT_CAP}")));
+        assert!(js.contains(&format!("__amsReal(controls) < {ON_INPUT_CAP}")));
+        assert!(js.contains(&format!("}}, {ON_INPUT_CAP});")));
+    }
+
     fn control(name: &str, handler: Option<&str>, called: Option<&str>) -> Control {
         Control {
             role: "select".to_string(),
