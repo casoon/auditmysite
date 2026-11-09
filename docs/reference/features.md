@@ -12,7 +12,7 @@ Core rules:
 - Bypass blocks (2.4.1)
 - Language of page (3.1.1)
 - Name, role, value / form labeling (4.1.2)
-- Contrast minimum (1.4.3) and non-text contrast (1.4.11)
+- Contrast minimum (1.4.3) and non-text contrast (1.4.11); when the page declares a dark colour scheme (`@media (prefers-color-scheme: dark)`, `color-scheme` naming `dark`), the contrast rules run a second time under dark emulation and report under the same rule ids with the evidence attribute `color_scheme: dark` (top document, confirmed failures only)
 - Headings and labels (2.4.6)
 - Labels or instructions (3.3.2)
 - Focus order (2.4.3), focus visible (2.4.7), and focus not obscured, minimum/enhanced (2.4.11/2.4.12, WCAG 2.2)
@@ -54,7 +54,7 @@ AAA is not fully implemented yet.
 
 ## Additional modules
 
-Modules are classified by how their result is obtained: **compliance** (Accessibility), **measured** (based on real browser data), **composite** (the search-experience roll-up, which blends measured SEO with heuristic sub-scores), **heuristic** (structural-signal estimates, marked with `~` in reports), and **optional** (Dark Mode — reported as a design choice, not a compliance gap).
+Modules are classified by how their result is obtained: **compliance** (Accessibility), **measured** (based on real browser data), **composite** (the search-experience roll-up, which blends measured SEO with heuristic sub-scores), **heuristic** (structural-signal estimates, marked with `~` in reports).
 
 Measured:
 - Performance: Core Web Vitals (FCP, LCP, TBT, CLS), throttled profiles, DOM/load targets, render-blocking and third-party resources, critical request chains, unused code, minification potential, JavaScript heap, and modeled transfer emissions
@@ -69,7 +69,6 @@ Heuristic (indicator scores — tendency, not measurements). In 2.0 none of thes
 - Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
 - AI Visibility: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality). Unvalidated: the score is not evidence of AI citation, visibility or content quality
 - Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
-- Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals only (read-only, score-neutral, no request of its own to the audited host); it reports what was detected and the exposed version, not hardening findings
 - Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.

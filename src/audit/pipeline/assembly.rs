@@ -133,6 +133,13 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
                     v.name.as_deref().unwrap_or("")
                 )
             });
+        // The dark colour-scheme pass reports the same rule on the same
+        // element as the light render; they are two findings (#917).
+        let id = if v.is_dark_color_scheme() {
+            format!("{id}|dark")
+        } else {
+            id
+        };
         (v.rule_id.as_deref().unwrap_or(&v.rule), id)
     }
 
@@ -345,9 +352,6 @@ pub(super) fn aggregate_report(
     }
     if let Some(journey) = snapshot.journey.clone() {
         report = report.with_journey(journey);
-    }
-    if let Some(dark_mode) = snapshot.dark_mode.clone() {
-        report = report.with_dark_mode(dark_mode);
     }
     if let Some(html_conform) = snapshot.html_conform.clone() {
         report = report.with_html_conform(html_conform);

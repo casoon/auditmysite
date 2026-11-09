@@ -314,7 +314,7 @@ pub struct ModuleScore {
     pub name: String,
     pub score: u32,
     /// Free-form convention shared with `audit::normalized::ModuleScoreEntry`:
-    /// `"measured"`, `"composite"`, `"heuristic"`, `"optional"`,
+    /// `"measured"`, `"composite"`, `"heuristic"`,
     /// `"not_measured"`, or a module-specific detection method. See
     /// [`ModuleTaxonomyClass`] for the coarse classification derived from this
     /// value.
@@ -331,8 +331,7 @@ pub struct ModuleScore {
 ///
 /// The report mixes genuinely different kinds of measurement in one score
 /// grid — WCAG compliance findings, directly measured metrics, a
-/// presentation-level composite, heuristic estimates, and optional/
-/// non-normative product features. This taxonomy makes that distinction
+/// presentation-level composite, heuristic estimates. This taxonomy makes that distinction
 /// explicit so render surfaces can qualify non-normative scores instead of
 /// presenting them with the same visual weight as a compliance/measured one.
 ///
@@ -340,7 +339,7 @@ pub struct ModuleScore {
 /// rather than a replacement of that field's type: `measurement_type` has
 /// ~30 read/write sites across `audit::normalized`, the PDF builder, and
 /// JSON tests. Widening its string convention with one new value
-/// (`"optional"`) plus this pure classifier is additive; migrating every
+/// plus this pure classifier is additive; migrating every
 /// call site to a typed field is a disproportionate refactor for this scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleTaxonomyClass {
@@ -357,9 +356,6 @@ pub enum ModuleTaxonomyClass {
     /// Automated estimate, not a hard measurement (UX, Journey, AI
     /// Visibility, Source Quality, Content Visibility).
     Heuristic,
-    /// Optional/non-normative product feature — its absence is a product
-    /// choice, not a compliance deficiency (Dark Mode).
-    Optional,
 }
 
 impl ModuleTaxonomyClass {
@@ -373,7 +369,6 @@ impl ModuleTaxonomyClass {
     pub fn from_measurement_type(measurement_type: &str, module_name: &str) -> Self {
         match measurement_type {
             "heuristic" => ModuleTaxonomyClass::Heuristic,
-            "optional" => ModuleTaxonomyClass::Optional,
             "composite" => ModuleTaxonomyClass::Composite,
             _ if module_name.eq_ignore_ascii_case("Accessibility") => {
                 ModuleTaxonomyClass::Compliance
@@ -387,10 +382,7 @@ impl ModuleTaxonomyClass {
     /// weight as a Compliance/Measured module (cover gauges, dashboard
     /// cards, technical modules overview).
     pub fn needs_suffix_qualifier(self) -> bool {
-        matches!(
-            self,
-            ModuleTaxonomyClass::Heuristic | ModuleTaxonomyClass::Optional
-        )
+        matches!(self, ModuleTaxonomyClass::Heuristic)
     }
 }
 
@@ -423,14 +415,6 @@ mod taxonomy_tests {
     }
 
     #[test]
-    fn classifies_dark_mode_as_optional() {
-        assert_eq!(
-            ModuleTaxonomyClass::from_measurement_type("optional", "Dark Mode"),
-            ModuleTaxonomyClass::Optional
-        );
-    }
-
-    #[test]
     fn classifies_search_experience_as_composite() {
         assert_eq!(
             ModuleTaxonomyClass::from_measurement_type("composite", "Search Experience"),
@@ -439,9 +423,8 @@ mod taxonomy_tests {
     }
 
     #[test]
-    fn only_heuristic_and_optional_need_a_suffix_qualifier() {
+    fn only_heuristic_needs_a_suffix_qualifier() {
         assert!(ModuleTaxonomyClass::Heuristic.needs_suffix_qualifier());
-        assert!(ModuleTaxonomyClass::Optional.needs_suffix_qualifier());
         assert!(!ModuleTaxonomyClass::Compliance.needs_suffix_qualifier());
         assert!(!ModuleTaxonomyClass::Measured.needs_suffix_qualifier());
         assert!(!ModuleTaxonomyClass::Composite.needs_suffix_qualifier());
@@ -477,14 +460,14 @@ pub struct FindingSeverityTier {
 pub enum CriticalityTier {
     /// Level 1 — must be fixed: WCAG A/AA violations with BFSG relevance.
     Mandatory,
-    /// Level 2 — should/can be fixed: SEO, AI visibility, dark mode, UX heuristics, WCAG AAA.
+    /// Level 2 — should/can be fixed: SEO, AI visibility, UX heuristics, WCAG AAA.
     Optimization,
 }
 
 /// Decide the criticality tier of a finding for the BFSG-vs-Optimierung split (#245).
 ///
 /// Mandatory tier covers WCAG Level A/AA violations (legal/BFSG risk). Everything
-/// else (SEO, AI visibility, dark mode, WCAG AAA, …) is classified as Optimization.
+/// else (SEO, AI visibility, WCAG AAA, …) is classified as Optimization.
 pub fn classify_criticality_tier(category: &str, wcag_level: &str) -> CriticalityTier {
     if crate::audit::prioritization::is_mandatory(category, wcag_level) {
         CriticalityTier::Mandatory
@@ -567,7 +550,6 @@ pub struct ModuleDetailsBlock {
     pub mobile: Option<MobilePresentation>,
     pub ux: Option<UxPresentation>,
     pub journey: Option<JourneyPresentation>,
-    pub dark_mode: Option<DarkModePresentation>,
     pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
@@ -592,30 +574,6 @@ pub struct SearchExperienceComponent {
     pub score: u32,
     pub weight_pct: u32,
     pub explanation: String,
-}
-
-/// Dark mode analysis presentation block
-pub struct DarkModePresentation {
-    pub supported: bool,
-    pub score: u32,
-    pub detection_methods: Vec<String>,
-    pub color_scheme_css: bool,
-    pub meta_color_scheme: Option<String>,
-    pub css_custom_properties: u32,
-    pub dark_contrast_violations: u32,
-    pub dark_only_violations: u32,
-    pub light_only_violations: u32,
-    pub print_stylesheet_detected: bool,
-    pub print_interactive_chrome_hidden: bool,
-    pub print_content_not_clipped: bool,
-    pub print_clipped_elements: u32,
-    pub forced_colors_detected: bool,
-    pub forced_colors_active_matches: bool,
-    pub forced_color_adjust_count: u32,
-    pub forced_colors_focus_visible: bool,
-    pub vision_deficiency_modes: Vec<VisionDeficiencyModePresentation>,
-    /// (severity, description) pairs for issues
-    pub issues: Vec<(String, String)>,
 }
 
 pub struct VisionDeficiencyModePresentation {

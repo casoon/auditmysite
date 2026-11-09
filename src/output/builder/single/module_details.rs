@@ -7,7 +7,6 @@ use crate::output::report_model::ModuleDetailsBlock;
 use crate::output::search_experience::build_search_experience;
 
 mod commerce;
-mod dark_mode;
 mod experience;
 mod html_conform;
 mod performance;
@@ -15,7 +14,6 @@ mod platform;
 mod seo;
 
 use commerce::build_commerce_details;
-use dark_mode::build_dark_mode_details;
 use experience::{build_journey_details, build_ux_details};
 use html_conform::build_html_conform_details;
 use performance::build_performance_details;
@@ -45,7 +43,6 @@ pub(super) fn build_module_details_from_normalized(
     let html_conform = build_html_conform_details(normalized, i18n);
     let commerce = build_commerce_details(normalized, i18n);
     let mobile = build_mobile_details(normalized, i18n);
-    let dark_mode = build_dark_mode_details(normalized, i18n);
     let ux = build_ux_details(normalized, i18n);
     let journey = build_journey_details(normalized, i18n);
 
@@ -67,7 +64,6 @@ pub(super) fn build_module_details_from_normalized(
         || mobile.is_some()
         || ux.is_some()
         || journey.is_some()
-        || dark_mode.is_some()
         || privacy.is_some()
         || source_quality.is_some()
         || ai_visibility.is_some()
@@ -86,7 +82,6 @@ pub(super) fn build_module_details_from_normalized(
         mobile,
         ux,
         journey,
-        dark_mode,
         privacy,
         source_quality,
         ai_visibility,
@@ -114,7 +109,6 @@ pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str>
         "mobile",
         "ux",
         "journey",
-        "dark_mode",
         "privacy",
         "source_quality",
         "ai_visibility",

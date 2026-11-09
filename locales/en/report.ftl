@@ -308,7 +308,6 @@ section-seo-content-profile = SEO content profile
 section-security = Security
 section-html-conform = HTML Conformance
 section-mobile-usability = Mobile usability
-section-dark-mode = Dark mode
 section-content-sections = Content sections
 section-detected-entities = Detected entities
 section-ux = User Experience
@@ -339,9 +338,6 @@ batch-panel-module-averages = Module averages (avg. across all URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
 label-heuristic-indicator = Heuristic estimate based on structural signals, not externally validated
-
-# Optional/non-normative feature (Dark Mode, #577)
-label-optional-feature = Optional feature
 
 # Performance section
 perf-score-card = Performance score
@@ -820,41 +816,8 @@ pdf-journey-more-issues =
         [one] issue
        *[other] issues
     } in the detailed appendix.
-pdf-dm-status-supported = Supported
-pdf-dm-status-not-supported = Not supported
-pdf-dm-optional-note = Dark mode is an optional product feature, not a WCAG conformance criterion — the score on the left describes the detected implementation depth, not a pass/fail assessment.
-pdf-dm-score-title = Dark mode score
-pdf-dm-methods = Methods
-pdf-dm-css-variables = CSS variables
-pdf-dm-overview-title = Dark mode overview
-pdf-dm-support = Support
-pdf-dm-methods-impl = Implementation methods
 pdf-dm-yes = Yes
 pdf-dm-no = No
-pdf-dm-css-custom-props = CSS custom properties (colors)
-pdf-dm-contrast-violations = Contrast violations in dark mode
-pdf-dm-only-issues = Dark-mode-only issues
-pdf-dm-only-issues-val = { $count } (not in light mode)
-pdf-dm-resolved-issues = Resolved in dark mode
-pdf-dm-resolved-issues-val = { $count } light-mode { $count ->
-        [one] issue disappears
-       *[other] issues disappear
-    } in dark mode
-pdf-dm-issue-title = Dark mode issue
-pdf-dm-note-title = Dark mode note
-pdf-dm-print = Print
-pdf-dm-print-stylesheet = Print stylesheet
-pdf-dm-print-chrome-hidden = Interactive page chrome hidden in print
-pdf-dm-print-clipped-elements = Potentially clipped print elements
-pdf-dm-forced-colors = Forced colors
-pdf-dm-forced-colors-active = Emulation active
-pdf-dm-forced-color-adjust = forced-color-adjust elements
-pdf-dm-forced-focus-visible = Focus/controls visible
-pdf-dm-vision-title = Color vision emulation
-pdf-dm-vision-mode = Mode
-pdf-dm-vision-contrast = Contrast issues
-pdf-dm-vision-new = New issues
-pdf-dm-vision-use-color = Use-of-color issues
 pdf-sq-section-title = Technical preparation for machine processing
 pdf-sq-overview-title = What this indicator measures
 pdf-sq-success = All scored signals of the technical preparation are met.
@@ -1100,7 +1063,6 @@ module-mobile = Mobile
 module-ux = UX
 module-journey = Journey
 module-best-practices = Best Practices
-module-dark-mode = Dark Mode
 module-ai-visibility = AI Visibility
 module-source-quality = Technical preparation
 module-tech-stack = Tech Stack

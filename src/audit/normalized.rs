@@ -17,7 +17,6 @@ use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
 use crate::audit::risk_assessment::compute_risk_assessment;
 use crate::audit::scoring::{AccessibilityScorer, PrincipleCoverage};
 use crate::cli::WcagLevel;
-use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
@@ -165,7 +164,6 @@ pub struct AuditContext<'a> {
     pub raw_mobile: Option<&'a MobileFriendliness>,
     pub raw_ux: Option<&'a crate::ux::UxAnalysis>,
     pub raw_journey: Option<&'a crate::journey::JourneyAnalysis>,
-    pub raw_dark_mode: Option<&'a DarkModeAnalysis>,
     pub raw_privacy: Option<&'a crate::privacy::PrivacyAnalysis>,
     pub raw_source_quality: Option<&'a crate::source_quality::SourceQualityAnalysis>,
     pub raw_ai_visibility: Option<&'a crate::ai_visibility::AiVisibilityAnalysis>,
@@ -558,7 +556,7 @@ pub struct ModuleScoreEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub derived_from: Vec<String>,
     /// Whether this module uses direct measurement or heuristic inference.
-    /// One of `"measured"`, `"composite"`, `"heuristic"`, `"optional"`,
+    /// One of `"measured"`, `"composite"`, `"heuristic"`,
     /// `"not_measured"`. See
     /// `output::report_model::ModuleTaxonomyClass` for the coarse
     /// classification derived from this value (#577).
@@ -902,7 +900,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .iter()
                 .filter(|v| {
                     let key = v.selector.as_deref().unwrap_or(&v.node_id);
-                    seen_selectors.insert(key.to_string())
+                    seen_selectors.insert((key.to_string(), v.is_dark_color_scheme()))
                 })
                 .take(MAX_OCCURRENCES)
                 .map(|v| OccurrenceDetail {
@@ -1725,7 +1723,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_mobile: report.experience.mobile.as_ref(),
         raw_ux: report.ux.as_ref(),
         raw_journey: report.journey.as_ref(),
-        raw_dark_mode: report.experience.dark_mode.as_ref(),
         raw_privacy: report.experience.privacy.as_ref(),
         raw_source_quality: report.discoverability.source_quality.as_ref(),
         raw_ai_visibility: report.discoverability.ai_visibility.as_ref(),
@@ -3063,27 +3060,6 @@ mod tests {
                     }),
                     Some("Performance"),
                 ),
-                "dark_mode" => (
-                    base().with_dark_mode(crate::dark_mode::DarkModeAnalysis {
-                        supported: true,
-                        class_based_dark_mode: false,
-                        score: 40,
-                        detection_methods: vec![],
-                        color_scheme_css: false,
-                        meta_color_scheme: None,
-                        meta_theme_color_dark: false,
-                        css_custom_properties: 0,
-                        dark_contrast_violations: 0,
-                        light_only_violations: 0,
-                        dark_only_violations: 0,
-                        contrast_violations: vec![],
-                        print: Default::default(),
-                        forced_colors: Default::default(),
-                        vision_deficiency: Default::default(),
-                        issues: vec![],
-                    }),
-                    Some("Dark Mode"),
-                ),
                 "html_conform" => (
                     base().with_html_conform(crate::html_conform::HtmlConformAnalysis {
                         score: 40,
@@ -3192,7 +3168,6 @@ mod tests {
             "security",
             "mobile",
             "performance",
-            "dark_mode",
             "html_conform",
             "best_practices",
         ] {

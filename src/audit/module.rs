@@ -24,7 +24,6 @@ use crate::audit::pipeline::PipelineConfig;
 use crate::audit::report::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
-use crate::dark_mode::DarkModeAnalysis;
 use crate::error::Result;
 use crate::html_conform::HtmlConformAnalysis;
 use crate::journey::JourneyAnalysis;
@@ -77,7 +76,6 @@ pub enum ModuleData {
     Mobile(Box<MobileFriendliness>),
     Ux(Box<UxAnalysis>),
     Journey(Box<JourneyAnalysis>),
-    DarkMode(Box<DarkModeAnalysis>),
     TechStack(Box<TechStackAnalysis>),
     BestPractices(Box<BestPracticesAnalysis>),
     SourceQuality(Box<SourceQualityAnalysis>),

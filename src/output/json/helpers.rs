@@ -677,17 +677,6 @@ pub(super) fn with_normalized_score(
     value
 }
 
-/// Qualitative band for a module that carries no weight in the overall score
-/// and therefore no letter grade (plan 29, D2). Canonical English (#406).
-pub(super) fn inject_band(mut value: serde_json::Value, score: u32) -> serde_json::Value {
-    let band = crate::registry::FIVE_BAND.label(score as f32, true);
-    if let Some(obj) = value.as_object_mut() {
-        obj.remove("grade");
-        obj.insert("band".to_string(), serde_json::json!(band));
-    }
-    value
-}
-
 pub(super) fn inject_unused_js_bytes(
     mut value: serde_json::Value,
     raw: &crate::audit::PerformanceResults,

@@ -52,7 +52,6 @@ use crate::browser::{
     BrowserManager,
 };
 use crate::cli::{Args, WcagLevel};
-use crate::dark_mode::DarkModeAnalysis;
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
@@ -238,7 +237,6 @@ pub struct SnapshotData {
     mobile: Option<MobileFriendliness>,
     ux: Option<UxAnalysis>,
     journey: Option<JourneyAnalysis>,
-    dark_mode: Option<DarkModeAnalysis>,
     html_conform: Option<crate::html_conform::HtmlConformAnalysis>,
     tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     best_practices: Option<BestPracticesAnalysis>,
@@ -291,7 +289,6 @@ impl SnapshotData {
             ModuleData::Mobile(m) => self.mobile = Some(*m),
             ModuleData::Ux(u) => self.ux = Some(*u),
             ModuleData::Journey(j) => self.journey = Some(*j),
-            ModuleData::DarkMode(d) => self.dark_mode = Some(*d),
             ModuleData::HtmlConform(h) => self.html_conform = Some(*h),
             ModuleData::TechStack(t) => self.tech_stack = Some(*t),
             ModuleData::BestPractices(b) => self.best_practices = Some(*b),
@@ -347,8 +344,6 @@ pub struct PipelineConfig {
     pub check_security: bool,
     /// Run mobile friendliness analysis
     pub check_mobile: bool,
-    /// Run dark-mode analysis
-    pub check_dark_mode: bool,
     /// Run HTML5 spec-conformance checking (html-conform crate). Part of
     /// `--full`, no dedicated CLI flag.
     pub check_html_conform: bool,
@@ -478,13 +473,14 @@ impl PipelineConfig {
         // 28 for the privacy module field (#871).
         // 29 for the removal of the design_quality, ai_transparency and
         // network_dns module fields (#915).
-        const CACHE_FMT: u8 = 29;
+        // 30 for the removal of the dark_mode module field (#917).
+        const CACHE_FMT: u8 = 30;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -492,7 +488,6 @@ impl PipelineConfig {
             self.check_seo as u8,
             self.check_security as u8,
             self.check_mobile as u8,
-            self.check_dark_mode as u8,
             self.check_html_conform as u8,
             self.check_privacy as u8,
             self.check_isolate_third_party_impact as u8,
@@ -527,8 +522,7 @@ impl PipelineConfig {
     /// Return a viewport-specific copy with the correct module on/off pattern.
     ///
     /// Desktop: SEO, security, mobile, privacy and stack detection are off (run on mobile pass).
-    ///          Dark-mode analysis keeps the configured value.
-    /// Mobile:  Security, dark-mode and privacy are off.  All other user flags are respected.
+    /// Mobile:  Security and privacy are off.  All other user flags are respected.
     ///          The privacy capture runs once per page in the extra checks.
     pub fn for_viewport(&self, viewport: Viewport) -> Self {
         match viewport {
@@ -544,7 +538,6 @@ impl PipelineConfig {
             },
             Viewport::Mobile => Self {
                 check_security: false,
-                check_dark_mode: false,
                 check_privacy: false,
                 ..self.clone()
             },
@@ -587,7 +580,6 @@ impl PipelineConfig {
             check_seo: full_audit || args.seo,
             check_security: full_audit || args.security,
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
-            check_dark_mode: true,
             check_html_conform: full_audit || args.html_conform,
             check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
@@ -1214,7 +1206,6 @@ pub async fn audit_page(
         mobile: mobile_snap.mobile.clone(),
         ux: mobile_snap.ux.clone(),
         journey: mobile_snap.journey.clone(),
-        dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
         html_conform: mobile_snap.html_conform.clone(),
         tech_stack: mobile_snap.tech_stack.clone(),
         best_practices: mobile_snap.best_practices.clone(),
@@ -1752,7 +1743,6 @@ async fn extract_snapshot(
         mobile: None,
         ux: None,
         journey: None,
-        dark_mode: None,
         html_conform: None,
         tech_stack: None,
         best_practices: None,
@@ -2088,6 +2078,20 @@ async fn run_rules(
         .await;
     }
 
+    // The contrast rules once more under `prefers-color-scheme: dark`, when
+    // the page declares a dark scheme (#917). After the evidence capture, so
+    // no crop shows the light render next to a dark-scheme finding.
+    crate::audit::dark_scheme::extend_with_dark_scheme(
+        page,
+        &snapshot.ax_tree,
+        config,
+        viewport_label,
+        exclusion,
+        &mut wcag_results,
+        &mut excluded,
+    )
+    .await;
+
     move_demoted_violations_to_warnings(&mut wcag_results);
     // One failed check, one incomplete: an executor and its concrete rules
     // are the same check (#778).
@@ -2397,7 +2401,6 @@ mod tests {
         assert!(config.check_mobile);
         assert!(config.check_seo);
         assert!(config.check_security);
-        assert!(config.check_dark_mode);
     }
 
     #[test]
@@ -2408,7 +2411,6 @@ mod tests {
             "Accessibility",
             "Accessibility Journey",
             "Best Practices",
-            "Dark Mode",
             "HTML Conformance",
             "Journey",
             "Mobile",
@@ -2436,7 +2438,6 @@ mod tests {
         let expected = vec![
             "Accessibility",
             "Accessibility Journey",
-            "Dark Mode",
             "AI Visibility",
             "Source Quality",
         ];
@@ -2791,7 +2792,6 @@ mod tests {
             check_seo: true,
             check_security: false,
             check_mobile: true,
-            check_dark_mode: true,
             check_html_conform: false,
             check_privacy: false,
             perf_runs: 1,
@@ -2979,29 +2979,16 @@ journey_budget_ms = 1234
         assert!(!desktop.check_security);
         assert!(!desktop.check_mobile);
         assert!(!desktop.check_stack);
-        assert_eq!(desktop.check_dark_mode, config.check_dark_mode);
         assert_eq!(desktop.check_performance, config.check_performance);
     }
 
     #[test]
-    fn for_viewport_desktop_respects_disabled_dark_mode() {
-        let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let mut config = PipelineConfig::from_args_and_config(&args, None);
-        config.check_dark_mode = false;
-
-        let desktop = config.for_viewport(Viewport::Desktop);
-
-        assert!(!desktop.check_dark_mode);
-    }
-
-    #[test]
-    fn for_viewport_mobile_disables_security_and_dark_mode() {
+    fn for_viewport_mobile_disables_security() {
         let args = Args::parse_from(["auditmysite", "https://example.com", "--full"]);
         let config = PipelineConfig::from_args_and_config(&args, None);
         let mobile = config.for_viewport(Viewport::Mobile);
 
         assert!(!mobile.check_security);
-        assert!(!mobile.check_dark_mode);
         assert_eq!(mobile.check_seo, config.check_seo);
         assert_eq!(mobile.check_mobile, config.check_mobile);
         assert_eq!(mobile.check_stack, config.check_stack);
@@ -3603,7 +3590,6 @@ journey_budget_ms = 1234
             mobile: None,
             ux: None,
             journey: None,
-            dark_mode: None,
             html_conform: None,
             tech_stack: None,
             best_practices: None,

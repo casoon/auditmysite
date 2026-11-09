@@ -162,21 +162,6 @@ pub(super) fn build_module_scores(
     // indicators — with a band word rather than a letter grade, because a
     // grade on a module of weight 0 claimed an authority it does not have
     // (plan 29, D2).
-    if let Some(ref dm) = report.experience.dark_mode {
-        // Dark Mode is an optional/non-normative product feature, not a WCAG
-        // conformance criterion — distinct from the "heuristic" indicators
-        // below (#577).
-        module_scores.push(ModuleScoreEntry::new(
-            "Dark Mode",
-            dm.score,
-            if scoring_gap("dark_mode") {
-                "partial"
-            } else {
-                "optional"
-            },
-            false,
-        ));
-    }
     if let Some(ref ai) = report.discoverability.ai_visibility {
         module_scores.push(ModuleScoreEntry::new(
             "AI Visibility",

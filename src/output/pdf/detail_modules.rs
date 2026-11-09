@@ -1,4 +1,4 @@
-//! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
+//! Module detail renderers (performance, SEO, security, mobile, AI visibility).
 
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, Grid, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
@@ -19,7 +19,6 @@ use super::helpers::{
 
 mod accessibility;
 mod commerce;
-mod dark_mode;
 mod experience;
 mod html_conform;
 mod indicators;
@@ -35,7 +34,6 @@ pub(super) use accessibility::{
     bfsg_relevant_wcag_findings, render_a11y_journey_findings, render_screen_reader_section,
 };
 pub(super) use commerce::render_commerce;
-pub(super) use dark_mode::render_dark_mode;
 pub(super) use experience::{render_journey, render_ux};
 pub(super) use html_conform::render_html_conform;
 pub(super) use indicators::{

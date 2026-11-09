@@ -29,9 +29,18 @@ a shadow root or a frame is part of the page. A viewport-specific colour
 counts in the viewport where it applies; a colour set by script after load
 counts as rendered. When the background cannot be resolved (gradient,
 background-clip:text, covered by an overlay) the rule does not guess: that
-is contrast/text-undetermined, never a pass or fail here."""
-positive = ["low_contrast_text", "contrast_shadow_and_inline", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_thresholds", "visual_contrast_frame"]
-negative = ["visual_contrast_thresholds", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_covered", "visual_contrast_frame"]
+is contrast/text-undetermined, never a pass or fail here.
+
+When the page declares a dark colour scheme (@media (prefers-color-scheme:
+dark), a color-scheme naming dark) it is measured a second time with
+prefers-color-scheme: dark emulated, and what fails there is reported under
+this same id with the computed evidence attribute color_scheme: dark (#917).
+Text that passes on the default render but fails under the dark scheme (and
+the reverse) is judged per scheme; a failure that is identical in both
+schemes (same element, same colours) is one finding, not two. Only confirmed
+failures of the top document are carried over from the dark render."""
+positive = ["low_contrast_text", "contrast_shadow_and_inline", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_thresholds", "visual_contrast_frame", "contrast_dark_scheme"]
+negative = ["visual_contrast_thresholds", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_covered", "visual_contrast_frame", "contrast_dark_scheme"]
 not_applicable = ["visual_no_text"]
 
 [rule.variants]
@@ -39,7 +48,7 @@ visibility = { cases = ["visual_contrast_thresholds"] }
 native_vs_aria = { cases = ["visual_contrast_thresholds"] }
 alternative_labels = { not_relevant = "Contrast concerns rendered colour, not names; alternative ways of painting glyphs (-webkit-text-fill-color) are covered under positive/negative by text_fill_color_contrast." }
 frames_shadow_dom = { cases = ["contrast_shadow_and_inline", "visual_contrast_frame"] }
-responsive = { cases = ["visual_contrast_thresholds"] }
+responsive = { cases = ["visual_contrast_thresholds", "contrast_dark_scheme"] }
 dynamic = { cases = ["visual_contrast_thresholds"] }
 thresholds = { cases = ["visual_contrast_thresholds"] }
 
@@ -57,6 +66,20 @@ change = "host: stop running the rule inside frames"
 find = "    \"contrast/text-insufficient\",\n"
 replace = ""
 killed_by = "corpus:visual_contrast_frame"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/dark_scheme.rs"
+change = "host: report no failure of the dark render"
+find = "        .filter(|v| is_contrast(v) && !known.contains(&identity(v)))\n"
+replace = "        .filter(|v| false && is_contrast(v) && !known.contains(&identity(v)))\n"
+killed_by = "corpus:contrast_dark_scheme"
+
+[[rule.test_strength.mutations]]
+target = "src/audit/dark_scheme.rs"
+change = "host: report a dark failure that is identical to the light one a second time"
+find = "        .filter(|v| is_contrast(v) && !known.contains(&identity(v)))\n"
+replace = "        .filter(|v| is_contrast(v))\n"
+killed_by = "corpus:contrast_dark_scheme"
 [[rule]]
 id = "contrast/text-undetermined"
 errored = ["error_dom_too_deep"]

@@ -24,9 +24,9 @@ use super::bik_guide::render_bik_guide_annex;
 use super::detail_modules::{
     mobile_category_label, render_a11y_journey_findings, render_ai_visibility,
     render_best_practices, render_budget_violations, render_commerce, render_content_visibility,
-    render_dark_mode, render_html_conform, render_journey, render_mobile, render_performance,
-    render_privacy, render_screen_reader_section, render_search_experience, render_security,
-    render_seo, render_source_quality, render_tech_stack, render_ux,
+    render_html_conform, render_journey, render_mobile, render_performance, render_privacy,
+    render_screen_reader_section, render_search_experience, render_security, render_seo,
+    render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
@@ -2183,11 +2183,6 @@ fn render_active_module_section(
                 return (render_journey(builder, journey, is_first, i18n), true);
             }
         }
-        "dark_mode" => {
-            if let Some(ref dm) = vm.module_details.dark_mode {
-                return (render_dark_mode(builder, dm, is_first, i18n), true);
-            }
-        }
         "privacy" => {
             if let Some(ref p) = vm.module_details.privacy {
                 return (render_privacy(builder, p, is_first, i18n), true);
@@ -2296,7 +2291,7 @@ mod top_measure_tests {
             "html_conform.schema.html5",
             "security.headers.unsafe_inline_script",
             "seo.page_health.excessive_dom",
-            "dark_mode.print_layout_risk",
+            "mobile.small_targets",
             "ux.heading_skips",
         ] {
             assert!(!is_accessibility_rule(id), "{id}");

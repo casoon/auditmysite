@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::browser::ThrottleProfile;
 use crate::cli::WcagLevel;
-use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{
     AnimationAnalysis, ContentWeight, CoverageAnalysis, CriticalChain, MinificationAnalysis,
@@ -546,17 +545,14 @@ impl ViewportScores {
     }
 }
 
-/// User-experience signals grouped together: mobile friendliness, dark-mode
-/// support and performance-budget violations. First of the planned `AuditReport`
+/// User-experience signals grouped together: mobile friendliness
+/// and performance-budget violations. First of the planned `AuditReport`
 /// section structs that replace the flat list of optional module fields.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ExperienceSection {
     /// Mobile friendliness analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile: Option<MobileFriendliness>,
-    /// Dark mode support and quality analysis (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dark_mode: Option<DarkModeAnalysis>,
     /// Pre-consent privacy findings of a first visit (#871, optional). Phase
     /// A only, technical observations with a confidence class; never affects
     /// accessibility/overall score or grade.
@@ -633,8 +629,8 @@ pub struct AuditReport {
     /// per-viewport, same placement rationale as `security`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_conform: Option<crate::html_conform::HtmlConformAnalysis>,
-    /// User-experience signals grouped into one section: mobile friendliness,
-    /// dark-mode support and performance-budget violations.
+    /// User-experience signals grouped into one section: mobile friendliness
+    /// and performance-budget violations.
     #[serde(default)]
     pub experience: ExperienceSection,
     /// UX analysis (optional)
@@ -878,12 +874,6 @@ impl AuditReport {
     /// Set journey analysis results
     pub fn with_journey(mut self, journey: crate::journey::JourneyAnalysis) -> Self {
         self.journey = Some(journey);
-        self
-    }
-
-    /// Set dark mode analysis results
-    pub fn with_dark_mode(mut self, dark_mode: DarkModeAnalysis) -> Self {
-        self.experience.dark_mode = Some(dark_mode);
         self
     }
 

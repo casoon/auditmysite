@@ -38,6 +38,21 @@ pub use a11y_report::Outcome;
 /// parses back into.
 pub use a11y_report::Evidence;
 
+/// `computed` evidence field naming the colour scheme a contrast finding was
+/// measured under; absent on findings of the page's default (light) render.
+pub const COLOR_SCHEME_EVIDENCE_FIELD: &str = "color_scheme";
+/// Value of [`COLOR_SCHEME_EVIDENCE_FIELD`] for the dark-emulation pass.
+pub const COLOR_SCHEME_DARK: &str = "dark";
+
+/// Whether `evidence` carries `color_scheme: dark` (see [`Violation::is_dark_color_scheme`]).
+pub fn evidence_is_dark_color_scheme(evidence: &[Evidence]) -> bool {
+    evidence.iter().any(|e| {
+        e.source == "computed"
+            && e.field.as_deref() == Some(COLOR_SCHEME_EVIDENCE_FIELD)
+            && e.value.as_deref() == Some(COLOR_SCHEME_DARK)
+    })
+}
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Violation {
@@ -224,6 +239,21 @@ impl Violation {
     pub fn with_evidence_item(mut self, ev: Evidence) -> Self {
         self.evidence.push(ev);
         self
+    }
+
+    /// Marks a finding measured under `prefers-color-scheme: dark` emulation
+    /// (#917): the same rule id as the light-scheme finding, plus the
+    /// `computed` evidence attribute `color_scheme: dark`.
+    pub fn in_dark_color_scheme(self) -> Self {
+        self.with_evidence_item(Evidence::computed(
+            COLOR_SCHEME_EVIDENCE_FIELD,
+            COLOR_SCHEME_DARK,
+        ))
+    }
+
+    /// Whether the finding was measured under dark colour-scheme emulation.
+    pub fn is_dark_color_scheme(&self) -> bool {
+        evidence_is_dark_color_scheme(&self.evidence)
     }
 
     pub fn as_warning(self) -> Self {

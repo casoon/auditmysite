@@ -243,8 +243,7 @@ pub(super) fn truncate_with_ellipsis(value: &str, max_chars: usize) -> String {
 /// renders with the same visual weight as a Compliance/Measured module
 /// (cover gauges, dashboard cards, technical modules overview). Single
 /// shared implementation of the "(Indikator)"/"(Indicator)" suffix that
-/// previously only covered the technical modules overview panel — extended
-/// here to also cover Optional-tier modules (e.g. Dark Mode) and reused
+/// previously only covered the technical modules overview panel — reused
 /// across every render surface instead of being re-implemented per call
 /// site (#577).
 pub(super) fn module_name_with_taxonomy_suffix(
@@ -258,16 +257,7 @@ pub(super) fn module_name_with_taxonomy_suffix(
         return name.to_string();
     }
     let en = is_english(i18n);
-    let suffix = match class {
-        ModuleTaxonomyClass::Optional => "Optional",
-        _ => {
-            if en {
-                "Indicator"
-            } else {
-                "Indikator"
-            }
-        }
-    };
+    let suffix = if en { "Indicator" } else { "Indikator" };
     format!("{name} ({suffix})")
 }
 
@@ -337,20 +327,6 @@ mod tests {
         assert_eq!(
             super::module_name_with_taxonomy_suffix("HTML Conformance", "measured", &de),
             "HTML Conformance"
-        );
-    }
-
-    #[test]
-    fn taxonomy_suffix_marks_optional_modules_as_optional() {
-        let de = crate::i18n::I18n::new("de").expect("i18n");
-        let en = crate::i18n::I18n::new("en").expect("i18n");
-        assert_eq!(
-            super::module_name_with_taxonomy_suffix("Dark Mode", "optional", &de),
-            "Dark Mode (Optional)"
-        );
-        assert_eq!(
-            super::module_name_with_taxonomy_suffix("Dark Mode", "optional", &en),
-            "Dark Mode (Optional)"
         );
     }
 }

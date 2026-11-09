@@ -194,3 +194,45 @@ async fn detection_corpus_matches_real_audit_run() {
         );
     }
 }
+
+/// #917: a page that declares a dark colour scheme gets its contrast measured
+/// a second time under `prefers-color-scheme: dark`; the findings of that
+/// pass are the same rule with the evidence attribute `color_scheme: dark`,
+/// the light ones carry none, and a failure identical in both is one finding.
+#[tokio::test]
+#[ignore = "needs real Chrome; run manually with `cargo test -- --ignored`"]
+async fn dark_scheme_contrast_findings_carry_the_color_scheme_attribute() {
+    let html = std::fs::read_to_string(detection_corpus_dir().join("contrast_dark_scheme.html"))
+        .expect("fixture HTML");
+    let fixture = serve_html(html);
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &fixture.url)
+        .await
+        .expect("Navigation failed");
+    let args = Args::parse_from(["auditmysite", &fixture.url]);
+    let config = PipelineConfig::from_args_and_config(&args, None);
+    let (report, _) = audit_page(&page, &fixture.url, &config, &manager)
+        .await
+        .expect("audit");
+    fixture.stop();
+
+    let dark_of = |selector: &str| -> Vec<bool> {
+        report
+            .accessibility
+            .wcag_results
+            .violations
+            .iter()
+            .filter(|v| {
+                v.rule_id.as_deref() == Some("contrast/text-insufficient")
+                    && v.selector.as_deref() == Some(selector)
+            })
+            .map(|v| v.is_dark_color_scheme())
+            .collect()
+    };
+    assert_eq!(dark_of("p#dark-only-fail"), [true]);
+    assert_eq!(dark_of("p#light-only-fail"), [false]);
+    assert_eq!(dark_of("p#same-fail"), [false]);
+    assert!(dark_of("p#both-pass").is_empty());
+}

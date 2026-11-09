@@ -49,7 +49,6 @@ fn expected() -> Vec<Expected> {
             1,
         ),
         exp(D::BestPractices, "best_practices.console.error", 1),
-        exp(D::DarkMode, "dark_mode.no_meta_color_scheme", 1),
         exp(D::Ux, "ux.competing_ctas", 1),
         exp(D::Journey, "journey.no_h1", 1),
         exp(D::Commerce, "commerce.missing_price", 1),
@@ -80,7 +79,6 @@ fn injected(domain: FindingDomain) -> bool {
         | D::Performance
         | D::HtmlConformance
         | D::BestPractices
-        | D::DarkMode
         | D::Ux
         | D::Journey
         | D::Commerce
@@ -100,7 +98,6 @@ const ALL_DOMAINS: &[FindingDomain] = &[
     FindingDomain::Performance,
     FindingDomain::HtmlConformance,
     FindingDomain::BestPractices,
-    FindingDomain::DarkMode,
     FindingDomain::Ux,
     FindingDomain::Journey,
     FindingDomain::Commerce,
@@ -259,31 +256,6 @@ fn report_with_every_domain() -> AuditReport {
             checked: true,
         },
         score: 80,
-    });
-
-    // ── Dark mode ─────────────────────────────────────────────────────────
-    report = report.with_dark_mode(crate::dark_mode::DarkModeAnalysis {
-        supported: false,
-        class_based_dark_mode: false,
-        score: 50,
-        detection_methods: vec![],
-        color_scheme_css: false,
-        meta_color_scheme: None,
-        meta_theme_color_dark: false,
-        css_custom_properties: 0,
-        dark_contrast_violations: 0,
-        light_only_violations: 0,
-        dark_only_violations: 0,
-        contrast_violations: vec![],
-        print: Default::default(),
-        forced_colors: Default::default(),
-        vision_deficiency: Default::default(),
-        issues: vec![crate::dark_mode::DarkModeIssue {
-            kind: crate::dark_mode::DarkModeIssueKind::NoMetaColorScheme,
-            description: "No color-scheme meta tag.".to_string(),
-            severity: "low".to_string(),
-            selectors: vec![],
-        }],
     });
 
     // ── UX ────────────────────────────────────────────────────────────────

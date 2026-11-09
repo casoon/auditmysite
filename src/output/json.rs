@@ -725,8 +725,6 @@ pub struct ModuleBlob {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub dark_mode: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_quality: Option<serde_json::Value>,

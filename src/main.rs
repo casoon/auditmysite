@@ -483,8 +483,7 @@ mod tests {
         let label = active_modules_label(&args);
 
         let expected =
-            "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality"
-                .to_string();
+            "Accessibility, Accessibility Journey, AI Visibility, Source Quality".to_string();
         assert_eq!(label, expected);
     }
 }

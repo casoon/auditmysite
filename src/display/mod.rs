@@ -138,7 +138,7 @@ impl DisplayModesInfo {
 
 /// Media features for the chosen mode. Every `Emulation.setEmulatedMedia`
 /// call replaces the whole feature list, so code that emulates other media
-/// features on an audited page (dark mode, forced colours, print) must carry
+/// features on an audited page (the dark colour scheme) must carry
 /// these along or it silently drops the mode's reduced motion.
 pub fn media_features(mode: Option<DisplayMode>) -> Vec<MediaFeature> {
     match mode {
