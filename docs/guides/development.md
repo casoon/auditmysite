@@ -55,26 +55,54 @@ SKIP_RUST_CHECKS=1 git commit -m "..."
 
 The hook expects `nosecrets` to be available in `PATH`.
 
-## Debugging report content (hidden `--debug-typ`)
+## Maintainer binary `auditmysite-dev`
+
+Research and QA tooling is kept out of the `auditmysite` a user installs (#912). It lives in a
+second binary, `auditmysite-dev`, behind the `dev-tools` cargo feature. `required-features` keeps
+it out of `cargo install auditmysite`, which builds with the default features only.
+
+```bash
+cargo run --features dev-tools --bin auditmysite-dev -- --help
+# or, once built
+cargo build --features dev-tools          # → target/debug/auditmysite-dev
+```
+
+`auditmysite-dev` accepts everything `auditmysite` does and adds:
+
+| Command / flag | Purpose |
+| --- | --- |
+| `report-lint <report.json> [--fail-on …] [--typst-source <file.typ>]` | Deterministic consistency checks on a JSON report, see [Reports](../reports/#report-lint) |
+| `accname-diff <url>…` | Own accessible-name computation against Chrome's, see [accname differential](../../accname-differential/) |
+| `plan [url]` | Mode, scope, modules and output paths of an audit, without running it |
+| `replay <snapshot\|dir\|url>` | Evaluate a stored snapshot again, without browser or network |
+| `--debug-typ` | With `--format pdf`, also write the Typst source as a `.typ` sidecar |
+| `--export-snapshot <path>` | Export AXTree snapshots and journey traces as YAML |
+
+`report-lint` in CI: the command logic is a library function (`auditmysite::cli::report_lint`),
+and `tests/report_lint_tests.rs` runs it on every PR inside the plain `cargo test` jobs, so no job
+has to build the dev binary. To run it from a workflow or a script, build with the feature:
+`cargo run --locked --features dev-tools --bin auditmysite-dev -- report-lint report.json`.
+
+### Debugging report content (`--debug-typ`)
 
 PDF reports are rendered through the `renderreport`/Typst engine. To review report
-**completeness and wording** without opening the binary PDF, use the hidden
-`--debug-typ` flag together with `--format pdf`. It writes the intermediate Typst
-source as a `.typ` sidecar next to the PDF, for both single and batch reports:
+**completeness and wording** without opening the binary PDF, use `--debug-typ` together with
+`--format pdf`. It writes the intermediate Typst source as a `.typ` sidecar next to the PDF, for
+both single and batch reports:
 
 ```bash
 # Single report → reports/example-audit.pdf + reports/example-audit.typ
-./target/release/auditmysite https://example.com --full --format pdf \
-  --output reports/example-audit.pdf --debug-typ
+cargo run --features dev-tools --bin auditmysite-dev -- https://example.com --full \
+  --format pdf --output reports/example-audit.pdf --debug-typ
 
 # Batch report → reports/example-batch.pdf + reports/example-batch.typ
-./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full \
+cargo run --features dev-tools --bin auditmysite-dev -- \
+  --sitemap https://example.com/sitemap.xml --full \
   --format pdf --output reports/example-batch.pdf --debug-typ
 ```
 
 The `.typ` file is plain text and diff-friendly — useful for checking which audits
-land in the report and reviewing the exact wording of every section. The flag is
-intentionally hidden from `--help` (developer/debug use only).
+land in the report and reviewing the exact wording of every section.
 
 ## Repository CI
 

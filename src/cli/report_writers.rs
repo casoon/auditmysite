@@ -36,7 +36,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
             let unified = UnifiedReport::single(&normalized, report);
             let output = unified.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
-            if let Some(ref snap_path) = args.export_snapshot {
+            if let Some(ref snap_path) = args.dev.export_snapshot {
                 export_snapshot_yaml(report, snap_path).map_err(|e| AuditError::OutputError {
                     reason: format!("snapshot export failed: {e}"),
                 })?;
@@ -85,7 +85,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
-                if args.debug_typ {
+                if args.dev.debug_typ {
                     let typ = generate_typ(report, &config).map_err(|e| {
                         AuditError::ReportGenerationFailed {
                             reason: e.to_string(),
@@ -94,7 +94,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
                     let typ_path = path.with_extension("typ");
                     output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
                 }
-                if let Some(ref snap_path) = args.export_snapshot {
+                if let Some(ref snap_path) = args.dev.export_snapshot {
                     export_snapshot_yaml(report, snap_path).map_err(|e| {
                         AuditError::OutputError {
                             reason: format!("snapshot export failed: {e}"),
@@ -203,7 +203,7 @@ pub(crate) fn output_batch_report(
                 let json_output = unified.to_json(true)?;
                 output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
 
-                if args.debug_typ {
+                if args.dev.debug_typ {
                     let typ = generate_batch_typ(batch_report, &config).map_err(|e| {
                         AuditError::ReportGenerationFailed {
                             reason: e.to_string(),

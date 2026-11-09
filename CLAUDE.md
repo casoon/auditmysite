@@ -42,8 +42,9 @@ Before every change, clarify which side the code belongs to:
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (enables performance, seo, security, mobile)
 - Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
-- Report lint: `auditmysite report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
-- accname differential: `auditmysite accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
+- Maintainer tooling lives in the separate binary `auditmysite-dev` (feature `dev-tools`, not installed by `cargo install`, #912): `cargo run --features dev-tools --bin auditmysite-dev -- <command>`. It accepts everything `auditmysite` does plus `plan`, `replay`, `report-lint`, `accname-diff`, `--debug-typ` and `--export-snapshot`; none of these exist in `auditmysite` itself.
+- Report lint (dev binary): `auditmysite-dev report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
+- accname differential (dev binary): `auditmysite-dev accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
 - Privacy: `--privacy-check` (opt-in, not part of `--full`): first-visit findings in `detail.modules.privacy` (#871; technical findings with confidence class, no verdict; see `docs/privacy-findings.md`)
 - Output formats: `--format {json|table|pdf}`
 

@@ -23,12 +23,6 @@ example-com-YYYY-MM-DD-single-report-screen-reader-audit.json
 The PDF is in German by default; `--lang en` switches it to English. The JSON is always
 English.
 
-To see what a run would do without starting a browser:
-
-```sh
-auditmysite plan https://example.com
-```
-
 ## Terminal summary
 
 ```sh

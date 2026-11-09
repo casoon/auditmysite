@@ -22,9 +22,6 @@ mkdir bin
 ln -s "$bin" bin/auditmysite
 export PATH="$tmp/bin:$PATH"
 
-# What an audit would do, without running it.
-auditmysite plan https://www.casoon.de/ --lang en >"$dir/plan.txt" 2>&1
-
 # JSON report and the coverage block derived from it.
 auditmysite https://www.casoon.de/ -f json -o coverage.json --quiet --no-sitemap-suggest || true
 jq '.summary.wcag_coverage' coverage.json >"$dir/wcag-coverage.json"
@@ -66,24 +63,7 @@ steps:
   - wait: 3000
 YAML
 
-cat >report-lint.terminal.yaml <<'YAML'
-version: 1
-
-terminal:
-  title: auditmysite report-lint on a casoon.de report
-  cols: 100
-  rows: 8
-  theme: github-dark
-
-steps:
-  - exec: auditmysite https://www.casoon.de/ -f json -o report.json --quiet --no-sitemap-suggest
-    timeout: 180000
-    idle: 1500
-  - exec: auditmysite report-lint report.json; echo "exit code $?"
-  - wait: 3000
-YAML
-
-for demo in single-table technician report-lint; do
+for demo in single-table technician; do
   $castwright build "$demo.terminal.yaml" --allow-exec --record -o "$tmp/out"
   cp "$demo.terminal.yaml" "$dir/"
   $castwright build "$dir/$demo.terminal.yaml" -o "$dir"

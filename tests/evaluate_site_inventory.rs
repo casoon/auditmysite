@@ -204,7 +204,7 @@ fn known_sites() -> BTreeMap<&'static str, (usize, Coverage)> {
             (1, Collectors(&["best_practices.console"])),
         ),
         (
-            "src/cli/commands.rs",
+            "src/cli/dev_commands.rs",
             (
                 1,
                 Exempt(

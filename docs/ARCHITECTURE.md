@@ -27,10 +27,16 @@ src/
 ├── error.rs             # Error types (AuditError)
 ├── util.rs              # Utility functions
 │
+├── bin/
+│   └── auditmysite-dev.rs # Maintainer binary, `dev-tools` feature (not installed by `cargo install`, #912)
+│
 ├── cli/                 # Command-line interface
 │   ├── args.rs          # Clap argument parsing (Args, WcagLevel, OutputFormat, AnnexKind)
 │   ├── config.rs        # auditmysite.toml config support
-│   ├── commands.rs      # Subcommand handlers (browser, doctor, plan)
+│   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
+│   ├── commands.rs      # Subcommand handlers (browser, doctor)
+│   ├── dev_commands.rs  # Maintainer commands of `auditmysite-dev` only (plan, replay, accname-diff, report-lint, --debug-typ, --export-snapshot, #912)
+│   ├── report_lint.rs   # `report-lint` command logic (library, so the release-gate tests run without the dev binary)
 │   ├── runners.rs       # Mode runners (single, batch, compare)
 │   ├── report_writers.rs # Output dispatch (single/batch/comparison)
 │   ├── output_paths.rs  # File path generation for reports
@@ -180,7 +186,7 @@ src/
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
 │   ├── renderer.rs      # Top-level format dispatch
-│   └── snapshot_export.rs # AXTree + journey traces → YAML (--export-snapshot)
+│   └── snapshot_export.rs # AXTree + journey traces → YAML (`auditmysite-dev --export-snapshot`)
 │
 ├── a11y_journey/        # Accessibility Journey Layer (--interactive)
 │   ├── mod.rs           # Orchestrator: run() single entry point, commerce gating

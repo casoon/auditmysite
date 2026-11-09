@@ -99,11 +99,8 @@ page.
 
 | Command | Purpose |
 | --- | --- |
-| `auditmysite plan <url>` | Mode, modules and output paths of an audit, without running it |
 | `auditmysite browser detect\|install\|remove\|path` | Browser management, see [Browser setup](../browser-setup/) |
 | `auditmysite doctor` | Local diagnostics |
-| `auditmysite report-lint <report.json>` | Consistency checks on a JSON report, see [Reports](../reports/#report-lint) |
-| `auditmysite accname-diff <url>…` | Compares auditmysite's accessible-name computation with Chrome's; measures, never fails |
 
 ## Output formats
 
@@ -117,7 +114,7 @@ page.
 | `0` | Pass |
 | `1` | Warn |
 | `2` | Fail |
-| `3` | Technical error (browser, timeout, arguments, writing files), or `report-lint` at or above `--fail-on` |
+| `3` | Technical error (browser, timeout, arguments, writing files) |
 
 `--report-mode` returns `0` whenever the requested report files were written, whatever the
 verdict. The verdict itself still appears in the terminal, JSON and PDF.

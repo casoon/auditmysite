@@ -430,20 +430,11 @@ pub struct Args {
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
 
-    /// Hidden: with `--format pdf`, also write the intermediate Typst source as a
-    /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
-    #[arg(long, hide = true, global = true)]
-    pub debug_typ: bool,
-
-    /// Export AXTree snapshots and journey traces as YAML for developer debugging.
-    ///
-    /// The YAML file contains the page URL, document title, and all journey traces
-    /// (action sequences with focus snapshots). Compatible with Playwright's ARIA
-    /// snapshot format for CI regression testing.
-    ///
-    /// Example: --export-snapshot reports/casoon-snapshot.yaml
-    #[arg(long, value_name = "PATH")]
-    pub export_snapshot: Option<PathBuf>,
+    /// Maintainer options of the `auditmysite-dev` binary (`--debug-typ`,
+    /// `--export-snapshot`, #912). Not a flag of this CLI: always the default
+    /// here, filled by the dev binary after parsing.
+    #[arg(skip)]
+    pub dev: DevOptions,
 
     /// Include an additional regulatory/editorial appendix section in the PDF report.
     ///
@@ -491,69 +482,17 @@ pub enum Command {
     },
     /// Run diagnostics and check system health
     Doctor,
-    /// Show what an audit would do (mode, scope, modules, output paths) without
-    /// running it.
-    Plan {
-        /// URL to plan an audit for (required unless --sitemap or --url-file is set)
-        url: Option<String>,
-    },
-    /// Evaluate a stored snapshot again — no browser, no network access.
-    ///
-    /// The target is a `snapshot.json`, a cache entry directory, or the URL
-    /// whose cached entry to replay. The report states `replay` as its
-    /// provenance. A snapshot that is incomplete or was written under other
-    /// versions is refused with its reason, never evaluated under today's
-    /// semantics. `--session`, `--state-id` and `--storage-state` assert the
-    /// measurement profile the snapshot must carry; another profile is
-    /// refused, not shown as the same measurement.
-    Replay {
-        /// Snapshot file, cache entry directory, or URL of a cached entry
-        target: String,
-    },
-    /// Compare the own `accname` computation against Chrome's native
-    /// accessibility tree — a differential test without a screen reader.
-    AccnameDiff {
-        /// URL(s) to load and compare; more than one URL (together with
-        /// --url-file) produces a corpus aggregate instead of a single result
-        #[arg(value_name = "URL", required_unless_present = "url_file")]
-        urls: Vec<String>,
-        /// Read further URLs from a file (one per line, `#` comments allowed)
-        #[arg(long)]
-        url_file: Option<PathBuf>,
-        /// Write the full JSON result here (terminal summary is always printed)
-        #[arg(long)]
-        output: Option<PathBuf>,
-        /// Maximum stored divergence samples per kind; counts stay complete
-        #[arg(long, default_value_t = auditmysite_default_max_samples())]
-        max_samples: usize,
-    },
-    /// Run deterministic report-lint checks (#507) against a JSON report file.
-    ReportLint {
-        /// Path to a JSON report file (single or batch envelope)
-        input: PathBuf,
-        /// Minimum finding severity that causes a non-zero exit code (default: high)
-        #[arg(long, value_enum)]
-        fail_on: Option<ReportLintFailOn>,
-        /// Path to the `--debug-typ` Typst source for the same report — when
-        /// given, additionally checks the accessibility score is traceable to it
-        #[arg(long)]
-        typst_source: Option<PathBuf>,
-    },
 }
 
-/// `--fail-on` threshold for the `report-lint` subcommand.
-///
-/// A separate CLI-facing enum (rather than deriving `clap::ValueEnum` on
-/// `taxonomy::Severity` directly) so the domain type stays free of CLI
-/// concerns, matching how `WcagLevel` is kept distinct from any internal
-/// WCAG-level representation.
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
-#[value(rename_all = "lowercase")]
-pub enum ReportLintFailOn {
-    Low,
-    Medium,
-    High,
-    Critical,
+/// Maintainer options that only the `auditmysite-dev` binary can set (#912).
+#[derive(Debug, Clone, Default)]
+pub struct DevOptions {
+    /// With `--format pdf`, also write the intermediate Typst source as a
+    /// `.typ` sidecar next to the PDF (single + batch), for wording review.
+    pub debug_typ: bool,
+    /// Export AXTree snapshots and journey traces as YAML (Playwright's ARIA
+    /// snapshot format) in addition to a JSON report.
+    pub export_snapshot: Option<PathBuf>,
 }
 
 /// Browser management actions
@@ -860,25 +799,6 @@ impl Args {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        // A replay evaluates a stored snapshot: a flag asking for a live
-        // check is refused, and a declared state must be readable (#788).
-        if matches!(self.command, Some(Command::Replay { .. })) {
-            self.load_storage_state()?;
-            if self.perf_runs > 1 {
-                return Err(
-                    "--perf-runs measures a live page; `replay` evaluates a stored snapshot"
-                        .to_string(),
-                );
-            }
-            return crate::audit::support_matrix::ExtraCheckRequest {
-                isolate_third_party_impact: self.isolate_third_party_impact,
-                check_ssr_content: self.check_ssr_content,
-                privacy_check: self.privacy_check,
-                replay: true,
-                ..Default::default()
-            }
-            .validate();
-        }
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
@@ -1063,12 +983,6 @@ impl Args {
     }
 }
 
-/// Default for `--max-samples`, kept in sync with the module's own constant
-/// so the CLI help and the library never drift apart.
-fn auditmysite_default_max_samples() -> usize {
-    crate::accessibility::DEFAULT_MAX_SAMPLES
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1188,8 +1102,7 @@ mod tests {
             lang: "de".to_string(),
             also_json: false,
             logo: None,
-            debug_typ: false,
-            export_snapshot: None,
+            dev: DevOptions::default(),
             annex: None,
             request_mode: RequestMode::Browser,
             report_mode: false,
@@ -1431,54 +1344,5 @@ mod tests {
         assert!(e.contains("performance"), "{e}");
         let e = check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "3"]).unwrap_err();
         assert!(e.contains("single URL"), "{e}");
-        let e = check(&["--perf-runs", "3", "replay", "https://example.com"]).unwrap_err();
-        assert!(e.contains("replay"), "{e}");
-    }
-
-    #[test]
-    fn replay_takes_a_target_and_refuses_live_check_flags() {
-        let args = Args::try_parse_from(["auditmysite", "replay", "https://example.com"]).unwrap();
-        assert!(
-            matches!(args.command, Some(Command::Replay { ref target }) if target == "https://example.com")
-        );
-        assert!(args.validate().is_ok());
-
-        let args = Args::try_parse_from([
-            "auditmysite",
-            "--privacy-check",
-            "replay",
-            "https://example.com",
-        ])
-        .unwrap();
-        let e = args.validate().unwrap_err();
-        assert!(e.contains("--privacy-check") && e.contains("replay"), "{e}");
-        assert!(Args::try_parse_from(["auditmysite", "replay"]).is_err());
-    }
-
-    #[test]
-    fn accname_diff_nimmt_mehrere_urls_oder_url_datei() {
-        let args = Args::try_parse_from([
-            "auditmysite",
-            "accname-diff",
-            "https://a.example",
-            "https://b.example",
-        ])
-        .unwrap();
-        match args.command {
-            Some(Command::AccnameDiff { urls, url_file, .. }) => {
-                assert_eq!(urls.len(), 2);
-                assert!(url_file.is_none());
-            }
-            _ => panic!("accname-diff erwartet"),
-        }
-
-        let args = Args::try_parse_from(["auditmysite", "accname-diff", "--url-file", "urls.txt"])
-            .unwrap();
-        assert!(matches!(
-            args.command,
-            Some(Command::AccnameDiff { ref urls, url_file: Some(_), .. }) if urls.is_empty()
-        ));
-
-        assert!(Args::try_parse_from(["auditmysite", "accname-diff"]).is_err());
     }
 }

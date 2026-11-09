@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import {
   Badge,
   Badges,
-  BuildOutput,
   CodeBlock,
   Facts,
   Faq,
@@ -13,13 +12,12 @@ import {
   Keymap,
   Quickstart,
   ReleaseHighlights,
-  Terminal,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
 import config from 'virtual:casoon-pages/config';
 import { parseChangelog } from '@casoon/pages-theme/lib/changelog';
-import { castDemo, fixture } from '../showcase';
+import { castDemo } from '../showcase';
 
 // Skip "Unreleased": it has no version to show as "New in v…" yet.
 const latestRelease = config.changelog
@@ -128,14 +126,6 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       </li>
     </ul>
   </section>
-
-  <BuildOutput
-    caption="Real output of auditmysite, recorded against casoon.de with assets/casts/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
-    file="assets/casts/plan.txt"
-    heading="What an audit will do"
-  >
-    <Terminal ansi={fixture('plan.txt')} />
-  </BuildOutput>
 
   <Keymap
     heading="Common flags"

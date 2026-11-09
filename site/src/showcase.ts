@@ -102,14 +102,6 @@ const examples_ = [
       'The first three sitemap URLs of casoon.de as one JSON file per page, plus index.json and findings.jsonl to script against.',
   },
   {
-    slug: 'audit-plan',
-    title: 'Audit plan',
-    file: 'plan.txt',
-    command: 'auditmysite plan https://www.casoon.de/ --lang en',
-    tags: ['plan'],
-    description: 'Mode, modules and output files an audit would use, printed without starting a browser.',
-  },
-  {
     slug: 'wcag-coverage',
     title: 'WCAG coverage in the JSON report',
     file: 'wcag-coverage.json',
@@ -117,15 +109,6 @@ const examples_ = [
     tags: ['json', 'wcag'],
     description:
       'Every report states how many WCAG 2.2 A/AA criteria the automated checks cover and how many need manual review.',
-  },
-  {
-    slug: 'report-lint',
-    title: 'report-lint',
-    demo: 'report-lint',
-    command: 'auditmysite https://www.casoon.de/ -f json -o report.json --quiet --no-sitemap-suggest\nauditmysite report-lint report.json; echo "exit code $?"',
-    tags: ['json', 'lint'],
-    description:
-      'Deterministic consistency checks on a finished JSON report, without network or Chrome. Exit code 3 when a finding reaches --fail-on (default: high).',
   },
 ];
 

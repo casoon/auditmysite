@@ -13,9 +13,8 @@ use tracing::info;
 use auditmysite::audit::normalize_checked;
 use auditmysite::audit::{
     analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cached_report, crawl_site,
-    parse_sitemap, read_url_file, replay_report, run_concurrent_batch, run_single_audit,
-    BatchConfig, CacheMiss, CrawlResult, ExpectedProfile, PipelineConfig, SnapshotArtifact,
-    Verdict,
+    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig, CacheMiss,
+    CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::url_filter::{select_urls, stratified_sample};
@@ -210,7 +209,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
 /// `replay`): judged under this run's decision profile, which is stored with
 /// the report, so every output and the exit code read the same decision
 /// (#781).
-fn emit_replayed(
+pub(crate) fn emit_replayed(
     mut report: auditmysite::AuditReport,
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
@@ -232,50 +231,6 @@ fn emit_replayed(
             report.accessibility.execution.display_modes.as_ref(),
         ))),
     })
-}
-
-/// `auditmysite replay <target>`: the stored snapshot, evaluated again
-/// without browser or network. `session_from_cli` says whether `--session`
-/// was given: its default is not an assertion about the snapshot.
-pub(crate) fn run_replay_mode(
-    args: &Args,
-    config: &Option<auditmysite::cli::Config>,
-    target: &str,
-    session_from_cli: bool,
-) -> Result<Verdict> {
-    let path = std::path::Path::new(target);
-    let snapshot = if path.exists() {
-        SnapshotArtifact::read(path)?
-    } else if url::Url::parse(target).is_ok() {
-        SnapshotArtifact::read_cached(target)?
-    } else {
-        return Err(AuditError::ConfigError(format!(
-            "replay target '{target}' is neither an existing snapshot/cache directory nor a URL"
-        )));
-    };
-    let expected = ExpectedProfile {
-        session_policy: session_from_cli.then(|| args.session.as_str().to_string()),
-        state_id: args.state_id.clone(),
-        storage_state_sha256: args
-            .load_storage_state()
-            .map_err(AuditError::ConfigError)?
-            .map(|state| state.digest),
-        // Replay refuses extra-check flags (support matrix), so nothing to assert.
-        extra_checks: None,
-        // A replay measures nothing, so it asserts no browser.
-        browser: None,
-    };
-    let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
-    snapshot.check_measurement(&expected).map_err(refuse)?;
-    let report = replay_report(&snapshot).map_err(refuse)?;
-    if !args.quiet {
-        println!(
-            "{} {}",
-            "Replay:".cyan().bold(),
-            format!("{} (no browser, no network)", report.url).dimmed()
-        );
-    }
-    emit_replayed(report, args, config).map(|o| o.verdict)
 }
 
 async fn maybe_offer_sitemap_scan(
