@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Download, verify and install the auditmysite release binary for the runner platform.
-# Used by action.yml; mirrors install.sh (same asset names, same .sha256 check).
+# Used by action.yml; mirrors install.sh (same asset names). The archive is checked against
+# the release's aggregate SHA256SUMS; releases without one (up to v2.0.2) fall back to the
+# per-archive .sha256 file. Optionally the signed build provenance is verified as well.
 # Inputs (environment): AUDITMYSITE_VERSION (tag like v2.0.2, or "latest"),
-# INSTALL_DIR (target directory). Writes the installed version to $GITHUB_OUTPUT if set.
+# INSTALL_DIR (target directory), VERIFY_ATTESTATION ("true" runs `gh attestation verify`,
+# needs gh and GH_TOKEN; default "false"). Writes the installed version to $GITHUB_OUTPUT if set.
 set -euo pipefail
 
 REPO="casoon/auditmysite"
 BINARY_NAME="auditmysite"
 VERSION="${AUDITMYSITE_VERSION:-latest}"
 INSTALL_DIR="${INSTALL_DIR:?INSTALL_DIR is required}"
+VERIFY_ATTESTATION="${VERIFY_ATTESTATION:-false}"
 
 fail() {
   echo "::error::$1" >&2
@@ -48,6 +52,11 @@ sha256_of() {
   fi
 }
 
+case "$VERIFY_ATTESTATION" in
+  true | false) ;;
+  *) fail "verify-attestation must be true or false (got '$VERIFY_ATTESTATION')" ;;
+esac
+
 read -r platform ext <<<"$(detect_platform)"
 version=$(resolve_version)
 case "$version" in
@@ -64,15 +73,41 @@ trap 'rm -rf "$tmp_dir"' EXIT
 echo "Installing $BINARY_NAME $version for $platform"
 curl -fsSL --retry 3 --retry-all-errors "$base_url/$archive_name" -o "$tmp_dir/$archive_name" ||
   fail "No release asset $archive_name in $version (is this platform published?)"
-curl -fsSL --retry 3 --retry-all-errors "$base_url/$archive_name.sha256" -o "$tmp_dir/$archive_name.sha256" ||
-  fail "No checksum file $archive_name.sha256 in $version"
 
-expected=$(awk '{print tolower($1)}' "$tmp_dir/$archive_name.sha256" | tr -d '\r')
+# Aggregate checksum file first. 404 means the release predates it; any other failure stops
+# the install instead of silently choosing a weaker source.
+sums_status=$(curl -sSL --retry 3 --retry-all-errors -o "$tmp_dir/SHA256SUMS" -w '%{http_code}' "$base_url/SHA256SUMS") ||
+  fail "Could not download SHA256SUMS of $version"
+case "$sums_status" in
+  200)
+    checksum_source="SHA256SUMS"
+    # Exact match on the file name field: no regex, no prefix or suffix collisions.
+    expected=$(tr -d '\r' <"$tmp_dir/SHA256SUMS" | awk -v name="$archive_name" '$2 == name {print tolower($1)}')
+    [ -n "$expected" ] || fail "SHA256SUMS of $version has no line for $archive_name"
+    ;;
+  404)
+    [ "$VERIFY_ATTESTATION" = "false" ] ||
+      fail "verify-attestation is true, but $version predates SHA256SUMS and build provenance; use a later release or set verify-attestation to false"
+    checksum_source="$archive_name.sha256"
+    curl -fsSL --retry 3 --retry-all-errors "$base_url/$archive_name.sha256" -o "$tmp_dir/$archive_name.sha256" ||
+      fail "No checksum file $archive_name.sha256 in $version"
+    expected=$(awk '{print tolower($1)}' "$tmp_dir/$archive_name.sha256" | tr -d '\r')
+    ;;
+  *) fail "Downloading SHA256SUMS of $version returned HTTP $sums_status" ;;
+esac
+
 actual=$(sha256_of "$tmp_dir/$archive_name")
 if [ -z "$expected" ] || [ "$actual" != "$expected" ]; then
-  fail "Checksum verification failed for $archive_name"
+  fail "Checksum verification failed for $archive_name (against $checksum_source)"
 fi
-echo "Checksum verified: $actual"
+echo "Checksum verified against $checksum_source: $actual"
+
+if [ "$VERIFY_ATTESTATION" = "true" ]; then
+  command -v gh >/dev/null 2>&1 || fail "verify-attestation needs the gh CLI on the runner"
+  gh attestation verify "$tmp_dir/$archive_name" --repo "$REPO" ||
+    fail "No valid build provenance attestation for $archive_name in $version (see gh output above)"
+  echo "Build provenance verified for $archive_name"
+fi
 
 mkdir -p "$INSTALL_DIR"
 if [ "$ext" = "zip" ]; then
