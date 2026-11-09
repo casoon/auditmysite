@@ -1,0 +1,38 @@
+name: Action self-test
+
+# Manual only: runs the composite action in this repo (action.yml) against a public page
+# and checks that both report files exist. Not on push, PR or schedule (ci-budget).
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Page to audit
+        default: https://example.com
+      version:
+        description: Release tag to install (empty = latest)
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    name: Run the action
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run the action
+        id: audit
+        uses: ./
+        with:
+          url: ${{ inputs.url }}
+          version: ${{ inputs.version }}
+      - name: Check the outputs
+        env:
+          REPORT_JSON: ${{ steps.audit.outputs.report-json }}
+          REPORT_SARIF: ${{ steps.audit.outputs.report-sarif }}
+        run: |
+          test -s "$REPORT_JSON"
+          test -s "$REPORT_SARIF"
+          grep -q '"version": *"2.1.0"' "$REPORT_SARIF"

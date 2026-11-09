@@ -184,6 +184,46 @@ auditmysite https://example.com -f sarif -o auditmysite.sarif --quiet --report-m
 
 Add `--report-mode` so the exit code does not fail the step before an upload step runs. The location strategy, the fingerprint derivation and a GitHub Actions example: [SARIF output](docs/reference/cli-and-output.md#sarif-output).
 
+## GitHub Action
+
+The repository root is a composite action. It downloads the release binary for the runner (checked against the release's `.sha256` file, like `install.sh`), makes sure a browser is available, audits the page and exposes `report.json` and `report.sarif` as outputs.
+
+```yaml
+name: Accessibility
+on:
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Audit
+        id: audit
+        uses: casoon/auditmysite@v2.0.2 # pin to a commit SHA for a fixed action version
+        with:
+          url: https://staging.example.com
+          args: --full
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: ${{ steps.audit.outputs.report-sarif }}
+          category: auditmysite
+```
+
+Note: the SARIF file has page-URL locations without `region` or `partialFingerprints`, so Code Scanning shows these results only in a limited way (tracked in [#977](https://github.com/casoon/auditmysite/issues/977)); the JSON report is complete.
+
+| Input | Meaning |
+|---|---|
+| `url`, `sitemap`, `url-file` | What to audit; give exactly one |
+| `args` | Extra CLI arguments for both runs, split on whitespace (no quoting), for example `--full --max-pages 20`; do not pass `-f` or `-o` |
+| `version` | Release tag to install; empty uses the tag of `casoon/auditmysite@vX.Y.Z`, otherwise the latest release |
+| `browser` | `ensure` (default: installs a managed Chrome for Testing only if the runner has no browser), `install` (always), `none` |
+| `output-dir` | Where the reports go (default `auditmysite-report`) |
+
+Outputs: `report-json`, `report-sarif` (absolute paths) and `version`. The action runs with `--report-mode`, so a failing verdict does not fail the step; gate on the JSON report yourself if needed. It audits twice, once per format, so each run adds a page load. Release binaries exist for Linux, macOS on Apple Silicon and Windows (Windows runs use Microsoft Edge; the Windows path is untested).
+
 ## How the overall score is weighted
 
 <picture>
