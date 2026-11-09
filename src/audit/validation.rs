@@ -958,6 +958,87 @@ mod tests {
     use super::CONTRACT_CODES;
     use std::collections::BTreeSet;
 
+    /// The smallest report whose measurement profile passes the contract:
+    /// the given interactive mode and listed state-changing journeys, and
+    /// `read_only` as the list implies.
+    fn report_with_journeys(mode: &str, journeys: &[&str]) -> crate::audit::AuditReport {
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            crate::cli::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            10,
+        );
+        report.accessibility.execution.scope.interactive_mode = mode.to_string();
+        report.accessibility.execution.environment.headless = true;
+        let profile = &mut report.accessibility.execution.scope.measurement_profile;
+        profile.version = crate::audit::MEASUREMENT_PROFILE_VERSION;
+        profile.read_only = journeys.is_empty();
+        profile.state_changing_journeys = journeys.iter().map(|id| id.to_string()).collect();
+        profile.browser = Some(crate::browser::BrowserProvenance {
+            product: crate::browser::BrowserProduct::Chrome,
+            version: Some("131.0.6778.85".into()),
+            origin: crate::browser::BrowserOrigin::System,
+            os: crate::browser::PlatformOs::Macos,
+            arch: crate::browser::PlatformArch::Aarch64,
+            headless_mode: crate::browser::HeadlessModeKind::New,
+            failover: false,
+            discarded_candidates: 0,
+        });
+        report
+    }
+
+    fn violation_codes(report: &crate::audit::AuditReport) -> Vec<&'static str> {
+        match crate::audit::normalize_checked(report) {
+            Ok(_) => Vec::new(),
+            Err(error) => error.violations.iter().map(|v| v.code).collect(),
+        }
+    }
+
+    /// `--interactive full --allow-state-changes` without the experimental
+    /// commerce indicator lists only the journeys that do not belong to it.
+    #[test]
+    fn a_full_run_without_commerce_lists_only_the_form_journey() {
+        let report = report_with_journeys("full", &["form_error_submit"]);
+        assert_eq!(violation_codes(&report), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_full_run_with_commerce_lists_all_three_journeys() {
+        let report = report_with_journeys(
+            "full",
+            &["form_error_submit", "add_to_cart", "quantity_stepper"],
+        );
+        assert_eq!(violation_codes(&report), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_commerce_journey_without_the_form_journey_is_rejected() {
+        let report = report_with_journeys("full", &["add_to_cart"]);
+        assert_eq!(violation_codes(&report), ["measurement_profile_journeys"]);
+    }
+
+    #[test]
+    fn read_only_modes_list_no_state_changing_journey() {
+        let report = report_with_journeys("basic", &["form_error_submit"]);
+        assert_eq!(violation_codes(&report), ["measurement_profile_journeys"]);
+        for mode in ["off", "basic"] {
+            let report = report_with_journeys(mode, &[]);
+            assert_eq!(violation_codes(&report), Vec::<&str>::new(), "{mode}");
+        }
+    }
+
+    #[test]
+    fn read_only_must_match_the_listed_journeys() {
+        let mut report = report_with_journeys("full", &["form_error_submit"]);
+        report
+            .accessibility
+            .execution
+            .scope
+            .measurement_profile
+            .read_only = true;
+        assert_eq!(violation_codes(&report), ["measurement_profile_read_only"]);
+    }
+
     /// Every code the checks above can emit is listed, and every listed code
     /// is emitted: a new check without an entry (or a dead entry) fails.
     #[test]
