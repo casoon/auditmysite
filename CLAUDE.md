@@ -96,6 +96,9 @@ doc example in `src/lib.rs` — update both.
 - Never install tools unpinned (no `cargo install … --git` without `--rev`, no tool without a
   version); pin actions by commit SHA with the tag as a comment. `cross` in `release.yml` is pinned to a commit.
 - Every new job gets `timeout-minutes`.
+- Decisions (#894, #783): the detector mutation check stays a blocking gate of the tag run, there
+  is no weekly run on `main`; the E2E job is not split and is revisited if it passes ~38 min (it
+  runs 22–33 min against its 45 min limit). Details in `docs/guides/development.md`.
 
 ## Release & `cargo publish` (MANDATORY — #588)
 A version published on crates.io can **never** be replaced, only yanked. And docs.rs builds each
@@ -113,13 +116,19 @@ version exactly once: what arrives broken there stays broken permanently. Theref
    `reference_sites.json` in the same PR, with the reason in `notes`. Otherwise only the run before
    the tag reports the long-fixed case as a deviation (1.8.0: bundesregierung.de and berlin.de,
    fixes of 04/05 Oct).
-1. **Set and push the tag `vX.Y.Z`.** This starts `release.yml`: version check, full CI,
+1. **Dispatch the full QA on the release candidate and wait for green before pushing the tag:**
+   `gh workflow run ci.yml --ref <candidate>` (since PR #956 a branch dispatch also runs the
+   docs.rs sandbox build and the four detector-mutation shards, #894). The mutation shards take
+   about 75–90 min and set the wall time; a failure found here costs a branch push, on the tag a
+   re-tag.
+2. **Set and push the tag `vX.Y.Z`.** This starts `release.yml`: version check, full CI,
    binaries, GitHub release.
-2. **Wait for the job `docs.rs Build (sandbox parity)`.** It runs **only on tags** and builds the
+3. **Wait for the job `docs.rs Build (sandbox parity)`.** It runs on tags and on
+   `workflow_dispatch` (step 1 is the first run) and builds the
    docs in the real docs.rs sandbox image — its nightly, its memory and time limits, and on what
    `cargo package` would publish. Nothing else in CI answers this: the docs step in
    `check-all-features` builds on the runner, with stable and without a memory cap.
-3. **Only then `cargo publish`.**
+4. **Only then `cargo publish`.**
 
 The job is `continue-on-error` as long as the action is in beta — so it does not block, it
 **informs**. If it is red, do not publish; clarify the cause first.

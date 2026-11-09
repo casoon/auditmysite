@@ -107,8 +107,8 @@ land in the report and reviewing the exact wording of every section.
 ## Repository CI
 
 `quick-ci.yml` runs on pull requests targeting `main` and pushes to `main`.
-Its single Ubuntu job, **Quick checks**, checks formatting, Clippy for all targets
-without optional features, the normal tests without optional features, and lint
+Its single Ubuntu job, **Quick checks**, checks formatting, rustdoc with all features
+(`-D warnings`), Clippy for all targets without optional features, the normal tests without optional features, and lint
 plus unit tests for the embedded JavaScript (see below).
 That test run includes mocked integration and security unit tests once; ignored
 browser tests and feature-gated PDF tests stay in full QA. Test threads remain
@@ -124,9 +124,11 @@ base history runs the checks. Superseded quick runs are cancelled.
 
 `ci.yml` is the full QA workflow: production-feature tests (PDF) and all-feature rustdoc, PDF smoke,
 browser integration, three WCAG corpus shards, dependency audit, unused-dependency
-checks, and mocked tests. Coverage runs on non-tag refs; detector mutations and
-docs.rs sandbox parity retain their tag-only conditions. The latter remains
-advisory (`continue-on-error`), as before. All jobs have time limits and the QA
+checks, and mocked tests. Coverage runs on non-tag refs. Detector mutations (four
+shards) and docs.rs sandbox parity run on `v*` tags and on `workflow_dispatch`
+(any ref, #894), so a release candidate can be exercised before it is tagged. The
+docs.rs job remains advisory (`continue-on-error`), as before; the mutation check
+is a blocking gate. All jobs have time limits and the QA
 token has read-only contents access. Full runs use distinct concurrency groups
 per run and attempt, so dispatches and release calls cannot cancel or replace
 one another.
@@ -149,20 +151,20 @@ which is what `release.yml` and a manual dispatch get, so tags and dispatches ru
 the same jobs as before. The rule-contract gate (`tests/rule_contract_gate.rs`)
 needs no Chrome and already runs inside the `cargo test` of Quick checks; a change
 under `rule_contracts/` additionally runs the corpus its contracts refer to.
-Detector mutations, docs.rs parity, native macOS/Windows smoke, audit and
-coverage stay tag/dispatch/full only. A new push to the PR cancels the running
+Detector mutations and docs.rs parity stay tag/dispatch only; native
+macOS/Windows smoke, audit and coverage stay in full runs only. A new push to the PR cancels the running
 filtered jobs.
 
 To validate a release candidate without publishing, select **CI → Run workflow**
-and the candidate ref, or, once `workflow_dispatch` is present on `main`:
+and the candidate ref, or:
 
 ```bash
 gh workflow run ci.yml --ref <candidate-branch-or-tag>
 ```
 
-The selected ref must contain this workflow. A branch dispatch skips tag-only
-jobs; dispatching an existing tag exercises those jobs too, without publishing.
-Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
+The selected ref must contain this workflow. A dispatch runs every job, including
+docs.rs sandbox parity and the four mutation shards (PR #956); a branch dispatch
+needs no tag. Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
 commit and requires both version/milestone validation and full QA before any
 binary packaging. `scripts/v2-readiness.json` retains exactly U01–U26; additional
 open milestone issues and #792 also block 2.x, including prereleases. API errors
@@ -258,6 +260,37 @@ It validates:
 - JSON contract tests
 - installer/release artifact consistency
 - stale docs references
+
+### Order before a release tag
+
+1. `./scripts/release-check.sh` (above).
+2. The reference runs: `cargo test --test reference_sites_test -- --ignored` and
+   `python3 scripts/privacy-reference.py live` (details in `CLAUDE.md`, release step 0).
+3. **Dispatch the full QA on the release candidate** and wait for it to finish green:
+
+   ```bash
+   gh workflow run ci.yml --ref <release-candidate-branch>
+   gh run list --workflow ci.yml --branch <release-candidate-branch> --limit 1   # run id
+   gh run watch <run-id>
+   ```
+
+   The dispatch runs the tag-only jobs too (docs.rs sandbox parity, four detector
+   mutation shards). The mutation shards set the wall time: 75 to 90 minutes, against a job
+   limit of 90 (#894). A mutation or docs.rs failure found here costs a branch push; found
+   on the tag it costs a re-tag (2.0.0 and 2.0.1 both needed one).
+4. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
+5. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then `cargo publish`.
+
+### Decisions on the release pipeline
+
+- **The detector mutation check stays a blocking gate of the tag run.** There is no weekly
+  run on `main` (#783 asked for a binding gate; a weekly run would let a release ship without
+  it). The cost is paid before the tag, by the pre-tag dispatch above. The decision is
+  written in the comment above the `mutation-check` job in `ci.yml`.
+- **The E2E job (`Browser Integration Tests (E2E)`) is not split** like the detection corpus.
+  The last 11 successful runs took 22 to 33 minutes against its 45-minute limit, and a split
+  would not shorten a tag or dispatch run, whose wall time is set by the mutation shards.
+  Revisit if it passes about 38 minutes (#894).
 
 ## Library / Development
 
