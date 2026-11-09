@@ -266,7 +266,8 @@ It validates:
 1. `./scripts/release-check.sh` (above).
 2. The reference runs: `cargo test --test reference_sites_test -- --ignored` and
    `python3 scripts/privacy-reference.py live` (details in `CLAUDE.md`, release step 0).
-3. **Dispatch the full QA on the release candidate** and wait for it to finish green:
+3. The [human release smoke](#human-release-smoke) below.
+4. **Dispatch the full QA on the release candidate** and wait for it to finish green:
 
    ```bash
    gh workflow run ci.yml --ref <release-candidate-branch>
@@ -278,8 +279,55 @@ It validates:
    mutation shards). The mutation shards set the wall time: 75 to 90 minutes, against a job
    limit of 90 (#894). A mutation or docs.rs failure found here costs a branch push; found
    on the tag it costs a re-tag (2.0.0 and 2.0.1 both needed one).
-4. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
-5. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then `cargo publish`.
+5. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
+6. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then `cargo publish`.
+
+### Human release smoke
+
+The release gate measures contracts, schemas and detector strength, but nobody had read a
+real report before tagging: 2.0.0 shipped with every clean run `partial`, a 5-URL batch with
+0 of 5 passed, a grade label contradicting its score, and English in the German PDF (#895,
+#896, #898). Read one real report
+before every tag (#924). Tick the four boxes in the release PR
+(`.github/PULL_REQUEST_TEMPLATE.md`, section "For a release PR").
+
+Build the candidate and write everything to `reports/` (gitignored):
+
+```bash
+cargo build --release   # ./target/release/auditmysite (or under $CARGO_TARGET_DIR, if set)
+
+# Two real sites: one German, one English. Both PDFs per site, German and English.
+./target/release/auditmysite https://<german-site> --full -f pdf --lang de -o reports/smoke-de-site-de.pdf
+./target/release/auditmysite https://<german-site> --full -f pdf --lang en -o reports/smoke-de-site-en.pdf
+./target/release/auditmysite https://<english-site> --full -f pdf --lang de -o reports/smoke-en-site-de.pdf
+./target/release/auditmysite https://<english-site> --full -f pdf --lang en -o reports/smoke-en-site-en.pdf
+
+# One batch of five URLs (one per line in the file)
+./target/release/auditmysite --url-file reports/smoke-urls.txt --full -f pdf --lang en -o reports/smoke-batch.pdf
+
+# The terminal table, for wording and thresholds
+./target/release/auditmysite https://<german-site> --lang de
+./target/release/auditmysite https://<english-site>
+```
+
+`--lang` defaults to `en`; `-o x.pdf` alone would also select the PDF. To read wording as
+text instead of opening the binary PDF, build the maintainer binary and add `--debug-typ`
+(see "Debugging report content" above).
+
+Check:
+
+1. **Two sites, four PDFs.** Read each PDF. Look for wording in the wrong language (the
+   English PDF of a German site and the German PDF of an English site are the cases that
+   broke), and compare every score with the card or table that shows it (a grade or label
+   next to a score that contradicts it, as in #896).
+2. **One 5-URL batch.** All five URLs are audited and none is reported as failed or
+   `partial` unless that page really fails to load or measure.
+3. **Terminal table.** Wording is in the requested language and the labels and thresholds
+   match the PDF of the same run.
+4. Anything wrong is a release blocker or a filed issue before the tag, not a note for
+   after it.
+
+No script enforces this; the checkboxes in the release PR are the record.
 
 ### Decisions on the release pipeline
 

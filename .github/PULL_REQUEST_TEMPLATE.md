@@ -25,6 +25,15 @@
 - [ ] `CORPUS_CASES=<cases> cargo test --test detection_corpus_test -- --ignored` passes
 - [ ] `scripts/mutation-check.py --rule <id>` kills every mutation
 
+## For a release PR
+
+Procedure and commands: "Human release smoke" in `docs/guides/development.md`.
+
+- [ ] Two real sites audited, one German and one English; the PDF read in both German and English (wording in the wrong language, scores against cards)
+- [ ] One 5-URL batch: all five audited, none unexpectedly partial or failed
+- [ ] Terminal table output read for wording and thresholds
+- [ ] `ci.yml` dispatched on the release candidate and green (docs.rs parity and mutation shards included) before the tag is pushed
+
 ## Notes for the reviewer
 
 <!-- Trade-offs, things you were unsure about, how you tested. -->

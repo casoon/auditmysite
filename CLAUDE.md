@@ -116,6 +116,11 @@ version exactly once: what arrives broken there stays broken permanently. Theref
    `reference_sites.json` in the same PR, with the reason in `notes`. Otherwise only the run before
    the tag reports the long-fixed case as a deviation (1.8.0: bundesregierung.de and berlin.de,
    fixes of 04/05 Oct).
+0b. **Human release smoke (#924).** Read one real report before the tag: one German and one
+   English real site (`--full -f pdf`, both PDFs read in DE and EN: wording in the wrong language,
+   scores against cards), one 5-URL batch (all five audited, none unexpectedly partial) and the
+   terminal table for wording and thresholds. Procedure, commands and the release-PR checkboxes:
+   "Human release smoke" in `docs/guides/development.md`.
 1. **Dispatch the full QA on the release candidate and wait for green before pushing the tag:**
    `gh workflow run ci.yml --ref <candidate>` (since PR #956 a branch dispatch also runs the
    docs.rs sandbox build and the four detector-mutation shards, #894). The mutation shards take
