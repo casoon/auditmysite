@@ -1,22 +1,22 @@
-# Browser-Architektur: Technische Ausarbeitung
+# Browser Architecture: Technical Elaboration
 
-> Statushinweis:
-> Dieses Dokument enthält neben dem Ist-Zustand auch Architekturideen und frühere Vorschläge.
-> Nicht jede hier beschriebene Option ist aktuell in der CLI implementiert.
-> Für den tatsächlichen Benutzerstand sind `auditmysite --help`, die [README](../README.md) und [ARCHITECTURE.md](ARCHITECTURE.md) maßgeblich.
+> Status note:
+> Besides the current state, this document also contains architecture ideas and earlier proposals.
+> Not every option described here is currently implemented in the CLI.
+> For the actual user-facing state, `auditmysite --help`, the [README](../README.md) and [ARCHITECTURE.md](ARCHITECTURE.md) are authoritative.
 
-## Status quo (Ist-Zustand)
+## Status quo (current state)
 
-- Browser-Auflösung über `resolver` mit `--browser-path`, `AUDITMYSITE_BROWSER`, System-Browsern und Managed Install
-- Managed Browser unter `~/.auditmysite/browsers/`
-- Kein stiller Auto-Download; Installation erfolgt explizit über `auditmysite browser install`
-- `browser`-Subcommands und `doctor` sind implementiert
-- `--chrome-path` ist nur noch Alias für `--browser-path`
-- Einige weiter unten beschriebene Flags wie `--browser`, `--fast` und `--strict` sind derzeit Vorschläge, nicht produktive CLI-Optionen
+- Browser resolution via `resolver` with `--browser-path`, `AUDITMYSITE_BROWSER`, system browsers and managed install
+- Managed browser under `~/.auditmysite/browsers/`
+- No silent auto-download; installation happens explicitly via `auditmysite browser install`
+- `browser` subcommands and `doctor` are implemented
+- `--chrome-path` is now only an alias for `--browser-path`
+- Some flags described further below, such as `--browser`, `--fast` and `--strict`, are currently proposals, not productive CLI options
 
 ---
 
-## 1. Zielarchitektur
+## 1. Target architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -29,13 +29,13 @@
 │  1. --browser-path / AUDITMYSITE_BROWSER            │
 │  2. Registry: Chrome → Edge → Ungoogled → Chromium  │
 │  3. Managed install (~/.auditmysite/browsers/)      │
-│  4. Error mit Installationshinweisen                │
+│  4. Error with installation hints                   │
 └────────┬────────────────────────────────────────────┘
          │
 ┌────────▼────────────────────────────────────────────┐
 │                Browser Launcher                      │
 │  Modes: Standard │ Strict │ Fast (headless-shell)   │
-│  Flags, Timeouts, Port-Handling, Cleanup            │
+│  Flags, timeouts, port handling, cleanup            │
 └────────┬────────────────────────────────────────────┘
          │
 ┌────────▼────────────────────────────────────────────┐
@@ -44,120 +44,120 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-**Kernprinzipien:**
+**Core principles:**
 
-1. **Kein stiller Download.** Wenn kein Browser gefunden wird → Fehler mit klarer Anleitung.
-2. **System-Browser bevorzugen.** Der User hat Chrome oder Edge installiert? Nutzen.
-3. **Expliziter Installer.** `auditmysite browser install` als bewusste Aktion.
-4. **Homebrew bleibt leichtgewichtig.** Keine Browser-Dependency in der Formula.
+1. **No silent download.** If no browser is found → error with clear instructions.
+2. **Prefer the system browser.** Does the user have Chrome or Edge installed? Use it.
+3. **Explicit installer.** `auditmysite browser install` as a deliberate action.
+4. **Homebrew stays lightweight.** No browser dependency in the formula.
 
-**Verantwortlichkeiten:**
+**Responsibilities:**
 
-| Komponente | Aufgabe |
+| Component | Task |
 |---|---|
-| `browser::registry` | Kennt alle unterstützten Browser-Typen und ihre Pfade pro Plattform |
-| `browser::detection` | Findet installierte Browser, prüft Executable + Version |
-| `browser::resolver` | Führt die priorisierte Auswahl durch (CLI → Env → Registry) |
-| `browser::installer` | Lädt Chrome for Testing / headless-shell herunter |
-| `browser::launcher` | Startet den Browser mit den richtigen Flags für den Mode |
+| `browser::registry` | Knows all supported browser types and their paths per platform |
+| `browser::detection` | Finds installed browsers, checks executable + version |
+| `browser::resolver` | Performs the prioritized selection (CLI → Env → Registry) |
+| `browser::installer` | Downloads Chrome for Testing / headless-shell |
+| `browser::launcher` | Starts the browser with the right flags for the mode |
 | `cli::browser` | Subcommands: `detect`, `install`, `remove` |
-| `cli::doctor` | Systemdiagnose: Browser, Netzwerk, Berechtigungen |
+| `cli::doctor` | System diagnostics: browser, network, permissions |
 
 ---
 
-## 2. Browser-Strategie
+## 2. Browser strategy
 
-### Unterstützte Browser
+### Supported browsers
 
-| Browser | BrowserKind | CDP-kompatibel | Priorität |
+| Browser | BrowserKind | CDP-compatible | Priority |
 |---|---|---|---|
-| Google Chrome | `Chrome` | Ja | 1 (Standard) |
-| Microsoft Edge | `Edge` | Ja (gleiche Engine) | 2 |
-| Ungoogled Chromium | `UngoogledChromium` | Ja | 3 |
-| Chromium (System) | `Chromium` | Ja | 4 |
-| Chrome for Testing (managed) | `ChromeForTesting` | Ja | 5 (explizit installiert) |
-| chrome-headless-shell (managed) | `HeadlessShell` | Ja (eingeschränkt) | — (nur mit `--fast`) |
+| Google Chrome | `Chrome` | Yes | 1 (default) |
+| Microsoft Edge | `Edge` | Yes (same engine) | 2 |
+| Ungoogled Chromium | `UngoogledChromium` | Yes | 3 |
+| Chromium (system) | `Chromium` | Yes | 4 |
+| Chrome for Testing (managed) | `ChromeForTesting` | Yes | 5 (explicitly installed) |
+| chrome-headless-shell (managed) | `HeadlessShell` | Yes (limited) | — (only with `--fast`) |
 
-**Annahme:** Brave, Opera, Vivaldi sind technisch möglich (Chromium-basiert), aber der Support-Aufwand lohnt sich nicht. Wer Brave nutzt, kann `--browser-path` setzen.
+**Assumption:** Brave, Opera and Vivaldi are technically possible (Chromium-based), but the support effort is not worth it. Anyone who uses Brave can set `--browser-path`.
 
-### Erkennungsreihenfolge (Default-Mode)
+### Detection order (default mode)
 
 ```
-1. --browser-path /explicit/path          → Genau diesen Browser nutzen
-2. AUDITMYSITE_BROWSER=/env/path          → Env-Variable
-3. CHROME_PATH=/legacy/path               → Rückwärtskompatibilität
-4. Google Chrome (System)                 → Bevorzugt, weil verbreitet und signiert
-5. Microsoft Edge (System)                → Auf macOS/Windows oft vorinstalliert
-6. Ungoogled Chromium (System/Brew)       → Privacy-bewusste Alternative
-7. Chromium (System/Brew/Snap)            → Generisches Chromium
-8. Chrome for Testing (~/.auditmysite/)   → Nur wenn per `browser install` installiert
-9. → Fehler: ChromeNotFound              → Mit konkreten Installationshinweisen
+1. --browser-path /explicit/path          → Use exactly this browser
+2. AUDITMYSITE_BROWSER=/env/path          → Env variable
+3. CHROME_PATH=/legacy/path               → Backward compatibility
+4. Google Chrome (system)                 → Preferred, because widespread and signed
+5. Microsoft Edge (system)                → Often preinstalled on macOS/Windows
+6. Ungoogled Chromium (system/Brew)       → Privacy-conscious alternative
+7. Chromium (system/Brew/Snap)            → Generic Chromium
+8. Chrome for Testing (~/.auditmysite/)   → Only if installed via `browser install`
+9. → Error: ChromeNotFound                → With concrete installation hints
 ```
 
-### Modi
+### Modes
 
-| Modus | Flag | Verhalten |
+| Mode | Flag | Behavior |
 |---|---|---|
-| **Default** | (keiner) | System-Browser suchen → managed Browser → Fehler |
-| **Strict** | `--strict` | Nur System-Browser, kein Fallback auf managed |
-| **Fast** | `--fast` | Bevorzugt `chrome-headless-shell`, dann Standard-Kette |
+| **Default** | (none) | Search system browser → managed browser → error |
+| **Strict** | `--strict` | System browser only, no fallback to managed |
+| **Fast** | `--fast` | Prefers `chrome-headless-shell`, then the standard chain |
 
-**Strict-Mode:** Für CI/CD-Pipelines, wo der Browser explizit kontrolliert werden soll. Kein Auto-Fallback auf Downloads.
+**Strict mode:** For CI/CD pipelines where the browser should be controlled explicitly. No automatic fallback to downloads.
 
-**Fast-Mode:** `chrome-headless-shell` ist kleiner (~50 MB vs ~300 MB) und startet schneller. Einschränkung: Kein vollständiger AXTree — prüfen ob das für den Use-Case reicht. **Annahme:** Falls der AXTree mit headless-shell nicht verfügbar ist, muss ein Fallback auf Standard-Chrome passieren, mit Warnung.
+**Fast mode:** `chrome-headless-shell` is smaller (~50 MB vs ~300 MB) and starts faster. Limitation: no complete AXTree — check whether that is sufficient for the use case. **Assumption:** If the AXTree is not available with headless-shell, a fallback to standard Chrome must happen, with a warning.
 
-### CLI-Flags und Env-Variablen
+### CLI flags and env variables
 
-| Flag/Env | Typ | Default | Beschreibung |
+| Flag/Env | Type | Default | Description |
 |---|---|---|---|
-| `--browser-path <PATH>` | CLI | — | Expliziter Pfad zur Browser-Binary |
-| `--browser <KIND>` | CLI | `auto` | Browser-Typ erzwingen: `chrome`, `edge`, `chromium`, `auto` |
-| `--fast` | CLI | false | Bevorzugt headless-shell für Geschwindigkeit |
-| `--strict` | CLI | false | Nur System-Browser, kein managed Fallback |
-| `AUDITMYSITE_BROWSER` | Env | — | Pfad zur Browser-Binary |
-| `CHROME_PATH` | Env | — | Legacy-Kompatibilität (wird zu Gunsten von `AUDITMYSITE_BROWSER` deprecated) |
+| `--browser-path <PATH>` | CLI | — | Explicit path to the browser binary |
+| `--browser <KIND>` | CLI | `auto` | Force browser type: `chrome`, `edge`, `chromium`, `auto` |
+| `--fast` | CLI | false | Prefers headless-shell for speed |
+| `--strict` | CLI | false | System browser only, no managed fallback |
+| `AUDITMYSITE_BROWSER` | Env | — | Path to the browser binary |
+| `CHROME_PATH` | Env | — | Legacy compatibility (being deprecated in favor of `AUDITMYSITE_BROWSER`) |
 
 ---
 
-## 3. CLI-Design
+## 3. CLI design
 
-### Subcommand-Struktur
+### Subcommand structure
 
 ```
-auditmysite <URL>                              # Single audit (Hauptbefehl bleibt)
-auditmysite --sitemap <URL>                    # Batch via Sitemap
-auditmysite --url-file <FILE>                  # Batch via Datei
+auditmysite <URL>                              # Single audit (main command stays)
+auditmysite --sitemap <URL>                    # Batch via sitemap
+auditmysite --url-file <FILE>                  # Batch via file
 
-auditmysite browser detect                     # Zeigt alle gefundenen Browser
-auditmysite browser install                    # Installiert Chrome for Testing
-auditmysite browser install --headless-shell   # Installiert chrome-headless-shell
-auditmysite browser remove                     # Entfernt managed Browser
-auditmysite browser path                       # Gibt Pfad des aktiven Browsers aus
+auditmysite browser detect                     # Shows all found browsers
+auditmysite browser install                    # Installs Chrome for Testing
+auditmysite browser install --headless-shell   # Installs chrome-headless-shell
+auditmysite browser remove                     # Removes managed browser
+auditmysite browser path                       # Prints path of the active browser
 
-auditmysite doctor                             # Systemdiagnose
+auditmysite doctor                             # System diagnostics
 ```
 
-### Beispielaufrufe
+### Example invocations
 
 ```bash
-# Standard: System-Chrome nutzen
+# Default: use system Chrome
 auditmysite https://example.com --full --format pdf --output reports/audit.pdf
 
-# Expliziter Browser
+# Explicit browser
 auditmysite https://example.com --browser-path /usr/bin/chromium-browser
 
-# Edge erzwingen
+# Force Edge
 auditmysite https://example.com --browser edge
 
-# Fast-Mode (headless-shell, falls installiert)
+# Fast mode (headless-shell, if installed)
 auditmysite https://example.com --fast
 
-# Strict-Mode (nur System-Browser, kein Fallback)
+# Strict mode (system browser only, no fallback)
 auditmysite https://example.com --strict
 
-# Browser erkennen (Diagnostik)
+# Detect browsers (diagnostics)
 auditmysite browser detect
-# Ausgabe:
+# Output:
 #   ✓ Google Chrome 131.0.6778.108  /Applications/Google Chrome.app/.../Google Chrome
 #   ✓ Microsoft Edge 131.0.2903.86  /Applications/Microsoft Edge.app/.../Microsoft Edge
 #   ✗ Ungoogled Chromium            not found
@@ -165,18 +165,18 @@ auditmysite browser detect
 #   ✗ Chrome for Testing            not installed (~/.auditmysite/browsers/)
 #   Active: Google Chrome (auto-detected)
 
-# Browser installieren
+# Install browser
 auditmysite browser install
-# Ausgabe:
+# Output:
 #   Downloading Chrome for Testing v131.0.6778.108...
 #   Platform: macOS ARM64
 #   Destination: ~/.auditmysite/browsers/chrome-for-testing/
 #   Progress: [████████████████████] 100% (142 MB)
 #   ✓ Installed successfully
 
-# Systemdiagnose
+# System diagnostics
 auditmysite doctor
-# Ausgabe:
+# Output:
 #   Browser:     ✓ Google Chrome 131.0.6778.108
 #   Permissions: ✓ Executable
 #   Network:     ✓ Can reach example.com
@@ -185,7 +185,7 @@ auditmysite doctor
 #   Config:      ✓ auditmysite.toml found
 ```
 
-### Fehlerfall: Kein Browser gefunden
+### Error case: no browser found
 
 ```
 Error: No compatible browser found.
@@ -210,53 +210,53 @@ Run 'auditmysite doctor' for full system diagnostics.
 
 ---
 
-## 4. Rust-Modulstruktur
+## 4. Rust module structure
 
 ```
 src/browser/
 ├── mod.rs              # Public exports
-├── detection.rs        # Findet Browser auf dem System (Pfade, which, Validierung)
-├── registry.rs         # Definiert BrowserKind, Pfade pro Plattform, Suchreihenfolge
-├── resolver.rs         # Orchestriert: CLI → Env → Registry → Managed → Error
+├── detection.rs        # Finds browsers on the system (paths, which, validation)
+├── registry.rs         # Defines BrowserKind, paths per platform, search order
+├── resolver.rs         # Orchestrates: CLI → Env → Registry → Managed → Error
 ├── installer.rs        # Downloads: Chrome for Testing, headless-shell
-├── launcher.rs         # Startet Browser mit Mode-spezifischen Flags
-├── manager.rs          # Browser-Lifecycle (bestehend, nutzt resolver + launcher)
-├── pool.rs             # Concurrent page management (bestehend)
+├── launcher.rs         # Starts browser with mode-specific flags
+├── manager.rs          # Browser lifecycle (existing, uses resolver + launcher)
+├── pool.rs             # Concurrent page management (existing)
 └── types.rs            # Shared types (BrowserKind, DetectedBrowser, LaunchConfig, etc.)
 
 src/cli/
 ├── mod.rs
-├── args.rs             # Hauptargs + neue Flags (--browser, --browser-path, --fast, --strict)
-├── browser.rs          # NEU: Subcommands detect/install/remove/path
-├── doctor.rs           # NEU: Systemdiagnose
+├── args.rs             # Main args + new flags (--browser, --browser-path, --fast, --strict)
+├── browser.rs          # NEW: subcommands detect/install/remove/path
+├── doctor.rs           # NEW: system diagnostics
 └── config.rs           # Config file support
 
 src/
-├── doctor.rs           # NEU: Doctor-Logik (Browser, Netzwerk, Berechtigungen)
+├── doctor.rs           # NEW: doctor logic (browser, network, permissions)
 └── ...
 ```
 
-**Verantwortung pro Modul:**
+**Responsibility per module:**
 
-| Modul | Verantwortung |
+| Module | Responsibility |
 |---|---|
-| `types.rs` | Alle Enums und Structs: `BrowserKind`, `DetectedBrowser`, `LaunchConfig`, `BrowserMode` |
-| `registry.rs` | Statische Daten: Welche Browser existieren, welche Pfade pro OS, Suchreihenfolge |
-| `detection.rs` | Laufzeit-Erkennung: Pfade prüfen, `which` aufrufen, Version auslesen, Capabilities checken |
-| `resolver.rs` | Entscheidungslogik: Nimmt CLI-Optionen, Env-Vars und Detection-Ergebnisse, gibt einen `ResolvedBrowser` zurück |
-| `installer.rs` | Download + Extraktion von Chrome for Testing / headless-shell nach `~/.auditmysite/browsers/` |
-| `launcher.rs` | Baut `BrowserConfig` auf, wählt Flags je nach Mode, startet via chromiumoxide |
-| `manager.rs` | High-Level-API: `BrowserManager::new()` nutzt resolver → launcher, verwaltet Lifecycle |
-| `pool.rs` | Concurrent page management (unverändert) |
+| `types.rs` | All enums and structs: `BrowserKind`, `DetectedBrowser`, `LaunchConfig`, `BrowserMode` |
+| `registry.rs` | Static data: which browsers exist, which paths per OS, search order |
+| `detection.rs` | Runtime detection: check paths, call `which`, read version, check capabilities |
+| `resolver.rs` | Decision logic: takes CLI options, env vars and detection results, returns a `ResolvedBrowser` |
+| `installer.rs` | Download + extraction of Chrome for Testing / headless-shell to `~/.auditmysite/browsers/` |
+| `launcher.rs` | Builds `BrowserConfig`, picks flags depending on the mode, starts via chromiumoxide |
+| `manager.rs` | High-level API: `BrowserManager::new()` uses resolver → launcher, manages the lifecycle |
+| `pool.rs` | Concurrent page management (unchanged) |
 
 ---
 
-## 5. Zustandsmodell / Datenstrukturen
+## 5. State model / data structures
 
 ```rust
 // ── types.rs ──────────────────────────────────────────────────
 
-/// Welcher Browser-Typ
+/// Which browser type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BrowserKind {
     Chrome,
@@ -269,7 +269,7 @@ pub enum BrowserKind {
 }
 
 impl BrowserKind {
-    /// Menschenlesbarer Name
+    /// Human-readable name
     pub fn display_name(&self) -> &'static str {
         match self {
             Self::Chrome => "Google Chrome",
@@ -282,39 +282,39 @@ impl BrowserKind {
         }
     }
 
-    /// Ob das ein managed (selbst installierter) Browser ist
+    /// Whether this is a managed (self-installed) browser
     pub fn is_managed(&self) -> bool {
         matches!(self, Self::ChromeForTesting | Self::HeadlessShell)
     }
 }
 
-/// Wie der Browser gefunden wurde
+/// How the browser was found
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrowserSource {
-    /// Explizit per --browser-path
+    /// Explicitly via --browser-path
     CliFlag,
-    /// Per AUDITMYSITE_BROWSER oder CHROME_PATH
+    /// Via AUDITMYSITE_BROWSER or CHROME_PATH
     EnvVar,
-    /// In bekannten System-Pfaden gefunden
+    /// Found in known system paths
     SystemPath,
-    /// Per `which`/`where` im PATH gefunden
+    /// Found in PATH via `which`/`where`
     PathSearch,
-    /// Selbst installiert unter ~/.auditmysite/browsers/
+    /// Self-installed under ~/.auditmysite/browsers/
     ManagedInstall,
 }
 
-/// Laufmodus für den Browser
+/// Run mode for the browser
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrowserMode {
-    /// Normaler Headless-Chrome mit allen Features
+    /// Normal headless Chrome with all features
     Standard,
-    /// Nur System-Browser, kein Fallback
+    /// System browser only, no fallback
     Strict,
-    /// Bevorzugt headless-shell für Geschwindigkeit
+    /// Prefers headless-shell for speed
     Fast,
 }
 
-/// Ein gefundener Browser
+/// A found browser
 #[derive(Debug, Clone)]
 pub struct DetectedBrowser {
     pub kind: BrowserKind,
@@ -323,18 +323,18 @@ pub struct DetectedBrowser {
     pub source: BrowserSource,
 }
 
-/// Ergebnis der Browser-Resolution
+/// Result of the browser resolution
 #[derive(Debug, Clone)]
 pub struct ResolvedBrowser {
-    /// Der ausgewählte Browser
+    /// The selected browser
     pub browser: DetectedBrowser,
-    /// Welcher Mode aktiv ist
+    /// Which mode is active
     pub mode: BrowserMode,
-    /// Alle gefundenen Kandidaten (für `browser detect`)
+    /// All found candidates (for `browser detect`)
     pub all_candidates: Vec<DetectedBrowser>,
 }
 
-/// Konfiguration für den Browser-Start
+/// Configuration for the browser launch
 #[derive(Debug, Clone)]
 pub struct LaunchConfig {
     pub browser: DetectedBrowser,
@@ -348,57 +348,57 @@ pub struct LaunchConfig {
     pub extra_args: Vec<String>,
 }
 
-/// Was installiert werden soll
+/// What should be installed
 #[derive(Debug, Clone, Copy)]
 pub enum InstallTarget {
-    /// Chrome for Testing (vollständig)
+    /// Chrome for Testing (complete)
     ChromeForTesting,
-    /// chrome-headless-shell (minimal, schnell)
+    /// chrome-headless-shell (minimal, fast)
     HeadlessShell,
 }
 ```
 
 ---
 
-## 6. Erkennungslogik
+## 6. Detection logic
 
-### Schritt für Schritt
+### Step by step
 
 ```
 resolve_browser(cli_args) → Result<ResolvedBrowser>
 │
-├─ 1. CLI-Flag: --browser-path gesetzt?
-│     → Pfad validieren, Version prüfen, BrowserKind::Custom
-│     → Fehler wenn Pfad nicht existiert oder nicht executable
+├─ 1. CLI flag: --browser-path set?
+│     → Validate path, check version, BrowserKind::Custom
+│     → Error if path does not exist or is not executable
 │
-├─ 2. Env-Var: AUDITMYSITE_BROWSER gesetzt?
-│     → Pfad validieren, Version prüfen
-│     → Fehler nur loggen wenn Pfad ungültig, weiter mit nächstem Schritt
+├─ 2. Env var: AUDITMYSITE_BROWSER set?
+│     → Validate path, check version
+│     → Only log an error if path is invalid, continue with next step
 │
-├─ 3. Env-Var: CHROME_PATH gesetzt? (Legacy)
-│     → Wie 2., aber mit Deprecation-Warnung
+├─ 3. Env var: CHROME_PATH set? (legacy)
+│     → Like 2., but with deprecation warning
 │
-├─ 4. --browser Flag gesetzt? (z.B. --browser edge)
-│     → Nur den spezifischen BrowserKind suchen
-│     → Fehler wenn dieser Typ nicht gefunden
+├─ 4. --browser flag set? (e.g. --browser edge)
+│     → Search only the specific BrowserKind
+│     → Error if this type is not found
 │
-├─ 5. System-Scan (Registry-Reihenfolge):
+├─ 5. System scan (registry order):
 │     │
-│     ├─ Chrome: Bekannte Pfade → which google-chrome
-│     ├─ Edge: Bekannte Pfade → which microsoft-edge
-│     ├─ Ungoogled Chromium: Brew-Pfade → which
-│     └─ Chromium: Bekannte Pfade → Brew → Snap → which
+│     ├─ Chrome: known paths → which google-chrome
+│     ├─ Edge: known paths → which microsoft-edge
+│     ├─ Ungoogled Chromium: Brew paths → which
+│     └─ Chromium: known paths → Brew → Snap → which
 │     │
-│     → Ersten Treffer nehmen (wenn nicht --strict)
+│     → Take the first hit (unless --strict)
 │
-├─ 6. Managed Install prüfen (wenn nicht --strict):
-│     → ~/.auditmysite/browsers/chrome-for-testing/ existiert?
-│     → ~/.auditmysite/browsers/headless-shell/ existiert? (nur bei --fast)
+├─ 6. Check managed install (unless --strict):
+│     → ~/.auditmysite/browsers/chrome-for-testing/ exists?
+│     → ~/.auditmysite/browsers/headless-shell/ exists? (only with --fast)
 │
-└─ 7. Nichts gefunden → ChromeNotFound Error
+└─ 7. Nothing found → ChromeNotFound error
 ```
 
-### Plattform-spezifische Pfade
+### Platform-specific paths
 
 #### macOS
 
@@ -411,29 +411,29 @@ fn macos_paths() -> Vec<(BrowserKind, &'static str)> {
         // Edge
         (BrowserKind::Edge,
          "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
-        // Ungoogled Chromium (Homebrew Cask: eloston-chromium)
+        // Ungoogled Chromium (Homebrew cask: eloston-chromium)
         (BrowserKind::UngoogledChromium,
-         "/Applications/Chromium.app/Contents/MacOS/Chromium"),  // Achtung: kollidiert mit normalem Chromium
+         "/Applications/Chromium.app/Contents/MacOS/Chromium"),  // Caution: collides with regular Chromium
         // Chromium (Homebrew)
         (BrowserKind::Chromium,
          "/opt/homebrew/bin/chromium"),
         (BrowserKind::Chromium,
          "/usr/local/bin/chromium"),
-        // Chrome Canary (niedrige Prio, instabil)
+        // Chrome Canary (low priority, unstable)
         (BrowserKind::Chrome,
          "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
     ]
 }
 ```
 
-**Problem: Ungoogled Chromium vs. Chromium auf macOS**
+**Problem: Ungoogled Chromium vs. Chromium on macOS**
 
-Beide installieren sich als `/Applications/Chromium.app`. Unterscheidung möglich über:
+Both install as `/Applications/Chromium.app`. They can be told apart via:
 - `Chromium --version` → "Chromium 131.0.6778.108 Ungoogled" vs. "Chromium 131.0.6778.108"
-- `brew list --cask` prüfen: `eloston-chromium` vs. `chromium`
-- In der Praxis: Beide funktionieren identisch mit CDP, die Unterscheidung ist kosmetisch.
+- Checking `brew list --cask`: `eloston-chromium` vs. `chromium`
+- In practice: both work identically with CDP, the distinction is cosmetic.
 
-**Empfehlung:** Beide als `BrowserKind::Chromium` behandeln, es sei denn der User hat `--browser ungoogled` explizit gesetzt. Auf macOS reicht die `/Applications/Chromium.app`-Erkennung.
+**Recommendation:** Treat both as `BrowserKind::Chromium`, unless the user has explicitly set `--browser ungoogled`. On macOS, detecting `/Applications/Chromium.app` is enough.
 
 #### Linux
 
@@ -465,7 +465,7 @@ fn windows_paths() -> Vec<(BrowserKind, &'static str)> {
          r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
         (BrowserKind::Chrome,
          r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
-        // Edge (immer vorhanden auf Windows 10+)
+        // Edge (always present on Windows 10+)
         (BrowserKind::Edge,
          r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
         (BrowserKind::Edge,
@@ -474,25 +474,25 @@ fn windows_paths() -> Vec<(BrowserKind, &'static str)> {
 }
 ```
 
-### Validierung einer gefundenen Binary
+### Validating a found binary
 
 ```rust
 fn validate_browser(path: &Path) -> Result<DetectedBrowser> {
-    // 1. Existiert die Datei?
+    // 1. Does the file exist?
     if !path.exists() {
         return Err(NotFound);
     }
 
-    // 2. Ist sie executable? (Unix)
+    // 2. Is it executable? (Unix)
     #[cfg(unix)]
     check_executable_permission(path)?;
 
-    // 3. Version auslesen
+    // 3. Read version
     let version = run_version_check(path)?;  // --version
 
-    // 4. Minimale Versionsprüfung
-    //    chromiumoxide 0.8 braucht Chrome >= 64 (CDP-Protokoll)
-    //    Praktisch: Chrome >= 90 empfohlen für stabile AXTree-API
+    // 4. Minimum version check
+    //    chromiumoxide 0.8 needs Chrome >= 64 (CDP protocol)
+    //    In practice: Chrome >= 90 recommended for a stable AXTree API
     if let Some(ref v) = version {
         let major = parse_major_version(v);
         if major < 90 {
@@ -500,16 +500,16 @@ fn validate_browser(path: &Path) -> Result<DetectedBrowser> {
         }
     }
 
-    // 5. Optional: CDP-Capability-Check
-    //    Schnelltest: `chrome --headless --dump-dom about:blank`
-    //    Wenn das funktioniert, ist CDP verfügbar.
-    //    → Nur bei `doctor`, nicht bei jedem Start.
+    // 5. Optional: CDP capability check
+    //    Quick test: `chrome --headless --dump-dom about:blank`
+    //    If that works, CDP is available.
+    //    → Only in `doctor`, not on every start.
 
     Ok(DetectedBrowser { ... })
 }
 ```
 
-### which-Suchbegriffe pro BrowserKind
+### which search terms per BrowserKind
 
 ```rust
 fn which_names(kind: BrowserKind) -> &'static [&'static str] {
@@ -524,73 +524,73 @@ fn which_names(kind: BrowserKind) -> &'static [&'static str] {
 
 ---
 
-## 7. Installationsstrategie
+## 7. Installation strategy
 
 ### `auditmysite browser install`
 
 ```
 ~/.auditmysite/
 ├── browsers/
-│   ├── chrome-for-testing/          # Voller Chrome
+│   ├── chrome-for-testing/          # Full Chrome
 │   │   ├── version.txt              # "131.0.6778.108"
-│   │   └── chrome-mac-arm64/        # Plattform-spezifisch
+│   │   └── chrome-mac-arm64/        # Platform-specific
 │   │       └── Google Chrome for Testing.app/...
-│   └── headless-shell/              # Minimal (nur mit --headless-shell)
+│   └── headless-shell/              # Minimal (only with --headless-shell)
 │       ├── version.txt
 │       └── chrome-headless-shell
-└── chromium/                         # LEGACY (Phase 5 löschen)
+└── chromium/                         # LEGACY (delete in phase 5)
 ```
 
-### Download-Quellen
+### Download sources
 
-Chrome for Testing hat eine stabile JSON-API:
+Chrome for Testing has a stable JSON API:
 
 ```
 https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json
 ```
 
-**Empfohlenes Vorgehen:**
+**Recommended approach:**
 
-1. Latest Stable Version von der API holen (nicht hardcoden)
-2. Download-URL für Plattform + Architektur zusammenbauen
-3. Herunterladen, extrahieren, Version in `version.txt` speichern
+1. Fetch the latest stable version from the API (do not hardcode)
+2. Assemble the download URL for platform + architecture
+3. Download, extract, store the version in `version.txt`
 
 ```rust
-/// Installer-Logik
+/// Installer logic
 impl BrowserInstaller {
-    /// Chrome for Testing installieren
+    /// Install Chrome for Testing
     pub async fn install(target: InstallTarget) -> Result<InstalledBrowser> {
-        // 1. Aktuelle stabile Version ermitteln
+        // 1. Determine the current stable version
         let version = Self::fetch_latest_stable_version().await?;
 
-        // 2. Prüfen ob schon installiert
+        // 2. Check whether already installed
         let install_dir = Self::install_dir(target);
         if let Some(existing) = Self::check_existing(&install_dir, &version) {
             info!("Already installed: {} v{}", target.name(), version);
             return Ok(existing);
         }
 
-        // 3. Download-URL zusammenbauen
+        // 3. Assemble the download URL
         let url = Self::download_url(target, &version)?;
 
-        // 4. Herunterladen mit Progress
+        // 4. Download with progress
         info!("Downloading {} v{}...", target.name(), version);
         let archive = Self::download_with_progress(&url).await?;
 
-        // 5. Extrahieren
+        // 5. Extract
         Self::extract(&archive, &install_dir)?;
 
-        // 6. Version-Datei schreiben
+        // 6. Write version file
         fs::write(install_dir.join("version.txt"), &version)?;
 
-        // 7. Binary-Pfad zurückgeben
+        // 7. Return binary path
         let binary_path = Self::binary_path(target, &install_dir);
         Ok(InstalledBrowser { path: binary_path, version })
     }
 
-    /// Stabile Version von API holen
+    /// Fetch stable version from the API
     async fn fetch_latest_stable_version() -> Result<String> {
-        // Primär: Chrome for Testing API
+        // Primary: Chrome for Testing API
         let url = "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json";
         let resp: serde_json::Value = reqwest::get(url).await?.json().await?;
         let version = resp["channels"]["Stable"]["version"]
@@ -601,46 +601,46 @@ impl BrowserInstaller {
 }
 ```
 
-### Version-Pinning
+### Version pinning
 
-**Empfehlung:** Kein Pinning auf eine exakte Version. Stattdessen:
+**Recommendation:** No pinning to an exact version. Instead:
 
-- `browser install` holt immer die aktuelle Stable
-- Die installierte Version wird in `version.txt` gespeichert
-- `browser install --update` aktualisiert auf neueste Stable
-- Wer eine bestimmte Version braucht: `browser install --version 131.0.6778.108`
-- **Kompatibilitätsgarantie:** Chrome for Testing Stable ist abwärtskompatibel mit CDP
+- `browser install` always fetches the current stable
+- The installed version is stored in `version.txt`
+- `browser install --update` updates to the latest stable
+- Anyone who needs a specific version: `browser install --version 131.0.6778.108`
+- **Compatibility guarantee:** Chrome for Testing Stable is backward compatible with CDP
 
-### Integritätsprüfung
+### Integrity check
 
-Chrome for Testing bietet keine offiziellen Checksums. Pragmatischer Ansatz:
+Chrome for Testing offers no official checksums. Pragmatic approach:
 
-1. Download über HTTPS (TLS-Integrität)
-2. Nach Extraktion: Binary-Existenz prüfen
-3. `--version` aufrufen und parsen
-4. Wenn alles klappt → gültig
+1. Download over HTTPS (TLS integrity)
+2. After extraction: check that the binary exists
+3. Call `--version` and parse it
+4. If everything works → valid
 
-### Fehlerfälle
+### Error cases
 
-| Fehler | Reaktion |
+| Error | Reaction |
 |---|---|
-| Kein Internet | Klare Meldung, Hinweis auf `--browser-path` |
-| Download-Fehler | 2 Retries mit Backoff, dann Fehler |
-| Extraktion fehlgeschlagen | Cache-Dir löschen, Fehler melden |
-| Kein Platz | Plattengröße prüfen, warnen bei < 500 MB |
-| Binary nicht lauffähig | `--version`-Check schlägt fehl → Fehler + Hinweis |
+| No internet | Clear message, hint to `--browser-path` |
+| Download error | 2 retries with backoff, then error |
+| Extraction failed | Delete cache dir, report error |
+| No space | Check disk size, warn at < 500 MB |
+| Binary not runnable | `--version` check fails → error + hint |
 
 ---
 
-## 8. Launch-Strategie
+## 8. Launch Strategy
 
-### Chrome-Flags nach Mode
+### Chrome flags by mode
 
 ```rust
 fn build_launch_args(config: &LaunchConfig) -> Vec<String> {
     let mut args = vec![
-        // Immer
-        "--headless=new".into(),          // Neuer Headless-Mode (Chrome >= 112)
+        // Always
+        "--headless=new".into(),          // New headless mode (Chrome >= 112)
         "--no-first-run".into(),
         "--no-default-browser-check".into(),
         "--disable-extensions".into(),
@@ -658,29 +658,29 @@ fn build_launch_args(config: &LaunchConfig) -> Vec<String> {
         format!("--window-size={},{}", config.window_size.0, config.window_size.1),
     ];
 
-    // macOS: Firewall-Problem vermeiden
+    // macOS: avoid the firewall problem
     if cfg!(target_os = "macos") {
-        // Loopback-Verbindung statt Netzwerk
+        // Loopback connection instead of network
         args.push("--remote-debugging-address=127.0.0.1".into());
-        // Kein mDNS/Bonjour → keine Firewall-Nachfrage
+        // No mDNS/Bonjour → no firewall prompt
         args.push("--disable-features=NetworkService".into());
     }
 
-    // Mode-spezifisch
+    // Mode-specific
     match config.mode {
         BrowserMode::Standard => {
             args.push("--disable-gpu".into());
         }
         BrowserMode::Strict => {
             args.push("--disable-gpu".into());
-            // Keine Extra-Features
+            // No extra features
         }
         BrowserMode::Fast => {
             args.push("--disable-gpu".into());
             args.push("--blink-settings=imagesEnabled=false".into());
-            args.push("--disable-javascript".into());  // Nur wenn JS nicht gebraucht
-            // ACHTUNG: JS wird für Web Vitals gebraucht!
-            // → JS-disable nur wenn --no-vitals gesetzt
+            args.push("--disable-javascript".into());  // Only if JS is not needed
+            // CAUTION: JS is needed for Web Vitals!
+            // → disable JS only if --no-vitals is set
         }
     }
 
@@ -695,45 +695,45 @@ fn build_launch_args(config: &LaunchConfig) -> Vec<String> {
 }
 ```
 
-**Anmerkung zu `--headless=new` vs `--headless`:**
-- `--headless` (alt): Chrome < 112, veralteter Headless-Mode
-- `--headless=new`: Chrome >= 112, nutzt den echten Browser-Renderer
-- **Empfehlung:** `--headless=new` für Chrome >= 112, Fallback auf `--headless` für ältere Versionen. Versionsprüfung in Detection.
+**Note on `--headless=new` vs `--headless`:**
+- `--headless` (old): Chrome < 112, outdated headless mode
+- `--headless=new`: Chrome >= 112, uses the real browser renderer
+- **Recommendation:** `--headless=new` for Chrome >= 112, fall back to `--headless` for older versions. Version check in detection.
 
-### Port-Handling
+### Port handling
 
 ```rust
-/// Freien Port finden für CDP
+/// Find a free port for CDP
 fn find_free_port() -> u16 {
-    // Binde kurz an Port 0, OS vergibt freien Port
+    // Briefly bind to port 0, the OS assigns a free port
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     listener.local_addr().unwrap().port()
 }
 ```
 
-chromiumoxide macht das intern, aber wenn wir den Port selbst kontrollieren wollen (z.B. für `--remote-debugging-port`), brauchen wir das.
+chromiumoxide does this internally, but if we want to control the port ourselves (e.g. for `--remote-debugging-port`), we need this.
 
-### Prozess-Lifecycle und Zombie-Vermeidung
+### Process lifecycle and zombie avoidance
 
 ```rust
 impl BrowserManager {
     pub async fn close(self) -> Result<()> {
-        // 1. Alle Pages schließen
+        // 1. Close all pages
         if let Ok(pages) = self.browser.pages().await {
             for page in pages {
                 page.close().await.ok();
             }
         }
 
-        // 2. Browser graceful beenden
-        //    chromiumoxide sendet Browser.close über CDP
+        // 2. Shut down the browser gracefully
+        //    chromiumoxide sends Browser.close over CDP
         drop(self.browser);
 
-        // 3. Timeout: Wenn Browser nach 5s noch läuft, SIGTERM
-        //    chromiumoxide handled das über Drop, aber wir
-        //    sollten sicherstellen, dass kein Zombie bleibt
+        // 3. Timeout: if the browser is still running after 5s, SIGTERM
+        //    chromiumoxide handles this via Drop, but we
+        //    should make sure no zombie is left behind
 
-        // 4. Handler-Task abbrechen
+        // 4. Abort the handler task
         if let Some(handle) = self.handler.lock().await.take() {
             handle.abort();
         }
@@ -742,14 +742,14 @@ impl BrowserManager {
     }
 }
 
-// Zusätzlich: Ctrl+C Handler im main.rs
-// Stellt sicher, dass Browser auch bei SIGINT aufgeräumt wird
+// Additionally: Ctrl+C handler in main.rs
+// Makes sure the browser is cleaned up on SIGINT as well
 ```
 
 ### Logging
 
 ```rust
-// Beim Start
+// At startup
 info!("Browser: {} v{} ({})",
     resolved.browser.kind.display_name(),
     resolved.browser.version.as_deref().unwrap_or("unknown"),
@@ -758,16 +758,16 @@ info!("Mode: {:?}", resolved.mode);
 debug!("Launch args: {:?}", launch_args);
 debug!("CDP port: {}", port);
 
-// Bei Problemen
+// On problems
 warn!("Browser process exited unexpectedly");
 error!("CDP connection lost: {}", err);
 ```
 
 ---
 
-## 9. Homebrew-Strategie
+## 9. Homebrew Strategy
 
-### Formula-Struktur
+### Formula structure
 
 ```ruby
 class Auditmysite < Formula
@@ -798,37 +798,37 @@ class Auditmysite < Formula
   end
 
   test do
-    # Prüfe nur dass die Binary läuft, nicht den Browser
+    # Only check that the binary runs, not the browser
     assert_match "auditmysite", shell_output("#{bin}/auditmysite --version")
   end
 end
 ```
 
-### Warum Browser NICHT als harte Dependency
+### Why the browser is NOT a hard dependency
 
-1. **Viele User haben Chrome schon.** `depends_on "google-chrome"` würde es nochmal installieren oder Konflikte erzeugen.
-2. **Cask-Dependencies sind fragil.** `depends_on cask: "google-chrome"` funktioniert in Homebrew nicht zuverlässig.
-3. **Edge ist auf macOS oft vorinstalliert.** Warum Chrome erzwingen, wenn Edge schon da ist?
-4. **CI/CD-Systeme** haben oft eigene Chrome-Installationen.
-5. **Der User soll die Kontrolle haben**, welchen Browser er nutzt.
+1. **Many users already have Chrome.** `depends_on "google-chrome"` would install it again or cause conflicts.
+2. **Cask dependencies are fragile.** `depends_on cask: "google-chrome"` does not work reliably in Homebrew.
+3. **Edge is often preinstalled on macOS.** Why force Chrome when Edge is already there?
+4. **CI/CD systems** often have their own Chrome installations.
+5. **The user should be in control** of which browser they use.
 
-### Was bei `brew install auditmysite` passieren soll
+### What should happen on `brew install auditmysite`
 
-1. Rust-Compiler baut die Binary
-2. Binary wird nach `/opt/homebrew/bin/auditmysite` installiert
-3. `caveats` zeigt den Hinweis auf Browser-Requirement
-4. **Kein Browser-Download, kein Auto-Install, kein Netzwerkzugriff zur Laufzeit**
+1. The Rust compiler builds the binary
+2. The binary is installed to `/opt/homebrew/bin/auditmysite`
+3. `caveats` shows the note about the browser requirement
+4. **No browser download, no auto-install, no network access at runtime**
 
-### Was NICHT passieren soll
+### What should NOT happen
 
-- Kein automatischer Chrome-Download beim ersten `brew install`
-- Keine Homebrew-Dependency auf einen Browser-Cask
-- Kein Post-Install-Script das Netzwerkzugriffe macht
-- Kein Abbruch der Installation wenn kein Browser vorhanden ist
+- No automatic Chrome download on the first `brew install`
+- No Homebrew dependency on a browser cask
+- No post-install script that makes network accesses
+- No aborting the installation when no browser is present
 
-### Fehlermeldung nach Installation (erster Run ohne Browser)
+### Error message after installation (first run without a browser)
 
-Wenn der User `auditmysite https://example.com` ausführt und kein Browser da ist:
+When the user runs `auditmysite https://example.com` and there is no browser:
 
 ```
 Error: No compatible browser found.
@@ -844,33 +844,33 @@ Run 'auditmysite doctor' to check your setup.
 
 ---
 
-## 10. macOS-spezifische Probleme
+## 10. macOS-Specific Problems
 
-### Problem 1: Firewall-Popups
+### Problem 1: Firewall popups
 
-**Ursache:** Chrome öffnet einen Listening-Socket für CDP. macOS Application Firewall fragt "Möchten Sie eingehende Verbindungen erlauben?"
+**Cause:** Chrome opens a listening socket for CDP. The macOS Application Firewall asks "Do you want to allow incoming connections?"
 
-**Lösung:**
+**Solution:**
 ```
 --remote-debugging-address=127.0.0.1
 ```
-Bindet nur an Loopback. Die Firewall fragt nur bei Nicht-Loopback-Verbindungen. chromiumoxide nutzt das standardmäßig, aber wir setzen es explizit.
+Binds to loopback only. The firewall only prompts for non-loopback connections. chromiumoxide uses this by default, but we set it explicitly.
 
-**Zusätzlich:**
+**Additionally:**
 ```
 --disable-features=MediaRouter
 ```
-Verhindert mDNS-Discovery (Chromecast etc.), das ebenfalls Firewall-Popups auslösen kann.
+Prevents mDNS discovery (Chromecast etc.), which can also trigger firewall popups.
 
-### Problem 2: Gatekeeper-Warnungen
+### Problem 2: Gatekeeper warnings
 
-**Ursache:** Selbst heruntergeladene Binaries haben kein Code-Signing und bekommen das `com.apple.quarantine`-Extended-Attribute.
+**Cause:** Binaries downloaded by ourselves have no code signing and get the `com.apple.quarantine` extended attribute.
 
-**Lösung bei `browser install`:**
+**Solution for `browser install`:**
 ```rust
 #[cfg(target_os = "macos")]
 fn remove_quarantine(path: &Path) -> Result<()> {
-    // Quarantine-Attribut entfernen
+    // Remove the quarantine attribute
     Command::new("xattr")
         .args(["-dr", "com.apple.quarantine"])
         .arg(path)
@@ -880,50 +880,50 @@ fn remove_quarantine(path: &Path) -> Result<()> {
 }
 ```
 
-Nach der Extraktion das Quarantine-Attribut auf dem gesamten App-Bundle entfernen. Das ist sicher, weil wir die Datei selbst von einer bekannten Google-URL heruntergeladen haben.
+After extraction, remove the quarantine attribute on the entire app bundle. This is safe because we downloaded the file ourselves from a known Google URL.
 
-### Problem 3: Unsignierte Browser-Binaries
+### Problem 3: Unsigned browser binaries
 
-**Chrome for Testing** ist von Google signiert (hat ein gültiges Code-Signing-Zertifikat). Das ist kein Problem.
+**Chrome for Testing** is signed by Google (it has a valid code-signing certificate). This is not a problem.
 
-**Selbst kompiliertes Chromium** (z.B. via `brew install chromium`) ist NICHT signiert und kann Gatekeeper-Probleme verursachen.
+**Self-compiled Chromium** (e.g. via `brew install chromium`) is NOT signed and can cause Gatekeeper problems.
 
-**Empfehlung:**
-- System-Chrome und System-Edge sind immer signiert → bevorzugen
-- Chrome for Testing ist signiert → sicher als Managed Install
-- Unsigniertes Chromium → warnen, aber erlauben
+**Recommendation:**
+- System Chrome and system Edge are always signed → prefer them
+- Chrome for Testing is signed → safe as a managed install
+- Unsigned Chromium → warn, but allow
 
-### Problem 4: Unterschiede zwischen installiertem Chrome und Download
+### Problem 4: Differences between installed Chrome and a download
 
-| Aspekt | System Chrome | Chrome for Testing |
+| Aspect | System Chrome | Chrome for Testing |
 |---|---|---|
-| Code-Signing | Ja (Apple Notarized) | Ja (Google signiert) |
-| Firewall | Bereits erlaubt | Neue Regel nötig |
-| Updates | Automatisch | Manuell (`browser install --update`) |
-| Pfad | `/Applications/Google Chrome.app/...` | `~/.auditmysite/browsers/...` |
-| Gatekeeper | Kein Problem | Quarantine entfernen nötig |
-| User-Profil | Eigenes Profil | Kein Profil (headless) |
+| Code signing | Yes (Apple notarized) | Yes (signed by Google) |
+| Firewall | Already allowed | New rule needed |
+| Updates | Automatic | Manual (`browser install --update`) |
+| Path | `/Applications/Google Chrome.app/...` | `~/.auditmysite/browsers/...` |
+| Gatekeeper | No problem | Quarantine removal needed |
+| User profile | Own profile | No profile (headless) |
 
-**Empfehlung:** System-Chrome ist **immer** die bessere Wahl auf macOS. Der Managed Install ist ein Fallback für Systeme ohne Chrome.
+**Recommendation:** System Chrome is **always** the better choice on macOS. The managed install is a fallback for systems without Chrome.
 
 ### Problem 5: SingletonLock
 
-**Ursache:** Chrome erstellt ein `SingletonLock` im Profil-Verzeichnis. Wenn der Prozess unsauber beendet wird, bleibt das Lock liegen und verhindert den nächsten Start.
+**Cause:** Chrome creates a `SingletonLock` in the profile directory. If the process is terminated uncleanly, the lock stays behind and prevents the next start.
 
-**Aktuelle Lösung:** User muss manuell `rm` aufrufen.
+**Current solution:** The user has to run `rm` manually.
 
-**Bessere Lösung:**
+**Better solution:**
 ```rust
 fn cleanup_stale_locks(profile_dir: &Path) {
     let lock_file = profile_dir.join("SingletonLock");
     if lock_file.exists() {
-        // Prüfe ob der Prozess noch läuft
-        // SingletonLock enthält hostname-PID
+        // Check whether the process is still running
+        // SingletonLock contains hostname-PID
         if let Ok(content) = fs::read_to_string(&lock_file) {
             // Format: "hostname-PID"
             if let Some(pid_str) = content.split('-').last() {
                 if let Ok(pid) = pid_str.parse::<u32>() {
-                    // Prüfe ob PID noch lebt
+                    // Check whether the PID is still alive
                     if !process_exists(pid) {
                         warn!("Removing stale SingletonLock (PID {} no longer running)", pid);
                         fs::remove_file(&lock_file).ok();
@@ -935,126 +935,126 @@ fn cleanup_stale_locks(profile_dir: &Path) {
 }
 ```
 
-Noch besser: **Eigenes temporäres Profil-Verzeichnis** pro Audit-Run:
+Even better: **a separate temporary profile directory** per audit run:
 ```rust
 let temp_profile = tempfile::tempdir()?;
 args.push(format!("--user-data-dir={}", temp_profile.path().display()));
 ```
 
-Das vermeidet das SingletonLock-Problem komplett und verhindert Konflikte mit laufenden Chrome-Instanzen des Users.
+This avoids the SingletonLock problem entirely and prevents conflicts with the user's running Chrome instances.
 
-**Annahme:** chromiumoxide setzt bereits ein temporäres Profil-Verzeichnis. Prüfen ob das der Fall ist — wenn ja, ist das SingletonLock-Problem ein Bug in chromiumoxide. Die aktuelle Fehlermeldung deutet darauf hin, dass das feste Verzeichnis `/tmp/chromiumoxide-runner/` verwendet wird, was bei mehreren parallelen Runs kollidiert.
-
----
-
-## 11. Migrationsplan
-
-### Phase 1: Detection Refactor
-
-**Ziel:** Neue Browser-Erkennung mit Registry-Pattern, Edge-Support, bessere Fehlermeldungen.
-
-**Änderungen:**
-- `browser/types.rs` anlegen (BrowserKind, DetectedBrowser, BrowserSource, etc.)
-- `browser/registry.rs` anlegen (Pfade pro Plattform und BrowserKind)
-- `browser/detection.rs` umschreiben (nutzt Registry, findet Edge + Ungoogled Chromium)
-- `browser/resolver.rs` anlegen (priorisierte Auswahl)
-- `cli/args.rs`: `--browser-path` als Alias für `--chrome-path` (beide akzeptieren)
-- `cli/args.rs`: `--browser <kind>` Flag
-- Env-Var `AUDITMYSITE_BROWSER` einführen, `CHROME_PATH` weiter akzeptieren
-- Fehlermeldung bei ChromeNotFound verbessern
-
-**Risiken:**
-- Detection könnte auf manchen Systemen andere Browser finden als vorher → `--browser chrome` als Escape-Hatch
-- Edge-Kompatibilität mit chromiumoxide: Sollte funktionieren (gleiche CDP-API), aber testen
-
-**Tests:**
-- Unit-Tests für Registry (Pfade pro Plattform)
-- Unit-Tests für Resolver (Prioritätsreihenfolge)
-- Integrationstest: `auditmysite browser detect` auf CI
-- Manuell: Auf macOS mit Chrome + Edge testen
-
-### Phase 2: Explicit Installer
-
-**Ziel:** `auditmysite browser install` als expliziter Befehl. Kein stiller Download mehr.
-
-**Änderungen:**
-- `cli/browser.rs` anlegen (Subcommands: detect, install, remove, path)
-- `browser/installer.rs` umschreiben:
-  - Version von API statt hardcoded
-  - Zielverzeichnis: `~/.auditmysite/browsers/chrome-for-testing/`
-  - Progress-Bar mit `indicatif`
-  - Quarantine-Handling auf macOS
-- `browser/manager.rs`: Auto-Download-Fallback entfernen
-- `browser/manager.rs`: Wenn kein Browser → `ChromeNotFound` Error (kein Download)
-
-**Risiken:**
-- Breaking Change: User die sich auf Auto-Download verlassen, bekommen jetzt einen Fehler
-- Mitigation: Klare Fehlermeldung mit `auditmysite browser install` Hinweis
-
-**Tests:**
-- `browser install` in CI testen (Download + Extraktion + Lauffähigkeit)
-- `browser remove` testen
-- Test: Audit ohne Browser → Fehler mit korrekter Meldung
-- Test: Audit nach `browser install` → funktioniert
-
-### Phase 3: CLI Doctor
-
-**Ziel:** `auditmysite doctor` für Systemdiagnose.
-
-**Änderungen:**
-- `cli/doctor.rs` anlegen
-- `doctor.rs` im Root anlegen (Logik)
-- Checks: Browser vorhanden, executable, Version, CDP-fähig, Netzwerk, Plattenplatz
-
-**Risiken:** Gering. Rein additives Feature.
-
-**Tests:**
-- Doctor auf CI: Alle Checks grün mit installiertem Chrome
-- Doctor ohne Browser: Browser-Check rot, Rest grün
-
-### Phase 4: Headless-Shell Mode
-
-**Ziel:** `--fast` Mode mit `chrome-headless-shell`.
-
-**Änderungen:**
-- `browser/installer.rs`: `InstallTarget::HeadlessShell` Support
-- `browser/launcher.rs`: Spezielle Flags für headless-shell
-- `cli/args.rs`: `--fast` Flag
-- Prüfen: Ist AXTree über headless-shell verfügbar?
-  - Wenn ja: Fast-Mode ist vollwertig
-  - Wenn nein: Fast-Mode nur für Performance/SEO/Security, kein WCAG-Audit
-
-**Risiken:**
-- AXTree möglicherweise nicht verfügbar → Feature eingeschränkt nutzbar
-- Muss empirisch getestet werden
-
-**Tests:**
-- `browser install --headless-shell` testen
-- Audit mit `--fast` gegen bekannte Seite
-- Vergleich: Standard vs. Fast Ergebnisse
-
-### Phase 5: Cleanup Legacy
-
-**Ziel:** Alten Auto-Download-Code und `~/.auditmysite/chromium/` aufräumen.
-
-**Änderungen:**
-- `--chrome-path` als Deprecated markieren (→ `--browser-path`)
-- `CHROME_PATH` als Deprecated markieren (→ `AUDITMYSITE_BROWSER`)
-- `~/.auditmysite/chromium/` Migration: Beim Start prüfen und Hinweis geben
-- Alten Installer-Code entfernen
-- `DetectionMethod::AutoDownload` entfernen
-
-**Risiken:**
-- User mit altem Setup müssen `browser install` ausführen oder System-Browser nutzen
-- Mitigation: Klare Migrationsmeldung
-
-**Tests:**
-- Test: Alter `chromium/`-Ordner existiert → Migrationsmeldung
-- Test: `--chrome-path` funktioniert noch (Deprecated-Warnung)
+**Assumption:** chromiumoxide already sets a temporary profile directory. Check whether that is the case — if so, the SingletonLock problem is a bug in chromiumoxide. The current error message suggests that the fixed directory `/tmp/chromiumoxide-runner/` is used, which collides when there are several parallel runs.
 
 ---
 
-## 12. Konkrete Code-Skizzen
+## 11. Migration Plan
+
+### Phase 1: Detection refactor
+
+**Goal:** New browser detection with registry pattern, Edge support, better error messages.
+
+**Changes:**
+- Create `browser/types.rs` (BrowserKind, DetectedBrowser, BrowserSource, etc.)
+- Create `browser/registry.rs` (paths per platform and BrowserKind)
+- Rewrite `browser/detection.rs` (uses the registry, finds Edge + Ungoogled Chromium)
+- Create `browser/resolver.rs` (prioritised selection)
+- `cli/args.rs`: `--browser-path` as an alias for `--chrome-path` (accept both)
+- `cli/args.rs`: `--browser <kind>` flag
+- Introduce env var `AUDITMYSITE_BROWSER`, keep accepting `CHROME_PATH`
+- Improve the error message for ChromeNotFound
+
+**Risks:**
+- Detection might find different browsers than before on some systems → `--browser chrome` as an escape hatch
+- Edge compatibility with chromiumoxide: should work (same CDP API), but test it
+
+**Tests:**
+- Unit tests for the registry (paths per platform)
+- Unit tests for the resolver (priority order)
+- Integration test: `auditmysite browser detect` on CI
+- Manual: test on macOS with Chrome + Edge
+
+### Phase 2: Explicit installer
+
+**Goal:** `auditmysite browser install` as an explicit command. No more silent download.
+
+**Changes:**
+- Create `cli/browser.rs` (subcommands: detect, install, remove, path)
+- Rewrite `browser/installer.rs`:
+  - Version from API instead of hardcoded
+  - Target directory: `~/.auditmysite/browsers/chrome-for-testing/`
+  - Progress bar with `indicatif`
+  - Quarantine handling on macOS
+- `browser/manager.rs`: remove the auto-download fallback
+- `browser/manager.rs`: if no browser → `ChromeNotFound` error (no download)
+
+**Risks:**
+- Breaking change: users who rely on the auto-download now get an error
+- Mitigation: clear error message with a hint to `auditmysite browser install`
+
+**Tests:**
+- Test `browser install` in CI (download + extraction + runnability)
+- Test `browser remove`
+- Test: audit without a browser → error with the correct message
+- Test: audit after `browser install` → works
+
+### Phase 3: CLI doctor
+
+**Goal:** `auditmysite doctor` for system diagnosis.
+
+**Changes:**
+- Create `cli/doctor.rs`
+- Create `doctor.rs` in the root (logic)
+- Checks: browser present, executable, version, CDP-capable, network, disk space
+
+**Risks:** Low. Purely additive feature.
+
+**Tests:**
+- Doctor on CI: all checks green with Chrome installed
+- Doctor without a browser: browser check red, rest green
+
+### Phase 4: Headless-shell mode
+
+**Goal:** `--fast` mode with `chrome-headless-shell`.
+
+**Changes:**
+- `browser/installer.rs`: `InstallTarget::HeadlessShell` support
+- `browser/launcher.rs`: special flags for headless-shell
+- `cli/args.rs`: `--fast` flag
+- Check: is the AXTree available via headless-shell?
+  - If yes: fast mode is fully fledged
+  - If no: fast mode only for performance/SEO/security, no WCAG audit
+
+**Risks:**
+- AXTree may not be available → feature usable only to a limited extent
+- Has to be tested empirically
+
+**Tests:**
+- Test `browser install --headless-shell`
+- Audit with `--fast` against a known page
+- Comparison: standard vs. fast results
+
+### Phase 5: Cleanup legacy
+
+**Goal:** Clean up the old auto-download code and `~/.auditmysite/chromium/`.
+
+**Changes:**
+- Mark `--chrome-path` as deprecated (→ `--browser-path`)
+- Mark `CHROME_PATH` as deprecated (→ `AUDITMYSITE_BROWSER`)
+- `~/.auditmysite/chromium/` migration: check at startup and show a notice
+- Remove the old installer code
+- Remove `DetectionMethod::AutoDownload`
+
+**Risks:**
+- Users with the old setup have to run `browser install` or use a system browser
+- Mitigation: clear migration message
+
+**Tests:**
+- Test: old `chromium/` folder exists → migration message
+- Test: `--chrome-path` still works (deprecation warning)
+
+---
+
+## 12. Concrete Code Sketches
 
 ### Browser Registry
 
@@ -1063,13 +1063,13 @@ Das vermeidet das SingletonLock-Problem komplett und verhindert Konflikte mit la
 
 use super::types::BrowserKind;
 
-/// Ein Eintrag im Browser-Registry
+/// An entry in the browser registry
 pub struct RegistryEntry {
     pub kind: BrowserKind,
     pub path: &'static str,
 }
 
-/// Bekannte Browser-Pfade für die aktuelle Plattform, in Prioritätsreihenfolge
+/// Known browser paths for the current platform, in priority order
 pub fn system_browser_paths() -> Vec<RegistryEntry> {
     let mut entries = Vec::new();
 
@@ -1158,7 +1158,7 @@ pub fn system_browser_paths() -> Vec<RegistryEntry> {
     entries
 }
 
-/// Suchbegriffe für `which`/`where` pro BrowserKind
+/// Search terms for `which`/`where` per BrowserKind
 pub fn which_names(kind: BrowserKind) -> &'static [&'static str] {
     match kind {
         BrowserKind::Chrome => &["google-chrome", "google-chrome-stable"],
@@ -1168,7 +1168,7 @@ pub fn which_names(kind: BrowserKind) -> &'static [&'static str] {
     }
 }
 
-/// Prioritätsreihenfolge der BrowserKinds für die automatische Suche
+/// Priority order of the BrowserKinds for the automatic search
 pub fn search_order() -> &'static [BrowserKind] {
     &[
         BrowserKind::Chrome,
@@ -1190,7 +1190,7 @@ use super::detection::{detect_all_browsers, validate_browser};
 use super::registry;
 use super::types::*;
 
-/// CLI-Optionen die den Browser betreffen
+/// CLI options that affect the browser
 pub struct BrowserCliOptions {
     /// --browser-path /explicit/path
     pub browser_path: Option<String>,
@@ -1202,7 +1202,7 @@ pub struct BrowserCliOptions {
     pub strict: bool,
 }
 
-/// Findet den besten verfügbaren Browser
+/// Finds the best available browser
 pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, BrowserResolveError> {
     let mode = if opts.strict {
         BrowserMode::Strict
@@ -1214,7 +1214,7 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
 
     let mut all_candidates = Vec::new();
 
-    // 1. Expliziter Pfad (höchste Prio)
+    // 1. Explicit path (highest priority)
     if let Some(ref path_str) = opts.browser_path {
         let path = PathBuf::from(path_str);
         let browser = validate_browser(&path, BrowserKind::Custom, BrowserSource::CliFlag)?;
@@ -1224,7 +1224,7 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
         return Ok(ResolvedBrowser { browser, mode, all_candidates: vec![] });
     }
 
-    // 2. Environment-Variable
+    // 2. Environment variable
     if let Ok(path_str) = std::env::var("AUDITMYSITE_BROWSER") {
         let path = PathBuf::from(&path_str);
         if path.exists() {
@@ -1245,7 +1245,7 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
         }
     }
 
-    // 3. Spezifischer BrowserKind angefordert?
+    // 3. Specific BrowserKind requested?
     let filter_kind: Option<BrowserKind> = opts.browser_kind.as_deref().and_then(|s| match s {
         "chrome" => Some(BrowserKind::Chrome),
         "edge" => Some(BrowserKind::Edge),
@@ -1257,18 +1257,18 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
         }
     });
 
-    // 4. System-Scan
+    // 4. System scan
     all_candidates = detect_all_browsers();
     debug!("Found {} browser candidates", all_candidates.len());
 
-    // Filter nach gewünschtem Kind
+    // Filter by the requested kind
     let candidates: Vec<&DetectedBrowser> = if let Some(kind) = filter_kind {
         all_candidates.iter().filter(|b| b.kind == kind).collect()
     } else {
         all_candidates.iter().collect()
     };
 
-    // Besten Kandidaten wählen (erster in Prioritätsreihenfolge)
+    // Pick the best candidate (first in priority order)
     if let Some(browser) = candidates.first() {
         info!("Selected browser: {} v{} ({})",
             browser.kind.display_name(),
@@ -1281,7 +1281,7 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
         });
     }
 
-    // 5. Managed Install prüfen (nicht im Strict-Mode)
+    // 5. Check managed install (not in strict mode)
     if mode != BrowserMode::Strict {
         if let Some(managed) = check_managed_install(mode == BrowserMode::Fast) {
             info!("Using managed browser: {}", managed.path.display());
@@ -1293,7 +1293,7 @@ pub fn resolve_browser(opts: &BrowserCliOptions) -> Result<ResolvedBrowser, Brow
         }
     }
 
-    // 6. Nichts gefunden
+    // 6. Nothing found
     Err(BrowserResolveError::NoBrowserFound { all_candidates })
 }
 
@@ -1326,7 +1326,7 @@ fn check_managed_install(prefer_headless_shell: bool) -> Option<DetectedBrowser>
 }
 ```
 
-### Detection (alle Browser scannen)
+### Detection (scan all browsers)
 
 ```rust
 // browser/detection.rs
@@ -1338,16 +1338,16 @@ use tracing::debug;
 use super::registry::{self, RegistryEntry};
 use super::types::*;
 
-/// Findet alle installierten Browser auf dem System
+/// Finds all browsers installed on the system
 pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
     let mut found = Vec::new();
 
-    // 1. Bekannte Pfade scannen
+    // 1. Scan known paths
     for entry in registry::system_browser_paths() {
         let path = PathBuf::from(entry.path);
         if path.exists() {
             if let Ok(browser) = validate_browser(&path, entry.kind, BrowserSource::SystemPath) {
-                // Duplikate vermeiden (gleicher Pfad)
+                // Avoid duplicates (same path)
                 if !found.iter().any(|b: &DetectedBrowser| b.path == browser.path) {
                     debug!("Found {} at {}", entry.kind.display_name(), entry.path);
                     found.push(browser);
@@ -1356,7 +1356,7 @@ pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
         }
     }
 
-    // 2. which/where für jeden BrowserKind
+    // 2. which/where for each BrowserKind
     for kind in registry::search_order() {
         for name in registry::which_names(*kind) {
             if let Some(path) = which_binary(name) {
@@ -1370,7 +1370,7 @@ pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
         }
     }
 
-    // Sortieren nach Priorität (Chrome > Edge > Chromium)
+    // Sort by priority (Chrome > Edge > Chromium)
     let order = registry::search_order();
     found.sort_by_key(|b| {
         order.iter().position(|k| *k == b.kind).unwrap_or(usize::MAX)
@@ -1379,18 +1379,18 @@ pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
     found
 }
 
-/// Validiert eine Browser-Binary
+/// Validates a browser binary
 pub fn validate_browser(
     path: &Path,
     kind: BrowserKind,
     source: BrowserSource,
 ) -> Result<DetectedBrowser, DetectionError> {
-    // Existenz
+    // Existence
     if !path.exists() {
         return Err(DetectionError::NotFound(path.to_path_buf()));
     }
 
-    // Executable-Permission (Unix)
+    // Executable permission (Unix)
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -1420,7 +1420,7 @@ fn get_browser_version(path: &Path) -> Option<String> {
         .and_then(|output| {
             if output.status.success() {
                 let text = String::from_utf8_lossy(&output.stdout);
-                // Extrahiere Versionsnummer: "Google Chrome 131.0.6778.108" → "131.0.6778.108"
+                // Extract version number: "Google Chrome 131.0.6778.108" → "131.0.6778.108"
                 text.split_whitespace()
                     .find(|s| s.starts_with(|c: char| c.is_ascii_digit()))
                     .map(|s| s.trim().to_string())
@@ -1510,7 +1510,7 @@ pub async fn handle_browser_command(cmd: &BrowserCommand) -> anyhow::Result<()> 
                 }
             }
 
-            // Managed installs prüfen
+            // Check managed installs
             let managed_dir = dirs::home_dir()
                 .map(|h| h.join(".auditmysite").join("browsers"));
             if let Some(dir) = managed_dir {
@@ -1548,7 +1548,7 @@ pub async fn handle_browser_command(cmd: &BrowserCommand) -> anyhow::Result<()> 
         }
 
         BrowserCommand::Remove { headless_shell, all } => {
-            // Implementierung: Verzeichnisse löschen
+            // Implementation: delete directories
             todo!()
         }
 
@@ -1596,7 +1596,7 @@ pub enum CheckStatus {
 pub fn run_doctor() -> DoctorReport {
     let mut checks = Vec::new();
 
-    // 1. Browser-Check
+    // 1. Browser check
     let browsers = crate::browser::detection::detect_all_browsers();
     if browsers.is_empty() {
         checks.push(DoctorCheck {
@@ -1635,7 +1635,7 @@ pub fn run_doctor() -> DoctorReport {
     let home = dirs::home_dir();
     if let Some(ref home) = home {
         let cache_dir = home.join(".auditmysite");
-        // Einfacher Check: 500 MB frei?
+        // Simple check: 500 MB free?
         checks.push(DoctorCheck {
             name: "Disk".into(),
             status: CheckStatus::Ok,
@@ -1672,40 +1672,40 @@ pub fn print_doctor_report(report: &DoctorReport) {
 
 ---
 
-## 13. Entscheidungsempfehlung
+## 13. Recommended Decision
 
-### Was sollte der Default sein?
+### What should the default be?
 
-**System-Browser automatisch erkennen und verwenden.** Chrome > Edge > Chromium. Kein Download, kein Installieren, keine Überraschungen. Die meisten Entwickler und CI-Systeme haben Chrome oder Edge installiert. Das funktioniert sofort.
+**Detect and use the system browser automatically.** Chrome > Edge > Chromium. No download, no installation, no surprises. Most developers and CI systems have Chrome or Edge installed. It works out of the box.
 
-### Was sollte optional sein?
+### What should be optional?
 
-- `auditmysite browser install` für User ohne System-Browser (selten auf macOS/Windows, häufiger auf minimalen Linux-Servern)
-- `--fast` Mode mit headless-shell (nach Validierung dass AXTree damit funktioniert)
-- `--browser edge` für User die Edge statt Chrome bevorzugen
-- `--strict` für CI-Pipelines die keine Fallbacks wollen
+- `auditmysite browser install` for users without a system browser (rare on macOS/Windows, more common on minimal Linux servers)
+- `--fast` mode with headless-shell (after validating that the AXTree works with it)
+- `--browser edge` for users who prefer Edge over Chrome
+- `--strict` for CI pipelines that want no fallbacks
 
-### Was sollte ich vermeiden?
+### What should I avoid?
 
-1. **Keinen stillen Auto-Download.** Das aktuelle Verhalten (Chromium still herunterladen) ist das Kernproblem. Es überrascht User, verursacht Firewall-Probleme, und ist schwer zu debuggen.
-2. **Keinen eigenen Browser bundlen.** In der Formula, im Release-Archiv, nirgendwo. Der Browser ist eine Laufzeit-Dependency, keine Build-Dependency.
-3. **Keine harte Browser-Dependency in Homebrew.** `depends_on cask: "google-chrome"` erzeugt mehr Probleme als es löst.
-4. **Kein Version-Pinning im Installer.** Die aktuelle hardcoded Version (131.0.6778.108) wird schnell veralten. Die Chrome for Testing API liefert die aktuelle Stable.
+1. **No silent auto-download.** The current behavior (silently downloading Chromium) is the core problem. It surprises users, causes firewall problems, and is hard to debug.
+2. **Do not bundle our own browser.** Not in the formula, not in the release archive, nowhere. The browser is a runtime dependency, not a build dependency.
+3. **No hard browser dependency in Homebrew.** `depends_on cask: "google-chrome"` creates more problems than it solves.
+4. **No version pinning in the installer.** The current hardcoded version (131.0.6778.108) will become outdated quickly. The Chrome for Testing API provides the current Stable.
 
-### Kompromisse
+### Trade-offs
 
-| Entscheidung | Vorteil | Nachteil |
+| Decision | Advantage | Disadvantage |
 |---|---|---|
-| Kein Auto-Download | Keine Überraschungen, keine Firewall-Probleme | User ohne Chrome muss `browser install` ausführen |
-| System-Chrome bevorzugen | Signiert, keine Gatekeeper-Probleme, immer aktuell | Nicht unter unserer Kontrolle (Version) |
-| Edge als Fallback | Auf Windows fast immer vorhanden | Minimaler Zusatz-Testaufwand |
-| Managed Install optional | User hat explizite Kontrolle | Ein zusätzlicher Schritt für User ohne System-Browser |
-| Kein Version-Pinning | Immer aktuelle Version | Theoretisch könnte eine Chrome-Version einen Bug haben |
+| No auto-download | No surprises, no firewall problems | A user without Chrome has to run `browser install` |
+| Prefer system Chrome | Signed, no Gatekeeper problems, always up to date | Version not under our control |
+| Edge as fallback | Almost always present on Windows | Minimal additional testing effort |
+| Managed install optional | User has explicit control | One additional step for users without a system browser |
+| No version pinning | Always the current version | In theory, a Chrome version could have a bug |
 
-### Empfohlene Umsetzungsreihenfolge
+### Recommended implementation order
 
-1. **Phase 1 (Detection Refactor)** → größter Impact, macht alles robuster
-2. **Phase 2 (Explicit Installer)** → entfernt den stillen Download
-3. **Phase 5 (Cleanup)** → kann direkt nach Phase 2 passieren
-4. **Phase 3 (Doctor)** → nice-to-have, reduziert Support-Anfragen
-5. **Phase 4 (Headless-Shell)** → nur wenn AXTree damit funktioniert, sonst niedrige Prio
+1. **Phase 1 (Detection Refactor)** → biggest impact, makes everything more robust
+2. **Phase 2 (Explicit Installer)** → removes the silent download
+3. **Phase 5 (Cleanup)** → can happen right after Phase 2
+4. **Phase 3 (Doctor)** → nice-to-have, reduces support requests
+5. **Phase 4 (Headless-Shell)** → only if the AXTree works with it, otherwise low priority

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Divergence between auditmysite's accessibility score and axe-core (plan 47, step 3).
+"""Divergence between auditmysite's accessibility score and axe-core.
 
 Runs auditmysite and axe-core over every fixture page (detection corpus + WCAG
 fixtures) and records, per page, the auditmysite score next to axe's violations

@@ -57,7 +57,7 @@ What was and was not observed:
 
 - No failures and no stalled run, including with journeys (keyboard tab walk) at concurrency 3 and 6
   on this machine and this Chrome. The macOS keyboard-journey stall that motivated the default of
-  concurrency 1 (`parallel_journeys_stall`, plan 65) was **not reproduced**. One machine, one
+  concurrency 1 (`parallel_journeys_stall`) was **not reproduced**. One machine, one
   Chrome version and clean fixture pages do not prove it gone, so the default stays serialized on
   macOS with journeys; an explicit `--concurrency` overrides it.
 - Not distinguished: CPU scheduling versus CDP connection versus page acquisition. The script

@@ -32,8 +32,7 @@ cargo test --test integration_test -- --ignored
 # (#553-#558): real Chrome, diffed against ground-truth fixtures. Same
 # `#[ignore]`-gated test binaries `.github/workflows/ci.yml`'s
 # `browser-smoke` job runs — kept in sync so a local release-check can't
-# report green without them (plan/8-release-check-missing-detection-
-# corpus-tests.md).
+# report green without them.
 # Every binary runs even if an earlier one fails, so one regression can't
 # hide another (#582); the check still fails at the end.
 echo "release-check: detection-corpus accuracy tests"
@@ -74,7 +73,7 @@ if ! rg -q -- '--url-file' README.md; then
   exit 1
 fi
 
-# plan/26-documentation-consistency.md: the crate/CLI-level product
+# The crate/CLI-level product
 # description used to flatly say "WCAG 2.1 Accessibility Checker" (no AA/2.2
 # qualifier) in several places while README.md already individually tags
 # specific WCAG 2.2 rules (2.4.11/2.4.12, 3.3.7, 2.5.8) — catches any of

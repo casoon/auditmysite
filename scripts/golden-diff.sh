@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Golden-render diff (plan 66, WP0): render the frozen golden input set with the
+# Golden-render diff (WP0): render the frozen golden input set with the
 # current checkout and optionally diff it against an earlier render.
 #
 # Usage:

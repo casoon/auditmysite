@@ -1,58 +1,58 @@
-# Chrome/Chromium Abhängigkeit in AuditMySite
+# Chrome/Chromium Dependency in AuditMySite
 
-## Warum Chrome?
+## Why Chrome?
 
-AuditMySite basiert fundamental auf Chrome/Chromium als Rendering-Engine. Der Grund: **WCAG-Accessibility-Prüfungen erfordern eine echte Browser-Rendering-Engine**, weil:
+AuditMySite is fundamentally based on Chrome/Chromium as its rendering engine. The reason: **WCAG accessibility checks require a real browser rendering engine**, because:
 
-1. **Accessibility Tree (AXTree):** Chrome baut intern einen vollständigen Accessibility Tree auf - eine semantische Repräsentation der Seite, wie sie von Screenreadern gesehen wird. Diesen Baum kann man **nur über einen echten Browser** erhalten. Es gibt keine Bibliothek, die aus reinem HTML einen korrekten AXTree erzeugt.
+1. **Accessibility Tree (AXTree):** Chrome internally builds a complete accessibility tree - a semantic representation of the page as screen readers see it. This tree can **only be obtained through a real browser**. There is no library that produces a correct AXTree from plain HTML.
 
-2. **Computed Styles:** Für Kontrast-Prüfungen (WCAG 1.4.3) müssen die tatsächlich berechneten CSS-Werte bekannt sein - nach Kaskadierung, Vererbung, Media Queries, CSS-Variablen, etc. Das geht nur mit einer echten CSS-Engine.
+2. **Computed Styles:** Contrast checks (WCAG 1.4.3) need the actually computed CSS values - after cascading, inheritance, media queries, CSS variables, etc. That only works with a real CSS engine.
 
-3. **JavaScript-Rendering:** Viele moderne Websites (SPAs, React, Vue, etc.) rendern ihren Inhalt erst via JavaScript. Ohne echte JS-Engine sieht man nur ein leeres `<div id="root">`.
+3. **JavaScript Rendering:** Many modern websites (SPAs, React, Vue, etc.) render their content only via JavaScript. Without a real JS engine you only see an empty `<div id="root">`.
 
-4. **Core Web Vitals:** Performance-Metriken wie LCP, FCP, CLS werden vom Browser selbst gemessen und über die Performance API bereitgestellt.
+4. **Core Web Vitals:** Performance metrics such as LCP, FCP, CLS are measured by the browser itself and exposed through the Performance API.
 
 ---
 
-## Wie Chrome eingebunden wird
+## How Chrome Is Integrated
 
-### Rust-Crate: `chromiumoxide`
+### Rust crate: `chromiumoxide`
 
-AuditMySite verwendet die Rust-Library [`chromiumoxide`](https://github.com/nicholasgasior/chromiumoxide) zur Kommunikation mit Chrome über das **Chrome DevTools Protocol (CDP)**. Dieses Protokoll ist dasselbe, das Chrome DevTools (F12) intern verwendet.
+AuditMySite uses the Rust library [`chromiumoxide`](https://github.com/nicholasgasior/chromiumoxide) to communicate with Chrome over the **Chrome DevTools Protocol (CDP)**. This protocol is the same one Chrome DevTools (F12) uses internally.
 
-### Architektur
+### Architecture
 
 ```
-auditmysite (Rust-Prozess)
+auditmysite (Rust process)
     │
-    │ startet Chrome als Kindprozess
+    │ starts Chrome as a child process
     ▼
 Chrome/Chromium (headless)
     │
-    │ CDP-Verbindung über WebSocket (localhost)
-    │ Port wird automatisch zugewiesen
+    │ CDP connection over WebSocket (localhost)
+    │ Port is assigned automatically
     ▼
-Zielwebsite (wird im Chrome-Tab geladen)
+Target website (loaded in the Chrome tab)
 ```
 
-**Wichtig:** Die CDP-Verbindung läuft über `localhost` (127.0.0.1) via WebSocket. Chrome öffnet dafür einen zufälligen lokalen Port für das Remote-Debugging-Protokoll.
+**Important:** The CDP connection runs over `localhost` (127.0.0.1) via WebSocket. Chrome opens a random local port for the remote debugging protocol.
 
 ---
 
-## Chrome-Lebenszyklus
+## Chrome Lifecycle
 
-### 1. Chrome finden (`src/browser/resolver.rs`)
+### 1. Finding Chrome (`src/browser/resolver.rs`)
 
-Suchreihenfolge:
-1. `--browser-path` CLI-Argument (vom Benutzer angegeben, Alias: `--chrome-path`)
-2. `AUDITMYSITE_BROWSER` Umgebungsvariable
-3. System-Chrome an bekannten Pfaden:
+Search order:
+1. `--browser-path` CLI argument (given by the user, alias: `--chrome-path`)
+2. `AUDITMYSITE_BROWSER` environment variable
+3. System Chrome at known paths:
    - macOS: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
    - Linux: `/usr/bin/google-chrome`, `/usr/bin/chromium-browser`, etc.
    - Windows: `Program Files/Google/Chrome/Application/chrome.exe`
-4. Managed Install unter `~/.auditmysite/browsers/`
+4. Managed install under `~/.auditmysite/browsers/`
 
-`CHROME_PATH` wird weiterhin als Kompatibilitätsquelle unterstützt, die Benutzeroberfläche des Projekts dokumentiert aber primär `--browser-path` und `AUDITMYSITE_BROWSER`.
+`CHROME_PATH` is still supported as a compatibility source, but the project's user interface primarily documents `--browser-path` and `AUDITMYSITE_BROWSER`.
 
 ### 2. Install Chrome (`src/browser/installer.rs`)
 
@@ -72,166 +72,166 @@ Transaction (`install_txn.rs`): exclusive file lock (a second install fails fast
 
 **macOS.** The installer writes files itself, so they carry no `com.apple.quarantine` attribute and nothing is stripped (the old blanket `xattr -rd` is gone). If Gatekeeper still blocks the app the startup check fails, nothing is bypassed, and the install is rolled back.
 
-### 3. Chrome starten (`src/browser/manager.rs`)
+### 3. Starting Chrome (`src/browser/manager.rs`)
 
-Chrome wird als **Kindprozess** gestartet mit diesen Flags:
+Chrome is started as a **child process** with these flags:
 
 ```
---headless                       # Kein sichtbares Fenster
---no-first-run                   # Keine Ersteinrichtungs-Dialoge
---no-default-browser-check       # Keine Default-Browser-Prüfung
---disable-extensions             # Keine Extensions laden
---disable-background-networking  # Kein Hintergrund-Netzwerk
---disable-sync                   # Kein Google-Sync
---disable-translate              # Kein Google Translate
---disable-features=TranslateUI   # Kein Translate-UI
---metrics-recording-only         # Keine Telemetrie senden
---mute-audio                     # Kein Audio
---disable-infobars               # Keine Infobars
---disable-popup-blocking         # Keine Popup-Blockierung
---disable-gpu                    # Kein GPU (headless)
---disable-software-rasterizer    # Kein Software-Rendering
---window-size=1920,1080          # Konsistenter Viewport
+--headless                       # No visible window
+--no-first-run                   # No first-run setup dialogs
+--no-default-browser-check       # No default browser check
+--disable-extensions             # Do not load extensions
+--disable-background-networking  # No background networking
+--disable-sync                   # No Google sync
+--disable-translate              # No Google Translate
+--disable-features=TranslateUI   # No Translate UI
+--metrics-recording-only         # Do not send telemetry
+--mute-audio                     # No audio
+--disable-infobars               # No infobars
+--disable-popup-blocking         # No popup blocking
+--disable-gpu                    # No GPU (headless)
+--disable-software-rasterizer    # No software rendering
+--window-size=1920,1080          # Consistent viewport
 ```
 
-Optionale Flags:
+Optional flags:
 ```
---no-sandbox                     # Für Docker/Root (nur mit --no-sandbox CLI-Flag)
---disable-dev-shm-usage          # Für Docker (shared memory)
---blink-settings=imagesEnabled=false  # Bilder deaktivieren (--disable-images)
+--no-sandbox                     # For Docker/root (only with the --no-sandbox CLI flag)
+--disable-dev-shm-usage          # For Docker (shared memory)
+--blink-settings=imagesEnabled=false  # Disable images (--disable-images)
 ```
 
-### 4. Seiten verarbeiten (`src/browser/pool.rs`)
+### 4. Processing Pages (`src/browser/pool.rs`)
 
-- **BrowserPool:** Ein einzelner Chrome-Prozess, mehrere Tabs (Pages)
-- Konfigurierbare Parallelität: 1-10 gleichzeitige Tabs (default: 3)
-- Pages werden nach Gebrauch auf `about:blank` zurückgesetzt und wiederverwendet
-- Semaphore-basierte Zugriffskontrolle
+- **BrowserPool:** A single Chrome process, multiple tabs (pages)
+- Configurable parallelism: 1-10 concurrent tabs (default: 3)
+- Pages are reset to `about:blank` after use and reused
+- Semaphore-based access control
 
-### 5. Chrome beenden
+### 5. Shutting Down Chrome
 
-- Alle Pages werden geschlossen
-- Chrome-Prozess wird beendet (Drop-Handler)
-- Bei unvorhergesehenem Abbruch: Chrome wird im Hintergrund gekillt (Warnung im Log)
+- All pages are closed
+- The Chrome process is terminated (drop handler)
+- On unexpected termination: Chrome is killed in the background (warning in the log)
 
 ---
 
-## Was über CDP kommuniziert wird
+## What Is Communicated over CDP
 
-### Accessibility Tree Extraktion (`src/accessibility/extractor.rs`)
+### Accessibility Tree Extraction (`src/accessibility/extractor.rs`)
 
-- **CDP-Befehl:** `Accessibility.getFullAXTree`
-- **Daten:** Kompletter AXTree mit allen Nodes (Rollen, Namen, Properties, Eltern-Kind-Beziehungen)
-- **Richtung:** Chrome → auditmysite (nur Lesen)
+- **CDP command:** `Accessibility.getFullAXTree`
+- **Data:** Complete AXTree with all nodes (roles, names, properties, parent-child relationships)
+- **Direction:** Chrome → auditmysite (read-only)
 
 ### Computed Styles (`src/accessibility/dom_document.rs`)
 
-- **CDP-Befehl:** `DOMSnapshot.captureSnapshot` mit den benötigten berechneten Stilwerten, dazu ein
-  `Runtime.evaluate`-Durchgang (`elementFromPoint`) für überdeckten Text
-- **Daten:** Farben, effektiver Hintergrund, Schrift, Rahmen, optisch verborgener Text
-- **Zweck:** die geteilten Darstellungsregeln, darunter Kontrast (WCAG 1.4.3, 1.4.6)
+- **CDP command:** `DOMSnapshot.captureSnapshot` with the required computed style values, plus a
+  `Runtime.evaluate` pass (`elementFromPoint`) for covered text
+- **Data:** Colors, effective background, font, borders, visually hidden text
+- **Purpose:** the shared presentation rules, including contrast (WCAG 1.4.3, 1.4.6)
 
-### Performance Metriken (`src/performance/vitals.rs`)
+### Performance Metrics (`src/performance/vitals.rs`)
 
-- **CDP-Befehl:** `Performance.getMetrics`
-- **JS-Evaluation:** `performance.getEntriesByType('paint')`, `performance.getEntriesByType('largest-contentful-paint')`, `performance.getEntriesByType('layout-shift')`, `performance.getEntriesByType('navigation')`
-- **Daten:** FCP, LCP, CLS, TTFB, DOM-Nodes, JS-Heap-Size
+- **CDP command:** `Performance.getMetrics`
+- **JS evaluation:** `performance.getEntriesByType('paint')`, `performance.getEntriesByType('largest-contentful-paint')`, `performance.getEntriesByType('layout-shift')`, `performance.getEntriesByType('navigation')`
+- **Data:** FCP, LCP, CLS, TTFB, DOM nodes, JS heap size
 
-### SEO/Security/Mobile Analyse
+### SEO/Security/Mobile Analysis
 
-- **Methode:** JavaScript-Evaluation über CDP
-- **Daten:** Meta-Tags, Headings, Schema.org, Social-Tags aus dem DOM
-- **Security:** Eigener HTTP-Request (reqwest) für Header-Analyse, nicht über Chrome
+- **Method:** JavaScript evaluation over CDP
+- **Data:** Meta tags, headings, Schema.org, social tags from the DOM
+- **Security:** Own HTTP request (reqwest) for header analysis, not through Chrome
 
 ### Navigation
 
 - **CDP:** `Page.navigate`, `Page.waitForNavigation`
-- **Timeout:** Konfigurierbar (default: 30s), mit 1 Retry
+- **Timeout:** Configurable (default: 30s), with 1 retry
 
 ---
 
-## Netzwerkverbindungen
+## Network Connections
 
-### Verbindungen die Chrome macht:
+### Connections Chrome makes:
 
-| Verbindung | Wohin | Warum | Kontrolle |
+| Connection | Destination | Why | Control |
 |---|---|---|---|
-| **Ziel-Website** | URL die auditiert wird | Seite laden und rendern | Vom Benutzer gewünscht |
-| **CDP WebSocket** | localhost (zufälliger Port) | Kommunikation auditmysite ↔ Chrome | Nur lokal |
-| **Google-Services** | *.google.com (potenziell) | Chrome-interne Requests (SafeBrowsing, Updates, etc.) | Teilweise durch Flags unterdrückt |
+| **Target website** | URL being audited | Load and render the page | Requested by the user |
+| **CDP WebSocket** | localhost (random port) | Communication auditmysite ↔ Chrome | Local only |
+| **Google services** | *.google.com (potentially) | Chrome-internal requests (SafeBrowsing, updates, etc.) | Partly suppressed by flags |
 
-### Verbindungen die auditmysite direkt macht (ohne Chrome):
+### Connections auditmysite makes directly (without Chrome):
 
-| Verbindung | Wohin | Warum |
+| Connection | Destination | Why |
 |---|---|---|
-| **Sitemap fetch** | Ziel-Domain | XML-Sitemap herunterladen |
-| **Security Headers** | Ziel-Domain | HTTP-Header analysieren |
-| **Browser Download** | storage.googleapis.com | Browser-Download (nur bei explizitem `browser install`) |
+| **Sitemap fetch** | Target domain | Download XML sitemap |
+| **Security Headers** | Target domain | Analyze HTTP headers |
+| **Browser Download** | storage.googleapis.com | Browser download (only on explicit `browser install`) |
 
 ---
 
-## Positive Aspekte
+## Positive Aspects
 
-1. **Genauigkeit:** Der native AXTree ist die genaueste Quelle für Accessibility-Daten - genauer als jede HTML-Parsing-Bibliothek
-2. **Real-World-Rendering:** Seiten werden exakt so analysiert, wie ein echter Browser sie rendert (inkl. JavaScript, CSS, Lazy Loading)
-3. **Bewährte Technologie:** CDP ist ein stabiles, gut dokumentiertes Protokoll, das auch von Playwright, Puppeteer und Lighthouse verwendet wird
-4. **Headless:** Kein sichtbares Fenster, kein GUI nötig
-5. **Plattformübergreifend:** Funktioniert auf macOS, Linux, Windows
-6. **Managed Install:** Falls kein Chrome installiert ist, kann über `auditmysite browser install` eine isolierte Kopie heruntergeladen werden
-7. **Performance-Flags:** Viele unnötige Chrome-Features werden deaktiviert (Extensions, Sync, Translate, GPU, Audio)
-
----
-
-## Negative Aspekte / Probleme
-
-### 1. Firewall-Alerts
-- Chrome wird als **separater Prozess** gestartet und macht ausgehende Netzwerkverbindungen
-- macOS-Firewall erkennt das als neuen Prozess der ins Internet will → **Firewall-Dialog bei jedem Start**
-- Selbst mit `--disable-background-networking` kann Chrome interne Requests machen
-- Bei managed Install: Die heruntergeladene Chromium-Binary ist unsigniert → zusätzliche Gatekeeper-Warnung auf macOS
-
-### 2. Ressourcenverbrauch
-- Chrome ist ein **schwerer Prozess** (~100-300MB RAM pro Instanz)
-- Bei Batch-Audits mit mehreren Tabs: Speicherverbrauch multipliziert sich
-- CPU-Last beim Rendern komplexer Seiten
-
-### 3. Abhängigkeit von einem externen Prozess
-- Chrome muss auf dem System vorhanden sein oder explizit installiert werden
-- Chrome-Versionen können sich ändern und Inkompatibilitäten verursachen
-- In CI/CD-Umgebungen: Chrome muss extra installiert oder mitgeliefert werden
-
-### 4. Security-Implikationen
-- Chrome läuft als Kindprozess mit den **Rechten des aufrufenden Benutzers**
-- Der CDP-WebSocket-Port ist theoretisch von anderen lokalen Prozessen erreichbar
-- `--no-sandbox` (für Docker) reduziert die Isolation erheblich
-- Die heruntergeladene Chromium-Binary wird nicht kryptographisch verifiziert (kein Hash-Check)
-
-### 5. Portabilität
-- Binäre Abhängigkeit: auditmysite allein ist nicht ausreichend, Chrome muss zusätzlich da sein
-- Auf Servern/Containern muss Chrome explizit installiert werden
-- Auf headless Linux-Systemen: Oft fehlende Shared Libraries (libX11, libatk, etc.)
-
-### 6. Unkontrollierbare Chrome-Hintergrundaktivitäten
-- Trotz Flags wie `--disable-background-networking` und `--metrics-recording-only` kann Chrome:
-  - DNS-Prefetch machen
-  - Certificate Revocation Lists prüfen
-  - Safe Browsing Daten abrufen
-  - Component Updater triggern
-- Diese Aktivitäten erzeugen die Firewall-Alerts
-
-### 7. Prozessmanagement
-- Bei Crashes oder Timeouts bleiben manchmal **Zombie-Chrome-Prozesse** zurück
-- Der Drop-Handler killt Chrome im Hintergrund, aber nicht immer zuverlässig
-- Mehrere gleichzeitige auditmysite-Instanzen → mehrere Chrome-Instanzen
+1. **Accuracy:** The native AXTree is the most accurate source for accessibility data - more accurate than any HTML parsing library
+2. **Real-world rendering:** Pages are analyzed exactly as a real browser renders them (including JavaScript, CSS, lazy loading)
+3. **Proven technology:** CDP is a stable, well-documented protocol that is also used by Playwright, Puppeteer and Lighthouse
+4. **Headless:** No visible window, no GUI needed
+5. **Cross-platform:** Works on macOS, Linux, Windows
+6. **Managed install:** If no Chrome is installed, an isolated copy can be downloaded via `auditmysite browser install`
+7. **Performance flags:** Many unnecessary Chrome features are disabled (extensions, sync, translate, GPU, audio)
 
 ---
 
-## Zusammenfassung
+## Negative Aspects / Problems
 
-Chrome/Chromium ist aktuell eine **technisch notwendige Abhängigkeit**, weil der native AXTree die Grundlage für korrekte WCAG-Prüfungen ist. Die Alternative wäre reines HTML-Parsing, was aber bei JavaScript-lastigen Seiten und komplexem CSS versagt.
+### 1. Firewall Alerts
+- Chrome is started as a **separate process** and makes outgoing network connections
+- The macOS firewall sees this as a new process that wants to reach the internet → **firewall dialog on every start**
+- Even with `--disable-background-networking`, Chrome can make internal requests
+- With a managed install: The downloaded Chromium binary is unsigned → additional Gatekeeper warning on macOS
 
-Die Hauptprobleme in der Praxis sind:
-- **Firewall-Alerts** durch Chrome als separater Prozess
-- **Ressourcenverbrauch** (RAM/CPU)
-- **Deployment-Komplexität** (Chrome muss überall vorhanden sein)
-- **Unkontrollierbare Netzwerkaktivitäten** von Chrome selbst
+### 2. Resource Consumption
+- Chrome is a **heavy process** (~100-300MB RAM per instance)
+- For batch audits with multiple tabs: memory consumption multiplies
+- CPU load when rendering complex pages
+
+### 3. Dependency on an External Process
+- Chrome must be present on the system or explicitly installed
+- Chrome versions can change and cause incompatibilities
+- In CI/CD environments: Chrome must be installed separately or shipped along
+
+### 4. Security Implications
+- Chrome runs as a child process with the **privileges of the calling user**
+- The CDP WebSocket port is theoretically reachable by other local processes
+- `--no-sandbox` (for Docker) significantly reduces isolation
+- The downloaded Chromium binary is not cryptographically verified (no hash check)
+
+### 5. Portability
+- Binary dependency: auditmysite alone is not sufficient, Chrome must be present as well
+- On servers/containers Chrome must be installed explicitly
+- On headless Linux systems: Often missing shared libraries (libX11, libatk, etc.)
+
+### 6. Uncontrollable Chrome Background Activity
+- Despite flags such as `--disable-background-networking` and `--metrics-recording-only`, Chrome can:
+  - Perform DNS prefetching
+  - Check certificate revocation lists
+  - Fetch Safe Browsing data
+  - Trigger the component updater
+- These activities cause the firewall alerts
+
+### 7. Process Management
+- On crashes or timeouts, **zombie Chrome processes** sometimes remain
+- The drop handler kills Chrome in the background, but not always reliably
+- Multiple concurrent auditmysite instances → multiple Chrome instances
+
+---
+
+## Summary
+
+Chrome/Chromium is currently a **technically necessary dependency**, because the native AXTree is the basis for correct WCAG checks. The alternative would be plain HTML parsing, which fails on JavaScript-heavy pages and complex CSS.
+
+The main problems in practice are:
+- **Firewall alerts** caused by Chrome as a separate process
+- **Resource consumption** (RAM/CPU)
+- **Deployment complexity** (Chrome must be present everywhere)
+- **Uncontrollable network activity** of Chrome itself

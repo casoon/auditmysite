@@ -29,7 +29,7 @@ concurrency:
 
 # Every `Install Rust toolchain` step runs `rustup toolchain install` without
 # a toolchain argument, which installs the version, profile and components
-# pinned in rust-toolchain.toml (plan/28-toolchain-package-hygiene.md).
+# pinned in rust-toolchain.toml.
 # Incremental compilation stays off as it was under dtolnay/rust-toolchain:
 # CI builds from scratch and would only bloat the cached `target/`.
 env:
@@ -202,8 +202,7 @@ jobs:
         run: cargo install cargo-audit --version 0.22.2 --locked
 
       # Ignore list lives in .cargo/audit.toml, with a comment per advisory
-      # ID explaining why it isn't fixable yet (plan/24-dependency-security-
-      # gate.md) — re-check those on failure before assuming they still apply.
+      # ID explaining why it isn't fixable yet — re-check those on failure before assuming they still apply.
       - name: Run cargo audit
         run: cargo audit
 
