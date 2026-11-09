@@ -605,6 +605,44 @@ mod tests {
         assert!(value["runs"][0]["results"].is_array());
     }
 
+    /// A rule without its host measurement did not run: a warning
+    /// notification with its reason and never a result.
+    #[test]
+    fn capability_missing_is_a_warning_notification_and_not_a_pass() {
+        let mut report = sample_report("https://example.com");
+        report.accessibility.wcag_results.rule_outcomes.push(
+            crate::wcag::RuleRun::not_run(
+                "text-spacing/clipped",
+                crate::wcag::NotRun::CapabilityMissing,
+            )
+            .with_reason("host_measurement_missing"),
+        );
+        report.accessibility.execution.quality = crate::audit::AuditQuality {
+            status: crate::audit::AuditQualityStatus::Partial,
+            qualified_results: true,
+            failed_rule_checks: 0,
+            partial_or_failed_modules: 0,
+            reasons: vec!["missing_rule_capabilities:1".to_string()],
+        };
+        let ctx = normalize(&report);
+        let sarif = format_sarif(&[&ctx.normalized]).expect("sarif serializes");
+        let value: serde_json::Value = serde_json::from_str(&sarif).expect("valid json");
+        let invocation = &value["runs"][0]["invocations"][0];
+        let notification = invocation["toolExecutionNotifications"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["associatedRule"]["id"] == "text-spacing/clipped")
+            .expect("notification for the rule that did not run");
+        assert_eq!(notification["level"], "warning");
+        assert_eq!(notification["properties"]["status"], "capability_missing");
+        assert!(!value["runs"][0]["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["ruleId"] == "text-spacing/clipped"));
+    }
+
     #[test]
     fn merges_rules_across_multiple_pages() {
         let report_a = sample_report("https://example.com/a");

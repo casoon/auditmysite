@@ -505,6 +505,19 @@ pub fn rule_run_errored(run: &RuleRun) -> bool {
     run.not_run == Some(NotRun::Errored)
 }
 
+/// Ob die Regel ihre Aussage nicht treffen konnte: technischer Fehlschlag
+/// ([`NotRun::Errored`]) oder fehlende Messung des Hosts
+/// ([`NotRun::CapabilityMissing`]). In beiden Fällen darf ein Kriterium ohne
+/// Befund nicht als „keine Verstöße" erscheinen -- „lief nicht" ist nicht
+/// „bestanden". `Disabled` und `NotApplicable` gehören nicht dazu: Sie sind
+/// Konfiguration bzw. Seiteninhalt, kein Mess-Ausfall.
+pub fn rule_run_unmeasured(run: &RuleRun) -> bool {
+    matches!(
+        run.not_run,
+        Some(NotRun::Errored) | Some(NotRun::CapabilityMissing)
+    )
+}
+
 /// Ob dieser Vermerk eine übersprungene Regel festhält.
 ///
 /// Ersetzt das vormalige `status == RuleOutcomeStatus::Skipped`. `Disabled`
