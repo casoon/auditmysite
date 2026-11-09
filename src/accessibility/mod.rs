@@ -13,6 +13,7 @@ mod element_capture;
 mod enrichment;
 mod extractor;
 pub(crate) mod js_helpers;
+pub mod probes;
 pub mod snapshot;
 
 pub use a11y_perception::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
@@ -24,8 +25,9 @@ pub use accname_diff::{
     PageFailure as AccnamePageFailure, DEFAULT_MAX_SAMPLES,
 };
 pub use dom_document::{
-    build_document, fetch_dom_capture, fetch_dom_document, fetch_dom_document_with_layout,
-    fetch_stylesheets, CdpDocument, DomCapture, LayoutStyles, RenderedCdpDocument,
+    build_document, fetch_dom_capture, fetch_dom_capture_with_probes, fetch_dom_document,
+    fetch_dom_document_with_layout, fetch_stylesheets, CdpDocument, DomCapture, LayoutStyles,
+    RenderedCdpDocument,
 };
 pub use element_capture::{capture_element_evidence, ElementEvidenceBudget, MAX_ELEMENT_CROPS};
 pub use enrichment::enrich_violations_with_page;
@@ -33,4 +35,5 @@ pub(crate) use enrichment::is_page_level_placeholder_node_id;
 pub use extractor::{
     extract_ax_tree, extract_ax_tree_with_name_sources, extract_frame_ax_tree, ChromeNameSources,
 };
+pub use probes::{FocusMeasure, ProbeCounts, ProbeNote, ProbeSelection, Probes};
 pub use snapshot::capture as capture_snapshot;
