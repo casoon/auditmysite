@@ -84,7 +84,7 @@ That default command prints the result as a table and writes nothing.
 npx auditmysite https://example.com
 ```
 
-The `auditmysite` npm package downloads the release binary of the same version for your platform (macOS arm64, Linux x64/arm64, Windows x64), verifies its `.sha256` checksum and forwards all arguments. Details: [packages/npm](packages/npm/README.md).
+The `auditmysite` npm package downloads the release binary of the same version for your platform (macOS arm64, Linux x64/arm64, Windows x64), verifies its checksum (`SHA256SUMS`, or the `.sha256` file of older releases) and forwards all arguments. Details: [packages/npm](packages/npm/README.md).
 
 ### cargo install (crates.io)
 

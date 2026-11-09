@@ -49,14 +49,15 @@ class TunnelAgent extends https.Agent {
   }
 }
 
-function get(url, env = process.env, redirects = 0) {
+// Resolves { statusCode, body } of the final response after redirects, whatever its status.
+function request(url, env = process.env, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (!url.startsWith('https://')) {
       reject(new Error(`Refusing non-HTTPS URL: ${url}`));
       return;
     }
     const proxy = proxyFor(env);
-    const request = https.get(url, proxy ? { agent: new TunnelAgent(proxy) } : {}, (response) => {
+    const pending = https.get(url, proxy ? { agent: new TunnelAgent(proxy) } : {}, (response) => {
       const { statusCode, headers } = response;
       if (statusCode >= 300 && statusCode < 400 && headers.location) {
         response.resume();
@@ -64,21 +65,29 @@ function get(url, env = process.env, redirects = 0) {
           reject(new Error(`Too many redirects fetching ${url}`));
           return;
         }
-        get(new URL(headers.location, url).href, env, redirects + 1).then(resolve, reject);
+        request(new URL(headers.location, url).href, env, redirects + 1).then(resolve, reject);
         return;
       }
       if (statusCode !== 200) {
         response.resume();
-        reject(new Error(`Download failed: HTTP ${statusCode} for ${url}`));
+        resolve({ statusCode, body: Buffer.alloc(0) });
         return;
       }
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
-      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('end', () => resolve({ statusCode, body: Buffer.concat(chunks) }));
       response.on('error', reject);
     });
-    request.on('error', reject);
+    pending.on('error', reject);
   });
 }
 
-module.exports = { get, proxyFor };
+async function get(url, env = process.env) {
+  const { statusCode, body } = await request(url, env);
+  if (statusCode !== 200) {
+    throw new Error(`Download failed: HTTP ${statusCode} for ${url}`);
+  }
+  return body;
+}
+
+module.exports = { get, request, proxyFor };
