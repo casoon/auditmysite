@@ -417,6 +417,15 @@ Distinct violated WCAG rule groups, not affected elements.
 Finding rows and occurrences across WCAG, SEO, and every other reported
 category.
 
+## Annotations
+
+`annotations` (top level, single and batch) exists only when the run was given `--annotations <file.json>` (#961; format defined in barrierlab, `docs/a11y/reference/annotations.md`). Contract:
+
+- It is a separate block, never a field inside a finding, and nothing else in the report depends on it: outcome, severity, scores, `legal_flags`, risk level, `decision` and the exit code are the same with and without it. Tests compare a run with and without the file and require everything except this block to be equal.
+- `matched[]` entries carry the `url` and, for scope `finding`, the `finding_id` (`pages[].findings[].id`) and optional `pattern_id` they attached to; `unmatched[]` entries carry a `reason`. Every annotation of the file is in one of the two lists.
+- `counts` are over distinct annotations: `total = matched + unmatched` when no annotation is both (an annotation without `url` that matches two pages is one matched annotation with two entries); `by_author_kind` counts them by `author.kind`.
+- `annotation` objects reproduce the file's known fields; unknown fields are not carried.
+
 ## JavaScript Library Advisories
 
 `best_practices.vulnerable_libraries.vulnerable[]` lists detected libraries whose version lies in an advisory range. The ranges come from the versioned data file `src/best_practices/advisories.json` (process: [advisory-data.md](advisory-data.md)); the check covers only the libraries in `CHECKED_LIBRARIES`.

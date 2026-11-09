@@ -109,6 +109,35 @@ LLM findings are **qualitative, not normative** — they supplement the rule-bas
 - Findings without a text reference → treat as a hint, verify manually
 - Conflicts with rule-based `issues` → always prefer the rule (verifiable); treat the LLM assessment as context only
 
+### 5. Write the result as an annotation file and re-render
+
+The assessment stays in a chat unless it is brought back to the report. Ask the LLM for its result in the shared annotation format ([annotation file](https://github.com/casoon/barrierlab/blob/main/docs/a11y/reference/annotations.md), schema `1`) — one entry of scope `reading_flow` for the page, with the quoted passages as `reasoning`, plus one entry per rule-based finding it was asked about (`finding_id` from `findings[].id` of the JSON):
+
+```json
+{
+  "schema": 1,
+  "annotations": [
+    {
+      "scope": "reading_flow",
+      "url": "https://example.com/",
+      "author": { "kind": "agent", "name": "<model and prompt version>" },
+      "assessment": "likely_issue",
+      "reasoning": "\"Navigation, Navigation\" is announced twice before the main heading (lines 3-4)."
+    }
+  ]
+}
+```
+
+`assessment` is `likely_issue`, `likely_fine` or `undetermined` — never `fail` or `pass`; the file is checked against the schema when the run starts. Then render the report again with the file:
+
+```bash
+auditmysite https://example.com --annotations annotations.json -f pdf
+# or, without a browser, from the cached audit:
+auditmysite replay https://example.com --annotations annotations.json -f pdf
+```
+
+The reading-flow assessment appears below the screen-reader section, labelled "Assessment (agent)", and in the JSON under `annotations`. It changes no score, outcome or exit code, and an entry that matches nothing is listed as unmatched instead of being dropped.
+
 ## Limitations
 
 - LLMs occasionally hallucinate problems not present in the transcript — always cross-check against the original
